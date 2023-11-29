@@ -5,19 +5,26 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.UUID
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Primitive.{Party, List => PList}
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.model.test._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 final class MultiPartySubmissionIT extends LedgerTestSuite {
+  implicit val multiPartyContractCompanion: ContractCompanion.WithKey[
+    MultiPartyContract.Contract,
+    MultiPartyContract.ContractId,
+    MultiPartyContract,
+    MultiPartyContract,
+  ] = MultiPartyContract.COMPANION
 
   test(
     "MPSSubmit",
@@ -28,7 +35,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
     val request = ledger.submitRequest(
       actAs = List(alice, bob),
       readAs = List.empty,
-      commands = MultiPartyContract(PList(alice, bob), "").create.command,
+      commands = new MultiPartyContract(List(alice, bob).map(_.getValue).asJava, "").create.commands,
     )
 
     for {
@@ -50,7 +57,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.create(
         actAs = List(alice, bob),
         readAs = List.empty,
-        template = MultiPartyContract(PList(alice, bob), ""),
+        template = new MultiPartyContract(List(alice, bob).map(_.getValue).asJava, ""),
       )
     } yield ()
   })
@@ -67,7 +74,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .create(
           actAs = List(alice, bob),
           readAs = List.empty,
-          template = MultiPartyContract(PList(alice, bob, charlie), ""),
+          template = new MultiPartyContract(List(alice, bob, charlie).map(_.getValue).asJava, ""),
         )
         .mustFail("submitting a contract with a missing authorizers")
     } yield {
@@ -94,7 +101,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(alice, bob, charlie, david),
         readAs = List.empty,
-        exercise = contract.exerciseMPAddSignatories(PList(alice, bob, charlie, david)),
+        exercise =
+          contract.exerciseMPAddSignatories(List(alice, bob, charlie, david).map(_.getValue).asJava),
       )
     } yield ()
   })
@@ -114,7 +122,9 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(bob, charlie, david),
           readAs = List.empty,
-          exercise = contract.exerciseMPAddSignatories(PList(alice, bob, charlie, david)),
+          exercise = contract.exerciseMPAddSignatories(
+            List(alice, bob, charlie, david).map(_.getValue).asJava
+          ),
         )
         .mustFail("exercising a choice with a missing authorizers")
     } yield {
@@ -143,7 +153,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(charlie, david),
         readAs = List(alice),
-        exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
+        exercise =
+          contractB.exerciseMPFetchOther(contractA, List(charlie, david).map(_.getValue).asJava),
       )
     } yield ()
   })
@@ -166,7 +177,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List(bob, alice),
-          exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
+          exercise =
+            contractB.exerciseMPFetchOther(contractA, List(charlie, david).map(_.getValue).asJava),
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
@@ -197,7 +209,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List.empty,
-          exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
+          exercise =
+            contractB.exerciseMPFetchOther(contractA, List(charlie, david).map(_.getValue).asJava),
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
@@ -226,7 +239,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(charlie, david),
         readAs = List(alice),
-        exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
+        exercise =
+          contractB.exerciseMPFetchOtherByKey(keyA, List(charlie, david).map(_.getValue).asJava),
       )
     } yield ()
   })
@@ -249,7 +263,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List(bob, alice),
-          exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
+          exercise =
+            contractB.exerciseMPFetchOtherByKey(keyA, List(charlie, david).map(_.getValue).asJava),
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
@@ -280,7 +295,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List.empty,
-          exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
+          exercise =
+            contractB.exerciseMPFetchOtherByKey(keyA, List(charlie, david).map(_.getValue).asJava),
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
@@ -310,7 +326,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         actAs = List(charlie, david),
         readAs = List(alice),
         exercise = contractB
-          .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
+          .exerciseMPLookupOtherByKey(
+            keyA,
+            List(charlie, david).map(_.getValue).asJava,
+            Some(contractA).toJava,
+          ),
       )
     } yield ()
   })
@@ -334,7 +354,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           actAs = List(charlie, david),
           readAs = List(bob, alice),
           exercise = contractB
-            .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
+            .exerciseMPLookupOtherByKey(
+              keyA,
+              List(charlie, david).map(_.getValue).asJava,
+              Some(contractA).toJava,
+            ),
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
@@ -366,7 +390,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           actAs = List(charlie, david),
           readAs = List.empty,
           exercise = contractB
-            .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
+            .exerciseMPLookupOtherByKey(
+              keyA,
+              List(charlie, david).map(_.getValue).asJava,
+              Some(contractA).toJava,
+            ),
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
@@ -393,12 +421,12 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       value: String = UUID.randomUUID().toString,
   )(implicit
       ec: ExecutionContext
-  ): Future[(Primitive.ContractId[MultiPartyContract], MultiPartyContract)] =
+  ): Future[(MultiPartyContract.ContractId, MultiPartyContract)] =
     ledger
       .create(
         actAs = submitters,
         readAs = List.empty,
-        template = MultiPartyContract(submitters, value),
+        template = new MultiPartyContract(submitters.map(_.getValue).asJava, value),
       )
-      .map(cid => cid -> MultiPartyContract(submitters, value))
+      .map(cid => cid -> new MultiPartyContract(submitters.map(_.getValue).asJava, value))
 }

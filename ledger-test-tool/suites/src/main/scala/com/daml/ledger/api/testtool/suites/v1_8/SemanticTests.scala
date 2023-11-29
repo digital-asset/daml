@@ -12,24 +12,31 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.SemanticTests.Delegation._
-import com.daml.ledger.test.semantic.SemanticTests.FetchIou._
-import com.daml.ledger.test.semantic.SemanticTests.FetchPaintAgree._
-import com.daml.ledger.test.semantic.SemanticTests.FetchPaintOffer._
-import com.daml.ledger.test.semantic.SemanticTests.Iou._
-import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
-import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
-import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
-import com.daml.ledger.test.semantic.SemanticTests._
-import scalaz.Tag
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.semantictests.{PaintOffer, _}
 
+import java.math.BigDecimal
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.Success
 
 final class SemanticTests extends LedgerTestSuite {
-  private[this] val onePound = Amount(BigDecimal(1), "GBP")
-  private[this] val twoPounds = Amount(BigDecimal(2), "GBP")
+  import CompanionImplicits._
+  implicit val delegationCompanion
+      : ContractCompanion.WithoutKey[Delegation.Contract, Delegation.ContractId, Delegation] =
+    Delegation.COMPANION
+  implicit val sharedContractCompanion: ContractCompanion.WithoutKey[
+    SharedContract.Contract,
+    SharedContract.ContractId,
+    SharedContract,
+  ] = SharedContract.COMPANION
+  implicit val paintOfferCompanion
+      : ContractCompanion.WithoutKey[PaintOffer.Contract, PaintOffer.ContractId, PaintOffer] =
+    PaintOffer.COMPANION
+
+  private[this] val onePound = new Amount(BigDecimal.valueOf(1), "GBP")
+  private[this] val twoPounds = new Amount(BigDecimal.valueOf(2), "GBP")
 
   /*
    * Consistency
@@ -52,7 +59,7 @@ final class SemanticTests extends LedgerTestSuite {
           Participant(_, newOwner, leftWithNothing),
         ) =>
       for {
-        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        iou <- alpha.create(payer, new Iou(payer, owner, onePound))
         _ <- alpha.exercise(owner, iou.exerciseTransfer(newOwner))
         failure <- alpha
           .exercise(owner, iou.exerciseTransfer(leftWithNothing))
@@ -84,7 +91,7 @@ final class SemanticTests extends LedgerTestSuite {
           (f, c) =>
             f.flatMap(_ =>
               for {
-                shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+                shared <- alpha.create(payer, new SharedContract(payer, owner1, owner2))
                 _ <- synchronize(alpha, beta)
                 results <- Future.traverse(1 to archives) {
                   case i if i % 2 == 0 =>
@@ -116,11 +123,13 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, payer, owner), Participant(_, newOwner1, newOwner2)) =>
       for {
-        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        iou <- alpha.create(payer, new Iou(payer, owner, onePound))
         doubleSpend = alpha.submitAndWaitRequest(
           owner,
-          iou.exerciseTransfer(newOwner1).command,
-          iou.exerciseTransfer(newOwner2).command,
+          (iou.exerciseTransfer(newOwner1).commands.asScala ++ iou
+            .exerciseTransfer(newOwner2)
+            .commands
+            .asScala).asJava,
         )
         failure <- alpha.submitAndWait(doubleSpend).mustFail("consuming a contract twice")
       } yield {
@@ -140,7 +149,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
       for {
-        shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+        shared <- alpha.create(payer, new SharedContract(payer, owner1, owner2))
         _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1())
         _ <- synchronize(alpha, beta)
         failure <- beta
@@ -173,24 +182,24 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
-        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        iou <- alpha.create(bank, new Iou(bank, houseOwner, onePound))
+        offer <- beta.create(painter, new PaintOffer(painter, houseOwner, bank, onePound))
         tree <- eventually("Exercise paint offer") {
           alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
         }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
-          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)),
+          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID.toV1),
         )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
           Record(
-            recordId = Some(Tag.unwrap(PaintAgree.id)),
+            recordId = Some(PaintAgree.TEMPLATE_ID.toV1),
             fields = Seq(
-              RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
-              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner))))),
+              RecordField("painter", Some(Value(Value.Sum.Party(painter)))),
+              RecordField("houseOwner", Some(Value(Value.Sum.Party(houseOwner)))),
             ),
           ),
         )
@@ -204,13 +213,13 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
-        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
+        iou <- alpha.create(bank, new Iou(bank, houseOwner, onePound))
+        offer <- beta.create(painter, new PaintOffer(painter, houseOwner, bank, twoPounds))
         counter <- eventually("exerciseAndGetContract") {
-          alpha.exerciseAndGetContract[PaintCounterOffer](
+          alpha.exerciseAndGetContract[PaintCounterOffer.ContractId, PaintCounterOffer](
             houseOwner,
             offer.exercisePaintOffer_Counter(iou),
-          )
+          )(PaintCounterOffer.COMPANION)
         }
         tree <- eventually("exercisePaintCounterOffer") {
           beta.exercise(painter, counter.exercisePaintCounterOffer_Accept())
@@ -218,16 +227,16 @@ final class SemanticTests extends LedgerTestSuite {
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
-          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)),
+          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID.toV1),
         )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
           Record(
-            recordId = Some(Tag.unwrap(PaintAgree.id)),
+            recordId = Some(PaintAgree.TEMPLATE_ID.toV1),
             fields = Seq(
-              RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
-              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner))))),
+              RecordField("painter", Some(Value(Value.Sum.Party(painter)))),
+              RecordField("houseOwner", Some(Value(Value.Sum.Party(houseOwner)))),
             ),
           ),
         )
@@ -241,7 +250,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
     for {
       failure <- alpha
-        .create(houseOwner, PaintAgree(painter, houseOwner))
+        .create(houseOwner, new PaintAgree(painter, houseOwner))(PaintAgree.COMPANION)
         .mustFail("creating a contract on behalf of two parties")
     } yield {
       assertGrpcError(
@@ -260,8 +269,8 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha @ _, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
-        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        iou <- beta.create(painter, new Iou(painter, houseOwner, onePound))
+        offer <- beta.create(painter, new PaintOffer(painter, houseOwner, bank, onePound))
         failure <- beta
           .exercise(painter, offer.exercisePaintOffer_Accept(iou))
           .mustFail("exercising a choice without consent")
@@ -291,7 +300,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
+        iou <- alpha.create(bank, new Iou(bank, houseOwner, onePound))
         _ <- synchronize(alpha, beta)
 
         // The IOU should be visible only to the payer and the owner
@@ -300,7 +309,7 @@ final class SemanticTests extends LedgerTestSuite {
         iouFetchFailure <- fetchIou(beta, painter, iou)
           .mustFail("fetching the IOU with the wrong party")
 
-        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        offer <- beta.create(painter, new PaintOffer(painter, houseOwner, bank, onePound))
         _ <- synchronize(alpha, beta)
 
         // The house owner and the painter can see the offer but the bank can't
@@ -311,12 +320,12 @@ final class SemanticTests extends LedgerTestSuite {
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
         (newIouEvents, agreementEvents) = createdEvents(tree).partition(
-          _.getTemplateId == Tag.unwrap(Iou.id)
+          _.getTemplateId == Iou.TEMPLATE_ID.toV1
         )
         newIouEvent <- Future(newIouEvents.head)
         agreementEvent <- Future(agreementEvents.head)
-        newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
-        agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
+        newIou = new Iou.ContractId(newIouEvent.contractId)
+        agreement = new PaintAgree.ContractId(agreementEvent.contractId)
         _ <- synchronize(alpha, beta)
 
         // The Bank can see the new IOU, but it cannot see the PaintAgree contract
@@ -363,31 +372,35 @@ final class SemanticTests extends LedgerTestSuite {
 
   private def fetchIou(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
-      iou: Primitive.ContractId[Iou],
+      party: Party,
+      iou: Iou.ContractId,
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
-      fetch <- ledger.create(party, FetchIou(party, iou))
+      fetch <- ledger.create(party, new FetchIou(party, iou))(FetchIou.COMPANION)
       _ <- ledger.exercise(party, fetch.exerciseFetchIou_Fetch())
     } yield ()
 
   private def fetchPaintOffer(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
-      paintOffer: Primitive.ContractId[PaintOffer],
+      party: Party,
+      paintOffer: PaintOffer.ContractId,
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
-      fetch <- ledger.create(party, FetchPaintOffer(party, paintOffer))
+      fetch <- ledger.create(party, new FetchPaintOffer(party, paintOffer))(
+        FetchPaintOffer.COMPANION
+      )
       _ <- ledger.exercise(party, fetch.exerciseFetchPaintOffer_Fetch())
     } yield ()
 
   private def fetchPaintAgree(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
-      agreement: Primitive.ContractId[PaintAgree],
+      party: Party,
+      agreement: PaintAgree.ContractId,
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
-      fetch <- ledger.create(party, FetchPaintAgree(party, agreement))
+      fetch <- ledger.create(party, new FetchPaintAgree(party, agreement))(
+        FetchPaintAgree.COMPANION
+      )
       _ <- ledger.exercise(party, fetch.exerciseFetchPaintAgree_Fetch())
     } yield ()
 
@@ -399,11 +412,16 @@ final class SemanticTests extends LedgerTestSuite {
     implicit ec => {
       case Participants(Participant(alpha, issuer, owner), Participant(beta, delegate)) =>
         for {
-          token <- alpha.create(issuer, Token(issuer, owner, 1))
-          delegation <- alpha.create(owner, Delegation(owner, delegate))
+          token <- alpha.create(issuer, new Token(issuer, owner, 1))(Token.COMPANION)
+          delegation <- alpha.create[Delegation.ContractId, Delegation](
+            owner,
+            new Delegation(owner, delegate),
+          )(Delegation.COMPANION)
 
           // The owner tries to divulge with a non-consuming choice, which actually doesn't work
-          noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+          noDivulgeToken <- alpha.create(owner, new Delegation(owner, delegate))(
+            Delegation.COMPANION
+          )
           _ <- alpha
             .exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(token))
           _ <- synchronize(alpha, beta)
@@ -412,7 +430,7 @@ final class SemanticTests extends LedgerTestSuite {
             .mustFail("divulging with a non-consuming choice")
 
           // Successful divulgence and delegation
-          divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+          divulgeToken <- alpha.create(owner, new Delegation(owner, delegate))(Delegation.COMPANION)
           _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(token))
           _ <- eventually("exerciseDelegation_Token_Consume") {
             beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(token))

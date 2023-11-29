@@ -13,25 +13,33 @@ import com.daml.ledger.api.testtool.suites.v1_8.TransactionServiceVisibilityIT._
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.daml.ledger.client.binding
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Iou.Iou
-import com.daml.ledger.test.model.Iou.Iou._
-import com.daml.ledger.test.model.Iou.IouTransfer._
-import com.daml.ledger.test.model.IouTrade.IouTrade
-import com.daml.ledger.test.model.IouTrade.IouTrade._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.api.v1.value.Record
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.model.iou.{Iou, IouTransfer}
+import com.daml.ledger.test.java.model.ioutrade.IouTrade
+import com.daml.ledger.test.java.model.test._
 import com.daml.lf.ledger.EventId
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
-import scala.annotation.nowarn
 import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
+
+  import BigDecimalImplicits._
+  import CompanionImplicits._
+
+  implicit val iouTransferCompanion
+      : ContractCompanion.WithoutKey[IouTransfer.Contract, IouTransfer.ContractId, IouTransfer] =
+    IouTransfer.COMPANION
+  implicit val iouTradeCompanion
+      : ContractCompanion.WithoutKey[IouTrade.Contract, IouTrade.ContractId, IouTrade] =
+    IouTrade.COMPANION
 
   // quadruple the eventually wait duration compared to default to avoid database timeouts
   // when running against Oracle in enterprise mode
@@ -66,27 +74,58 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
           Participant(delta, dkk_bank),
         ) =>
       for {
-        gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
+        gbpIouIssue <- alpha.create(
+          gbp_bank,
+          new Iou(gbp_bank, gbp_bank, "GBP", 100.toBigDecimal, Nil.asJava),
+        )
         gbpTransfer <-
-          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
-        dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
+          alpha.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+            gbp_bank,
+            gbpIouIssue.exerciseIou_Transfer(alice),
+          )
+        dkkIouIssue <- delta.create(
+          dkk_bank,
+          new Iou(dkk_bank, dkk_bank, "DKK", 110.toBigDecimal, Nil.asJava),
+        )
         dkkTransfer <-
-          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
+          delta.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+            dkk_bank,
+            dkkIouIssue.exerciseIou_Transfer(bob),
+          )
 
         aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
-          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
+          alpha.exerciseAndGetContract[Iou.ContractId, Iou](
+            alice,
+            gbpTransfer.exerciseIouTransfer_Accept(),
+          )
         }
         aliceIou <- eventually("exerciseIou_AddObserver") {
-          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
+          alpha.exerciseAndGetContract[Iou.ContractId, Iou](
+            alice,
+            aliceIou1.exerciseIou_AddObserver(bob),
+          )
         }
         bobIou <- eventually("exerciseIouTransfer_Accept") {
-          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
+          beta.exerciseAndGetContract[Iou.ContractId, Iou](
+            bob,
+            dkkTransfer.exerciseIouTransfer_Accept(),
+          )
         }
 
         trade <- eventually("create") {
           alpha.create(
             alice,
-            IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
+            new IouTrade(
+              alice,
+              bob,
+              aliceIou,
+              gbp_bank,
+              "GBP",
+              100.toBigDecimal,
+              dkk_bank,
+              "DKK",
+              110.toBigDecimal,
+            ),
           )
         }
         tree <- eventually("exerciseIouTrade_Accept") {
@@ -170,27 +209,58 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
           Participant(delta, dkk_bank),
         ) =>
       for {
-        gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
+        gbpIouIssue <- alpha.create(
+          gbp_bank,
+          new Iou(gbp_bank, gbp_bank, "GBP", 100.toBigDecimal, Nil.asJava),
+        )
         gbpTransfer <-
-          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
-        dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
+          alpha.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+            gbp_bank,
+            gbpIouIssue.exerciseIou_Transfer(alice),
+          )
+        dkkIouIssue <- delta.create(
+          dkk_bank,
+          new Iou(dkk_bank, dkk_bank, "DKK", 110.toBigDecimal, Nil.asJava),
+        )
         dkkTransfer <-
-          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
+          delta.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+            dkk_bank,
+            dkkIouIssue.exerciseIou_Transfer(bob),
+          )
 
         aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
-          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
+          alpha.exerciseAndGetContract[Iou.ContractId, Iou](
+            alice,
+            gbpTransfer.exerciseIouTransfer_Accept(),
+          )
         }
         aliceIou <- eventually("exerciseIou_AddObserver") {
-          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
+          alpha.exerciseAndGetContract[Iou.ContractId, Iou](
+            alice,
+            aliceIou1.exerciseIou_AddObserver(bob),
+          )
         }
         bobIou <- eventually("exerciseIouTransfer_Accept") {
-          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
+          beta.exerciseAndGetContract[Iou.ContractId, Iou](
+            bob,
+            dkkTransfer.exerciseIouTransfer_Accept(),
+          )
         }
 
         trade <- eventually("create") {
           alpha.create(
             alice,
-            IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
+            new IouTrade(
+              alice,
+              bob,
+              aliceIou,
+              gbp_bank,
+              "GBP",
+              100.toBigDecimal,
+              dkk_bank,
+              "DKK",
+              110.toBigDecimal,
+            ),
           )
         }
         tree <- eventually("exerciseIouTrade_Accept") {
@@ -268,7 +338,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(_, bob)) =>
     for {
-      _ <- alpha.create(alice, Dummy(alice))
+      _ <- alpha.create(alice, new Dummy(alice))
       bobsView <- alpha.flatTransactions(bob)
     } yield {
       assert(
@@ -292,7 +362,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     for {
       (id, _) <- alpha.createAndGetTransactionId(
         submitter,
-        AgreementFactory(listener, submitter),
+        new AgreementFactory(listener, submitter),
       )
       _ <- synchronize(alpha, beta)
       tree <- beta.transactionTreeById(id, listener)
@@ -331,7 +401,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       for {
         (id, _) <- alpha.createAndGetTransactionId(
           submitter,
-          AgreementFactory(listener, submitter),
+          new AgreementFactory(listener, submitter),
         )
         _ <- synchronize(alpha, beta)
         flatTx <- beta.flatTransactionById(id, listener)
@@ -366,8 +436,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         "Transaction with a create event is not disclosed to non-chosen branching signatory",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
-    val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
-    val create = beta.submitAndWaitRequest(bob, template.create.command)
+    val template = new BranchingSignatories(false, alice, bob)
+    val create = beta.submitAndWaitRequest(bob, template.create.commands)
     for {
       transactionResponse <- beta.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
@@ -395,10 +465,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       happyCase = "Transaction with a create event is disclosed to chosen branching controller",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
+    import ClearIdsImplicits._
     val template =
-      BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
+      new BranchingControllers(alice, true, bob, eve)
     for {
-      _ <- alpha.create(alice, template)
+      _ <- alpha.create(alice, template)(BranchingControllers.COMPANION)
       _ <- eventually("flatTransactions") {
         for {
           aliceView <- alpha.flatTransactions(alice)
@@ -409,15 +480,15 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
             assertSingleton("Alice should see one transaction", aliceView.flatMap(createdEvents))
           assertEquals(
             "Alice arguments do not match",
-            aliceCreate.getCreateArguments,
-            template.arguments,
+            aliceCreate.getCreateArguments.clearValueIds,
+            Record.fromJavaProto(template.toValue.toProtoRecord),
           )
           val bobCreate =
             assertSingleton("Bob should see one transaction", bobView.flatMap(createdEvents))
           assertEquals(
             "Bob arguments do not match",
-            bobCreate.getCreateArguments,
-            template.arguments,
+            bobCreate.getCreateArguments.clearValueIds,
+            Record.fromJavaProto(template.toValue.toProtoRecord),
           )
           assert(evesView.isEmpty, "Eve should not see any contract")
         }
@@ -438,8 +509,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
-      BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
-    val create = alpha.submitAndWaitRequest(alice, template.create.command)
+      new BranchingControllers(alice, false, bob, eve)
+    val create = alpha.submitAndWaitRequest(alice, template.create.commands)
     for {
       transactionResponse <- alpha.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
@@ -464,8 +535,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
-      val template = WithObservers(alice, Primitive.List(observers: _*))
-      val create = alpha.submitAndWaitRequest(alice, template.create.command)
+      val template = new WithObservers(alice, observers.map(_.getValue).asJava)
+      val create = alpha.submitAndWaitRequest(alice, template.create.commands)
       for {
         transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
         _ <- eventually("flatTransactions") {
@@ -492,20 +563,38 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
-      gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      gbpTransfer <- ledger.exerciseAndGetContract(
+      gbpIouIssue <- ledger.create(bank, new Iou(bank, bank, "GBP", 100.toBigDecimal, Nil.asJava))
+      gbpTransfer <- ledger.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
         bank,
         gbpIouIssue.exerciseIou_Transfer(alice),
       )
-      dkkIouIssue <- ledger.create(bank, Iou(bank, bank, "DKK", 110, Nil))
-      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(bob))
-      aliceIou1 <- ledger.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
-      aliceIou <- ledger.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
-      bobIou <- ledger.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
+      dkkIouIssue <- ledger.create(bank, new Iou(bank, bank, "DKK", 110.toBigDecimal, Nil.asJava))
+      dkkTransfer <- ledger.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+        bank,
+        dkkIouIssue.exerciseIou_Transfer(bob),
+      )
+      aliceIou1 <- ledger.exerciseAndGetContract[Iou.ContractId, Iou](
+        alice,
+        gbpTransfer.exerciseIouTransfer_Accept(),
+      )
+      aliceIou <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](alice, aliceIou1.exerciseIou_AddObserver(bob))
+      bobIou <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](bob, dkkTransfer.exerciseIouTransfer_Accept())
 
       trade <- ledger.create(
         alice,
-        IouTrade(alice, bob, aliceIou, bank, "GBP", 100, bank, "DKK", 110),
+        new IouTrade(
+          alice,
+          bob,
+          aliceIou,
+          bank,
+          "GBP",
+          100.toBigDecimal,
+          bank,
+          "DKK",
+          110.toBigDecimal,
+        ),
       )
 
       tree <- ledger.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
@@ -521,17 +610,19 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         s"Expected 2 new IOUs created, found: ${newIouList.length}",
       )
 
-      @nowarn("cat=lint-infer-any")
       val newAliceIou = newIouList
-        .find(iou => iou.signatories.contains(alice) && iou.signatories.contains(bank))
+        .find(iou =>
+          iou.signatories.contains(alice.getValue) && iou.signatories.contains(bank.getValue)
+        )
         .map(_.contractId)
         .getOrElse {
           fail(s"Not found an IOU owned by $alice")
         }
 
-      @nowarn("cat=lint-infer-any")
       val newBobIou = newIouList
-        .find(iou => iou.signatories.contains(bob) && iou.signatories.contains(bank))
+        .find(iou =>
+          iou.signatories.contains(bob.getValue) && iou.signatories.contains(bank.getValue)
+        )
         .map(_.contractId)
         .getOrElse {
           fail(s"Not found an IOU owned by $bob")
@@ -566,10 +657,15 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
-      iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
+      iouIssue <- ledger.create(bank, new Iou(bank, bank, "GBP", 100.toBigDecimal, Nil.asJava))
+      transfer <- ledger.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+        bank,
+        iouIssue.exerciseIou_Transfer(alice),
+      )
+      aliceIou <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceFlatTransactions <- ledger.flatTransactions(alice)
       bobFlatTransactions <- ledger.flatTransactions(bob)
       aliceBankFlatTransactions <- ledger.flatTransactions(alice, bank)
@@ -598,10 +694,15 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
-      iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
+      iouIssue <- ledger.create(bank, new Iou(bank, bank, "GBP", 100.toBigDecimal, Nil.asJava))
+      transfer <- ledger.exerciseAndGetContract[IouTransfer.ContractId, IouTransfer](
+        bank,
+        iouIssue.exerciseIou_Transfer(alice),
+      )(IouTransfer.COMPANION)
+      aliceIou <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger
+        .exerciseAndGetContract[Iou.ContractId, Iou](alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceTransactionTrees <- ledger.transactionTrees(alice)
       bobTransactionTrees <- ledger.transactionTrees(bob)
       aliceBankTransactionTrees <- ledger.transactionTrees(alice, bank)
@@ -628,9 +729,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
 object TransactionServiceVisibilityIT {
   private def onlyRequestingPartiesAsWitnesses(
       allWitnesses: Set[String],
-      requestingParties: binding.Primitive.Party*
+      requestingParties: Party*
   )(msg: String): Unit = {
-    val nonRequestingWitnesses = allWitnesses.diff(requestingParties.map(_.toString).toSet)
+    val nonRequestingWitnesses = allWitnesses.diff(requestingParties.map(_.getValue).toSet)
     assert(
       nonRequestingWitnesses.isEmpty,
       s"$msg: ${nonRequestingWitnesses.mkString("[", ",", "]")}",

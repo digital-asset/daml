@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.UUID
-
 import com.daml.grpc.GrpcException
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
@@ -19,11 +18,8 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
-import com.daml.ledger.client
-import com.daml.ledger.client.binding
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Primitive.Party
-import com.daml.ledger.test.model.Test.DummyWithAnnotation
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.model.test.DummyWithAnnotation
 import io.grpc.Status
 import io.grpc.Status.Code
 
@@ -118,11 +114,11 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
 
   private def buildSubmitRequest(
       ledger: ParticipantTestContext,
-      party: client.binding.Primitive.Party,
+      party: Party,
   ) = ledger
     .submitRequest(
       party,
-      DummyWithAnnotation(party, "Duplicate Using CommandSubmissionService").create.command,
+      new DummyWithAnnotation(party, "Duplicate Using CommandSubmissionService").create.commands,
     )
     .update(
       _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationDuration(
@@ -132,11 +128,11 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
 
   private def buildSubmitAndWaitRequest(
       ledger: ParticipantTestContext,
-      party: binding.Primitive.Party,
+      party: Party,
   ) = ledger
     .submitAndWaitRequest(
       party,
-      DummyWithAnnotation(party, "Duplicate using CommandService").create.command,
+      new DummyWithAnnotation(party, "Duplicate using CommandService").create.commands,
     )
     .update(
       _.commands.deduplicationDuration := deduplicationDuration.asProtobuf
@@ -163,7 +159,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
 
   private def submissionResultToFinalStatusCode(
       ledger: ParticipantTestContext
-  )(submitResult: Future[Unit], submissionId: String, parties: Primitive.Party*)(implicit
+  )(submitResult: Future[Unit], submissionId: String, parties: Party*)(implicit
       ec: ExecutionContext
   ) = submitResult
     .transformWith {

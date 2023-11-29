@@ -32,9 +32,8 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   Right => Permission,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
 import io.grpc.{Status, StatusRuntimeException}
-import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -327,8 +326,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       )
     }
 
-    def createCanActAs(party: Primitive.Party) =
-      Permission(Permission.Kind.CanActAs(Permission.CanActAs(Tag.unwrap(party))))
+    def createCanActAs(party: Party) =
+      Permission(Permission.Kind.CanActAs(Permission.CanActAs(party)))
 
     def allocateParty(id: Int) =
       ledger.allocateParty(Some(s"acting-party-$id"))
@@ -1123,10 +1122,10 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       reading1 <- ledger.allocateParty(Some(s"reading-party-1-$suffix"))
       reading2 <- ledger.allocateParty(Some(s"reading-party-2-$suffix"))
     } yield UserManagementServiceIT.Parties(
-      Tag.unwrap(acting1),
-      Tag.unwrap(acting2),
-      Tag.unwrap(reading1),
-      Tag.unwrap(reading2),
+      acting1,
+      acting2,
+      reading1,
+      reading2,
     )
   }
 }

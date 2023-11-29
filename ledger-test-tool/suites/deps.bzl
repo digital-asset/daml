@@ -12,15 +12,16 @@ def _has_model_tests(lf_version):
 
 def deps(lf_version):
     carbon_tests = [
-        "//test-common:carbonv1-tests-%s.scala" % lf_version,
-        "//test-common:carbonv2-tests-%s.scala" % lf_version,
-        "//test-common:carbonv3-tests-%s.scala" % lf_version,
+        "//test-common:carbonv1-tests-%s.java-codegen" % lf_version,
+        "//test-common:carbonv2-tests-%s.java-codegen" % lf_version,
+        "//test-common:carbonv3-tests-%s.java-codegen" % lf_version,
     ]
     additional_tests = carbon_tests if _has_model_tests(lf_version) else []
     return [
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//language-support/java/bindings:bindings-java",
         "//ledger/error",
         "//ledger/ledger-api-errors",
         "//ledger/ledger-api-common",
@@ -28,9 +29,9 @@ def deps(lf_version):
         "//libs-scala/ledger-resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//test-common:dar-files-%s-lib" % lf_version,
-        "//test-common:model-tests-%s.scala" % lf_version,
-        "//test-common:package_management-tests-%s.scala" % lf_version,
-        "//test-common:semantic-tests-%s.scala" % lf_version,
+        "//test-common:model-tests-%s.java-codegen" % lf_version,
+        "//test-common:package_management-tests-%s.java-codegen" % lf_version,
+        "//test-common:semantic-tests-%s.java-codegen" % lf_version,
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",

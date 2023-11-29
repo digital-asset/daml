@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites.v1_15
 
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -12,16 +11,17 @@ import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractKeyRequest,
 }
 import com.daml.ledger.api.v1.value._
-import com.daml.ledger.test.model.Test.{Dummy, _}
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.model.test.{Dummy, _}
 import com.daml.lf.value.Value.ContractId
 import scalapb.GeneratedMessage
-import scalaz.Tag
-import scalaz.syntax.tag.ToTagOps
 
-import scala.collection.immutable
+import java.util.{List => JList}
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 class EventQueryServiceIT extends LedgerTestSuite {
+  import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits._
 
   private def toOption(protoString: String): Option[String] = {
     if (protoString.nonEmpty) Some(protoString) else None
@@ -30,12 +30,12 @@ class EventQueryServiceIT extends LedgerTestSuite {
   // Note that the Daml template must be inspected to establish the key type and fields
   // For the TextKey template the key is: (tkParty, tkKey) : (Party, Text)
   // When populating the Record identifiers are not required.
-  private def makeTextKeyKey(party: ApiTypes.Party, keyText: String) = {
+  private def makeTextKeyKey(party: Party, keyText: String) = {
     Value(
       Value.Sum.Record(
         Record(fields =
           Vector(
-            RecordField(value = Some(Value(Value.Sum.Party(party.unwrap)))),
+            RecordField(value = Some(Value(Value.Sum.Party(party)))),
             RecordField(value = Some(Value(Value.Sum.Text(keyText)))),
           )
         )
@@ -50,14 +50,14 @@ class EventQueryServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       tx <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
       )
       expected = assertDefined(
         tx.transaction.flatMap(_.events.flatMap(_.event.created).headOption),
         "Expected a created event",
       )
       events <- ledger.getEventsByContractId(
-        GetEventsByContractIdRequest(expected.contractId, Tag.unsubst(immutable.Seq(party)))
+        GetEventsByContractIdRequest(expected.contractId, Seq(party))
       )
     } yield {
       val actual = assertDefined(events.createEvent, "Expected a created event")
@@ -71,16 +71,16 @@ class EventQueryServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummyCid <- ledger.create(party, Dummy(party))
+      dummyCid <- ledger.create(party, new Dummy(party))
       tx <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().command)
+        ledger.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().commands)
       )
       expected = assertDefined(
         tx.getTransaction.events.flatMap(_.event.archived).headOption,
         "Expected an exercised event",
       )
       events <- ledger.getEventsByContractId(
-        GetEventsByContractIdRequest(dummyCid.unwrap, immutable.Seq(party.unwrap))
+        GetEventsByContractIdRequest(dummyCid.contractId, Seq(party))
       )
     } yield {
       assertDefined(events.createEvent, "Expected a create event")
@@ -97,7 +97,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
     val nonExistentContractId = ContractId.V1.assertFromString("00" * 32 + "0001")
     for {
       events <- ledger.getEventsByContractId(
-        GetEventsByContractIdRequest(nonExistentContractId.coid, Tag.unsubst(immutable.Seq(party)))
+        GetEventsByContractIdRequest(nonExistentContractId.coid, Seq(party))
       )
     } yield {
       assertIsEmpty(Seq(events.createEvent, events.archiveEvent).flatten[GeneratedMessage])
@@ -111,7 +111,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
     for {
       tx <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
       )
       expected = assertDefined(
         tx.transaction.flatMap(_.events.flatMap(_.event.created).headOption),
@@ -120,7 +120,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractId(
         GetEventsByContractIdRequest(
           expected.contractId,
-          immutable.Seq(notTheSubmittingParty.unwrap),
+          Seq(notTheSubmittingParty),
         )
       )
     } yield {
@@ -138,7 +138,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
 
     for {
       tx <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, TextKey(party, someKey, Nil).create.command)
+        ledger.submitAndWaitRequest(party, new TextKey(party, someKey, JList.of()).create.commands)
       )
       expected = assertDefined(
         tx.transaction.flatMap(_.events.flatMap(_.event.created).headOption),
@@ -148,8 +148,8 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.id.unwrap),
-          requestingParties = Tag.unsubst(immutable.Seq(party)),
+          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          requestingParties = Seq(party),
         )
       )
     } yield {
@@ -167,9 +167,9 @@ class EventQueryServiceIT extends LedgerTestSuite {
     val key = makeTextKeyKey(party, someKey)
 
     for {
-      cId <- ledger.create(party, TextKey(party, someKey, Nil))
+      cId: TextKey.ContractId <- ledger.create(party, new TextKey(party, someKey, JList.of()))
       tx <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, cId.exerciseTextKeyChoice().command)
+        ledger.submitAndWaitRequest(party, cId.exerciseTextKeyChoice().commands)
       )
       expected = assertDefined(
         tx.transaction.flatMap(_.events.flatMap(_.event.archived).headOption),
@@ -178,8 +178,8 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.id.unwrap),
-          requestingParties = Tag.unsubst(immutable.Seq(party)),
+          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          requestingParties = Seq(party),
         )
       )
     } yield {
@@ -200,8 +200,8 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.id.unwrap),
-          requestingParties = Tag.unsubst(immutable.Seq(party)),
+          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          requestingParties = Seq(party),
         )
       )
     } yield {
@@ -219,14 +219,17 @@ class EventQueryServiceIT extends LedgerTestSuite {
 
     for {
       _ <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, TextKey(party, nonVisibleKey, Nil).create.command)
+        ledger.submitAndWaitRequest(
+          party,
+          new TextKey(party, nonVisibleKey, JList.of()).create.commands,
+        )
       )
 
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.id.unwrap),
-          requestingParties = immutable.Seq(notTheSubmittingParty.unwrap),
+          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          requestingParties = Seq(notTheSubmittingParty),
         )
       )
     } yield {
@@ -247,8 +250,8 @@ class EventQueryServiceIT extends LedgerTestSuite {
         .getEventsByContractKey(
           GetEventsByContractKeyRequest(
             contractKey = Some(key),
-            templateId = Some(TextKey.id.unwrap),
-            requestingParties = Tag.unsubst(immutable.Seq(party)),
+            templateId = Some(TextKey.TEMPLATE_ID.toV1),
+            requestingParties = Seq(party),
             continuationToken = continuationToken.getOrElse(
               GetEventsByContractKeyRequest.defaultInstance.continuationToken
             ),
@@ -258,13 +261,19 @@ class EventQueryServiceIT extends LedgerTestSuite {
     }
 
     for {
-      textKeyCid1 <- ledger.create(party, TextKey(party, exercisedKey, Nil))
-      _ <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, textKeyCid1.exerciseTextKeyChoice().command)
+      textKeyCid1: TextKey.ContractId <- ledger.create(
+        party,
+        new TextKey(party, exercisedKey, Nil.asJava),
       )
-      textKeyCid2 <- ledger.create(party, TextKey(party, exercisedKey, Nil))
       _ <- ledger.submitAndWaitForTransaction(
-        ledger.submitAndWaitRequest(party, textKeyCid2.exerciseTextKeyChoice().command)
+        ledger.submitAndWaitRequest(party, textKeyCid1.exerciseTextKeyChoice().commands)
+      )
+      textKeyCid2: TextKey.ContractId <- ledger.create(
+        party,
+        new TextKey(party, exercisedKey, Nil.asJava),
+      )
+      _ <- ledger.submitAndWaitForTransaction(
+        ledger.submitAndWaitRequest(party, textKeyCid2.exerciseTextKeyChoice().commands)
       )
       eventId1 <- getNextResult(None)
       eventId2 <- getNextResult(Some(assertDefined(eventId1, "Expected eventId2")))
@@ -290,8 +299,8 @@ class EventQueryServiceIT extends LedgerTestSuite {
         .getEventsByContractKey(
           GetEventsByContractKeyRequest(
             contractKey = Some(key),
-            templateId = Some(TextKey.id.unwrap),
-            requestingParties = Tag.unsubst(immutable.Seq(party)),
+            templateId = Some(TextKey.TEMPLATE_ID.toV1),
+            requestingParties = Seq(party),
             continuationToken = continuationToken.getOrElse(
               GetEventsByContractKeyRequest.defaultInstance.continuationToken
             ),
@@ -301,11 +310,14 @@ class EventQueryServiceIT extends LedgerTestSuite {
     }
 
     for {
-      expected <- ledger.create(party, TextKey(party, exercisedKey, Nil))
+      expected: TextKey.ContractId <- ledger.create(
+        party,
+        new TextKey(party, exercisedKey, Nil.asJava),
+      )
       _ <- ledger.submitAndWaitForTransaction(
         ledger.submitAndWaitRequest(
           party,
-          expected.exerciseTextKeyDisclose(tkNewDisclosedTo = immutable.Seq.empty).command,
+          expected.exerciseTextKeyDisclose(JList.of(): JList[String]).commands,
         )
       )
       (cId2, token2) <- getNextResult(None)
@@ -313,7 +325,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       (cId0, _) <- getNextResult(token1)
     } yield {
       assertEquals("Expected the first offset to be empty", cId2.isDefined, true)
-      assertEquals("Expected the final offset to be empty", cId1, Some(expected))
+      assertEquals("Expected the final offset to be empty", cId1, Some(expected.contractId))
       assertEquals("Expected the final offset to be empty", cId0.isDefined, false)
     }
   })

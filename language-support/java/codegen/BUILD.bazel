@@ -96,7 +96,7 @@ da_scala_test(
     ],
     deps = [
         ":lib",
-        ":test-daml-java.jar",
+        ":test-daml-java",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -211,7 +211,7 @@ scala_source_jar(
             ]),
             test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
-                ":test-model-%s.jar" % target,
+                ":test-model-%s" % target,
                 "//language-support/java/bindings:bindings-java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
@@ -354,7 +354,7 @@ java_test(
             ),
             test_class = "com.daml.AllTests",
             deps = [
-                ":integration-tests-model-%s.jar" % target,
+                ":integration-tests-model-%s" % target,
                 "//language-support/java/bindings:bindings-java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
@@ -407,7 +407,7 @@ da_scala_test(
     ],
     tags = ["cpu:4"],
     deps = [
-        ":ledger-tests-model.jar",
+        ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
@@ -434,7 +434,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/FromJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev.jar",
+        ":test-model-2.dev",
         "//language-support/java/bindings:bindings-java",
     ],
 )
@@ -444,7 +444,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/ToJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev.jar",
+        ":test-model-2.dev",
         "//language-support/java/bindings:bindings-java",
     ],
 )

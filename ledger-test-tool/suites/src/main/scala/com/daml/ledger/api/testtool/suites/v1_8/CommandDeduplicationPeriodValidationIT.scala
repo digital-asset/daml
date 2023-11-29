@@ -5,18 +5,17 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.time.Duration
 import java.util.regex.Pattern
-
-import com.daml.api.util.DurationConversion
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicationAssertions.DurationConversion
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.model.test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
@@ -24,6 +23,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
+  import CompanionImplicits._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -33,7 +33,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     // Submission using the maximum allowed deduplication time
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     for {
       config <- ledger.configuration()
       maxDedupDuration = config.maxDeduplicationDuration.get
@@ -88,7 +88,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     enabled = _.commandDeduplicationFeatures.maxDeduplicationDurationEnforced,
     disabledReason = "Maximum deduplication duration is not enforced by the ledger",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     val expectedError = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
     for {
       config <- ledger.configuration()
@@ -163,7 +163,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       ledger
         .submitAndWait(
           ledger
-            .submitAndWaitRequest(party, Dummy(party).create.command)
+            .submitAndWaitRequest(party, new Dummy(party).create.commands)
             .update(
               _.commands.deduplicationPeriod := deduplicationPeriod
             )
@@ -173,10 +173,12 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetNativeSupport
     for {
       start <- ledger.currentEnd()
-      firstCreate <- ledger.create(party, Dummy(party))
+      firstCreate <- ledger.create(party, new Dummy(party))
       _ <- ledger.exercise(party, firstCreate.exerciseDummyChoice1())
-      secondCreate <- ledger.create(party, Dummy(party))
-      _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+      secondCreate: Dummy.ContractId <- ledger.create(party, new Dummy(party))
+      _ <- ledger.submitAndWait(
+        ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
+      )
       end <- ledger.currentEnd()
       _ <- ledger.exercise(party, secondCreate.exerciseDummyChoice1())
       _ <- FutureAssertions.succeedsEventually(
@@ -186,8 +188,10 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         "Prune offsets",
       ) {
         for {
-          _ <- ledger.create(party, Dummy(party))
-          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+          _ <- ledger.create(party, new Dummy(party))
+          _ <- ledger.submitAndWait(
+            ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
+          )
           _ <- ledger.prune(pruneUpTo = end, attempts = 1)
         } yield {}
       }
@@ -226,7 +230,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
   })
 
   private def findFirstOffsetAfterGivenOffset(ledger: ParticipantTestContext, offset: String)(
-      party: Primitive.Party
+      party: Party
   )(implicit ec: ExecutionContext) = {
     ledger
       .findCompletion(
@@ -244,7 +248,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
 
   private def assertSyncFailedRequest(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
+      party: Party,
       deduplicationPeriod: DeduplicationPeriod,
       failReason: String,
       expectedMessage: String,
@@ -254,7 +258,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       failure <- ledger
         .submit(
           ledger
-            .submitRequest(party, Dummy(party).create.command)
+            .submitRequest(party, new Dummy(party).create.commands)
             .update(
               _.commands.deduplicationPeriod := deduplicationPeriod
             )

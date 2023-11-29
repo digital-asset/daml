@@ -10,8 +10,9 @@ import com.daml.ledger.api.testtool.infrastructure.RaceConditionTests._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.RecordField
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.RaceTests._
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.racetests._
 import com.daml.timer.Delayed
 
 import scala.annotation.nowarn
@@ -20,6 +21,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 final class RaceConditionIT extends LedgerTestSuite {
+  implicit val contractWithKeyCompanion: ContractCompanion.WithKey[
+    ContractWithKey.Contract,
+    ContractWithKey.ContractId,
+    ContractWithKey,
+    String,
+  ] = ContractWithKey.COMPANION
+
   raceConditionTest(
     "WWDoubleNonTransientCreate",
     "Cannot concurrently create multiple non-transient contracts with the same key",
@@ -28,7 +36,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     val attempts = (1 to 5).toVector
     Future
       .traverse(attempts) { _ =>
-        ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+        ledger.create(alice, new ContractWithKey(alice)).transform(Success(_))
       }
       .map { results =>
         assertSingleton(
@@ -46,7 +54,7 @@ final class RaceConditionIT extends LedgerTestSuite {
   ) { implicit ec => ledger => alice =>
     val attempts = (1 to 5).toVector
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
+      contract <- ledger.create(alice, new ContractWithKey(alice))
       _ <- Future.traverse(attempts) { _ =>
         ledger.exercise(alice, contract.exerciseContractWithKey_Archive()).transform(Success(_))
       }
@@ -74,9 +82,9 @@ final class RaceConditionIT extends LedgerTestSuite {
     with two consecutive successful contract creations.
      */
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
+      contract <- ledger.create(alice, new ContractWithKey(alice))
       _ <- Delayed.by(500.millis)(())
-      createFuture = ledger.create(alice, ContractWithKey(alice)).transform(Success(_))
+      createFuture = ledger.create(alice, new ContractWithKey(alice)).transform(Success(_))
       exerciseFuture = ledger
         .exercise(alice, contract.exerciseContractWithKey_Archive())
         .transform(Success(_))
@@ -84,7 +92,9 @@ final class RaceConditionIT extends LedgerTestSuite {
       _ <- exerciseFuture
       _ <- ledger.create(
         alice,
-        DummyContract(alice),
+        new DummyContract(alice),
+      )(
+        DummyContract.COMPANION
       ) // Create a dummy contract to ensure that we're not stuck with previous commands
       transactions <- transactions(ledger, alice)
     } yield {
@@ -124,10 +134,12 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot create a transient contract and a non-transient contract with the same key",
   ) { implicit ec => ledger => alice =>
     for {
-      wrapper <- ledger.create(alice, CreateWrapper(alice))
+      wrapper: CreateWrapper.ContractId <- ledger.create(alice, new CreateWrapper(alice))(
+        CreateWrapper.COMPANION
+      )
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
-        once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
+        once = ledger.create(alice, new ContractWithKey(alice)).map(_ => ()),
         repeated =
           ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateTransient()).map(_ => ()),
       )
@@ -150,7 +162,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot exercise a choice after a contract archival",
   ) { implicit ec => ledger => alice =>
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
+      contract <- ledger.create(alice, new ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -171,8 +183,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot fetch an archived contract",
   ) { implicit ec => ledger => alice =>
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
-      fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
+      contract <- ledger.create(alice, new ContractWithKey(alice))
+      fetchConract <- ledger.create(alice, new FetchWrapper(alice, contract))(
+        FetchWrapper.COMPANION
+      )
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -193,8 +207,8 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Cannot successfully lookup by key an archived contract",
   ) { implicit ec => ledger => alice =>
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
-      looker <- ledger.create(alice, LookupWrapper(alice))
+      contract <- ledger.create(alice, new ContractWithKey(alice))
+      looker <- ledger.create(alice, new LookupWrapper(alice))(LookupWrapper.COMPANION)
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -215,10 +229,10 @@ final class RaceConditionIT extends LedgerTestSuite {
     "Lookup by key cannot fail after a contract creation",
   ) { implicit ec => ledger => alice =>
     for {
-      looker <- ledger.create(alice, LookupWrapper(alice))
+      looker <- ledger.create(alice, new LookupWrapper(alice))(LookupWrapper.COMPANION)
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 5,
-        once = ledger.create(alice, ContractWithKey(alice)),
+        once = ledger.create(alice, new ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
       ): @nowarn("cat=lint-infer-any")
       transactions <- transactions(ledger, alice)
@@ -239,7 +253,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       description: String,
       repeated: Int = DefaultRepetitionsNumber,
       runConcurrently: Boolean = false,
-  )(testCase: ExecutionContext => ParticipantTestContext => Primitive.Party => Future[Unit]): Unit =
+  )(testCase: ExecutionContext => ParticipantTestContext => Party => Future[Unit]): Unit =
     test(
       shortIdentifier = shortIdentifier,
       description = description,

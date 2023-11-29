@@ -7,23 +7,25 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.test.model.Test._
-import scalaz.Tag
+import com.daml.ledger.test.java.model.test._
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 class TransactionServiceStakeholdersIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test("TXStakeholders", "Expose the correct stakeholders", allocate(SingleParty, SingleParty))(
     implicit ec => {
       case Participants(Participant(alpha @ _, receiver), Participant(beta, giver)) =>
         for {
-          _ <- beta.create(giver, CallablePayout(giver, receiver))
+          _ <- beta.create(giver, new CallablePayout(giver, receiver))
           transactions <- beta.flatTransactions(giver, receiver)
         } yield {
           val contract = assertSingleton("Stakeholders", transactions.flatMap(createdEvents))
-          assertEquals("Signatories", contract.signatories, Seq(Tag.unwrap(giver)))
-          assertEquals("Observers", contract.observers, Seq(Tag.unwrap(receiver)))
+          assertEquals("Signatories", contract.signatories, Seq(giver.getValue))
+          assertEquals("Observers", contract.observers, Seq(receiver.getValue))
         }
     }
   )
@@ -34,19 +36,19 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
-      _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
+      _ <- ledger.create(alice, new WithObservers(alice, Seq(alice, bob).map(_.getValue).asJava))
       flatTx <- ledger.flatTransactions(alice).flatMap(fs => Future(fs.head))
       flatWo <- Future(createdEvents(flatTx).head)
       treeTx <- ledger.transactionTrees(alice).flatMap(fs => Future(fs.head))
       treeWo <- Future(createdEvents(treeTx).head)
     } yield {
       assert(
-        flatWo.observers == Seq(bob),
-        s"Expected observers to only contain $bob, but received ${flatWo.observers}",
+        flatWo.observers == Seq(bob.getValue),
+        s"Expected observers to only contain ${bob.getValue}, but received ${flatWo.observers}",
       )
       assert(
-        treeWo.observers == Seq(bob),
-        s"Expected observers to only contain $bob, but received ${treeWo.observers}",
+        treeWo.observers == Seq(bob.getValue),
+        s"Expected observers to only contain ${bob.getValue}, but received ${treeWo.observers}",
       )
     }
   })
@@ -57,12 +59,12 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     // Create command with transient contract
-    val createAndExercise = Dummy(party).createAnd.exerciseArchive().command
+    val createAndExercise = new Dummy(party).createAnd.exerciseArchive().commands
     for {
       _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, createAndExercise))
 
       emptyFlatTx <- ledger.flatTransactions(party)
-      emptyFlatTxByTemplateId <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
+      emptyFlatTxByTemplateId <- ledger.flatTransactionsByTemplateId(Dummy.TEMPLATE_ID, party)
     } yield {
       assert(
         emptyFlatTx.length == 1,
@@ -90,7 +92,9 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, submitter, observer)) =>
     // Create command with transient contract
     val createAndExerciseWithObservers =
-      WithObservers(submitter, List(observer)).createAnd.exerciseArchive().command
+      new WithObservers(submitter, List(observer.getValue).asJava).createAnd
+        .exerciseArchive()
+        .commands
     for {
       // The in-memory fan-out serves at least N-1 transaction responses from a specific query window
       // Then, submit 2 requests to ensure that a transaction from the in-memory fan-out would be forwarded.
@@ -103,7 +107,10 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
       // `observer` is just a stakeholder on the contract created by `submitter`
       // but it should not see the completion/flat transaction if it has only transient events.
       emptyFlatTx <- ledger.flatTransactions(observer)
-      emptyFlatTxByTemplateId <- ledger.flatTransactionsByTemplateId(WithObservers.id, observer)
+      emptyFlatTxByTemplateId <- ledger.flatTransactionsByTemplateId(
+        WithObservers.TEMPLATE_ID,
+        observer,
+      )
     } yield {
       assert(emptyFlatTx.isEmpty, s"No transaction expected but got $emptyFlatTx instead")
       assert(

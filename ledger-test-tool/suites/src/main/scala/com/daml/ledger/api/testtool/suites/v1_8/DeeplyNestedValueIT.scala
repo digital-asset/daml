@@ -5,34 +5,38 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.DeeplyNestedValue._
+import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, Update}
+import com.daml.ledger.test.java.semantic.deeplynestedvalue._
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 final class DeeplyNestedValueIT extends LedgerTestSuite {
+  implicit val handlerCompanion
+      : ContractCompanion.WithoutKey[Handler.Contract, Handler.ContractId, Handler] =
+    Handler.COMPANION
 
   @tailrec
-  private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
-    if (i == 0) acc else toNat(i - 1, Nat.S(acc))
+  private[this] def toNat(i: Long, acc: Nat = new nat.Z(javaapi.data.Unit.getInstance)): Nat =
+    if (i == 0) acc else toNat(i - 1, new nat.S(acc))
 
   private[this] def waitForTransactionId(
       alpha: ParticipantTestContext,
       party: Party,
-      command: Primitive.Update[_],
+      command: Update[_],
   )(implicit
       ec: ExecutionContext
   ): Future[Either[Throwable, String]] =
     alpha
       .submitAndWaitForTransactionId(
-        alpha.submitAndWaitRequest(party, command.command)
+        alpha.submitAndWaitRequest(party, command.commands)
       )
       .transform(x => Success(x.map(_.transactionId).toEither))
 
@@ -85,7 +89,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       "create command",
       LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
     ) { implicit ec => (alpha, party) =>
-      waitForTransactionId(alpha, party, Contract(party, nContract, toNat(nContract)).create)
+      waitForTransactionId(alpha, party, new Contract(party, nContract, toNat(nContract)).create)
     }
 
     test(
@@ -93,7 +97,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <- waitForTransactionId(
           alpha,
           party,
@@ -109,7 +113,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       waitForTransactionId(
         alpha,
         party,
-        Contract(party, nContract, toNat(nContract)).createAnd
+        new Contract(party, nContract, toNat(nContract)).createAnd
           .exerciseArchive(),
       )
     }
@@ -121,7 +125,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       waitForTransactionId(
         alpha,
         party,
-        Handler(party).createAnd.exerciseDestruct(toNat(nChoiceArgument)),
+        new Handler(party).createAnd.exerciseDestruct(toNat(nChoiceArgument)),
       )
     }
 
@@ -130,7 +134,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <-
           waitForTransactionId(
             alpha,
@@ -145,7 +149,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <-
           waitForTransactionId(alpha, party, handler.exerciseConstruct(n))
       } yield result
@@ -156,7 +160,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <- waitForTransactionId(alpha, party, handler.exerciseCreate(nContract))
       } yield result
     }
@@ -166,7 +170,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(nKey))
       } yield result
     }
@@ -179,7 +183,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
       ) { implicit ec => (alpha, party) =>
         for {
-          handler <- alpha.create(party, Handler(party))
+          handler: Handler.ContractId <- alpha.create(party, new Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
           result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(nKey))
         } yield result
@@ -191,7 +195,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
     ) { implicit ec => (alpha, party) =>
       for {
-        handler <- alpha.create(party, Handler(party))
+        handler: Handler.ContractId <- alpha.create(party, new Handler(party))
         result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))
       } yield result
     }
@@ -204,7 +208,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         LedgerApiErrors.CommandExecution.Interpreter.ValueNesting,
       ) { implicit ec => (alpha, party) =>
         for {
-          handler <- alpha.create(party, Handler(party))
+          handler: Handler.ContractId <- alpha.create(party, new Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
           result <-
             waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))

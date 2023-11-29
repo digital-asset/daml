@@ -9,23 +9,35 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.test.model.Test.Agreement._
-import com.daml.ledger.test.model.Test.AgreementFactory._
-import com.daml.ledger.test.model.Test.TriProposal._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.api.v1.value.{Record, RecordField}
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.model.test.{BranchingSignatories, _}
+
+import scala.jdk.CollectionConverters._
 
 class TransactionServiceAuthorizationIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
+  implicit val triProposal
+      : ContractCompanion.WithoutKey[TriProposal.Contract, TriProposal.ContractId, TriProposal] =
+    TriProposal.COMPANION
+
   test(
     "TXRequireAuthorization",
     "Require only authorization of chosen branching signatory",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(_, bob)) =>
-    val template = BranchingSignatories(whichSign = true, signTrue = alice, signFalse = bob)
+    import ClearIdsImplicits._
+    val template = new BranchingSignatories(true, alice, bob)
     for {
-      _ <- alpha.create(alice, template)
+      _ <- alpha.create(alice, template)(BranchingSignatories.COMPANION)
       transactions <- alpha.flatTransactions(alice)
     } yield {
-      assert(template.arguments == transactions.head.events.head.getCreated.getCreateArguments)
+      assert(
+        Record.fromJavaProto(
+          template.toValue.toProtoRecord
+        ) == transactions.head.events.head.getCreated.getCreateArguments.clearValueIds
+      )
     }
   })
 
@@ -36,11 +48,14 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
-        agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+        agreementFactory <- beta.create(giver, new AgreementFactory(receiver, giver))
         agreement <- eventually("exerciseAgreementFactoryAccept") {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept())
+          alpha.exerciseAndGetContract[Agreement.ContractId, Agreement](
+            receiver,
+            agreementFactory.exerciseAgreementFactoryAccept(),
+          )(Agreement.COMPANION)
         }
-        triProposalTemplate = TriProposal(operator, receiver, giver)
+        triProposalTemplate = new TriProposal(operator, receiver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         tree <- eventually("exerciseAcceptTriProposal") {
           beta.exercise(giver, agreement.exerciseAcceptTriProposal(triProposal))
@@ -50,7 +65,9 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         assertEquals(
           "AcceptTriProposal",
           contract.getCreateArguments.fields,
-          triProposalTemplate.arguments.fields,
+          triProposalTemplate.toValue.getFields.asScala.map(rf =>
+            RecordField.fromJavaProto(rf.toProto)
+          ),
         )
       }
   })
@@ -61,10 +78,15 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, operator), Participant(beta, giver)) =>
     for {
-      agreementFactory <- beta.create(giver, AgreementFactory(giver, giver))
+      agreementFactory <- beta.create(giver, new AgreementFactory(giver, giver))
       agreement <-
-        beta.exerciseAndGetContract(giver, agreementFactory.exerciseAgreementFactoryAccept())
-      triProposalTemplate = TriProposal(operator, giver, giver)
+        beta.exerciseAndGetContract[Agreement.ContractId, Agreement](
+          giver,
+          agreementFactory.exerciseAgreementFactoryAccept(),
+        )(
+          Agreement.COMPANION
+        )
+      triProposalTemplate = new TriProposal(operator, giver, giver)
       triProposal <- alpha.create(operator, triProposalTemplate)
       tree <- eventually("exerciseAcceptTriProposal") {
         beta.exercise(giver, agreement.exerciseAcceptTriProposal(triProposal))
@@ -74,7 +96,9 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
       assertEquals(
         "AcceptTriProposalCoinciding",
         contract.getCreateArguments.fields,
-        triProposalTemplate.arguments.fields,
+        triProposalTemplate.toValue.getFields.asScala.map(rf =>
+          RecordField.fromJavaProto(rf.toProto)
+        ),
       )
     }
   })
@@ -86,7 +110,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
-        triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
+        triProposal <- alpha.create(operator, new TriProposal(operator, receiver, giver))
         _ <- eventually("exerciseTriProposalAccept") {
           for {
             failure <- beta
@@ -116,14 +140,17 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
-        agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+        agreementFactory <- beta.create(giver, new AgreementFactory(receiver, giver))
         // TODO eventually is a temporary workaround. It should take into account
         // TODO that the contract needs to hit the target node before a choice
         // TODO is executed on it.
         agreement <- eventually("exerciseAgreementFactoryAccept") {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept())
+          alpha.exerciseAndGetContract[Agreement.ContractId, Agreement](
+            receiver,
+            agreementFactory.exerciseAgreementFactoryAccept(),
+          )(Agreement.COMPANION)
         }
-        triProposalTemplate = TriProposal(operator, giver, giver)
+        triProposalTemplate = new TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         _ <- eventually("exerciseAcceptTriProposal") {
           for {

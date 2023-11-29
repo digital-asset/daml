@@ -7,11 +7,13 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.java.model.test._
 
 import scala.collection.immutable.Seq
 
 class TransactionServiceValidationIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "TXRejectEmptyFilter",
     "A query with an empty transaction filter should be rejected with an INVALID_ARGUMENT status",
@@ -39,7 +41,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       earlier <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       later <- ledger.currentEnd()
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       invalidRequest = request.update(_.begin := later, _.end := earlier)

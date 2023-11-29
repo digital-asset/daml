@@ -881,7 +881,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":community_participant_admin-workflows-with-vacuuming_java.jar",
+        ":community_participant_admin-workflows-with-vacuuming_java",
         ":pekko-stream-minus-patched-classes",
         "//canton-3x:community_base",
         "//canton-3x:community_common",

@@ -3,10 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractId
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,15 +36,15 @@ object Synchronize {
       // point before invoking this method
     }
 
-  final def waitForContract[T](
+  final def waitForContract[TCid <: ContractId[?]](
       participant: ParticipantTestContext,
       party: Party,
-      contractId: Primitive.ContractId[T],
+      contractId: TCid,
   )(implicit ec: ExecutionContext): Future[Unit] =
     eventually("Wait for contract to become active") {
       participant.activeContracts(party).map { events =>
         assert(
-          events.exists(_.contractId == contractId.toString),
+          events.exists(_.contractId == contractId.contractId),
           s"Could not find contract $contractId",
         )
       }

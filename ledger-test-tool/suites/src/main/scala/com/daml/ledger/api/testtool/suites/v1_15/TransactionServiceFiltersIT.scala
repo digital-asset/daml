@@ -18,9 +18,8 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.InterfaceViews._
-import scalaz.Tag
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.semantic.interfaceviews._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -160,30 +159,30 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
 
   private def testFilterComposition(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
+      party: Party,
       filter: TransactionFilter,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     import ledger._
     for {
-      c1 <- create(party, T5(party, 1))
-      c2 <- create(party, T6(party, party))
-      c3 <- create(party, T3(party, 2))
-      _ <- create(party, T4(party, 4))
+      c1 <- create(party, new T5(party, 1))(T5.COMPANION)
+      c2 <- create(party, new T6(party, party))(T6.COMPANION)
+      c3 <- create(party, new T3(party, 2))(T3.COMPANION)
+      _ <- create(party, new T4(party, 4))(T4.COMPANION)
       txEvents <- flatTransactions(getTransactionsRequest(filter)).map(_.flatMap(createdEvents))
       acsEvents <- activeContracts(createActiveContractsRequest(filter)).map(_._2)
     } yield {
       basicAssertions(
-        c1.toString,
-        c2.toString,
-        c3.toString,
+        c1.contractId,
+        c2.contractId,
+        c3.contractId,
         txEvents,
         eventBlobFlagFromInterfaces(filter),
         eventBlobFlagFromTemplates(filter),
       )
       basicAssertions(
-        c1.toString,
-        c2.toString,
-        c3.toString,
+        c1.contractId,
+        c2.contractId,
+        c3.contractId,
         acsEvents,
         eventBlobFlagFromInterfaces(filter),
         eventBlobFlagFromTemplates(filter),
@@ -221,8 +220,8 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     val createdEvent1 = createdEvents(0)
     assertEquals(
       "Create event 1 template ID",
-      createdEvent1.templateId.get.toString,
-      Tag.unwrap(T5.id).toString,
+      createdEvent1.templateId.get,
+      T5.TEMPLATE_ID.toV1,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
     assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
@@ -241,8 +240,8 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     val createdEvent2 = createdEvents(1)
     assertEquals(
       "Create event 2 template ID",
-      createdEvent2.templateId.get.toString,
-      Tag.unwrap(T6.id).toString,
+      createdEvent2.templateId.get,
+      T6.TEMPLATE_ID.toV1,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
     assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
@@ -263,7 +262,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     assertEquals(
       "Create event 3 template ID",
       createdEvent3.templateId.get.toString,
-      Tag.unwrap(T3.id).toString,
+      T3.TEMPLATE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
     assertLength("Create event 3 has no view", 0, createdEvent3.interfaceViews)
@@ -285,7 +284,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   ) = {
     Seq(
       new InterfaceFilter(
-        interfaceId = Some(Tag.unwrap(I2.id)),
+        interfaceId = Some(I2.TEMPLATE_ID.toV1),
         includeInterfaceView = true,
         includeCreatedEventBlob = includeCreatedEventBlob,
       )
@@ -293,29 +292,29 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
   }
 
   private def createTemplateIdFilter: Seq[Identifier] =
-    Seq(Tag.unwrap(T3.id), Tag.unwrap(T5.id))
+    Seq(T3.TEMPLATE_ID.toV1, T5.TEMPLATE_ID.toV1)
 
   private def createTemplateFilter(includeCreatedEventBlob: Boolean): Seq[TemplateFilter] =
     Seq(
       new TemplateFilter(
-        templateId = Some(Tag.unwrap(T3.id)),
+        templateId = Some(T3.TEMPLATE_ID.toV1),
         includeCreatedEventBlob = includeCreatedEventBlob,
       ),
       new TemplateFilter(
-        templateId = Some(Tag.unwrap(T5.id)),
+        templateId = Some(T5.TEMPLATE_ID.toV1),
         includeCreatedEventBlob = includeCreatedEventBlob,
       ),
     )
 
   private def createTransactionFilter(
-      party: Primitive.Party,
+      party: Party,
       interfaceFilters: Seq[InterfaceFilter],
       templateIds: Seq[Identifier] = Seq.empty,
       templateFilters: Seq[TemplateFilter] = Seq.empty,
   ): TransactionFilter =
     new TransactionFilter(
       filtersByParty = Map(
-        party.toString -> new Filters(
+        party.getValue -> new Filters(
           inclusive = Some(
             new InclusiveFilters(
               templateIds = templateIds,

@@ -4,9 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-import java.time.Instant
 
-import com.daml.ledger.api.refinements.ApiTypes.TemplateId
+import java.time.Instant
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
   CompletionResponse,
@@ -52,7 +51,6 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
@@ -72,13 +70,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.client.binding.{Primitive, Template}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Value, Unit => UnitData}
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref.HexString
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
+import java.util.{List => JList}
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ParticipantTestContext extends UserManagementTestContext {
@@ -141,7 +140,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Managed version of party allocation, should be used anywhere a party has
     * to be allocated unless the party management service itself is under test
     */
-  def allocateParty(): Future[Primitive.Party]
+  def allocateParty(): Future[Party]
 
   /** Non managed version of party allocation. Use exclusively when testing the party management service.
     */
@@ -150,47 +149,47 @@ trait ParticipantTestContext extends UserManagementTestContext {
       displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
       identityProviderId: Option[String] = None,
-  ): Future[Primitive.Party]
+  ): Future[Party]
 
   def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse]
   def updatePartyDetails(req: UpdatePartyDetailsRequest): Future[UpdatePartyDetailsResponse]
   def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderRequest
   ): Future[UpdatePartyIdentityProviderResponse]
-  def allocateParties(n: Int): Future[Vector[Primitive.Party]]
+  def allocateParties(n: Int): Future[Vector[Party]]
   def getParties(req: GetPartiesRequest): Future[GetPartiesResponse]
-  def getParties(parties: Seq[Primitive.Party]): Future[Seq[PartyDetails]]
-  def listKnownParties(): Future[Set[Primitive.Party]]
+  def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]]
+  def listKnownParties(): Future[Set[Party]]
   def listKnownPartiesResp(): Future[ListKnownPartiesResponse]
 
   /** @return a future that completes when all the participants can list all the expected parties
     */
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
-      expectedParties: Set[Primitive.Party],
+      expectedParties: Set[Party],
   ): Future[Unit]
   def activeContracts(
       request: GetActiveContractsRequest
   ): Future[(Option[LedgerOffset], Vector[CreatedEvent])]
   def activeContractsIds(
       request: GetActiveContractsRequest
-  ): Future[(Option[LedgerOffset], Vector[Primitive.ContractId[Any]])] = {
+  ): Future[(Option[LedgerOffset], Vector[ContractId[Any]])] = {
     activeContracts(request).map { case (offset, createEvents: Seq[CreatedEvent]) =>
-      (offset, createEvents.map(c => Primitive.ContractId[Any](c.contractId)))
+      (offset, createEvents.map(c => new ContractId[Any](c.contractId)))
     }
   }
 
   def activeContractsRequest(
-      parties: Seq[Primitive.Party],
-      templateIds: Seq[TemplateId] = Seq.empty,
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      parties: Seq[Party],
+      templateIds: Seq[Identifier] = Seq.empty,
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)] = Seq.empty,
       activeAtOffset: String = "",
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): GetActiveContractsRequest
-  def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]]
+  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]]
   def activeContractsByTemplateId(
-      templateIds: Seq[TemplateId],
-      parties: Primitive.Party*
+      templateIds: Seq[Identifier],
+      parties: Party*
   ): Future[Vector[CreatedEvent]]
 
   /** Create a [[TransactionFilter]] with a set of [[Party]] objects.
@@ -199,15 +198,15 @@ trait ParticipantTestContext extends UserManagementTestContext {
     * directly pass a set of [[Party]]
     */
   def transactionFilter(
-      parties: Seq[Primitive.Party],
-      templateIds: Seq[TemplateId] = Seq.empty,
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      parties: Seq[Party],
+      templateIds: Seq[Identifier] = Seq.empty,
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)] = Seq.empty,
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): TransactionFilter
 
   def filters(
-      templateIds: Seq[TemplateId] = Seq.empty,
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      templateIds: Seq[Identifier] = Seq.empty,
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)] = Seq.empty,
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): Filters
 
@@ -221,8 +220,8 @@ trait ParticipantTestContext extends UserManagementTestContext {
       responseObserver: StreamObserver[GetTransactionsResponse],
   ): Unit
   def flatTransactionsByTemplateId(
-      templateId: TemplateId,
-      parties: Primitive.Party*
+      templateId: Identifier,
+      parties: Party*
   ): Future[Vector[Transaction]]
 
   /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
@@ -231,7 +230,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def flatTransactions(parties: Primitive.Party*): Future[Vector[Transaction]]
+  def flatTransactions(parties: Party*): Future[Vector[Transaction]]
 
   /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
@@ -239,10 +238,10 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def flatTransactions(take: Int, parties: Primitive.Party*): Future[Vector[Transaction]]
+  def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]]
   def transactionTreesByTemplateId(
-      templateId: TemplateId,
-      parties: Primitive.Party*
+      templateId: Identifier,
+      parties: Party*
   ): Future[Vector[TransactionTree]]
 
   /** Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
@@ -251,7 +250,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def transactionTrees(parties: Primitive.Party*): Future[Vector[TransactionTree]]
+  def transactionTrees(parties: Party*): Future[Vector[TransactionTree]]
 
   /** Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
@@ -262,7 +261,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def transactionTrees(take: Int, parties: Primitive.Party*): Future[Vector[TransactionTree]]
+  def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]]
 
   /** Create a [[GetTransactionByIdRequest]] with an identifier and a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[transactionTreeById]] or
@@ -271,7 +270,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
     */
   def getTransactionByIdRequest(
       transactionId: String,
-      parties: Seq[Primitive.Party],
+      parties: Seq[Party],
   ): GetTransactionByIdRequest
 
   /** Non-managed version of [[transactionTreeById]], use this only if you need to tweak the request (i.e. to test low-level details)
@@ -280,7 +279,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def transactionTreeById(transactionId: String, parties: Primitive.Party*): Future[TransactionTree]
+  def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree]
 
   /** Non-managed version of [[flatTransactionById]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
@@ -288,7 +287,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[flatTransactionById]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def flatTransactionById(transactionId: String, parties: Primitive.Party*): Future[Transaction]
+  def flatTransactionById(transactionId: String, parties: Party*): Future[Transaction]
 
   /** Create a [[GetTransactionByEventIdRequest]] with an identifier and a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[transactionTreeByEventId]] or
@@ -297,7 +296,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
     */
   def getTransactionByEventIdRequest(
       eventId: String,
-      parties: Seq[Primitive.Party],
+      parties: Seq[Party],
   ): GetTransactionByEventIdRequest
 
   /** Non-managed version of [[transactionTreeByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
@@ -306,7 +305,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[transactionTreeByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def transactionTreeByEventId(eventId: String, parties: Primitive.Party*): Future[TransactionTree]
+  def transactionTreeByEventId(eventId: String, parties: Party*): Future[TransactionTree]
 
   /** Non-managed version of [[flatTransactionByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
@@ -314,7 +313,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
 
   /** Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
-  def flatTransactionByEventId(eventId: String, parties: Primitive.Party*): Future[Transaction]
+  def flatTransactionByEventId(eventId: String, parties: Party*): Future[Transaction]
 
   def getEventsByContractId(
       request: GetEventsByContractIdRequest
@@ -324,55 +323,62 @@ trait ParticipantTestContext extends UserManagementTestContext {
       request: GetEventsByContractKeyRequest
   ): Future[GetEventsByContractKeyResponse]
 
-  def create[T](
-      party: Primitive.Party,
-      template: Template[T],
-  ): Future[Primitive.ContractId[T]]
-  def create[T](
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      template: Template[T],
-  ): Future[Primitive.ContractId[T]]
-  def createAndGetTransactionId[T](
-      party: Primitive.Party,
-      template: Template[T],
-  ): Future[(String, Primitive.ContractId[T])]
+  def create[
+      TCid <: ContractId[T],
+      T <: Template,
+  ](
+      party: Party,
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid]
+  def create[TCid <: ContractId[T], T <: Template](
+      actAs: List[Party],
+      readAs: List[Party],
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid]
+  def createAndGetTransactionId[TCid <: ContractId[T], T <: Template](
+      party: Party,
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)]
   def exercise[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[T],
+      party: Party,
+      exercise: Update[T],
   ): Future[TransactionTree]
   def exercise[T](
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      exercise: Primitive.Update[T],
+      actAs: List[Party],
+      readAs: List[Party],
+      exercise: Update[T],
   ): Future[TransactionTree]
   def exerciseForFlatTransaction[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[T],
+      party: Party,
+      exercise: Update[T],
   ): Future[Transaction]
-  def exerciseAndGetContract[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[Any],
-  ): Future[Primitive.ContractId[T]]
-  def exerciseByKey[T](
-      party: Primitive.Party,
-      template: Primitive.TemplateId[T],
+  def exerciseAndGetContract[TCid <: ContractId[T], T]( // TODO: Check if T is not needed
+      party: Party,
+      exercise: Update[Exercised[TCid]],
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid]
+  def exerciseAndGetContractNoDisclose[TCid <: ContractId[?]]( // TODO: rename??
+      party: Party,
+      exercise: Update[Exercised[UnitData]],
+  )(implicit companion: ContractCompanion[?, TCid, ?]): Future[TCid]
+  def exerciseByKey(
+      party: Party,
+      template: Identifier,
       key: Value,
       choice: String,
       argument: Value,
   ): Future[TransactionTree]
   def submitRequest(
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      commands: Command*
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: JList[Command],
   ): SubmitRequest
-  def submitRequest(party: Primitive.Party, commands: Command*): SubmitRequest
+  def submitRequest(party: Party, commands: JList[Command] = JList.of()): SubmitRequest
   def submitAndWaitRequest(
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      commands: Command*
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: JList[Command],
   ): SubmitAndWaitRequest
-  def submitAndWaitRequest(party: Primitive.Party, commands: Command*): SubmitAndWaitRequest
+  def submitAndWaitRequest(party: Party, commands: JList[Command]): SubmitAndWaitRequest
   def submit(request: SubmitRequest): Future[Unit]
   def submitAndWait(request: SubmitAndWaitRequest): Future[Unit]
   def submitAndWaitForTransactionId(
@@ -389,7 +395,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       submitAndWaitGeneric: ParticipantTestContext => Future[T],
   ): Future[T]
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(
-      parties: Primitive.Party*
+      parties: Party*
   ): CompletionStreamRequest
   def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse]
   def completionStream(
@@ -397,25 +403,25 @@ trait ParticipantTestContext extends UserManagementTestContext {
       streamObserver: StreamObserver[CompletionStreamResponse],
   ): Unit
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]]
-  def firstCompletions(parties: Primitive.Party*): Future[Vector[Completion]]
+  def firstCompletions(parties: Party*): Future[Vector[Completion]]
   def findCompletionAtOffset(
       offset: HexString,
       p: Completion => Boolean,
-  )(parties: Primitive.Party*): Future[Option[CompletionResponse]]
+  )(parties: Party*): Future[Option[CompletionResponse]]
   def findCompletion(
       request: CompletionStreamRequest
   )(p: Completion => Boolean): Future[Option[CompletionResponse]]
-  def findCompletion(parties: Primitive.Party*)(
+  def findCompletion(parties: Party*)(
       p: Completion => Boolean
   ): Future[Option[CompletionResponse]]
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]]
   def checkpoints(n: Int, from: LedgerOffset = referenceOffset)(
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Vector[Checkpoint]]
   def firstCheckpoint(request: CompletionStreamRequest): Future[Checkpoint]
-  def firstCheckpoint(parties: Primitive.Party*): Future[Checkpoint]
+  def firstCheckpoint(parties: Party*): Future[Checkpoint]
   def nextCheckpoint(request: CompletionStreamRequest): Future[Checkpoint]
-  def nextCheckpoint(from: LedgerOffset, parties: Primitive.Party*): Future[Checkpoint]
+  def nextCheckpoint(from: LedgerOffset, parties: Party*): Future[Checkpoint]
   def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration]
   def checkHealth(): Future[HealthCheckResponse]
   def watchHealth(): Future[Seq[HealthCheckResponse]]
@@ -438,7 +444,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
   private[infrastructure] def preallocateParties(
       n: Int,
       participants: Iterable[ParticipantTestContext],
-  ): Future[Vector[Primitive.Party]]
+  ): Future[Vector[Party]]
 
   def prune(
       pruneUpTo: LedgerOffset,
@@ -453,8 +459,8 @@ trait ParticipantTestContext extends UserManagementTestContext {
     */
   def pruneCantonSafe(
       pruneUpTo: LedgerOffset,
-      party: Primitive.Party,
-      dummyCommand: Primitive.Party => Command,
+      party: Party,
+      dummyCommand: Party => JList[Command],
       pruneAllDivulgedContracts: Boolean = false,
   )(implicit ec: ExecutionContext): Future[Unit]
 

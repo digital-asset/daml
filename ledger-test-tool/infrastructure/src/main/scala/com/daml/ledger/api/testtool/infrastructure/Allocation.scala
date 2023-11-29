@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.client.binding.Primitive.Party
+import com.daml.ledger.javaapi.data.Party
 
 object Allocation {
 

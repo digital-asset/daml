@@ -14,20 +14,18 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyDetails,
   UpdatePartyIdentityProviderRequest,
 }
-import com.daml.ledger.client.binding
-import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.test.java.model.test.Dummy
 import com.daml.lf.data.Ref
-import scalaz.Tag
-import scalaz.syntax.tag.ToTagOps
-import java.util.regex.Pattern
 
+import java.util.regex.Pattern
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.DeleteIdentityProviderConfigRequest
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
 
 import scala.util.Random
 
 final class PartyManagementServiceIT extends PartyManagementITBase {
+  import CompanionImplicits._
 
   test(
     "PMUpdatingPartyIdentityProviderNonDefaultIdps",
@@ -41,7 +39,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId2)
-      party <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
+      party <- ledger.allocateParty(identityProviderId = Some(idpId1))
       get1 <- ledger.getParties(
         GetPartiesRequest(parties = Seq(party), identityProviderId = idpId1)
       )
@@ -73,18 +71,18 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       assertEquals(
         "is idp1, request as idp1",
         get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq(idpId1 -> party -> true),
+        Seq(idpId1 -> party.getValue -> true),
       )
       assertEquals(
         "is idp2, request as idp2",
         get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq(idpId2 -> party -> true),
+        Seq(idpId2 -> party.getValue -> true),
       )
       assertEquals(
         "is idp2, request as idp1",
         get3.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
         // party and isLocal values get blinded
-        Seq("" -> party -> false),
+        Seq("" -> party.getValue -> false),
       )
 
     }
@@ -101,7 +99,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
       // allocate a party in the default idp
-      party <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      party <- ledger.allocateParty(identityProviderId = None)
       get1 <- ledger.getParties(GetPartiesRequest(parties = Seq(party), identityProviderId = ""))
       // Update party's idp id
       _ <- ledger.updatePartyIdentityProviderId(
@@ -127,12 +125,12 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       assertEquals(
         "default idp",
         get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq("" -> party -> true),
+        Seq("" -> party.getValue -> true),
       )
       assertEquals(
         "non default idp",
         get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq(idpId1 -> party -> true),
+        Seq(idpId1 -> party.getValue -> true),
       )
     }
   })
@@ -146,7 +144,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpIdNonExistent = ledger.nextIdentityProviderId()
     for {
-      party <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      party <- ledger.allocateParty(identityProviderId = None)
       _ <- ledger
         .updatePartyIdentityProviderId(
           UpdatePartyIdentityProviderRequest(
@@ -188,10 +186,10 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdNonDefault)
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdMismatched)
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdTarget)
-      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      partyDefault <- ledger.allocateParty(identityProviderId = None)
       partyNonDefault <- ledger
         .allocateParty(identityProviderId = Some(idpIdNonDefault))
-        .map(_.unwrap)
+
       _ <- ledger
         .updatePartyIdentityProviderId(
           UpdatePartyIdentityProviderRequest(
@@ -239,8 +237,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     val idpId1 = ledger.nextIdentityProviderId()
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
-      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
-      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
+      partyDefault <- ledger.allocateParty(identityProviderId = None)
+      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1))
       _ <- ledger.updatePartyIdentityProviderId(
         UpdatePartyIdentityProviderRequest(
           party = partyDefault,
@@ -274,12 +272,12 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       assertEquals(
         "default idp",
         get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq("" -> partyDefault -> true),
+        Seq("" -> partyDefault.getValue -> true),
       )
       assertEquals(
         "non default idp",
         get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
-        Seq(idpId1 -> partyNonDefault -> true),
+        Seq(idpId1 -> partyNonDefault.getValue -> true),
       )
     }
   })
@@ -296,9 +294,9 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
       _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId2)
-      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
-      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
-      partyOtherNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId2)).map(_.unwrap)
+      partyDefault <- ledger.allocateParty(identityProviderId = None)
+      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1))
+      partyOtherNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId2))
       getAsDefaultIdp <- ledger.getParties(
         GetPartiesRequest(parties = Seq(partyDefault, partyNonDefault), identityProviderId = "")
       )
@@ -369,7 +367,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         displayName = Some("Bob Ross"),
       )
     } yield assert(
-      Tag.unwrap(party).nonEmpty,
+      party.getValue.nonEmpty,
       "The allocated party identifier is an empty string",
     )
   })
@@ -382,7 +380,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     for {
       party <- ledger.allocateParty(partyIdHint = None, displayName = Some("Jebediah Kerman"))
     } yield assert(
-      Tag.unwrap(party).nonEmpty,
+      party.getValue.nonEmpty,
       "The allocated party identifier is an empty string",
     )
   })
@@ -471,7 +469,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         displayName = None,
       )
     } yield assert(
-      Tag.unwrap(party).nonEmpty,
+      party.getValue.nonEmpty,
       "The allocated party identifier is an empty string",
     )
   })
@@ -492,7 +490,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       partiesDetails <- ledger.getParties(Seq(party))
     } yield {
       assert(
-        Tag.unwrap(party).nonEmpty,
+        party.getValue.nonEmpty,
         "The allocated party identifier is an empty string",
       )
       val partyDetails = assertSingleton("Only one party requested", partiesDetails)
@@ -509,8 +507,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       p1 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
       p2 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
     } yield {
-      assert(Tag.unwrap(p1).nonEmpty, "The first allocated party identifier is an empty string")
-      assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
+      assert(p1.getValue.nonEmpty, "The first allocated party identifier is an empty string")
+      assert(p2.getValue.nonEmpty, "The second allocated party identifier is an empty string")
       assert(p1 != p2, "The two parties have the same party identifier")
     }
   })
@@ -528,7 +526,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         .mustFail("allocating a party with a duplicate hint")
     } yield {
       assert(
-        Tag.unwrap(party).nonEmpty,
+        party.getValue.nonEmpty,
         "The allocated party identifier is an empty string",
       )
       assertGrpcErrorRegex(
@@ -590,7 +588,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     for {
       parties <- ledger.allocateParties(100)
     } yield {
-      val nonUniqueNames = parties.groupBy(Tag.unwrap).view.mapValues(_.size).filter(_._2 > 1).toMap
+      val nonUniqueNames = parties.groupBy(_.getValue).view.mapValues(_.size).filter(_._2 > 1).toMap
       assert(
         nonUniqueNames.isEmpty,
         s"There are non-unique party names: ${nonUniqueNames
@@ -626,22 +624,22 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         ),
       )
       partyDetails <- ledger.getParties(
-        Seq(party1, party2, binding.Primitive.Party("non-existent"))
+        Seq(party1, party2, new Party("non-existent"))
       )
-      noPartyDetails <- ledger.getParties(Seq(binding.Primitive.Party("non-existent")))
+      noPartyDetails <- ledger.getParties(Seq(new Party("non-existent")))
       zeroPartyDetails <- ledger.getParties(Seq.empty)
     } yield {
       assert(
         partyDetails.sortBy(_.displayName).map(unsetResourceVersion) == Seq(
           PartyDetails(
-            party = Ref.Party.assertFromString(Tag.unwrap(party1)),
+            party = Ref.Party.assertFromString(party1),
             displayName = "Alice",
             isLocal = true,
             localMetadata =
               if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
-            party = Ref.Party.assertFromString(Tag.unwrap(party2)),
+            party = Ref.Party.assertFromString(party2),
             displayName = "Bob",
             isLocal = true,
             localMetadata =
@@ -682,7 +680,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         displayName = None,
       )
       knownPartyResp <- ledger.listKnownPartiesResp()
-      knownPartyIds = knownPartyResp.partyDetails.map(_.party).map(Primitive.Party(_)).toSet
+      knownPartyIds = knownPartyResp.partyDetails.map(_.party).map(new Party(_)).toSet
     } yield {
       val allocatedPartyIds = Set(party1, party2, party3)
       assert(
@@ -690,27 +688,27 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         s"The allocated party IDs $allocatedPartyIds are not a subset of $knownPartyIds.",
       )
       val fetchedAllocatedPartiesSet = knownPartyResp.partyDetails.collect {
-        case details if allocatedPartyIds.contains(Primitive.Party(details.party)) =>
+        case details if allocatedPartyIds.contains(new Party(details.party)) =>
           unsetResourceVersion(details)
       }.toSet
       assertEquals(
         fetchedAllocatedPartiesSet,
         expected = Set(
           PartyDetails(
-            party = party1.toString,
+            party = party1.getValue,
             displayName = "",
             isLocal = true,
             localMetadata =
               if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
-            party = party2.toString,
+            party = party2.getValue,
             displayName = "",
             isLocal = true,
             localMetadata = Some(ObjectMeta(annotations = Map.empty)),
           ),
           PartyDetails(
-            party = party3.toString,
+            party = party3.getValue,
             displayName = "",
             isLocal = true,
             localMetadata = Some(ObjectMeta(annotations = Map.empty)),
@@ -727,18 +725,18 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       // Running a dummy transaction seems to be required by the test framework to make parties visible via getParties
-      _ <- alpha.create(alice, Dummy(alice))
-      _ <- beta.create(bob, Dummy(bob))
+      _ <- alpha.create(alice, new Dummy(alice))
+      _ <- beta.create(bob, new Dummy(bob))
 
       alphaParties <- alpha.getParties(Seq(alice, bob))
       betaParties <- beta.getParties(Seq(alice, bob))
     } yield {
       assert(
-        alphaParties.exists(p => p.party == alice.unwrap && p.isLocal),
+        alphaParties.exists(p => p.party == alice.getValue && p.isLocal),
         "Missing expected party from first participant",
       )
       assert(
-        betaParties.exists(p => p.party == bob.unwrap && p.isLocal),
+        betaParties.exists(p => p.party == bob.getValue && p.isLocal),
         "Missing expected party from second participant",
       )
 
@@ -749,14 +747,14 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       // participants with different ledger ids.
       if (alpha.endpointId != beta.endpointId && alpha.ledgerId != beta.ledgerId) {
         assert(
-          alphaParties.exists(p => p.party == bob.unwrap && !p.isLocal) || !alphaParties.exists(
-            _.party == bob.unwrap
+          alphaParties.exists(p => p.party == bob.getValue && !p.isLocal) || !alphaParties.exists(
+            _.party == bob.getValue
           ),
           "Unexpected remote party marked as local found on first participant",
         )
         assert(
-          betaParties.exists(p => p.party == alice.unwrap && !p.isLocal) || !betaParties.exists(
-            _.party == alice.unwrap
+          betaParties.exists(p => p.party == alice.getValue && !p.isLocal) || !betaParties.exists(
+            _.party == alice.getValue
           ),
           "Unexpected remote party marked as local found on second participant",
         )

@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.javaapi.data.Party
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.timer.Delayed
 
@@ -45,7 +45,7 @@ private[testtool] object RaceConditionTests {
 
   def transactions(
       ledger: ParticipantTestContext,
-      party: Primitive.Party,
+      party: Party,
       waitBefore: FiniteDuration = WaitBeforeGettingTransactions,
   )(implicit ec: ExecutionContext): Future[Vector[TransactionTree]] =
     Delayed.by(waitBefore)(()).flatMap(_ => ledger.transactionTrees(party))

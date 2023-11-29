@@ -7,17 +7,18 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test.Delegation._
-import com.daml.ledger.test.model.Test.DummyWithParam._
-import com.daml.ledger.test.model.Test.{Delegated, Delegation, Dummy, DummyWithParam}
+import com.daml.ledger.test.java.model.test.{Delegated, Delegation, Dummy, DummyWithParam}
+
+import scala.jdk.CollectionConverters._
 
 final class WronglyTypedContractIdIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(
     implicit ec => { case Participants(Participant(ledger, party)) =>
       for {
-        dummy <- ledger.create(party, Dummy(party))
-        fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
+        dummy <- ledger.create(party, new Dummy(party))
+        fakeDummyWithParam = new DummyWithParam.ContractId(dummy.contractId)
         exerciseFailure <- ledger
           .exercise(party, fakeDummyWithParam.exerciseDummyChoice2("txt"))
           .mustFail("exercising on a wrong type")
@@ -35,9 +36,9 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
   test("WTFetchFails", "Fetching of the wrong type fails", allocate(SingleParty))(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
-        dummy <- ledger.create(party, Dummy(party))
-        fakeDelegated = dummy.asInstanceOf[Primitive.ContractId[Delegated]]
-        delegation <- ledger.create(party, Delegation(party, party))
+        dummy <- ledger.create(party, new Dummy(party))
+        fakeDelegated = new Delegated.ContractId(dummy.contractId)
+        delegation: Delegation.ContractId <- ledger.create(party, new Delegation(party, party))
 
         fetchFailure <- ledger
           .exercise(party, delegation.exerciseFetchDelegated(fakeDelegated))
@@ -58,14 +59,16 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
-      fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
+      dummy: Dummy.ContractId <- ledger.create(party, new Dummy(party))
+      fakeDummyWithParam = new DummyWithParam.ContractId(dummy.contractId)
       failure <- ledger
         .submitAndWait(
           ledger.submitAndWaitRequest(
             party,
-            dummy.exerciseClone().command,
-            fakeDummyWithParam.exerciseDummyChoice2("").command,
+            (dummy
+              .exerciseClone()
+              .commands
+              .asScala ++ fakeDummyWithParam.exerciseDummyChoice2("").commands.asScala).asJava,
           )
         )
         .mustFail("exercising on a wrong type")

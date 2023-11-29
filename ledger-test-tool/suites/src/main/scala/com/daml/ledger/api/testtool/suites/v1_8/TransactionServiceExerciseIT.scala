@@ -10,31 +10,26 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test.AgreementFactory._
-import com.daml.ledger.test.model.Test.CreateAndFetch._
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test.DummyFactory._
-import com.daml.ledger.test.model.Test._
-import scalaz.Tag
+import com.daml.ledger.test.java.model.test._
 
 class TransactionServiceExerciseIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "TXUseCreateToExercise",
     "Should be able to directly use a contract identifier to exercise a choice",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummyFactory <- ledger.create(party, DummyFactory(party))
+      dummyFactory <- ledger.create(party, new DummyFactory(party))
       transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall())
     } yield {
       val events = transactions.rootEventIds.collect(transactions.eventsById)
       val exercised = events.filter(_.kind.isExercised)
       assert(exercised.size == 1, s"Only one exercise expected, got ${exercised.size}")
       assert(
-        exercised.head.getExercised.contractId == Tag.unwrap(dummyFactory),
-        s"The identifier of the exercised contract should have been ${Tag
-            .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
+        exercised.head.getExercised.contractId == dummyFactory.contractId,
+        s"The identifier of the exercised contract should have been ${dummyFactory.contractId} but instead it was ${exercised.head.getExercised.contractId}",
       )
     }
   })
@@ -45,27 +40,27 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      factory <- ledger.create(party, DummyFactory(party))
+      factory <- ledger.create(party, new DummyFactory(party))
       _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall())
-      dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.id, party)
-      dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.id, party)
+      dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.TEMPLATE_ID, party)
+      dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.TEMPLATE_ID, party)
     } yield {
       val create = assertSingleton("GetCreate", dummyWithParam.flatMap(createdEvents))
       assertEquals(
         "Create should be of DummyWithParam",
         create.getTemplateId,
-        Tag.unwrap(DummyWithParam.id),
+        DummyWithParam.TEMPLATE_ID.toV1,
       )
       val archive = assertSingleton("GetArchive", dummyFactory.flatMap(archivedEvents))
       assertEquals(
         "Archive should be of DummyFactory",
         archive.getTemplateId,
-        Tag.unwrap(DummyFactory.id),
+        DummyFactory.TEMPLATE_ID.toV1,
       )
       assertEquals(
         "Mismatching archived contract identifier",
         archive.contractId,
-        Tag.unwrap(factory),
+        factory.contractId,
       )
     }
   })
@@ -76,7 +71,10 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
     for {
-      agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+      agreementFactory: AgreementFactory.ContractId <- beta.create(
+        giver,
+        new AgreementFactory(receiver, giver),
+      )
       _ <- eventually("exerciseCreateAgreement") {
         alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement())
       }
@@ -96,7 +94,9 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      createAndFetch <- ledger.create(party, CreateAndFetch(party))
+      createAndFetch: CreateAndFetch.ContractId <- ledger.create(party, new CreateAndFetch(party))(
+        CreateAndFetch.COMPANION
+      )
       transaction <- ledger.exerciseForFlatTransaction(
         party,
         createAndFetch.exerciseCreateAndFetch_Run(),
@@ -107,7 +107,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         assertSingleton("There should be only one archive", archivedEvents(transaction))
       assertEquals(
         "The contract identifier of the exercise does not match",
-        Tag.unwrap(createAndFetch),
+        createAndFetch.contractId,
         exercise.contractId,
       )
     }
@@ -119,12 +119,12 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy: Dummy.ContractId <- ledger.create(party, new Dummy(party))
       failure <- ledger
         .exercise(
           party,
           dummy
-            .exerciseConsumeIfTimeIsBetween(Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
+            .exerciseConsumeIfTimeIsBetween(TimestampConversion.MAX, TimestampConversion.MAX),
         )
         .mustFail("exercising with a failing assertion")
     } yield {

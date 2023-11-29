@@ -7,39 +7,46 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Value.encode
-import com.daml.ledger.test.model.Test.Choice1._
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test.ParameterShowcase._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.api.v1.value.Record.toJavaProto
+import com.daml.ledger.api.v1.value.{Record, Value}
+import com.daml.ledger.test.java.model.test._
 
-import scala.collection.immutable.Seq
+import java.math.BigDecimal
+import java.util.{List => JList}
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 class TransactionServiceArgumentsIT extends LedgerTestSuite {
+  import ClearIdsImplicits._
+  import CompanionImplicits._
+
   test(
     "TXCreateWithAnyType",
     "Creates should not have issues dealing with any type of argument",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val template = ParameterShowcase(
-      operator = party,
-      integer = 42L,
-      decimal = BigDecimal("47.0000000000"),
-      text = "some text",
-      bool = true,
-      time = Primitive.Timestamp.MIN,
-      nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-      integerList = Primitive.List(0L, 1L, 2L, 3L),
-      optionalText = Primitive.Optional("some optional text"),
+    val template = new ParameterShowcase(
+      party,
+      42L,
+      new BigDecimal("47.0000000000"),
+      "some text",
+      true,
+      TimestampConversion.MIN,
+      new NestedOptionalInteger(new optionalinteger.SomeInteger(-1L)),
+      JList.of(0, 1, 2, 3),
+      Some("some optional text").toJava,
     )
-    val create = ledger.submitAndWaitRequest(party, template.create.command)
+    val create = ledger.submitAndWaitRequest(party, template.create.commands)
     for {
       transactionResponse <- ledger.submitAndWaitForTransaction(create)
     } yield {
       val transaction = transactionResponse.getTransaction
       val contract = assertSingleton("CreateWithAnyType", createdEvents(transaction))
-      assertEquals("CreateWithAnyType", contract.getCreateArguments, template.arguments)
+      assertEquals(
+        "CreateWithAnyType",
+        contract.getCreateArguments.clearValueIds,
+        Record.fromJavaProto(template.toValue.toProtoRecord),
+      )
     }
   })
 
@@ -48,20 +55,20 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
     "Exercise should not have issues dealing with any type of argument",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val template = ParameterShowcase(
-      operator = party,
-      integer = 42L,
-      decimal = BigDecimal("47.0000000000"),
-      text = "some text",
-      bool = true,
-      time = Primitive.Timestamp.MIN,
-      nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-      integerList = Primitive.List(0L, 1L, 2L, 3L),
-      optionalText = Primitive.Optional("some optional text"),
+    val template = new ParameterShowcase(
+      party,
+      42L,
+      new BigDecimal("47.0000000000"),
+      "some text",
+      true,
+      TimestampConversion.MIN,
+      new NestedOptionalInteger(new optionalinteger.SomeInteger(-1L)),
+      List(0L, 1L, 2L, 3L).map(long2Long).asJava,
+      Some("some optional text").toJava,
     )
-    val choice1 = Choice1(
+    val choice1 = new Choice1(
       template.integer,
-      BigDecimal("37.0000000000"),
+      new BigDecimal("37.0000000000"),
       template.text,
       template.bool,
       template.time,
@@ -73,11 +80,15 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
       parameterShowcase <- ledger.create(
         party,
         template,
-      )
+      )(ParameterShowcase.COMPANION)
       tree <- ledger.exercise(party, parameterShowcase.exerciseChoice1(choice1))
     } yield {
       val contract = assertSingleton("ExerciseWithAnyType", exercisedEvents(tree))
-      assertEquals("ExerciseWithAnyType", contract.getChoiceArgument, encode(choice1))
+      assertEquals(
+        "ExerciseWithAnyType",
+        clearIds(contract.getChoiceArgument),
+        Value.fromJavaProto(choice1.toValue.toProto),
+      )
     }
   })
 
@@ -87,25 +98,29 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val n = 10000
-    val veryLongList = Primitive.List(List.iterate(0L, n)(_ + 1): _*)
-    val template = ParameterShowcase(
-      operator = party,
-      integer = 42L,
-      decimal = BigDecimal("47.0000000000"),
-      text = "some text",
-      bool = true,
-      time = Primitive.Timestamp.MIN,
-      nestedOptionalInteger = NestedOptionalInteger(OptionalInteger.SomeInteger(-1L)),
-      integerList = veryLongList,
-      optionalText = Primitive.Optional("some optional text"),
+    val veryLongList = List(List.iterate(0L, n)(_ + 1): _*).map(long2Long).asJava
+    val template = new ParameterShowcase(
+      party,
+      42L,
+      new BigDecimal("47.0000000000"),
+      "some text",
+      true,
+      TimestampConversion.MIN,
+      new NestedOptionalInteger(new optionalinteger.SomeInteger(-1L)),
+      veryLongList,
+      Some("some optional text").toJava,
     )
-    val create = ledger.submitAndWaitRequest(party, template.create.command)
+    val create = ledger.submitAndWaitRequest(party, template.create.commands)
     for {
       transactionResponse <- ledger.submitAndWaitForTransaction(create)
     } yield {
       val transaction = transactionResponse.getTransaction
       val contract = assertSingleton("VeryLongList", createdEvents(transaction))
-      assertEquals("VeryLongList", contract.getCreateArguments, template.arguments)
+      assertEquals(
+        "VeryLongList",
+        toJavaProto(contract.getCreateArguments.clearValueIds),
+        template.toValue.toProtoRecord,
+      )
     }
   })
 
@@ -115,10 +130,10 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy: Dummy.ContractId <- ledger.create(party, new Dummy(party))
       tree <- ledger.exercise(
         party,
-        dummy.exerciseWrapWithAddress(Address("street", "city", "state", "zip")),
+        dummy.exerciseWrapWithAddress(new Address("street", "city", "state", "zip")),
       )
     } yield {
       val contract = assertSingleton("Contract in transaction", createdEvents(tree))
