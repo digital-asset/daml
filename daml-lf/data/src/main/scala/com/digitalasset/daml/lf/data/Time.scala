@@ -128,14 +128,10 @@ object Time {
         roundingMode: math.RoundingMode,
     ): Either[String, Long] =
       try {
-        Right(
-          math.BigDecimal
-            .valueOf(seconds)
-            .multiply(OneSecondInNanos)
-            .add(math.BigDecimal.valueOf(nanos))
-            .divide(OneMicroInNanos, roundingMode)
-            .longValueExact()
-        )
+        val secondPart = math.BigDecimal.valueOf(seconds) multiply OneSecondInNanos
+        val nanoPart = math.BigDecimal.valueOf(nanos)
+        val totalInNanos = secondPart add nanoPart
+        Right(totalInNanos.divide(OneMicroInNanos, roundingMode).longValueExact())
       } catch {
         case _: ArithmeticException =>
           Left(s"($seconds s + $nanos ns) cannot be convert to Timestamp without lost of precision")
