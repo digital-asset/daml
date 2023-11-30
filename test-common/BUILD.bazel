@@ -100,13 +100,6 @@ da_scala_dar_resources_library(
 [
     [
         [
-            dar_to_scala(
-                name = "%s-tests-%s.scala-codegen" % (test_name, target),
-                srcs = [":%s-tests-%s.dar" % (test_name, target)],
-                package_prefix = "com.daml.ledger.test.%s" % test_name,
-                srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
-                visibility = ["//visibility:public"],
-            ),
             dar_to_java(
                 name = "%s-tests-%s.java-codegen" % (test_name, target),
                 src = ":%s-tests-%s.dar" % (test_name, target),
