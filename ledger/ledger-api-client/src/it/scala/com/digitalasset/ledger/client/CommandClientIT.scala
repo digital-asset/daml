@@ -93,7 +93,7 @@ final class CommandClientIT
 
   private def commandClientWithoutTime(
       ledgerId: domain.LedgerId,
-      appId: String = applicationId.unwrap,
+      appId: String = applicationId.getOrElse(""),
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): CommandClient =
     new CommandClient(
@@ -114,7 +114,7 @@ final class CommandClientIT
 
   private def commandClient(
       ledgerId: domain.LedgerId = testLedgerId,
-      appId: String = applicationId.unwrap,
+      appId: String = applicationId.getOrElse(""),
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): Future[CommandClient] =
     timeProvider(ledgerId)
@@ -133,7 +133,7 @@ final class CommandClientIT
       ledgerId = testLedgerId,
       commandId = commandId,
       commands = individualCommands,
-      applicationId = applicationId.unwrap,
+      applicationId = applicationId.getOrElse(""),
       party = party,
     )
 

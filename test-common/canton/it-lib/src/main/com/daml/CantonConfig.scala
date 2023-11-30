@@ -6,7 +6,6 @@ package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.{LedgerClient, GrpcChannel}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
@@ -16,7 +15,6 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder
-import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
@@ -117,14 +115,14 @@ final case class CantonConfig(
   def ledgerClient(
       port: Port,
       token: Option[String],
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     import com.daml.ledger.client.configuration._
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
-        applicationId = token.fold(applicationId.unwrap)(_ => ""),
+        applicationId = token.orElse(applicationId).getOrElse(""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
@@ -136,14 +134,14 @@ final case class CantonConfig(
   def ledgerClientWithoutId(
       port: Port,
       token: Option[String],
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
     import com.daml.ledger.client.configuration._
     LedgerClientWithoutId(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
-        applicationId = token.fold(applicationId.unwrap)(_ => ""),
+        applicationId = token.orElse(applicationId).getOrElse(""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,

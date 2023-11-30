@@ -17,7 +17,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.OneAnd
-import scalaz.syntax.tag._
 
 final class LedgerClientIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
 
@@ -26,7 +25,7 @@ final class LedgerClientIT extends AsyncWordSpec with Matchers with Inside with 
   lazy val channel = config.channel(ports.head)
 
   private val ClientConfiguration = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
+    applicationId = applicationId.getOrElse(""),
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     token = None,
