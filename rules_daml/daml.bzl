@@ -369,6 +369,18 @@ def daml_compile_with_dalf(
     )
 
 def generate_and_track_dar_hash_file(name):
+    """
+    Given a 'name', defines the following targets:
+      (1) ':{name}-dar-hash-file-matches',
+      (2) ':{name}-golden-hash'.
+      (3) ':{name}-generated-hash',
+    Target (1) is a test that checks that the files in targets (2) and (3) match.
+    It can also replace (2) with the output of (3) if run with the flag '--accept'.
+    Target (2) is an indirection to the file
+      ':{name}.dar-hash',
+    which must be present in the package where this macro is used.
+    Target (3) is transitively defined by 'generate_dar_hash_file'.
+    """
     generate_dar_hash_file(name)
 
     native.filegroup(
@@ -406,6 +418,17 @@ def generate_and_track_dar_hash_file(name):
     )
 
 def generate_dar_hash_file(name):
+    """
+    Given a 'name', defines a target of the form
+      ':{name}-generated-hash'.
+    with a single file of the form
+      ':{name}-generated.dar-hash'.
+    The resulting file will contain one line per file present in
+      ':{name}.dar',
+    sorted by filename and excluding *.hi and *.hie files, where each line
+    has the sha256sum for the file followed by the path of the file relative to
+    the root of the dar.
+    """
     native.genrule(
         name = name + "-generated-hash",
         srcs = [":{}.dar".format(name)],
