@@ -319,6 +319,7 @@ scala_library(
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",

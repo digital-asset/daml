@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{ConfirmingParty, PlainInformee}
@@ -109,6 +110,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
             templateId,
             Value.ValueUnit,
             Set(ExampleTransactionFactory.signatory),
+            Util.sharedKey(ExampleTransactionFactory.languageVersion),
           )
         ),
       )
