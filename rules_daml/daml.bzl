@@ -377,10 +377,18 @@ def generate_and_track_dar_hash_file(name):
         visibility = ["//visibility:public"],
     )
 
+    test_name = name + "-dar-hash-file-matches"
+
+    lbl = "//{package}:{target}".format(
+        package = native.package_name(),
+        target = test_name,
+    )
+
     native.sh_test(
-        name = name + "-dar-hash-file-matches",
+        name = test_name,
         srcs = ["//bazel_tools:match-golden-file"],
         args = [
+            lbl,
             "$(location :{}-generated-hash)".format(name),
             "$(location :{}-golden-hash)".format(name),
             "$(POSIX_DIFF)",

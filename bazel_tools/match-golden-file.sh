@@ -11,17 +11,26 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-GENERATED=$(rlocation "$TEST_WORKSPACE/$1")
-GOLDEN=$(rlocation "$TEST_WORKSPACE/$2")
-DIFF=$3
-ACCEPT=${4:-}
+LABEL=$1
+GENERATED=$(rlocation "$TEST_WORKSPACE/$2")
+GOLDEN=$(rlocation "$TEST_WORKSPACE/$3")
+DIFF=$4
+ACCEPT=${5:-}
+
+info() {
+  echo "diff ($DIFF) failed with exit status: $1"
+  echo "To accept the changes, run"
+  echo "    bazel run $LABEL -- --accept"
+  exit $1
+}
 
 case "$ACCEPT" in
   -a | --accept)
-      echo Accepting changes, copying "$GENERATED" to "$2"
-      cp "$GENERATED" "$2"
+      echo Accepting changes, copying "$GENERATED" to "$3"
+      cp "$GENERATED" "$3"
       ;;
   *)
+      trap 'info $?' ERR
       $DIFF $GENERATED $GOLDEN
       ;;
 esac

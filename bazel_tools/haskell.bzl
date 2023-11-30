@@ -319,10 +319,18 @@ def generate_and_track_cabal(name, exe_name = None, src_dir = None, exclude_deps
         visibility = ["//visibility:public"],
     )
 
+    test_name = name + "-cabal-file-matches"
+
+    lbl = "//{package}:{target}".format(
+        package = native.package_name(),
+        target = test_name,
+    )
+
     native.sh_test(
-        name = name + "-cabal-file-matches",
+        name = test_name,
         srcs = ["//bazel_tools:match-golden-file"],
         args = [
+            lbl,
             "$(location :%s-generated-cabal)" % name,
             "$(location :%s-golden-cabal)" % name,
             "$(POSIX_DIFF)",
