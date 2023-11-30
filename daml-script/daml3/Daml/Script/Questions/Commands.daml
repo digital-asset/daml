@@ -7,6 +7,7 @@
 module Daml.Script.Questions.Commands where
 
 import Daml.Script.Internal
+import DA.Bifunctor
 
 data Command
   = Create with
@@ -92,10 +93,10 @@ internalExerciseByKeyCmd tplTypeRep key arg = Commands [ExerciseByKey tplTypeRep
   res -> error $ "Expected [ExerciseResult], got " <> show res
 
 -- | HIDE A version of 'createAndExerciseCmd' without constraints.
--- Create and exercise gives a create result and exercise result. Currently we throw away the contract Id of the created contract, as it is consumed atomically
-internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands LedgerValue
+-- Create and exercise gives a create result and exercise result.
+internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands (ContractId (), LedgerValue)
 internalCreateAndExerciseCmd tplArg choiceArg = Commands [CreateAndExercise tplArg choiceArg] $ \case
-  [CreateResult _, ExerciseResult res] -> res
+  [CreateResult cid, ExerciseResult res] -> (cid, res)
   res -> error $ "Expected [CreateResult, ExerciseResult], got " <> show res
 
 -- | Create a contract of the given template.
@@ -111,10 +112,14 @@ exerciseCmd cId arg = fromLedgerValue @r <$> internalExerciseCmd (templateTypeRe
 exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 exerciseByKeyCmd key arg = fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
 
--- | Create a contract and exercise a choice on it in the same transaction.
-createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+-- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
+createAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createAndExerciseCmd tplArg choiceArg = fromLedgerValue @r <$> internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
+createAndExerciseCmdWithCid tplArg choiceArg = bimap coerceContractId (fromLedgerValue @r) <$> internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
+
+-- | Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+createAndExerciseCmd tplArg choiceArg = snd <$> createAndExerciseCmdWithCid tplArg choiceArg
 
 -- | Archive the given contract.
 --

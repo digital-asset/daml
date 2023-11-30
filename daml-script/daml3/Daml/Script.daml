@@ -2,20 +2,30 @@
 -- SPDX-License-Identifier: Apache-2.0
 module Daml.Script
   ( Script
+
+  -- Main submits
   , submit
   , submitMustFail
-  , submitMulti
-  , submitMultiMustFail
+  , submitResultAndTree
   , submitTree
-  , submitTreeMulti
+  , submitWithError
   , trySubmit
-  , trySubmitMulti
-  , submitWithDisclosures
-  , submitWithDisclosuresMustFail
-  , submitMultiWithDisclosures
-  , submitMultiWithDisclosuresMustFail
+  , trySubmitResultAndTree
+  , trySubmitTree
+  -- Error types
   , SubmitError (..)
   , DevErrorType (..)
+  -- Submit options
+  , actAs
+  , readAs
+  , disclose
+  , SubmitOptions
+  , concurrently
+  -- Backwards compat submits
+  , submitMulti
+  , submitMultiMustFail
+  , submitTreeMulti
+  , trySubmitMulti
 
   , query
   , queryInterface
@@ -39,11 +49,8 @@ module Daml.Script
   , exerciseCmd
   , exerciseByKeyCmd
   , createAndExerciseCmd
+  , createAndExerciseCmdWithCid
   , archiveCmd
-  , internalCreateCmd
-  , internalExerciseCmd
-  , internalExerciseByKeyCmd
-  , internalCreateAndExerciseCmd
   , getTime
   , setTime
   , passTime
