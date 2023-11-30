@@ -122,20 +122,35 @@ object Time {
     private[this] val OneMicroInNanos = math.BigDecimal.valueOf(TimeUnit.MICROSECONDS.toNanos(1))
     private[this] val OneSecondInNanos = math.BigDecimal.valueOf(TimeUnit.SECONDS.toMicros(1))
 
-    private[this] def microsFromEpochSeconds(seconds: Long, nanos: Long, roundingMode: math.RoundingMode): Either[String, Long] =
+    private[this] def microsFromEpochSeconds(
+        seconds: Long,
+        nanos: Long,
+        roundingMode: math.RoundingMode,
+    ): Either[String, Long] =
       try {
         Right(
-          math.BigDecimal.valueOf(seconds).multiply(OneSecondInNanos).add(math.BigDecimal.valueOf(nanos)).divide(OneMicroInNanos, roundingMode).longValueExact()
+          math.BigDecimal
+            .valueOf(seconds)
+            .multiply(OneSecondInNanos)
+            .add(math.BigDecimal.valueOf(nanos))
+            .divide(OneMicroInNanos, roundingMode)
+            .longValueExact()
         )
       } catch {
         case _: ArithmeticException =>
           Left(s"($seconds s + $nanos ns) cannot be convert to Timestamp without lost of precision")
       }
 
-    private[this] def microsFromInstant(i: Instant, rounding: math.RoundingMode ): Either[String, Long] =
+    private[this] def microsFromInstant(
+        i: Instant,
+        rounding: math.RoundingMode,
+    ): Either[String, Long] =
       microsFromEpochSeconds(i.getEpochSecond, i.getNano.toLong, rounding)
 
-    private[this] def microsFromString(str: String,  rounding: math.RoundingMode): Either[String, Long] =
+    private[this] def microsFromString(
+        str: String,
+        rounding: math.RoundingMode,
+    ): Either[String, Long] =
       microsFromInstant(Instant.parse(str), rounding)
 
     private[this] def assertMicrosFromString(str: String): Long =
@@ -164,17 +179,29 @@ object Time {
     def assertFromLong(micros: Long): Timestamp =
       assertRight(fromLong(micros))
 
-    def fromString(str: String, rounding: math.RoundingMode = math.RoundingMode.FLOOR): Either[String, Timestamp] =
+    def fromString(
+        str: String,
+        rounding: math.RoundingMode = math.RoundingMode.FLOOR,
+    ): Either[String, Timestamp] =
       microsFromString(str, rounding).flatMap(fromLong)
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String, rounding: math.RoundingMode = math.RoundingMode.FLOOR): T =
+    final def assertFromString(
+        s: String,
+        rounding: math.RoundingMode = math.RoundingMode.FLOOR,
+    ): T =
       assertRight(fromString(s, rounding))
 
-    def fromInstant(i: Instant, rounding: math.RoundingMode = math.RoundingMode.FLOOR): Either[String, Timestamp] =
+    def fromInstant(
+        i: Instant,
+        rounding: math.RoundingMode = math.RoundingMode.FLOOR,
+    ): Either[String, Timestamp] =
       microsFromInstant(i, rounding).flatMap(fromLong)
 
-    def assertFromInstant(i: Instant, rounding: math.RoundingMode = math.RoundingMode.FLOOR): Timestamp =
+    def assertFromInstant(
+        i: Instant,
+        rounding: math.RoundingMode = math.RoundingMode.FLOOR,
+    ): Timestamp =
       assertRight(fromInstant(i, rounding))
 
     implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
