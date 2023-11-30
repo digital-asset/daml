@@ -321,7 +321,7 @@ def generate_and_track_cabal(name, exe_name = None, src_dir = None, exclude_deps
 
     native.sh_test(
         name = name + "-cabal-file-matches",
-        srcs = ["//bazel_tools:match-cabal-file"],
+        srcs = ["//bazel_tools:match-golden-file"],
         args = [
             "$(location :%s-generated-cabal)" % name,
             "$(location :%s-golden-cabal)" % name,
