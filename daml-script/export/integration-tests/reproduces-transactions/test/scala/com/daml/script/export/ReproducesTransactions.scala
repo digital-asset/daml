@@ -62,7 +62,7 @@ final class ReproducesTransactions
         Some(
           Commands(
             ledgerId = client.ledgerId.unwrap,
-            applicationId = applicationId.unwrap,
+            applicationId = applicationId.getOrElse(""),
             commandId = UUID.randomUUID().toString(),
             party = p,
             commands = Seq(cmd),
