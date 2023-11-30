@@ -35,7 +35,7 @@ da_java_library(
         "//visibility:public",
     ],
     deps = [
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
         "//ledger/ledger-api-auth-client",
         "//libs-scala/rs-grpc-bridge",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -72,8 +72,8 @@ da_scala_library(
     ],
     deps = [
         ":bindings-rxjava",
+        "//canton:bindings-java",
         "//daml-lf/data",
-        "//language-support/java/bindings:bindings-java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-domain",
@@ -114,7 +114,7 @@ da_scala_test_suite(
         ":bindings-integration-tests-model-latest",
         ":bindings-java-tests-lib",
         ":bindings-rxjava",
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",

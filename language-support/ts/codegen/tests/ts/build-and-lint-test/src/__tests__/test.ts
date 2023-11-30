@@ -664,7 +664,7 @@ test("exercise using explicit disclosure", async () => {
         {
           contractId: contract.contractId,
           templateId: contract.templateId,
-          createdEventBlob: created.created_event_blob,
+          createdEventBlob: created.createdEventBlob,
         },
       ],
     },

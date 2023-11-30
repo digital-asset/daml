@@ -18,10 +18,10 @@ def deps(lf_version):
     ]
     additional_tests = carbon_tests if _has_model_tests(lf_version) else []
     return [
+        "//canton:bindings-java",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//language-support/java/bindings:bindings-java",
         "//ledger/error",
         "//ledger/ledger-api-errors",
         "//ledger/ledger-api-common",

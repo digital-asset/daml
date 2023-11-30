@@ -20,8 +20,8 @@ load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
         tags = ["maven_coordinates=com.daml:ledger-api-tests-infrastructure-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         deps = [
+            "//canton:bindings-java",
             "//daml-lf/data",
-            "//language-support/java/bindings:bindings-java",
             "//ledger-api/grpc-definitions:ledger_api_proto_scala",
             "//ledger/error",
             "//ledger/ledger-api-errors",
