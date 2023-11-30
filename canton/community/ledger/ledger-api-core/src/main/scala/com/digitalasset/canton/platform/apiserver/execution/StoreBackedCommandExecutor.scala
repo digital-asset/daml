@@ -542,10 +542,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
+                val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
                 Versioned(
                   unusedTxVersion,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers),
+                    .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
                 )
             },
         ),

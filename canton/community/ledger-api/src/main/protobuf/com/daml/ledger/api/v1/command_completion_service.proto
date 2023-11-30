@@ -1,0 +1,104 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/completion.proto";
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "CommandCompletionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to observe the status of their submissions.
+// Commands may be submitted via the Command Submission Service.
+// The on-ledger effects of their submissions are disclosed by the Transaction Service.
+//
+// Commands may fail in 2 distinct manners:
+//
+// 1. Failure communicated synchronously in the gRPC error of the submission.
+// 2. Failure communicated asynchronously in a Completion, see ``completion.proto``.
+//
+// Note that not only successfully submitted commands MAY produce a completion event. For example, the participant MAY
+// choose to produce a completion event for a rejection of a duplicate command.
+//
+// Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
+// Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
+service CommandCompletionService {
+
+  // Subscribe to command completion events.
+  rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
+
+  // Returns the offset after the latest completion.
+  rpc CompletionEnd (CompletionEndRequest) returns (CompletionEndResponse);
+
+}
+
+message CompletionStreamRequest {
+  // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+
+  // Only completions of commands submitted with the same application_id will be visible in the stream.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+  string application_id = 2;
+
+  // Non-empty list of parties whose data should be included.
+  // Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties
+  // will be visible in the stream.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  repeated string parties = 3;
+
+  // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
+  // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
+  // Optional, if not set the ledger uses the current ledger end offset instead.
+  LedgerOffset offset = 4;
+}
+
+message CompletionStreamResponse {
+
+  // This checkpoint may be used to restart consumption.  The
+  // checkpoint is after any completions in this response.
+  // Optional
+  Checkpoint checkpoint = 1;
+
+  // If set, one or more completions.
+  repeated Completion completions = 2;
+
+}
+
+// Checkpoints may be used to:
+//
+// * detect time out of commands.
+// * provide an offset which can be used to restart consumption.
+message Checkpoint {
+
+  // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
+  // Required
+  google.protobuf.Timestamp record_time = 1;
+
+  // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
+  // Required
+  LedgerOffset offset = 2;
+}
+
+
+message CompletionEndRequest {
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+}
+
+message CompletionEndResponse {
+  // This offset can be used in a CompletionStreamRequest message.
+  // Required
+  LedgerOffset offset = 1;
+}

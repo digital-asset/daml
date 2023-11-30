@@ -18,7 +18,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{GlobalKey, Util}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
@@ -54,6 +54,7 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.store.cache.PackageLanguageVersionCache
 import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -81,6 +82,7 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
+    packageLanguageVersionCache: PackageLanguageVersionCache,
     metrics: Metrics,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
@@ -268,7 +270,8 @@ private[index] class IndexServiceImpl(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContext)
     foldToSource {
       for {
         _ <- validateTransactionFilter(transactionFilter, packageMetadataView.current())
@@ -340,13 +343,22 @@ private[index] class IndexServiceImpl(
       requestingParties: Set[Ref.Party],
       endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
-    ledgerDao.eventsReader.getEventsByContractKey(
-      contractKey,
-      templateId,
-      requestingParties,
-      endExclusiveSeqId,
-      maxIterations = 1000,
-    )
+
+    packageLanguageVersionCache
+      .get(templateId.packageId)
+      .flatMap({
+        case None =>
+          Future.successful(GetEventsByContractKeyResponse())
+        case Some(languageVersion) =>
+          val globalKey =
+            GlobalKey.assertBuild(templateId, contractKey, Util.sharedKey(languageVersion))
+          ledgerDao.eventsReader.getEventsByContractKey(
+            globalKey,
+            requestingParties,
+            endExclusiveSeqId,
+            maxIterations = 1000,
+          )
+      })(directEc)
   }
 
   override def getParties(parties: Seq[Ref.Party])(implicit

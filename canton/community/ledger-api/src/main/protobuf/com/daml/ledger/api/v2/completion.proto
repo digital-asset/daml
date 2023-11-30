@@ -1,0 +1,81 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v1/trace_context.proto";
+import "google/protobuf/duration.proto";
+import "google/rpc/status.proto";
+
+option java_outer_classname = "CompletionOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// A completion represents the status of a submitted command on the ledger: it can be successful or failed.
+message Completion {
+
+  // The ID of the succeeded or failed command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string command_id = 1;
+
+  // Identifies the exact type of the error.
+  // It uses the same format of conveying error details as it is used for the RPC responses of the APIs.
+  // Optional
+  google.rpc.Status status = 2;
+
+  // The update_id of the transaction or reassignment that resulted from the command with command_id.
+  // Only set for successfully executed commands.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  string update_id = 3;
+
+  // The application-id or user-id that was used for the submission, as described in ``commands.proto``.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Optional for historic completions where this data is not available.
+  string application_id = 4;
+
+  // The set of parties on whose behalf the commands were executed.
+  // Contains the union of ``party`` and ``act_as`` from ``commands.proto``.
+  // The order of the parties need not be the same as in the submission.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional for historic completions where this data is not available.
+  repeated string act_as = 5;
+
+  // The submission ID this completion refers to, as described in ``commands.proto``.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string submission_id = 6;
+
+  // The actual deduplication window used for the submission, which is derived from
+  // ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
+  // descriptions and extend the period in implementation-specified ways.
+  //
+  // Used to audit the deduplication guarantee described in ``commands.proto``.
+  //
+  // Optional; the deduplication guarantee applies even if the completion omits this field.
+  oneof deduplication_period {
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
+    //
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    string deduplication_offset = 7;
+
+    // Specifies the length of the deduplication period.
+    // It is measured in record time of completions.
+    //
+    // Must be non-negative.
+    google.protobuf.Duration deduplication_duration = 8;
+  }
+
+  // Optional; ledger api trace context
+  //
+  // The trace context transported in this message corresponds to the trace context supplied
+  // by the client application in a HTTP2 header of the original command submission.
+  // We typically use a header to transfer this type of information. Here we use message
+  // body, because it is used in gRPC streams which do not support per message headers.
+  // This field will be populated with the trace context contained in the original submission.
+  // If that was not provided, a unique ledger-api-server generated trace context will be used
+  // instead.
+  com.daml.ledger.api.v1.TraceContext trace_context = 9;
+}

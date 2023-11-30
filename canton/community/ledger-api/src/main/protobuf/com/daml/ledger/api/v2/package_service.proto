@@ -1,0 +1,45 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v1/package_service.proto";
+
+option java_outer_classname = "PackageServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Allows clients to query the Daml-LF packages that are supported by the server.
+service PackageService {
+
+  // Returns the identifiers of all supported packages.
+  rpc ListPackages (ListPackagesRequest) returns (com.daml.ledger.api.v1.ListPackagesResponse);
+
+  // Returns the contents of a single package.
+  rpc GetPackage (GetPackageRequest) returns (com.daml.ledger.api.v1.GetPackageResponse);
+
+  // Returns the status of a single package.
+  rpc GetPackageStatus (GetPackageStatusRequest) returns (com.daml.ledger.api.v1.GetPackageStatusResponse);
+
+}
+
+message ListPackagesRequest {
+}
+
+message GetPackageRequest {
+
+  // The ID of the requested package.
+  // Must be a valid PackageIdString (as described in ``value.proto``).
+  // Required
+  string package_id = 1;
+}
+
+message GetPackageStatusRequest {
+
+  // The ID of the requested package.
+  // Must be a valid PackageIdString (as described in ``value.proto``).
+  // Required
+  string package_id = 1;
+}

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.test.{TransactionBuilder, TreeTransactionBuilder}
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion, Util}
 import com.daml.lf.value.Value.{ValueParty, VersionedContractInstance}
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -50,7 +50,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           stakeholders = Set(bob),
           keyOpt = Some(
             GlobalKeyWithMaintainers
-              .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+              .assertBuild(
+                someTemplateId,
+                someContractKey(bob, "some key"),
+                Set(bob),
+                Util.sharedKey(testLanguageVersion),
+              )
           ),
           version = TransactionVersion.minVersion,
         )
@@ -83,7 +88,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         signatories = Set(bob),
         stakeholders = Set(bob),
         keyOpt = Some(
-          GlobalKeyWithMaintainers.assertBuild(someTemplateId, ValueParty(bob), Set(bob))
+          GlobalKeyWithMaintainers.assertBuild(
+            someTemplateId,
+            ValueParty(bob),
+            Set(bob),
+            Util.sharedKey(testLanguageVersion),
+          )
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
@@ -105,7 +115,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         exerciseResult = Some(someChoiceResult),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+            .assertBuild(
+              someTemplateId,
+              someContractKey(bob, "some key"),
+              Set(bob),
+              Util.sharedKey(testLanguageVersion),
+            )
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
@@ -120,7 +135,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         stakeholders = Set(alice, bob),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+            .assertBuild(
+              someTemplateId,
+              someContractKey(bob, "some key"),
+              Set(bob),
+              Util.sharedKey(testLanguageVersion),
+            )
         ),
         version = TransactionVersion.minVersion,
       )

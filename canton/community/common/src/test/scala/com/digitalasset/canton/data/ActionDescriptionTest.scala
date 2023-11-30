@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.ActionDescription.*
 import com.digitalasset.canton.protocol.*
@@ -18,7 +19,13 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
   private val suffixedId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
   private val seed: LfHash = ExampleTransactionFactory.lfHash(5)
   private val globalKey: LfGlobalKey =
-    LfGlobalKey.build(LfTransactionBuilder.defaultTemplateId, Value.ValueInt64(10L)).value
+    LfGlobalKey
+      .build(
+        templateId = LfTransactionBuilder.defaultTemplateId,
+        key = Value.ValueInt64(10L),
+        shared = Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
+      )
+      .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")
   private val dummyVersion: LfTransactionVersion = ExampleTransactionFactory.transactionVersion
 
@@ -170,6 +177,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
             .build(
               LfTransactionBuilder.defaultTemplateId,
               ExampleTransactionFactory.veryDeepValue,
+              Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
             )
             .value,
           dummyVersion,
