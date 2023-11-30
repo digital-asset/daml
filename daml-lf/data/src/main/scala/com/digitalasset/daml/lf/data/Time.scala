@@ -120,7 +120,7 @@ object Time {
       DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
 
     private[this] val OneMicroInNanos = math.BigDecimal.valueOf(TimeUnit.MICROSECONDS.toNanos(1))
-    private[this] val OneSecondInNanos = math.BigDecimal.valueOf(TimeUnit.SECONDS.toMicros(1))
+    private[this] val OneSecondInNanos = math.BigDecimal.valueOf(TimeUnit.SECONDS.toNanos(1))
 
     private[this] def microsFromEpochSeconds(
         seconds: Long,
