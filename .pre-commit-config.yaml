@@ -46,3 +46,8 @@ repos:
       pass_filenames: false
       entry: "dade-copyright-headers update"
       types: [text]
+    - id: platform-independence-dar-check
+      name: platform-independence-dar-check
+      language: system
+      pass_filenames: false
+      entry: "bazel test //compiler/damlc/tests:platform-independence-dar-hash-file-matches"
