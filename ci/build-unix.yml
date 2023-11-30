@@ -6,6 +6,7 @@ parameters:
   name: ''
   release_tag: ''
   scala_version: ''
+  test_mode: ''
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -52,10 +53,11 @@ steps:
       set -euo pipefail
       p="_${{parameters.name}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
+      t="${{parameters.test_mode}}"
       if [ "$p" == "_m1" ]; then
-          ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a || ./build.sh $p $a
+          ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t 
       else
-          ./build.sh $p $a
+          ./build.sh $p $a $t 
       fi
     displayName: 'Build'
     env:

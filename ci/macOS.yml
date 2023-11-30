@@ -5,6 +5,7 @@ parameters:
 - name: name
 - name: assignment
 - name: job_name
+- name: test_mode
 
 jobs:
 - job: ${{parameters.job_name}}
@@ -45,6 +46,7 @@ jobs:
         release_tag: $(release_tag)
         name: ${{parameters.name}}
         is_release: variables.is_release
+        test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: upload-bazel-metrics.yml

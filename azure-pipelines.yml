@@ -18,6 +18,8 @@ pr: none
 
 jobs:
 - template: ci/build.yml
+  parameters:
+    test_mode: main
 - template: ci/check-for-release-job.yml
 
 - job: release

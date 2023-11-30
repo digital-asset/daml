@@ -13,6 +13,21 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
+case $3 in
+  # When running against main, exclude "pr-only" tests
+  main)
+    tag_filter="-pr-only"
+    ;;
+  # When running against a PR, exclude "main-only" tests
+  pr)
+    tag_filter="-main-only"
+    ;;
+  *)
+    echo "unknown test mode: $3"
+    exit 1
+    ;;
+esac
+
 tag_filter=""
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"

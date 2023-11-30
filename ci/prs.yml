@@ -12,6 +12,8 @@ pr:
 
 jobs:
 - template: build.yml
+  parameters:
+    test_mode: pr
 - template: check-for-release-job.yml
 
 
