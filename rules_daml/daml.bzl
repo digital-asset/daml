@@ -368,6 +368,58 @@ def daml_compile_with_dalf(
         dalf = name + ".dalf",
     )
 
+def generate_and_track_dar_hash_file(name):
+    generate_dar_hash_file(name)
+
+    native.filegroup(
+        name = name + "-golden-hash",
+        srcs = native.glob([name + ".dar-hash"]),
+        visibility = ["//visibility:public"],
+    )
+
+    native.sh_test(
+        name = name + "-dar-hash-file-matches",
+        srcs = ["//bazel_tools:match-golden-file"],
+        args = [
+            "$(location :{}-generated-hash)".format(name),
+            "$(location :{}-golden-hash)".format(name),
+            "$(POSIX_DIFF)",
+        ],
+        data = [
+            ":{}-generated-hash".format(name),
+            ":{}-golden-hash".format(name),
+        ],
+        toolchains = [
+            "@rules_sh//sh/posix:make_variables",
+        ],
+        deps = [
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+
+def generate_dar_hash_file(name):
+    native.genrule(
+        name = name + "-generated-hash",
+        srcs = [":{}.dar".format(name)],
+        outs = [name + "-generated.dar-hash"],
+        cmd = """
+set -euo pipefail
+
+DIR=$$(mktemp -d)
+unzip -d $$DIR {dar}
+
+( cd $$DIR;
+  find . -type f |
+  # hie/hi files may differ.
+  grep -v '\\.hie\\?$$' |
+  sort |
+  xargs sha256sum
+) >> $@
+""".format(
+            dar = "$(location :{}.dar)".format(name),
+        ),
+    )
+
 def daml_build_test(
         name,
         project_dir,
