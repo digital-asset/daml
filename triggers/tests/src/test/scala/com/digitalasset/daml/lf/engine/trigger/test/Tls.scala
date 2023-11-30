@@ -4,9 +4,9 @@
 package com.daml.lf.engine.trigger.test
 
 import org.apache.pekko.stream.scaladsl.Flow
-import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
@@ -14,7 +14,6 @@ import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.syntax.tag._
 
 class TlsV1 extends Tls(LanguageMajorVersion.V1)
 class TlsV2 extends Tls(LanguageMajorVersion.V2)
@@ -33,13 +32,12 @@ class Tls(override val majorLanguageVersion: LanguageMajorVersion)
     // We just need something simple to test the connection.
     val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
     val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
-    def asset(party: ApiParty): CreateCommand =
+    def asset(party: Ref.Party): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),
         createArguments = Some(
           LedgerApi.Record(
-            fields =
-              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party.unwrap))))
+            fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
           )
         ),
       )

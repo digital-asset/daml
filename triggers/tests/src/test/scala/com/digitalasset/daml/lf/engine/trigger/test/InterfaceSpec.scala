@@ -17,7 +17,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.util.Ctx
-import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 
@@ -83,7 +82,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
@@ -98,7 +97,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
@@ -140,7 +139,8 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
       }
 
       "succeed with interface registration and implementing template not registered" in {
-        val triggerId = QualifiedName.assertFromString("InterfaceTriggers:triggerWithRegistration")
+        val triggerId =
+          QualifiedName.assertFromString("InterfaceTriggers:triggerWithRegistration")
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
@@ -159,7 +159,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaTemplateA)),
@@ -177,7 +177,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),
@@ -241,7 +241,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),
@@ -259,7 +259,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party.unwrap))),
+                    RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),

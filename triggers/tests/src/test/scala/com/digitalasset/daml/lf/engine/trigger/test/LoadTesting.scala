@@ -4,12 +4,12 @@
 package com.daml.lf.engine.trigger.test
 
 import org.apache.pekko.stream.scaladsl.Flow
-import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.{
@@ -24,7 +24,6 @@ import com.daml.util.Ctx
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 
@@ -40,13 +39,13 @@ abstract class LoadTesting
   // The following value should be kept in sync with the value of breedingRate in Cats.daml
   val breedingRate: Int = 100
 
-  def command(template: String, owner: ApiParty, i: Int): CreateCommand =
+  def command(template: String, owner: Ref.Party, i: Int): CreateCommand =
     CreateCommand(
       templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
       createArguments = Some(
         LedgerApi.Record(fields =
           Seq(
-            LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner.unwrap))),
+            LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
             template match {
               case "TestControl" =>
                 LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i.toLong)))
@@ -58,9 +57,9 @@ abstract class LoadTesting
       ),
     )
 
-  def cat(owner: ApiParty, i: Int): CreateCommand = command("Cat", owner, i)
+  def cat(owner: Ref.Party, i: Int): CreateCommand = command("Cat", owner, i)
 
-  def food(owner: ApiParty, i: Int): CreateCommand = command("Food", owner, i)
+  def food(owner: Ref.Party, i: Int): CreateCommand = command("Food", owner, i)
 
   def notObserving(
       templateId: LedgerApi.Identifier

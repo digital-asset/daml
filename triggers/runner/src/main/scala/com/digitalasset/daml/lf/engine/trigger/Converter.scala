@@ -8,9 +8,8 @@ package trigger
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -314,10 +313,8 @@ final class Converter(
   ): Either[String, SValue] =
     for {
       acs <- fromActiveContracts(createdEvents)
-      actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-      readAs = SList(
-        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-      )
+      actAs = SParty(parties.actAs)
+      readAs = SList(parties.readAs.view.map(SParty).to(FrontStack))
       config = fromTriggerConfig(triggerConfig)
     } yield record(
       triggerSetupArgumentsTy,
@@ -416,10 +413,8 @@ final class Converter(
       triggerConfig: TriggerRunnerConfig,
   ): SValue = {
     val acs = fromACS(createdEvents)
-    val actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-    val readAs = SList(
-      parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-    )
+    val actAs = SParty(parties.actAs)
+    val readAs = SList(parties.readAs.map(SParty).to(FrontStack))
     val config = fromTriggerConfig(triggerConfig)
 
     record(

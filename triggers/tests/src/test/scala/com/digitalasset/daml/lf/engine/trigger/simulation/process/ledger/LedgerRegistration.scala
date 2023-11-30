@@ -8,7 +8,6 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
@@ -24,7 +23,6 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
 }
 import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, SubmissionReporting}
 import com.daml.lf.engine.trigger.{Converter, TriggerMsg}
-import scalaz.syntax.tag._
 
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
@@ -86,7 +84,7 @@ final class LedgerRegistration(client: LedgerClient)(implicit
                 )
             }
           client.commandClient
-            .completionSource(Seq(actAs.unwrap), offset)
+            .completionSource(Seq(actAs), offset)
             .collect { case CompletionElement(completion, _) =>
               val timestamp = System.currentTimeMillis()
               trigger ! TriggerProcess.MessageWrapper(TriggerMsg.Completion(completion))
@@ -169,7 +167,7 @@ object LedgerRegistration {
       triggerId: UUID,
       triggerDefRef: Ref.DefinitionRef,
       trigger: ActorRef[TriggerProcess.Message],
-      actAs: Party,
+      actAs: Ref.Party,
       filter: TransactionFilter,
       replyTo: ActorRef[LedgerApi],
   ) extends Message

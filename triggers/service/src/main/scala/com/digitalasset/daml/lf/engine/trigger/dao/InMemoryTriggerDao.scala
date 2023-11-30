@@ -7,8 +7,8 @@ import java.util.UUID
 
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.RunningTrigger
 
@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class InMemoryTriggerDao extends RunningTriggerDao {
   private var triggers: Map[UUID, RunningTrigger] = Map.empty
-  private var triggersByParty: Map[Party, Set[UUID]] = Map.empty
+  private var triggersByParty: Map[Ref.Party, Set[UUID]] = Map.empty
 
   override def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit] =
     Future {
@@ -60,7 +60,7 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
   }
 
   override def listRunningTriggers(
-      party: Party
+      party: Ref.Party
   )(implicit ec: ExecutionContext): Future[Vector[UUID]] = Future {
     triggersByParty.getOrElse(party, Set()).toVector.sorted
   }

@@ -7,7 +7,6 @@ package test
 import java.nio.file.Paths
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.google.protobuf.field_mask.FieldMask
@@ -20,9 +19,7 @@ import scala.language.implicitConversions
 
 class ConfigSpec extends AsyncWordSpec with Matchers with CantonFixture {
 
-  private implicit def toParty(s: String): ApiTypes.Party =
-    ApiTypes.Party(s)
-  private implicit def toRefParty(s: String): Ref.Party =
+  private implicit def toParty(s: String): Ref.Party =
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
@@ -42,7 +39,7 @@ class ConfigSpec extends AsyncWordSpec with Matchers with CantonFixture {
     )
     "succeed with --ledger-party" in {
       RunnerConfig.parse(defaultArgs ++ Seq("--ledger-party=alice")) shouldBe Some(
-        config.copy(ledgerClaims = PartySpecification(TriggerParties(toParty("alice"), Set.empty)))
+        config.copy(ledgerClaims = PartySpecification(TriggerParties("alice", Set.empty)))
       )
     }
     "succeed with --ledger-party and --ledger-readas" in {

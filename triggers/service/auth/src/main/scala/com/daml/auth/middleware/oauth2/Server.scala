@@ -15,7 +15,6 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.daml.ledger.api.{auth => lapiauth}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.metrics.api.reporters.MetricsReporting
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
@@ -371,13 +370,11 @@ object Server extends StrictLogging {
       case tp: lapiauth.CustomDamlJWTPayload =>
         (
           (tp.admin || !claims.admin) &&
-            Party
-              .unsubst(claims.actAs)
-              .toSet
+            claims.actAs
+              .toSet[String]
               .subsetOf(tp.actAs.toSet) &&
-            Party
-              .unsubst(claims.readAs)
-              .toSet
+            claims.readAs
+              .toSet[String]
               .subsetOf(tp.readAs.toSet ++ tp.actAs),
           tp.applicationId,
         )
@@ -391,7 +388,7 @@ object Server extends StrictLogging {
       case (None, _) => true
       // Token valid for all app ids.
       case (_, None) => true
-      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
+      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == actualAppId
     })
   }
 

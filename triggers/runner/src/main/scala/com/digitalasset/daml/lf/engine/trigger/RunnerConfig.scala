@@ -9,7 +9,6 @@ import java.nio.file.{Path, Paths}
 import java.time.Duration
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.client.LedgerClient
@@ -53,7 +52,7 @@ case class RunnerConfig(
     timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     accessTokenFile: Option[Path],
-    applicationId: ApplicationId,
+    applicationId: Option[Ref.ApplicationId],
     tlsConfig: TlsConfiguration,
     compilerConfigBuilder: CompilerConfigBuilder,
     majorLanguageVersion: LanguageMajorVersion,
@@ -63,7 +62,7 @@ case class RunnerConfig(
 ) {
   private def updatePartySpec(f: TriggerParties => TriggerParties): RunnerConfig =
     if (ledgerClaims == null) {
-      copy(ledgerClaims = PartySpecification(f(TriggerParties(Party(""), Set.empty))))
+      copy(ledgerClaims = PartySpecification(f(TriggerParties.Empty)))
     } else
       ledgerClaims match {
         case PartySpecification(claims) =>
@@ -73,10 +72,10 @@ case class RunnerConfig(
             s"Must specify either --ledger-party and --ledger-readas or --ledger-userid but not both"
           )
       }
-  private def updateActAs(party: Party): RunnerConfig =
-    updatePartySpec(spec => spec.copy(actAs = party))
+  private def updateActAs(party: Ref.Party): RunnerConfig =
+    updatePartySpec(spec => spec.copy(actAsOpt = Some(party)))
 
-  private def updateReadAs(parties: Seq[Party]): RunnerConfig =
+  private def updateReadAs(parties: Seq[Ref.Party]): RunnerConfig =
     updatePartySpec(spec => spec.copy(readAs = spec.readAs ++ parties))
 
   private def updateUser(userId: Ref.UserId): RunnerConfig =
@@ -133,14 +132,22 @@ final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecificati
         )
       }
     readers = (readAs ++ actAs) - primaryParty
-  } yield TriggerParties(Party(primaryParty), readers.map(Party(_)))
+  } yield TriggerParties(primaryParty, readers)
 }
 
 final case class TriggerParties(
-    actAs: Party,
-    readAs: Set[Party],
+    actAsOpt: Option[Ref.Party],
+    readAs: Set[Ref.Party],
 ) {
-  lazy val readers: Set[Party] = readAs + actAs
+  lazy val actAs = actAsOpt.get
+  lazy val readers: Set[Ref.Party] = readAs + actAs
+}
+
+object TriggerParties {
+  def apply(actAs: Ref.Party, readAs: Set[Ref.Party]): TriggerParties =
+    new TriggerParties(Some(actAs), readAs)
+
+  def Empty = new TriggerParties(None, Set.empty)
 }
 
 object RunnerConfig {
@@ -151,8 +158,8 @@ object RunnerConfig {
 
   private[trigger] val DefaultMaxInboundMessageSize: Int = 4194304
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
-  private[trigger] val DefaultApplicationId: ApplicationId =
-    ApplicationId("daml-trigger")
+  private[trigger] val DefaultApplicationId: Some[Ref.ApplicationId] =
+    Some(Ref.ApplicationId.assertFromString("daml-trigger"))
   private[trigger] val DefaultCompilerConfigBuilder: CompilerConfigBuilder =
     CompilerConfigBuilder.Default
   private[trigger] val DefaultMajorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V1
@@ -179,12 +186,12 @@ object RunnerConfig {
       .text("Ledger port")
 
     opt[String]("ledger-party")
-      .action((t, c) => c.updateActAs(Party(t)))
+      .action((t, c) => c.updateActAs(Ref.Party.assertFromString(t)))
       .text("""The party the trigger can act as.
               |Mutually exclusive with --ledger-user.""".stripMargin)
 
     opt[Seq[String]]("ledger-readas")
-      .action((t, c) => c.updateReadAs(t.map(Party(_))))
+      .action((t, c) => c.updateReadAs(t.map(Ref.Party.assertFromString)))
       .unbounded()
       .text(
         """A comma-separated list of parties the trigger can read as.
@@ -240,7 +247,9 @@ object RunnerConfig {
 
     opt[String]("application-id")
       .action { (appId, c) =>
-        c.copy(applicationId = ApplicationId(appId))
+        c.copy(applicationId =
+          Some(appId).filterNot(_.isEmpty).map(Ref.ApplicationId.assertFromString)
+        )
       }
       .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
 
@@ -333,7 +342,7 @@ object RunnerConfig {
             failure("Missing option --ledger-party or --ledger-user")
           } else {
             c.ledgerClaims match {
-              case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
+              case PartySpecification(TriggerParties(actAs, _)) if actAs.isEmpty =>
                 failure("Missing option --ledger-party")
               case _ => success
             }

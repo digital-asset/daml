@@ -9,7 +9,6 @@ import java.util.UUID
 import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.Request
 import com.daml.auth.middleware.api.Tagged.RefreshToken
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 
 import scala.collection.concurrent.TrieMap
 import scala.io.{BufferedSource, Source}
@@ -116,11 +115,11 @@ private[oauth2] class RequestTemplates(
         "claims" -> ujson.Obj(
           "admin" -> claims.admin,
           "applicationId" -> (claims.applicationId match {
-            case Some(appId) => ApplicationId.unwrap(appId)
+            case Some(appId) => appId
             case None => ujson.Null
           }),
-          "actAs" -> Party.unsubst(claims.actAs),
-          "readAs" -> Party.unsubst(claims.readAs),
+          "actAs" -> claims.actAs,
+          "readAs" -> claims.readAs,
         ),
         "redirectUri" -> redirectUri.toString,
         "state" -> requestId.toString,

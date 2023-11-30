@@ -7,10 +7,10 @@ package ledger
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.Materializer
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.scalautil.Statement.discard
@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 final class LedgerExternalAction(client: LedgerClient)(implicit
     materializer: Materializer,
     config: TriggerSimulationConfig,
-    applicationId: ApplicationId,
+    applicationId: Option[Ref.ApplicationId],
 ) {
 
   import LedgerExternalAction._
@@ -80,11 +80,11 @@ object LedgerExternalAction {
   // Used by LedgerProcess
   final case class CreateContract(
       create: CreatedEvent,
-      party: Party,
+      party: Ref.Party,
   ) extends Message
   // Used by LedgerProcess
   final case class ArchiveContract(
       archive: ArchivedEvent,
-      party: Party,
+      party: Ref.Party,
   ) extends Message
 }

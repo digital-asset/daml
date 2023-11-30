@@ -8,7 +8,6 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -20,12 +19,12 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.lf.CompiledPackages
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerStatus}
 import com.daml.logging.ContextualizedLogger
 import io.grpc.Status.Code
-import scalaz.syntax.tag._
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,8 +36,8 @@ object TriggerRunnerImpl {
   final case class Config(
       server: ActorRef[Server.Message],
       triggerInstance: UUID,
-      party: Party,
-      applicationId: ApplicationId,
+      party: Ref.Party,
+      applicationId: Option[Ref.ApplicationId],
       accessToken: Option[AccessToken],
       refreshToken: Option[RefreshToken],
       compiledPackages: CompiledPackages,
@@ -47,7 +46,7 @@ object TriggerRunnerImpl {
       triggerConfig: TriggerRunnerConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-      readAs: Set[Party],
+      readAs: Set[Ref.Party],
   ) {
     private[trigger] def withTriggerLogContext[T]: (TriggerLogContext => T) => T =
       Trigger.newTriggerLogContext(
@@ -81,7 +80,7 @@ object TriggerRunnerImpl {
       config.server ! Server.TriggerStarting(triggerInstance)
       logger.info(s"Trigger $name is starting")
       val clientConfig = LedgerClientConfiguration(
-        applicationId = config.applicationId.unwrap,
+        applicationId = config.applicationId.getOrElse(""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl

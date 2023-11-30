@@ -9,7 +9,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, Uri, headers}
 import org.apache.pekko.http.scaladsl.server.Directive1
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.lf.data.Ref
 import scalaz.{@@, Tag}
 import spray.json._
 
@@ -37,9 +37,9 @@ object Request {
   // appId, i.e., either a wildcard token or a token with applicationId set to appId.
   case class Claims(
       admin: Boolean,
-      actAs: List[Party],
-      readAs: List[Party],
-      applicationId: Option[ApplicationId],
+      actAs: List[Ref.Party],
+      readAs: List[Ref.Party],
+      applicationId: Option[Ref.ApplicationId],
   ) {
     def toQueryString() = {
       val adminS = if (admin) LazyList("admin") else LazyList()
@@ -52,27 +52,28 @@ object Request {
   object Claims {
     def apply(
         admin: Boolean = false,
-        actAs: List[Party] = List(),
-        readAs: List[Party] = List(),
-        applicationId: Option[ApplicationId] = None,
+        actAs: List[Ref.Party] = List(),
+        readAs: List[Ref.Party] = List(),
+        applicationId: Option[Ref.ApplicationId] = None,
     ): Claims =
       new Claims(admin, actAs, readAs, applicationId)
     def apply(s: String): Claims = {
       var admin = false
-      val actAs = ArrayBuffer[Party]()
-      val readAs = ArrayBuffer[Party]()
-      var applicationId: Option[ApplicationId] = None
+      val actAs = ArrayBuffer[Ref.Party]()
+      val readAs = ArrayBuffer[Ref.Party]()
+      var applicationId: Option[Ref.ApplicationId] = None
       s.split(' ').foreach { w =>
         if (w == "admin") {
           admin = true
         } else if (w.startsWith("actAs:")) {
-          actAs.append(Party(w.stripPrefix("actAs:")))
+          actAs.append(Ref.Party.assertFromString(w.stripPrefix("actAs:")))
         } else if (w.startsWith("readAs:")) {
-          readAs.append(Party(w.stripPrefix("readAs:")))
+          readAs.append(Ref.Party.assertFromString(w.stripPrefix("readAs:")))
         } else if (w.startsWith("applicationId:")) {
           applicationId match {
             case None =>
-              applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
+              applicationId =
+                Some(Ref.ApplicationId.assertFromString(w.stripPrefix("applicationId:")))
             case Some(_) =>
               throw new IllegalArgumentException(
                 "applicationId claim can only be specified once"
