@@ -50,4 +50,4 @@ repos:
       name: platform-independence-dar-check
       language: system
       pass_filenames: false
-      entry: "bazel test //compiler/damlc/tests:platform-independence-dar-hash-file-matches"
+      entry: "pre-commit/platform-independence-check.sh"
