@@ -19,7 +19,6 @@ import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
@@ -218,21 +217,6 @@ class GrpcLedgerClient(
     }
   }
 
-  // TODO (MK) https://github.com/digital-asset/daml/issues/11737
-  private val catchableStatusCodes =
-    Set(
-      Status.Code.NOT_FOUND,
-      Status.Code.INVALID_ARGUMENT,
-      Status.Code.FAILED_PRECONDITION,
-      Status.Code.ALREADY_EXISTS,
-    )
-
-  private def isSubmitMustFailError(status: StatusRuntimeException): Boolean = {
-    val code = status.getStatus.getCode
-    // We handle ABORTED for backwards compatibility with pre-1.18 error codes.
-    catchableStatusCodes.contains(code) || code == Status.Code.ABORTED
-  }
-
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -262,52 +246,17 @@ class GrpcLedgerClient(
     }
   }
 
-  override def trySubmit(
+  override def submitInternal(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit ec: ExecutionContext, mat: Materializer) =
-    internalSubmit(actAs, readAs, disclosures, commands)
-      .map(Right(_))
-      .recoverWith({ case s: StatusRuntimeException =>
-        Future
-          .successful(Left(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)))
-      })
-
-  override def trySubmitConcurrently(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      commandss: List[List[command.ApiCommand]],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit ec: ExecutionContext, mat: Materializer) =
-    Future.traverse(commandss)(
-      trySubmit(actAs, readAs, List.empty, _, optLocation, languageVersionLookup)
-    )
-
-  override def submit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer) =
-    internalSubmit(actAs, readAs, disclosures, commands)
-      .map(Right(_))
-      .recoverWith({
-        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
-          Future.successful(Left(s))
-      })
-
-  def internalSubmit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-  )(implicit ec: ExecutionContext) = {
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
       disclosures.map { case Disclosure(tmplId, cid, blob) =>
@@ -317,88 +266,38 @@ class GrpcLedgerClient(
           createdEventBlob = blob.toByteString,
         )
       }
-    val ledgerCommands = commands.traverse(toCommand(_)) match {
-      case Left(err) => throw new ConverterException(err)
-      case Right(cmds) => cmds
-    }
-    // We need to remember the original package ID for each command result, so we can reapply them
-    // after we get the results (for upgrades)
-    val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+    val resultFuture =
+      for {
+        ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+        // We need to remember the original package ID for each command result, so we can reapply them
+        // after we get the results (for upgrades)
+        commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
 
-    val apiCommands = Commands(
-      party = actAs.head,
-      actAs = actAs.toList,
-      readAs = readAs.toList,
-      commands = ledgerCommands,
-      ledgerId = grpcClient.ledgerId.unwrap,
-      applicationId = applicationId.unwrap,
-      commandId = UUID.randomUUID.toString,
-      disclosedContracts = ledgerDisclosures,
-    )
-    val request = SubmitAndWaitRequest(Some(apiCommands))
-    val transactionTreeF = grpcClient.commandServiceClient
-      .submitAndWaitForTransactionTree(request)
-
-    transactionTreeF.map { transactionTree =>
-      val events = transactionTree.getTransaction.rootEventIds
-        .map(evId => transactionTree.getTransaction.eventsById(evId))
-        .toList
-      events.zip(commandResultPackageIds).traverse { case (event, intendedPackageId) =>
-        fromTreeEvent(event, intendedPackageId)
-      } match {
-        case Left(err) => throw new ConverterException(err)
-        case Right(results) => results
-      }
-    }
-  }
-
-  override def submitMustFail(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, disclosures, commands, optLocation).map({
-      case Right(_) => Left(())
-      case Left(_) => Right(())
-    })
-  }
-
-  override def submitTree(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[ScriptLedgerClient.TransactionTree] = {
-    import scalaz.std.list._
-    import scalaz.syntax.traverse._
-    for {
-      _ <- Converter.noDisclosures(disclosures)
-      ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
-      // We need to remember the original package ID for each command result, so we can reapply them
-      // after we get the results (for upgrades)
-      commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
-      apiCommands = Commands(
-        party = actAs.head,
-        actAs = actAs.toList,
-        readAs = readAs.toList,
-        commands = ledgerCommands,
-        ledgerId = grpcClient.ledgerId.unwrap,
-        applicationId = applicationId.unwrap,
-        commandId = UUID.randomUUID.toString,
-      )
-      request = SubmitAndWaitRequest(Some(apiCommands))
-      resp <- grpcClient.commandServiceClient
-        .submitAndWaitForTransactionTree(request)
-      converted <- Converter.toFuture(
-        Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
-      )
-    } yield converted
+        apiCommands = Commands(
+          party = actAs.head,
+          actAs = actAs.toList,
+          readAs = readAs.toList,
+          commands = ledgerCommands,
+          ledgerId = grpcClient.ledgerId.unwrap,
+          applicationId = applicationId.unwrap,
+          commandId = UUID.randomUUID.toString,
+          disclosedContracts = ledgerDisclosures,
+        )
+        request = SubmitAndWaitRequest(Some(apiCommands))
+        resp <- grpcClient.commandServiceClient
+          .submitAndWaitForTransactionTree(request)
+        tree <- Converter.toFuture(
+          Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+        )
+        results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
+      } yield Right((results, Some(tree)))
+    resultFuture
+      .recoverWith({ case s: StatusRuntimeException =>
+        Future.successful(Left(ScriptLedgerClient.SubmitFailure(
+          s,  
+          Some(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)),
+        )))
+      })
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
@@ -497,37 +396,6 @@ class GrpcLedgerClient(
           )
         )
     }
-
-  private def fromTreeEvent(
-      ev: TreeEvent,
-      intendedPackageId: PackageId,
-  ): Either[String, ScriptLedgerClient.CommandResult] = {
-    import scalaz.std.option._
-    import scalaz.syntax.traverse._
-    ev match {
-      case TreeEvent(TreeEvent.Kind.Created(created)) =>
-        for {
-          cid <- ContractId.fromString(created.contractId)
-        } yield ScriptLedgerClient.CreateResult(cid)
-      case TreeEvent(TreeEvent.Kind.Exercised(exercised)) =>
-        for {
-          result <- NoLoggingValueValidator
-            .validateValue(exercised.getExerciseResult)
-            .left
-            .map(_.toString)
-          templateId <- Converter.fromApiIdentifier(exercised.getTemplateId)
-          ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
-          choice <- ChoiceName.fromString(exercised.choice)
-        } yield ScriptLedgerClient.ExerciseResult(
-          templateId.copy(packageId = intendedPackageId),
-          ifaceId,
-          choice,
-          result,
-        )
-      case TreeEvent(TreeEvent.Kind.Empty) =>
-        throw new ConverterException("Invalid tree event Empty")
-    }
-  }
 
   override def createUser(
       user: User,

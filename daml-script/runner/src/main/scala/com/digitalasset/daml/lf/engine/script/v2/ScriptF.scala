@@ -23,7 +23,7 @@ import com.daml.lf.data.Ref.{
 }
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SBuiltin.SBVariantCon
@@ -158,172 +158,96 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  final case class TrySubmitConcurrently(
+  sealed trait SubmissionErrorBehaviour
+
+  object SubmissionErrorBehaviour {
+    final case object MustFail extends SubmissionErrorBehaviour
+    final case object MustSucceed extends SubmissionErrorBehaviour
+    final case object Try extends SubmissionErrorBehaviour
+  }
+
+  final case class Submission(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
-      cmdss: List[List[command.ApiCommand]],
-      stackTrace: StackTrace,
-  ) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        client <- Converter.toFuture(
-          env.clients.getPartiesParticipant(actAs)
-        )
-        resItems <- client
-          .trySubmitConcurrently(
-            actAs,
-            readAs,
-            cmdss,
-            stackTrace.topFrame,
-            env.lookupLanguageVersion,
-          )
-        res <- Converter.toFuture(
-          Converter
-            .fromSubmitResultList[SubmitError](
-              env.lookupChoice,
-              env.valueTranslator,
-              _.toDamlSubmitError(env),
-              env.scriptIds,
-              resItems,
-              client.enableContractUpgrading,
-            )
-        )
-      } yield SEValue(res)
-  }
+      cmds: List[command.ApiCommand],
+      disclosures: List[Disclosure],
+      errorBehaviour: SubmissionErrorBehaviour,
+  )
 
-  final case class TrySubmit(data: SubmitData) extends Cmd {
+  // The one submit to rule them all
+  final case class SubmitConcurrentInternal(submissions: List[Submission], stackTrace: StackTrace) extends Cmd {
+    import SubmissionErrorBehaviour._
 
     override def execute(
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      Future.traverse(submissions)(singleSubmit(_, env)).map(results => SEValue(SList(results.to(FrontStack))))
+
+    def singleSubmit(
+        submission: Submission,
+        env: Env,
+    )(implicit ec: ExecutionContext, mat: Materializer): Future[SValue] =
       for {
         client <- Converter.toFuture(
           env.clients
-            .getPartiesParticipant(data.actAs)
+            .getPartiesParticipant(submission.actAs)
         )
-        submitRes <- client.trySubmit(
-          data.actAs,
-          data.readAs,
-          data.disclosures,
-          data.cmds,
-          data.stackTrace.topFrame,
+        submitRes <- client.submitInternal(
+          submission.actAs,
+          submission.readAs,
+          submission.disclosures,
+          submission.cmds,
+          stackTrace.topFrame,
           env.lookupLanguageVersion,
         )
-        res <- Converter.toFuture(
-          Converter
-            .fromSubmitResult[SubmitError](
-              env.lookupChoice,
-              env.valueTranslator,
-              _.toDamlSubmitError(env),
-              env.scriptIds,
-              submitRes,
-              client.enableContractUpgrading,
+        res <- (submitRes, submission.errorBehaviour) match {
+          case (Right(_), MustFail) =>
+            Future.failed(
+              SError.SErrorDamlException(
+                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+              )
             )
-        )
-      } yield SEValue(res)
-  }
-
-  final case class Submit(data: SubmitData) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      for {
-        client <- Converter.toFuture(
-          env.clients
-            .getPartiesParticipant(data.actAs)
-        )
-        submitRes <- client.submit(
-          data.actAs,
-          data.readAs,
-          data.disclosures,
-          data.cmds,
-          data.stackTrace.topFrame,
-        )
-        v <- submitRes match {
-          case Right(results) =>
+          case (Right((commandResults, oTree)), _) =>
             Converter.toFuture(
-              results
+              commandResults
                 .to(FrontStack)
                 .traverse(
-                  Converter
-                    .fromCommandResult(
+                  Converter.fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _, client.enableContractUpgrading)
+                )
+                .flatMap { rs =>
+                  oTree.traverse(
+                    Converter.translateTransactionTree(
                       env.lookupChoice,
                       env.valueTranslator,
                       env.scriptIds,
                       _,
                       client.enableContractUpgrading,
                     )
-                )
-                .map(results => SEValue(SList(results)))
+                  ).map((rs, _))
+                }
+                .map { case (rs, oTree) =>
+                  SVariant(
+                    StablePackagesV2.Either,
+                    Name.assertFromString("Right"),
+                    1,
+                    makePair(SList(rs), SOptional(oTree)),
+                  )
+                }
             )
-          case Left(statusEx) => Future.failed(statusEx)
-        }
-      } yield v
-  }
-
-  final case class SubmitMustFail(data: SubmitData) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      for {
-        client <- Converter.toFuture(
-          env.clients
-            .getPartiesParticipant(data.actAs)
-        )
-        submitRes <- client.submitMustFail(
-          data.actAs,
-          data.readAs,
-          data.disclosures,
-          data.cmds,
-          data.stackTrace.topFrame,
-        )
-        v <- submitRes match {
-          case Right(()) =>
-            Future.successful(SEValue(SUnit))
-          case Left(()) =>
-            Future.failed(
-              SError.SErrorDamlException(
-                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+          case (Left(ScriptLedgerClient.SubmitFailure(err, _)), MustSucceed) => Future.failed(err)
+          case (Left(ScriptLedgerClient.SubmitFailure(_, oSubmitError)), _) =>
+            Future.successful(
+              SVariant(
+                StablePackagesV2.Either,
+                Name.assertFromString("Left"),
+                0,
+                SOptional(oSubmitError.map(_.toDamlSubmitError(env))),
               )
             )
         }
-      } yield v
+      } yield res
+  }
 
-  }
-  final case class SubmitTree(data: SubmitData) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      for {
-        _ <- Converter.noDisclosures(data.disclosures)
-        client <- Converter.toFuture(
-          env.clients
-            .getPartiesParticipant(data.actAs)
-        )
-        submitRes <- client.submitTree(
-          data.actAs,
-          data.readAs,
-          data.disclosures,
-          data.cmds,
-          data.stackTrace.topFrame,
-        )
-        res <- Converter.toFuture(
-          Converter.translateTransactionTree(
-            env.lookupChoice,
-            env.valueTranslator,
-            env.scriptIds,
-            submitRes,
-            client.enableContractUpgrading,
-          )
-        )
-      } yield SEValue(res)
-  }
   final case class QueryACS(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -888,18 +812,17 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  // Shared between Submit, SubmitMustFail and SubmitTree
-  final case class SubmitData(
-      actAs: OneAnd[Set, Party],
-      readAs: Set[Party],
-      cmds: List[command.ApiCommand],
-      disclosures: List[Disclosure],
-      stackTrace: StackTrace,
-  )
-
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  private def parseSubmit(v: SValue, stackTrace: StackTrace): Either[String, SubmitData] =
+  private def parseErrorBehaviour(n: Name): Either[String, SubmissionErrorBehaviour] =
+    n match {
+      case "MustSucceed" => Right(SubmissionErrorBehaviour.MustSucceed)
+      case "MustFail" => Right(SubmissionErrorBehaviour.MustFail)
+      case "Try" => Right(SubmissionErrorBehaviour.Try)
+      case _ => Left("Unknown constructor " + n)
+    }
+
+  private def parseSubmission(v: SValue): Either[String, Submission] =
     v match {
       case SRecord(
             _,
@@ -908,56 +831,41 @@ object ScriptF {
               SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
               SList(readAs),
               SList(disclosures),
+              SEnum(_, name, _),
               SList(cmds),
             ),
           ) =>
         for {
           actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
           readAs <- readAs.traverse(Converter.toParty)
-          cmds <- cmds.toList.traverse(Converter.toCommand)
           disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
-        } yield SubmitData(
+          errorBehaviour <- parseErrorBehaviour(name)
+          cmds <- cmds.toList.traverse(Converter.toCommand)
+        } yield Submission(
           actAs = toOneAndSet(actAs),
           readAs = readAs.toSet,
-          cmds = cmds,
           disclosures = disclosures,
-          stackTrace = stackTrace,
+          errorBehaviour = errorBehaviour,
+          cmds = cmds,
         )
-      case _ => Left(s"Expected Submit payload but got $v")
+      case _ => Left(s"Expected Submission payload but got $v")
     }
 
-  private def parseSubmitConcurrently(
-      v: SValue,
-      stackTrace: StackTrace,
-  ): Either[String, TrySubmitConcurrently] = {
-    def convert(
-        actAs: OneAnd[List, SValue],
-        readAs: List[SValue],
-        cmdss: List[List[SValue]],
-    ) =
-      for {
-        actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
-        readAs <- readAs.traverse(Converter.toParty(_))
-        cmdss <- cmdss.traverse(_.traverse(Converter.toCommand(_)))
-      } yield TrySubmitConcurrently(actAs, readAs.toSet, cmdss, stackTrace)
+  private def parseSubmitConcurrentInternal(v: SValue, stackTrace: StackTrace): Either[String, SubmitConcurrentInternal] =
     v match {
       case SRecord(
             _,
             _,
-            ArrayList(
-              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
-              SList(read),
-              cmdss,
-            ),
+            ArrayList(SList(submissions))
           ) =>
-        Converter.toList(cmdss, (Converter.toList(_, Right(_)))) match {
-          case Right(cmdss) => convert(OneAnd(hdAct, tlAct.toList), read.toList, cmdss)
-          case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
-        }
-
-      case _ => Left(s"Expected TrySubmitConcurrently payload but got $v")
+        for {
+          submissions <- submissions.traverse(parseSubmission(_))
+        } yield SubmitConcurrentInternal(
+          submissions = submissions.toList,
+          stackTrace = stackTrace,
+        )
+      case _ => Left(s"Expected SubmitConcurrentInternal payload but got $v")
     }
-  }
 
   private def parseQueryACS(v: SValue): Either[String, QueryACS] =
     v match {
@@ -1200,11 +1108,7 @@ object ScriptF {
       stackTrace: StackTrace,
   ): Either[String, Cmd] =
     (commandName, version) match {
-      case ("Submit", 1) => parseSubmit(v, stackTrace).map(Submit(_))
-      case ("SubmitMustFail", 1) => parseSubmit(v, stackTrace).map(SubmitMustFail(_))
-      case ("SubmitTree", 1) => parseSubmit(v, stackTrace).map(SubmitTree(_))
-      case ("TrySubmit", 1) => parseSubmit(v, stackTrace).map(TrySubmit(_))
-      case ("TrySubmitConcurrently", 1) => parseSubmitConcurrently(v, stackTrace)
+      case ("SubmitConcurrentInternal", 1) => parseSubmitConcurrentInternal(v, stackTrace)
       case ("QueryACS", 1) => parseQueryACS(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)

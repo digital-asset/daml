@@ -42,6 +42,7 @@ object ScriptLedgerClient {
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
+      result: Value,
       childEvents: List[TreeEvent],
   ) extends TreeEvent
   final case class Created(
@@ -50,6 +51,17 @@ object ScriptLedgerClient {
       argument: Value,
       blob: Bytes,
   ) extends TreeEvent
+
+  def transactionTreeToCommandResults(tree: TransactionTree): List[CommandResult] =
+    tree.rootEvents.map {
+      case c: Created => CreateResult(c.contractId)
+      case e: Exercised => ExerciseResult(e.templateId, e.interfaceId, e.choice, e.result)
+    }
+
+  final case class SubmitFailure(
+      statusError: StatusRuntimeException,
+      submitError: Option[SubmitError],
+  )
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
@@ -141,6 +153,18 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
+  def submitInternal(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]]
+
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
@@ -150,7 +174,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
+  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = ???
 
   def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
@@ -158,7 +182,7 @@ trait ScriptLedgerClient {
       disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = ???
 
   def submitTree(
       actAs: OneAnd[Set, Ref.Party],
@@ -166,7 +190,7 @@ trait ScriptLedgerClient {
       disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree] = ???
 
   def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
@@ -240,7 +264,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = ???
 
   def trySubmitConcurrently(
       actAs: OneAnd[Set, Ref.Party],
@@ -251,7 +275,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]]
+  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] = ???
 
   def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,

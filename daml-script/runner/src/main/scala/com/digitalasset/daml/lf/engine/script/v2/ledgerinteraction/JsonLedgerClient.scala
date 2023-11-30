@@ -375,6 +375,18 @@ class JsonLedgerClient(
     )
   }
 
+  override def submitInternal(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      disclosures: List[Disclosure],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = unsupportedOn("ee")
+
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,

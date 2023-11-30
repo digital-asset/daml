@@ -82,6 +82,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             contractId,
             choiceName,
             arg,
+            _, // Result cannot be encoded in daml with some kind of `AnyChoiceResult` type
             childEvents,
           ) =>
         for {
@@ -276,6 +277,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
+              choiceResult <- NoLoggingValueValidator
+                .validateValue(exercised.getExerciseResult)
+                .left
+                .map(_.toString)
               childEvents <- exercised.childEventIds.toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
@@ -284,6 +289,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               cid,
               choice,
               choiceArg,
+              choiceResult,
               childEvents,
             )
           case TreeEvent.Kind.Empty => throw new RuntimeException("foo")
