@@ -301,7 +301,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//language-support/java/bindings:bindings-rxjava",
+        "//language-support/java/bindings-rxjava",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
