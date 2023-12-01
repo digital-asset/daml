@@ -64,7 +64,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//canton:ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
@@ -189,10 +189,10 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:community_util-logging",
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/nonempty",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -232,6 +232,7 @@ scala_library(
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -239,7 +240,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/ledger-resources",
@@ -315,6 +315,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_buildinfo",
         "//canton-3x:community_ledger_ledger-common",
@@ -328,7 +329,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
@@ -407,6 +407,7 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
@@ -423,7 +424,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
@@ -510,6 +510,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
@@ -526,7 +527,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/validation",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -610,6 +610,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_ledger_ledger-api-core",
@@ -622,7 +623,6 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",
@@ -707,6 +707,7 @@ scala_library(
     deps = [
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
@@ -718,7 +719,6 @@ scala_library(
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/executors",
         "//libs-scala/nameof",
         "//libs-scala/nonempty",
@@ -874,6 +874,7 @@ scala_library(
     deps = [
         ":community_participant_admin-workflows-with-vacuuming_java",
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_common",
@@ -892,7 +893,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
@@ -957,6 +957,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":pekko-stream-minus-patched-classes",
+        "//canton:ledger_api_proto_scala",
         "//canton-3x:bindings-java",
         "//canton-3x:community_base",
         "//canton-3x:community_buildinfo",
@@ -972,7 +973,6 @@ scala_library(
         "//canton-3x:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
@@ -1106,7 +1106,7 @@ scala_binary(
 
 proto_gen(
     name = "ledger-api-java",
-    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
+    srcs = ["//canton:ledger_api_proto"],
     plugin_name = "java",
     visibility = [
         "//visibility:public",
@@ -1138,7 +1138,7 @@ java_library(
 
 proto_gen(
     name = "ledger-api-java-grpc",
-    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
+    srcs = ["//canton:ledger_api_proto"],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = [

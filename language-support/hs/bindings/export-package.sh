@@ -16,7 +16,7 @@ TARGET_DIR=$(realpath $1)
 
 cd "$(dirname ${BASH_SOURCE[0]})"
 
-bazel build //ledger-api/grpc-definitions:all-ledger-api-haskellpb-sources
+bazel build //canton:all-ledger-api-haskellpb-sources
 
 BAZEL_BIN=$(bazel info bazel-bin)
 
@@ -24,7 +24,7 @@ rm -rf gen
 mkdir gen
 mkdir gen/src
 
-cp -rp $BAZEL_BIN/ledger-api/grpc-definitions/Google gen/src/Google
-cp -rp $BAZEL_BIN/ledger-api/grpc-definitions/Com gen/src/Com
+cp -rp $BAZEL_BIN/canton/Google gen/src/Google
+cp -rp $BAZEL_BIN/canton/Com gen/src/Com
 
 stack sdist --tar-dir $TARGET_DIR

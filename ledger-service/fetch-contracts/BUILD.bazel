@@ -64,7 +64,7 @@ da_scala_test(
     scalacopts = hj_scalacopts,
     deps = [
         ":fetch-contracts",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//canton:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/rs-grpc-bridge",

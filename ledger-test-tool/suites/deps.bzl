@@ -21,7 +21,7 @@ def deps(lf_version):
         "//canton:bindings-java",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//canton:ledger_api_proto_scala",
         "//ledger/error",
         "//ledger/ledger-api-errors",
         "//ledger/ledger-api-common",

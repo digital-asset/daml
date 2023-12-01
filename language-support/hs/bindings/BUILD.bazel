@@ -33,7 +33,7 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-haskellpb",
+        "//canton:ledger-api-haskellpb",
     ],
 )
 

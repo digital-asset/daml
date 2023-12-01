@@ -5,7 +5,7 @@ version: v1beta1
 
 build:
   roots:
-    - ledger-api/grpc-definitions
+    - canton/community/ledger-api/src/main/protobuf
     - 3rdparty/protobuf
 
 breaking:
