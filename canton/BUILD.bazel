@@ -9,7 +9,6 @@ load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
-load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
@@ -328,8 +327,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -425,8 +422,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -438,6 +433,7 @@ scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
         "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
@@ -529,8 +525,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/validation",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
@@ -627,8 +621,6 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -641,6 +633,7 @@ scala_library(
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/struct-json/struct-spray-json",
         "//libs-scala/timer-utils",
@@ -649,7 +642,9 @@ scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_auth0_java_jwt",
+        "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -722,8 +717,6 @@ scala_library(
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/executors",
         "//libs-scala/nameof",
@@ -735,6 +728,7 @@ scala_library(
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_h2database_h2",
@@ -844,16 +838,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-dar_to_scala(
-    name = "community_participant_dar_scala",
-    srcs = [
-        ":community_participant_admin-workflows-with-vacuuming_dar",
-        ":community_participant_admin-workflows_dar",
-    ],
-    package_prefix = "com.digitalasset.canton.participant.admin.workflows",
-    srcjar_out = "community_participant_admin-workflow_scala.srcjar",
-)
-
 dar_to_java(
     name = "community_participant_admin-workflows-with-vacuuming_java",
     src = ":community_participant_admin-workflows-with-vacuuming_dar",
@@ -869,7 +853,6 @@ copy_file(
 scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
-        ":community_participant_dar_scala",
         ":community_participant_proto_scala",
     ],
     plugins = [kind_projector_plugin],
@@ -884,6 +867,9 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    exports = [
+        "@maven//:io_netty_netty_handler",
+    ],
     deps = [
         ":community_participant_admin-workflows-with-vacuuming_java",
         ":pekko-stream-minus-patched-classes",
@@ -905,8 +891,6 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
@@ -927,6 +911,7 @@ scala_library(
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_pprint_2_13",
@@ -986,8 +971,6 @@ scala_library(
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
@@ -1001,9 +984,11 @@ scala_library(
         "//observability/metrics",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_cats_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_guava_guava",
@@ -1068,7 +1053,6 @@ scala_library(
     ],
     deps = [
         ":pekko-stream-minus-patched-classes",
-        "//canton:bindings-java",
         "//canton:community_app-base",
         "//canton:community_base",
         "//canton:community_buildinfo",
@@ -1081,8 +1065,6 @@ scala_library(
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//libs-scala/jwt",
         "//libs-scala/nonempty",
         "//libs-scala/rs-grpc-bridge",
@@ -1090,6 +1072,7 @@ scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_lihaoyi_ammonite_2_13_11",
         "@maven//:com_lihaoyi_ammonite_compiler_2_13_11",
