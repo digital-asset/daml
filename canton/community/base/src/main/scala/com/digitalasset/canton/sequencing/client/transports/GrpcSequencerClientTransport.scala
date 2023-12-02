@@ -386,7 +386,7 @@ class GrpcSequencerClientTransport(
         metrics,
         timeouts,
         loggerFactory,
-      )
+      )(protocolVersion)
 
       context.run(() =>
         TraceContextGrpc.withGrpcContext(traceContext) {
@@ -412,7 +412,7 @@ class GrpcSequencerClientTransport(
         metrics,
         timeouts,
         loggerFactory,
-      )
+      )(protocolVersion)
 
       context.run(() =>
         TraceContextGrpc.withGrpcContext(traceContext) {

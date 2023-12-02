@@ -234,6 +234,8 @@ final case class LedgerApiServerConfig(
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
+    unsafeEnableEventsByContractKeyCache: EnableEventsByContractKeyCache =
+      EnableEventsByContractKeyCache.Disabled,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
@@ -566,4 +568,19 @@ object ContractLoaderConfig {
   private val defaultMaxQueueSize: PositiveInt = PositiveInt.tryCreate(10000)
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
+}
+
+/** Parameters to enable and configure the cache in the event_query_service.GetEventsByContractKey
+  *
+  * `Note` This feature is an early-stage (Alpha) performance optimization.
+  * Use it in production only if you know what you're doing.
+  */
+final case class EnableEventsByContractKeyCache(
+    enabled: Boolean = false,
+    cacheSize: PositiveInt = EnableEventsByContractKeyCache.defaultCacheSize,
+)
+
+object EnableEventsByContractKeyCache {
+  val defaultCacheSize: PositiveInt = PositiveInt.tryCreate(10000)
+  val Disabled: EnableEventsByContractKeyCache = EnableEventsByContractKeyCache()
 }

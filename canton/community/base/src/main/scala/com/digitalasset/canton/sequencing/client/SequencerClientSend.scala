@@ -58,5 +58,5 @@ trait SequencerClientSend {
   /** Generates a message id.
     * The message id is only for correlation within this client and does not need to be globally unique.
     */
-  protected def generateMessageId: MessageId = MessageId.randomMessageId()
+  def generateMessageId: MessageId = MessageId.randomMessageId()
 }

@@ -157,9 +157,15 @@ object RetryUtil {
             // Retry on operator invention errors, otherwise Canton components crash in an uncontrolled manner when
             // the exception bubbles up (don't retry on `query_canceled` and `database_dropped`)
             TransientErrorKind
+          } else if (
+            error == "53000" || error == "53100" || error == "53200" || error == "53300" || error == "53400"
+          ) {
+            // Retry insufficient db resource errors
+            TransientErrorKind
           } else {
             // Don't retry on other exceptions. These other exceptions should be those for which retrying typically won't
             // help, for example a unique constraint violation.
+            logger.info(s"Fatal sql exception has error code: $error")
             FatalErrorKind
           }
 
@@ -174,6 +180,8 @@ object RetryUtil {
             _: SQLNonTransientConnectionException =>
           TransientErrorKind
 
+        // Handle SQLException and all classes that derive from it (e.g. java.sql.BatchUpdateException)
+        // Note that if the exception is not known but has a cause, we'll base the retry on the cause
         case ex: SQLException =>
           val code = ex.getErrorCode
           if (ex.getErrorCode == 1) {

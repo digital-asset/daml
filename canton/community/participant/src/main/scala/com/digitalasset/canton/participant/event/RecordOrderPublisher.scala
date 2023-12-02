@@ -338,12 +338,13 @@ class RecordOrderPublisher(
       } yield ()
     }
 
-    override def pretty: Pretty[this.type] =
+    override def pretty: Pretty[this.type] = {
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),
-        param("event", _.eventO),
+        paramIfDefined("event", _.eventO.map(_.event.description.singleQuoted)),
       )
+    }
 
     override def close(): Unit = ()
   }

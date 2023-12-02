@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.transaction
 
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.*
 import com.digitalasset.canton.config.CantonRequireTypes.{
   LengthLimitedStringWrapper,
@@ -384,21 +383,6 @@ object TopologyStateUpdate {
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def fromByteString(bytes: ByteString): ParsingResult[TopologyStateUpdate[AddRemoveChangeOp]] =
-    for {
-      converted <- TopologyTransaction.fromByteString(bytes)
-      result <- converted match {
-        case topologyStateUpdate: TopologyStateUpdate[_] =>
-          Right(topologyStateUpdate)
-        case _: DomainGovernanceTransaction =>
-          Left(
-            ProtoDeserializationError.TransactionDeserialization(
-              "Expecting TopologyStateUpdate, found DomainGovernanceTransaction"
-            )
-          )
-      }
-    } yield result
-
   def fromProtoV0(
       protoTopologyTransaction: v0.TopologyStateUpdate,
       bytes: ByteString,
@@ -619,19 +603,4 @@ object DomainGovernanceTransaction {
     )
   }
 
-  def fromByteString(bytes: ByteString): ParsingResult[DomainGovernanceTransaction] =
-    for {
-      converted <- TopologyTransaction.fromByteString(bytes)
-      result <- converted match {
-        case _: TopologyStateUpdate[_] =>
-          Left(
-            ProtoDeserializationError.TransactionDeserialization(
-              "Expecting DomainGovernanceTransaction, found TopologyStateUpdate"
-            )
-          )
-        case domainGovernanceTransaction: DomainGovernanceTransaction =>
-          Right(domainGovernanceTransaction)
-
-      }
-    } yield result
 }

@@ -132,7 +132,7 @@ trait PrettyInstances {
 
   implicit val prettyUuid: Pretty[UUID] = prettyOfString(_.toString.readableHash.toString)
   // There is deliberately no instance for `String` to force clients
-  // use ShowUtil.ShowStringSyntax instead.
+  // use ShowUtil.ShowStringSyntax instead (e.g. "string".singleQuoted).
   def prettyString: Pretty[String] = prettyOfString(identity)
 
   implicit val prettyByteString: Pretty[ByteString] =
@@ -274,9 +274,9 @@ trait PrettyInstances {
   implicit def prettyV2DeduplicationPeriod: Pretty[DeduplicationPeriod] =
     prettyOfString {
       case deduplicationDuration: DeduplicationPeriod.DeduplicationDuration =>
-        s"DeduplicationDuration(duration=${deduplicationDuration.duration}"
+        s"(duration=${deduplicationDuration.duration})"
       case dedupOffset: DeduplicationPeriod.DeduplicationOffset =>
-        s"DeduplicationOffset(offset=${dedupOffset.offset}"
+        s"(offset=${dedupOffset.offset})"
     }
 
   implicit def prettyCompletion: Pretty[Completion] =

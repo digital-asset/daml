@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.cache.{PackageLanguageVersionCache, *}
 import com.digitalasset.canton.platform.store.dao.events.{
   BufferedTransactionsReader,
+  CachedEventsReader,
   ContractLoader,
   LfValueTranslation,
 }
@@ -112,14 +113,29 @@ final class IndexServiceOwner(
         loggerFactory = loggerFactory,
       )(inMemoryFanOutExecutionContext)
 
+      eventsReader = inMemoryState.eventsByContractKeyCache
+        .map(eventsByContractKeyCache =>
+          new CachedEventsReader(
+            delegate = ledgerDao.eventsReader,
+            eventsByContractKeyCache = eventsByContractKeyCache,
+            lfValueTranslation = lfValueTranslation,
+            loggerFactory = loggerFactory,
+          )
+        )
+        .getOrElse(ledgerDao.eventsReader)
+
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
         participantId = participantId,
         ledgerDao = ledgerDao,
         transactionsReader = bufferedTransactionsReader,
         commandCompletionsReader = bufferedCommandCompletionsReader,
+        eventsReader = eventsReader,
         contractStore = contractStore,
-        pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
+        pruneBuffers = offset => {
+          inMemoryState.inMemoryFanoutBuffer.prune(offset)
+          inMemoryState.eventsByContractKeyCache.foreach(_.flush())
+        },
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
         packageLanguageVersionCache = packageLanguageVersionCache,

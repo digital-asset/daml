@@ -101,12 +101,13 @@ object TransferOutViewTree
       hashOps,
     )
 
+  // TODO(#12626) – try with context
   def fromProtoV0(hashOps: HashOps)(
       transferOutViewTreeP: v0.TransferViewTree
   ): ParsingResult[TransferOutViewTree] =
     GenTransferViewTree.fromProtoV0(
-      TransferOutCommonData.fromByteString(hashOps),
-      TransferOutView.fromByteString(hashOps),
+      TransferOutCommonData.fromByteStringUnsafe(hashOps),
+      TransferOutView.fromByteStringUnsafe(hashOps),
     )((commonData, view) =>
       TransferOutViewTree(commonData, view)(
         protocolVersionRepresentativeFor(ProtoVersion(0)),
@@ -114,12 +115,13 @@ object TransferOutViewTree
       )
     )(transferOutViewTreeP)
 
+  // TODO(#12626) – try with context
   def fromProtoV1(hashOps: HashOps)(
       transferOutViewTreeP: v1.TransferViewTree
   ): ParsingResult[TransferOutViewTree] =
     GenTransferViewTree.fromProtoV1(
-      TransferOutCommonData.fromByteString(hashOps),
-      TransferOutView.fromByteString(hashOps),
+      TransferOutCommonData.fromByteStringUnsafe(hashOps),
+      TransferOutView.fromByteStringUnsafe(hashOps),
     )((commonData, view) =>
       TransferOutViewTree(commonData, view)(
         protocolVersionRepresentativeFor(ProtoVersion(1)),
@@ -920,7 +922,7 @@ object FullTransferOutTree {
       crypto: CryptoPureApi
   )(bytes: ByteString): ParsingResult[FullTransferOutTree] =
     for {
-      tree <- TransferOutViewTree.fromByteString(crypto)(bytes)
+      tree <- TransferOutViewTree.fromByteStringUnsafe(crypto)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-out request ${tree.rootHash} is not fully unblinded"),

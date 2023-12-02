@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.option.*
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.admin.v0
@@ -14,18 +15,46 @@ import com.digitalasset.canton.time.admin.v0
   *                                      to observe it from the sequencer before starting a new request.
   */
 final case class TimeProofRequestConfig(
-    initialRetryDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(200),
-    maxRetryDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5),
-    maxSequencingDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
-) {
+    initialRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultInitialRetryDelay,
+    maxRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxRetryDelay,
+    maxSequencingDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxSequencingDelay,
+) extends PrettyPrinting {
   private[config] def toProtoV0: v0.TimeProofRequestConfig = v0.TimeProofRequestConfig(
     initialRetryDelay.toProtoPrimitive.some,
     maxRetryDelay.toProtoPrimitive.some,
     maxSequencingDelay.toProtoPrimitive.some,
   )
+  override def pretty: Pretty[TimeProofRequestConfig] = prettyOfClass(
+    paramIfNotDefault(
+      "initialRetryDelay",
+      _.initialRetryDelay,
+      TimeProofRequestConfig.defaultInitialRetryDelay,
+    ),
+    paramIfNotDefault(
+      "maxRetryDelay",
+      _.maxRetryDelay,
+      TimeProofRequestConfig.defaultMaxRetryDelay,
+    ),
+    paramIfNotDefault(
+      "maxSequencingDelay",
+      _.maxSequencingDelay,
+      TimeProofRequestConfig.defaultMaxSequencingDelay,
+    ),
+  )
+
 }
 
 object TimeProofRequestConfig {
+
+  private val defaultInitialRetryDelay: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofMillis(200)
+
+  private val defaultMaxRetryDelay: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofSeconds(5)
+
+  private val defaultMaxSequencingDelay: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofSeconds(10)
+
   private[config] def fromProtoV0(
       configP: v0.TimeProofRequestConfig
   ): ParsingResult[TimeProofRequestConfig] =

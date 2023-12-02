@@ -262,7 +262,7 @@ object DeliverErrorStoreEvent {
         Left(ProtoDeserializationError.FieldNotSet("error"))
       )(serializedError =>
         VersionedStatus
-          .fromByteString(serializedError)
+          .fromByteString(protocolVersion)(serializedError)
           .map(_.status)
       )
 

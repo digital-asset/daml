@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
-import com.digitalasset.canton.domain.governance.ParticipantAuditor
 import com.digitalasset.canton.domain.sequencing.authentication.*
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.grpc.{
@@ -76,7 +75,6 @@ class SequencerAuthenticationServerInterceptorTest
       Future.unit,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
-      ParticipantAuditor.noop,
     ) {
       override protected def isParticipantActive(participant: ParticipantId)(implicit
           traceContext: TraceContext

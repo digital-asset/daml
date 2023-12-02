@@ -91,15 +91,25 @@ object DomainAdminCommands {
             staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV0(
               parametersV0
             )
-            sraticDomainParametersConfig <- StaticDomainParametersConfig(
+            staticDomainParametersConfig <- StaticDomainParametersConfig(
               staticDomainParametersInternal
             )
-          } yield sraticDomainParametersConfig).leftMap(_.toString)
+          } yield staticDomainParametersConfig).leftMap(_.toString)
 
         case Parameters.ParametersV1(parametersV1) =>
           (for {
             staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV1(
               parametersV1
+            )
+            staticDomainParametersConfig <- StaticDomainParametersConfig(
+              staticDomainParametersInternal
+            )
+          } yield staticDomainParametersConfig).leftMap(_.toString)
+
+        case Parameters.ParametersV2(parametersV2) =>
+          (for {
+            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV2(
+              parametersV2
             )
             staticDomainParametersConfig <- StaticDomainParametersConfig(
               staticDomainParametersInternal

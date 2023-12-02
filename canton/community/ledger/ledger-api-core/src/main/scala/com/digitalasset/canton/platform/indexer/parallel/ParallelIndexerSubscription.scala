@@ -167,18 +167,16 @@ object ParallelIndexerSubscription {
   ): Iterable[(Offset, Traced[Update])] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
-    val mainBatch = input.iterator.flatMap {
-      case (offset, update) => {
-        LoggingContextWithTrace.withNewLoggingContext(
-          "offset" -> offset,
-          "update" -> update.value,
-        ) { implicit loggingContext =>
-          logger.info(
-            s"Storing ${update.value.description}, ${loggingContext.serializeFiltered("offset", "update")}"
-          )
-        }(update.traceContext)
-        toDbDto(offset)(update)
+    val mainBatch = input.iterator.flatMap { case (offset, update) =>
+      val prefix = update.value match {
+        case _: Update.TransactionAccepted => "Phase 7: "
+        case _ => ""
       }
+      logger.info(
+        s"${prefix}Storing at offset=${offset.bytes.toHexString} ${update.value}"
+      )(update.traceContext)
+      toDbDto(offset)(update)
+
     }.toVector
 
     val meteringBatch = toMeteringDbDto(input)
@@ -353,7 +351,7 @@ object ParallelIndexerSubscription {
                 .updateValue(lastBatch.lastSeqEventId)
               metrics.daml.indexer.lastReceivedRecordTime
                 .updateValue(lastBatch.lastRecordTime)
-              logger.info(
+              logger.debug(
                 s"Ledger end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."
               )(lastBatch.lastTraceContext)
               batchOfBatches

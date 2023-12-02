@@ -34,6 +34,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -55,12 +56,7 @@ import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.platform.store.cache.PackageLanguageVersionCache
-import com.digitalasset.canton.platform.store.dao.{
-  EventProjectionProperties,
-  LedgerDaoCommandCompletionsReader,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
-}
+import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{ApiOffset, Party, PruneBuffers, TemplatePartiesFilter}
@@ -78,6 +74,7 @@ private[index] class IndexServiceImpl(
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
+    eventsReader: LedgerDaoEventsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
@@ -332,16 +329,13 @@ private[index] class IndexServiceImpl(
       contractId: ContractId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] =
-    ledgerDao.eventsReader.getEventsByContractId(
-      contractId,
-      requestingParties,
-    )
+    eventsReader.getEventsByContractId(contractId, requestingParties)
 
   override def getEventsByContractKey(
       contractKey: com.daml.lf.value.Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      endExclusiveSeqId: Option[Long],
+      keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
 
     packageLanguageVersionCache
@@ -352,10 +346,10 @@ private[index] class IndexServiceImpl(
         case Some(languageVersion) =>
           val globalKey =
             GlobalKey.assertBuild(templateId, contractKey, Util.sharedKey(languageVersion))
-          ledgerDao.eventsReader.getEventsByContractKey(
-            globalKey,
-            requestingParties,
-            endExclusiveSeqId,
+          eventsReader.getEventsByContractKey(
+            contractKey = globalKey,
+            requestingParties = requestingParties,
+            keyContinuationToken = keyContinuationToken,
             maxIterations = 1000,
           )
       })(directEc)
@@ -656,7 +650,7 @@ object IndexServiceImpl {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-  private[index] def memoizedTransactionFilterProjection(
+  private[platform] def memoizedTransactionFilterProjection(
       packageMetadataView: PackageMetadataView,
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,

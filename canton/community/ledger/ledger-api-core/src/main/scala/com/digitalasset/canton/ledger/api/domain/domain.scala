@@ -13,6 +13,7 @@ import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import scalaz.syntax.tag.*
 import scalaz.{@@, Tag}
@@ -87,7 +88,26 @@ final case class Commands(
     commands: LfCommands,
     disclosedContracts: ImmArray[DisclosedContract],
     domainId: Option[DomainId] = None,
-)
+) extends PrettyPrinting {
+
+  override def pretty: Pretty[Commands] = {
+    import com.digitalasset.canton.logging.pretty.PrettyInstances.*
+    prettyOfClass(
+      param("commandId", _.commandId.unwrap),
+      paramIfDefined("submissionId", _.submissionId.map(_.unwrap)),
+      param("applicationId", _.applicationId),
+      param("actAs", _.actAs),
+      paramIfNonEmpty("readAs", _.readAs),
+      param("submittedAt", _.submittedAt),
+      param("ledgerEffectiveTime", _.commands.ledgerEffectiveTime),
+      param("deduplicationPeriod", _.deduplicationPeriod),
+      paramIfDefined("workflowId", _.workflowId.filter(_ != commandId).map(_.unwrap)),
+      paramIfDefined("domainId", _.domainId),
+      indicateOmittedFields,
+    )
+  }
+
+}
 
 sealed trait DisclosedContract extends Product with Serializable {
   def templateId: Ref.TypeConName

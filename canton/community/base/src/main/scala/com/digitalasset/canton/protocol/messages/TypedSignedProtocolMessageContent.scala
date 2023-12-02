@@ -90,7 +90,10 @@ object TypedSignedProtocolMessageContent
   ): TypedSignedProtocolMessageContent[M] =
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
-  private def fromProtoV0(hashOps: HashOps, proto: v0.TypedSignedProtocolMessageContent)(
+  private def fromProtoV0(
+      hashOps: HashOps,
+      proto: v0.TypedSignedProtocolMessageContent,
+  )( // TODO(#12626) – try with context
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
     import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
@@ -98,15 +101,19 @@ object TypedSignedProtocolMessageContent
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteString(mediatorResponseBytes)
+          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(hashOps)(transactionResultMessageBytes)
+          TransactionResultMessage.fromByteStringUnsafe(hashOps)(
+            transactionResultMessageBytes
+          )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteString(transferResultBytes)
+          TransferResult.fromByteStringUnsafe(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteString(acsCommitmentBytes)
+          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteString(malformedMediatorRequestResultBytes)
+          MalformedMediatorRequestResult.fromByteStringUnsafe(
+            malformedMediatorRequestResultBytes
+          )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]

@@ -263,7 +263,9 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
         ).value
 
         ViewParticipantData
-          .fromByteString(hashOps)(vpd.getCryptographicEvidence)
+          .fromByteString(testedProtocolVersion)(hashOps)(
+            vpd.getCryptographicEvidence
+          )
           .map(_.unwrap) shouldBe Right(Right(vpd))
       }
     }

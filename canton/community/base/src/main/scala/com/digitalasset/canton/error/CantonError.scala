@@ -39,6 +39,9 @@ object ErrorCodeUtils {
 
 /** The main Canton error for everything that should be logged and notified
   *
+  * PREFER [[CantonError]] OVER [[BaseCantonError]] IN ORDER TO LOG THE ERROR IMMEDIATELY UPON CREATION
+  * TO ENSURE WE DON'T LOSE THE ERROR MESSAGE.
+  *
   * In many cases, we return errors that are communicated to clients as a Left. For such cases,
   * we should use CantonError to report them.
   *

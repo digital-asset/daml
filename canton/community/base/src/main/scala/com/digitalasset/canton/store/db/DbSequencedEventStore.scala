@@ -21,12 +21,11 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
 }
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.{EitherTUtil, Thereafter}
-import com.digitalasset.canton.version.{ProtocolVersion, UntypedVersionedMessage, VersionedMessage}
+import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.concurrent.Semaphore
@@ -101,11 +100,11 @@ class DbSequencedEventStore(
             traceContext
           )
         case _ =>
-          val signedEvent = ProtoConverter
-            .protoParserArray(UntypedVersionedMessage.parseFrom)(eventBytes)
-            .map(VersionedMessage.apply)
-            .flatMap(SignedContent.fromProtoVersioned(_))
-            .flatMap(_.deserializeContent(SequencedEvent.fromByteString))
+          val signedEvent = SignedContent
+            .fromByteArrayUnsafe(eventBytes)
+            .flatMap(
+              _.deserializeContent(SequencedEvent.fromByteString(protocolVersion))
+            )
             .valueOr(err =>
               throw new DbDeserializationException(s"Failed to deserialize sequenced event: $err")
             )

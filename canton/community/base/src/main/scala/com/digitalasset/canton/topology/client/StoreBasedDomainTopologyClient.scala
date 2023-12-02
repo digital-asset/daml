@@ -649,7 +649,9 @@ class StoreBasedTopologySnapshot(
       case TopologyStateUpdateElement(_id, SignedLegalIdentityClaim(_, claimBytes, _signature)) =>
         val result = for {
           claim <- LegalIdentityClaim
-            .fromByteString(claimBytes)
+            .fromByteStringUnsafe(
+              claimBytes
+            ) // TODO(#12626) – try with context
             .leftMap(err => s"Failed to parse legal identity claim proto: $err")
 
           certOpt = claim.evidence match {

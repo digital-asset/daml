@@ -80,6 +80,10 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
     // Unfortunately, there doesn't seem to be a way to convince Scala's type checker that the two types must be equal.
     if (desiredViewType == viewType) Some(this.asInstanceOf[EncryptedView[desiredViewType.type]])
     else None
+
+  /** Indicative size for pretty printing */
+  def sizeHint: Int
+
 }
 object EncryptedView {
   def apply[VT <: ViewType](
@@ -88,6 +92,7 @@ object EncryptedView {
     new EncryptedView[VT] {
       override val viewType: aViewType.type = aViewType
       override val viewTree = aViewTree
+      override lazy val sizeHint: Int = aViewTree.ciphertext.size
     }
 
   def compressed[VT <: ViewType](
@@ -183,6 +188,7 @@ sealed trait EncryptedViewMessage[+VT <: ViewType] extends UnsignedProtocolMessa
   override def pretty: Pretty[EncryptedViewMessage.this.type] = prettyOfClass(
     param("view hash", _.viewHash),
     param("view type", _.viewType),
+    param("size", _.encryptedView.sizeHint),
   )
 
   def toByteString: ByteString
