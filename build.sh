@@ -55,7 +55,7 @@ fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
-  --build_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
@@ -94,8 +94,8 @@ start_postgresql
 
 # Run the tests.
 $bazel test //... \
-  --build_tag_filters "${tag_filter:1}" \
-  --test_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
+  --test_tag_filters "${tag_filter}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
