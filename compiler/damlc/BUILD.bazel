@@ -245,12 +245,12 @@ da_haskell_library(
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//compiler/scenario-service/protos:test_results_haskell_proto",
+        "//daml-assistant:daml-lib",
         "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//daml-assistant:daml-lib",
     ],
 )
 
