@@ -13,6 +13,7 @@ module Daml.Script.Internal
   , script
   , fromLedgerValue
   , toLedgerValue
+  , getExposedCallStack
   ) where
 
 import Daml.Script.Free (Free(..))
@@ -76,11 +77,14 @@ class IsQuestion req res where
   version : Int
   version = 1
   makeQuestion : HasCallStack => req -> Question req res res
-  makeQuestion req = Question (command @req @res) (version @req @res) req (dropInternalFrames $ getCallStack callStack) identity
+  makeQuestion req = Question (command @req @res) (version @req @res) req getExposedCallStack identity
 
 -- Drop any stack frames that reference Daml Script internals
 dropInternalFrames : [(Text, SrcLoc)] -> [(Text, SrcLoc)]
 dropInternalFrames = dropWhile $ isInternalSrcLoc . snd
+
+getExposedCallStack : HasCallStack => [(Text, SrcLoc)]
+getExposedCallStack = dropInternalFrames $ getCallStack callStack
 
 isInternalSrcLoc : SrcLoc -> Bool
 isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =

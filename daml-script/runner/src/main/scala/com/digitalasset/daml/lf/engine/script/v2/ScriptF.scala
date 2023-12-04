@@ -14,6 +14,7 @@ import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.data.Ref.{
   Identifier,
+  Location,
   Name,
   PackageId,
   PackageName,
@@ -164,10 +165,11 @@ object ScriptF {
       cmds: List[command.ApiCommand],
       disclosures: List[Disclosure],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
+      optLocation: Option[Location]
   )
 
   // The one submit to rule them all
-  final case class SubmitConcurrentInternal(submissions: List[Submission], stackTrace: StackTrace) extends Cmd {
+  final case class SubmitConcurrentInternal(submissions: List[Submission]) extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute(
@@ -189,7 +191,7 @@ object ScriptF {
           submission.readAs,
           submission.disclosures,
           submission.cmds,
-          stackTrace.topFrame,
+          submission.optLocation,
           env.lookupLanguageVersion,
           submission.errorBehaviour,
         )
@@ -807,6 +809,8 @@ object ScriptF {
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
+  final case class KnownPackages(pkgs: Map[String, PackageId])
+
   private def parseErrorBehaviour(n: Name): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
     n match {
       case "MustSucceed" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
@@ -815,7 +819,7 @@ object ScriptF {
       case _ => Left("Unknown constructor " + n)
     }
 
-  private def parseSubmission(v: SValue): Either[String, Submission] =
+  private def parseSubmission(v: SValue, knownPackages: KnownPackages): Either[String, Submission] =
     v match {
       case SRecord(
             _,
@@ -826,6 +830,7 @@ object ScriptF {
               SList(disclosures),
               SEnum(_, name, _),
               SList(cmds),
+              SOptional(optLocation),
             ),
           ) =>
         for {
@@ -834,17 +839,19 @@ object ScriptF {
           disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
           errorBehaviour <- parseErrorBehaviour(name)
           cmds <- cmds.toList.traverse(Converter.toCommand)
+          optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
         } yield Submission(
           actAs = toOneAndSet(actAs),
           readAs = readAs.toSet,
           disclosures = disclosures,
           errorBehaviour = errorBehaviour,
           cmds = cmds,
+          optLocation = optLocation,
         )
       case _ => Left(s"Expected Submission payload but got $v")
     }
 
-  private def parseSubmitConcurrentInternal(v: SValue, stackTrace: StackTrace): Either[String, SubmitConcurrentInternal] =
+  private def parseSubmitConcurrentInternal(v: SValue, knownPackages: KnownPackages): Either[String, SubmitConcurrentInternal] =
     v match {
       case SRecord(
             _,
@@ -852,11 +859,8 @@ object ScriptF {
             ArrayList(SList(submissions))
           ) =>
         for {
-          submissions <- submissions.traverse(parseSubmission(_))
-        } yield SubmitConcurrentInternal(
-          submissions = submissions.toList,
-          stackTrace = stackTrace,
-        )
+          submissions <- submissions.traverse(parseSubmission(_, knownPackages))
+        } yield SubmitConcurrentInternal(submissions = submissions.toList)
       case _ => Left(s"Expected SubmitConcurrentInternal payload but got $v")
     }
 
@@ -1098,10 +1102,10 @@ object ScriptF {
       commandName: String,
       version: Long,
       v: SValue,
-      stackTrace: StackTrace,
+      knownPackages: KnownPackages,
   ): Either[String, Cmd] =
     (commandName, version) match {
-      case ("SubmitConcurrentInternal", 1) => parseSubmitConcurrentInternal(v, stackTrace)
+      case ("SubmitConcurrentInternal", 1) => parseSubmitConcurrentInternal(v, knownPackages)
       case ("QueryACS", 1) => parseQueryACS(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)

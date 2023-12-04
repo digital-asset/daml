@@ -13,6 +13,7 @@ import Daml.Script.Questions.Commands
 import Daml.Script.Questions.Submit.Error
 import Daml.Script.Questions.TransactionTree
 import DA.NonEmpty
+import DA.List.Total (head)
 import DA.Stack
 import DA.Functor (void)
 import DA.Bifunctor (first)
@@ -27,6 +28,7 @@ data Submission = Submission with
   sDisclosures : [Disclosure]
   sErrorBehaviour : ErrorBehaviour
   sCommands : [Command]
+  sLocation : Optional (Text, SrcLoc)
 
 data ErrorBehaviour = MustSucceed | MustFail | Try
 
@@ -134,6 +136,7 @@ instance ScriptSubmit ConcurrentSubmits where
           sDisclosures = opts.soDisclosures
           sErrorBehaviour = errorBehaviour
           sCommands = cmds.commands
+          sLocation = head getExposedCallStack
       ]
     continue = \case
       [res] -> fmap (first cmds.continue) res
@@ -142,7 +145,7 @@ instance ScriptSubmit ConcurrentSubmits where
 -- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
 -- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
-concurrently : ConcurrentSubmits a -> Script a
+concurrently : HasCallStack => ConcurrentSubmits a -> Script a
 concurrently submissions = fmap submissions.continue $ lift $ SubmitConcurrentInternal with
   submissions = submissions.submits
 
