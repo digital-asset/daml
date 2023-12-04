@@ -189,6 +189,9 @@ releaseVersionFromCacheString src =
 unresolvedBuiltinSdkVersion :: UnresolvedReleaseVersion
 unresolvedBuiltinSdkVersion = either Unsafe.throw id $ parseUnresolvedVersion (T.pack SdkVersion.sdkVersion)
 
+unsafeResolveReleaseVersion :: UnresolvedReleaseVersion -> ReleaseVersion
+unsafeResolveReleaseVersion (UnresolvedReleaseVersion v) = OldReleaseVersion v
+
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath

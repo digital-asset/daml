@@ -49,6 +49,7 @@ da_haskell_test(
     deps = [
         ":daml-package-config",
         "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/test-utils",
     ],
 )

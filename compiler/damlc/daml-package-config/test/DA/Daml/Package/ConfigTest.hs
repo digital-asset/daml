@@ -11,6 +11,7 @@ import qualified Data.Text as T
 import Test.Tasty
 import Test.Tasty.HUnit
 import Control.Exception (throw)
+import DA.Daml.Project.Types (parseUnresolvedVersion)
 
 main :: IO ()
 main = defaultMain $
