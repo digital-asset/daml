@@ -333,7 +333,6 @@ scala_library(
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
