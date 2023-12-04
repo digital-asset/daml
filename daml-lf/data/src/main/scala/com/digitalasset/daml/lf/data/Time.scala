@@ -117,7 +117,8 @@ object Time {
 
   object Timestamp {
 
-    // TODO: Daml3, lets change that for daml 3.
+    // TODO: https://github.com/digital-asset/daml/issues/17965
+    //  lets change that HalfUp for daml 3.
     val DefaultRounding = RoundingMode.FLOOR
 
     @deprecated("use com.daml.lf.data.Time.Data", since = "2.9.0")

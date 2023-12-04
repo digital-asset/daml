@@ -1774,7 +1774,6 @@ object Runner {
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
 
-  // Return the time provider for a given time provider type.
   def getCurrentTime(ty: TimeProviderType): Instant = {
     ty match {
       case TimeProviderType.Static => Instant.EPOCH
