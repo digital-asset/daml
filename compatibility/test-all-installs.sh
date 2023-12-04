@@ -140,6 +140,26 @@ parties:
 dependencies:
 - daml-prim
 - daml-stdlib
+""" > daml.yaml
+
+echo """
+module Main where
+""" > Main.daml
+}
+
+init_daml_package_with_script () {
+echo """
+sdk-version: $1
+name: test-daml-yaml-install
+version: 1.0.0
+source: Main.daml
+scenario: Main:main
+parties:
+- Alice
+- Bob
+dependencies:
+- daml-prim
+- daml-stdlib
 - daml-script
 """ > daml.yaml
 
@@ -304,6 +324,12 @@ case "$command_to_run" in
         error_echo "ERROR! Exit code for \`daml build\` on version $build_version is nonzero"
       fi
     fi
+    ;;
+  install_with_custom_version_and_build)
+    custom_version=2.99.0
+    "$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes --install-with-custom-version $custom_version "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+    init_daml_package_with_script $custom_version
+    daml build
     ;;
   install_and_build_from_tarball)
     [[ "$#" -gt 0 ]] || error_echo "No tarball_path supplied via args"
