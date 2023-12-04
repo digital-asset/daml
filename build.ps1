@@ -74,6 +74,14 @@ if ($env:SKIP_TESTS -ceq "False") {
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
     $tag_filter = "-dev-canton-test"
+    switch ($env:TEST_MODE) {
+      'main' { $tag_filter = "$tag_filter,-pr-only" }
+      'pr'   { $tag_filter = "$tag_filter,-main-only" }
+      Default {
+        Write-Output "<< unknown test mode: $env:TEST_MODE)"
+        throw ("Was given an unknown test mode: $env:TEST_MODE")
+      }
+    }
 
     bazel test //... `
       `-`-build_tag_filters "$tag_filter,-canton-ee" `
