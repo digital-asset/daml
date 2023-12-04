@@ -84,7 +84,13 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
                              getDamlRootFiles,
                              writeIfacesAndHie)
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
-import DA.Daml.Project.Types (UnresolvedReleaseVersion(..), unresolvedBuiltinSdkVersion, isHeadVersion)
+import DA.Daml.Project.Types
+    ( UnresolvedReleaseVersion(..),
+      unresolvedBuiltinSdkVersion,
+      isHeadVersion,
+      ConfigError(..),
+      ProjectPath(..),
+      ProjectConfig )
 import DA.Daml.Assistant.Version (resolveReleaseVersion)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
@@ -149,7 +155,6 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                withProjectRoot)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
-import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..), ProjectConfig)
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
