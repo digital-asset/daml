@@ -122,7 +122,7 @@ final case class CantonConfig(
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
-        applicationId = token.orElse(applicationId).getOrElse(""),
+        applicationId = token.fold(applicationId.getOrElse(""))(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
