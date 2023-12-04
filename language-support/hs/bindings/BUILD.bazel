@@ -89,7 +89,10 @@ da_haskell_test(
     src_strip_prefix = "test",
     # We spin up Sandbox as a separate process, so
     # try not to overload the machine.
-    tags = ["cpu:4"] + (["manual"] if is_darwin else []),
+    tags = [
+        "cpu:4",
+        "main-only",
+    ] + (["manual"] if is_darwin else []),
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
