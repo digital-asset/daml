@@ -28,7 +28,6 @@ case $3 in
     ;;
 esac
 
-tag_filter=""
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
