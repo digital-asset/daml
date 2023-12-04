@@ -120,7 +120,8 @@ installParser = InstallOptions
     <*> fmap SetPath (flagYesNoAuto' "set-path" "Adjust PATH automatically" idm)
     <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
     <*> fmap ZshCompletions (flagYesNoAuto' "zsh-completions" "Install Zsh completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
-    <*> fmap AllowInstallNonRelease (flagYesNoAuto "allow-install-non-release" False "Allow installing from a tarball that has no associated release by using the tarball's SDK version as its release version." internal)
+    <*> fmap InstallWithInternalVersion (flagYesNoAuto "install-with-internal-version" False "Allow installing from a tarball that has no associated release by using the tarball's SDK version as its release version." internal)
+    <*> fmap InstallWithCustomVersion (optionOnce (Just <$> str) (long "install-with-custom-version" <> value Nothing))
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 

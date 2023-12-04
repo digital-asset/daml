@@ -49,8 +49,8 @@ withSdkResource f =
                 if isWindows
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
-                        ["install", "--install-assistant=yes", "--set-path=no", "--allow-install-non-release=yes", extractDir]
-                    else callProcessSilent (extractDir </> "install.sh") ["--allow-install-non-release=yes"]
+                        ["install", "--install-assistant=yes", "--set-path=no", "--install-with-internal-version=yes", extractDir]
+                    else callProcessSilent (extractDir </> "install.sh") ["--install-with-internal-version=yes"]
                 -- We restrict the permissions of the DAML_HOME directory to make sure everything
                 -- still works when the directory is read-only.
                 allFiles <- listFilesRecursive targetDir
