@@ -84,8 +84,8 @@ do
         unzip ../../bazel-bin/language-support/java/javadoc.jar -d $BUILD_DIR/gen/app-dev/bindings-java/javadocs/
 
         # Proto-docs
-        bazel build //ledger-api/grpc-definitions:docs
-        cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
+        bazel build //canton:docs
+        cp -L ../../bazel-bin/canton/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
         bazel build //compiler/damlc:daml-base-rst.tar.gz

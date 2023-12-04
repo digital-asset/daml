@@ -52,7 +52,7 @@ message GetMeteringReportResponse {
     google.protobuf.Timestamp report_generation_time = 3;
 
     // The metering report json.  For a JSON Schema definition of the JSon see:
-    // https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
+    // https://github.com/digital-asset/daml/blob/main/canton/metering-report-schema.json
     google.protobuf.Struct metering_report_json = 4;
 }
 

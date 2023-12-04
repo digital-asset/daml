@@ -25,8 +25,8 @@ da_scala_test(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-test-tool/infrastructure",
         "//ledger-test-tool/suites",
         "//ledger/ledger-api-common",

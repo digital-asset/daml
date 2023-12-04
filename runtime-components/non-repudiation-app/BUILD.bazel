@@ -25,7 +25,7 @@ da_scala_binary(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//canton:ledger_api_proto_scala",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/resources",
         "//libs-scala/resources-pekko",
