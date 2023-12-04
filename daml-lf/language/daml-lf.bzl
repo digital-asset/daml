@@ -11,6 +11,9 @@ def _to_major_minor_str(v):
     (major_str, _, minor_str) = v.partition(".")
     return (major_str, minor_str)
 
+def _major_str(v):
+    return _to_major_minor_str(v)[0]
+
 def _cmp_int(a, b):
     if a == b:
         return 0
@@ -121,7 +124,7 @@ def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
-# TODO(#17366): add 2.0 once created
+# TODO(#17366): add 2.1 once it is released
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
 # The subset of LF versions accepted by the compiler's --target option.
@@ -135,4 +138,15 @@ COMPILER_LF2_VERSIONS = [
     if version_in(v, v2_minor_version_range = ("0", "dev"))
 ]
 
-LF_MAJOR_VERSIONS = ["1", "2"]
+# All LF major versions
+LF_MAJOR_VERSIONS = depset([_major_str(v) for v in LF_VERSIONS]).to_list()
+
+# The major version of the default LF version
+LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
+
+# The dev LF version with the same major version number as the default LF version.
+LF_DEFAULT_DEV_VERSION = [
+    v
+    for v in LF_DEV_VERSIONS
+    if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
+][0]
