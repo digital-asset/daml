@@ -5,9 +5,10 @@ version: v1beta1
 
 build:
   roots:
-    - canton/community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1
-    - canton/community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2
+    - canton/community/ledger-api/src/main/protobuf
     - 3rdparty/protobuf
+  excludes:
+    - canton/community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb
 
 breaking:
   use:
