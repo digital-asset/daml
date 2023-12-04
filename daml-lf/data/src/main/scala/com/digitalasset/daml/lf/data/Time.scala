@@ -117,6 +117,9 @@ object Time {
 
   object Timestamp {
 
+    // TODO: Daml3, lets change that for daml 3.
+    val DefaultRounding = RoundingMode.FLOOR
+
     @deprecated("use com.daml.lf.data.Time.Data", since = "2.9.0")
     type T = Timestamp
 
@@ -162,25 +165,25 @@ object Time {
     def fromLong(micros: Long): Either[String, Timestamp] =
       safely(assertFromLong(micros), s"cannot convert long $micros into Timestamp")
 
-    def assertFromInstant(i: Instant, rounding: RoundingMode = RoundingMode.FLOOR): Timestamp =
+    def assertFromInstant(i: Instant, rounding: RoundingMode = DefaultRounding): Timestamp =
       assertFromLong(assertMicrosFromInstant(i, rounding))
 
     def fromInstant(
         i: Instant,
-        rounding: RoundingMode = RoundingMode.FLOOR,
+        rounding: RoundingMode = DefaultRounding,
     ): Either[String, Timestamp] =
       safely(assertFromInstant(i, rounding), s"cannot convert instant $i into Timestamp")
 
-    def assertFromString(str: String, rounding: RoundingMode = RoundingMode.FLOOR): Timestamp =
+    def assertFromString(str: String, rounding: RoundingMode = DefaultRounding): Timestamp =
       assertFromLong(assertMicrosFromString(str, rounding))
 
     final def fromString(
         s: String,
-        rounding: RoundingMode = RoundingMode.FLOOR,
+        rounding: RoundingMode = DefaultRounding,
     ): Either[String, Timestamp] =
       safely(assertFromString(s, rounding), s"cannot convert sting $s into Timestamp")
 
-    def now(): Timestamp = assertFromInstant(Instant.now(), RoundingMode.FLOOR)
+    def now(): Timestamp = assertFromInstant(Instant.now(), DefaultRounding)
 
     implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
       override def equalIsNatural = true
