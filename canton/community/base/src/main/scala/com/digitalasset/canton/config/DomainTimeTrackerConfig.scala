@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.option.*
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.admin.v0
@@ -26,20 +27,50 @@ import com.digitalasset.canton.time.admin.v0
   * @param timeRequest configuration for how we ask for a time proof.
   */
 final case class DomainTimeTrackerConfig(
-    observationLatency: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(250),
-    patienceDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(500),
-    minObservationDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(24),
+    observationLatency: NonNegativeFiniteDuration =
+      DomainTimeTrackerConfig.defaultObservationLatency,
+    patienceDuration: NonNegativeFiniteDuration = DomainTimeTrackerConfig.defaultPatienceDuration,
+    minObservationDuration: NonNegativeFiniteDuration =
+      DomainTimeTrackerConfig.defaultMinObservationDuration,
     timeRequest: TimeProofRequestConfig = TimeProofRequestConfig(),
-) {
+) extends PrettyPrinting {
   def toProtoV0: v0.DomainTimeTrackerConfig = v0.DomainTimeTrackerConfig(
     observationLatency.toProtoPrimitive.some,
     patienceDuration.toProtoPrimitive.some,
     minObservationDuration.toProtoPrimitive.some,
     timeRequest.toProtoV0.some,
   )
+
+  override def pretty: Pretty[DomainTimeTrackerConfig] = prettyOfClass(
+    paramIfNotDefault(
+      "observationLatency",
+      _.observationLatency,
+      DomainTimeTrackerConfig.defaultObservationLatency,
+    ),
+    paramIfNotDefault(
+      "patienceDuration",
+      _.patienceDuration,
+      DomainTimeTrackerConfig.defaultPatienceDuration,
+    ),
+    paramIfNotDefault(
+      "minObservationDuration",
+      _.minObservationDuration,
+      DomainTimeTrackerConfig.defaultMinObservationDuration,
+    ),
+    paramIfNotDefault("timeRequest", _.timeRequest, TimeProofRequestConfig()),
+  )
+
 }
 
 object DomainTimeTrackerConfig {
+
+  private val defaultObservationLatency: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofMillis(250)
+  private val defaultPatienceDuration: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofMillis(500)
+  private val defaultMinObservationDuration: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofHours(24)
+
   def fromProto(
       configP: v0.DomainTimeTrackerConfig
   ): ParsingResult[DomainTimeTrackerConfig] =

@@ -27,7 +27,7 @@ private[backend] object MeteringParameterStorageBackendImpl
     import com.digitalasset.canton.platform.store.backend.Conversions.TimestampToStatement
     ledgerMeteringEnd(connection) match {
       case None =>
-        logger.info(s"Initializing ledger metering end to $init")
+        logger.debug(s"Initializing ledger metering end to $init")
         discard(
           SQL"""insert into metering_parameters(
               ledger_metering_end,
@@ -39,7 +39,7 @@ private[backend] object MeteringParameterStorageBackendImpl
             .execute()(connection)
         )
       case Some(existing) =>
-        logger.info(s"Found existing ledger metering end $existing")
+        logger.debug(s"Found existing ledger metering end $existing")
     }
   }
 

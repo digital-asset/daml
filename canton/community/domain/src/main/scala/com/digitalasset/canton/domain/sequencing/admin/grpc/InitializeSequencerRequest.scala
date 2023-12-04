@@ -150,7 +150,11 @@ object InitializeSequencerRequest
         ProtoDeserializationError.FieldNotSet("topology_snapshot")
       )
       snapshotO <- Option
-        .when(!request.snapshot.isEmpty)(SequencerSnapshot.fromByteString(request.snapshot))
+        .when(!request.snapshot.isEmpty)(
+          SequencerSnapshot.fromByteString(domainParameters.protocolVersion)(
+            request.snapshot
+          )
+        )
         .sequence
     } yield InitializeSequencerRequest(
       domainId,
@@ -192,7 +196,9 @@ object InitializeSequencerRequestX {
       )
       snapshotO <- Option
         .when(!request.snapshot.isEmpty)(
-          SequencerSnapshot.fromByteString(request.snapshot)
+          SequencerSnapshot.fromByteString(domainParameters.protocolVersion)(
+            request.snapshot
+          )
         )
         .sequence
     } yield InitializeSequencerRequestX(

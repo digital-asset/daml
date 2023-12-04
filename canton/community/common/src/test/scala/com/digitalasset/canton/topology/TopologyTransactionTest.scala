@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.protocol.TestDomainParameters
@@ -11,6 +10,7 @@ import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -52,13 +52,19 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     "namespace delegation" should {
       val ns1 = NamespaceDelegation(Namespace(fingerprint), pubKey, true)
       val ns2 = NamespaceDelegation(Namespace(fingerprint2), pubKey2, true)
-      testConversion(TopologyStateUpdate.createAdd, TopologyTransaction.fromByteString)(
+      testConversion(
+        TopologyStateUpdate.createAdd,
+        TopologyTransaction.fromByteString(testedProtocolVersion),
+      )(
         ns1,
         Some(ns2),
       )
     }
     "identifier delegation" should {
-      testConversion(TopologyStateUpdate.createAdd, TopologyTransaction.fromByteString)(
+      testConversion(
+        TopologyStateUpdate.createAdd,
+        TopologyTransaction.fromByteString(testedProtocolVersion),
+      )(
         IdentifierDelegation(uid, pubKey),
         Some(IdentifierDelegation(uid2, pubKey2)),
       )
@@ -71,7 +77,10 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         DomainTopologyManagerId(uid),
       )
       owners.foreach(owner =>
-        testConversion(TopologyStateUpdate.createAdd, TopologyTransaction.fromByteString)(
+        testConversion(
+          TopologyStateUpdate.createAdd,
+          TopologyTransaction.fromByteString(testedProtocolVersion),
+        )(
           OwnerToKeyMapping(owner, pubKey),
           Some(OwnerToKeyMapping(owner, pubKey2)),
           hint = " for " + owner.toString,
@@ -85,7 +94,10 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         (RequestSide.To, ParticipantPermission.Observation),
       )
       sides.foreach { case (side, permission) =>
-        testConversion(TopologyStateUpdate.createAdd, TopologyTransaction.fromByteString)(
+        testConversion(
+          TopologyStateUpdate.createAdd,
+          TopologyTransaction.fromByteString(testedProtocolVersion),
+        )(
           PartyToParticipant(side, PartyId(uid), ParticipantId(uid2), permission),
           Some(PartyToParticipant(side, PartyId(uid2), ParticipantId(uid), permission)),
           hint = " for " + side.toString + " and " + permission.toString,
@@ -94,12 +106,31 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     }
 
     "domain parameters change" should {
+
+      def fromByteString(bytes: ByteString): ParsingResult[DomainGovernanceTransaction] =
+        for {
+          converted <- TopologyTransaction.fromByteStringUnsafe(
+            bytes
+          )
+          result <- converted match {
+            case _: TopologyStateUpdate[_] =>
+              Left(
+                ProtoDeserializationError.TransactionDeserialization(
+                  "Expecting DomainGovernanceTransaction, found TopologyStateUpdate"
+                )
+              )
+            case domainGovernanceTransaction: DomainGovernanceTransaction =>
+              Right(domainGovernanceTransaction)
+
+          }
+        } yield result
+
       val builder = (
           mapping: DomainGovernanceMapping,
           protocolVersion: ProtocolVersion,
       ) => DomainGovernanceTransaction(mapping, protocolVersion)
 
-      testConversion(builder, DomainGovernanceTransaction.fromByteString)(
+      testConversion(builder, fromByteString)(
         DomainParametersChange(DomainId(uid), defaultDynamicDomainParameters),
         Some(DomainParametersChange(DomainId(uid), defaultDynamicDomainParameters)),
       )

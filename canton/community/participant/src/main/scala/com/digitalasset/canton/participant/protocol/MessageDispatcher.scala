@@ -46,6 +46,7 @@ import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
+import com.google.rpc.status.Status
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -712,6 +713,51 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def alarm(sc: SequencerCounter, ts: CantonTimestamp, msg: String)(implicit
       traceContext: TraceContext
   ): Unit = SyncServiceAlarm.Warn(s"(sequencer counter: $sc, timestamp: $ts): $msg").report()
+
+  protected def logTimeProof(sc: SequencerCounter, ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    logger.debug(
+      show"Processing time-proof at sc=${sc}, ts=${ts}"
+    )
+  }
+
+  private def withMsgId(msgId: Option[MessageId]): String = msgId match {
+    case Some(id) => s", messageId=$id"
+    case None => ""
+  }
+
+  protected def logFaultyEvent(
+      sc: SequencerCounter,
+      ts: CantonTimestamp,
+      msgId: Option[MessageId],
+      err: EventWithErrors[SequencedEvent[DefaultOpenEnvelope]],
+  )(implicit traceContext: TraceContext): Unit =
+    logger.info(
+      show"Skipping faulty event at sc=${sc}, ts=${ts}${withMsgId(msgId)}, with errors=${err.openingErrors
+          .map(_.message)} and contents=${err.content.envelopes
+          .map(_.protocolMessage)}"
+    )
+
+  protected def logEvent(
+      sc: SequencerCounter,
+      ts: CantonTimestamp,
+      msgId: Option[MessageId],
+      evt: SignedContent[SequencedEvent[DefaultOpenEnvelope]],
+  )(implicit traceContext: TraceContext): Unit = logger.info(
+    show"Processing event at sc=${sc}, ts=${ts}${withMsgId(msgId)}, with contents=${evt.content.envelopes
+        .map(_.protocolMessage)}"
+  )
+
+  protected def logDeliveryError(
+      sc: SequencerCounter,
+      ts: CantonTimestamp,
+      msgId: MessageId,
+      status: Status,
+  )(implicit traceContext: TraceContext): Unit = logger.info(
+    show"Processing delivery error at sc=${sc}, ts=${ts}, messageId=$msgId, status=$status"
+  )
+
 }
 
 private[participant] object MessageDispatcher {

@@ -503,7 +503,7 @@ private class JdbcLedgerDao(
         .participantAllDivulgedContractsPrunedUpToInclusive(conn)
     }
 
-  private val translation: LfValueTranslation =
+  val translation: LfValueTranslation =
     new LfValueTranslation(
       metrics = metrics,
       engineO = engine,

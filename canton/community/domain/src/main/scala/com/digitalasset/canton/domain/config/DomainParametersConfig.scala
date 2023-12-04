@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
 
 /** Configuration of domain parameters that all members connecting to a domain must adhere to.
@@ -40,6 +40,7 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * @param protocolVersion                        The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
   * @param dontWarnOnDeprecatedPV If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   * @param resetStoredStaticConfig DANGEROUS: If true, then the stored static configuration parameters will be reset to the ones in the configuration file
+  * @param catchUpParameters  The optional catch up parameters of type [[com.digitalasset.canton.protocol.CatchUpConfig]]. If None is specified, then the catch-up mode is disabled.
   */
 final case class DomainParametersConfig(
     reconciliationInterval: PositiveDurationSeconds =
@@ -56,6 +57,8 @@ final case class DomainParametersConfig(
     protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
       ProtocolVersion.latest
     ),
+    catchUpParameters: Option[CatchUpConfig] =
+      StaticDomainParameters.defaultCatchUpParameters.defaultValue,
     override val devVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     resetStoredStaticConfig: Boolean = false,
@@ -76,6 +79,7 @@ final case class DomainParametersConfig(
     param("devVersionSupport", _.devVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
     param("resetStoredStaticConfig", _.resetStoredStaticConfig),
+    param("catchUpParameters", _.catchUpParameters),
   )
 
   override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
@@ -138,6 +142,7 @@ final case class DomainParametersConfig(
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
         protocolVersion = protocolVersion.unwrap,
+        catchUpParameters = catchUpParameters,
       )
     }
   }

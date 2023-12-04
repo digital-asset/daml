@@ -165,7 +165,9 @@ object StoredTopologyTransactions
           item.validFrom,
         )
         validUntil <- item.validFrom.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransaction.fromByteString(item.transaction)
+        transaction <- SignedTopologyTransaction.fromByteStringUnsafe(
+          item.transaction
+        ) // TODO(#12626) – try with context – use an optional protocol version for cases when the protocol version is known
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,

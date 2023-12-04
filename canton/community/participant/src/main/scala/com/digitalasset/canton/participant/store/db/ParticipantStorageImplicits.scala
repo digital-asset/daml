@@ -5,10 +5,8 @@ package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.participant.store.SerializableLedgerSyncEvent
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.version.{UntypedVersionedMessage, VersionedMessage}
 import slick.jdbc.GetResult
 
 object ParticipantStorageImplicits {
@@ -22,10 +20,8 @@ object ParticipantStorageImplicits {
   }
 
   private def bytesToEvent(bytes: Array[Byte]): LedgerSyncEvent = {
-    ProtoConverter
-      .protoParserArray(UntypedVersionedMessage.parseFrom)(bytes)
-      .map(VersionedMessage.apply)
-      .flatMap(SerializableLedgerSyncEvent.fromProtoVersioned)
+    SerializableLedgerSyncEvent
+      .fromByteArrayUnsafe(bytes)
       .fold(
         err =>
           throw new DbDeserializationException(

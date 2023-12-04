@@ -166,9 +166,11 @@ object SignedTopologyTransaction
 
   private def fromProtoV0(transactionP: v0.SignedTopologyTransaction)(
       bytes: ByteString
-  ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] =
+  ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
     for {
-      transaction <- TopologyTransaction.fromByteString(transactionP.transaction)
+      transaction <- TopologyTransaction.fromByteStringUnsafe(
+        transactionP.transaction
+      ) // TODO(#12626) – try with context
       publicKey <- ProtoConverter.parseRequired(
         SigningPublicKey.fromProtoV0,
         "key",
@@ -179,16 +181,19 @@ object SignedTopologyTransaction
         "signature",
         transactionP.signature,
       )
-      protocolVersion = supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(0))
+
     } yield SignedTopologyTransaction(transaction, publicKey, signature)(
-      protocolVersion,
+      supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(0)),
       Some(bytes),
     )
+  }
 
   def createGetResultDomainTopologyTransaction
       : GetResult[SignedTopologyTransaction[TopologyChangeOp]] =
     GetResult { r =>
-      fromByteString(r.<<[ByteString])
+      fromByteStringUnsafe(
+        r.<<[ByteString]
+      )
         .valueOr(err =>
           throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
         )

@@ -105,7 +105,7 @@ final case class GrpcSequencerConnection(
     prettyOfClass(
       param("endpoints", _.endpoints.map(_.toURI(transportSecurity)).toList),
       param("transportSecurity", _.transportSecurity),
-      param("customTrustCertificates", _.customTrustCertificates),
+      paramIfTrue("customTrustCertificates", _.customTrustCertificates.nonEmpty),
     )
 
   override def addEndpoints(

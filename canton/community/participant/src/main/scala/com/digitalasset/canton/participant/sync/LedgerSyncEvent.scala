@@ -283,13 +283,9 @@ object LedgerSyncEvent {
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("transactionId", _.transactionId),
-        paramIfDefined("completion info", _.completionInfoO),
+        paramIfDefined("completion", _.completionInfoO),
         param("transactionMeta", _.transactionMeta),
-        paramWithoutValue("transaction"),
-        paramWithoutValue("divulgedContracts"),
-        paramWithoutValue("blindingInfo"),
-        paramWithoutValue("hostedWitnesses"),
-        paramWithoutValue("contractMetadata"),
+        indicateOmittedFields,
       )
     override def toDamlUpdate: Option[Update] = Some(this.transformInto[Update.TransactionAccepted])
 

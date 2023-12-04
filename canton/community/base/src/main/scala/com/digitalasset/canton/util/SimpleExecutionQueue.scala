@@ -76,15 +76,6 @@ class SimpleExecutionQueue(
   ): FutureUnlessShutdown[A] =
     genExecute(runIfFailed = false, execution, description, runWhenUnderFailures)
 
-  def executeUnderFailures[A](execution: => Future[A], description: String)(implicit
-      loggingContext: ErrorLoggingContext
-  ): FutureUnlessShutdown[A] =
-    genExecute(
-      runIfFailed = true,
-      FutureUnlessShutdown.outcomeF(execution)(directExecutionContext),
-      description,
-    )
-
   def executeUnderFailuresUS[A](execution: => FutureUnlessShutdown[A], description: String)(implicit
       loggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[A] =

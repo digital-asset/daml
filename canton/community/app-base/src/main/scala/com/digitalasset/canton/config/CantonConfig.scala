@@ -60,6 +60,7 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
+import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
@@ -831,6 +832,9 @@ object CantonConfig {
       deriveReader[AuthServiceConfig]
     lazy implicit val rateLimitConfigReader: ConfigReader[RateLimitingConfig] =
       deriveReader[RateLimitingConfig]
+    lazy implicit val enableEventsByContractKeyCacheReader
+        : ConfigReader[EnableEventsByContractKeyCache] =
+      deriveReader[EnableEventsByContractKeyCache]
     lazy implicit val ledgerApiServerConfigReader: ConfigReader[LedgerApiServerConfig] =
       deriveReader[LedgerApiServerConfig].applyDeprecations
 
@@ -901,6 +905,8 @@ object CantonConfig {
       deriveReader[CommunitySequencerConfig]
     lazy implicit val domainParametersConfigReader: ConfigReader[DomainParametersConfig] =
       deriveReader[DomainParametersConfig]
+    lazy implicit val catchUpParametersConfigReader: ConfigReader[CatchUpConfig] =
+      deriveReader[CatchUpConfig]
     lazy implicit val domainNodeParametersConfigReader: ConfigReader[DomainNodeParametersConfig] =
       deriveReader[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
@@ -1210,6 +1216,9 @@ object CantonConfig {
       deriveWriter[AuthServiceConfig]
     lazy implicit val rateLimitConfigWriter: ConfigWriter[RateLimitingConfig] =
       deriveWriter[RateLimitingConfig]
+    lazy implicit val enableEventsByContractKeyCacheWriter
+        : ConfigWriter[EnableEventsByContractKeyCache] =
+      deriveWriter[EnableEventsByContractKeyCache]
     lazy implicit val ledgerApiServerConfigWriter: ConfigWriter[LedgerApiServerConfig] =
       deriveWriter[LedgerApiServerConfig]
 
@@ -1274,6 +1283,8 @@ object CantonConfig {
       deriveWriter[CommunitySequencerConfig]
     lazy implicit val domainParametersConfigWriter: ConfigWriter[DomainParametersConfig] =
       deriveWriter[DomainParametersConfig]
+    lazy implicit val catchUpParametersConfigWriter: ConfigWriter[CatchUpConfig] =
+      deriveWriter[CatchUpConfig]
     lazy implicit val domainNodeParametersConfigWriter: ConfigWriter[DomainNodeParametersConfig] =
       deriveWriter[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =

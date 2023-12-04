@@ -256,8 +256,6 @@ object CommunityConfigValidations
       val pv = config.init.domainParameters.protocolVersion.unwrap
       if (pv.isDeprecated && !config.init.domainParameters.dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnDomain(name, pv).discard
-
-      logger.info(s"Domain $name is using protocol version $pv")
     }
     Validated.valid(())
   }

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DomainParameters
+import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds, SimClock}
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
@@ -161,6 +162,49 @@ class SortedReconciliationIntervalsProviderTest
         _ shouldBe (new RuntimeException(error)),
         _.warningMessage shouldBe error,
       )
+    }
+
+    "compute the correct reconciliation intervals covering a period" in {
+
+      val protocolVersion = ProtocolVersion.v4
+
+      val clock = new SimClock(fromEpoch(0), loggerFactory)
+
+      val domainParameters = Vector(
+        mkDynamicDomainParameters(0, 13, 2, testedProtocolVersion),
+        mkDynamicDomainParameters(13, 9, testedProtocolVersion),
+      )
+
+      val topologySnapshot = mock[TopologySnapshot]
+      when(topologySnapshot.listDynamicDomainParametersChanges())
+        .thenAnswer(Future.successful(domainParameters.filter(_.validFrom <= clock.now)))
+
+      val topologyClient = mock[DomainTopologyClient]
+
+      when(topologyClient.approximateTimestamp).thenAnswer(clock.now)
+      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+        Future.successful(topologySnapshot)
+      }
+
+      val provider = SortedReconciliationIntervalsProvider(
+        staticDomainParameters =
+          BaseTest.defaultStaticDomainParametersWith(protocolVersion = protocolVersion),
+        topologyClient = topologyClient,
+        futureSupervisor = FutureSupervisor.Noop,
+        loggerFactory = loggerFactory,
+      )
+
+      clock.advanceTo(fromEpoch(18))
+
+      for {
+        x <- provider.computeReconciliationIntervalsCovering(fromEpoch(10), fromEpoch(18))
+      } yield {
+        x shouldBe
+          List(
+            CommitmentPeriod.create(fromEpochSecond(10), fromEpochSecond(12)),
+            CommitmentPeriod.create(fromEpochSecond(12), fromEpochSecond(18)),
+          )
+      }
     }
 
   }

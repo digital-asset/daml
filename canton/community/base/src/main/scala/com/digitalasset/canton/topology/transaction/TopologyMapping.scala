@@ -245,7 +245,9 @@ object SignedLegalIdentityClaim {
   ): ParsingResult[SignedLegalIdentityClaim] =
     for {
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", value.signature)
-      claim <- LegalIdentityClaim.fromByteString(value.claim)
+      claim <- LegalIdentityClaim.fromByteStringUnsafe(
+        value.claim
+      ) // TODO(#12626) - try with context
     } yield SignedLegalIdentityClaim(claim.uid, value.claim, signature)
 }
 

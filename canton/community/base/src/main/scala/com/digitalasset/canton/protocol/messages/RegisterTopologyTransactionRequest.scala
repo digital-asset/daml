@@ -120,7 +120,7 @@ object RegisterTopologyTransactionRequest
       requestedBy <- Member.fromProtoPrimitive(message.requestedBy, "requestedBy")
       participantUid <- UniqueIdentifier.fromProtoPrimitive(message.participant, "participant")
       transactions <- message.signedTopologyTransactions.toList.traverse(elem =>
-        SignedTopologyTransaction.fromByteString(elem)
+        SignedTopologyTransaction.fromByteStringUnsafe(elem) // TODO(#12626) – try with context
       )
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
       requestId <- String255.fromProtoPrimitive(message.requestId, "requestId")

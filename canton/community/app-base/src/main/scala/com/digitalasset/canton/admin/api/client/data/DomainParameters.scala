@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.{NonNegativeFiniteDuration, PositiveDurati
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
 import com.digitalasset.canton.protocol.{
+  CatchUpConfig,
   DynamicDomainParameters as DynamicDomainParametersInternal,
   StaticDomainParameters as StaticDomainParametersInternal,
   v0 as protocolV0,
@@ -48,6 +49,7 @@ sealed trait StaticDomainParameters {
       maxRatePerParticipant: NonNegativeInt,
       reconciliationInterval: PositiveDurationSeconds,
       maxRequestSize: MaxRequestSize,
+      catchUpParameters: Option[CatchUpConfig],
   ): StaticDomainParametersInternal =
     StaticDomainParametersInternal.create(
       maxRatePerParticipant = maxRatePerParticipant,
@@ -70,6 +72,7 @@ sealed trait StaticDomainParameters {
       ),
       protocolVersion = protocolVersion,
       reconciliationInterval = reconciliationInterval.toInternal,
+      catchUpParameters = catchUpParameters,
     )
 }
 
@@ -86,7 +89,12 @@ sealed abstract case class StaticDomainParametersV0(
     protocolVersion: ProtocolVersion,
 ) extends StaticDomainParameters {
   override private[canton] def toInternal: StaticDomainParametersInternal =
-    toInternal(maxRatePerParticipant, reconciliationInterval, MaxRequestSize(maxInboundMessageSize))
+    toInternal(
+      maxRatePerParticipant,
+      reconciliationInterval,
+      MaxRequestSize(maxInboundMessageSize),
+      None,
+    )
 }
 
 sealed abstract case class StaticDomainParametersV1(
@@ -102,6 +110,25 @@ sealed abstract case class StaticDomainParametersV1(
     StaticDomainParametersInternal.defaultMaxRatePerParticipant,
     StaticDomainParametersInternal.defaultReconciliationInterval.toConfig,
     StaticDomainParametersInternal.defaultMaxRequestSize,
+    None,
+  )
+}
+
+sealed abstract case class StaticDomainParametersV2(
+    uniqueContractKeys: Boolean,
+    requiredSigningKeySchemes: Set[SigningKeyScheme],
+    requiredEncryptionKeySchemes: Set[EncryptionKeyScheme],
+    requiredSymmetricKeySchemes: Set[SymmetricKeyScheme],
+    requiredHashAlgorithms: Set[HashAlgorithm],
+    requiredCryptoKeyFormats: Set[CryptoKeyFormat],
+    protocolVersion: ProtocolVersion,
+    catchUpParameters: Option[CatchUpConfig],
+) extends StaticDomainParameters {
+  override private[canton] def toInternal: StaticDomainParametersInternal = toInternal(
+    StaticDomainParametersInternal.defaultMaxRatePerParticipant,
+    StaticDomainParametersInternal.defaultReconciliationInterval.toConfig,
+    StaticDomainParametersInternal.defaultMaxRequestSize,
+    catchUpParameters,
   )
 }
 
@@ -150,13 +177,31 @@ object StaticDomainParameters {
           protocolVersion = domain.protocolVersion,
         ) {}
       )
+    else if (protoVersion == 2)
+      Right(
+        new StaticDomainParametersV2(
+          uniqueContractKeys = domain.uniqueContractKeys,
+          requiredSigningKeySchemes =
+            domain.requiredSigningKeySchemes.forgetNE.map(_.transformInto[SigningKeyScheme]),
+          requiredEncryptionKeySchemes =
+            domain.requiredEncryptionKeySchemes.forgetNE.map(_.transformInto[EncryptionKeyScheme]),
+          requiredSymmetricKeySchemes =
+            domain.requiredSymmetricKeySchemes.forgetNE.map(_.transformInto[SymmetricKeyScheme]),
+          requiredHashAlgorithms =
+            domain.requiredHashAlgorithms.forgetNE.map(_.transformInto[HashAlgorithm]),
+          requiredCryptoKeyFormats =
+            domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
+          protocolVersion = domain.protocolVersion,
+          catchUpParameters = domain.catchUpParameters,
+        ) {}
+      )
     else
       Left(ProtoDeserializationError.VersionError("StaticDomainParameters", protoVersion))
   }
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
     val staticDomainParametersInternal = StaticDomainParametersInternal
-      .readFromFile(inputFile)
+      .readFromFileUnsafe(inputFile)
       .valueOr(err =>
         throw new IllegalArgumentException(
           s"Reading static domain parameters from file $inputFile failed: $err"

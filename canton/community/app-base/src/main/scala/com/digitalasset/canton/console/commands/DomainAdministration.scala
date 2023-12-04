@@ -17,6 +17,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   StaticDomainParameters,
   StaticDomainParametersV0,
   StaticDomainParametersV1,
+  StaticDomainParametersV2,
 }
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
@@ -185,6 +186,11 @@ trait DomainAdministration {
           case _: StaticDomainParametersV1 =>
             throw new IllegalStateException(
               s"Error when trying to get $operation: versions of static and dynamic domains parameters should be consistent but got 1 and 0 respectively"
+            )
+
+          case _: StaticDomainParametersV2 =>
+            throw new IllegalStateException(
+              s"Error when trying to get $operation: versions of static and dynamic domains parameters should be consistent but got 2 and 0 respectively"
             )
         }
 

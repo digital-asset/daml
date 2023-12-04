@@ -170,7 +170,7 @@ class DomainRouter(
         domainRankTarget,
         submitterInfo,
       )
-      _ = logger.info(s"submitting the transaction to the ${domainRankTarget.domainId}")
+      _ = logger.debug(s"Routing the transaction to the ${domainRankTarget.domainId}")
       transactionSubmittedF <- submit(domainRankTarget.domainId)(
         submitterInfo,
         transactionMeta,
