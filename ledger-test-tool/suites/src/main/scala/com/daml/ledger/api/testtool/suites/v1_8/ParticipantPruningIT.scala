@@ -19,8 +19,15 @@ import com.daml.ledger.api.v1.event_query_service.{
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
-import com.daml.ledger.test.java.model.test.{Dummy, TextKey}
-import com.daml.ledger.test.java.semantic.divulgencetests.{DivulgenceProposal, _}
+import com.daml.ledger.test.java.model
+import com.daml.ledger.test.java.model.test.TextKey
+import com.daml.ledger.test.java.semantic.divulgencetests.{
+  Contract,
+  DivulgeNotDiscloseTemplate,
+  Divulgence,
+  DivulgenceProposal,
+  Dummy,
+}
 import com.daml.ledger.test.java.semantic.divulgencetests
 import com.daml.logging.LoggingContext
 
@@ -638,7 +645,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, submitter)) =>
     for {
-      createdBeforePrune: Dummy.ContractId <- participant.create(submitter, new Dummy(submitter))
+      createdBeforePrune <- participant.create(submitter, new model.test.Dummy(submitter))
 
       offsets <- populateLedgerAndGetOffsets(participant, submitter)
       offsetToPruneUpTo = offsets(lastItemToPruneIndex)
@@ -742,7 +749,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             val errorMessage = exception.getMessage
             errorMessage.contains(
               "Contract could not be found with id"
-            ) && errorMessage.contains(contract.toString)
+            ) && errorMessage.contains(contract.contractId)
         }
     } yield ()
   })
@@ -827,7 +834,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, party)) =>
-    def getEvents(dummyCid: Dummy.ContractId): Future[Int] = {
+    def getEvents(dummyCid: model.test.Dummy.ContractId): Future[Int] = {
       val request = GetEventsByContractIdRequest(dummyCid.contractId, Seq(party))
       participant
         .getEventsByContractId(request)
@@ -835,7 +842,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     }
 
     for {
-      dummyCid: Dummy.ContractId <- participant.create(party, new Dummy(party))
+      dummyCid <- participant.create(party, new model.test.Dummy(party))
       end1 <- pruneToCurrentEnd(participant, party)
       events1 <- getEvents(dummyCid)
       exerciseCmd = participant.submitAndWaitRequest(
@@ -938,7 +945,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       offsetAfterDivulgence_1 <- beta.currentEnd()
 
       // Alice re-divulges the contract to Bob
-      _ <- alpha.exerciseAndGetContractNoDisclose[divulgencetests.Dummy.ContractId](
+      _ <- alpha.exerciseAndGetContractNoDisclose[divulgencetests.Contract.ContractId](
         alice,
         divulgence.exerciseDivulge(contract),
       )
@@ -1014,7 +1021,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future
         .sequence(Vector.fill(batchesToPopulate) {
           for {
-            dummy: Dummy.ContractId <- participant.create(submitter, new Dummy(submitter))
+            dummy <- participant.create(submitter, new model.test.Dummy(submitter))
             _ <- participant.exercise(submitter, dummy.exerciseDummyChoice1())
             _ <- participant.create(submitter, new Dummy(submitter))
           } yield ()

@@ -352,11 +352,11 @@ trait ParticipantTestContext extends UserManagementTestContext {
       party: Party,
       exercise: Update[T],
   ): Future[Transaction]
-  def exerciseAndGetContract[TCid <: ContractId[T], T]( // TODO: Check if T is not needed
+  def exerciseAndGetContract[TCid <: ContractId[T], T](
       party: Party,
       exercise: Update[Exercised[TCid]],
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid]
-  def exerciseAndGetContractNoDisclose[TCid <: ContractId[?]]( // TODO: rename??
+  def exerciseAndGetContractNoDisclose[TCid <: ContractId[?]](
       party: Party,
       exercise: Update[Exercised[UnitData]],
   )(implicit companion: ContractCompanion[?, TCid, ?]): Future[TCid]
