@@ -520,6 +520,7 @@ message ScenarioStep {
     Location location = 3;
   }
 
+  // Deprecated
   message AssertMustFail {
     repeated Party actAs = 1;
     repeated Party readAs = 2;
@@ -528,6 +529,7 @@ message ScenarioStep {
     Location location = 5;
   }
 
+  // TODO[SW] Consider adding the transaction itself.
   message SubmissionFailed {
     repeated Party actAs = 1;
     repeated Party readAs = 2;

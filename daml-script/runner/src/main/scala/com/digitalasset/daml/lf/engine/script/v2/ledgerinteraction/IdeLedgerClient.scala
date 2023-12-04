@@ -468,12 +468,10 @@ class IdeLedgerClient(
       disclosures: List[Disclosure],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext): Future[
-    Either[
-      ScenarioRunner.SubmissionError,
-      ScenarioRunner.Commit[ScenarioLedger.CommitResult],
-    ]
-  ] = Future {
+  ): Either[
+    ScenarioRunner.SubmissionError,
+    ScenarioRunner.Commit[ScenarioLedger.CommitResult],
+  ] = {
     val unallocatedSubmitters: Set[Party] =
       (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
     if (unallocatedSubmitters.nonEmpty) {
@@ -592,9 +590,9 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] =
+  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = Future {
     synchronized {
-      unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
+      unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
@@ -605,7 +603,7 @@ class IdeLedgerClient(
                   ScriptLedgerClient.Created(
                     create.templateId,
                     create.coid,
-                    create.arg,
+                    create.arg, 
                     blob(create, result.richTransaction.effectiveAt),
                   )
                 )
@@ -641,6 +639,7 @@ class IdeLedgerClient(
           Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
       }
     }
+  }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,

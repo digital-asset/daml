@@ -16,8 +16,6 @@ import DA.NonEmpty
 import DA.Stack
 import DA.Functor (void)
 import DA.Bifunctor (first)
-import DA.Optional (fromOptional)
-import DA.Either (fromLeft, fromRight)
 
 data SubmitConcurrentInternal = SubmitConcurrentInternal with
   submissions : [Submission]
@@ -152,24 +150,44 @@ instance ScriptSubmit Script where
   submitInternal : HasCallStack => SubmitOptions -> ErrorBehaviour -> Commands a -> Script (Either (Optional SubmitError) (a, Optional TransactionTree))
   submitInternal opts errorBehaviour cmds = concurrently $ submitInternal opts errorBehaviour cmds
 
+-- assertFromRight for mustsucceed. Error path should never be called, as scala handles it.
+mustSucceed : Either a b -> b
+mustSucceed = \case
+  Left _ -> error "MustSucceed Failed"
+  Right r -> r
+
+-- assertFromLeft for mustfail. Error path should never be called, as scala handles it.
+mustFail : Either a b -> a
+mustFail = \case
+  Left e -> e
+  Right _ -> error "MustFail Succeeded"
+
 -- ##### Main API #####
 -- | Equivalent to `submit` but returns the result and the full transaction tree.
 submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, Optional TransactionTree)
-submitResultAndTree opts cmds = fromRight (error "MustSucceed Failed") <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
+submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
 
 -- | Equivalent to `trySubmit` but returns the result and the full transaction tree.
 trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, Optional TransactionTree))
 trySubmitResultAndTree opts cmds = first getError <$> submitInternal (toSubmitOptions opts) Try cmds
 
+-- | HIDE
+submitWithError_ : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Optional SubmitError)
+submitWithError_ opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
+
 -- | Equivalent to `submitMustFail` but returns the error thrown.
 submitWithError : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m SubmitError
-submitWithError opts cmds = getError . fromLeft (error "MustFail Succeeded") <$> submitInternal (toSubmitOptions opts) MustFail cmds
+submitWithError opts cmds = getError <$> submitWithError_ opts cmds
 
 getTransactionTree : Optional TransactionTree -> TransactionTree
-getTransactionTree = fromOptional (error "No transaction tree returned! The JSON Ledger Client does not support submitTree.")
+getTransactionTree = \case
+  None -> error "No transaction tree returned! The JSON Ledger Client does not support submitTree."
+  Some t -> t
 
 getError : Optional SubmitError -> SubmitError
-getError = fromOptional (error "No transaction tree returned! The JSON Ledger Client does not support submitTree.")
+getError = \case
+  None -> error "No transaction tree returned! The JSON Ledger Client does not support submit for error."
+  Some e -> e
 
 -- | `submit p cmds` submits the commands `cmds` as a single transaction
 -- from party `p` and returns the value returned by `cmds`.
@@ -196,7 +214,7 @@ trySubmitTree opts cmds = fmap (getTransactionTree . snd) <$> trySubmitResultAnd
 --
 -- It only succeeds if the submitting the transaction fails.
 submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
-submitMustFail opts cmds = void $ submitWithError opts cmds
+submitMustFail opts cmds = void $ submitWithError_ opts cmds
 
 -- ##### Old compatibility conveniences #####
 
@@ -230,3 +248,7 @@ submitTreeMulti actors readers cmds = submitTree (actAs actors <> readAs readers
 -- and is only provided for backwards compatibility.
 trySubmitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m (Either SubmitError a)
 trySubmitMulti actors readers cmds = trySubmit (actAs actors <> readAs readers) cmds
+
+-- Provided for testing for now, likely to be removed
+trySubmitConcurrently : HasCallStack => Party -> [Commands a] -> Script [Either SubmitError a]
+trySubmitConcurrently p cmdss = concurrently $ forA cmdss $ trySubmit p

@@ -15,7 +15,7 @@ import DA.Exception (PreconditionFailed (..), fromAnyException, throw)
 import DA.Foldable (mapA_, sequence_)
 import DA.NonEmpty qualified (singleton)
 import Daml.Script
-import Daml.Script.Questions.Submit.Internal (trySubmitConcurrently)
+import Daml.Script.Questions.Submit (trySubmitConcurrently)
 
 --------------------------------------------------------------------------------
 
