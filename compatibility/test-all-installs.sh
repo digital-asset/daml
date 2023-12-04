@@ -140,10 +140,16 @@ parties:
 dependencies:
 - daml-prim
 - daml-stdlib
+- daml-script
 """ > daml.yaml
 
 echo """
 module Main where
+
+import Daml.Script
+
+main : Script ()
+main = pure ()
 """ > Main.daml
 }
 

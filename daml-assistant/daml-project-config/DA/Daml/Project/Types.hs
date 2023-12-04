@@ -17,6 +17,8 @@ import Control.Monad
 import Control.Exception.Safe
 import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
+import qualified SdkVersion
+import qualified Control.Exception as Unsafe
 
 data ConfigError
     = ConfigFileInvalid Text Y.ParseException
@@ -183,6 +185,9 @@ releaseVersionFromCacheString src =
       [both] -> OldReleaseVersion <$> parseVersionM both
       [release, sdk] -> SplitReleaseVersion <$> parseVersionM release <*> parseVersionM sdk
       _ -> Nothing
+
+unresolvedBuiltinSdkVersion :: UnresolvedReleaseVersion
+unresolvedBuiltinSdkVersion = either Unsafe.throw id $ parseUnresolvedVersion (T.pack SdkVersion.sdkVersion)
 
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath

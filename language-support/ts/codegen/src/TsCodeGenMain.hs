@@ -126,7 +126,7 @@ main = do
     setRunfilesEnv
     withProgName "daml codegen js" $ do
         opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
-        unresolvedVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+        unresolvedVersionOrErr <- fromMaybe (DATypes.parseVersion (T.pack "0.0.0")) <$> getSdkVersionMaybe
         releaseVersion <- case unresolvedVersionOrErr of
               Left _ -> fail "Invalid SDK version"
               Right v -> do

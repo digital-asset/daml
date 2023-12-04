@@ -7,7 +7,6 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
-    , PackageSdkVersion (..)
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
@@ -21,7 +20,7 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
-import Control.Exception.Safe (throwIO)
+import Control.Exception.Safe (throwIO, displayException)
 import Control.Monad (when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Class (lift)
@@ -34,12 +33,12 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
-import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import Text.Regex.TDFA
+import qualified Data.SemVer as V
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
@@ -55,15 +54,10 @@ data PackageConfigFields = PackageConfigFields
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
-    , pSdkVersion :: PackageSdkVersion
+    , pSdkVersion :: UnresolvedReleaseVersion
     , pUpgradedPackagePath :: Maybe String
     , pTypecheckUpgrades :: Bool
     }
-
--- | SDK version for package.
-newtype PackageSdkVersion = PackageSdkVersion
-    { unPackageSdkVersion :: String
-    } deriving (Eq, Y.FromJSON)
 
 -- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
@@ -127,20 +121,30 @@ overrideSdkVersion pkgConfig = do
     case sdkVersionM of
         Nothing ->
             pure pkgConfig
-        Just sdkVersion -> do
-            when (pSdkVersion pkgConfig /= PackageSdkVersion sdkVersion) $
+        Just (Left sdkVersionError) -> do
+            hPutStrLn stderr $ unwords
+                [ "Warning: Using SDK version "
+                , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
+                , " from config instead of "
+                , sdkVersionEnvVar
+                , " enviroment variable because it doesn't contain a valid version.\n"
+                , displayException sdkVersionError
+                ]
+            pure pkgConfig
+        Just (Right sdkVersion) -> do
+            when (pSdkVersion pkgConfig /= sdkVersion) $
                 hPutStrLn stderr $ unwords
                     [ "Warning: Using SDK version"
-                    , sdkVersion
+                    , V.toString (unwrapUnresolvedReleaseVersion sdkVersion)
                     , "from"
                     , sdkVersionEnvVar
                     , "enviroment variable instead of SDK version"
-                    , unPackageSdkVersion (pSdkVersion pkgConfig)
+                    , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
                     , "from"
                     , projectConfigName
                     , "config file."
                     ]
-            pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
+            pure pkgConfig { pSdkVersion = sdkVersion }
 
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do

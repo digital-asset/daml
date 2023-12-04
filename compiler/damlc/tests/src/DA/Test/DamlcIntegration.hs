@@ -28,6 +28,7 @@ import           "ghc-lib-parser" Unique
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
+import           Control.Exception (throw)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
@@ -90,7 +91,6 @@ import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
 
-import DA.Daml.Package.Config (PackageSdkVersion (..))
 import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
@@ -173,7 +173,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
       installDependencies
         projDir
         (defaultOptions mLfVer)
-        (PackageSdkVersion sdkVersion)
+        (either throw id (parseUnresolvedVersion sdkVersion))
         ["daml-prim", "daml-stdlib", scriptDar]
         extraDars
       createProjectPackageDb

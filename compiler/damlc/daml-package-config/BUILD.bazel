@@ -20,6 +20,7 @@ da_haskell_library(
         "ghc-lib-parser",
         "regex-tdfa",
         "safe-exceptions",
+        "semver",
         "text",
         "transformers",
         "yaml",

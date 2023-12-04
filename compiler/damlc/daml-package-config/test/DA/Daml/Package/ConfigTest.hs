@@ -10,6 +10,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Test.Tasty
 import Test.Tasty.HUnit
+import Control.Exception (throw)
 
 main :: IO ()
 main = defaultMain $
@@ -36,7 +37,7 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       , pDependencies = []
       , pDataDependencies = []
       , pModulePrefixes = Map.empty
-      , pSdkVersion = PackageSdkVersion "0.0.0"
+      , pSdkVersion = either throw id (parseUnresolvedVersion "0.0.0")
       , pUpgradedPackagePath = Nothing
       , pTypecheckUpgrades = False
       }

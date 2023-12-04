@@ -250,6 +250,7 @@ da_haskell_library(
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//daml-assistant:daml-lib",
     ],
 )
 
