@@ -15,9 +15,11 @@ else
   repo_url="https://$GITHUB_TOKEN@github.com/DACH-NY/canton"
 fi
 
-git clone --depth 1 --branch main $repo_url $tmp
-head=$(git -C $tmp rev-parse HEAD)
-echo "cloned at revision $head"
+commitish=${1:-$(cat canton-3x/canton-3x-sha)}
+
+git clone $repo_url $tmp
+git -C $tmp reset --hard $commitish
+echo "cloned at revision $commitish"
 
 daml_common_staging_src="$tmp/daml-common-staging"
 community_src="$tmp/community"
