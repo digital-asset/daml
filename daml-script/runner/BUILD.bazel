@@ -59,6 +59,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -69,7 +70,6 @@ da_scala_library(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",
         "//ledger/error",
@@ -124,10 +124,10 @@ da_scala_test(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
         "//ledger-service/http-json-testing:ce",

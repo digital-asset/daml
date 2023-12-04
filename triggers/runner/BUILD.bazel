@@ -22,6 +22,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -29,7 +30,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
