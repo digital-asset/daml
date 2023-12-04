@@ -158,25 +158,17 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
-  sealed trait SubmissionErrorBehaviour
-
-  object SubmissionErrorBehaviour {
-    final case object MustFail extends SubmissionErrorBehaviour
-    final case object MustSucceed extends SubmissionErrorBehaviour
-    final case object Try extends SubmissionErrorBehaviour
-  }
-
   final case class Submission(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[command.ApiCommand],
       disclosures: List[Disclosure],
-      errorBehaviour: SubmissionErrorBehaviour,
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )
 
   // The one submit to rule them all
   final case class SubmitConcurrentInternal(submissions: List[Submission], stackTrace: StackTrace) extends Cmd {
-    import SubmissionErrorBehaviour._
+    import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute(
         env: Env
@@ -199,6 +191,7 @@ object ScriptF {
           submission.cmds,
           stackTrace.topFrame,
           env.lookupLanguageVersion,
+          submission.errorBehaviour,
         )
         res <- (submitRes, submission.errorBehaviour) match {
           case (Right(_), MustFail) =>
@@ -814,11 +807,11 @@ object ScriptF {
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  private def parseErrorBehaviour(n: Name): Either[String, SubmissionErrorBehaviour] =
+  private def parseErrorBehaviour(n: Name): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
     n match {
-      case "MustSucceed" => Right(SubmissionErrorBehaviour.MustSucceed)
-      case "MustFail" => Right(SubmissionErrorBehaviour.MustFail)
-      case "Try" => Right(SubmissionErrorBehaviour.Try)
+      case "MustSucceed" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
+      case "MustFail" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
+      case "Try" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.Try)
       case _ => Left("Unknown constructor " + n)
     }
 

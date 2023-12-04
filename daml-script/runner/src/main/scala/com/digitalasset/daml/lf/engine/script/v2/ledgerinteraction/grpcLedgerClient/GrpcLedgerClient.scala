@@ -253,6 +253,7 @@ class GrpcLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

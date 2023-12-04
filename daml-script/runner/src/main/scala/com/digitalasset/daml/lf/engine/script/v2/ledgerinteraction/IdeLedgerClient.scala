@@ -34,14 +34,12 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
-import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -583,110 +581,6 @@ class IdeLedgerClient(
     }
   }
 
-  override def submit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
-      case Right(ScenarioRunner.Commit(result, _, _)) =>
-        _currentSubmission = None
-        _ledger = result.newLedger
-        val transaction = result.richTransaction.transaction
-        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
-          val node = transaction.nodes.getOrElse(
-            id,
-            throw new IllegalArgumentException(s"Unknown root node id $id"),
-          )
-          node match {
-            case create: Node.Create => ScriptLedgerClient.CreateResult(create.coid)
-            case exercise: Node.Exercise =>
-              ScriptLedgerClient.ExerciseResult(
-                exercise.templateId,
-                exercise.interfaceId,
-                exercise.choiceId,
-                exercise.exerciseResult.get,
-              )
-            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
-              throw new IllegalArgumentException(s"Invalid root node: $node")
-          }
-        }
-        Right(transaction.roots.toSeq.map(convRootEvent))
-      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
-        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        throw err
-    }
-
-  override def submitMustFail(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] =
-    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
-      case Right(ScenarioRunner.Commit(_, _, tx)) =>
-        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        Left(())
-      case Left(_) =>
-        _currentSubmission = None
-        _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
-        Right(())
-    }
-
-  override def submitTree(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[ScriptLedgerClient.TransactionTree] =
-    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
-      case Right(ScenarioRunner.Commit(result, _, _)) =>
-        _currentSubmission = None
-        _ledger = result.newLedger
-        val transaction = result.richTransaction.transaction
-        def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
-          transaction.nodes(id) match {
-            case create: Node.Create =>
-              Some(
-                ScriptLedgerClient.Created(
-                  create.templateId,
-                  create.coid,
-                  create.arg,
-                  blob(create, result.richTransaction.effectiveAt),
-                )
-              )
-            case exercise: Node.Exercise =>
-              Some(
-                ScriptLedgerClient.Exercised(
-                  exercise.templateId,
-                  exercise.interfaceId,
-                  exercise.targetCoid,
-                  exercise.choiceId,
-                  exercise.chosenValue,
-                  exercise.exerciseResult.get,
-                  exercise.children.collect(Function.unlift(convEvent(_))).toList,
-                )
-              )
-            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
-          }
-        ScriptLedgerClient.TransactionTree(
-          transaction.roots.collect(Function.unlift(convEvent(_))).toList
-        )
-      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
-        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        throw new IllegalStateException(err)
-    }
-
   override def submitInternal(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
@@ -694,10 +588,59 @@ class IdeLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = unsupportedOn("ee")
+  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] =
+    synchronized {
+      unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
+        case Right(ScenarioRunner.Commit(result, _, tx)) =>
+          _ledger = result.newLedger
+          val transaction = result.richTransaction.transaction
+          def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
+            transaction.nodes(id) match {
+              case create: Node.Create =>
+                Some(
+                  ScriptLedgerClient.Created(
+                    create.templateId,
+                    create.coid,
+                    create.arg,
+                    blob(create, result.richTransaction.effectiveAt),
+                  )
+                )
+              case exercise: Node.Exercise =>
+                Some(
+                  ScriptLedgerClient.Exercised(
+                    exercise.templateId,
+                    exercise.interfaceId,
+                    exercise.targetCoid,
+                    exercise.choiceId,
+                    exercise.chosenValue,
+                    exercise.exerciseResult.get,
+                    exercise.children.collect(Function.unlift(convEvent(_))).toList,
+                  )
+                )
+              case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
+            }
+          val tree = ScriptLedgerClient.TransactionTree(
+            transaction.roots.collect(Function.unlift(convEvent(_))).toList
+          )
+          val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
+          if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
+            _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
+          else
+            _currentSubmission = None
+          Right((results, Some(tree)))
+        case Left(ScenarioRunner.SubmissionError(err, tx)) =>
+          if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
+            _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
+          else
+            _currentSubmission = None
+          _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
+          Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
+      }
+    }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
@@ -830,73 +773,6 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
-
-  override def trySubmit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, disclosures, commands, optLocation).map {
-      case Right(ScenarioRunner.Commit(result, _, _)) =>
-        _currentSubmission = None
-        _ledger = result.newLedger
-        val transaction = result.richTransaction.transaction
-        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
-          val node = transaction.nodes.getOrElse(
-            id,
-            throw new IllegalArgumentException(s"Unknown root node id $id"),
-          )
-          node match {
-            case create: Node.Create => ScriptLedgerClient.CreateResult(create.coid)
-            case exercise: Node.Exercise =>
-              ScriptLedgerClient.ExerciseResult(
-                exercise.templateId,
-                exercise.interfaceId,
-                exercise.choiceId,
-                exercise.exerciseResult.get,
-              )
-            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
-              throw new IllegalArgumentException(s"Invalid root node: $node")
-          }
-        }
-        Right(transaction.roots.toSeq.map(convRootEvent))
-      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
-        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-        Left(fromScenarioError(err))
-    }
-
-  override def trySubmitConcurrently(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      commandss: List[List[command.ApiCommand]],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] =
-    // Since the IDE ledger doesn't have a sequencer, we simply lie about the
-    // concurrent part and sequence the commandss manually.
-    // commandss
-    commandss
-      .foldLeft(
-        Future.successful(
-          ListBuffer.empty[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
-        )
-      ) { (f, commands) =>
-        f.flatMap { x =>
-          trySubmit(actAs, readAs, List.empty, commands, optLocation, languageVersionLookup).map(
-            x += _
-          )
-        }
-      }
-      .map(_.toList)
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

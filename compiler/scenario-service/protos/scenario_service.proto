@@ -528,11 +528,20 @@ message ScenarioStep {
     Location location = 5;
   }
 
+  message SubmissionFailed {
+    repeated Party actAs = 1;
+    repeated Party readAs = 2;
+    sfixed64 time = 3;
+    int32 tx_id = 4;
+    Location location = 5;
+  }
+
   int32 step_id = 1;
   oneof step {
      Commit commit = 2;
      int64 pass_time = 3;
-     AssertMustFail assert_must_fail = 4;
+     AssertMustFail assert_must_fail = 4; // No longer used in daml3-script. Remove once daml3 cuts.
+     SubmissionFailed submission_failed = 5;
   }
 }
 
@@ -548,6 +557,12 @@ message Disclosure {
   Party party = 1;
   int32 since_tx_id = 2;
   bool explicit = 3;
+}
+
+message DisclosedContract {
+  ContractRef contract_ref = 1;
+  Value argument = 2;
+  string key_hash = 3; // optional
 }
 
 message FailedAuthorization {
