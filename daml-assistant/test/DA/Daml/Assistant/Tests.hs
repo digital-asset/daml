@@ -412,7 +412,8 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                     , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
-                    , iAllowInstallNonRelease = AllowInstallNonRelease False
+                    , iInstallWithInternalVersion = InstallWithInternalVersion False
+                    , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                     }
 
             setCurrentDirectory base
@@ -449,7 +450,8 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                           , iSetPath = SetPath No
                           , iBashCompletions = BashCompletions No
                           , iZshCompletions = ZshCompletions No
-                          , iAllowInstallNonRelease = AllowInstallNonRelease False
+                          , iInstallWithInternalVersion = InstallWithInternalVersion False
+                          , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                           }
 
                   setCurrentDirectory base
@@ -481,7 +483,8 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
-                    , iAllowInstallNonRelease = AllowInstallNonRelease False
+                    , iInstallWithInternalVersion = InstallWithInternalVersion False
+                    , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                     }
 
             setCurrentDirectory base
@@ -513,7 +516,8 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
-                    , iAllowInstallNonRelease = AllowInstallNonRelease False
+                    , iInstallWithInternalVersion = InstallWithInternalVersion False
+                    , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                     }
 
             setCurrentDirectory base
@@ -545,7 +549,8 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
-                    , iAllowInstallNonRelease = AllowInstallNonRelease False
+                    , iInstallWithInternalVersion = InstallWithInternalVersion False
+                    , iInstallWithCustomVersion = InstallWithCustomVersion Nothing
                     }
 
             setCurrentDirectory base
