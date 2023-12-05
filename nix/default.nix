@@ -130,11 +130,6 @@ in rec {
     pipenv = pkgs.pipenv;
 
     pre-commit = pkgs.pre-commit;
- 
-    sphinx-build      = sphinx;
-    sphinx-quickstart = sphinx;
-
-    sphinx = bazel_dependencies.sphinx-exts;
 
     convert = bazel_dependencies.imagemagick;
 
