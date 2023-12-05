@@ -579,7 +579,7 @@ class IdeLedgerClient(
     }
   }
 
-  override def submitInternal(
+  override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
@@ -631,11 +631,19 @@ class IdeLedgerClient(
             _currentSubmission = None
           Right((results, Some(tree)))
         case Left(ScenarioRunner.SubmissionError(err, tx)) =>
-          if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
-            _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
-          else
-            _currentSubmission = None
-          _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
+          import ScriptLedgerClient.SubmissionErrorBehaviour._
+          // Some compatibility logic to keep the "steps" the same.
+          // We may consider changing this to always insert SubmissionFailed, but this requires splitting the golden files in the integration tests
+          errorBehaviour match {
+            case MustSucceed =>
+              _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))  
+            case MustFail =>
+              _currentSubmission = None
+              _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
+            case Try =>
+              _currentSubmission = None
+              _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
+          }
           Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
       }
     }

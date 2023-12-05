@@ -161,7 +161,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
-  def submitInternal(
+  def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],

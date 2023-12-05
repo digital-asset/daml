@@ -18,9 +18,9 @@ import DA.Stack
 import DA.Functor (void)
 import DA.Bifunctor (first)
 
-data SubmitConcurrentInternal = SubmitConcurrentInternal with
+data Submit = Submit with
   submissions : [Submission]
-instance IsQuestion SubmitConcurrentInternal [Either (Optional SubmitError) ([CommandResult], Optional TransactionTree)] where command = "SubmitConcurrentInternal"
+instance IsQuestion Submit [Either (Optional SubmitError) ([CommandResult], Optional TransactionTree)] where command = "Submit"
 
 data Submission = Submission with
   sActAs : NonEmpty Party
@@ -81,6 +81,10 @@ readAs p = SubmitOptions [] (toParties p) []
 -- | Provides an Explicit Disclosure to the transaction.
 disclose : Disclosure -> SubmitOptions
 disclose d = SubmitOptions [] [] [d]
+
+-- | Provides many Explicit Disclosures to the transaction.
+discloseMany : [Disclosure] -> SubmitOptions
+discloseMany ds = SubmitOptions [] [] ds
 
 -- | Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions a where
@@ -146,7 +150,7 @@ instance ScriptSubmit ConcurrentSubmits where
 -- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
 concurrently : HasCallStack => ConcurrentSubmits a -> Script a
-concurrently submissions = fmap submissions.continue $ lift $ SubmitConcurrentInternal with
+concurrently submissions = fmap submissions.continue $ lift $ Submit with
   submissions = submissions.submits
 
 instance ScriptSubmit Script where
@@ -252,6 +256,13 @@ submitTreeMulti actors readers cmds = submitTree (actAs actors <> readAs readers
 trySubmitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m (Either SubmitError a)
 trySubmitMulti actors readers cmds = trySubmit (actAs actors <> readAs readers) cmds
 
--- Provided for testing for now, likely to be removed
+-- #### Provided for testing for now, likely to be removed #####
+
 trySubmitConcurrently : HasCallStack => Party -> [Commands a] -> Script [Either SubmitError a]
 trySubmitConcurrently p cmdss = concurrently $ forA cmdss $ trySubmit p
+
+submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
+submitWithDisclosures p disclosures cmds = submit (actAs p <> discloseMany disclosures) cmds
+
+submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
+submitWithDisclosuresMustFail p disclosures cmds = submitMustFail (actAs p <> discloseMany disclosures) cmds

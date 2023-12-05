@@ -169,7 +169,7 @@ object ScriptF {
   )
 
   // The one submit to rule them all
-  final case class SubmitConcurrentInternal(submissions: List[Submission]) extends Cmd {
+  final case class Submit(submissions: List[Submission]) extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute(
@@ -186,7 +186,7 @@ object ScriptF {
           env.clients
             .getPartiesParticipant(submission.actAs)
         )
-        submitRes <- client.submitInternal(
+        submitRes <- client.submit(
           submission.actAs,
           submission.readAs,
           submission.disclosures,
@@ -851,7 +851,7 @@ object ScriptF {
       case _ => Left(s"Expected Submission payload but got $v")
     }
 
-  private def parseSubmitConcurrentInternal(v: SValue, knownPackages: KnownPackages): Either[String, SubmitConcurrentInternal] =
+  private def parseSubmit(v: SValue, knownPackages: KnownPackages): Either[String, Submit] =
     v match {
       case SRecord(
             _,
@@ -860,8 +860,8 @@ object ScriptF {
           ) =>
         for {
           submissions <- submissions.traverse(parseSubmission(_, knownPackages))
-        } yield SubmitConcurrentInternal(submissions = submissions.toList)
-      case _ => Left(s"Expected SubmitConcurrentInternal payload but got $v")
+        } yield Submit(submissions = submissions.toList)
+      case _ => Left(s"Expected Submit payload but got $v")
     }
 
   private def parseQueryACS(v: SValue): Either[String, QueryACS] =
@@ -1105,7 +1105,7 @@ object ScriptF {
       knownPackages: KnownPackages,
   ): Either[String, Cmd] =
     (commandName, version) match {
-      case ("SubmitConcurrentInternal", 1) => parseSubmitConcurrentInternal(v, knownPackages)
+      case ("Submit", 1) => parseSubmit(v, knownPackages)
       case ("QueryACS", 1) => parseQueryACS(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)

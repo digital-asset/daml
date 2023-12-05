@@ -309,7 +309,7 @@ class JsonLedgerClient(
     }
   }
 
-  override def submitInternal(
+  override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],

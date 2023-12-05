@@ -26,6 +26,8 @@ module Daml.Script
   , submitMultiMustFail
   , submitTreeMulti
   , trySubmitMulti
+  , submitWithDisclosures
+  , submitWithDisclosuresMustFail
 
   , query
   , queryInterface
