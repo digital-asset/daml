@@ -62,7 +62,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "compileWithContractDisclosures" should {
-    val version = TransactionVersion.minExplicitDisclosure
+    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
     val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
     val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
     val disclosedCid1 =
