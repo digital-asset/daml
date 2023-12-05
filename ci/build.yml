@@ -269,7 +269,9 @@ jobs:
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
-        ci/build-canton-3x.sh
+        if [ -x ci/build-canton-3x.sh ]; then
+          ci/build-canton-3x.sh
+        fi
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
       name: build_canton_3x
