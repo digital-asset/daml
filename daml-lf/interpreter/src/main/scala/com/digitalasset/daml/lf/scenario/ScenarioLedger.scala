@@ -607,7 +607,8 @@ final case class ScenarioLedger(
   ): ScenarioLedger = {
     val id = scenarioStepId
     val effAt = currentTime
-    val newIMS = scenarioSteps + (id.index -> SubmissionFailed(actAs, readAs, optLocation, effAt, id))
+    val newIMS =
+      scenarioSteps + (id.index -> SubmissionFailed(actAs, readAs, optLocation, effAt, id))
     copy(
       scenarioSteps = newIMS,
       scenarioStepId = scenarioStepId.next,

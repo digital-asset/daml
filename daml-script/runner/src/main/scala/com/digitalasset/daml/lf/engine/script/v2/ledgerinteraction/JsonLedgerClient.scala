@@ -320,7 +320,10 @@ class JsonLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = {
+  ): Future[Either[
+    ScriptLedgerClient.SubmitFailure,
+    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+  ]] = {
     val resultF = for {
       _ <- Converter.noDisclosures(disclosures)
       partySets <- validateSubmitParties(actAs, readAs)

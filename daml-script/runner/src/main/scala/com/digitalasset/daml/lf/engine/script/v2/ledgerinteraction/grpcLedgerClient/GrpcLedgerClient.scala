@@ -72,7 +72,10 @@ class GrpcLedgerClient(
   }
 
   // Omits the package id on an identifier if contract upgrades are enabled unless explicitPackageId is true
-  private def toApiIdentifierUpgrades(identifier: Identifier, explicitPackageId: Boolean): api.Identifier = {
+  private def toApiIdentifierUpgrades(
+      identifier: Identifier,
+      explicitPackageId: Boolean,
+  ): api.Identifier = {
     val converted = toApiIdentifier(identifier)
     if (explicitPackageId || !enableContractUpgrading) converted else converted.copy(packageId = "")
   }
@@ -257,7 +260,10 @@ class GrpcLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = {
+  ): Future[Either[
+    ScriptLedgerClient.SubmitFailure,
+    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+  ]] = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
       disclosures.map { case Disclosure(tmplId, cid, blob) =>
@@ -294,10 +300,14 @@ class GrpcLedgerClient(
       } yield Right((results, Some(tree)))
     resultFuture
       .recoverWith({ case s: StatusRuntimeException =>
-        Future.successful(Left(ScriptLedgerClient.SubmitFailure(
-          s,  
-          Some(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)),
-        )))
+        Future.successful(
+          Left(
+            ScriptLedgerClient.SubmitFailure(
+              s,
+              Some(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)),
+            )
+          )
+        )
       })
   }
 
@@ -370,7 +380,12 @@ class GrpcLedgerClient(
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifierUpgrades(typeId, cmd.explicitPackageId)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(
+            Some(toApiIdentifierUpgrades(typeId, cmd.explicitPackageId)),
+            contractId.coid,
+            choice,
+            Some(arg),
+          )
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {

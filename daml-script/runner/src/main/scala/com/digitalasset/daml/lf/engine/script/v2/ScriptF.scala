@@ -165,7 +165,7 @@ object ScriptF {
       cmds: List[ScriptLedgerClient.CommandWithMeta],
       disclosures: List[Disclosure],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
-      optLocation: Option[Location]
+      optLocation: Option[Location],
   )
 
   // The one submit to rule them all
@@ -175,7 +175,9 @@ object ScriptF {
     override def execute(
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      Future.traverse(submissions)(singleSubmit(_, env)).map(results => SEValue(SList(results.to(FrontStack))))
+      Future
+        .traverse(submissions)(singleSubmit(_, env))
+        .map(results => SEValue(SList(results.to(FrontStack))))
 
     def singleSubmit(
         submission: Submission,
@@ -207,18 +209,26 @@ object ScriptF {
               commandResults
                 .to(FrontStack)
                 .traverse(
-                  Converter.fromCommandResult(env.lookupChoice, env.valueTranslator, env.scriptIds, _, client.enableContractUpgrading)
+                  Converter.fromCommandResult(
+                    env.lookupChoice,
+                    env.valueTranslator,
+                    env.scriptIds,
+                    _,
+                    client.enableContractUpgrading,
+                  )
                 )
                 .flatMap { rs =>
-                  oTree.traverse(
-                    Converter.translateTransactionTree(
-                      env.lookupChoice,
-                      env.valueTranslator,
-                      env.scriptIds,
-                      _,
-                      client.enableContractUpgrading,
+                  oTree
+                    .traverse(
+                      Converter.translateTransactionTree(
+                        env.lookupChoice,
+                        env.valueTranslator,
+                        env.scriptIds,
+                        _,
+                        client.enableContractUpgrading,
+                      )
                     )
-                  ).map((rs, _))
+                    .map((rs, _))
                 }
                 .map { case (rs, oTree) =>
                   SVariant(
@@ -795,7 +805,9 @@ object ScriptF {
 
   final case class KnownPackages(pkgs: Map[String, PackageId])
 
-  private def parseErrorBehaviour(n: Name): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
+  private def parseErrorBehaviour(
+      n: Name
+  ): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
     n match {
       case "MustSucceed" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
       case "MustFail" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
@@ -840,7 +852,7 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            ArrayList(SList(submissions))
+            ArrayList(SList(submissions)),
           ) =>
         for {
           submissions <- submissions.traverse(parseSubmission(_, knownPackages))

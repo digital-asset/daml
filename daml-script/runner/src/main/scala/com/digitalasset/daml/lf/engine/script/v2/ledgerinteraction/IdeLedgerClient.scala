@@ -590,7 +590,10 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[ScriptLedgerClient.SubmitFailure, (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree])]] = Future {
+  ): Future[Either[
+    ScriptLedgerClient.SubmitFailure,
+    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+  ]] = Future {
     synchronized {
       unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>
@@ -603,7 +606,7 @@ class IdeLedgerClient(
                   ScriptLedgerClient.Created(
                     create.templateId,
                     create.coid,
-                    create.arg, 
+                    create.arg,
                     blob(create, result.richTransaction.effectiveAt),
                   )
                 )
@@ -636,7 +639,7 @@ class IdeLedgerClient(
           // We may consider changing this to always insert SubmissionFailed, but this requires splitting the golden files in the integration tests
           errorBehaviour match {
             case MustSucceed =>
-              _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))  
+              _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
             case MustFail =>
               _currentSubmission = None
               _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
