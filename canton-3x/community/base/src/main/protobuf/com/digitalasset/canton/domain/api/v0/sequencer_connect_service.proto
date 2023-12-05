@@ -1,0 +1,60 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.api.v0;
+
+import "com/digitalasset/canton/domain/api/v0/service_agreement.proto";
+import "com/digitalasset/canton/protocol/v0/sequencing.proto";
+import "com/digitalasset/canton/protocol/v1/sequencing.proto";
+
+service SequencerConnectService {
+  rpc Handshake(com.digitalasset.canton.protocol.v0.Handshake.Request) returns (com.digitalasset.canton.protocol.v0.Handshake.Response);
+  rpc GetDomainId(SequencerConnect.GetDomainId.Request) returns (SequencerConnect.GetDomainId.Response);
+  rpc GetDomainParameters(SequencerConnect.GetDomainParameters.Request) returns (SequencerConnect.GetDomainParameters.Response);
+  rpc VerifyActive(SequencerConnect.VerifyActive.Request) returns (SequencerConnect.VerifyActive.Response);
+  rpc GetServiceAgreement(GetServiceAgreementRequest) returns (GetServiceAgreementResponse);
+}
+
+message SequencerConnect {
+  message GetDomainId {
+    message Request {}
+
+    message Response {
+      string domain_id = 1;
+      // If `sequencer_id` is an empty string, consumers of this API can assume
+      // that `domain_id` serves as the `sequencer_id`.
+      string sequencer_id = 2;
+    }
+  }
+
+  message GetDomainParameters {
+    message Request {}
+
+    message Response {
+      oneof parameters {
+        com.digitalasset.canton.protocol.v1.StaticDomainParameters parameters_v1 = 2;
+      }
+    }
+  }
+
+  message VerifyActive {
+    message Request {}
+
+    message Response {
+      oneof value {
+        Success success = 1;
+        Failure failure = 2;
+      }
+    }
+
+    message Success {
+      bool is_active = 1;
+    }
+
+    message Failure {
+      string reason = 1;
+    }
+  }
+}

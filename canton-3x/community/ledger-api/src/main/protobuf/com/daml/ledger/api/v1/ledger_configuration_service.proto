@@ -1,0 +1,49 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "google/protobuf/duration.proto";
+
+option java_outer_classname = "LedgerConfigurationServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// LedgerConfigurationService allows clients to subscribe to changes of the ledger configuration.
+// In V2 Ledger API this service is not available anymore.
+service LedgerConfigurationService {
+
+  // Returns the latest configuration as the first response, and publishes configuration updates in the same stream.
+  rpc GetLedgerConfiguration (GetLedgerConfigurationRequest) returns (stream GetLedgerConfigurationResponse);
+
+}
+
+message GetLedgerConfigurationRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+}
+
+message GetLedgerConfigurationResponse {
+
+  // The latest ledger configuration.
+  LedgerConfiguration ledger_configuration = 1;
+}
+
+// LedgerConfiguration contains parameters of the ledger instance that may be useful to clients.
+message LedgerConfiguration {
+
+  reserved 1; // was min_ttl
+  reserved 2; // was max_ttl
+
+  // If a command submission specifies a deduplication period of length up to ``max_deduplication_duration``,
+  // the submission SHOULD not be rejected with ``FAILED_PRECONDITION`` because the deduplication period starts too early.
+  // The deduplication period is measured on a local clock of the participant or Daml ledger,
+  // and therefore subject to clock skews and clock drifts.
+  // Command submissions with longer periods MAY get accepted though.
+  google.protobuf.Duration max_deduplication_duration = 3;
+}

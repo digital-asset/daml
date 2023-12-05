@@ -1,0 +1,58 @@
+nodes.local.start()
+
+val domainUrl = sys.props.get("canton-examples.domain-url").getOrElse("https://canton.global")
+
+val myself = participant1
+
+if (myself.domains.list_registered().length == 0) {
+  myself.domains.connect("global", domainUrl)
+}
+
+utils.retry_until_true(timeout = 60.seconds) {
+  myself.domains.active("global")
+}
+
+myself.health.ping(myself) // make sure that the connection works
+
+// upload the dars
+
+import better.files._
+
+val baseDir = sys.props.get("canton-examples.base-dir").getOrElse(".")
+val messageDar: File = baseDir / "message" / ".daml" / "dist" / "message-0.0.1.dar"
+val contactDar: File = baseDir / "contact" / ".daml" / "dist" / "contact-0.0.1.dar"
+assert(messageDar.exists(), s"Message dar $messageDar isn't built")
+assert(contactDar.exists(), s"Contact dar $contactDar isn't build")
+myself.dars.upload(messageDar.pathAsString)
+myself.dars.upload(contactDar.pathAsString)
+
+// if no parties have been onboarded, ask for the party name
+val hostedParties = myself.parties.hosted()
+if (hostedParties.length <= 1) {
+  val username = sys.props.get("canton-examples.username").getOrElse {
+    scala.io.StdIn.readLine("Enter the name under which you want to be found: ")
+  }
+  val user = myself.parties.enable(username, waitForDomain = DomainChoice.All)
+  println(s"Your suffixed user name is: ${user.toLf}\n")
+} else {
+  val users = hostedParties.map(_.party.toLf).mkString("\n  ")
+  println(s"Local user names:\n  $users")
+}
+
+val messageConf: File = baseDir / "message" / "ui-backend-participant1.conf"
+utils.generate_navigator_conf(myself, Some(messageConf.toString))
+val contactConf: File = baseDir / "contact" / "ui-backend-participant1.conf"
+utils.generate_navigator_conf(myself, Some(contactConf.toString))
+
+println(s"Start Daml Navigator now with the following command from the messaging or contact folder:")
+val ledgerApiPort = myself.config.clientLedgerApi.port
+println(s"\n  daml navigator server localhost $ledgerApiPort -t wallclock --port 7015 -c ui-backend-participant1.conf\n")
+
+def findUser(name: String): Unit = {
+  val users = myself.parties.list(filterParty = name).map(_.party.toLf)
+  println(users.mkString("\n"))
+}
+
+println(s"You can search for other users with the following query in this Canton console:")
+println("\n  findUser(\"Alice\")\n")
+println("If you want to send them a message, copy their user name into the receiver field.\n")

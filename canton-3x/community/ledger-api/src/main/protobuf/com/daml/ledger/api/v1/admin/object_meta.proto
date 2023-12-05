@@ -1,0 +1,52 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "ObjectMetaOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Represents metadata corresponding to a participant resource (e.g. a participant user or participant local information about a party).
+//
+// Based on ``ObjectMeta`` meta used in Kubernetes API.
+// See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
+message ObjectMeta {
+
+  // An opaque, non-empty value, populated by a participant server which represents the internal version of the resource
+  // this ``ObjectMeta`` message is attached to. The participant server will change it to a unique value each time the corresponding resource is updated.
+  // You must not rely on the format of resource version. The participant server might change it without notice.
+  // You can obtain the newest resource version value by issuing a read request.
+  // You may use it for concurrent change detection by passing it back unmodified in an update request.
+  // The participant server will then compare the passed value with the value maintained by the system to determine
+  // if any other updates took place since you had read the resource version.
+  // Upon a successful update you are guaranteed that no other update took place during your read-modify-write sequence.
+  // However, if another update took place during your read-modify-write sequence then your update will fail with an appropriate error.
+  // Concurrent change control is optional. It will be applied only if you include a resource version in an update request.
+  // When creating a new instance of a resource you must leave the resource version empty.
+  // Its value will be populated by the participant server upon successful resource creation.
+  // Optional
+  string resource_version = 6;
+
+  // A set of modifiable key-value pairs that can be used to represent arbitrary, client-specific metadata.
+  // Constraints:
+  // 1. The total size over all keys and values cannot exceed 256kb in UTF-8 encoding.
+  // 2. Keys are composed of an optional prefix segment and a required name segment such that:
+  //    - key prefix, when present, must be a valid DNS subdomain with at most 253 characters, followed by a '/' (forward slash) character,
+  //    - name segment must have at most 63 characters that are either alphanumeric ([a-z0-9A-Z]), or a '.' (dot), '-' (dash) or '_' (underscore);
+  //      and it must start and end with an alphanumeric character.
+  // 2. Values can be any non-empty strings.
+  // Keys with empty prefix are reserved for end-users.
+  // Properties set by external tools or internally by the participant server must use non-empty key prefixes.
+  // Duplicate keys are disallowed by the semantics of the protobuf3 maps.
+  // See: https://developers.google.com/protocol-buffers/docs/proto3#maps
+  // Annotations may be a part of a modifiable resource.
+  // Use the resource's update RPC to update its annotations.
+  // In order to add a new annotation or update an existing one using an update RPC, provide the desired annotation in the update request.
+  // In order to remove an annotation using an update RPC, provide the target annotation's key but set its value to the empty string in the update request.
+  // Optional
+  // Modifiable
+  map<string, string> annotations = 12;
+}

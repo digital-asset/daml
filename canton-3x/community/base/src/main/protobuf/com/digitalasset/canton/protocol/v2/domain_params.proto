@@ -1,0 +1,59 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/traffic_control_parameters.proto";
+import "google/protobuf/duration.proto";
+import "scalapb/scalapb.proto";
+
+message StaticDomainParametersX {
+  repeated com.digitalasset.canton.crypto.v0.SigningKeyScheme required_signing_key_schemes = 1;
+  repeated com.digitalasset.canton.crypto.v0.EncryptionKeyScheme required_encryption_key_schemes = 2;
+  repeated com.digitalasset.canton.crypto.v0.SymmetricKeyScheme required_symmetric_key_schemes = 3;
+  repeated com.digitalasset.canton.crypto.v0.HashAlgorithm required_hash_algorithms = 4;
+  repeated com.digitalasset.canton.crypto.v0.CryptoKeyFormat required_crypto_key_formats = 5;
+  int32 protocol_version = 7;
+}
+
+// individual per participant limits
+message ParticipantDomainLimits {
+  // TODO(#14052) implement per participant rate limits
+  uint32 max_rate = 1;
+  // TODO(#14052) implement per participant party limits
+  uint32 max_num_parties = 2;
+  // TODO(#14052) implement per participant package limits
+  uint32 max_num_packages = 3;
+}
+
+message DynamicDomainParameters {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  google.protobuf.Duration participant_response_timeout = 1;
+  google.protobuf.Duration mediator_reaction_timeout = 2;
+  google.protobuf.Duration transfer_exclusivity_timeout = 3;
+  google.protobuf.Duration topology_change_delay = 4;
+  google.protobuf.Duration ledger_time_record_time_tolerance = 5;
+  google.protobuf.Duration reconciliation_interval = 6;
+  google.protobuf.Duration mediator_deduplication_timeout = 7;
+  uint32 max_request_size = 8;
+  // topology related validation parameters
+  // permissioned domain: if true, only participants which have been explicitly
+  // whitelisted are allowed on the domain
+  // TODO(#14053) re-enable this feature and turn on the PermissionedDomainIntegrationTest
+  bool permissioned_domain = 9;
+  // required packages are the default packages that must be supported by all participants on a domain
+  // TODO(#14054) enable this feature (necessary for canton network such that an SVC can't do a rug-pull)
+  repeated string required_packages = 11;
+  // if true, then only the required packages are supported on the given domain
+  // TODO(#14055) enable this feature (was requested by Curtis)
+  bool only_required_packages_permitted = 12;
+  ParticipantDomainLimits default_participant_limits = 13;
+  // TODO(#14050) implement party hosting limits
+  uint32 default_max_hosting_participants_per_party = 14;
+  google.protobuf.Duration sequencer_aggregate_submission_timeout = 15;
+  com.digitalasset.canton.protocol.v0.TrafficControlParameters traffic_control_parameters = 16;
+}

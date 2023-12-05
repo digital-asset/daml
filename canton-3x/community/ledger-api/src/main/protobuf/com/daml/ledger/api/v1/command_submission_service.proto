@@ -1,0 +1,43 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/commands.proto";
+import "google/protobuf/empty.proto";
+
+option java_outer_classname = "CommandSubmissionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to attempt advancing the ledger's state by submitting commands.
+// The final states of their submissions are disclosed by the Command Completion Service.
+// The on-ledger effects of their submissions are disclosed by the Transaction Service.
+//
+// Commands may fail in 2 distinct manners:
+//
+// 1. Failure communicated synchronously in the gRPC error of the submission.
+// 2. Failure communicated asynchronously in a Completion, see ``completion.proto``.
+//
+// Note that not only successfully submitted commands MAY produce a completion event. For example, the participant MAY
+// choose to produce a completion event for a rejection of a duplicate command.
+//
+// Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
+// Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
+service CommandSubmissionService {
+
+  // Submit a single composite command.
+  rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
+
+}
+
+// The submitted commands will be processed atomically in a single transaction. Moreover, each ``Command`` in ``commands`` will be executed in the order specified by the request.
+message SubmitRequest {
+
+  // The commands to be submitted in a single transaction.
+  // Required
+  Commands commands = 1;
+
+}

@@ -1,0 +1,331 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
+
+option java_outer_classname = "UserManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+
+// Service to manage users and their rights for interacting with the Ledger API
+// served by a participant node.
+//
+// The authorization rules for its RPCs are specified on the ``<RpcName>Request``
+// messages as boolean expressions over these facts:
+// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
+// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
+// (3) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+// of the authenticated user and the user has an IdentityProviderAdmin right.
+// If `user_id` is set to the empty string (the default), then the data for the authenticated user will be retrieved.
+// If `identity_provider_id` is set to an empty string, then it's effectively set to the value of access token's 'iss' field if that is provided.
+// If `identity_provider_id` remains an empty string, the default identity provider will be assumed.
+//
+// The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
+// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
+// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// A user resource consists of:
+// (1) a set of properties represented by the ``User`` message,
+// (2) a set of user rights, where each right is represented by the ``Right`` message.
+//
+// A user resource, once it has been created, can be modified.
+// In order to update the properties represented by the ``User`` message use the ``UpdateUser`` RPC. The only fields that can be modified are those marked as ``Modifiable``.
+// In order to grant or revoke user rights use ``GrantRights' and ``RevokeRights`` RPCs.
+service UserManagementService {
+
+    // Create a new user.
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+
+    // Get the user data of a specific user or the authenticated user.
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
+
+    // Update selected modifiable attribute of a user resource described by the ``User`` message.
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
+
+    // Delete an existing user and all its rights.
+    rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+
+    // List all existing users.
+    rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+
+    // Grant rights to a user.
+    // Granting rights does not affect the resource version of the corresponding user.
+    rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
+
+    // Revoke rights from a user.
+    // Revoking rights does not affect the resource version of the corresponding user.
+    rpc RevokeUserRights (RevokeUserRightsRequest) returns (RevokeUserRightsResponse);
+
+    // List the set of all rights granted to a user.
+    rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
+
+    // Update the assignment of a user from one IDP to another.
+    rpc UpdateUserIdentityProviderId (UpdateUserIdentityProviderRequest) returns (UpdateUserIdentityProviderResponse);
+}
+
+
+// Users and rights
+///////////////////
+
+// Users are used to dynamically manage the rights given to Daml applications.
+// They are stored and managed per participant node.
+//
+// Read the :doc:`Authorization documentation </app-dev/authorization>` to learn more.
+message User {
+    // The user identifier, which must be a non-empty string of at most 128
+    // characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+    // Required
+    string id = 1;
+
+    // The primary party as which this user reads and acts by default on the ledger
+    // *provided* it has the corresponding ``CanReadAs(primary_party)`` or
+    // ``CanActAs(primary_party)`` rights.
+    // Ledger API clients SHOULD set this field to a non-empty value for all users to
+    // enable the users to act on the ledger using their own Daml party.
+    // Users for participant administrators MAY have an associated primary party.
+    // Optional,
+    // Modifiable
+    string primary_party = 2;
+
+    // When set, then the user is denied all access to the Ledger API.
+    // Otherwise, the user has access to the Ledger API as per the user's rights.
+    // Optional,
+    // Modifiable
+    bool is_deactivated = 3;
+
+    // The metadata of this user.
+    // Note that the ``metadata.resource_version`` tracks changes to the properties described by the ``User`` message and not the user's rights.
+    // Optional,
+    // Modifiable
+    ObjectMeta metadata = 4;
+
+    // The id of the identity provider configured by ``Identity Provider Config``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 5;
+}
+
+
+// A right granted to a user.
+message Right {
+    // The right to administer the participant node.
+    message ParticipantAdmin {}
+
+    message CanActAs {
+        // The right to authorize commands for this party.
+        string party = 1;
+    }
+
+    message CanReadAs {
+        // The right to read ledger data visible to this party.
+        string party = 1;
+    }
+
+    // The right to administer the identity provider that the user is assigned to.
+    // It means, being able to manage users and parties that are also assigned
+    // to the same identity provider.
+    message IdentityProviderAdmin {}
+
+    // Required
+    oneof kind {
+        // The user can administer the participant node.
+        ParticipantAdmin participant_admin = 1;
+        // The user can act as a specific party.
+        CanActAs can_act_as = 2;
+        // The user can read ledger data visible to a specific party.
+        CanReadAs can_read_as = 3;
+        // The user can administer users and parties assigned to the same identity provider as the one of the user.
+        IdentityProviderAdmin identity_provider_admin = 4;
+    }
+}
+
+
+// RPC requests and responses
+/////////////////////////////
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
+message CreateUserRequest {
+    // The user to create.
+    // Required
+    User user = 1;
+
+    // The rights to be assigned to the user upon creation,
+    // which SHOULD include appropriate rights for the ``user.primary_party``.
+    // Optional
+    repeated Right rights = 2;
+}
+
+message CreateUserResponse {
+    // Created user.
+    User user = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
+message GetUserRequest {
+    // The user whose data to retrieve.
+    // If set to empty string (the default), then the data for the authenticated user will be retrieved.
+    // Optional
+    string user_id = 1;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
+}
+
+message GetUserResponse {
+    // Retrieved user.
+    User user = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
+message UpdateUserRequest {
+    // The user to update.
+    // Required,
+    // Modifiable
+    User user = 1;
+
+    // An update mask specifies how and which properties of the ``User`` message are to be updated.
+    // An update mask consists of a set of update paths.
+    // A valid update path points to a field or a subfield relative to the ``User`` message.
+    // A valid update mask must:
+    // (1) contain at least one update path,
+    // (2) contain only valid update paths.
+    // Fields that can be updated are marked as ``Modifiable``.
+    // An update path can also point to a non-``Modifiable`` fields such as 'id' and 'metadata.resource_version'
+    // because they are used:
+    // (1) to identify the user resource subject to the update,
+    // (2) for concurrent change control.
+    // Examples of valid update paths: 'primary_party', 'metadata', 'metadata.annotations'.
+    // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
+    // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdatePartyDetailsRequest``.
+    // Required
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateUserResponse {
+    // Updated user
+    User user = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message DeleteUserRequest {
+    // The user to delete.
+    // Required
+    string user_id = 1;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
+}
+
+// Does not (yet) contain any data.
+message DeleteUserResponse {
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message ListUsersRequest {
+
+    // Pagination token to determine the specific page to fetch.
+    // Leave empty to fetch the first page.
+    // Optional
+    string page_token = 2;
+
+    // Maximum number of results to be returned by the server. The server will return no more than that many results, but it might return fewer.
+    // If 0, the server will decide the number of results to be returned.
+    // Optional
+    int32 page_size = 3;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 4;
+
+}
+
+message ListUsersResponse {
+    // A subset of users of the participant node that fit into this page.
+    repeated User users = 1;
+
+    // Pagination token to retrieve the next page.
+    // Empty, if there are no further results.
+    string next_page_token = 2;
+}
+
+// Add the rights to the set of rights granted to the user.
+//
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message GrantUserRightsRequest {
+    // The user to whom to grant rights.
+    // Required
+    string user_id = 1;
+
+    // The rights to grant.
+    // Optional
+    repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 3;
+}
+
+message GrantUserRightsResponse {
+    // The rights that were newly granted by the request.
+    repeated Right newly_granted_rights = 1;
+}
+
+// Remove the rights from the set of rights granted to the user.
+//
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message RevokeUserRightsRequest {
+    // The user from whom to revoke rights.
+    // Required
+    string user_id = 1;
+
+    // The rights to revoke.
+    // Optional
+    repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 3;
+}
+
+message RevokeUserRightsResponse {
+    // The rights that were actually revoked by the request.
+    repeated Right newly_revoked_rights = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
+message ListUserRightsRequest {
+    // The user for which to list the rights.
+    // If set to empty string (the default), then the rights for the authenticated user will be listed.
+    // Required
+    string user_id = 1;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
+}
+
+message ListUserRightsResponse {
+    // All rights of the user.
+    repeated Right rights = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdateUserIdentityProviderRequest {
+  // User to update
+  string user_id= 1;
+  // Current identity provider id of the user
+  string source_identity_provider_id = 2;
+  // Target identity provider id of the user
+  string target_identity_provider_id = 3;
+
+}
+
+message UpdateUserIdentityProviderResponse {
+}

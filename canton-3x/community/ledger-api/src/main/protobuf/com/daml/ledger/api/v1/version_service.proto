@@ -1,0 +1,73 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/experimental_features.proto";
+
+option java_outer_classname = "VersionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to retrieve information about the ledger API version
+service VersionService {
+
+  // Read the Ledger API version
+  rpc GetLedgerApiVersion (GetLedgerApiVersionRequest) returns (GetLedgerApiVersionResponse);
+}
+
+message GetLedgerApiVersionRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+}
+
+message GetLedgerApiVersionResponse {
+
+  // The version of the ledger API.
+  string version = 1;
+
+  // The features supported by this Ledger API endpoint.
+  //
+  // Daml applications CAN use the feature descriptor on top of
+  // version constraints on the Ledger API version to determine
+  // whether a given Ledger API endpoint supports the features
+  // required to run the application.
+  //
+  // See the feature descriptions themselves for the relation between
+  // Ledger API versions and feature presence.
+  FeaturesDescriptor features = 2;
+}
+
+message FeaturesDescriptor {
+  // If set, then the Ledger API server supports user management.
+  // It is recommended that clients query this field to gracefully adjust their behavior for
+  // ledgers that do not support user management.
+  UserManagementFeature user_management = 2;
+
+  // Features under development or features that are used
+  // for ledger implementation testing purposes only.
+  //
+  // Daml applications SHOULD not depend on these in production.
+  ExperimentalFeatures experimental = 1;
+
+}
+
+message UserManagementFeature {
+  // Whether the Ledger API server provides the user management service.
+  bool supported = 1;
+
+  // The maximum number of rights that can be assigned to a single user.
+  // Servers MUST support at least 100 rights per user.
+  // A value of 0 means that the server enforces no rights per user limit.
+  int32 max_rights_per_user = 2;
+
+  // The maximum number of users the server can return in a single response (page).
+  // Servers MUST support at least a 100 users per page.
+  // A value of 0 means that the server enforces no page size limit.
+  int32 max_users_page_size = 3;
+}

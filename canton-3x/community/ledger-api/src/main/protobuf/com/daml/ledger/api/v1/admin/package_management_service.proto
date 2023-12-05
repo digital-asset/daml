@@ -1,0 +1,86 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "PackageManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+//
+// Query the Daml-LF packages supported by the ledger participant and upload
+// DAR files. We use 'backing participant' to refer to this specific participant
+// in the methods of this API.
+service PackageManagementService {
+
+  // Returns the details of all Daml-LF packages known to the backing participant.
+  rpc ListKnownPackages (ListKnownPackagesRequest) returns
+    (ListKnownPackagesResponse);
+
+  // Upload a DAR file to the backing participant.
+  // Depending on the ledger implementation this might also make the package 
+  // available on the whole ledger. This call might not be supported by some 
+  // ledger implementations. Canton could be an example, where uploading a DAR
+  // is not sufficient to render it usable, it must be activated first.
+  // This call may:
+  // - Succeed, if the package was successfully uploaded, or if the same package
+  //   was already uploaded before.
+  // - Respond with a gRPC error
+  rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
+}
+
+message ListKnownPackagesRequest {
+}
+
+message ListKnownPackagesResponse {
+
+  // The details of all Daml-LF packages known to backing participant.
+  // Required
+  repeated PackageDetails package_details = 1;
+}
+
+message PackageDetails {
+ 
+  // The identity of the Daml-LF package.
+  // Must be a valid PackageIdString (as describe in ``value.proto``).
+  // Required
+  string package_id = 1;
+
+  // Size of the package in bytes.
+  // The size of the package is given by the size of the ``daml_lf``
+  // ArchivePayload. See further details in ``daml_lf.proto``.
+  // Required
+  uint64 package_size = 2;
+
+  // Indicates since when the package is known to the backing participant.
+  // Required
+  google.protobuf.Timestamp known_since = 3;
+
+  // Description provided by the backing participant describing where
+  // it got the package from.
+  // Optional
+  string source_description = 4;
+}
+
+message UploadDarFileRequest {
+
+  // Contains a Daml archive DAR file, which in turn is a jar like zipped
+  // container for ``daml_lf`` archives. See further details in
+  // ``daml_lf.proto``.
+  // Required
+  bytes dar_file = 1;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier.
+  string submission_id = 2;
+}
+
+// An empty message that is received when the upload operation succeeded.
+message UploadDarFileResponse {
+}
