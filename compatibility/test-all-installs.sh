@@ -267,7 +267,7 @@ else
   export head_sdk_exe=daml
 fi
 "$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
-if [[ "$daml_exe" == "daml.exe" ]]; then
+if [[ "$os" == windows ]]; then
   # on windows, fully qualify daml command
   export daml_exe="$DAML_HOME/bin/daml.cmd"
 else
