@@ -78,13 +78,13 @@ actAs p = SubmitOptions (toParties p) [] []
 readAs : IsParties p => p -> SubmitOptions
 readAs p = SubmitOptions [] (toParties p) []
 
--- | Provides an Explicit Disclosure to the transaction.
-disclose : Disclosure -> SubmitOptions
-disclose d = SubmitOptions [] [] [d]
-
 -- | Provides many Explicit Disclosures to the transaction.
 discloseMany : [Disclosure] -> SubmitOptions
 discloseMany ds = SubmitOptions [] [] ds
+
+-- | Provides an Explicit Disclosure to the transaction.
+disclose : Disclosure -> SubmitOptions
+disclose d = discloseMany [d]
 
 -- | Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions a where
@@ -229,7 +229,7 @@ submitMustFail opts cmds = void $ submitWithError_ opts cmds
 -- authorized by `actAs`. Fetched contracts must be visible to at least
 -- one party in the union of actAs and readAs.
 -- 
--- Note: This behaviour can be achieve used `submit (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 submitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m a
 submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
@@ -237,21 +237,21 @@ submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 -- but fails when `submitMulti` succeeds and the other way around.
 --
--- Note: This behaviour can be achieve used `submitMustFail (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 submitMultiMustFail : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m ()
 submitMultiMustFail actors readers cmds = submitMustFail (actAs actors <> readAs readers) cmds
 
 -- | Equivalent to `submitMulti` but returns the full transaction tree.
 -- 
--- Note: This behaviour can be achieve used `submitTree (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 submitTreeMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m TransactionTree
 submitTreeMulti actors readers cmds = submitTree (actAs actors <> readAs readers) cmds
 
 -- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
 -- 
--- Note: This behaviour can be achieve used `trySubmit (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 trySubmitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m (Either SubmitError a)
 trySubmitMulti actors readers cmds = trySubmit (actAs actors <> readAs readers) cmds

@@ -82,7 +82,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             contractId,
             choiceName,
             arg,
-            _, // Result cannot be encoded in daml with some kind of `AnyChoiceResult` type
+            _, // Result cannot be encoded in daml without some kind of `AnyChoiceResult` type, likely using the `Choice` constraint to unpack.
             childEvents,
           ) =>
         for {

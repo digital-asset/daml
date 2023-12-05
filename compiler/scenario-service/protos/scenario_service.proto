@@ -561,12 +561,6 @@ message Disclosure {
   bool explicit = 3;
 }
 
-message DisclosedContract {
-  ContractRef contract_ref = 1;
-  Value argument = 2;
-  string key_hash = 3; // optional
-}
-
 message FailedAuthorization {
   message CreateMissingAuthorization {
     Identifier template_id = 1;
