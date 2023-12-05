@@ -1,14 +1,14 @@
-# Multi-Package CLI 
+# Multi-Package Builds 
 
-The new multi-package build feature improves the workflow for developers working across multiple packages at the same time.
+The multi-package builds support is a new optional feature for building and managing multiple interdependent packages at once. It is implemented as a configuration file and a set of flags, and also serves to enable future improvements to the IDE for multi-package projects.
 
 Using multi-package builds, developers can:
 
-- Configure `daml build` to automatically rebuild DARs used in data-dependencies when the source code corresponding to those DARs changes. This is useful in projects with multiple packages.
+- Configure `daml build` to automatically rebuild DARs used in data dependencies when the source code corresponding to those DARs changes.
 - Build all of the packages in a project simultaneously using the new `daml build --all` command.
 - Clean all build artifacts in a project using `daml clean --all`.
 
-### Quick Usage Overview
+### Overview
 
 The developer begins by configuring which packages are to be built automatically by placing a new configuration file `multi-package.yaml` at the root of their project:
 
@@ -22,6 +22,14 @@ packages:
 The developer then runs `daml build --all` from the root of their project to build all of the packages listed in the `multi-package.yaml` file, or they run `daml build` within a package to build it and its dependencies.
 
 The rest of this document expands on use cases and usage of the CLI and the `multi-package.yaml` file.
+
+## Migrating from Previous Workflows
+
+Because multi-package builds are a purely opt-in additive behaviour over existing `daml build`, if you don't plan to use multi-package builds you do not need to change anything about your package configurations.
+
+If you do plan to use multi-package files, your `daml.yaml` files will not need updating in general because the `multi-package.yaml` needs only a path to a folder with a `daml.yaml`.
+
+There is one caveat: `multi-package.yaml` assumes that all dependent packages refer to DAR files by the locations where `daml build` would normally put them. This means that if you have shell scripts that move a package's DAR file after build, you will need use the `--output` flag instead, so that `multi-package.yaml` can statically find the DAR's expected output location.
 
 ## Problem Statement
 
@@ -45,8 +53,8 @@ Without multi-package, if the developer makes changes to the source code of both
 
 This has a number of drawbacks:
 - The developer must navigate directories and invoke `daml build` twice.
-- The developer must always remember to build in order to propagate changes to package-Logic-1.0.0.dar.
-- If the developer forgets, compilation may succeed without warnings due to the stale package-Model-1.0.0.dar, where it would fail if package-Model-1.0.0.dar were up to date.
+- The developer must always remember to build in order to propagate changes to `package-Logic-1.0.0.dar`.
+- If the developer forgets, compilation may succeed without warnings due to the stale `package-Model-1.0.0.dar`, where it would fail if `package-Model-1.0.0.dar` were up to date.
 
 #### Correct Usage Without Multi-Package
 
@@ -62,11 +70,11 @@ This has a number of drawbacks:
 
 Using multi-package builds, the developer can register multiple packages as interdependent parts of our "project". Whenever a package A in our project refers to the DAR of another package B in our project, any `daml build` on package A will automatically rebuild B's DAR from source if it has changed via a second invocation of `daml build` (See [Caching](#Caching) for details on what "changed" means here).
 
-The directories containing the `daml.yaml` for the various packages that should be part of our project are listed (preferably with relative paths) under the `packages` header in the `multi-package.yaml`.
+The directories containing the `daml.yaml` for the various packages that should be part of our project are listed with relative paths under the `packages` header in the `multi-package.yaml`.
 
 ### Example
 
-For our example project, we would register `package-Model` and `package-Logic` as members of our project. We do this by placing a `multi-package.yaml` file at the root of our project, with two (preferably with relative) references to packages Model and Logic.
+For our example project, we would register `package-Model` and `package-Logic` as members of our project. We do this by placing a `multi-package.yaml` file at the root of our project, with two relative paths to packages Model and Logic.
 
 `multi-package.yaml`
 ```yaml
@@ -90,7 +98,7 @@ Our new tree will look something like:
     └── daml.yaml
 ```
 
-Now that both `package-Logic` and `package-Model` are in the project, any attempt to build `package-Logic` will detect that the `Model.dar` data-dependency belongs to  `package-Model`, and automatically re-builds it.
+Now that both `package-Logic` and `package-Model` are in the project, any attempt to build `package-Logic` will detect that the `Model.dar` data dependency belongs to  `package-Model`, and automatically re-builds it.
 
 **Correct Usage With Multi-Package:**
 
@@ -105,7 +113,7 @@ Building "package-Logic"...
 Done.
 ```
 
-Using multi-package build, the developer only runs one call to `daml build`, does not need to remember to build, and can guarantee that changes to their dependency are always propagated to dependent packages.
+Using multi-package build, the developer runs only one call to `daml build`, does not need to remember to build each package in order, and can guarantee that changes to dependencies are always propagated to packages.
 
 ### Building All Packages
 
@@ -182,7 +190,7 @@ Once we have built the package, we can run `daml test` from the `package-Testing
 
 Packages that are not listed in the `multi-package.yaml` file will not be automatically recompiled, regardless of whether their source is available in the project's source tree.
 
-For example, say we add a vendor library to our source tree. We build the vendor library from source in isolation, and refer to its `vendor-library.dar` as a data-dependency from within `package-Logic/daml.yaml`.
+For example, say we add a vendor library to our source tree. We build the vendor library from source in isolation, and refer to its `vendor-library.dar` as a data dependency from within `package-Logic/daml.yaml`.
 
 ```
 > tree
@@ -212,7 +220,7 @@ Building "package-Logic"... # We DO NOT rebuild vendor-library
 Done.
 ```
 
-This allows users to distinguish between packages that are part of a given project and are not, without risking recompilation of a vendored package whose upstream they don't control.
+This allows developers to distinguish packages that are part of a project from those that are not, without risking recompilation of a vendored package whose upstream they don't control.
 
 ## Working with Multiple Projects
 
@@ -379,19 +387,11 @@ Building "my-lib"...
 Building "main"... # Main *is* built, because the root multi-package.yaml was used
 ```
 
-## Migrating from Previous Workflows
-
-Because multi-package builds are a purely opt-in additive behaviour over existing `daml build`, if you don't plan to use multi-package builds you do not need to change anything about your package configurations.
-
-If you do plan to use multi-package files, your `daml.yaml` files will not need updating in general because the `multi-package.yaml` needs only a path to a folder with a `daml.yaml`.
-
-There is one caveat: `multi-package.yaml` assumes that all dependent packages refer to DAR files by the locations where `daml build` would normally put them. This means that if you have shell scripts that move a package's DAR file after build, you will need use the `--output` flag instead, so that `multi-package.yaml` can statically find the DAR's expected output location.
-
 ### The `--output` flag
 
-The `--output` flag can be used to specify the location of the DAR generated by `daml build`. This is not new, however it is important to note that the multi package feature extends the use-cases of this flag.
+The `--output` flag can be used to specify the location of the DAR generated by `daml build`. This is not new, however it is important to note that the multi-package feature extends the use cases of this flag.
 
-1. Multi package build behaviour correctly handles the use of the `--output` flag, but only if it is specified in the relevant package's `daml.yaml` `build-options`, for example:
+1. Multi-package build behaviour correctly handles the use of the `--output` flag, but only if it is specified in the relevant package's `daml.yaml` `build-options`, for example:
 
    ```
    build-options:
