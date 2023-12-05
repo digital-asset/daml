@@ -6,6 +6,8 @@ set -euo pipefail
 
 eval "$(./dev-env/bin/dade-assist)"
 
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 tmp=$(mktemp -d)
 trap 'rm -rf ${tmp}' EXIT
 
@@ -15,7 +17,7 @@ else
   repo_url="https://$GITHUB_TOKEN@github.com/DACH-NY/canton"
 fi
 
-commitish=${1:-$(cat canton-3x/canton-3x-sha)}
+commitish=${1:-$(cat "$DIR"/../canton-3x/canton-3x-sha)}
 
 git clone $repo_url $tmp
 git -C $tmp reset --hard $commitish
