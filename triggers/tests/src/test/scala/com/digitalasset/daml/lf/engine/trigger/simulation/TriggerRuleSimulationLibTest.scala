@@ -19,7 +19,6 @@ import org.scalacheck.Gen
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.syntax.tag._
 
 import java.util.UUID
 
@@ -56,7 +55,7 @@ class TriggerRuleSimulationLibTest(override val majorLanguageVersion: LanguageMa
           compiledPackages,
           timeProviderType,
           triggerRunnerConfiguration,
-          party.unwrap,
+          party,
         )
         result <- forAll(initState) { acs =>
           for {
@@ -105,7 +104,7 @@ class TriggerRuleSimulationLibTest(override val majorLanguageVersion: LanguageMa
           compiledPackages,
           timeProviderType,
           triggerRunnerConfiguration,
-          party.unwrap,
+          party,
         )
         converter = new Converter(compiledPackages, trigger)
         result <- forAll(updateState) { case (acs, userState, inFlightCmds, msg) =>

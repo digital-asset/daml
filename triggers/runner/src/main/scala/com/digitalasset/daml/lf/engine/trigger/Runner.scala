@@ -8,8 +8,6 @@ import org.apache.pekko.actor.Cancellable
 import org.apache.pekko.event.Logging
 import org.apache.pekko.stream._
 import org.apache.pekko.stream.scaladsl._
-import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.completion.Completion
@@ -75,9 +73,9 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
-import scalaz.{-\/, Tag, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 
-import java.time.Instant
+import java.time.{Clock, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.{nowarn, tailrec}
@@ -123,13 +121,11 @@ private[lf] final case class Trigger(
       Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
     } else {
       val createdValue: SValue = converter.fromActiveContracts(acs).orConverterException
-      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+      val partyArg = SParty(parties.actAs)
 
       if (hasReadAs) {
         // trigger version SDK 1.18 and newer
-        val readAsArg = SList(
-          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-        )
+        val readAsArg = SList(parties.readAs.map(SParty).to(FrontStack))
         Array(partyArg, readAsArg, createdValue)
       } else {
         // trigger version prior to SDK 1.18
@@ -186,21 +182,21 @@ object Trigger {
 
   private[trigger] def newTriggerLogContext[P, T](
       triggerDefinition: Identifier,
-      actAs: Party,
-      readAs: Set[Party],
+      actAs: Ref.Party,
+      readAs: Set[Ref.Party],
       triggerId: String,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
   )(f: TriggerLogContext => T): T = {
     LoggingContextOf.newLoggingContext(
       LoggingContextOf.label[Trigger with P],
-      "applicationId" -> applicationId.unwrap,
+      "applicationId" -> applicationId.getOrElse[String](""),
     ) { implicit loggingContext: LoggingContextOf[Trigger] =>
       TriggerLogContext.newRootSpan(
         "setup",
         "id" -> triggerId,
         "definition" -> triggerDefinition,
-        "actAs" -> Tag.unwrap(actAs),
-        "readAs" -> Tag.unsubst(readAs),
+        "actAs" -> actAs,
+        "readAs" -> readAs,
       ) { implicit triggerContext: TriggerLogContext =>
         f(triggerContext)
       }
@@ -487,7 +483,7 @@ private[lf] class Runner private (
     triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
     timeProviderType: TimeProviderType,
-    applicationId: ApplicationId,
+    applicationId: Option[Ref.ApplicationId],
     parties: TriggerParties,
 )(implicit triggerContext: TriggerLogContext) {
 
@@ -554,7 +550,7 @@ private[lf] class Runner private (
   private[this] val inFlightCommands = new InFlightCommands
 
   private val transactionFilter =
-    TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
+    TransactionFilter(parties.readers.map(p => (p, trigger.filters)).toMap)
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One)(implicit
@@ -595,10 +591,10 @@ private[lf] class Runner private (
 
       val commandsArg = Commands(
         ledgerId = client.ledgerId.unwrap,
-        applicationId = applicationId.unwrap,
+        applicationId = applicationId.getOrElse(""),
         commandId = commandUUID.toString,
-        party = parties.actAs.unwrap,
-        readAs = Party.unsubst(parties.readAs).toList,
+        party = parties.actAs,
+        readAs = parties.readAs.toList,
         commands = commands,
       )
 
@@ -865,7 +861,7 @@ private[lf] class Runner private (
       triggerContext.logInfo("Subscribing to ledger API completion source")
       client.commandClient
         // Completions only take actAs into account so no need to include readAs.
-        .completionSource(List(parties.actAs.unwrap), offset)
+        .completionSource(List(parties.actAs), offset)
         .collect { case CompletionElement(completion, _) =>
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
             triggerContext.logDebug("Completion source", "message" -> completion)
@@ -1136,7 +1132,7 @@ private[lf] class Runner private (
       }
 
       val clientTime: Timestamp =
-        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        Timestamp.assertFromInstant(Runner.getCurrentTime(timeProviderType))
       val stateFun = Machine
         .stepToValue(compiledPackages, makeAppD(updateStateLambda, messageVal.value))
         .expect(
@@ -1225,7 +1221,7 @@ private[lf] class Runner private (
     triggerContext.logInfo("Trigger starting")
 
     val clientTime: Timestamp =
-      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+      Timestamp.assertFromInstant(Runner.getCurrentTime(timeProviderType))
     val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
 
     import UnfoldState.{flatMapConcatNodeOps, toSourceOps}
@@ -1445,7 +1441,7 @@ object Runner {
       triggerConfig: TriggerRunnerConfig,
       client: LedgerClient,
       timeProviderType: TimeProviderType,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
       parties: TriggerParties,
   )(implicit triggerContext: TriggerLogContext): Runner = {
     triggerContext.enrichTriggerContext(
@@ -1778,11 +1774,10 @@ object Runner {
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
 
-  // Return the time provider for a given time provider type.
-  def getTimeProvider(ty: TimeProviderType): TimeProvider = {
+  def getCurrentTime(ty: TimeProviderType): Instant = {
     ty match {
-      case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-      case TimeProviderType.WallClock => TimeProvider.UTC
+      case TimeProviderType.Static => Instant.EPOCH
+      case TimeProviderType.WallClock => Clock.systemUTC().instant()
       case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
     }
   }
@@ -1880,7 +1875,7 @@ object Runner {
       triggerId: Identifier,
       client: LedgerClient,
       timeProviderType: TimeProviderType,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
       parties: TriggerParties,
       config: Compiler.Config,
       triggerConfig: TriggerRunnerConfig,

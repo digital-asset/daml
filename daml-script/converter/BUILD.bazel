@@ -21,7 +21,5 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
     ],
 )

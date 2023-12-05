@@ -403,7 +403,6 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["cpu:4"],
     deps = [

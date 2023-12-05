@@ -22,9 +22,8 @@ import com.daml.ledger.api.auth.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.lf.data.Ref
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authenticity, Authorization}
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
@@ -95,7 +94,7 @@ abstract class TestMiddleware
   }
   "the /auth endpoint" should {
     "return unauthorized without cookie" taggedAs authorizationSecurity in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       for {
         result <- middlewareClient.requestAuth(claims, Nil)
       } yield {
@@ -103,7 +102,7 @@ abstract class TestMiddleware
       }
     }
     "return the token from a cookie" taggedAs authorizationSecurity in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val token = makeToken(claims)
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       for {
@@ -116,13 +115,13 @@ abstract class TestMiddleware
     }
     "return unauthorized on insufficient app id claims" taggedAs authorizationSecurity in {
       val claims = Request.Claims(
-        actAs = List(ApiTypes.Party("Alice")),
-        applicationId = Some(ApiTypes.ApplicationId("other-id")),
+        actAs = List(Ref.Party.assertFromString("Alice")),
+        applicationId = Some(Ref.ApplicationId.assertFromString("other-id")),
       )
       val token = makeToken(
         Request.Claims(
-          actAs = List(ApiTypes.Party("Alice")),
-          applicationId = Some(ApiTypes.ApplicationId("my-app-id")),
+          actAs = List(Ref.Party.assertFromString("Alice")),
+          applicationId = Some(Ref.ApplicationId.assertFromString("my-app-id")),
         )
       )
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
@@ -133,7 +132,7 @@ abstract class TestMiddleware
       }
     }
     "return unauthorized on an invalid token" taggedAs authorizationSecurity in {
-      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val token = makeToken(claims, "wrong-secret")
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       for {
@@ -143,7 +142,7 @@ abstract class TestMiddleware
       }
     }
     "return unauthorized on an expired token" taggedAs authorizationSecurity in {
-      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val token = makeToken(claims, expiresIn = Some(Duration.ZERO))
       val _ = clock.fastForward(Duration.ofSeconds(1))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
@@ -168,9 +167,9 @@ abstract class TestMiddleware
         ),
         Claims(
           admin = true,
-          actAs = List(ApiTypes.Party("Alice")),
-          readAs = List(ApiTypes.Party("Bob")),
-          applicationId = Some(ApiTypes.ApplicationId("foo")),
+          actAs = List(Ref.Party.assertFromString("Alice")),
+          readAs = List(Ref.Party.assertFromString("Bob")),
+          applicationId = Some(Ref.ApplicationId.assertFromString("foo")),
         ),
       ) should ===(true)
     }
@@ -179,7 +178,7 @@ abstract class TestMiddleware
     "redirect and set cookie" taggedAs authenticationSecurity.setHappyCase(
       "A valid request to /login redirects to client callback and sets cookie"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
@@ -209,7 +208,7 @@ abstract class TestMiddleware
     "return OK and set cookie without redirectUri" taggedAs authenticationSecurity.setHappyCase(
       "A valid request to /login returns OK and sets cookie when redirect is off"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None, redirect = false))
       for {
         resp <- Http().singleRequest(req)
@@ -240,7 +239,7 @@ abstract class TestMiddleware
     "return a new access token" taggedAs authorizationSecurity.setHappyCase(
       "A valid request to /refresh returns a new access token"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val loginReq = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(loginReq)
@@ -300,13 +299,13 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
       participantId = None,
       exp = expiresIn.map(in => clock.instant.plus(in)),
       admin = claims.admin,
-      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
-      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
+      actAs = claims.actAs,
+      readAs = claims.readAs,
     )
 
   "the /auth endpoint given claim token" should {
     "return unauthorized on insufficient party claims" taggedAs authorizationSecurity in {
-      val claims = Request.Claims(actAs = List(Party("Bob")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Bob")))
       def r(actAs: String*)(readAs: String*) =
         middlewareClient
           .requestAuth(
@@ -316,8 +315,8 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
                 "daml-ledger-token",
                 makeToken(
                   Request.Claims(
-                    actAs = actAs.map(Party(_)).toList,
-                    readAs = readAs.map(Party(_)).toList,
+                    actAs = actAs.map(Ref.Party.assertFromString).toList,
+                    readAs = readAs.map(Ref.Party.assertFromString).toList,
                   )
                 ).toCookieValue,
               )
@@ -349,8 +348,8 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
 
   "the /login endpoint with an oauth server checking claims" should {
     "not authorize unauthorized parties" taggedAs authorizationSecurity in {
-      server.revokeParty(Party("Eve"))
-      val claims = Request.Claims(actAs = List(Party("Eve")))
+      server.revokeParty(Ref.Party.assertFromString("Eve"))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Eve")))
       ensureDisallowed(claims)
     }
 
@@ -423,7 +422,7 @@ class TestMiddlewareCallbackUriOverride
       .setHappyCase(
         "A valid request to /login redirects to middleware callback"
       ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
@@ -462,7 +461,7 @@ class TestMiddlewareLimitedCallbackStore
         "Refuse request with SERVICE_UNAVAILABLE",
       )
     ) in {
-      def login(actAs: Party) = {
+      def login(actAs: Ref.Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val uri = middlewareClientRoutes.loginUri(claims, None)
         val req = HttpRequest(uri = uri)
@@ -478,18 +477,18 @@ class TestMiddlewareLimitedCallbackStore
 
       for {
         // Follow login flows up to redirect to middleware callback.
-        redirectAlice <- login(Party("Alice"))
+        redirectAlice <- login(Ref.Party.assertFromString("Alice"))
           .flatMap(followRedirect)
-        redirectBob <- login(Party("Bob"))
+        redirectBob <- login(Ref.Party.assertFromString("Bob"))
           .flatMap(followRedirect)
         // The store should be full
-        refusedCarol <- login(Party("Carol"))
+        refusedCarol <- login(Ref.Party.assertFromString("Carol"))
         _ = refusedCarol.status should ===(StatusCodes.ServiceUnavailable)
         // Follow first redirect to middleware callback.
         resultAlice <- followRedirect(redirectAlice)
         _ = resultAlice.status should ===(StatusCodes.Found)
         // The store should have space again
-        redirectCarol <- login(Party("Carol"))
+        redirectCarol <- login(Ref.Party.assertFromString("Carol"))
           .flatMap(followRedirect)
         // Follow redirects to middleware callback.
         resultBob <- followRedirect(redirectBob)
@@ -520,7 +519,7 @@ class TestMiddlewareClientLimitedCallbackStore
         "Refuse request with SERVICE_UNAVAILABLE",
       )
     ) in {
-      def login(actAs: Party) = {
+      def login(actAs: Ref.Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val host = middlewareClientBinding.localAddress
         val uri = Uri()
@@ -541,22 +540,22 @@ class TestMiddlewareClientLimitedCallbackStore
 
       for {
         // Follow login flows up to last redirect to middleware client.
-        redirectAlice <- login(Party("Alice"))
+        redirectAlice <- login(Ref.Party.assertFromString("Alice"))
           .flatMap(followRedirect)
           .flatMap(followRedirect)
           .flatMap(followRedirect)
-        redirectBob <- login(Party("Bob"))
+        redirectBob <- login(Ref.Party.assertFromString("Bob"))
           .flatMap(followRedirect)
           .flatMap(followRedirect)
           .flatMap(followRedirect)
         // The store should be full
-        refusedCarol <- login(Party("Carol"))
+        refusedCarol <- login(Ref.Party.assertFromString("Carol"))
         _ = refusedCarol.status should ===(StatusCodes.ServiceUnavailable)
         // Follow first redirect to middleware client.
         resultAlice <- followRedirect(redirectAlice)
         _ = resultAlice.status should ===(StatusCodes.OK)
         // The store should have space again
-        redirectCarol <- login(Party("Carol"))
+        redirectCarol <- login(Ref.Party.assertFromString("Carol"))
           .flatMap(followRedirect)
           .flatMap(followRedirect)
           .flatMap(followRedirect)
@@ -586,7 +585,7 @@ class TestMiddlewareClientNoRedirectToLogin
       "An unauthorized request should not redirect to /login using the JSON protocol"
     ) in {
       import com.daml.auth.middleware.api.JsonProtocol.responseAuthenticateChallengeFormat
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
         .withScheme("http")
@@ -638,7 +637,7 @@ class TestMiddlewareClientYesRedirectToLogin
     "redirect to /login" taggedAs authenticationSecurity.setHappyCase(
       "A valid HTTP request should redirect to /login"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
         .withScheme("http")
@@ -676,7 +675,7 @@ class TestMiddlewareClientAutoRedirectToLogin
     "redirect to /login for HTML request" taggedAs authenticationSecurity.setHappyCase(
       "A HTML request is redirected to /login"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
         .withScheme("http")
@@ -695,7 +694,7 @@ class TestMiddlewareClientAutoRedirectToLogin
     "not redirect to /login for JSON request" taggedAs authenticationSecurity.setHappyCase(
       "A JSON request is not redirected to /login"
     ) in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
         .withScheme("http")
@@ -735,7 +734,7 @@ class TestMiddlewareClientLoginCallbackUri
     }
     "be used in login URI" in {
       val routes = client.routes(Uri("http://client.domain/cb"))
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       routes.loginUri(claims = claims) shouldBe
         Uri(
           s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
@@ -745,7 +744,7 @@ class TestMiddlewareClientLoginCallbackUri
   "callback URI from request" should {
     "be used in login URI" in {
       val routes = client.routesFromRequestAuthority(Uri.Path./("cb"))
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
       Get("http://client.domain") ~> routes { routes =>
         complete(routes.loginUri(claims).toString)
@@ -758,7 +757,7 @@ class TestMiddlewareClientLoginCallbackUri
   "automatic callback URI" should {
     "be fixed when absolute" in {
       val routes = client.routesAuto(Uri("http://client.domain/cb"))
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
       Get() ~> routes { routes => complete(routes.loginUri(claims).toString) } ~> check {
         responseAs[String] shouldEqual
@@ -767,7 +766,7 @@ class TestMiddlewareClientLoginCallbackUri
     }
     "be from request when relative" in {
       val routes = client.routesAuto(Uri().withPath(Uri.Path./("cb")))
-      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val claims = Request.Claims(actAs = List(Ref.Party.assertFromString("Alice")))
       import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives._
       Get("http://client.domain") ~> routes { routes =>
         complete(routes.loginUri(claims).toString)

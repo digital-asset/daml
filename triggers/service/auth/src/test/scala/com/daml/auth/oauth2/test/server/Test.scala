@@ -17,7 +17,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.lf.data.Ref
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -224,7 +224,7 @@ class ClaimTokenTest extends Test {
       }
     }
     "deny access to unauthorized parties" in {
-      server.revokeParty(Party("Eve"))
+      server.revokeParty(Ref.Party.assertFromString("Eve"))
       for {
         error <- expectError(Seq("Alice", "Eve"))
       } yield {

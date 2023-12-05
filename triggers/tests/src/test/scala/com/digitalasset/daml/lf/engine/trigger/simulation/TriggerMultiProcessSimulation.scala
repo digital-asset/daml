@@ -12,8 +12,8 @@ import org.apache.pekko.actor.typed.{
   SupervisorStrategy,
 }
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
@@ -105,7 +105,7 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
       client: LedgerClient,
       ledger: ActorRef[LedgerProcess.Message],
       name: String,
-      actAs: ApiTypes.Party,
+      actAs: Ref.Party,
   ): TriggerProcessFactory = {
     new TriggerProcessFactory(
       client,
@@ -124,10 +124,10 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
       spawnTriggers: (
           LedgerClient,
           ActorRef[LedgerProcess.Message],
-          ApiTypes.Party,
+          Ref.Party,
           ActorContext[Unit],
       ) => Behavior[Unit]
-  )(implicit applicationId: ApiTypes.ApplicationId): Behavior[Unit] = {
+  )(implicit applicationId: Option[Ref.ApplicationId]): Behavior[Unit] = {
     Behaviors.setup { controllerContext =>
       val setup = for {
         client <- defaultLedgerClient()
