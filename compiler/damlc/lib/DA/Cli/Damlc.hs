@@ -108,7 +108,6 @@ import DA.Daml.LF.Reader (dalfPaths,
                           readDalfManifest,
                           readDalfs,
                           readManifest)
-import qualified DA.Daml.LF.Reader as Reader
 import DA.Daml.LanguageServer (runLanguageServer)
 import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
@@ -1205,9 +1204,6 @@ readDarStalenessData archive =
            in Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
         _ -> Nothing
 
-getDarSdkVersion :: ZipArchive.Archive -> Either String String
-getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
-
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
 getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
@@ -1228,13 +1224,11 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
       -- Pull all information we need from the dar.
       let (archiveDalfPids, archiveSourceFiles) = readDarStalenessData dar
-          archiveSdkVersion = getDarSdkVersion dar
 
           getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
-          sdkVersionCorrect = archiveSdkVersion == Right (unPackageSdkVersion bmSdkVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1251,8 +1245,7 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
       logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
       logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
-      logDebug $ "Sdk version is " <> (if sdkVersionCorrect then "not " else "") <> "stale."
-      pure $ if sourceDepsCorrect && sourceFilesCorrect && sdkVersionCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+      pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
 
 buildMultiRule
   :: AssistantRunner

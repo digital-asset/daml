@@ -69,7 +69,7 @@ main =
         let projDir = toNormalizedFilePath' dir
         installDependencies
             projDir
-            (options lfVersion)
+            options
             (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
