@@ -250,8 +250,7 @@ jobs:
 
         ### code drop ###
 
-        for pair in "$canton2_version canton" "$canton3_version canton-3x"; do
-          set -- $pair
+        copy_canton_code() {
           canton_version=$1
           canton_dir=$2
 
@@ -269,7 +268,10 @@ jobs:
             cp -rf $src $dst
             git add $dst
           done
-        done
+        }
+
+        copy_canton_code $canton2_version canton
+        copy_canton_code $canton3_version canton-3x
 
         ### create PR ###
 
