@@ -79,7 +79,7 @@ withScriptService lfVersion action =
         installDependencies
             projDir
             (options lfVersion)
-            pSdkVersion
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb

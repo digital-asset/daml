@@ -144,7 +144,7 @@ initPackageConfig options scriptDar dars = do
         installDependencies
             (toNormalizedFilePath' dir)
             options
-            pSdkVersion
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb (toNormalizedFilePath' dir) options pModulePrefixes

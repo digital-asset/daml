@@ -258,6 +258,7 @@ def da_haskell_repl(**kwargs):
             "//nix/...",
         ],
         repl_ghci_args = [
+            "-fobject-code",
             "-fexternal-interpreter",
             "-j",
             "+RTS",
