@@ -11,7 +11,7 @@ import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
-import com.daml.lf.{CompiledPackages, command}
+import com.daml.lf.CompiledPackages
 import com.daml.lf.data.Ref.{
   Identifier,
   Location,
@@ -162,7 +162,7 @@ object ScriptF {
   final case class Submission(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
-      cmds: List[command.ApiCommand],
+      cmds: List[ScriptLedgerClient.CommandWithMeta],
       disclosures: List[Disclosure],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
       optLocation: Option[Location]
@@ -838,7 +838,7 @@ object ScriptF {
           readAs <- readAs.traverse(Converter.toParty)
           disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
           errorBehaviour <- parseErrorBehaviour(name)
-          cmds <- cmds.toList.traverse(Converter.toCommand)
+          cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
           optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
         } yield Submission(
           actAs = toOneAndSet(actAs),

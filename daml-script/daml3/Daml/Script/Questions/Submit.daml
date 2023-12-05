@@ -27,7 +27,7 @@ data Submission = Submission with
   sReadAs : [Party]
   sDisclosures : [Disclosure]
   sErrorBehaviour : ErrorBehaviour
-  sCommands : [Command]
+  sCommands : [CommandWithMeta]
   sLocation : Optional (Text, SrcLoc)
 
 data ErrorBehaviour = MustSucceed | MustFail | Try

@@ -466,7 +466,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
   ): Either[
     ScenarioRunner.SubmissionError,
@@ -521,7 +521,7 @@ class IdeLedgerClient(
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
       val eitherSpeedyCommands =
         try {
-          Right(preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray)))
+          Right(preprocessor.unsafePreprocessApiCommands(commands.map(_.command).to(ImmArray)))
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
         }
@@ -583,7 +583,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,

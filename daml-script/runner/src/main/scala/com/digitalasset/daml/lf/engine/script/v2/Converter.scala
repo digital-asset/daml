@@ -337,6 +337,15 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       case _ => Left(s"Expected Free Question or Pure, got $v")
     }
 
+  def toCommandWithMeta(v: SValue): Either[String, ScriptLedgerClient.CommandWithMeta] =
+    v match {
+      case SRecord(_, _, ArrayList(command, SBool(explicitPackageId))) =>
+        for {
+          command <- toCommand(command)
+        } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
+      case _ => Left(s"Expected CommandWithMeta but got $v")
+    }
+
   def toCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
       case SVariant(_, "Create", _, SRecord(_, _, ArrayList(anyTemplateSValue))) =>

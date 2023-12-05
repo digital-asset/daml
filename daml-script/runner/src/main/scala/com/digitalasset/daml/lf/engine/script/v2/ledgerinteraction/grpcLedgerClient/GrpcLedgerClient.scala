@@ -74,16 +74,16 @@ class GrpcLedgerClient(
   }
 
   // Omits the package id on an identifier if contract upgrades are enabled
-  private def toApiIdentifierUpgrades(identifier: Identifier): api.Identifier = {
+  private def toApiIdentifierUpgrades(identifier: Identifier, explicitPackageId: Boolean): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    if (providePackageId) converted else converted.copy(packageId = "")
+    if (explicitPackageId) converted else converted.copy(packageId = "")
   }
 
   private def templateFilter(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId)))))
+    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId, providePackageId)))))
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -250,7 +250,7 @@ class GrpcLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
@@ -349,20 +349,20 @@ class GrpcLedgerClient(
   }
 
   // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
-  private def toCommandPackageIds(cmd: command.ApiCommand): List[PackageId] =
-    cmd match {
+  private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
+    cmd.command match {
       case command.CreateAndExerciseCommand(templateId, _, _, _) =>
         List(templateId.packageId, templateId.packageId)
       case cmd => List(cmd.typeId.packageId)
     }
 
-  private def toCommand(cmd: command.ApiCommand): Either[String, Command] =
-    cmd match {
+  private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
+    cmd.command match {
       case command.CreateCommand(templateId, argument) =>
         for {
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(
-          CreateCommand(Some(toApiIdentifierUpgrades(templateId)), Some(arg))
+          CreateCommand(Some(toApiIdentifierUpgrades(templateId, cmd.explicitPackageId)), Some(arg))
         )
       case command.ExerciseCommand(typeId, contractId, choice, argument) =>
         for {
@@ -370,7 +370,7 @@ class GrpcLedgerClient(
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifierUpgrades(typeId)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(Some(toApiIdentifierUpgrades(typeId, cmd.explicitPackageId)), contractId.coid, choice, Some(arg))
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {
@@ -378,7 +378,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withExerciseByKey(
           ExerciseByKeyCommand(
-            Some(toApiIdentifierUpgrades(templateId)),
+            Some(toApiIdentifierUpgrades(templateId, cmd.explicitPackageId)),
             Some(key),
             choice,
             Some(argument),
@@ -390,7 +390,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
-            Some(toApiIdentifierUpgrades(templateId)),
+            Some(toApiIdentifierUpgrades(templateId, cmd.explicitPackageId)),
             Some(template),
             choice,
             Some(argument),

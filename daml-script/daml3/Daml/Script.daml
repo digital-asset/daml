@@ -53,6 +53,13 @@ module Daml.Script
   , createAndExerciseCmd
   , createAndExerciseCmdWithCid
   , archiveCmd
+  -- Upgrades commands
+  , createCmdExact
+  , exerciseCmdExact
+  , exerciseByKeyCmdExact
+  , createAndExerciseCmdExact
+  , createAndExerciseCmdWithCidExact
+
   , getTime
   , setTime
   , passTime

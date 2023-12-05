@@ -7,7 +7,7 @@ package v2.ledgerinteraction
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
-import com.daml.lf.command
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -70,6 +70,8 @@ object ScriptLedgerClient {
     final case object MustSucceed extends SubmissionErrorBehaviour
     final case object Try extends SubmissionErrorBehaviour
   }
+
+  final case class CommandWithMeta(command: ApiCommand, explicitPackageId: Boolean)
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
@@ -165,7 +167,7 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       // TODO[SW]: The error behaviour handling logic is written in ScriptF, so each LedgerClient doesn't need to know about it

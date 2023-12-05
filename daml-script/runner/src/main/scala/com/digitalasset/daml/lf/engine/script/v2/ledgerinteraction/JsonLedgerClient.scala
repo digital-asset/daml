@@ -313,7 +313,7 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
@@ -328,7 +328,7 @@ class JsonLedgerClient(
       result <- commands match {
         case Nil => Future { Right(List()) }
         case cmd :: Nil =>
-          cmd match {
+          cmd.command match {
             case command.CreateCommand(tplId, argument) =>
               create(tplId, argument, partySets)
             case command.ExerciseCommand(typeId, cid, choice, argument) =>
