@@ -708,12 +708,6 @@ class JsonLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("unvetDar")
-
-  override def setProvidePackageId(shouldProvide: Boolean)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = unsupportedOn("setProvidePackageId")
 }
 
 object JsonLedgerClient {

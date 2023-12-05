@@ -288,13 +288,4 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit]
-
-  // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
-  // specified per command
-  // https://github.com/digital-asset/daml/issues/17703
-  def setProvidePackageId(shouldProvide: Boolean)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit]
 }

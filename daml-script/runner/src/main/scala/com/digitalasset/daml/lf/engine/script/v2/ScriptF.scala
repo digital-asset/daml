@@ -743,22 +743,6 @@ object ScriptF {
       } yield SEValue(SUnit)
   }
 
-  final case class SetProvidePackageId(shouldProvide: Boolean) extends Cmd {
-    override def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        _ <- env.clients.default_participant.fold(Future.unit)(
-          _.setProvidePackageId(shouldProvide)
-        )
-        _ <- Future.traverse(env.clients.participants.toList) { case (_, v) =>
-          v.setProvidePackageId(shouldProvide)
-        }
-      } yield SEValue(SUnit)
-  }
-
   final case class TryCommands(act: SValue) extends Cmd {
     override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
         ec: ExecutionContext,
@@ -1083,15 +1067,6 @@ object ScriptF {
       case _ => Left(s"Expected VetDar payload but got $v")
     }
 
-  private def parseSetProvidePackageId(
-      v: SValue
-  ): Either[String, SetProvidePackageId] =
-    v match {
-      case SRecord(_, _, ArrayList(SBool(enabled))) =>
-        Right(SetProvidePackageId(enabled))
-      case _ => Left(s"Expected SetProvidePackageId payload but got $v")
-    }
-
   private def parseTryCommands(v: SValue): Either[String, TryCommands] =
     v match {
       case SRecord(_, _, ArrayList(act)) => Right(TryCommands(act))
@@ -1132,13 +1107,9 @@ object ScriptF {
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
       case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
       case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
-      case ("SetProvidePackageId", 1) => parseSetProvidePackageId(v)
       case ("TryCommands", 1) => parseTryCommands(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
-
-  // TODO: Update SetProvidePackageId to `SetProvidePackageId`, which should only change whether the packageID is given, so for translation of commands and query template filter
-  // Translation of results is always enabled if the flag is
 
   private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
     OneAnd(x.head, x.tail.toSet - x.head)

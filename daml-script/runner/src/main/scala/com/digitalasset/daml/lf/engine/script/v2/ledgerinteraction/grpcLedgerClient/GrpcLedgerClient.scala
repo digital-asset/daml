@@ -61,8 +61,6 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
-  var providePackageId: Boolean = !enableContractUpgrading
-
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -73,17 +71,19 @@ class GrpcLedgerClient(
     queryWithKey(parties, templateId).map(_.map(_._1))
   }
 
-  // Omits the package id on an identifier if contract upgrades are enabled
+  // Omits the package id on an identifier if contract upgrades are enabled unless explicitPackageId is true
   private def toApiIdentifierUpgrades(identifier: Identifier, explicitPackageId: Boolean): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    if (explicitPackageId) converted else converted.copy(packageId = "")
+    if (explicitPackageId || !enableContractUpgrading) converted else converted.copy(packageId = "")
   }
 
+  // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
+  // See https://github.com/digital-asset/daml/issues/17703
   private def templateFilter(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId, providePackageId)))))
+    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId, false)))))
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -535,18 +535,4 @@ class GrpcLedgerClient(
     )
     adminClient.unvetDar(name)
   }
-
-  override def setProvidePackageId(shouldProvide: Boolean)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] =
-    if (enableContractUpgrading)
-      Future.successful { providePackageId = shouldProvide }
-    else
-      Future.failed(
-        new ConverterException(
-          "Contract-upgrading must be enabled via the --enable-contract-upgrading flag to use this command."
-        )
-      )
 }
