@@ -262,11 +262,11 @@ fi
 export DAML_CACHE="$(mktemp -d -p "$PWD" "cache.XXXXXXXX")"
 export DAML_HOME="$(mktemp -d -p "$PWD" "daml_home.XXXXXXXX")"
 if [[ "$os" == windows ]]; then
-  export daml_exe=daml.exe
+  export head_sdk_exe=daml.exe
 else
-  export daml_exe=daml
+  export head_sdk_exe=daml
 fi
-"$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+"$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
 if [[ "$daml_exe" == "daml.exe" ]]; then
   # on windows, fully qualify daml command
   export daml_exe="$DAML_HOME/bin/daml.cmd"
@@ -327,9 +327,9 @@ case "$command_to_run" in
     ;;
   install_with_custom_version_and_build)
     custom_version=2.99.0
-    "$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes --install-with-custom-version $custom_version "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+    "$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes --install-with-custom-version $custom_version "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
     init_daml_package_with_script $custom_version
-    daml build
+    $daml_exe build
     ;;
   install_and_build_from_tarball)
     [[ "$#" -gt 0 ]] || error_echo "No tarball_path supplied via args"
