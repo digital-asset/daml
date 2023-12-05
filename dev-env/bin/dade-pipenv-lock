@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-pipenv lock
-pipenv graph --json > Pipenv.deps
