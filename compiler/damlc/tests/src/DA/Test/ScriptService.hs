@@ -69,8 +69,8 @@ main =
         let projDir = toNormalizedFilePath' dir
         installDependencies
             projDir
-            options
-            pSdkVersion
+            (options lfVersion)
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb

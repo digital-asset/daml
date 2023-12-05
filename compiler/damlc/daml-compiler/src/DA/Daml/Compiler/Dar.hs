@@ -66,6 +66,8 @@ import MkIface
 import Module
 import qualified Module as Ghc
 import HscTypes
+import qualified Data.SemVer as V
+import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
@@ -363,7 +365,7 @@ sinkEntryDeterministic compression sink sel = do
 createArchive
     :: LF.PackageName
     -> Maybe LF.PackageVersion
-    -> PackageSdkVersion
+    -> UnresolvedReleaseVersion
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
@@ -413,7 +415,7 @@ createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fil
             [ "Manifest-Version: 1.0"
             , "Created-By: damlc"
             , "Name: " <> unitIdString (pkgNameVersion pName pVersion)
-            , "Sdk-Version: " <> unPackageSdkVersion pSdkVersion
+            , "Sdk-Version: " <> V.toString (unwrapUnresolvedReleaseVersion pSdkVersion)
             , "Main-Dalf: " <> toPosixFilePath location
             , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"

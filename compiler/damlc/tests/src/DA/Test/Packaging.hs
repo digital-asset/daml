@@ -183,7 +183,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "a = ()"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: a-bad-sdk-version"
+          [ "sdk-version: 0.0.0-a-bad-sdk-version"
           , "name: proj"
           , "version: \"1.0\""
           , "source: ."

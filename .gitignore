@@ -13,6 +13,8 @@ dist
 *.log
 target
 *.tgz
+*.hi
+*.o
 
 # Daml
 .daml/
