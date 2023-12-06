@@ -27,12 +27,14 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as A
 import qualified Data.Aeson.Encoding as A
 import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
 import System.FilePath (takeDirectory, (</>))
@@ -149,6 +151,12 @@ overrideSdkVersion pkgConfig = do
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
+    -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be deemed as "invisible"
+    case unwrapProjectConfig project of
+      A.Object (A.keys -> [A.toString -> "sdk-version"]) ->
+        throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $ "Yaml file not found: " ++ projectConfigName
+      _ -> pure ()
+
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
     f pkgConfig'
