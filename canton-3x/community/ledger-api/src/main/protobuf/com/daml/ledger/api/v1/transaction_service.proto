@@ -1,0 +1,160 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+import "com/daml/ledger/api/v1/transaction_filter.proto";
+import "com/daml/ledger/api/v1/transaction.proto";
+
+option java_outer_classname = "TransactionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to read transactions from the ledger.
+// In V2 Ledger API this service is not available anymore. Use v2.UpdateService instead.
+service TransactionService {
+
+  // Read the ledger's filtered transaction stream for a set of parties.
+  // Lists only creates and archives, but not other events.
+  // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
+
+  // Read the ledger's complete transaction tree stream for a set of parties.
+  // The stream can be filtered only by parties, but not templates (template filter must be empty).
+  rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
+
+  // Lookup a transaction tree by the ID of an event that appears within it.
+  // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionByEventId
+  rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
+
+  // Lookup a transaction tree by its ID.
+  // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionById
+  rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
+
+  // Lookup a transaction by the ID of an event that appears within it.
+  rpc GetFlatTransactionByEventId (GetTransactionByEventIdRequest) returns (GetFlatTransactionResponse);
+
+  // Lookup a transaction by its ID.
+  rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
+
+  // Get the current ledger end.
+  // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
+  rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
+
+  // Get the latest successfully pruned ledger offsets
+  rpc GetLatestPrunedOffsets (GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
+
+}
+
+message GetTransactionsRequest {
+
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+
+  // Beginning of the requested ledger section.
+  // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
+  // Required
+  LedgerOffset begin = 2;
+
+  // End of the requested ledger section.
+  // This offset is inclusive: the response will only contain transactions whose offset is less than or equal to this.
+  // Optional, if not set, the stream will not terminate.
+  LedgerOffset end = 3;
+
+  // Requesting parties with template filters.
+  // Template filters must be empty for GetTransactionTrees requests.
+  // Required
+  TransactionFilter filter = 4;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+  // Optional
+  bool verbose = 5;
+
+}
+
+message GetTransactionsResponse {
+  // The list of transactions that matches the filter in GetTransactionsRequest for the GetTransactions method.
+  repeated Transaction transactions = 1;
+}
+
+message GetTransactionTreesResponse {
+  // The list of transaction trees that matches the filter in ``GetTransactionsRequest`` for the ``GetTransactionTrees`` method.
+  repeated TransactionTree transactions = 1;
+}
+
+message GetTransactionByEventIdRequest {
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+
+  // The ID of a particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string event_id = 2;
+
+  // The parties whose events the client expects to see.
+  // Events that are not visible for the parties in this collection will not be present in the response.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  repeated string requesting_parties = 3;
+}
+
+message GetTransactionByIdRequest {
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+
+  // The ID of a particular transaction.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Required
+  string transaction_id = 2;
+
+  // The parties whose events the client expects to see.
+  // Events that are not visible for the parties in this collection will not be present in the response.
+  // Each element be a valid PartyIdString (as describe in ``value.proto``).
+  // Required
+  repeated string requesting_parties = 3;
+}
+
+message GetTransactionResponse {
+  TransactionTree transaction = 1;
+}
+
+message GetFlatTransactionResponse {
+  Transaction transaction = 1;
+}
+
+message GetLedgerEndRequest {
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+}
+
+message GetLedgerEndResponse {
+  // The absolute offset of the current ledger end.
+  LedgerOffset offset = 1;
+}
+
+message GetLatestPrunedOffsetsRequest {
+  // Empty for now, but may contain fields in the future.
+}
+
+message GetLatestPrunedOffsetsResponse {
+  // The offset up to which the ledger has been pruned, disregarding the state of all divulged contracts pruning.
+  LedgerOffset participant_pruned_up_to_inclusive = 1;
+
+  // The offset up to which all divulged events have been pruned on the ledger. It can be at or before the
+  // ``participant_pruned_up_to_inclusive`` offset.
+  // For more details about all divulged events pruning,
+  // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
+  LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
+}

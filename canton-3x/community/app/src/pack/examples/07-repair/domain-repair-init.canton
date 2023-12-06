@@ -1,0 +1,32 @@
+// upload the Daml model to all participants
+val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
+participants.all.dars.upload(darPath)
+
+val Alice = participant1.parties.enable("Alice")
+val Bob = participant2.parties.enable("Bob", waitForDomain = DomainChoice.All)
+
+// setup parties and connect participants to domain
+Seq(participant1, participant2).foreach(_.domains.connect_local(lostDomain))
+
+utils.retry_until_true {
+    participant1.domains.active("lostDomain") && participant2.domains.active("lostDomain")
+}
+
+import com.digitalasset.canton.BigDecimalImplicits._
+import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.examples.java.iou
+import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+import scala.jdk.CollectionConverters._
+
+def createIou(participant: ParticipantReference, payer: PartyId, owner: PartyId, value: Int) =
+  participant.ledger_api.javaapi.commands.submit_flat(Seq(payer), new iou.Iou(payer.toProtoPrimitive,
+                                                                         owner.toProtoPrimitive,
+                                                                         new iou.Amount(value.toLong.toBigDecimal, "USD"),
+                                                                         List.empty.asJava
+                                                                        ).create.commands.asScala.toSeq)
+
+Seq(100, 120, 140).foreach { value =>
+  createIou(participant1, Alice, Bob, value)
+  createIou(participant2, Bob, Alice, value + 10)
+}

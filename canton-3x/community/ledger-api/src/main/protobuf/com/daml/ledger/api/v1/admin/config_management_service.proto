@@ -1,0 +1,88 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "ConfigManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+//
+// The ledger configuration management service provides methods for the ledger administrator
+// to change the current ledger configuration. The services provides methods to modify
+// different aspects of the configuration.
+// In V2 Ledger API this service is not available anymore.
+service ConfigManagementService {
+
+  // Return the currently active time model and the current configuration generation.
+  rpc GetTimeModel (GetTimeModelRequest) returns (GetTimeModelResponse);
+
+  // Set the ledger time model.
+  rpc SetTimeModel (SetTimeModelRequest) returns (SetTimeModelResponse);
+}
+
+message GetTimeModelRequest {
+}
+
+message GetTimeModelResponse {
+  // The current configuration generation. The generation is a monotonically increasing
+  // integer that is incremented on each change. Used when setting the time model.
+  int64 configuration_generation = 1;
+
+  // The current ledger time model.
+  TimeModel time_model = 2;
+}
+
+message SetTimeModelRequest {
+  // Submission identifier used for tracking the request and to reject
+  // duplicate submissions.
+  // Required.
+  string submission_id = 1;
+
+  // Deadline for the configuration change after which the change is rejected.
+  google.protobuf.Timestamp maximum_record_time = 2;
+
+  // The current configuration generation which we're submitting the change against.
+  // This is used to perform a compare-and-swap of the configuration to
+  // safeguard against concurrent modifications.
+  // Required.
+  int64 configuration_generation = 3;
+
+  // The new time model that replaces the current one.
+  // Required.
+  TimeModel new_time_model = 4;
+}
+
+message SetTimeModelResponse {
+  // The configuration generation of the committed time model.
+  int64 configuration_generation = 1;
+}
+
+message TimeModel {
+  reserved 1; // was min_transaction_latency
+  reserved 2; // was max_clock_skew
+  reserved 3; // was max_ttl
+
+  // The expected average latency of a transaction, i.e., the average time
+  // from submitting the transaction to a [[WriteService]] and the transaction
+  // being assigned a record time.
+  // Required.
+  google.protobuf.Duration avg_transaction_latency = 4;
+
+  // The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  // Required.
+  google.protobuf.Duration min_skew = 5;
+
+  // The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  // Required.
+  google.protobuf.Duration max_skew = 6;
+
+}
+

@@ -1,0 +1,53 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v0;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+/**
+ * The node initialization service
+ */
+service InitializationService {
+  /**
+   * Initialize the node with the unique identifier (can and must be done once)
+   *
+   * When a domain or participant instance starts for the first time, we need to bind it
+   * to a globally unique stable identifier before we can continue with the
+   * initialization procedure.
+   *
+   * This method is only used once during initialization.
+   */
+  rpc InitId(InitIdRequest) returns (InitIdResponse);
+
+  /**
+   * Returns the id of the node (or empty if not initialized)
+   */
+  rpc GetId(google.protobuf.Empty) returns (GetIdResponse);
+
+  /**
+   * Returns the current time of the node (used for testing with static time)
+   */
+  rpc CurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+}
+
+message InitIdRequest {
+  string identifier = 1;
+  string fingerprint = 2;
+  // optional - instance id, if supplied value is empty then one will be generated
+  string instance = 3;
+}
+
+message InitIdResponse {
+  string unique_identifier = 1;
+  string instance = 2;
+}
+
+message GetIdResponse {
+  bool initialized = 1;
+  string unique_identifier = 2;
+  string instance = 3;
+}

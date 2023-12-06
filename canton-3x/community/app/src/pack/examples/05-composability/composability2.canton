@@ -1,0 +1,151 @@
+// Composability tutorial part 2
+
+// architecture-handbook-entry-begin: topology
+
+// update parameters
+iou.service.update_dynamic_domain_parameters(
+  _.update(transferExclusivityTimeout = Duration.Zero)
+) // disable automatic transfer-in
+
+paint.service.update_dynamic_domain_parameters(
+  _.update(transferExclusivityTimeout = 2.seconds)
+)
+
+// connect participants to the domain
+participant1.domains.connect_local(iou)
+participant2.domains.connect_local(iou)
+participant3.domains.connect_local(iou)
+participant2.domains.connect_local(paint)
+participant3.domains.connect_local(paint)
+participant4.domains.connect_local(iou)
+participant5.domains.connect_local(iou)
+
+val iouAlias = iou.name
+val paintAlias = paint.name
+
+// create the parties
+val Bank = participant1.parties.enable("Bank")
+val HouseOwner = participant2.parties.enable("House Owner")
+val Painter = participant3.parties.enable("Painter", waitForDomain = DomainChoice.All)
+
+// enable the house owner on participant 5 and the painter on participant 4
+// as explained in the identity management documentation at
+// https://docs.daml.com/canton/usermanual/identity_management.html#party-on-two-nodes
+import com.digitalasset.canton.console.ParticipantReference
+def authorizePartyParticipant(partyId: PartyId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+  val createdAtP = createdAt.id
+  val toP = to.id
+  createdAt.topology.party_to_participant_mappings.authorize(TopologyChangeOp.Add, partyId, toP, RequestSide.From)
+  to.topology.party_to_participant_mappings.authorize(TopologyChangeOp.Add, partyId, toP, RequestSide.To)
+}
+authorizePartyParticipant(HouseOwner, participant2, participant5)
+authorizePartyParticipant(Painter, participant3, participant4)
+
+// Wait until the party enabling has taken effect and has been observed at the participants
+val partyAssignment = Set(HouseOwner -> participant2, HouseOwner -> participant5, Painter -> participant3, Painter -> participant4)
+participant2.parties.await_topology_observed(partyAssignment)
+participant3.parties.await_topology_observed(partyAssignment)
+
+// upload the Daml model to all participants
+val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
+participants.all.dars.upload(darPath)
+// architecture-handbook-entry-end: topology
+
+// architecture-handbook-entry-begin: setup
+import com.digitalasset.canton.BigDecimalImplicits._
+import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
+import com.digitalasset.canton.examples.java.paint.{OfferToPaintHouseByOwner, PaintHouse}
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil.decodeAllCreated
+import com.digitalasset.canton.protocol.ContractIdSyntax._
+
+import scala.jdk.CollectionConverters._
+
+val createIouCmd = new Iou(
+  Bank.toProtoPrimitive,
+  HouseOwner.toProtoPrimitive,
+  new Amount(100.0.toBigDecimal, "USD"),
+  List.empty.asJava
+).create.commands.asScala.toSeq
+val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
+  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd))
+
+// Wait until the house owner sees the IOU in the active contract store
+participant2.ledger_api.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
+
+// The house owner adds the Painter as an observer on the IOU
+val shareIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).commands.asScala.toSeq
+val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), shareIouCmd))
+// architecture-handbook-entry-end: setup
+
+// architecture-handbook-entry-begin: paint-offer
+// The house owner creates a paint offer using participant 2 and the Paint domain
+val paintOfferCmd = new OfferToPaintHouseByOwner(
+  HouseOwner.toProtoPrimitive,
+  Painter.toProtoPrimitive,
+  Bank.toProtoPrimitive,
+  iouContract.id
+).create.commands.asScala.toSeq
+val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
+  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, workflowId = paint.name))
+// architecture-handbook-entry-end: paint-offer
+
+// architecture-handbook-entry-begin: transfer-out
+// Wait until the painter sees the paint offer in the active contract store
+participant3.ledger_api.acs.await_active_contract(Painter, paintOffer.id.toLf)
+
+// Painter transfers the paint offer to the IOU domain
+val paintOfferTransferId = participant3.transfer.out(
+  Painter,                      // Initiator of the transfer
+  paintOffer.id.toLf,   // Contract to be transferred
+  paintAlias,                   // Source domain
+  iouAlias                      // Target domain
+)
+// architecture-handbook-entry-end: transfer-out
+
+// architecture-handbook-entry-begin: transfer-in
+participant3.transfer.in(Painter, paintOfferTransferId, iouAlias)
+// architecture-handbook-entry-end: transfer-in
+
+// architecture-handbook-entry-begin: accept
+// Wait until the Painter sees the IOU contract on participant 3.
+participant3.ledger_api.acs.await_active_contract(Painter, iouContract.id.toLf)
+
+// Painter accepts the paint offer on the Iou domain
+val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
+val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd)
+val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
+val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
+// architecture-handbook-entry-end: accept
+
+// architecture-handbook-entry-begin: automatic-transfer-in
+// Wait until the house owner sees the PaintHouse agreement
+participant2.ledger_api.acs.await_active_contract(HouseOwner, paintHouse.id.toLf)
+
+val paintHouseId = paintHouse.id
+// The house owner moves the PaintHouse agreement back to the Paint domain
+participant2.transfer.out(
+  HouseOwner,
+  paintHouseId.toLf,
+  iouAlias,
+  paintAlias
+)
+// After the exclusivity period, which is set to 2 seconds,
+// the contract is automatically transferred into the target domain
+utils.retry_until_true(10.seconds) {
+    // in the absence of other activity, force the participants to update their view of the latest domain time
+    participant2.testing.fetch_domain_times()
+    participant3.testing.fetch_domain_times()
+
+    participant3.testing.acs_search(paint.name, filterId=paintHouseId.contractId).nonEmpty &&
+      participant2.testing.acs_search(paint.name, filterId=paintHouseId.contractId).nonEmpty
+}
+// architecture-handbook-entry-end: automatic-transfer-in
+
+// architecture-handbook-entry-begin: call
+// Painter converts the Iou into cash
+participant4.ledger_api.javaapi.commands.submit_flat(
+  Seq(Painter),
+  painterIou.id.exerciseCall().commands.asScala.toSeq,
+  iou.name
+)
+// architecture-handbook-entry-end: call

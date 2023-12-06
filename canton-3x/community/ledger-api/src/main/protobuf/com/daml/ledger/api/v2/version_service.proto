@@ -1,0 +1,22 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v1/version_service.proto";
+
+option java_outer_classname = "VersionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Allows clients to retrieve information about the ledger API version
+service VersionService {
+
+  // Read the Ledger API version
+  rpc GetLedgerApiVersion (GetLedgerApiVersionRequest) returns (com.daml.ledger.api.v1.GetLedgerApiVersionResponse);
+}
+
+message GetLedgerApiVersionRequest {
+}

@@ -1,0 +1,58 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Message where
+
+import Daml.Script
+
+template Message
+  with
+    sender   : Party
+    receiver : Party
+    message  : Text
+  where
+    signatory sender
+    observer receiver
+
+    choice Retract: ()
+      controller sender
+        do
+          pure ()
+
+
+    nonconsuming choice Reply: ()
+      with
+        reply: Text
+      controller receiver
+        do
+          create Message with
+            sender = receiver
+            receiver = sender
+            message = reply
+          pure ()
+
+
+messaging = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  submit alice do
+    createCmd Message with
+      sender = alice
+      receiver = bob
+      message = "Hi Bob!"
+
+  submit bob do
+    createCmd Message with
+      sender = bob
+      receiver = alice
+      message = "Hi Alice! How are you doing?"
+
+  anotherMsg <- submit alice do
+    createCmd Message with
+      sender = alice
+      receiver = bob
+      message = "Another message"
+
+  submit alice do
+    exerciseCmd anotherMsg Retract

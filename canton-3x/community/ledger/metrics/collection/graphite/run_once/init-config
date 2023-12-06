@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "Initializing Graphite configuration..."
+
+cp -v /etc/default_conf/*.conf /opt/defaultconf/graphite/ 
+

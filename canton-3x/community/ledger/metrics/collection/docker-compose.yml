@@ -1,0 +1,50 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3"
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - collection
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning # configuration to be imported during startup
+      - ./grafana/dashboards:/var/lib/grafana/dashboards # dashboards to be imported during startup
+      - grafana-storage:/var/lib/grafana # preserve configuration changes during restarts
+
+  graphite:
+    image: graphiteapp/graphite-statsd
+    container_name: graphite
+    restart: always
+    ports:
+      - 2000:80
+      - 2003:2003
+      - 2004:2004
+      - 2023:2023
+      - 2024:2024
+      - 8125:8125/udp
+      - 8126:8126
+    networks:
+      - collection
+    volumes:
+      # preserve metrics data during restarts
+      - graphite-storage:/opt/graphite/storage
+
+      # make configuration visible on the host system
+      - ./graphite/conf:/opt/graphite/conf
+      - ./graphite/statsd_conf:/opt/statsd/config
+
+      # update default configuration during startup
+      - ./graphite/run_once:/etc/run_once
+      - ./graphite/default_conf:/etc/default_conf
+
+networks:
+  collection:
+
+volumes:
+  graphite-storage:
+  grafana-storage:

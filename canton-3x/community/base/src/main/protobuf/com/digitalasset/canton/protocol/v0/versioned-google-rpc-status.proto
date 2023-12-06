@@ -1,0 +1,17 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v0;
+
+import "google/rpc/status.proto";
+import "scalapb/scalapb.proto";
+
+/* DA's wrapper around `google.rpc.Status` for the proper versioning and code-gen
+*/
+message VersionedStatus {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  google.rpc.Status status = 1;
+}
