@@ -7,7 +7,6 @@ package test
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.IdString
 import com.daml.lf.value.Value.ContractId
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -30,15 +29,18 @@ trait TestIdFactory {
 
   def newCid: ContractId = newV1Cid
 
-  def newParty: IdString.Party = Ref.Party.assertFromString("party" + nextSuffix)
+  def newParty: Ref.Party = Ref.Party.assertFromString("party" + nextSuffix)
 
-  def newPackageId: IdString.PackageId = Ref.PackageId.assertFromString("pkgId" + nextSuffix)
+  def newPackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkgId" + nextSuffix)
 
   def newModName: Ref.DottedName = Ref.DottedName.assertFromString("Mod" + nextSuffix)
 
-  def newChoiceName: IdString.Name = Ref.Name.assertFromString("Choice" + nextSuffix)
+  def newChoiceName: Ref.Name = Ref.Name.assertFromString("Choice" + nextSuffix)
 
   def newIdentifierName: Ref.DottedName = Ref.DottedName.assertFromString("T" + nextSuffix)
+
+  def newPackageName: Ref.PackageName =
+    Ref.PackageName.assertFromString("package-name-" + nextSuffix)
 
   def newIdentifier: Ref.Identifier =
     Ref.Identifier(newPackageId, Ref.QualifiedName(newModName, newIdentifierName))

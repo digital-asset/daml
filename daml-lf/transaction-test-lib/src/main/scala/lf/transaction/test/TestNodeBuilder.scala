@@ -6,11 +6,13 @@ package transaction
 package test
 
 import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
-import com.daml.lf.data.Ref.{PackageId, Party, TypeConName}
+import com.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+
+import Ordering.Implicits._
 
 trait TestNodeBuilder {
 
@@ -24,6 +26,8 @@ trait TestNodeBuilder {
   private def contractPackageVersion(contract: Node.Create): TransactionVersion =
     packageVersion(contract.templateId.packageId).getOrElse(contract.version)
 
+  val defaultPackageName = Ref.PackageName.assertFromString("package-name")
+
   def create(
       id: ContractId,
       templateId: TypeConName,
@@ -31,6 +35,7 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
+      packageName: PackageName = defaultPackageName,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
       agreementText: String = "",
   ): Node.Create = {
@@ -68,6 +73,8 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
+      packageName =
+        if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
       templateId = templateId,
       arg = argument,
       agreementText = agreementText,
@@ -94,6 +101,7 @@ trait TestNodeBuilder {
       choiceObservers = choiceObservers,
       choiceAuthorizers = None,
       targetCoid = contract.coid,
+      packageName = contract.packageName,
       templateId = contract.templateId,
       interfaceId = interfaceId,
       choiceId = choice,
@@ -115,6 +123,7 @@ trait TestNodeBuilder {
   ): Node.Fetch =
     Node.Fetch(
       coid = contract.coid,
+      packageName = contract.packageName,
       templateId = contract.templateId,
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
@@ -126,6 +135,7 @@ trait TestNodeBuilder {
 
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
+      packageName = contract.packageName,
       templateId = contract.templateId,
       key = contract.keyOpt.getOrElse(
         throw new IllegalArgumentException(

@@ -388,14 +388,14 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.Fetch(
-        coid,
-        contract.templateId,
-        actingParties,
-        contract.signatories,
-        contract.stakeholders,
-        contract.keyOpt.map(_.globalKeyWithMaintainers),
-        normByKey(version, byKey),
-        version,
+        coid = coid,
+        templateId = contract.templateId,
+        actingParties = actingParties,
+        signatories = contract.signatories,
+        stakeholders = contract.stakeholders,
+        keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
+        byKey = normByKey(version, byKey),
+        version = version,
       )
 
       val newContractState = assertRightKey(
@@ -424,10 +424,10 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.LookupByKey(
-        key.templateId,
-        key.globalKeyWithMaintainers,
-        result,
-        keyVersion,
+        templateId = key.templateId,
+        key = key.globalKeyWithMaintainers,
+        result = result,
+        version = keyVersion,
       )
       // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
       // so the current state's global key inputs must resolve the key.
