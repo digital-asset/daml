@@ -10,6 +10,7 @@ module DA.Daml.Project.Consts
     , sdkVersionLatestEnvVar
     , damlAssistantEnvVar
     , damlAssistantVersionEnvVar
+    , damlAssistantIsSet
     , damlConfigName
     , projectConfigName
     , sdkConfigName
@@ -33,6 +34,7 @@ import System.Exit
 import System.FilePath
 import System.IO
 import qualified Data.Text as T
+import Data.Maybe (isJust)
 
 import DA.Daml.Project.Types
 
@@ -156,6 +158,9 @@ getSdkVersionMaybe = (fmap . fmap) (parseVersion . T.pack) $ lookupEnv sdkVersio
 -- the assistant.
 getDamlAssistant :: IO FilePath
 getDamlAssistant = getEnv damlAssistantEnvVar
+
+damlAssistantIsSet :: IO Bool
+damlAssistantIsSet = isJust <$> lookupEnv damlAssistantEnvVar
 
 -- | Whether we should check if a command is invoked inside of a project.
 -- The string is the command name used in error messages
