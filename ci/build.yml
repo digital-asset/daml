@@ -245,6 +245,33 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
+- job: build_canton_3x_with_bazel
+  dependsOn:
+    - check_for_release
+    - build_canton
+  variables:
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - template: job-variables.yml
+  timeoutInMinutes: 60
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - template: report-start.yml
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+        if [ -x ci/build-canton-3x.sh ]; then
+          ci/build-canton-3x.sh
+        fi
+      env:
+        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+      name: build_canton_3x
+    - template: report-end.yml
+
+
 - job: platform_independence_test
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))

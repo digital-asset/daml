@@ -33,6 +33,7 @@ da_haskell_library(
         "safe",
         "safe-exceptions",
         "semigroupoids",
+        "semver",
         "shake",
         "text",
         "time",

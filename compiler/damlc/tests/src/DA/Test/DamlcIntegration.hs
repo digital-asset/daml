@@ -80,6 +80,7 @@ import qualified GHC
 import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
+import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
@@ -89,7 +90,6 @@ import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
 
-import DA.Daml.Package.Config (PackageSdkVersion (..))
 import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
@@ -168,7 +168,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
       installDependencies
         projDir
         (defaultOptions mLfVer)
-        (PackageSdkVersion sdkVersion)
+        (unsafeResolveReleaseVersion (either throw id (parseUnresolvedVersion (T.pack sdkVersion))))
         ["daml-prim", "daml-stdlib", scriptDar]
         extraDars
       createProjectPackageDb

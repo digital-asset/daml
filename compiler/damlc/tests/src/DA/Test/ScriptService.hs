@@ -70,7 +70,7 @@ main =
         installDependencies
             projDir
             options
-            pSdkVersion
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb
