@@ -35,7 +35,7 @@ object MeteringReport {
   final case class ApplicationReport(application: ApplicationId, events: Long)
 
   implicit val TimestampFormat: RootJsonFormat[Timestamp] =
-    stringJsonFormat(Timestamp.fromString(_))(_.toString)
+    stringJsonFormat(Timestamp.fromString)(_.toString)
 
   implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =
     stringJsonFormat(ApplicationId.fromString)(identity)

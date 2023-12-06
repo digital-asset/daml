@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton
 
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.protocol.{
@@ -56,11 +57,19 @@ object GeneratorsLf {
     scriptName <- Gen.stringOfN(8, Gen.alphaChar)
   } yield LfTemplateId.assertFromString(s"$packageName:$moduleName:$scriptName"))
 
-  implicit val lfGlobalKeyArb: Arbitrary[LfGlobalKey] = Arbitrary(for {
+  private val lfVersionedGlobalKeyGen: Gen[Versioned[LfGlobalKey]] = for {
     templateId <- Arbitrary.arbitrary[LfTemplateId]
     // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
     value <- Gen.long.map(ValueInt64)
-  } yield ExampleTransactionFactory.globalKey(templateId, value).unversioned)
+  } yield ExampleTransactionFactory.globalKey(templateId, value)
+
+  implicit val lfGlobalKeyArb: Arbitrary[LfGlobalKey] = Arbitrary(
+    lfVersionedGlobalKeyGen.map(_.unversioned)
+  )
+
+  implicit val lfVersionedGlobalKeyArb: Arbitrary[Versioned[LfGlobalKey]] = Arbitrary(
+    lfVersionedGlobalKeyGen
+  )
 
   implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = genArbitrary
 }

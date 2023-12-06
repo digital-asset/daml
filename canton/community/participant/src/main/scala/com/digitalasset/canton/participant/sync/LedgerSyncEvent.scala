@@ -8,7 +8,6 @@ import com.daml.error.GrpcStatuses
 import com.daml.lf.CantonOnly
 import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
@@ -78,8 +77,6 @@ sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinti
       case ev: LedgerSyncEvent.TransferredIn => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsAdded => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsPurged => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.PartiesAddedToParticipant => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.PartiesRemovedFromParticipant => ev.copy(recordTime = timestamp)
     }
 }
 
@@ -162,46 +159,6 @@ object LedgerSyncEvent {
     override def toDamlUpdate: Option[Update] = Some(
       this.transformInto[Update.PartyAddedToParticipant]
     )
-  }
-
-  final case class PartiesAddedToParticipant(
-      parties: NonEmpty[Set[LfPartyId]],
-      participantId: LedgerParticipantId,
-      recordTime: LfTimestamp,
-      effectiveTime: LfTimestamp,
-  ) extends LedgerSyncEvent {
-    override def description: String =
-      s"Adding party '$parties' to participant"
-
-    override def pretty: Pretty[PartiesAddedToParticipant] =
-      prettyOfClass(
-        param("participantId", _.participantId),
-        param("recordTime", _.recordTime),
-        param("effectiveTime", _.recordTime),
-        param("parties", _.parties),
-      )
-
-    override def toDamlUpdate: Option[Update] = None
-  }
-
-  final case class PartiesRemovedFromParticipant(
-      parties: NonEmpty[Set[LfPartyId]],
-      participantId: LedgerParticipantId,
-      recordTime: LfTimestamp,
-      effectiveTime: LfTimestamp,
-  ) extends LedgerSyncEvent {
-    override def description: String =
-      s"Adding party '$parties' to participant"
-
-    override def pretty: Pretty[PartiesRemovedFromParticipant] =
-      prettyOfClass(
-        param("participantId", _.participantId),
-        param("recordTime", _.recordTime),
-        param("effectiveTime", _.recordTime),
-        param("parties", _.parties),
-      )
-
-    override def toDamlUpdate: Option[Update] = None
   }
 
   final case class PartyAllocationRejected(

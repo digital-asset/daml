@@ -26,6 +26,8 @@ import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.store.PrunableByTimeParameters
+import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{DiscardOps, config}
 import io.netty.handler.ssl.{ClientAuth, SslContext}
@@ -519,11 +521,6 @@ final case class ParticipantNodeParameterConfig(
   *                                   "skipping over" active contracts.
   * @param pruningMetricUpdateInterval  How frequently to update the `max-event-age` pruning progress metric in the background.
   *                                     A setting of None disables background metric updating.
-  * @param acsPruningInterval        How often to prune the ACS journal in the background. A very high interval will let the journal grow larger and
-  *                                  eventually slow queries down. A very low interval may cause a high load on the journal table and the DB.
-  *                                  The default is 60 seconds.
-  *                                  A domain's reconciliation interval also limits the frequency of background pruning. Setting the pruning interval
-  *                                  below the reconciliation interval doesn't not increase the frequency further.
   * @param dbBatchAggregationConfig Batching configuration for Db queries
   */
 final case class ParticipantStoreConfig(
@@ -532,11 +529,46 @@ final case class ParticipantStoreConfig(
     ledgerApiPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(50000),
     pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
+    // TODO(#15221) remove unused config parameter
     acsPruningInterval: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(60),
+    journalPruning: JournalPruningConfig = JournalPruningConfig(),
     // TODO(#15221) move to BatchingConfig and rename to `aggregator`
     dbBatchAggregationConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
 )
+
+/** Control background journal pruning
+  *
+  * During processing, Canton will keep some data in journals (contract keys, active contracts).
+  * These journals can be pruned in order to reclaim space.
+  *
+  * Background pruning is initiated by the ACS commitment processor once a commitment interval
+  * has been completed. Therefore, pruning can't run more frequently than the reconciliation interval
+  * of a domain.
+  *
+  * @param targetBatchSize The target batch size for pruning. The actual batch size will evolve under load.
+  * @param initialInterval The initial interval size for pruning
+  * @param maxBuckets The maximum number of buckets used for any pruning interval
+  */
+final case class JournalPruningConfig(
+    targetBatchSize: PositiveInt = JournalPruningConfig.DefaultTargetBatchSize,
+    initialInterval: config.NonNegativeFiniteDuration = JournalPruningConfig.DefaultInitialInterval,
+    maxBuckets: PositiveInt = JournalPruningConfig.DefaultMaxBuckets,
+) {
+  def toInternal: PrunableByTimeParameters = {
+    PrunableByTimeParameters(
+      targetBatchSize,
+      initialInterval = initialInterval.toInternal,
+      maxBuckets = maxBuckets,
+    )
+  }
+}
+
+object JournalPruningConfig {
+  private val DefaultTargetBatchSize = PositiveInt.tryCreate(5000)
+  private val DefaultInitialInterval = config.NonNegativeFiniteDuration.ofSeconds(5)
+  private val DefaultMaxBuckets = PositiveInt.tryCreate(100)
+}
 
 /** Parameters for the ledger api server
   *

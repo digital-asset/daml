@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Salt, TestHash}
@@ -228,9 +229,8 @@ object GeneratorsData {
       pv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[LookupByKeyActionDescription] =
     for {
-      key <- Arbitrary.arbitrary[LfGlobalKey]
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield LookupByKeyActionDescription.tryCreate(key, version, pv)
+      vk <- Arbitrary.arbitrary[Versioned[LfGlobalKey]]
+    } yield LookupByKeyActionDescription.tryCreate(vk.unversioned, vk.version, pv)
 
   // If this pattern match is not exhaustive anymore, update the method below
   {
@@ -306,16 +306,21 @@ object GeneratorsData {
         AssignedKey must correspond to a contract in core input
        */
       coreInputWithResolvedKeys <- Gen.someOf(coreInputs)
+
       assignedResolvedKeys <- Gen.sequence[List[
         (LfGlobalKey, SerializableKeyResolution)
       ], (LfGlobalKey, SerializableKeyResolution)](coreInputWithResolvedKeys.map { contract =>
         // Unsafe .value is fine because we force the key to be defined with the generator above
-        val key = contract.contract.metadata.maybeKey.value
-
-        Gen.zip(key, assignedKeyGen(contract.contractId))
+        val key = contract.contract.metadata.maybeKeyWithMaintainersVersioned.value
+        Gen
+          .zip(key, assignedKeyGen(contract.contractId))
+          .map({ case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) })
       })
+
       freeResolvedKeys <- Gen.listOf(
-        Gen.zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[FreeKey])
+        Gen
+          .zip(Arbitrary.arbitrary[Versioned[LfGlobalKey]], Arbitrary.arbitrary[FreeKey])
+          .map({ case (k, r) => (k.unversioned, r.copy()(k.version)) })
       )
 
       resolvedKeys = assignedResolvedKeys ++ freeResolvedKeys
