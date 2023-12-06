@@ -84,6 +84,14 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
                              getDamlRootFiles,
                              writeIfacesAndHie)
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
+import DA.Daml.Project.Types
+    ( UnresolvedReleaseVersion(..),
+      unresolvedBuiltinSdkVersion,
+      isHeadVersion,
+      ConfigError(..),
+      ProjectPath(..),
+      ProjectConfig )
+import DA.Daml.Assistant.Version (resolveReleaseVersion)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
@@ -130,7 +138,6 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
-                               PackageSdkVersion(..),
                                checkPkgConfig,
                                findMultiPackageConfig,
                                withPackageConfig,
@@ -146,7 +153,8 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                sdkVersionEnvVar,
                                withExpectProjectRoot,
                                withProjectRoot)
-import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..), ProjectConfig)
+import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
+import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -902,10 +910,13 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
+              damlPath <- getDamlPath
+              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+              releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
               installDependencies
                   (toNormalizedFilePath' projRoot)
                   opts
-                  pSdkVersion
+                  releaseVersion
                   pDependencies
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
@@ -1141,7 +1152,7 @@ type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.Pac
 
 -- Subset of PackageConfig needed for multi-package build deferring.
 data BuildMultiPackageConfig = BuildMultiPackageConfig
-  { bmSdkVersion :: PackageSdkVersion
+  { bmSdkVersion :: UnresolvedReleaseVersion
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
   , bmDataDeps :: [FilePath]
@@ -1289,7 +1300,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             -- Call build via daml assistant so it selects the correct SDK version.
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | unPackageSdkVersion bmSdkVersion == "0.0.0"])
+              ["build"] <> (["--enable-multi-package=no" | isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1440,7 +1451,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
+                              , pSdkVersion = unresolvedBuiltinSdkVersion
                               , pModulePrefixes = Map.empty
                               , pUpgradedPackagePath = Nothing
                               , pTypecheckUpgrades = False
@@ -1571,7 +1582,10 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      installDependencies "." opts (PackageSdkVersion SdkVersion.sdkVersion) [scriptDar] []
+      damlPath <- getDamlPath
+      damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+      releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+      installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty
 
       opts <- pure opts

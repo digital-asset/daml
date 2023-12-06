@@ -147,6 +147,32 @@ module Main where
 """ > Main.daml
 }
 
+init_daml_package_with_script () {
+echo """
+sdk-version: $1
+name: test-daml-yaml-install
+version: 1.0.0
+source: Main.daml
+scenario: Main:main
+parties:
+- Alice
+- Bob
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-script
+""" > daml.yaml
+
+echo """
+module Main where
+
+import Daml.Script
+
+main : Script ()
+main = pure ()
+""" > Main.daml
+}
+
 do_post_failed_tarball_install_behaviour () {
   behaviour=$1
   shift
@@ -236,12 +262,12 @@ fi
 export DAML_CACHE="$(mktemp -d -p "$PWD" "cache.XXXXXXXX")"
 export DAML_HOME="$(mktemp -d -p "$PWD" "daml_home.XXXXXXXX")"
 if [[ "$os" == windows ]]; then
-  export daml_exe=daml.exe
+  export head_sdk_exe=daml.exe
 else
-  export daml_exe=daml
+  export head_sdk_exe=daml
 fi
-"$(rlocation "head_sdk/$daml_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
-if [[ "$daml_exe" == "daml.exe" ]]; then
+"$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+if [[ "$os" == windows ]]; then
   # on windows, fully qualify daml command
   export daml_exe="$DAML_HOME/bin/daml.cmd"
 else
@@ -298,6 +324,12 @@ case "$command_to_run" in
         error_echo "ERROR! Exit code for \`daml build\` on version $build_version is nonzero"
       fi
     fi
+    ;;
+  install_with_custom_version_and_build)
+    custom_version=2.99.0
+    "$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes --install-with-custom-version $custom_version "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
+    init_daml_package_with_script $custom_version
+    $daml_exe build
     ;;
   install_and_build_from_tarball)
     [[ "$#" -gt 0 ]] || error_echo "No tarball_path supplied via args"

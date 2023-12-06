@@ -16,12 +16,12 @@ import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
+import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion)
 import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config
 import qualified DA.Service.Logger as Logger
 import qualified DA.Pretty
 import qualified Data.Aeson as Aeson
@@ -117,11 +117,11 @@ dataDepMarker = "_data_"
 installDependencies ::
    NormalizedFilePath
    -> Options
-   -> PackageSdkVersion
+   -> ReleaseVersion
    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
    -> IO ()
-installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
+installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
     deps <- expandSdkPackages logger (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
@@ -131,7 +131,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
             (deps ++ dataDepsDars ++ dataDepsDalfs)
             dataDepsPkgIds
             dataDepsNameVersion
-            thisSdkVer
+            releaseVersion
             (show $ optDamlLfVersion opts)
     when needsUpdate $ do
         Logger.logDebug logger "Dependencies are not up2date, reinstalling"
@@ -141,7 +141,7 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
         -----------------------
         Logger.logDebug logger "Extracting dependencies"
         depsExtracted <- mapM extractDar deps
-        checkSdkVersions sdkVer depsExtracted
+        checkSdkVersions releaseVersion depsExtracted
         Logger.logDebug logger "Installing dependencies"
         forM_ depsExtracted $ installDar depsDir False
         -- install data-dependencies
@@ -198,8 +198,9 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
     depsDir = dependenciesDir opts projRoot
 
 -- | Check that only one sdk version is present in dependencies and it equals this sdk version.
-checkSdkVersions :: PackageSdkVersion -> [ExtractedDar] -> IO ()
-checkSdkVersions (PackageSdkVersion thisSdkVer) depsExtracted = do
+checkSdkVersions :: ReleaseVersion -> [ExtractedDar] -> IO ()
+checkSdkVersions releaseVersion depsExtracted = do
+    let thisSdkVer = T.unpack (sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion))
     let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
     unless (all (== thisSdkVer) depsSdkVersions) $
@@ -432,12 +433,12 @@ depsNeedUpdate ::
     -> [FilePath]
     -> [LF.PackageId]
     -> [FullPkgName]
-    -> String
+    -> ReleaseVersion
     -> String
     -> IO (Bool, Fingerprint)
-depsNeedUpdate depsDir depFps dataDepsPkgIds dataDepsNameVersion sdkVersion damlLfVersion = do
+depsNeedUpdate depsDir depFps dataDepsPkgIds dataDepsNameVersion releaseVersion damlLfVersion = do
     depsFps <- mapM getFileHash depFps
-    let sdkVersionFp = fingerprintString sdkVersion
+    let sdkVersionFp = fingerprintString (T.unpack (sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)))
     let damlLfFp = fingerprintString damlLfVersion
     let dataDepsNameVersionFp =
             fingerprintFingerprints [fingerprintString $ show d | d <- dataDepsNameVersion]

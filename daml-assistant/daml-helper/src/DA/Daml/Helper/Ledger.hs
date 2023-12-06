@@ -71,17 +71,16 @@ import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
-import DA.Daml.Package.Config (PackageSdkVersion(..))
 import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import qualified SdkVersion
 import DA.Ledger.Types (ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
 import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
 import qualified Data.Aeson as Aeson
+import DA.Daml.Project.Types (unresolvedBuiltinSdkVersion)
 
 data LedgerApi
   = Grpc
@@ -311,7 +310,7 @@ fetchDar args rootPid saveAs = do
         case packageMetadata of
           Nothing -> (LF.PackageName $ T.pack "reconstructed",Nothing)
           Just LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
-  let pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
+  let pSdkVersion = unresolvedBuiltinSdkVersion
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
   createDarFile loggerH saveAs za
