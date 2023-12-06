@@ -8,7 +8,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.assertRight
+import com.daml.lf.data.{assertRight, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
@@ -22,7 +22,6 @@ import com.daml.lf.language.{
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
@@ -51,7 +50,7 @@ object ReplServiceMain extends App {
       ledgerHost: Option[String],
       ledgerPort: Option[Int],
       accessTokenFile: Option[Path],
-      applicationId: Option[ApplicationId],
+      applicationId: Option[Option[Ref.ApplicationId]],
       maxInboundMessageSize: Int,
       tlsConfig: TlsConfiguration,
       // optional so we can detect if both --static-time and --wall-clock-time are passed.
@@ -93,7 +92,9 @@ object ReplServiceMain extends App {
       opt[String]("application-id")
         .optional()
         .action { (appId, c) =>
-          c.copy(applicationId = Some(ApplicationId(appId)))
+          c.copy(applicationId =
+            Some(Some(appId).filter(_.nonEmpty).map(Ref.ApplicationId.assertFromString))
+          )
         }
 
       TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>

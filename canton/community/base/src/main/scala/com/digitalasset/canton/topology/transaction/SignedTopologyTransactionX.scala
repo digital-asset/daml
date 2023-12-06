@@ -204,24 +204,23 @@ object SignedTopologyTransactionX
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
     val v2.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
     for {
-
-      transaction <- TopologyTransactionX.fromByteString(txBytes)
+      transaction <- TopologyTransactionX.fromByteStringUnsafe(
+        txBytes
+      ) // TODO(#12626) - try with context
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "SignedTopologyTransactionX.signatures",
         signaturesP,
       )
-      protocolVersion = supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2))
-
     } yield SignedTopologyTransactionX(transaction, signatures.toSet, isProposal)(
-      protocolVersion
+      supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2))
     )
 
   }
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =
     GetResult { r =>
-      fromByteString(r.<<[ByteString])
+      fromByteStringUnsafe(r.<<[ByteString])
         .valueOr(err =>
           throw new DbSerializationException(
             s"Failed to deserialize SignedTopologyTransactionX: $err"

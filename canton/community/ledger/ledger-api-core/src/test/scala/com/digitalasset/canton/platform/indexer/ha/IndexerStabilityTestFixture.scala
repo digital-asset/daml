@@ -104,6 +104,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
               tracer,
               loggerFactory,
               multiDomainEnabled = false,
+              maxEventsByContractKeyCacheSize = None,
             )
             .acquire()
 

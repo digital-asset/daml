@@ -532,7 +532,7 @@ class SequencerClientImpl(
   override def generateMaxSequencingTime: CantonTimestamp =
     clock.now.add(config.defaultMaxSequencingTimeOffset.asJava)
 
-  override protected def generateMessageId: MessageId = MessageId.randomMessageId()
+  override def generateMessageId: MessageId = MessageId.randomMessageId()
 
   /** Create a subscription for sequenced events for this member,
     * starting after the prehead in the `sequencerCounterTrackerStore`.

@@ -5,9 +5,8 @@ package com.daml.lf.engine.trigger.simulation
 
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerExternalAction, LedgerProcess}
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
@@ -15,7 +14,6 @@ import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
-import scalaz.syntax.tag._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -37,7 +35,7 @@ class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMaj
   override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+    implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
     Behaviors.setup { context =>
       val setup = for {
         client <- defaultLedgerClient()
@@ -67,7 +65,7 @@ class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMaj
     }
   }
 
-  def workloadProcess(ledger: ActorRef[LedgerProcess.Message], owner: Party)(
+  def workloadProcess(ledger: ActorRef[LedgerProcess.Message], owner: Ref.Party)(
       batchSize: Int,
       maxNumOfCats: Long,
       workloadFrequency: FiniteDuration,
@@ -90,11 +88,11 @@ class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMaj
               .sample
               .foreach { case (isin, catCreateDelay, foodCreateDelay) =>
                 timer.startSingleTimer(
-                  WorkloadProcess.CreateContract(createCat(owner.unwrap, isin)),
+                  WorkloadProcess.CreateContract(createCat(owner, isin)),
                   catCreateDelay,
                 )
                 timer.startSingleTimer(
-                  WorkloadProcess.CreateContract(createFood(owner.unwrap, isin)),
+                  WorkloadProcess.CreateContract(createFood(owner, isin)),
                   foodCreateDelay,
                 )
               }

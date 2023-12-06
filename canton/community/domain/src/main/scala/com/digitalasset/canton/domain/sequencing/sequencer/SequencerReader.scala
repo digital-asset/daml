@@ -494,7 +494,9 @@ class SequencerReader(
           val messageIdO =
             Option(messageId).filter(_ => memberId == sender) // message id only goes to sender
           val batch: Batch[ClosedEnvelope] = Batch
-            .fromByteString(payload.content)
+            .fromByteString(protocolVersion)(
+              payload.content
+            )
             .fold(err => throw new DbDeserializationException(err.toString), identity)
           val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, Set.empty)
           Deliver.create[ClosedEnvelope](

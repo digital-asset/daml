@@ -57,6 +57,14 @@ trait PrettyUtil {
   ): T => Option[Tree] =
     conditionalParam[T, V](getValue, cond, value => mkNameValue(name, value.toTree))
 
+  /** A tree only written if not matching the default value */
+  def paramIfNotDefault[T, V: Pretty](
+      name: String,
+      getValue: T => V,
+      default: V,
+  ): T => Option[Tree] =
+    param(name, getValue, getValue(_) != default)
+
   private def conditionalParam[T, V](
       getValue: T => V,
       cond: T => Boolean,
@@ -114,6 +122,10 @@ trait PrettyUtil {
       cond: T => Boolean = (_: T) => true,
   ): T => Option[Tree] =
     conditionalParam(getValue, cond, treeOfString)
+
+  /** Use this to indicate that you've omitted fields from pretty printing */
+  def indicateOmittedFields[T]: T => Option[Tree] =
+    customParam(_ => "...")
 
   /** Use this to give a class with a singleton parameter the same pretty representation as the parameter.
     */

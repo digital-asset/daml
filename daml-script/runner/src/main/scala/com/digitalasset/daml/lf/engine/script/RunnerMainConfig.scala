@@ -6,7 +6,7 @@ package com.daml.lf.engine.script
 import java.nio.file.{Path, Paths}
 import java.io.File
 
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.lf.data.Ref
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerMainConfig(
@@ -22,7 +22,7 @@ case class RunnerMainConfig(
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
-    applicationId: Option[ApplicationId],
+    applicationId: Option[Option[Ref.ApplicationId]],
     uploadDar: Boolean,
     enableContractUpgrading: Boolean,
 )
@@ -74,7 +74,7 @@ private[script] case class RunnerMainConfigIntermediate(
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
-    applicationId: Option[ApplicationId],
+    applicationId: Option[Option[Ref.ApplicationId]],
     // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
     // We will drop this for daml3, such that we default to not uploading.
     uploadDar: Option[Boolean],
@@ -262,7 +262,11 @@ private[script] object RunnerMainConfigIntermediate {
       )
 
     opt[String]("application-id")
-      .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
+      .action((x, c) =>
+        c.copy(applicationId =
+          Some(Some(x).filter(_.nonEmpty).map(Ref.ApplicationId.assertFromString))
+        )
+      )
       .optional()
       .text(
         s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"

@@ -70,7 +70,7 @@ This method is used to define all the components that a given simulation is to t
 .. code-block:: scala
   class ExampleSimulation extends TriggerMultiProcessSimulation {
     override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-      implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+      implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
 
       withLedger { (client, ledger, actAs, controllerContext) =>
         // Trigger and external components could be defined here
@@ -287,7 +287,7 @@ So, in order to initialize a trigger process, we simply need to send it an initi
 
 .. code-block:: scala
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+    implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
 
     withLedger { (client, ledger, actAs, controllerContext) =>
       val breedingTrigger: Behavior[TriggerProcess.Message] = breedingFactory.create(Seq.empty)
@@ -304,7 +304,7 @@ Initializing trigger processes is a common use case, so an additional helper met
 
 .. code-block:: scala
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+    implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
 
     withLedger { (client, ledger, actAs, controllerContext) =>
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time
@@ -320,7 +320,7 @@ If a trigger fails at runtime, and we require the simulation to fail, then it is
 
 .. code-block:: scala
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+    implicit def applicationId: Option[Ref.ApplicationId] = this.applicationId
 
     withLedger { (client, ledger, actAs, controllerContext) =>
       // Initialize the user state to be 0 (coded as an SValue) for the breeding trigger at create time

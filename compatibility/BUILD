@@ -174,6 +174,9 @@ command_targets = {
         "2.7.1",
         "0.0.0",
     ],
+    "install_with_custom_version_and_build": [
+        "0.0.0",
+    ],
     "install_and_build_from_tarball": [
         "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-{}.tar.gz".format(os_name),
         "v2.7.5/daml-sdk-2.7.5-{}.tar.gz".format(os_name),
@@ -188,9 +191,13 @@ command_post_failure_behaviours = {
     "build_from_version": [
         "do_nothing",
     ],
+    "install_with_custom_version_and_build": [
+        "do_nothing",
+    ],
     "install_and_build_from_tarball": [
         "allow_nonrelease",
         "update_cache",
+        "install_via_custom_version",
         "do_nothing",
     ],
 }

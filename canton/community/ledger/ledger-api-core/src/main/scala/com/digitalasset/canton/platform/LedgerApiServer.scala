@@ -22,6 +22,7 @@ object LedgerApiServer {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
+      maxEventsByContractKeyCacheSize: Option[Int],
   )(implicit
       traceContext: TraceContext
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
@@ -31,6 +32,7 @@ object LedgerApiServer {
         bufferedStreamsPageSize = indexServiceConfig.bufferedStreamsPageSize,
         maxContractStateCacheSize = indexServiceConfig.maxContractStateCacheSize,
         maxContractKeyStateCacheSize = indexServiceConfig.maxContractKeyStateCacheSize,
+        maxEventsByContractKeyCacheSize = maxEventsByContractKeyCacheSize,
         maxTransactionsInMemoryFanOutBufferSize =
           indexServiceConfig.maxTransactionsInMemoryFanOutBufferSize,
         executionContext = executionContext,

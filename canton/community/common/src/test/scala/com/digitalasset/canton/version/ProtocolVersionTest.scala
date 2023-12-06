@@ -63,7 +63,16 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
 
     "fail parsing version string with create" in {
       ProtocolVersion.create(invalidProtocolVersionNumber.toString).left.value should be(
-        unsupportedErrorMessage(invalidProtocolVersion, includeDeleted = false)
+        unsupportedErrorMessage(invalidProtocolVersion)
+      )
+    }
+
+    "fail parsing version string considering also deleted protocol versions with create" in {
+      ProtocolVersion
+        .create(invalidProtocolVersionNumber.toString, allowDeleted = true)
+        .left
+        .value should be(
+        unsupportedErrorMessage(invalidProtocolVersion, includeDeleted = true)
       )
     }
 
@@ -76,7 +85,7 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
     "fail parsing version string with tryCreate" in {
       the[RuntimeException] thrownBy {
         ProtocolVersion.tryCreate(invalidProtocolVersionNumber.toString)
-      } should have message unsupportedErrorMessage(invalidProtocolVersion, includeDeleted = false)
+      } should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
     "parse version string with fromProtoPrimitiveS" in {
@@ -90,10 +99,7 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
     "fail parsing version string with fromProtoPrimitiveS" in {
       val result = ProtocolVersion.fromProtoPrimitiveS(invalidProtocolVersionNumber.toString)
       result shouldBe a[ParsingResult[?]]
-      result.left.value should have message unsupportedErrorMessage(
-        invalidProtocolVersion,
-        includeDeleted = false,
-      )
+      result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
     "parse version string with fromProtoPrimitive" in {
@@ -107,10 +113,7 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
     "fail parsing version string fromProtoPrimitive" in {
       val result = ProtocolVersion.fromProtoPrimitive(invalidProtocolVersionNumber)
       result shouldBe a[ParsingResult[?]]
-      result.left.value should have message unsupportedErrorMessage(
-        invalidProtocolVersion,
-        includeDeleted = false,
-      )
+      result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
   }

@@ -1,0 +1,25 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v0;
+
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// A commitment to the active contract set (ACS) that is shared between two participants on a given domain at a given time.
+// Given a commitment scheme to the ACS, the semantics are as follows: the sender declares that the shared ACS was
+// exactly the one committed to, at every commitment tick during the specified period and as determined by the period's
+// interval. The interval is assumed to be a round number of seconds. The ticks then start at the Java EPOCH time, and
+// are exactly `interval` apart.
+// All fields are mandatory.
+message AcsCommitment {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  string domain_id = 1;
+  string sending_participant = 2;
+  string counter_participant = 3;
+  google.protobuf.Timestamp from_exclusive = 4;
+  google.protobuf.Timestamp to_inclusive = 5;
+  bytes commitment = 6;
+}

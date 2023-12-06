@@ -9,7 +9,7 @@ import java.util.UUID
 import org.apache.pekko.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.RefreshToken
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
 import org.scalatest.{PartialFunctionValues, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -98,7 +98,7 @@ class TestRequestTemplates
       val templates = getTemplates()
       val claims = Claims(
         admin = false,
-        actAs = Party.subst(List("Alice", "Bob")),
+        actAs = List("Alice", "Bob").map(Ref.Party.assertFromString),
         readAs = Nil,
         applicationId = None,
       )
@@ -128,7 +128,7 @@ class TestRequestTemplates
       val claims = Claims(
         admin = false,
         actAs = Nil,
-        readAs = Party.subst(List("Alice", "Bob")),
+        readAs = List("Alice", "Bob").map(Ref.Party.assertFromString),
         applicationId = None,
       )
       val requestId = UUID.randomUUID()
@@ -158,7 +158,7 @@ class TestRequestTemplates
         admin = false,
         actAs = Nil,
         readAs = Nil,
-        applicationId = ApplicationId.subst(Some("application-id")),
+        applicationId = Some(Ref.ApplicationId.assertFromString("application-id")),
       )
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")

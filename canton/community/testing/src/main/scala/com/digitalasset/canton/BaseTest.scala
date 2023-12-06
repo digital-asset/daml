@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
@@ -374,6 +374,7 @@ object BaseTest {
       uniqueContractKeys: Boolean = false,
       maxRequestSize: Int = StaticDomainParameters.defaultMaxRequestSize.unwrap,
       protocolVersion: ProtocolVersion = testedProtocolVersion,
+      catchUpParameters: Option[CatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters.create(
     reconciliationInterval = reconciliationInterval,
     maxRatePerParticipant = NonNegativeInt.tryCreate(maxRatePerParticipant),
@@ -385,6 +386,7 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
+    catchUpParameters = catchUpParameters,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =

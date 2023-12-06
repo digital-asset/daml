@@ -13,7 +13,21 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
-tag_filter=""
+case $3 in
+  # When running against main, exclude "pr-only" tests
+  main)
+    tag_filter="-pr-only"
+    ;;
+  # When running against a PR, exclude "main-only" tests
+  pr)
+    tag_filter="-main-only"
+    ;;
+  *)
+    echo "unknown test mode: $3"
+    exit 1
+    ;;
+esac
+
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
@@ -41,7 +55,7 @@ fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
-  --build_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
@@ -80,8 +94,8 @@ start_postgresql
 
 # Run the tests.
 $bazel test //... \
-  --build_tag_filters "${tag_filter:1}" \
-  --test_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
+  --test_tag_filters "${tag_filter}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \

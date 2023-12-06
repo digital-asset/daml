@@ -18,6 +18,7 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
+import com.daml.lf.transaction.Util
 
 class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
@@ -250,7 +251,8 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       None -> Value.ValueList(FrontStack.from(ImmArray(ValueParty(alice)))),
     ),
   )
-  val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, key)
+  val keyHash: Hash =
+    crypto.Hash.assertHashContractKey(withKeyTmplId, key, Util.sharedKey(pkg.languageVersion))
 
   def buildDisclosedContract(
       contractId: ContractId = contractId,

@@ -516,55 +516,77 @@ daml_compile(
 )
 
 # Tests for data-dependencies
-da_haskell_test(
-    name = "data-dependencies",
-    timeout = "long",
-    srcs = ["src/DA/Test/DataDependencies.hs"],
-    data = [
-        "//compiler/damlc",
-        "@damlc_legacy",
-        "//compiler/damlc/tests:generate-simple-dalf",
-        "//daml-script/daml:daml-script-1.dev.dar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
-        # Feel free to update this to 0.13.55 once that is frozen.
-        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+[
+    da_haskell_test(
+        name = "data-dependencies-{}".format(suffix),
+        timeout = "long",
+        srcs = ["src/DA/Test/DataDependencies.hs"],
+        args = test_args,
+        data = [
+            "//compiler/damlc",
+            "@damlc_legacy",
+            "//compiler/damlc/tests:generate-simple-dalf",
+            "//daml-script/daml:daml-script-1.dev.dar",
+            "//daml-script/daml3:daml3-script-2.dev.dar",
+            # Feel free to update this to 0.13.55 once that is frozen.
+            ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
 
-        # TODO(https://github.com/digital-asset/daml/issues/17366)
-        # During development of LF 2.x this is generated using the HEAD compiler.
-        # Once we release LF 2.1, we should replace this with a dar file
-        # produced by the compiler corresponding to that release.
-        ":old-proj-2.1.dar",
-    ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "extra",
-        "ghc-lib-parser",
-        "filepath",
-        "process",
-        "safe",
-        "safe-exceptions",
-        "tasty",
-        "tasty-hunit",
-        "zip-archive",
-    ],
-    main_function = "DA.Test.DataDependencies.main",
-    src_strip_prefix = "src",
-    tags = [
-        "cpu:3",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//:sdk-version-hs-lib",
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//compiler/daml-lf-reader",
-        "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
-    ],
-)
+            # TODO(https://github.com/digital-asset/daml/issues/17366)
+            # During development of LF 2.x this is generated using the HEAD compiler.
+            # Once we release LF 2.1, we should replace this with a dar file
+            # produced by the compiler corresponding to that release.
+            ":old-proj-2.1.dar",
+        ],
+        hackage_deps = [
+            "base",
+            "bytestring",
+            "extra",
+            "ghc-lib-parser",
+            "filepath",
+            "process",
+            "safe",
+            "safe-exceptions",
+            "tasty",
+            "tasty-hunit",
+            "zip-archive",
+        ],
+        main_function = "DA.Test.DataDependencies.main",
+        src_strip_prefix = "src",
+        tags = [
+            "cpu:3",
+        ] + extra_tags,
+        visibility = ["//visibility:public"],
+        deps = [
+            "//:sdk-version-hs-lib",
+            "//compiler/daml-lf-ast",
+            "//compiler/daml-lf-proto",
+            "//compiler/daml-lf-reader",
+            "//compiler/damlc/stable-packages:stable-packages-lib",
+            "//libs-haskell/bazel-runfiles",
+            "//libs-haskell/da-hs-base",
+            "//libs-haskell/test-utils",
+        ],
+    )
+    for (suffix, extra_tags, test_args) in [
+        # Test all LF versions on the main branch, after merging
+        (
+            "all",
+            ["main-only"],
+            [],
+        ),
+        # Don't test LF v2 when running the CI on a PR
+        (
+            "no-v2",
+            ["pr-only"],
+            [
+                "-p",
+                # Test paths for these tests are of the form "foo.{lf-version}.bar"
+                # This pattern excludes tests whose lf-version starts with "2."
+                "'$$2 !~ /2./'",
+            ],
+        ),
+    ]
+]
 
 [
     [

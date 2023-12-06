@@ -6,12 +6,12 @@ package simulation
 
 import org.apache.pekko.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
 import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
@@ -28,8 +28,6 @@ import com.daml.util.Ctx
 import org.scalacheck.Gen
 import org.scalatest.Assertion
 import org.scalatest.Assertions.succeed
-import scalaz.Tag
-import scalaz.syntax.tag._
 
 import java.util.UUID
 import scala.collection.mutable
@@ -710,7 +708,7 @@ final class TriggerRuleSimulationLib private[simulation] (
     triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
     timeProviderType: TimeProviderType,
-    applicationId: ApplicationId,
+    applicationId: Option[Ref.ApplicationId],
     triggerParties: TriggerParties,
 )(implicit materializer: Materializer) {
 
@@ -725,10 +723,10 @@ final class TriggerRuleSimulationLib private[simulation] (
       TriggerLogContext.newRootSpan(
         "simulation",
         "id" -> triggerId.toString,
-        "applicationId" -> applicationId.unwrap,
+        "applicationId" -> applicationId.getOrElse("").toString,
         "definition" -> triggerId.toString,
-        "readAs" -> Tag.unsubst(triggerParties.readAs),
-        "actAs" -> Tag.unwrap(triggerParties.actAs),
+        "readAs" -> triggerParties.readAs,
+        "actAs" -> triggerParties.actAs,
       )(identity)
     )
     .toOption
@@ -752,10 +750,10 @@ final class TriggerRuleSimulationLib private[simulation] (
         "simulation",
         logObserver,
         "id" -> triggerId.toString,
-        "applicationId" -> applicationId.unwrap,
+        "applicationId" -> applicationId.getOrElse("").toString,
         "definition" -> triggerId.toString,
-        "readAs" -> Tag.unsubst(triggerParties.readAs),
-        "actAs" -> Tag.unwrap(triggerParties.actAs),
+        "readAs" -> triggerParties.readAs,
+        "actAs" -> triggerParties.actAs,
       )(identity)
 
     private[simulation] val runner = Runner(
@@ -781,7 +779,7 @@ final class TriggerRuleSimulationLib private[simulation] (
 
           val clientTime: Timestamp =
             Timestamp.assertFromInstant(
-              Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
+              Runner.getCurrentTime(RunnerConfig.DefaultTimeProviderType)
             )
           val killSwitch = KillSwitches.shared("init-state-simulation")
           val initialState = gb add context.runner.runInitialState(clientTime, killSwitch)(acs)
@@ -900,12 +898,12 @@ object TriggerRuleSimulationLib {
       client: LedgerClient,
       name: QualifiedName,
       packageId: PackageId,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
       compiledPackages: PureCompiledPackages,
       timeProviderType: TimeProviderType,
       triggerConfig: TriggerRunnerConfig,
-      actAs: String,
-      readAs: Set[String] = Set.empty,
+      actAs: Ref.Party,
+      readAs: Set[Ref.Party] = Set.empty,
   )(implicit materializer: Materializer): (TriggerDefinition, TriggerRuleSimulationLib) = {
     val triggerId = Identifier(packageId, name)
     val simulator = new TriggerRuleSimulationLib(
@@ -916,8 +914,8 @@ object TriggerRuleSimulationLib {
       timeProviderType,
       applicationId,
       TriggerParties(
-        actAs = Party(actAs),
-        readAs = Party.subst(readAs),
+        actAs = actAs,
+        readAs = readAs,
       ),
     )
 

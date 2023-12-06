@@ -25,7 +25,6 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
@@ -37,6 +36,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -105,7 +105,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
     val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId("participant0"))
-    val applicationId = ApplicationId(testName)
+    val applicationId = lar.ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
@@ -190,7 +190,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val portsF = portsResource.asFuture
 
     val clientF = portsF.map(ports =>
-      config.ledgerClientWithoutId(ports.head.ledgerPort, None, ApplicationId("http-service-test"))
+      config.ledgerClientWithoutId(
+        ports.head.ledgerPort,
+        None,
+        Some(Ref.ApplicationId.assertFromString("http-service-test")),
+      )
     )
 
     val fa: Future[A] = for {
@@ -208,11 +212,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   private def clientConfig(
-      applicationId: ApplicationId,
+      applicationId: lar.ApplicationId,
       token: Option[String],
   ): LedgerClientConfiguration =
     LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = lar.ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = token,

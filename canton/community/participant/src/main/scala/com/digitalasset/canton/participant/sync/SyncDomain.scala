@@ -262,6 +262,7 @@ class SyncDomain(
       pruneObserver.observer(_, _),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
+      staticDomainParameters.catchUpParameters,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,
@@ -642,7 +643,6 @@ class SyncDomain(
 
                 openedEvent match {
                   case Right(_) =>
-
                   case Left(Traced(EventWithErrors(content, openingErrors, _isIgnored))) =>
                     // Raise alarms
                     // TODO(i11804): Send a rejection

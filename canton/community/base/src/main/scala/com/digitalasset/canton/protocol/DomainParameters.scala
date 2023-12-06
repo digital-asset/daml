@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -58,6 +58,14 @@ object DomainParameters {
   }
 }
 
+/** @param catchUpParameters   Optional parameters of type [[com.digitalasset.canton.protocol.CatchUpConfig]].
+  *                            Defined starting with protobuf version v2 and protocol version v6.
+  *                            If None, the catch-up mode is disabled: the participant does not trigger the
+  *                            catch-up mode when lagging behind.
+  *                            If not None, it specifies the number of reconciliation intervals that the
+  *                            participant skips in catch-up mode, and the number of catch-up intervals
+  *                            intervals a participant should lag behind in order to enter catch-up mode.
+  */
 @nowarn("msg=deprecated") // TODO(#15221) Remove deprecated parameters with next breaking version
 final case class StaticDomainParameters private (
     @deprecated(
@@ -79,6 +87,7 @@ final case class StaticDomainParameters private (
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     protocolVersion: ProtocolVersion,
+    catchUpParameters: Option[CatchUpConfig],
 ) extends HasProtocolVersionedWrapper[StaticDomainParameters] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -119,6 +128,18 @@ final case class StaticDomainParameters private (
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
+
+  def toProtoV2: protoV2.StaticDomainParameters =
+    protoV2.StaticDomainParameters(
+      uniqueContractKeys = uniqueContractKeys,
+      requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
+      requiredEncryptionKeySchemes = requiredEncryptionKeySchemes.toSeq.map(_.toProtoEnum),
+      requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
+      requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
+      requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
+      protocolVersion = protocolVersion.toProtoPrimitive,
+      catchUpParameters = catchUpParameters.map(_.toProtoV2),
+    )
 }
 @nowarn("msg=deprecated")
 object StaticDomainParameters
@@ -136,6 +157,12 @@ object StaticDomainParameters
     )(
       supportedProtoVersion(_)(fromProtoV1),
       _.toProtoV1.toByteString,
+    ),
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v6)(
+      protoV2.StaticDomainParameters
+    )(
+      supportedProtoVersion(_)(fromProtoV2),
+      _.toProtoV2.toByteString,
     ),
   )
 
@@ -174,6 +201,13 @@ object StaticDomainParameters
     defaultMaxRequestSize,
   )
 
+  lazy val defaultCatchUpParameters = DefaultValueUntilExclusive(
+    _.catchUpParameters,
+    "catchUpParameters",
+    protocolVersionRepresentativeFor(ProtocolVersion.v6),
+    None,
+  )
+
   override def name: String = "static domain parameters"
 
   def create(
@@ -188,6 +222,7 @@ object StaticDomainParameters
       reconciliationInterval: PositiveSeconds =
         StaticDomainParameters.defaultReconciliationInterval,
       maxRatePerParticipant: NonNegativeInt = StaticDomainParameters.defaultMaxRatePerParticipant,
+      catchUpParameters: Option[CatchUpConfig],
   ): StaticDomainParameters = StaticDomainParameters(
     reconciliationInterval = defaultReconciliationIntervalFrom
       .orValue(reconciliationInterval, protocolVersion),
@@ -200,6 +235,7 @@ object StaticDomainParameters
     requiredSymmetricKeySchemes = requiredSymmetricKeySchemes,
     requiredHashAlgorithms = requiredHashAlgorithms,
     requiredCryptoKeyFormats = requiredCryptoKeyFormats,
+    catchUpParameters = catchUpParameters,
     protocolVersion = protocolVersion,
   )
 
@@ -278,6 +314,7 @@ object StaticDomainParameters
       requiredHashAlgorithms = requiredHashAlgorithms,
       requiredCryptoKeyFormats = requiredCryptoKeyFormats,
       protocolVersion = protocolVersion,
+      catchUpParameters = defaultCatchUpParameters.defaultValue,
     )
   }
 
@@ -332,6 +369,64 @@ object StaticDomainParameters
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
       protocolVersion,
+      catchUpParameters = defaultCatchUpParameters.defaultValue,
+    )
+  }
+
+  def fromProtoV2(
+      domainParametersP: protoV2.StaticDomainParameters
+  ): ParsingResult[StaticDomainParameters] = {
+    val protoV2.StaticDomainParameters(
+      uniqueContractKeys,
+      requiredSigningKeySchemesP,
+      requiredEncryptionKeySchemesP,
+      requiredSymmetricKeySchemesP,
+      requiredHashAlgorithmsP,
+      requiredCryptoKeyFormatsP,
+      protocolVersionP,
+      catchUpParametersP,
+    ) = domainParametersP
+
+    for {
+      requiredSigningKeySchemes <- requiredKeySchemes(
+        "requiredSigningKeySchemes",
+        requiredSigningKeySchemesP,
+        SigningKeyScheme.fromProtoEnum,
+      )
+      requiredEncryptionKeySchemes <- requiredKeySchemes(
+        "requiredEncryptionKeySchemes",
+        requiredEncryptionKeySchemesP,
+        EncryptionKeyScheme.fromProtoEnum,
+      )
+      requiredSymmetricKeySchemes <- requiredKeySchemes(
+        "requiredSymmetricKeySchemes",
+        requiredSymmetricKeySchemesP,
+        SymmetricKeyScheme.fromProtoEnum,
+      )
+      requiredHashAlgorithms <- requiredKeySchemes(
+        "requiredHashAlgorithms",
+        requiredHashAlgorithmsP,
+        HashAlgorithm.fromProtoEnum,
+      )
+      requiredCryptoKeyFormats <- requiredKeySchemes(
+        "requiredCryptoKeyFormats",
+        requiredCryptoKeyFormatsP,
+        CryptoKeyFormat.fromProtoEnum,
+      )
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      catchUpParameters <- catchUpParametersP.traverse(CatchUpConfig.fromProtoV2)
+    } yield StaticDomainParameters(
+      StaticDomainParameters.defaultReconciliationInterval,
+      StaticDomainParameters.defaultMaxRatePerParticipant,
+      StaticDomainParameters.defaultMaxRequestSize,
+      uniqueContractKeys,
+      requiredSigningKeySchemes,
+      requiredEncryptionKeySchemes,
+      requiredSymmetricKeySchemes,
+      requiredHashAlgorithms,
+      requiredCryptoKeyFormats,
+      protocolVersion,
+      catchUpParameters,
     )
   }
 }
@@ -1167,4 +1262,52 @@ final case class DynamicDomainParametersWithValidity(
   def topologyChangeDelay: NonNegativeFiniteDuration = parameters.topologyChangeDelay
   def transferExclusivityTimeout: NonNegativeFiniteDuration = parameters.transferExclusivityTimeout
   def sequencerSigningTolerance: NonNegativeFiniteDuration = parameters.sequencerSigningTolerance
+}
+
+/** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging behind with its
+  * ACS commitments computation.
+  *
+  * @param catchUpIntervalSkip         The number of reconciliation intervals that the participant skips in
+  *                                    catch-up mode.
+  *                                    A catch-up interval thus has a length of
+  *                                    reconciliation interval * `catchUpIntervalSkip`.
+  *                                    Note that, to ensure that all participants catch up to the same timestamp, the
+  *                                    interval count starts at the beginning of time, as opposed to starting at the
+  *                                    participant's current time when it triggers catch-up.
+  *                                    For example, with time beginning at 0, a reconciliation interval of 5 seconds,
+  *                                    and a catchUpIntervalSkip of 2 (intervals), a participant triggering catch-up at
+  *                                    time 15 seconds will catch-up to timestamp 20 seconds.
+  * @param nrIntervalsToTriggerCatchUp The number of catch-up intervals intervals a participant should lag behind in
+  *                                    order to enter catch-up mode. If a participant's current timestamp is behind
+  *                                    the timestamp of valid received commitments by reconciliation interval *
+  *                                    `catchUpIntervalSkip`.value` * `nrIntervalsToTriggerCatchUp`, and
+  *                                    `catchUpModeEnabled` is true, then the participant triggers catch-up mode.
+  */
+final case class CatchUpConfig(
+    catchUpIntervalSkip: PositiveInt,
+    nrIntervalsToTriggerCatchUp: PositiveInt,
+) extends PrettyPrinting {
+  override def pretty: Pretty[CatchUpConfig] = prettyOfClass(
+    param("catchUpIntervalSkip", _.catchUpIntervalSkip),
+    param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
+  )
+
+  def toProtoV2: protoV2.CatchUpConfig = protoV2.CatchUpConfig(
+    catchUpIntervalSkip.value,
+    nrIntervalsToTriggerCatchUp.value,
+  )
+}
+
+object CatchUpConfig {
+  def fromProtoV2(
+      value: v2.CatchUpConfig
+  ): ParsingResult[CatchUpConfig] = {
+    val v2.CatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
+    for {
+      catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(catchUpIntervalSkipP)
+      nrIntervalsToTriggerCatchUp <- ProtoConverter.parsePositiveInt(
+        nrIntervalsToTriggerCatchUpP
+      )
+    } yield CatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
+  }
 }

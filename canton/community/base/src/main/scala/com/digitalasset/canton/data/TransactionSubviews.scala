@@ -214,7 +214,7 @@ object TransactionSubviews {
       subviews <- subviewsP.traverse(subviewP =>
         MerkleTree.fromProtoOptionV0(
           Some(subviewP),
-          TransactionView.fromByteString(ProtoVersion(0))(context),
+          TransactionView.fromByteStringLegacy(ProtoVersion(0))(context),
         )
       )
     } yield TransactionSubviewsV0(subviews)
@@ -226,7 +226,7 @@ object TransactionSubviews {
     val (hashOps, _) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
-      tvParser = TransactionView.fromByteString(ProtoVersion(1))(context)
+      tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(1))(context)
       subviews <- MerkleSeq.fromProtoV1((hashOps, tvParser), subviewsP)
     } yield TransactionSubviewsV1(subviews)
   }

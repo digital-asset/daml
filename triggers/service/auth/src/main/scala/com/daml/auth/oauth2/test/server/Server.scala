@@ -23,7 +23,7 @@ import com.daml.ledger.api.auth.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.lf.data.Ref
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,15 +42,15 @@ class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   val tokenLifetimeSeconds = 24 * 60 * 60
 
-  private var unauthorizedParties: Set[Party] = Set()
+  private var unauthorizedParties: Set[Ref.Party] = Set()
 
   // Remove the given party from the set of unauthorized parties.
-  def authorizeParty(party: Party): Unit = {
+  def authorizeParty(party: Ref.Party): Unit = {
     unauthorizedParties = unauthorizedParties - party
   }
 
   // Add the given party to the set of unauthorized parties.
-  def revokeParty(party: Party): Unit = {
+  def revokeParty(party: Ref.Party): Unit = {
     unauthorizedParties = unauthorizedParties + party
   }
 
@@ -127,8 +127,8 @@ class Server(config: Config) {
   // Whether the current configuration of unauthorized parties and admin rights allows to grant the given token payload.
   private def authorize(payload: AuthServiceJWTPayload): Either[String, Unit] = payload match {
     case payload: CustomDamlJWTPayload =>
-      val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
-      val deniedParties = parties.intersect(unauthorizedParties)
+      val parties = (payload.readAs ++ payload.actAs).toSet
+      val deniedParties = parties & unauthorizedParties.toSet[String]
       val deniedAdmin: Boolean = payload.admin && !allowAdmin
       if (deniedParties.nonEmpty) {
         Left(s"Access to parties ${deniedParties.mkString(" ")} denied")

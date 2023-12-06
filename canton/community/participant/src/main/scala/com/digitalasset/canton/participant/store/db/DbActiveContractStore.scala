@@ -630,7 +630,7 @@ class DbActiveContractStore(
         }
     } yield {
       logger.info(
-        s"Pruned at least $nrPruned entries from the ACS of domain $domainId older or equal to $beforeAndIncluding"
+        s"Pruned at least $nrPruned entries from the ACS journal of domain $domainId older or equal to $beforeAndIncluding"
       )
     }).onShutdown(())
   }

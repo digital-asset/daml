@@ -147,6 +147,18 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
         traceContext: TraceContext
     ): Future[List[AcsCommitment]] = Future.successful(List.empty)
 
+    override def peekThroughAtOrAfter(
+        timestamp: CantonTimestamp
+    )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
+      Future.successful(List.empty)
+
+    def peekOverlapsForCounterParticipant(
+        period: CommitmentPeriod,
+        counterParticipant: ParticipantId,
+    )(implicit
+        traceContext: TraceContext
+    ): Future[Seq[AcsCommitment]] = Future.successful(List.empty)
+
     override def deleteThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
     ): Future[Unit] = incrementCounterAndErrF()

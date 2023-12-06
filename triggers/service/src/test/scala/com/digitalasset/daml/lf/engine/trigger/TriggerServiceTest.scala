@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{Dar, DarReader}
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model._
@@ -40,6 +39,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.timer.RetryStrategy
@@ -153,9 +153,9 @@ trait AbstractTriggerServiceTestHelper
   def startTrigger(
       uri: Uri,
       triggerName: String,
-      party: Party,
-      applicationId: Option[ApplicationId] = None,
-      readAs: Set[Party] = Set(),
+      party: Ref.Party,
+      applicationId: Option[Option[Ref.ApplicationId]] = None,
+      readAs: Set[Ref.Party] = Set(),
   ): Future[HttpResponse] = {
     import Request.PartyFormat
     val readAsContent =
@@ -170,13 +170,14 @@ trait AbstractTriggerServiceTestHelper
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
+            .map(_.getOrElse(""))
             .getOrElse("null")}", "readAs": $readAsContent}""",
       ),
     )
     httpRequestFollow(req)
   }
 
-  def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
+  def listTriggers(uri: Uri, party: Ref.Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/triggers")).withQuery(Query(("party", party.toString))),
@@ -184,7 +185,7 @@ trait AbstractTriggerServiceTestHelper
     httpRequestFollow(req)
   }
 
-  def stopTrigger(uri: Uri, triggerInstance: UUID, party: Party): Future[HttpResponse] = {
+  def stopTrigger(uri: Uri, triggerInstance: UUID, party: Ref.Party): Future[HttpResponse] = {
     // silence unused warning, we probably need this parameter again when we
     // support auth.
     val _ = party
@@ -254,11 +255,11 @@ trait AbstractTriggerServiceTestHelper
 
   def getActiveContracts(
       client: LedgerClient,
-      party: Party,
+      party: Ref.Party,
       template: Identifier,
   ): Future[Seq[CreatedEvent]] = {
     val filter = TransactionFilter(
-      Map(party.unwrap -> Filters(Some(InclusiveFilters(Seq(template)))))
+      Map(party -> Filters(Some(InclusiveFilters(Seq(template)))))
     )
     client.activeContractSetClient
       .getActiveContracts(filter)
@@ -266,7 +267,7 @@ trait AbstractTriggerServiceTestHelper
       .map(acsPages => acsPages.flatMap(_.activeContracts))
   }
 
-  def assertTriggerIds(uri: Uri, party: Party, expected: Vector[UUID]): Future[Assertion] =
+  def assertTriggerIds(uri: Uri, party: Ref.Party, expected: Vector[UUID]): Future[Assertion] =
     for {
       resp <- listTriggers(uri, party)
       result <- parseTriggerIds(resp)
@@ -296,10 +297,10 @@ trait AbstractTriggerServiceTestHelper
       client: LedgerClient,
       hint: Option[String] = None,
       displayName: Option[String] = None,
-  ): Future[Party] =
+  ): Future[Ref.Party] =
     client.partyManagementClient
       .allocateParty(hint, displayName)
-      .map(details => Party(details.party: String))
+      .map(_.party)
 }
 
 // Tests for all trigger service configurations go here
@@ -402,8 +403,8 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
 
       _ <- submitCmd(
         client,
-        public.unwrap,
-        Command().withCreate(visibleToPublic(public.unwrap)),
+        public,
+        Command().withCreate(visibleToPublic(public)),
       )
 
       // Start the trigger
@@ -486,14 +487,14 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
               Record(
                 None,
                 Seq(
-                  RecordField(value = Some(Value().withParty(aliceAcs.unwrap))),
+                  RecordField(value = Some(Value().withParty(aliceAcs))),
                   RecordField(value = Some(Value().withInt64(42))),
                 ),
               )
             ),
           )
         )
-        submitCmd(client, aliceAcs.unwrap, cmd)
+        submitCmd(client, aliceAcs, cmd)
       }
       // Query ACS until we see a B contract
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
@@ -502,7 +503,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       }
       // Read completions to make sure we set the right app id.
       r <- client.commandClient
-        .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+        .completionSource(List(aliceAcs), LedgerOffset(Boundary(LEDGER_BEGIN)))
         .collect({
           case CompletionStreamElement.CompletionElement(completion, _)
               if completion.transactionId.nonEmpty =>
@@ -647,7 +648,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  def breedCat(party: Party, id: Long): Command = {
+  def breedCat(party: Ref.Party, id: Long): Command = {
     Command().withCreate(
       CreateCommand(
         templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
@@ -655,7 +656,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
           Record(
             None,
             Seq(
-              RecordField(value = Some(Value().withParty(party.unwrap))),
+              RecordField(value = Some(Value().withParty(party))),
               RecordField(value = Some(Value().withInt64(id))),
             ),
           )
@@ -693,7 +694,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         .map(_ shouldBe Vector.empty)
       // Create 100 Cat contracts
       _ <- Future.sequence(
-        (1 to 100).map(id => submitCmd(client, party.unwrap, breedCat(party, id.toLong)))
+        (1 to 100).map(id => submitCmd(client, party, breedCat(party, id.toLong)))
       )
       // Wait for our Cat contracts to be created
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
@@ -730,7 +731,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
         .flatMap(events =>
           Future.sequence(events.map { event =>
-            submitCmd(client, party.unwrap, killCat(event.contractId))
+            submitCmd(client, party, killCat(event.contractId))
           })
         )
       // Wait until there are no Cat contracts
@@ -769,7 +770,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
         .flatMap(events =>
           Future.sequence(events.map { event =>
-            submitCmd(client, party.unwrap, killCat(event.contractId))
+            submitCmd(client, party, killCat(event.contractId))
           })
         )
       // Wait until there are no Cat contracts
@@ -804,7 +805,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
         .flatMap(events =>
           Future.sequence(events.map { event =>
-            submitCmd(client, party.unwrap, killCat(event.contractId))
+            submitCmd(client, party, killCat(event.contractId))
           })
         )
       // Wait until there are no Cat contracts
@@ -843,7 +844,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
         .flatMap(events =>
           Future.sequence(events.map { event =>
-            submitCmd(client, party.unwrap, killCat(event.contractId))
+            submitCmd(client, party, killCat(event.contractId))
           })
         )
       // Wait until there are no Cat contracts
@@ -1110,7 +1111,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
               Record(
                 None,
                 Seq(
-                  RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                  RecordField(value = Some(Value().withParty(aliceExp))),
                   RecordField(value = Some(Value().withInt64(v))),
                 ),
               )
@@ -1118,7 +1119,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
           )
         )
       }
-      _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
+      _ <- submitCmd(client, aliceExp, createACommand(7))
       // Query ACS until we see a B contract
       _ <- RetryStrategy.constant(5, 2.seconds) { (_, _) =>
         getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
@@ -1131,7 +1132,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       )
 
       // Create another A contract
-      _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
+      _ <- submitCmd(client, aliceExp, createACommand(42))
       // Query ACS until we see a second B contract
       _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
         getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
@@ -1140,7 +1141,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
       // Read completions to make sure we set the right app id.
       r <- client.commandClient
-        .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+        .completionSource(List(aliceExp), LedgerOffset(Boundary(LEDGER_BEGIN)))
         .collect({
           case CompletionStreamElement.CompletionElement(completion, _)
               if completion.transactionId.nonEmpty =>

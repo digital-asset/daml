@@ -3,7 +3,7 @@
 There is currently no separate documentation for the haskell ledger bindings,
 over and above the existing ledger API doc.
 
-The [.proto files](/ledger-api/grpc-definitions/com/daml/ledger/api/v1)
+The [.proto files](/canton/com/daml/ledger/api/v1)
 are the best primary source of truth for the API. The [Haskell
 bindings](/language-support/hs/bindings/src/DA/Ledger/Services) match closely
 the names of the services and RPCs, but of course you get much better

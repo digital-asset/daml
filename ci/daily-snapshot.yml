@@ -75,6 +75,8 @@ jobs:
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
 - template: build.yml
+  parameters:
+    test_mode: main
 - template: split-release-job.yml
 - job: release
   condition: false

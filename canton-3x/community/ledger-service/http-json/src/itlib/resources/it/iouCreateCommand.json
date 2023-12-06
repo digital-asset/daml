@@ -1,0 +1,10 @@
+{
+  "templateId": "Iou:Iou",
+  "payload": {
+    "observers": [],
+    "issuer": "Alice",
+    "amount": "999.99",
+    "currency": "USD",
+    "owner": "Alice"
+  }
+}

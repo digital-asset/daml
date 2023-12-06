@@ -481,7 +481,7 @@ class ScalaCodeGenIT
       Commands(
         ledgerId = ledger.ledgerId.unwrap,
         workflowId = WorkflowId.unwrap(workflowId),
-        applicationId = applicationId.unwrap,
+        applicationId = applicationId.getOrElse(""),
         commandId = CommandId.unwrap(commandId),
         party = P.Party.unwrap(party),
         commands = seq.map(_.command),

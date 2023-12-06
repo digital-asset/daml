@@ -524,6 +524,7 @@ object TransactionView
   val subviewsUnsafe: Lens[TransactionView, TransactionSubviews] =
     GenLens[TransactionView](_.subviews)
 
+  // TODO(#12626) – try with context
   private def fromProtoV0(
       context: (HashOps, ConfirmationPolicy),
       protoView: v0.ViewNode,
@@ -532,11 +533,11 @@ object TransactionView
     for {
       commonData <- MerkleTree.fromProtoOptionV0(
         protoView.viewCommonData,
-        ViewCommonData.fromByteString(context),
+        ViewCommonData.fromByteStringUnsafe(context),
       )
       participantData <- MerkleTree.fromProtoOptionV0(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteString(hashOps),
+        ViewParticipantData.fromByteStringUnsafe(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV0(context, protoView.subviews)
       view <- createFromRepresentativePV(hashOps)(
@@ -550,6 +551,7 @@ object TransactionView
     } yield view
   }
 
+  // TODO(#12626) – try with context
   private def fromProtoV1(
       context: (HashOps, ConfirmationPolicy),
       protoView: v1.ViewNode,
@@ -558,11 +560,11 @@ object TransactionView
     for {
       commonData <- MerkleTree.fromProtoOptionV1(
         protoView.viewCommonData,
-        ViewCommonData.fromByteString(context),
+        ViewCommonData.fromByteStringUnsafe(context),
       )
       participantData <- MerkleTree.fromProtoOptionV1(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteString(hashOps),
+        ViewParticipantData.fromByteStringUnsafe(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV1(context, protoView.subviews)
       view <- createFromRepresentativePV(hashOps)(

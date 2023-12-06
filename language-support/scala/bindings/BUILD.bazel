@@ -29,14 +29,14 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [
+        "//canton:ledger_api_proto_java",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_java",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
     ],
     deps = [
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
     ],
 )

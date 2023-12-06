@@ -18,6 +18,8 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionFilter,
   TransactionId,
 }
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken.toTokenString
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
@@ -70,6 +72,9 @@ package object logging {
 
   private[services] def eventSequentialId(seqId: Option[Long]): LoggingEntry =
     "eventSequentialId" -> OfString(seqId.map(_.toString).getOrElse("<empty-sequential-id>"))
+
+  private[services] def keyContinuationToken(token: KeyContinuationToken): LoggingEntry =
+    "keyContinuationToken" -> OfString(toTokenString(token))
 
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> OfString(id.unwrap)

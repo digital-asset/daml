@@ -144,17 +144,22 @@ installExtracted env@InstallEnv{..} sourcePath =
                     <> " but got version " <> sdkVersionToText sourceSdkVersion)
             pure targetVersion
           Nothing -> do
-            if unAllowInstallNonRelease (iAllowInstallNonRelease options)
+            if unInstallWithInternalVersion (iInstallWithInternalVersion options)
                then -- NOTE: Using the SDK version as the release version is
-                    -- only enabled by --allow-install-non-release, which is a
+                    -- only enabled by --install-with-internal-version, which is a
                     -- flag only for devs
                     pure (OldReleaseVersion (unwrapSdkVersion sourceSdkVersion))
-               else
-                let errMsg =
-                        "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sourceSdkVersion)
-                            <> " from sdk path " <> T.pack (unwrapSdkPath sourcePath)
-                in
-                requiredE errMsg =<< resolveSdkVersionToRelease useCache sourceSdkVersion
+               else case unInstallWithCustomVersion (iInstallWithCustomVersion options) of
+                      Just rawCustomVersion -> do
+                          let errMsg = "Version '" <> T.pack rawCustomVersion <> "' from --install-with-custom-version flag could not be parsed as a version"
+                          unresolvedVersion <- requiredE errMsg (parseUnresolvedVersion (T.pack rawCustomVersion))
+                          pure $ mkReleaseVersion unresolvedVersion sourceSdkVersion
+                      Nothing -> do
+                          sourceVersionOrErr <- resolveSdkVersionToRelease useCache sourceSdkVersion
+                          let errMsg =
+                                  "Failed to retrieve release version for sdk version " <> V.toText (unwrapSdkVersion sourceSdkVersion)
+                                      <> " from sdk path " <> T.pack (unwrapSdkPath sourcePath)
+                          requiredE errMsg sourceVersionOrErr
 
         -- Set file mode of files to install.
         requiredIO "Failed to set file modes for extracted SDK files." $
@@ -413,6 +418,9 @@ withInstallLock InstallEnv{..} action = do
 -- until the other process is finished.
 pathInstall :: InstallEnvWithoutVersion -> FilePath -> IO ()
 pathInstall env@InstallEnv{..} sourcePath = withInstallLock env $ do
+    when (bothInstallWithVersion options) $ do
+        hPutStrLn stderr "ERROR: both --install-with-internal-version and --install-with-custom-version flags were supplied"
+        exitFailure
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
@@ -512,6 +520,18 @@ install options damlPath useCache projectPathM assistantVersion = do
         output = putStrLn -- Output install messages to stdout.
         artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
+        warnAboutAnyInstallFlags command = do
+            when (unInstallWithInternalVersion (iInstallWithInternalVersion options)) $
+                hPutStrLn stderr $ unlines
+                    [ "WARNING: You have supplied --install-with-internal-version=yes, but `" <> command <> "` does not take that option."
+                    ]
+            case unInstallWithCustomVersion (iInstallWithCustomVersion options) of
+                Just customVersion ->
+                    hPutStrLn stderr $ unlines
+                        [ "WARNING: You have supplied --install-with-custom-version=" <> customVersion <> ", but `" <> command <> "` does not take that option."
+                        ]
+                Nothing -> pure ()
+
     case iTargetM options of
         Nothing -> do
             hPutStrLn stderr $ unlines
@@ -528,12 +548,15 @@ install options damlPath useCache projectPathM assistantVersion = do
         Just RawInstallTarget_Project -> do
             projectPath <- required "'daml install project' must be run from within a project."
                 projectPathM
+            warnAboutAnyInstallFlags "daml install project"
             projectInstall env projectPath
 
-        Just RawInstallTarget_Latest ->
+        Just RawInstallTarget_Latest -> do
+            warnAboutAnyInstallFlags "daml install latest"
             latestInstall env
 
         Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
+            warnAboutAnyInstallFlags "daml install <version>"
             releaseVersion <- DAVersion.resolveReleaseVersion useCache version
             versionInstall env { targetVersionM = releaseVersion }
 

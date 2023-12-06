@@ -10,8 +10,8 @@ genrule(
         "@mvn_dev_env//:mvn",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
-        "//language-support/java/bindings:libbindings-java.jar",
-        "//language-support/java/bindings:bindings-java_pom.xml",
+        "//canton:libbindings-java.jar",
+        "//canton:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
         "//ledger/ledger-api-auth-client:libledger-api-auth-client.jar",
@@ -46,8 +46,8 @@ genrule(
         $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
       install_mvn \\
         "com.daml" "bindings-java" \\
-        $(location //language-support/java/bindings:libbindings-java.jar) \\
-        $(location //language-support/java/bindings:bindings-java_pom.xml)
+        $(location //canton:libbindings-java.jar) \\
+        $(location //canton:bindings-java_pom.xml)
       install_mvn \\
         "com.daml" "bindings-rxjava" \\
         $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \\

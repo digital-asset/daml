@@ -1,8 +1,10 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-jobs:
+parameters:
+  test_mode: ''
 
+jobs:
 - job: git_sha
   pool:
     name: 'ubuntu_20_04'
@@ -60,6 +62,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux'
         is_release: variables.is_release
+        test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
@@ -77,12 +80,14 @@ jobs:
     job_name: macOS
     name: macos
     assignment: default
+    test_mode: ${{parameters.test_mode}}
 
 - template: macOS.yml
   parameters:
     job_name: m1
     name: m1
     assignment: m1-builds
+    test_mode: ${{parameters.test_mode}}
 
 - template: blackduck.yml
 
@@ -141,6 +146,7 @@ jobs:
         skip_tests: $(skip_tests)
         is_release: variables.is_release
         is_split_release: $(is_split_release)
+        test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:

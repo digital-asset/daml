@@ -101,22 +101,24 @@ object TransferInViewTree
     ),
   )
 
+  // TODO(#12626) – try with context
   def fromProtoV0(
       hashOps: HashOps,
       transferInViewTreeP: v0.TransferViewTree,
   ): ParsingResult[TransferInViewTree] =
     GenTransferViewTree.fromProtoV0(
-      TransferInCommonData.fromByteString(hashOps),
-      TransferInView.fromByteString(hashOps),
+      TransferInCommonData.fromByteStringUnsafe(hashOps),
+      TransferInView.fromByteStringUnsafe(hashOps),
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
 
+  // TODO(#12626) – try with context
   def fromProtoV1(
       hashOps: HashOps,
       transferInViewTreeP: v1.TransferViewTree,
   ): ParsingResult[TransferInViewTree] =
     GenTransferViewTree.fromProtoV1(
-      TransferInCommonData.fromByteString(hashOps),
-      TransferInView.fromByteString(hashOps),
+      TransferInCommonData.fromByteStringUnsafe(hashOps),
+      TransferInView.fromByteStringUnsafe(hashOps),
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
 }
 

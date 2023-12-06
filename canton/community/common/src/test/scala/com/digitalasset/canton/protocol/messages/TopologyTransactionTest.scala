@@ -34,7 +34,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
   private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp] =
     bytes =>
-      TopologyTransaction.fromByteString(bytes) match {
+      TopologyTransaction.fromByteString(testedProtocolVersion)(bytes) match {
         case Left(err) => throw new TestFailedException(err.toString, 0)
         case Right(msg) => msg
       }

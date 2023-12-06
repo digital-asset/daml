@@ -280,7 +280,7 @@ object SignedProtocolMessage
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )
 
-  private[messages] def fromProtoV0(
+  private[messages] def fromProtoV0( // TODO(#12626) – try with context
       hashOps: HashOps,
       signedMessageP: v0.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
@@ -289,15 +289,19 @@ object SignedProtocolMessage
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteString(mediatorResponseBytes)
+          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(hashOps)(transactionResultMessageBytes)
+          TransactionResultMessage.fromByteStringUnsafe(hashOps)(
+            transactionResultMessageBytes
+          )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteString(transferResultBytes)
+          TransferResult.fromByteStringUnsafe(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteString(acsCommitmentBytes)
+          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteString(malformedMediatorRequestResultBytes)
+          MalformedMediatorRequestResult.fromByteStringUnsafe(
+            malformedMediatorRequestResultBytes
+          )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
@@ -316,7 +320,9 @@ object SignedProtocolMessage
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(hashOps)(typedMessageBytes)
+      typedMessage <- TypedSignedProtocolMessageContent.fromByteStringUnsafe(hashOps)(
+        typedMessageBytes
+      )
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "signatures",

@@ -14,6 +14,7 @@ import DA.Daml.Project.Types
 import Data.Text (Text, pack, unpack)
 import Options.Applicative.Extended (YesNoAuto (..))
 import Data.Functor.Identity
+import Data.Maybe (isJust)
 
 data EnvF f = Env
     { envDamlPath      :: DamlPath
@@ -74,10 +75,13 @@ data InstallOptions = InstallOptions
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
     , iBashCompletions :: BashCompletions -- ^ install bash completions for the daml assistant
     , iZshCompletions :: ZshCompletions -- ^ install Zsh completions for the daml assistant
-    , iAllowInstallNonRelease :: AllowInstallNonRelease -- ^ install Zsh completions for the daml assistant
+    , iInstallWithInternalVersion :: InstallWithInternalVersion -- ^ install using the internal version of the tarball
+    , iInstallWithCustomVersion :: InstallWithCustomVersion -- ^ install using the custom version
     } deriving (Eq, Show)
 
-newtype AllowInstallNonRelease = AllowInstallNonRelease { unAllowInstallNonRelease :: Bool } deriving (Eq, Show)
+newtype InstallWithInternalVersion = InstallWithInternalVersion { unInstallWithInternalVersion :: Bool } deriving (Eq, Show)
+newtype InstallWithCustomVersion = InstallWithCustomVersion { unInstallWithCustomVersion :: Maybe String } deriving (Eq, Show)
+
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
@@ -86,3 +90,8 @@ newtype SetPath = SetPath {unwrapSetPath :: YesNoAuto} deriving (Eq, Show)
 newtype InstallAssistant = InstallAssistant { unwrapInstallAssistant :: YesNoAuto } deriving (Eq, Show)
 newtype BashCompletions = BashCompletions { unwrapBashCompletions :: YesNoAuto } deriving (Eq, Show)
 newtype ZshCompletions = ZshCompletions { unwrapZshCompletions :: YesNoAuto } deriving (Eq, Show)
+
+bothInstallWithVersion :: InstallOptions -> Bool
+bothInstallWithVersion InstallOptions{..} =
+    unInstallWithInternalVersion iInstallWithInternalVersion &&
+        isJust (unInstallWithCustomVersion iInstallWithCustomVersion)

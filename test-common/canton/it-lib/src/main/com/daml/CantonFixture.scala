@@ -5,7 +5,6 @@ package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   PekkoBeforeAndAfterAll,
   OwnedResource,
@@ -60,7 +59,8 @@ trait CantonFixtureWithResource[A]
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableContractUpgrading: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
-  protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
+  protected lazy val applicationId: Option[Ref.ApplicationId] =
+    Some(Ref.ApplicationId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
   protected lazy val targetScope: Option[String] = Option.empty
 

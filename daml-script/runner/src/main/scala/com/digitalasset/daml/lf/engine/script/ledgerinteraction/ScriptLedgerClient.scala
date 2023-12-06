@@ -5,7 +5,7 @@ package com.daml.lf
 package engine.script.ledgerinteraction
 
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.speedy.{TraceLog, WarningLog}
 import org.apache.pekko.http.scaladsl.model._
@@ -31,7 +31,7 @@ sealed trait ScriptLedgerClient extends Product with Serializable
 
 final case class GrpcLedgerClient(
     grpcClient: LedgerClient,
-    val applicationId: ApplicationId,
+    val applicationId: Option[Ref.ApplicationId],
     val grpcAdminClient: Option[AdminLedgerClient] = None,
 ) extends ScriptLedgerClient
 

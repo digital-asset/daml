@@ -8,7 +8,6 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.util.Timeout
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
@@ -40,7 +39,6 @@ import java.util.UUID
 import scala.collection.immutable.TreeMap
 import scala.concurrent.Await
 import scala.util.{Failure, Success}
-import scalaz.syntax.tag._
 
 import scala.jdk.CollectionConverters._
 
@@ -62,12 +60,12 @@ final class TriggerProcessFactory private[simulation] (
     ledger: ActorRef[LedgerProcess.Message],
     name: String,
     packageId: PackageId,
-    applicationId: ApplicationId,
+    applicationId: Option[Ref.ApplicationId],
     compiledPackages: PureCompiledPackages,
     timeProviderType: TimeProviderType,
     triggerConfig: TriggerRunnerConfig,
-    actAs: Party,
-    readAs: Set[Party] = Set.empty,
+    actAs: Ref.Party,
+    readAs: Set[Ref.Party] = Set.empty,
 )(implicit materializer: Materializer) {
 
   import TriggerProcess._
@@ -118,7 +116,7 @@ final class TriggerProcessFactory private[simulation] (
       )
     val transactionFilter =
       TransactionFilter(
-        triggerParties.readers.map(p => (p.unwrap, simulator.trigger.filters)).toMap
+        triggerParties.readers.map(p => (p, simulator.trigger.filters)).toMap
       )
 
     implicit val ledgerResponseTimeout: Timeout = Timeout(config.ledgerRegistrationTimeout)

@@ -8,8 +8,8 @@ import cats.effect.{ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.{ConnectionPool, JdbcConfig}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{ArchivePayloadParser, Dar}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.RunningTrigger
 import doobie.free.connection.ConnectionIO
@@ -40,27 +40,22 @@ abstract class DbTriggerDao protected (
   protected implicit def uuidPut: Put[UUID]
   protected implicit def uuidGet: Get[UUID]
 
-  implicit val readAsPut: Put[Set[Party]] = {
-    type F[A] = Put[Set[A]]
-    Party.subst[F, String](implicitly[Put[String]].contramap {
-      _.mkString("%")
-    })
-  }
+  implicit val readAsPut: Put[Set[Ref.Party]] =
+    implicitly[Put[String]].contramap(_.mkString("%"))
 
-  implicit val readAsGet: Get[Set[Party]] = {
-    type F[A] = Get[Set[A]]
-    Party.subst[F, String](implicitly[Get[String]].map {
-      _.split("%").toSet.filter(_.nonEmpty)
-    })
-  }
+  implicit val readAsGet: Get[Set[Ref.Party]] =
+    implicitly[Get[String]].map(
+      _.split("%").toSet.filter(_.nonEmpty).map(Ref.Party.assertFromString)
+    )
 
-  implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
+  implicit val partyPut: Put[Ref.Party] = implicitly[Put[String]].contramap(identity)
 
-  implicit val partyGet: Get[Party] = Tag.subst(implicitly[Get[String]])
+  implicit val partyGet: Get[Ref.Party] = implicitly[Get[String]].map(Ref.Party.assertFromString)
 
-  implicit val appIdPut: Put[ApplicationId] = Tag.subst(implicitly[Put[String]])
+  implicit val appIdPut: Put[Ref.ApplicationId] = implicitly[Put[String]].contramap(identity)
 
-  implicit val appIdGet: Get[ApplicationId] = Tag.subst(implicitly[Get[String]])
+  implicit val appIdGet: Get[Ref.ApplicationId] =
+    implicitly[Get[String]].map(Ref.ApplicationId.assertFromString)
 
   implicit val accessTokenPut: Put[AccessToken] = Tag.subst(implicitly[Put[String]])
 
@@ -73,7 +68,7 @@ abstract class DbTriggerDao protected (
   implicit val identifierPut: Put[Identifier] = implicitly[Put[String]].contramap(_.toString)
 
   implicit val identifierGet: Get[Identifier] =
-    implicitly[Get[String]].map(Identifier.assertFromString(_))
+    implicitly[Get[String]].map(Identifier.assertFromString)
 
   private implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[DbTriggerDao])
 
@@ -111,11 +106,11 @@ abstract class DbTriggerDao protected (
         (
             UUID,
             Identifier,
-            Party,
-            ApplicationId,
+            Ref.Party,
+            Option[Ref.ApplicationId],
             Option[AccessToken],
             Option[RefreshToken],
-            Option[Set[Party]],
+            Option[Set[Ref.Party]],
         )
       ]
       .map(_.mapElements(_7 = it => it.getOrElse(Set.empty)))
@@ -146,7 +141,7 @@ abstract class DbTriggerDao protected (
     delete.update.run.map(_ == 1)
   }
 
-  private def selectRunningTriggers(party: Party): ConnectionIO[Vector[UUID]] = {
+  private def selectRunningTriggers(party: Ref.Party): ConnectionIO[Vector[UUID]] = {
     val select: Fragment = sql"""
         select trigger_instance from ${Fragment.const(s"${tablePrefix}running_triggers")}
         where trigger_party = $party
@@ -192,11 +187,11 @@ abstract class DbTriggerDao protected (
         (
             UUID,
             Identifier,
-            Party,
-            ApplicationId,
+            Ref.Party,
+            Option[Ref.ApplicationId],
             Option[AccessToken],
             Option[RefreshToken],
-            Option[Set[Party]],
+            Option[Set[Ref.Party]],
         )
       ]
       .map(_.mapElements(_7 = it => it.getOrElse(Set.empty)))
@@ -240,7 +235,7 @@ abstract class DbTriggerDao protected (
     run(deleteRunningTrigger(triggerInstance))
 
   override def listRunningTriggers(
-      party: Party
+      party: Ref.Party
   )(implicit ec: ExecutionContext): Future[Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.

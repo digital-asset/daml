@@ -55,6 +55,11 @@ object GeneratorsProtocol {
         StaticDomainParameters.defaultMaxRequestSizeFrom,
       )
 
+      catchUpParameters <- defaultValueGen(
+        protocolVersion,
+        StaticDomainParameters.defaultCatchUpParameters,
+      )
+
       parameters = StaticDomainParameters.create(
         maxRequestSize,
         uniqueContractKeys,
@@ -66,6 +71,7 @@ object GeneratorsProtocol {
         protocolVersion,
         reconciliationInterval,
         maxRatePerParticipant,
+        catchUpParameters,
       )
 
     } yield parameters)

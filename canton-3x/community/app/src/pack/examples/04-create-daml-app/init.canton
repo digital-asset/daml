@@ -1,0 +1,46 @@
+import better.files._
+
+val createDamlAppDir = File(sys.props.get("create-daml-app-dir").getOrElse("create-daml-app"))
+
+val createDamlAppDar = createDamlAppDir / ".daml" / "dist" / "create-daml-app-0.1.0.dar"
+
+// check that files exist where we expect them
+createDamlAppDir.exists || sys.error(s"please setup the create-daml-app example in the current working directly under ${createDamlAppDir}")
+
+createDamlAppDar.exists || sys.error(s"please run daml build in the create-daml-app folder to build the dar file ${createDamlAppDar}")
+
+participant1.domains.connect_local(mydomain)
+participant2.domains.connect_local(mydomain)
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+val public = participant1.parties.enable("Public")
+participant1.topology.party_to_participant_mappings.authorize(
+  TopologyChangeOp.Add,
+  party = public,
+  participant = participant2.id,
+  side = RequestSide.From,
+  permission = ParticipantPermission.Observation,
+)
+participant2.topology.party_to_participant_mappings.authorize(
+  TopologyChangeOp.Add,
+  party = public,
+  participant = participant2.id,
+  side = RequestSide.To,
+  permission = ParticipantPermission.Observation,
+)
+
+participant1.ledger_api.users.create(
+  id = "alice",
+  actAs = Set(alice.toLf),
+  primaryParty = Some(alice.toLf),
+  readAs = Set(public.toLf),
+)
+participant2.ledger_api.users.create(
+  id = "bob",
+  actAs = Set(bob.toLf),
+  primaryParty = Some(bob.toLf),
+  readAs = Set(public.toLf),
+)
+
+// upload dar file to participants
+participants.all.dars.upload(createDamlAppDar.pathAsString)
