@@ -151,10 +151,11 @@ overrideSdkVersion pkgConfig = do
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
-    -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be deemed as "invisible"
+    -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
     case unwrapProjectConfig project of
       A.Object (A.keys -> [A.toString -> "sdk-version"]) ->
-        throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $ "Yaml file not found: " ++ projectConfigName
+        throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
+          projectConfigName ++ " contains only sdk-version, cannot be used for package config."
       _ -> pure ()
 
     pkgConfig <- either throwIO pure (parseProjectConfig project)
