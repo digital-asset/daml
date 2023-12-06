@@ -13,14 +13,34 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
-case $3 in
+has_run_all_tests_trailer() {
+  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+    ref="HEAD^2"
+  else
+    ref="HEAD"
+  fi
+  commit=$(git rev-parse $ref)
+  run_all_tests=$(git log -n1 --format="%(trailers:key=run-all-tests,valueonly)" $commit)
+  [[ $run_all_tests == "true" ]]
+}
+
+ALL_TESTS_FILTER="-pr-only"
+LESS_TESTS_FILTER="-main-only"
+
+case ${3:-} in
   # When running against main, exclude "pr-only" tests
-  main)
-    tag_filter="-pr-only"
+  main|'')
+    tag_filter=$ALL_TESTS_FILTER
     ;;
-  # When running against a PR, exclude "main-only" tests
+  # When running against a PR, exclude "main-only" tests, unless the commit message features a
+  # 'run-all-tests: true' trailer
   pr)
-    tag_filter="-main-only"
+    if has_run_all_tests_trailer; then
+      echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
+      tag_filter=$ALL_TESTS_FILTER
+    else
+      tag_filter=$LESS_TESTS_FILTER
+    fi
     ;;
   *)
     echo "unknown test mode: $3"
@@ -93,6 +113,9 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
+
+echo "Running bazel test with the following tag filters: ${tag_filter}"
+
 $bazel test //... \
   --build_tag_filters "${tag_filter}" \
   --test_tag_filters "${tag_filter}" \
