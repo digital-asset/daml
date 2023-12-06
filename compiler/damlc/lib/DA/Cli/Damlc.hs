@@ -172,7 +172,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
@@ -985,13 +985,13 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
-          hPutStrLn stderr $ "No daml.yaml found, but a multi-package.yaml was found instead.\n"
+          hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
             <> "If you intended to build everything within this multi-package.yaml, use the --all flag"
           exitFailure
 
         -- We have nothing, we're lost
         (False, Nothing, Nothing) -> do
-          hPutStrLn stderr "No daml.yaml or multi-package.yaml could be found."
+          hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
           exitFailure
     else
       case mPkgConfig of
@@ -1020,6 +1020,9 @@ withMaybeConfig withConfig handler = do
   mConfig <-
     handle (\case
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
+        pure Nothing
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "contains only sdk-version" `isInfixOf` exc -> do
+        putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
     ) (withConfig $ pure . Just)
