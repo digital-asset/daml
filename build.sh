@@ -7,6 +7,7 @@ set -euo pipefail
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
 execution_log_postfix=${1:-}${2:-}
+test_mode=${3:-main}
 
 export LC_ALL=en_US.UTF-8
 
@@ -25,12 +26,12 @@ has_run_all_tests_trailer() {
 }
 
 ALL_TESTS_FILTER="-pr-only"
-LESS_TESTS_FILTER="-main-only"
+FEWER_TESTS_FILTER="-main-only"
 
-case ${3:-} in
+case $test_mode in
   # When running against main, exclude "pr-only" tests
-  main|'')
-    tag_filter=$ALL_TESTS_FILTER
+  main)
+    tag_filter=$FEWER_TESTS_FILTER
     ;;
   # When running against a PR, exclude "main-only" tests, unless the commit message features a
   # 'run-all-tests: true' trailer
@@ -39,11 +40,11 @@ case ${3:-} in
       echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
       tag_filter=$ALL_TESTS_FILTER
     else
-      tag_filter=$LESS_TESTS_FILTER
+      tag_filter=$FEWER_TESTS_FILTER
     fi
     ;;
   *)
-    echo "unknown test mode: $3"
+    echo "unknown test mode: $test_mode"
     exit 1
     ;;
 esac

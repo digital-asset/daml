@@ -85,7 +85,7 @@ if ($env:SKIP_TESTS -ceq "False") {
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
     $ALL_TESTS_FILTER = "-pr-only"
-    $LESS_TESTS_FILTER = "-main-only"
+    $FEWER_TESTS_FILTER = "-main-only"
 
     $tag_filter = "-dev-canton-test,-canton-ee"
     switch ($env:TEST_MODE) {
@@ -97,7 +97,7 @@ if ($env:SKIP_TESTS -ceq "False") {
           Write-Output "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
           $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
         } else {
-          $tag_filter = "$tag_filter,$LESS_TESTS_FILTER"
+          $tag_filter = "$tag_filter,$FEWER_TESTS_FILTER"
         }
       }
       Default {
