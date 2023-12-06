@@ -12,7 +12,7 @@
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, handle, throwIO)
+import Control.Exception (bracket, catch, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -87,10 +87,12 @@ import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import DA.Daml.Project.Types
     ( UnresolvedReleaseVersion(..),
       unresolvedBuiltinSdkVersion,
+      parseUnresolvedVersion,
       isHeadVersion,
       ConfigError(..),
       ProjectPath(..),
-      ProjectConfig )
+      ProjectConfig,
+      unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersion)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
@@ -152,7 +154,8 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                projectConfigName,
                                sdkVersionEnvVar,
                                withExpectProjectRoot,
-                               withProjectRoot)
+                               withProjectRoot,
+                               damlAssistantIsSet)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
@@ -910,9 +913,13 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
-              damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-              releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+              damlAssistantIsSet <- damlAssistantIsSet
+              releaseVersion <- if damlAssistantIsSet
+                  then do
+                    damlPath <- getDamlPath
+                    damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+                    resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+                  else pure (unsafeResolveReleaseVersion pSdkVersion)
               installDependencies
                   (toNormalizedFilePath' projRoot)
                   opts
@@ -1110,7 +1117,7 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
   cDir <- getCurrentDirectory
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
     darPath <- darPathFromDamlYaml path
@@ -1250,6 +1257,9 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
       logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
       pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
 
+damlMultiBuildVersion :: UnresolvedReleaseVersion
+damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
+
 buildMultiRule
   :: AssistantRunner
   -> BuildableDataDeps
@@ -1304,7 +1314,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             -- Call build via daml assistant so it selects the correct SDK version.
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | isHeadVersion bmSdkVersion])
+              ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1586,9 +1596,13 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      damlPath <- getDamlPath
-      damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-      releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+      damlAssistantIsSet <- damlAssistantIsSet
+      releaseVersion <- if damlAssistantIsSet
+          then do
+            damlPath <- getDamlPath
+            damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+            resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+          else pure (unsafeResolveReleaseVersion unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty
 
