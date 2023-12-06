@@ -68,24 +68,49 @@ bazel build //... `
 
 bazel shutdown
 
+function Has-Run-All-Tests-Trailer {
+  if ($env:BUILD_REASON -eq "PullRequest") {
+    $ref = "HEAD^2"
+  } else {
+    $ref = "HEAD"
+  }
+  $commit = git rev-parse $ref
+  $run_all_tests = git log -n1 --format="%(trailers:key=run-all-tests,valueonly)" $commit
+  $run_all_tests -eq "true"
+}
+
 if ($env:SKIP_TESTS -ceq "False") {
     # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
     ./ci/remap-scala-test-short-names.ps1 `
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
-    $tag_filter = "-dev-canton-test"
+    $ALL_TESTS_FILTER = "-pr-only"
+    $FEWER_TESTS_FILTER = "-main-only"
+
+    $tag_filter = "-dev-canton-test,-canton-ee"
     switch ($env:TEST_MODE) {
-      'main' { $tag_filter = "$tag_filter,-pr-only" }
-      'pr'   { $tag_filter = "$tag_filter,-main-only" }
+      'main' {
+        $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
+      }
+      'pr' {
+        if (Has-Run-All-Tests-Trailer) {
+          Write-Output "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
+          $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
+        } else {
+          $tag_filter = "$tag_filter,$FEWER_TESTS_FILTER"
+        }
+      }
       Default {
         Write-Output "<< unknown test mode: $env:TEST_MODE)"
         throw ("Was given an unknown test mode: $env:TEST_MODE")
       }
     }
 
+    Write-Output "Running bazel test with the following tag filters: $tag_filter"
+
     bazel test //... `
-      `-`-build_tag_filters "$tag_filter,-canton-ee" `
-      `-`-test_tag_filters "$tag_filter,-canton-ee" `
+      `-`-build_tag_filters "$tag_filter" `
+      `-`-test_tag_filters "$tag_filter" `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
       `-`-build_event_json_file test-events.json `
