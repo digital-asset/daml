@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 exports_files(glob(["create-daml-app-test-resources/*"]) + [
     "copy-trigger/src/CopyTrigger.daml",
@@ -97,6 +98,8 @@ genrule(
             done
         done
 
+        sed -i 's|__VERSION__|{sdk_version}|' $$OUT/create-daml-app/ui/package.json.template
+
         ## special cases we should work to remove
 
         # quickstart-java template
@@ -134,7 +137,7 @@ genrule(
         DIR=$$(pwd)
         cd $$OUT/..
         $$DIR/$(execpath //bazel_tools/sh:mktgz) $$DIR/$@ templates-tarball
-    """,
+    """.format(sdk_version = sdk_version),
     tools = [
         "//bazel_tools/sh:mktgz",
         "@patch_dev_env//:patch",
