@@ -22,7 +22,7 @@ def entry(filename, bytes):
         if extension in ['.daml']:
             # on text files, newlines will be encoded differently depending
             # on platform, so we canonicalize them here
-            bytes.replace(b'\r\n', b'\n')
+            bytes = bytes.replace(b'\r\n', b'\n')
         hash = sha256(bytes).hexdigest()
     return f"{hash}  {filename}"
 
