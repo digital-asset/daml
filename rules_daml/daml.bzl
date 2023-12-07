@@ -5,6 +5,7 @@ load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@os_info//:os_info.bzl", "is_windows")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
@@ -432,8 +433,10 @@ def generate_dar_hash_file(name):
     native.genrule(
         name = name + "-generated-hash",
         srcs = ["//rules_daml:generate-dar-hash", ":{}.dar".format(name)],
+        tools = ["@python_dev_env//:python"] if is_windows else [],
         outs = [name + "-generated.dar-hash"],
-        cmd = "python {exe} {dar} > $@".format(
+        cmd = "{python} {exe} {dar} > $@".format(
+            python = "$(execpath @python_dev_env//:python)" if is_windows else "python",
             exe = "$(location //rules_daml:generate-dar-hash)".format(name),
             dar = "$(location :{}.dar)".format(name),
         ),
