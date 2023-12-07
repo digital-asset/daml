@@ -431,22 +431,10 @@ def generate_dar_hash_file(name):
     """
     native.genrule(
         name = name + "-generated-hash",
-        srcs = [":{}.dar".format(name)],
+        srcs = ["//rules_daml:generate-dar-hash", ":{}.dar".format(name)],
         outs = [name + "-generated.dar-hash"],
-        cmd = """
-set -euo pipefail
-
-DIR=$$(mktemp -d)
-unzip -d $$DIR {dar}
-
-( cd $$DIR;
-  find . -type f |
-  # hie/hi files may differ.
-  grep -v '\\.hie\\?$$' |
-  sort |
-  xargs sha256sum
-) >> $@
-""".format(
+        cmd = "python {exe} {dar} > $@".format(
+            exe = "$(location //rules_daml:generate-dar-hash)".format(name),
             dar = "$(location :{}.dar)".format(name),
         ),
     )
