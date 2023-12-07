@@ -19,9 +19,13 @@ import utils.{
 import utils.Value.ContractId
 import utils.Transaction.{
   KeyCreate,
-  KeyInputError,
   NegativeKeyLookup,
-  InconsistentContractKey,
-  DuplicateContractKey,
   KeyInput
+}
+import utils.TransactionErrors.{
+  CreateError,
+  KeyInputError,
+  InconsistentContractKey,
+  DuplicateContractId,
+  DuplicateContractKey
 }

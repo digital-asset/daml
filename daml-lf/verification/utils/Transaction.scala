@@ -47,11 +47,4 @@ object Transaction {
 
     override def isActive: Boolean = true
   }
-
-  sealed abstract class TransactionError
-
-  final case class DuplicateContractKey(key: GlobalKey) extends TransactionError
-  final case class InconsistentContractKey(key: GlobalKey)
-
-  type KeyInputError = Either[InconsistentContractKey, DuplicateContractKey]
 }

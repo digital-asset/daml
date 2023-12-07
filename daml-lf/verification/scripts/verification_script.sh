@@ -7,7 +7,8 @@ cd scripts
 
 
 STAINLESS=$1
-ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativez3 --infer-measures=false"
+#ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativez3 --infer-measures=false"
+ARGS="--watch=false --timeout=30 --vc-cache=true --compact=true --solvers=nativez3 --infer-measures=false"
 
 #Running stainless, there are 3 modes:
 # - translate: translate the original file to a simplified version and verifies only that
@@ -55,18 +56,18 @@ if [[ $2 = "translate" ]]; then
   FILE=$(sed -z 's/\s*import\s*\([A-Za-z0-9]\|\.\)\+{\([A-Za-z0-9(),:;]\|\s\|\[\|\]\|\-\|\.\|\/\)*}//g' <<<"$FILE");
   FILE=$(sed '/^\s*import\s*\([A-Za-z0-9]\|\.\)\+/d' <<<"$FILE");
   FILE=$(sed 's/\(\s*\)\(case class State\)/\1@dropVCs\n\1\2/' <<<"$FILE");
-  
+
   ADD=$(cat stainless_imports.txt);
   FILE_DESTINATION="../translation/ContractStateMachine.scala"
   echo -e "${ADD}$FILE" > $FILE_DESTINATION;
 
   $STAINLESS ../utils/* ../translation/* ../transaction/* $ARGS;
-  
+
   RES=$?
 
   #Cleaning everything up
-  rm $FILE_DESTINATION
-  
+  #rm $FILE_DESTINATION
+
   exit $RES
 
 elif [[ $2 = "verify" ]]; then

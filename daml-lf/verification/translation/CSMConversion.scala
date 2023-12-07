@@ -25,13 +25,12 @@ import utils.{
   Trivial,
 }
 import utils.Value.ContractId
-import utils.Transaction.{
-  KeyCreate,
+import utils.Transaction.{KeyCreate, NegativeKeyLookup, KeyInput}
+import utils.TransactionErrors.{
   KeyInputError,
-  NegativeKeyLookup,
   InconsistentContractKey,
+  InconsistentContractKeyKIError,
   DuplicateContractKey,
-  KeyInput,
 }
 
 import transaction.ContractStateMachine._
@@ -108,6 +107,7 @@ object CSMConversion {
   def toOriginal(s: State): StateOriginal[NodeId] = {
     StateOriginal[NodeId](
       s.locallyCreated,
+      s.inputContractIds,
       globalKeyInputs(s.globalKeys),
       toOriginal(s.activeState),
       s.rollbackStack.map(toOriginal),
@@ -118,6 +118,7 @@ object CSMConversion {
   def toAlt(consumed: Set[ContractId])(s: StateOriginal[NodeId]): State = {
     State(
       s.locallyCreated,
+      s.inputContractIds,
       consumed,
       globalKeys(s.globalKeyInputs),
       toAlt(s.activeState),
@@ -564,9 +565,7 @@ object CSMConversion {
       Right[KeyInputError, StateOriginal[NodeId]](s.endRollback())
     } else {
       Left[KeyInputError, StateOriginal[NodeId]](
-        Left[InconsistentContractKey, DuplicateContractKey](
-          InconsistentContractKey(GlobalKey(BigInt(0)))
-        )
+        InconsistentContractKeyKIError(InconsistentContractKey(GlobalKey(BigInt(0))))
       )
     }
   }

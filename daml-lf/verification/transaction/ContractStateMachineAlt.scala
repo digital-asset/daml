@@ -23,13 +23,14 @@ import utils.{
   SetProperties,
 }
 import utils.Value.ContractId
-import utils.Transaction.{
-  KeyCreate,
+import utils.Transaction.{KeyCreate, NegativeKeyLookup, KeyInput}
+import utils.TransactionErrors.{
   KeyInputError,
-  NegativeKeyLookup,
+  CreateError,
   InconsistentContractKey,
+  InconsistentContractKeyKIError,
+  DuplicateContractId,
   DuplicateContractKey,
-  KeyInput,
 }
 import CSMHelpers._
 import CSMEitherDef._
@@ -40,6 +41,7 @@ import CSMEither._
   */
 case class State(
     locallyCreated: Set[ContractId],
+    inputContractIds: Set[ContractId],
     consumed: Set[ContractId],
     globalKeys: Map[GlobalKey, ContractStateMachine.KeyMapping],
     activeState: ContractStateMachine.ActiveLedgerState,
@@ -86,28 +88,32 @@ case class State(
   def visitCreate(
       contractId: ContractId,
       mbKey: Option[GlobalKey],
-  ): Either[DuplicateContractKey, State] = {
+  ): Either[CreateError, State] = {
+    val res =
+      if (locallyCreated.union(inputContractIds).contains(contractId)) {
+        Left(CreateError.inject(DuplicateContractId(contractId)))
+      } else {
+        val me =
+          this.copy(
+            locallyCreated = locallyCreated + contractId,
+            activeState = this.activeState
+              .copy(locallyCreatedThisTimeline =
+                this.activeState.locallyCreatedThisTimeline + contractId
+              ),
+          )
 
-    val me =
-      this.copy(
-        locallyCreated = locallyCreated + contractId,
-        activeState = this.activeState
-          .copy(locallyCreatedThisTimeline =
-            this.activeState.locallyCreatedThisTimeline + contractId
-          ),
-      )
+        mbKey match {
+          case None() => Right[CreateError, State](me)
+          case Some(gk) =>
+            val conflict = activeKeys.get(gk).exists(_ != KeyInactive)
 
-    val res = mbKey match {
-      case None() => Right[DuplicateContractKey, State](me)
-      case Some(gk) =>
-        val conflict = activeKeys.get(gk).exists(_ != KeyInactive)
-
-        Either.cond(
-          !conflict,
-          me.copy(activeState = me.activeState.createKey(gk, contractId)),
-          DuplicateContractKey(gk),
-        )
-    }
+            Either.cond(
+              !conflict,
+              me.copy(activeState = me.activeState.createKey(gk, contractId)),
+              CreateError.inject(DuplicateContractKey(gk)),
+            )
+        }
+      }
 
     unfold(sameGlobalKeys(this, res))
     unfold(sameStack(this, res))
@@ -129,9 +135,10 @@ case class State(
       byKey: Boolean,
       consuming: Boolean,
   ): Either[InconsistentContractKey, State] = {
+    val state = witnessContractId(targetId)
     val res =
       for {
-        state <- assertKeyMapping(targetId, mbKey)
+        state <- state.assertKeyMapping(targetId, mbKey)
       } yield {
 
         if (consuming)
@@ -159,14 +166,31 @@ case class State(
       gk: GlobalKey,
       keyResolution: Option[ContractId],
   ): Either[InconsistentContractKey, State] = {
+    val state = keyResolution match {
+      case Some(contractId) => witnessContractId(contractId)
+      case None() => this
+    }
     val res = Either.cond(
-      activeKeys.getOrElse(gk, KeyInactive) == keyResolution,
+      state.activeKeys.getOrElse(gk, KeyInactive) == keyResolution,
       this,
       InconsistentContractKey(gk),
     )
     unfold(sameState(this, res))
     res
   }.ensuring(res => sameState(this, res))
+
+  @pure @opaque
+  private[lf] def visitFetch(
+      contractId: ContractId,
+      mbKey: Option[GlobalKey],
+  ): Either[InconsistentContractKey, State] = {
+    val state = witnessContractId(contractId)
+    state.assertKeyMapping(contractId, mbKey)
+  }
+
+  private[lf] def witnessContractId(contractId: ContractId): State =
+    if (locallyCreated.contains(contractId)) this
+    else this.copy(inputContractIds = inputContractIds + contractId)
 
   @pure @opaque
   def assertKeyMapping(
@@ -185,7 +209,7 @@ case class State(
   def handleNode(id: NodeId, node: Node.Action): Either[KeyInputError, State] = {
     val res = node match {
       case create: Node.Create => toKeyInputError(visitCreate(create.coid, create.gkeyOpt))
-      case fetch: Node.Fetch => toKeyInputError(assertKeyMapping(fetch.coid, fetch.gkeyOpt))
+      case fetch: Node.Fetch => toKeyInputError(visitFetch(fetch.coid, fetch.gkeyOpt))
       case lookup: Node.LookupByKey => toKeyInputError(visitLookup(lookup.gkey, lookup.result))
       case exe: Node.Exercise =>
         toKeyInputError(visitExercise(id, exe.targetCoid, exe.gkeyOpt, exe.byKey, exe.consuming))
@@ -198,8 +222,8 @@ case class State(
           sameGlobalKeysTransitivity(this, visitCreate(create.coid, create.gkeyOpt), res)
           sameStackTransitivity(this, visitCreate(create.coid, create.gkeyOpt), res)
         case fetch: Node.Fetch =>
-          sameGlobalKeysTransitivity(this, assertKeyMapping(fetch.coid, fetch.gkeyOpt), res)
-          sameStackTransitivity(this, assertKeyMapping(fetch.coid, fetch.gkeyOpt), res)
+          sameGlobalKeysTransitivity(this, visitFetch(fetch.coid, fetch.gkeyOpt), res)
+          sameStackTransitivity(this, visitFetch(fetch.coid, fetch.gkeyOpt), res)
         case lookup: Node.LookupByKey =>
           sameGlobalKeysTransitivity(this, visitLookup(lookup.gkey, lookup.result), res)
           sameStackTransitivity(this, visitLookup(lookup.gkey, lookup.result), res)
@@ -241,9 +265,7 @@ case class State(
     val res = rollbackStack match {
       case Nil() =>
         Left[KeyInputError, State](
-          Left[InconsistentContractKey, DuplicateContractKey](
-            InconsistentContractKey(GlobalKey(BigInt(0)))
-          )
+          InconsistentContractKeyKIError(InconsistentContractKey(GlobalKey(BigInt(0))))
         )
       case Cons(headState, tailStack) =>
         Right[KeyInputError, State](this.copy(activeState = headState, rollbackStack = tailStack))
@@ -267,10 +289,13 @@ case class State(
     if (
       substate.globalKeys.keySet
         .forall(k => activeKeys.get(k).forall(m => Some(m) == substate.globalKeys.get(k)))
+      && !substate.locallyCreated.exists(locallyCreated.union(inputContractIds).contains)
     ) {
       Right[Unit, State](
         this.copy(
           locallyCreated = locallyCreated ++ substate.locallyCreated,
+          inputContractIds =
+            this.inputContractIds.union(substate.inputContractIds.diff(this.locallyCreated)),
           consumed = consumed ++ substate.consumed,
           globalKeys = substate.globalKeys ++ globalKeys,
           activeState = activeState.advance(substate.activeState),
@@ -285,6 +310,7 @@ case class State(
 
 object State {
   def empty: State = new State(
+    Set.empty,
     Set.empty,
     Set.empty,
     Map.empty,
