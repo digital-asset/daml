@@ -296,6 +296,16 @@ once, as either
 A node ID that occurs zero, two, or more times in those contexts yields
 an invalid transaction.
 
+field package_name
+~~~~~~~~~~~~~~~~~
+
+The name of a LF package.
+
+(*since version dev*)
+
+Package names are non-empty US-ASCII strings built from letters, digits,
+minus and underscore limited to 255 chars
+
 message KeyWithMaintainers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -354,6 +364,16 @@ identifier.
 
 ``key_with_maintainers`` is optional. 
 
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string`` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
+
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
 
@@ -392,6 +412,16 @@ party identifier.
   contract itself.
 
 ``key_with_maintainers`` is optional.
+
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
@@ -448,7 +478,7 @@ Every element of ``actors``, ``stakeholders``, ``signatories``, and
 
   The ``actors`` field contains the parties that exercised the choice.
 
-(* since version 15*)
+(*since version 15*)
 
 As of version 15, this field is included.
 
@@ -456,11 +486,18 @@ As of version 15, this field is included.
 
 ``interface_id``'s structure is defined by `the value specification`_
 
-
 (*since version dev*)
+
+As of version dev, this field is required.
 
 .. TODO: https://github.com/digital-asset/daml/issues/15882
 .. -- update for choice authorizers
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -487,6 +524,15 @@ required. ``contract_id_struct`` is optional:
 
 .. _`the value specification`: value.rst
 
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeRollBack
 ^^^^^^^^^^^^^^^^^^^^
@@ -576,6 +622,18 @@ there exists a party identifiers repeated in the concatenation of
 ``contract_key_with_maintainers.maintainers`` if
 ``contract_key_with_maintainers`` is present.
 
+(*since version dev*)
+
+As of version dev, this field is required.
+
+.. TODO: https://github.com/digital-asset/daml/issues/15882
+.. -- update for choice authorizers
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message Value`: value.rst#message-value
