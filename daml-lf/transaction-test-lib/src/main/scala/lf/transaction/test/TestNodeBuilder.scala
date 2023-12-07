@@ -26,8 +26,6 @@ trait TestNodeBuilder {
   private def contractPackageVersion(contract: Node.Create): TransactionVersion =
     packageVersion(contract.templateId.packageId).getOrElse(contract.version)
 
-  val defaultPackageName = Ref.PackageName.assertFromString("package-name")
-
   def create(
       id: ContractId,
       templateId: TypeConName,
@@ -35,7 +33,9 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      packageName: PackageName = defaultPackageName,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  review if we should really provide a defaul package name.
+      packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
       agreementText: String = "",
   ): Node.Create = {
