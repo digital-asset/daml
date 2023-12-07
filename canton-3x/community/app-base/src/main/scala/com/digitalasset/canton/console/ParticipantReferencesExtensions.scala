@@ -138,9 +138,11 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReferenceComm
 
 }
 
-class LocalParticipantReferencesExtensions(participants: Seq[LocalParticipantReference])(implicit
+class LocalParticipantReferencesExtensions[LocalParticipantRef <: LocalParticipantReferenceCommon](
+    participants: Seq[LocalParticipantRef]
+)(implicit
     override val consoleEnvironment: ConsoleEnvironment
 ) extends ParticipantReferencesExtensions(participants)
-    with LocalInstancesExtensions {
-  override def instances: Seq[LocalInstanceReferenceCommon] = participants
+    with LocalInstancesExtensions[LocalParticipantRef] {
+  override def instances: Seq[LocalParticipantRef] = participants
 }

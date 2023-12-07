@@ -20,6 +20,7 @@ import com.digitalasset.canton.store.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
@@ -117,13 +118,16 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful {
+  )(implicit traceContext: TraceContext): Future[Int] = Future.successful {
+    val counter = new AtomicInteger(0)
     blocking(lock.synchronized {
       eventByTimestamp.rangeTo(beforeAndIncluding).foreach { case (ts, e) =>
+        counter.incrementAndGet()
         eventByTimestamp.remove(ts).discard
         timestampOfCounter.remove(e.counter).discard
       }
     })
+    counter.get()
   }
 
   override def ignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit

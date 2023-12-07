@@ -188,7 +188,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         }
 
         val partyAndParticipants =
-          env.participants.all.flatMap(_.parties.list().flatMap(partyIdToParticipant(_).toList))
+          env.participantsX.all.flatMap(_.parties.list().flatMap(partyIdToParticipant(_).toList))
         val allPartiesSingleParticipant =
           partyAndParticipants.groupBy { case (partyId, _) => partyId }.forall {
             case (_, participants) => participants.sizeCompare(1) <= 0
@@ -206,7 +206,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       def apply(
           file: Option[String] = None,
           useParticipantAlias: Boolean = true,
-          defaultParticipant: Option[ParticipantReference] = None,
+          defaultParticipantX: Option[ParticipantReferenceX] = None,
       )(implicit env: ConsoleEnvironment): JFile = {
 
         def toLedgerApi(participantConfig: BaseParticipantConfig) =
@@ -215,16 +215,16 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             participantConfig.clientLedgerApi.port.unwrap,
           )
 
-        def participantValue(p: ParticipantReference): String =
+        def participantValue(p: ParticipantReferenceX): String =
           if (useParticipantAlias) p.name else p.uid.toProtoPrimitive
 
-        val allParticipants = env.participants.all
+        val allParticipants = env.participantsX.all
         val participantsData =
           allParticipants.map(p => (participantValue(p), toLedgerApi(p.config))).toMap
         val uidToAlias = allParticipants.map(p => (p.id, p.name)).toMap
 
         val default_participant =
-          defaultParticipant.map(participantReference => toLedgerApi(participantReference.config))
+          defaultParticipantX.map(participantReference => toLedgerApi(participantReference.config))
 
         val participantJson = Participants(
           default_participant,
@@ -246,18 +246,18 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |It takes three arguments:
         |- file (default to "participant-config.json")
         |- useParticipantAlias (default to true): participant aliases are used instead of UIDs
-        |- defaultParticipant (default to None): adds a default participant if provided
+        |- defaultParticipantX (default to None): adds a default participant if provided
         |"""
     )
     def generate_daml_script_participants_conf(
         file: Option[String] = None,
         useParticipantAlias: Boolean = true,
-        defaultParticipant: Option[ParticipantReference] = None,
+        defaultParticipantX: Option[ParticipantReferenceX] = None,
     )(implicit env: ConsoleEnvironment): JFile =
       GenerateDamlScriptParticipantsConf(
         file,
         useParticipantAlias,
-        defaultParticipant,
+        defaultParticipantX,
       )
 
     // TODO(i7387): add check that flag is set

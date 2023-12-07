@@ -626,6 +626,10 @@ sealed trait LocalParticipantReferenceCommon
 
   override protected[console] def token: Option[String] = adminToken
 
+  @Help.Summary("Commands used for development and testing", FeatureFlag.Testing)
+  @Help.Group("Testing")
+  def testing: LocalParticipantTestingGroup
+
   @Help.Summary("Commands to repair the local participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
   def repair: LocalParticipantRepairAdministration
@@ -793,10 +797,17 @@ class LocalParticipantReferenceX(
   lazy private val partiesGroup =
     new LocalParticipantPartiesAdministrationGroupX(this, this, consoleEnvironment, loggerFactory)
 
-  private lazy val testing_ = new ParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
+  private lazy val testing_ =
+    new LocalParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
   @Help.Summary("Commands used for development and testing", FeatureFlag.Testing)
   @Help.Group("Testing")
-  override def testing: ParticipantTestingGroup = testing_
+  override def testing: LocalParticipantTestingGroup = testing_
+
+  private lazy val commitments_ =
+    new LocalCommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
+  @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
+  @Help.Group("Commitments")
+  def commitments: LocalCommitmentsAdministrationGroup = commitments_
 
   private lazy val repair_ =
     new LocalParticipantRepairAdministration(consoleEnvironment, this, loggerFactory) {

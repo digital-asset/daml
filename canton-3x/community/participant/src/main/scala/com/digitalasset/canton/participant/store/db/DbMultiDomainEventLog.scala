@@ -540,15 +540,17 @@ class DbMultiDomainEventLog private[db] (
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset](
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset],
-      timestampInclusive: Option[CantonTimestamp],
+      timestampInclusive: CantonTimestamp,
       localOffsetDiscriminator: Option[Int],
   )(implicit traceContext: TraceContext, getResult: GetResult[T]): Future[Option[T]] = {
     import DbStorage.Implicits.BuilderChain.*
 
     processingTime.event {
-      val tsFilter = timestampInclusive.map(ts => sql" and el.ts <= $ts").getOrElse(sql" ")
+      val tsFilter = sql" and el.ts <= $timestampInclusive"
       val localOffsetDiscriminatorFilter =
-        localOffsetDiscriminator.fold(sql" ")(disc => sql" and el.local_offset_discriminator=$disc")
+        localOffsetDiscriminator.fold(sql" ")(disc =>
+          sql" and lel.local_offset_discriminator=$disc"
+        )
       val globalOffsetFilter = upToInclusive
         .map(upToInclusive => sql" and global_offset <= $upToInclusive")
         .getOrElse(sql" ")
@@ -572,22 +574,68 @@ class DbMultiDomainEventLog private[db] (
     }
   }
 
-  override def lastLocalOffset(
+  override def lastLocalOffsetBeforeOrAt(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
+      timestampInclusive: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
     lastLocalOffsetBeforeOrAt(eventLogId, upToInclusive, timestampInclusive, None)
 
-  override def lastRequestOffset(
+  override def lastRequestOffsetBeforeOrAt(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
+      timestampInclusive: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
     lastLocalOffsetBeforeOrAt[RequestOffset](
       eventLogId,
       upToInclusive,
       timestampInclusive,
+      Some(LocalOffset.RequestOffsetDiscriminator),
+    )
+
+  private def lastLocalOffset[T <: LocalOffset](
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset],
+      localOffsetDiscriminator: Option[Int],
+  )(implicit traceContext: TraceContext, getResult: GetResult[T]): Future[Option[T]] = {
+    import DbStorage.Implicits.BuilderChain.*
+
+    processingTime.event {
+      val localOffsetDiscriminatorFilter =
+        localOffsetDiscriminator.fold(sql" ")(disc => sql" and local_offset_discriminator=$disc")
+      val globalOffsetFilter = upToInclusive
+        .map(upToInclusive => sql" and global_offset <= $upToInclusive")
+        .getOrElse(sql" ")
+
+      val ordering = sql" order by global_offset desc #${storage.limit(1)}"
+
+      // Note for idempotent retries, we don't require that the global offset has an actual ledger entry reference
+      val base =
+        sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
+              from linearized_event_log
+              where log_id = ${eventLogId.index}
+              """
+
+      val query =
+        (base ++ globalOffsetFilter ++ localOffsetDiscriminatorFilter ++ ordering).as[T].headOption
+
+      storage.query(query, functionFullName)
+    }
+  }
+
+  override def lastLocalOffset(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
+    lastLocalOffset(eventLogId, upToInclusive, None)
+
+  override def lastRequestOffset(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
+    lastLocalOffset[RequestOffset](
+      eventLogId,
+      upToInclusive,
       Some(LocalOffset.RequestOffsetDiscriminator),
     )
 

@@ -264,18 +264,27 @@ private[routing] class DomainSelector(
       domains: NonEmpty[Set[DomainId]],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainRank] =
-    for {
-      rankedDomains <- domains.toSeq.toNEF
-        .parTraverse(targetDomain =>
-          domainRankComputation.compute(contracts, targetDomain, submitters)
+  ): EitherT[Future, TransactionRoutingError, DomainRank] = {
+    val rankedDomainOpt = for {
+      rankedDomains <- domains.forgetNE.toList
+        .parTraverseFilter(targetDomain =>
+          domainRankComputation
+            .compute(contracts, targetDomain, submitters)
+            .toOption
+            .value
         )
-
       // Priority of domain
       // Number of Transfers if we use this domain
       // pick according to least amount of transfers
-    } yield rankedDomains.min1
+    } yield rankedDomains.minOption
+      .toRight(
+        TransactionRoutingError.AutomaticTransferForTransactionFailure.Failed(
+          s"None of the following $domains is suitable for automatic transfer."
+        )
+      )
 
+    EitherT(rankedDomainOpt)
+  }
   private def chooseDomainOfInputContracts
       : EitherT[Future, TransactionRoutingError, Option[DomainId]] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData

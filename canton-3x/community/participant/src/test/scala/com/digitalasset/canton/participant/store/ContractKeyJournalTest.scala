@@ -19,6 +19,7 @@ import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{LfTransactionBuilder, MonadUtil}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, RequestCounter, TestMetrics}
 import org.scalatest.wordspec.AsyncWordSpecLike
 
@@ -173,6 +174,8 @@ trait ContractKeyJournalTest extends PrunableByTimeTest {
     "prune" should {
       "remove the obsolete updates" in {
         val ckj = mk()
+        implicit val closeContext = HasTestCloseContext.makeTestCloseContext(logger)
+
         for {
           _ <- ckj.prune(CantonTimestamp.Epoch)
           _ <- valueOrFail(

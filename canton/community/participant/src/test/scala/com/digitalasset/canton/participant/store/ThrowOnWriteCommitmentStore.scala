@@ -70,7 +70,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Int] =
     incrementCounterAndErrF()
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit

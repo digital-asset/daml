@@ -7,7 +7,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.EventLogId.ParticipantEventLogId
 import com.digitalasset.canton.participant.store.ParticipantEventLog
 import com.digitalasset.canton.participant.sync.TimestampedEvent
@@ -27,13 +27,13 @@ class InMemoryParticipantEventLog(id: ParticipantEventLogId, loggerFactory: Name
 
   override def nextLocalOffsets(
       count: NonNegativeInt
-  )(implicit traceContext: TraceContext): Future[Seq[RequestOffset]] =
+  )(implicit traceContext: TraceContext): Future[Seq[LocalOffset]] =
     Future.successful {
       val oldCounter = nextRequestCounterRef.getAndUpdate(offset => offset + count.unwrap.toLong)
 
       oldCounter
         .until(oldCounter + count.unwrap.toLong)
-        .map(RequestOffset(ParticipantEventLog.EffectiveTime, _))
+        .map(LocalOffset(_))
     }
 
   override def firstEventWithAssociatedDomainAtOrAfter(

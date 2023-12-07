@@ -38,8 +38,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, ResourceUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -115,14 +115,19 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .mapK(FutureUnlessShutdown.outcomeK)
 
       // check and issue the domain trust certificate
-      _ <- topologyDispatcher
-        .trustDomain(
-          domainId,
-          sequencerAggregatedInfo.staticDomainParameters,
-        )
-        .leftMap(
-          DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
-        )
+      _ <-
+        if (config.initializeFromTrustedDomain) {
+          EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
+        } else {
+          topologyDispatcher
+            .trustDomain(
+              domainId,
+              sequencerAggregatedInfo.staticDomainParameters,
+            )
+            .leftMap(
+              DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
+            )
+        }
 
       domainLoggerFactory = loggerFactory.append("domainId", indexedDomainId.domainId.toString)
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.util
 
-import cats.{Applicative, Eval, Functor, Traverse}
+import cats.{Applicative, Eval, Functor, Id}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
@@ -220,21 +220,63 @@ object PekkoUtil extends HasLoggerName {
       .collect { case Outcome(x) => x }
   }
 
-  /** Combines [[mapAsyncUS]] with [[statefulMapAsync]]. */
-  def statefulMapAsyncUS[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
-      f: (S, Out) => FutureUnlessShutdown[(S, T)]
-  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[T]] = {
+  /** Lifts [[statefulMapAsyncUS]] over a context. */
+  def statefulMapAsyncContextualizedUS[Out, Mat, S, T, Context[_], C](
+      graph: FlowOps[Context[Out], Mat],
+      initial: S,
+  )(
+      f: (S, C, Out) => FutureUnlessShutdown[(S, T)]
+  )(implicit
+      loggingContext: NamedLoggingContext,
+      Context: SingletonTraverse.Aux[Context, C],
+  ): graph.Repr[Context[UnlessShutdown[T]]] = {
     implicit val directExecutionContext: ExecutionContext =
       DirectExecutionContext(loggingContext.tracedLogger)
     statefulMapAsync(graph, initial = Option(initial)) {
-      case (Some(s), next) =>
-        f(s, next).unwrap.map {
-          case AbortedDueToShutdown => None -> AbortedDueToShutdown
-          case Outcome((nextS, t)) => Some(nextS) -> Outcome(t)
+      case (oldState @ Some(s), next) =>
+        // Since the context contains at most one element, it is fine to use traverse with futures here
+        @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
+        val resultF = Context.traverseSingleton(next)(f(s, _, _).unwrap)
+        resultF.map { contextualizedStateAndResult =>
+          // Since the type class ensures that the context `next` contains at most one element,
+          // we can look for the last element in the context `result`.
+          val theResult = Context
+            .foldLeft(contextualizedStateAndResult, Option.empty[UnlessShutdown[(S, T)]])((_, t) =>
+              Some(t)
+            )
+          val nextS = theResult match {
+            case Some(Outcome((nextS, _))) => Some(nextS)
+            case Some(AbortedDueToShutdown) => None
+            case None =>
+              // There is no element in the context, so `f` was never run and we keep the old state
+              oldState
+          }
+          val contextualizedResult =
+            Context.map(contextualizedStateAndResult)(_.map { case (_, t) => t })
+          nextS -> contextualizedResult
         }
-      case (None, _next) =>
-        Future.successful(None -> AbortedDueToShutdown)
+      case (None, next) =>
+        val abortWithoutRunning = Context.map(next)(_ => AbortedDueToShutdown: UnlessShutdown[T])
+        Future.successful(None -> abortWithoutRunning)
     }
+  }
+
+  /** Combines [[mapAsyncUS]] with [[statefulMapAsync]]. */
+  def statefulMapAsyncUS[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
+      f: (S, Out) => FutureUnlessShutdown[(S, T)]
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[T]] =
+    statefulMapAsyncContextualizedUS[Out, Mat, S, T, cats.Id, Unit](graph, initial)((s, _, out) =>
+      f(s, out)
+    )
+
+  def statefulMapAsyncUSAndDrain[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
+      f: (S, Out) => FutureUnlessShutdown[(S, T)]
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[T] = {
+    statefulMapAsyncUS(graph, initial)(f)
+      // Important to use `collect` instead of `takeWhile` here
+      // so that the return source completes only after all `source`'s elements have been consumed.
+      // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
+      .collect { case Outcome(x) => x }
   }
 
   /** Combines two kill switches into one */
@@ -629,17 +671,27 @@ object PekkoUtil extends HasLoggerName {
     def copy[B](value: B = this.value): WithKillSwitch[B] = WithKillSwitch(value)(killSwitch)
   }
   object WithKillSwitch {
-    implicit val traverseWithKillSwitch: Traverse[WithKillSwitch] = new Traverse[WithKillSwitch] {
-      override def traverse[F[_], A, B](fa: WithKillSwitch[A])(f: A => F[B])(implicit
-          F: Applicative[F]
-      ): F[WithKillSwitch[B]] = fa.traverse(f)
+    implicit val singletonTraverseWithKillSwitch
+        : SingletonTraverse.Aux[WithKillSwitch, KillSwitch] =
+      new SingletonTraverse[WithKillSwitch] {
+        override type Context = KillSwitch
 
-      override def foldLeft[A, B](fa: WithKillSwitch[A], b: B)(f: (B, A) => B): B = f(b, fa.unwrap)
+        override def traverseSingleton[G[_], A, B](x: WithKillSwitch[A])(
+            f: (KillSwitch, A) => G[B]
+        )(implicit G: Applicative[G]): G[WithKillSwitch[B]] =
+          x.traverse(f(x.killSwitch, _))
 
-      override def foldRight[A, B](fa: WithKillSwitch[A], lb: Eval[B])(
-          f: (A, Eval[B]) => Eval[B]
-      ): Eval[B] = f(fa.unwrap, lb)
-    }
+        override def traverse[F[_], A, B](fa: WithKillSwitch[A])(f: A => F[B])(implicit
+            F: Applicative[F]
+        ): F[WithKillSwitch[B]] = fa.traverse(f)
+
+        override def foldLeft[A, B](fa: WithKillSwitch[A], b: B)(f: (B, A) => B): B =
+          f(b, fa.unwrap)
+
+        override def foldRight[A, B](fa: WithKillSwitch[A], lb: Eval[B])(
+            f: (A, Eval[B]) => Eval[B]
+        ): Eval[B] = f(fa.unwrap, lb)
+      }
   }
 
   /** Passes through all elements of the source until and including the first element that satisfies the condition.
@@ -772,5 +824,134 @@ object PekkoUtil extends HasLoggerName {
         graph: Flow[A, B, Mat]
     ): PekkoUtilSyntaxForFlowOpsMat[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFlowOpsMat(graph)
+
+    /** Extension method to contextualize a source over a single type constructor.
+      * For complex type expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
+      */
+    implicit class PekkoUtilSyntaxContextualizeSource[Context[+_], A, Mat](
+        private val source: Source[Context[A], Mat]
+    ) extends AnyVal {
+      def contextualize: ContextualizedSource[Context, A, Mat] =
+        ContextualizedFlowOps.contextualize[Context](source)
+    }
+
+    /** Extension method to contextualize a flow over a single type constructor.
+      * For complex type expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
+      */
+    implicit class PekkoUtilSyntaxContextualizeFlow[Context[+_], A, B, Mat](
+        private val flow: Flow[A, Context[B], Mat]
+    ) extends AnyVal {
+      def contextualize: ContextualizedFlow[Context, A, B, Mat] =
+        ContextualizedFlowOps.contextualize[Context](flow)
+    }
+
+    /** Extension methods on contextualized FlowOps */
+    private[util] class PekkoUtilSyntaxForContextualizedFlowOps[
+        Context[+_],
+        A,
+        Mat,
+        U <: ContextualizedFlowOps[Context, A, Mat],
+        C,
+    ](private val graph: U)(implicit Context: SingletonTraverse.Aux[Context, C]) {
+      def statefulMapAsyncContextualizedUS[S, B](
+          initial: S
+      )(f: (S, C, A) => FutureUnlessShutdown[(S, B)])(implicit
+          loggingContext: NamedLoggingContext
+      ): U#Repr[Context[UnlessShutdown[B]]] =
+        PekkoUtil.statefulMapAsyncContextualizedUS(graph, initial)(f)(loggingContext, Context)
+    }
+    // Use separate implicit conversions for Sources and Flows to help IntelliJ
+    // Otherwise IntelliJ gets very resource hungry.
+    implicit def pekkoUtilSyntaxForContextualizedSource[Context[+_], A, Mat, C](
+        graph: ContextualizedSource[Context, A, Mat]
+    )(implicit context: SingletonTraverse.Aux[Context, C]): PekkoUtilSyntaxForContextualizedFlowOps[
+      Context,
+      A,
+      Mat,
+      ContextualizedSource[Context, A, Mat],
+      C,
+    ] = new PekkoUtilSyntaxForContextualizedFlowOps(graph)
+    implicit def pekkoUtilSyntaxForContextualizedFlow[Context[+_], A, B, Mat, C](
+        graph: ContextualizedFlow[Context, A, B, Mat]
+    )(implicit context: SingletonTraverse.Aux[Context, C]): PekkoUtilSyntaxForContextualizedFlowOps[
+      Context,
+      B,
+      Mat,
+      ContextualizedFlow[Context, A, B, Mat],
+      C,
+    ] = new PekkoUtilSyntaxForContextualizedFlowOps(graph)
+  }
+
+  type ContextualizedFlowOps[+Context[+_], +A, +Mat] =
+    ContextualizedFlowOpsImpl.Instance.ContextualizedFlowOps[Context, A, Mat]
+  type ContextualizedSource[+Context[+_], +A, +Mat] =
+    ContextualizedFlowOpsImpl.Instance.ContextualizedSource[Context, A, Mat]
+  type ContextualizedFlow[+Context[+_], -A, +B, +Mat] =
+    ContextualizedFlowOpsImpl.Instance.ContextualizedFlow[Context, A, B, Mat]
+
+  sealed abstract class ContextualizedFlowOpsImpl {
+    type ContextualizedFlowOps[+Context[+_], +A, +Mat] <: FlowOps[Context[A], Mat]
+    type ContextualizedSource[+Context[+_], +A, +Mat] <: Source[Context[A], Mat] &
+      ContextualizedFlowOps[Context, A, Mat]
+    type ContextualizedFlow[+Context[+_], -A, +B, +Mat] <: Flow[A, Context[B], Mat] &
+      ContextualizedFlowOps[Context, B, Mat]
+
+    def substFlowOps[K[_[_]], Context[+_], Mat](
+        ff: K[Lambda[a => FlowOps[Context[a], Mat]]]
+    ): K[ContextualizedFlowOps[Context, *, Mat]]
+
+    def substSource[K[_[_]], Context[+_], Mat](
+        ff: K[Lambda[a => Source[Context[a], Mat]]]
+    ): K[ContextualizedSource[Context, *, Mat]]
+
+    def substFlow[K[_[_]], Context[+_], A, Mat](
+        ff: K[Lambda[b => Flow[A, Context[b], Mat]]]
+    ): K[ContextualizedFlow[Context, A, *, Mat]]
+  }
+  object ContextualizedFlowOps {
+    def contextualize[Context[+_]]: ContextualizePartiallyApplied[Context] =
+      new ContextualizePartiallyApplied[Context]
+
+    final class ContextualizePartiallyApplied[Context[+_]](private val dummy: Boolean = false)
+        extends AnyVal {
+      def apply[A, Mat](
+          flowOps: FlowOps[Context[A], Mat]
+      ): ContextualizedFlowOps[Context, A, Mat] = {
+        type K[T[_]] = Id[T[A]]
+        ContextualizedFlowOpsImpl.Instance.substFlowOps[K, Context, Mat](flowOps)
+      }
+
+      def apply[A, Mat](source: Source[Context[A], Mat]): ContextualizedSource[Context, A, Mat] = {
+        type K[T[_]] = Id[T[A]]
+        ContextualizedFlowOpsImpl.Instance.substSource[K, Context, Mat](source)
+      }
+
+      def apply[A, B, Mat](
+          flow: Flow[A, Context[B], Mat]
+      ): ContextualizedFlow[Context, A, B, Mat] = {
+        type K[T[_]] = Id[T[B]]
+        ContextualizedFlowOpsImpl.Instance.substFlow[K, Context, A, Mat](flow)
+      }
+    }
+  }
+
+  object ContextualizedFlowOpsImpl {
+    val Instance: ContextualizedFlowOpsImpl = new ContextualizedFlowOpsImpl {
+      override type ContextualizedFlowOps[+Context[+_], +A, +Mat] = FlowOps[Context[A], Mat]
+      override type ContextualizedSource[+Context[+_], +A, +Mat] = Source[Context[A], Mat]
+      override type ContextualizedFlow[+Context[+_], -A, +B, +Mat] = Flow[A, Context[B], Mat]
+
+      override def substFlowOps[K[_[_]], Context[+_], Mat](
+          ff: K[Lambda[a => FlowOps[Context[a], Mat]]]
+      ): K[ContextualizedFlowOps[Context, *, Mat]] = ff
+
+      override def substSource[K[_[_]], Context[+_], Mat](
+          ff: K[Lambda[a => Source[Context[a], Mat]]]
+      ): K[ContextualizedSource[Context, *, Mat]] = ff
+
+      override def substFlow[K[_[_]], Context[+_], A, Mat](
+          ff: K[Lambda[b => Flow[A, Context[b], Mat]]]
+      ): K[ContextualizedFlow[Context, A, *, Mat]] = ff
+    }
   }
 }

@@ -23,7 +23,6 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
@@ -69,6 +68,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatche
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
+import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
@@ -234,7 +234,6 @@ class SyncDomain(
     futureSupervisor,
     loggerFactory,
   )
-
   private val pruneObserver = new PruneObserver(
     persistent.requestJournalStore,
     persistent.sequencerCounterTrackerStore,
@@ -245,7 +244,6 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
-    parameters.stores.acsPruningInterval.toInternal,
     clock,
     timeouts,
     loggerFactory,
@@ -259,7 +257,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      pruneObserver.observer(_, _),
+      pruneObserver.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       staticDomainParameters.catchUpParameters,
@@ -514,12 +512,12 @@ class SyncDomain(
       // the multi-domain event log before the crash
       pending <- cleanPreHeadO.fold(
         EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
-      ) { lastProcessedOffset =>
+      ) { lastProcessedCounter =>
         EitherT.right(
           participantNodePersistentState.value.multiDomainEventLog
             .fetchUnpublished(
               id = persistent.eventLog.id,
-              upToInclusiveO = Some(lastProcessedOffset),
+              upToInclusiveO = Some(LocalOffset(lastProcessedCounter)),
             )
         )
       }

@@ -14,7 +14,6 @@ import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, NonNegativeDuration}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   ContractMetadataAndTransferCounter,
@@ -270,7 +269,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       store,
-      (_, _) => FutureUnlessShutdown.unit,
+      _ => (),
       ParticipantTestMetrics.pruning,
       testedProtocolVersion,
       catchUpConfig,

@@ -4,7 +4,8 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.typesafe.config.{ConfigFactory, ConfigUtil, ConfigValue}
+import com.typesafe.config.{ConfigFactory, ConfigUtil, ConfigValue, ConfigValueType}
+import pureconfig.error.ConfigReaderFailures
 import pureconfig.{ConfigCursor, ConfigReader, PathSegment}
 
 import scala.jdk.CollectionConverters.*
@@ -32,6 +33,11 @@ object DeprecatedConfigUtils {
     }
   }
 
+  final case class DeprecatedRawConfigType(
+      transform: PartialFunction[ConfigCursor, Either[ConfigReaderFailures, ConfigCursor]],
+      newTypeName: ConfigValueType,
+  )
+
   object DeprecatedFieldsFor {
     def combine[T](instances: DeprecatedFieldsFor[_ >: T]*): DeprecatedFieldsFor[T] =
       new DeprecatedFieldsFor[T] {
@@ -47,6 +53,7 @@ object DeprecatedConfigUtils {
   trait DeprecatedFieldsFor[-T] {
     def movedFields: List[MovedConfigPath] = List.empty
     def deprecatePath: List[DeprecatedConfigPath[_]] = List.empty
+    def changeConfigType: Option[DeprecatedRawConfigType] = None
   }
 
   implicit class EnhancedConfigReader[T](val configReader: ConfigReader[T]) extends AnyVal {
@@ -127,6 +134,25 @@ object DeprecatedConfigUtils {
       }
     }
 
+    /** Deprecate a typesafe config type that was used to parse the value but is now deprecated.
+      */
+    def deprecateConfigType(deprecated: DeprecatedRawConfigType)(implicit
+        elc: ErrorLoggingContext
+    ): ConfigReader[T] = {
+      configReader
+        .contramapCursor {
+          case cursor if deprecated.transform.isDefinedAt(cursor) =>
+            elc.info(
+              s"Type ${cursor.valueOpt.map(_.valueType().toString).getOrElse("unknown")} at ${cursor.pathElems.reverse
+                  .mkString(".")} is deprecated. Use a value of type ${deprecated.newTypeName} instead."
+            )
+            deprecated
+              .transform(cursor)
+              .getOrElse(cursor)
+          case cursor => cursor
+        }
+    }
+
     /** Applies a list of deprecation fallbacks to the configReader
       * @return config reader with fallbacks applied
       */
@@ -139,10 +165,13 @@ object DeprecatedConfigUtils {
           reader.moveDeprecatedField(field.from, field.to)
         }
 
-      implicitly[DeprecatedFieldsFor[T]].deprecatePath
+      val deprecatedFields = implicitly[DeprecatedFieldsFor[T]].deprecatePath
         .foldLeft(moved) { case (reader, deprecated) =>
           reader.deprecateConfigPath(deprecated)
         }
+
+      implicitly[DeprecatedFieldsFor[T]].changeConfigType
+        .fold(deprecatedFields)(deprecatedFields.deprecateConfigType)
     }
   }
 }

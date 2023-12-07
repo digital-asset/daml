@@ -42,14 +42,13 @@ import com.digitalasset.canton.console.{
   Helpful,
   InstanceReferenceWithSequencerConnection,
   LedgerApiCommandRunner,
-  ParticipantReference,
   ParticipantReferenceCommon,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.ParticipantNode
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
@@ -338,7 +337,7 @@ class ParticipantTestingGroup(
 }
 
 class LocalParticipantTestingGroup(
-    participantRef: ParticipantReference with BaseInspection[ParticipantNode],
+    participantRef: ParticipantReferenceCommon with BaseInspection[ParticipantNodeCommon],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
 ) extends ParticipantTestingGroup(participantRef, consoleEnvironment, loggerFactory)
@@ -671,7 +670,7 @@ class ParticipantPruningAdministrationGroup(
 }
 
 class LocalCommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
+    runner: AdminCommandRunner with BaseInspection[ParticipantNodeCommon],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -1100,6 +1099,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def is_connected(reference: DomainAdministration): Boolean =
       list_connected().exists(_.domainId == reference.id)
 
+    @Help.Summary(
+      "Test whether a participant is connected to a domain reference"
+    )
+    def is_connected(domainId: DomainId): Boolean =
+      list_connected().exists(_.domainId == domainId)
+
     private def confirm_agreement(domainAlias: DomainAlias): Unit = {
 
       val response = get_agreement(domainAlias)
@@ -1346,7 +1351,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
-        ref: DomainReference,
+        ref: InstanceReferenceWithSequencerConnection,
         retry: Boolean = true,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1388,8 +1393,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("Disconnect this participant from the given local domain")
-    def disconnect_local(domain: DomainReference): Unit = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain.name))
+    def disconnect_local(domain: DomainReference): Unit = disconnect_local(domain.name)
+
+    @Help.Summary("Disconnect this participant from the given local domain")
+    def disconnect_local(domain: DomainAlias): Unit = consoleEnvironment.run {
+      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain))
     }
 
     @Help.Summary("List the connected domains of this participant")

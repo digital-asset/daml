@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
+import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ContractKeyJournal
@@ -65,26 +66,25 @@ class InMemoryContractKeyJournal(override protected val loggerFactory: NamedLogg
             }
           }
         }
-
       }
     }
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Int] =
     Future.successful(mapWithCleanup(_.prune(beforeAndIncluding)))
 
   override def deleteSince(inclusive: TimeOfChange)(implicit
       traceContext: TraceContext
   ): EitherT[Future, ContractKeyJournalError, Unit] =
-    EitherT.pure[Future, ContractKeyJournalError](mapWithCleanup(_.deleteSince(inclusive)))
+    EitherT.pure[Future, ContractKeyJournalError](mapWithCleanup(_.deleteSince(inclusive)).discard)
 
   override def countUpdates(key: LfGlobalKey)(implicit traceContext: TraceContext): Future[Int] =
     Future.successful {
       state.get(key).getOrElse(KeyStatus.empty).changes.size
     }
 
-  private[this] def mapWithCleanup(f: KeyStatus => KeyStatus): Unit = withLock {
+  private[this] def mapWithCleanup(f: KeyStatus => KeyStatus): Int = withLock {
     val obsolete = mutable.Seq.empty[LfGlobalKey]
     state.mapValuesInPlace { case (key, status) =>
       val updated = f(status)
@@ -96,6 +96,7 @@ class InMemoryContractKeyJournal(override protected val loggerFactory: NamedLogg
     obsolete.foreach { key =>
       state -= key
     }
+    obsolete.length
   }
 
   private[this] def withLock[A](x: => A): A = blocking { lock.synchronized(x) }

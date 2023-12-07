@@ -166,7 +166,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
           localOffset <- lastLocalOffset(
             DomainEventLogId(domainId),
             Option(upToInclusive),
-            None,
           )
 
           requestOffset <- localOffset match {
@@ -202,7 +201,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
   def lastLocalOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
 
   /** Returns the greatest request offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
@@ -215,7 +213,32 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
   def lastRequestOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]]
+
+  /** Returns the greatest local offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
+    * such that the following holds:
+    * <ol>
+    * <li>The assigned global offset is below or at `upToInclusive`.</li>
+    * <li>The record time of the event is below or at `timestampInclusive` (if defined)</li>
+    * </ol>
+    */
+  def lastLocalOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
+
+  /** Returns the greatest request offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
+    * such that the following holds:
+    * <ol>
+    * <li>The assigned global offset is below or at `upToInclusive` (if defined).</li>
+    * <li>The record time of the event is below or at `timestampInclusive` (if defined)</li>
+    * </ol>
+    */
+  def lastRequestOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Option[RequestOffset]]
 
   /** Yields the `deltaFromBeginning`-lowest global offset (if it exists).

@@ -139,7 +139,7 @@ class AcsCommitmentProcessor(
     domainCrypto: SyncCryptoClient[SyncCryptoApi],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     store: AcsCommitmentStore,
-    commitmentPeriodObserver: (ExecutionContext, TraceContext) => FutureUnlessShutdown[Unit],
+    pruningObserver: TraceContext => Unit,
     metrics: PruningMetrics,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
@@ -372,15 +372,10 @@ class AcsCommitmentProcessor(
         _ <- processBuffered(completedPeriod.toInclusive)
         _ <- indicateLocallyProcessed(completedPeriod)
       } yield {
-        // Run the observer asynchronously so that it does not block the further generation / processing of ACS commitments
-        // Since this runs after we mark the period as locally processed, there are no guarantees that the observer
-        // actually runs (e.g., if the participant crashes before be spawn this future).
-        FutureUtil.doNotAwait(
-          commitmentPeriodObserver(ec, traceContext).onShutdown {
-            logger.info("Skipping commitment period observer due to shutdown")
-          },
-          "commitment period observer failed",
-        )
+        // Inform the commitment period observer that we have completed the commitment period.
+        // The invocation is quick and will schedule the processing in the background
+        // It only kicks of journal pruning
+        pruningObserver(traceContext)
       }
     }
 

@@ -970,6 +970,8 @@ object CantonConfig {
       deriveReader[CachingConfigs]
     lazy implicit val adminWorkflowConfigReader: ConfigReader[AdminWorkflowConfig] =
       deriveReader[AdminWorkflowConfig]
+    lazy implicit val journalPruningConfigReader: ConfigReader[JournalPruningConfig] =
+      deriveReader[JournalPruningConfig]
     lazy implicit val participantStoreConfigReader: ConfigReader[ParticipantStoreConfig] =
       deriveReader[ParticipantStoreConfig]
     lazy implicit val ledgerApiContractLoaderConfigReader: ConfigReader[ContractLoaderConfig] =
@@ -1341,6 +1343,8 @@ object CantonConfig {
       deriveWriter[CachingConfigs]
     lazy implicit val adminWorkflowConfigWriter: ConfigWriter[AdminWorkflowConfig] =
       deriveWriter[AdminWorkflowConfig]
+    lazy implicit val journalPruningConfigWriter: ConfigWriter[JournalPruningConfig] =
+      deriveWriter[JournalPruningConfig]
     lazy implicit val participantStoreConfigWriter: ConfigWriter[ParticipantStoreConfig] =
       deriveWriter[ParticipantStoreConfig]
     lazy implicit val ledgerApiContractLoaderConfigWriter: ConfigWriter[ContractLoaderConfig] =

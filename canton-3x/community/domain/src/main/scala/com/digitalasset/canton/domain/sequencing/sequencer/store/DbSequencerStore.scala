@@ -1120,7 +1120,7 @@ class DbSequencerStore(
         case (memberId, ts) if !disabledMembers.contains(memberId) => ts
       })
       // just take the lowest
-      .map(NonEmpty.from(_).map(_.min1))
+      .map(_.minimumOption)
   }
 
   override protected[store] def pruneEvents(

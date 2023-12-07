@@ -23,6 +23,13 @@ object LfTransactionBuilder {
 
   // Helper methods for Daml-LF types
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
+  val defaultTransactionVersion: LfTransactionVersion = LfTransactionVersion.minVersion
+
+  assert(
+    Util.sharedKey(defaultLanguageVersion) == Util.sharedKey(defaultTransactionVersion),
+    "Tests based on shared keys will fail if the language and transaction version are inconsistent",
+  )
+
   val defaultPackageId: LfPackageId = LfPackageId.assertFromString("pkg")
   val defaultTemplateId: Ref.Identifier =
     Ref.Identifier(defaultPackageId, QualifiedName.assertFromString("module:template"))

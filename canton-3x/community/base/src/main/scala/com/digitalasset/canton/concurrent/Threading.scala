@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.typesafe.scalalogging.Logger
 
 import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Predicate
 import scala.concurrent.{ExecutionContext, blocking}
 
@@ -116,6 +117,7 @@ object Threading {
       case _: Throwable => // no fatal error, nothing to do
     }
 
+  /** Don't use executor service metrics for performance sensitive stuff */
   def newExecutionContext(
       name: String,
       logger: Logger,
@@ -243,11 +245,17 @@ object Threading {
     logger
   )
 
+  private val detectedNumberOfThreads = new AtomicInteger(-1)
+
   /** Detects the number of threads the same way as `scala.concurrent.impl.ExecutionContextImpl`,
     * except that system property values like 'x2' are not supported.
+    *
+    * This will run once and cache the results
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  def detectNumberOfThreads(logger: Logger): Int = {
+  def detectNumberOfThreads(logger: Logger): Int = if (detectedNumberOfThreads.get() > 0)
+    detectedNumberOfThreads.get()
+  else {
     def getIntProperty(name: String): Option[Int] =
       for {
         strProperty <- Option(System.getProperty(name))
@@ -299,7 +307,7 @@ object Threading {
         numThreads = maxThreads
       }
     }
-
+    detectedNumberOfThreads.set(numThreads)
     numThreads
   }
 

@@ -47,15 +47,28 @@ private[auth] final class OngoingAuthorizationObserver[A](
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var afterCompletionOrError = false
 
+  // TODO(i15769) as soon as ServerCallStreamObserver.setOnCloseHandler is not experimental anymore, it would be convenient
+  // to add respective proxy logic here, and support for this in ServerSubscriber, and drop the cancel handler capture
+  // workaround from here
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var onCancelHandler: Runnable = () =>
+    logger.error(
+      "Invalid state: OnCancelHandler was never set. Downstream cancellation cannot be done." +
+        " This can result in detached/rogue server side stream processing, and a resulting memory leak!"
+    )
+
   private val cancelUserRightsChecksO =
-    userRightsCheckerO.map(_.schedule(() => onError(staleStreamAuthError)))
+    userRightsCheckerO.map(
+      _.schedule(() => abortGRPCStreamAndCancelUpstream(staleStreamAuthError))
+    )
 
   override def isCancelled: Boolean = blocking(synchronized(observer.isCancelled))
 
   override def setOnCancelHandler(runnable: Runnable): Unit = blocking(
-    synchronized(
+    synchronized {
       observer.setOnCancelHandler(runnable)
-    )
+      onCancelHandler = runnable
+    }
   )
 
   override def setCompression(s: String): Unit = blocking(synchronized(observer.setCompression(s)))
@@ -89,7 +102,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
       _ <- checkUserRightsRefreshTimeout(now)
     } yield ()) match {
       case Right(_) => observer.onNext(v)
-      case Left(e) => onError(e)
+      case Left(e) => abortGRPCStreamAndCancelUpstream(e)
     }
   }
 
@@ -144,6 +157,11 @@ private[auth] final class OngoingAuthorizationObserver[A](
     AuthorizationChecksErrors.StaleUserManagementBasedStreamClaims
       .Reject()(errorLogger)
       .asGrpcError
+
+  private def abortGRPCStreamAndCancelUpstream(error: Throwable): Unit = blocking(synchronized {
+    onError(error)
+    onCancelHandler.run()
+  })
 }
 
 private[auth] object OngoingAuthorizationObserver {

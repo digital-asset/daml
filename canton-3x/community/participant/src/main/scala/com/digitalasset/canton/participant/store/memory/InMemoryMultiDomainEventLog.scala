@@ -384,28 +384,40 @@ class InMemoryMultiDomainEventLog(
       case (ParticipantEventLogId(_), _localOffset) => None
     }
 
+  override def lastLocalOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
+    lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, Some(timestampInclusive))
+
+  override def lastRequestOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
+    lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, Some(timestampInclusive))
+
   override def lastLocalOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
-    if (upToInclusive.isEmpty && timestampInclusive.isEmpty) {
+    if (upToInclusive.isEmpty) {
       // In this case, we don't need to inspect the events
       Future.successful(entriesRef.get().lastLocalOffsets.get(eventLogId))
     } else
-      lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, timestampInclusive)
+      lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, None)
   }
 
   override def lastRequestOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
   )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] = {
-    if (upToInclusive.isEmpty && timestampInclusive.isEmpty) {
+    if (upToInclusive.isEmpty) {
       // In this case, we don't need to inspect the events
       Future.successful(entriesRef.get().lastRequestOffsets.get(eventLogId))
     } else
-      lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, timestampInclusive)
+      lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, None)
   }
 
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset: ClassTag](
