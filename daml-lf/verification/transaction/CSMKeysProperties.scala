@@ -132,6 +132,7 @@ object CSMKeysPropertiesDef {
       (s.rollbackStack == res.rollbackStack) &&
         (s.activeState == res.activeState) &&
         (s.locallyCreated == res.locallyCreated) &&
+        (s.inputContractIds == res.inputContractIds) &&
         (s.consumed == res.consumed) &&
         (res.globalKeys == glK) &&
         (s.activeKeys.submapOf(res.activeKeys))
@@ -145,6 +146,7 @@ object CSMKeysPropertiesDef {
     (s.rollbackStack == res.rollbackStack) &&
       (s.activeState == res.activeState) &&
       (s.locallyCreated == res.locallyCreated) &&
+      (s.inputContractIds == res.inputContractIds) &&
       (s.consumed == res.consumed) &&
       (res.globalKeys == glK) &&
       (s.activeKeys.submapOf(res.activeKeys))
@@ -165,6 +167,7 @@ object CSMKeysPropertiesDef {
     (s.rollbackStack == res.rollbackStack) &&
       (s.activeState == res.activeState) &&
       (s.locallyCreated == res.locallyCreated) &&
+      (s.inputContractIds == res.inputContractIds) &&
       (s.consumed == res.consumed) &&
       (s.activeKeys.submapOf(res.activeKeys)) &&
       (s.globalKeys.submapOf(res.globalKeys))
