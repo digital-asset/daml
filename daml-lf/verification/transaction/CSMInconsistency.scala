@@ -363,7 +363,10 @@ object CSMInconsistency {
 
     node match {
       case create: Node.Create => visitCreateActiveKeysGet(s, create.coid, create.gkeyOpt, k2)
-      case fetch: Node.Fetch => assertKeyMappingActiveKeysGet(s, fetch.coid, fetch.gkeyOpt, k2)
+      case fetch: Node.Fetch => {
+        unfold(s.visitFetch(fetch.coid, fetch.gkeyOpt))
+        assertKeyMappingActiveKeysGet(s, fetch.coid, fetch.gkeyOpt, k2)
+      }
       case lookup: Node.LookupByKey => visitLookupActiveKeysGet(s, lookup.gkey, lookup.result, k2)
       case exe: Node.Exercise =>
         unfold(stateNodeCompatibility(s, node, unbound, lc, TraversalDirection.Down))
@@ -535,6 +538,35 @@ object CSMInconsistency {
     )
   )
 
+  /** If two states are defined after handling a Fetch node then they share the same mapping for the node's key entry in
+    * the activeKeys.
+    */
+  @opaque
+  @pure
+  def visitFetchDifferentStatesActiveKeysGet(
+      s1: State,
+      s2: State,
+      cid: ContractId,
+      mbKey: Option[GlobalKey],
+  ): Unit = {
+    require(s1.visitFetch(cid, mbKey).isRight)
+    require(s2.visitFetch(cid, mbKey).isRight)
+
+    unfold(s1.visitFetch(cid, mbKey))
+    unfold(s2.visitFetch(cid, mbKey))
+    assertKeyMappingDifferentStatesActiveKeysGet(s1, s2, cid, mbKey)
+
+  }.ensuring(
+    mbKey.forall(gk =>
+      (s1.visitFetch(cid, mbKey).get.activeKeys.get(gk) == s2
+        .visitFetch(cid, mbKey)
+        .get
+        .activeKeys
+        .get(gk)) &&
+        (s1.visitFetch(cid, mbKey).get.activeKeys.get(gk) == Some(KeyActive(cid)))
+    )
+  )
+
   /** If two states are defined after handling an Exercise node then they share the same mapping for the node's key entry in
     * the activeKeys.
     */
@@ -632,7 +664,7 @@ object CSMInconsistency {
         }
         visitCreateDifferentStatesActiveKeysGet(s1, s2, create.coid, create.gkeyOpt)
       case fetch: Node.Fetch =>
-        assertKeyMappingDifferentStatesActiveKeysGet(s1, s2, fetch.coid, fetch.gkeyOpt)
+        visitFetchDifferentStatesActiveKeysGet(s1, s2, fetch.coid, fetch.gkeyOpt)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s1)(node.gkeyOpt))
         unfold(containsOptionKey(s2)(node.gkeyOpt))

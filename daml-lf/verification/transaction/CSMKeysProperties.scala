@@ -834,6 +834,27 @@ object CSMKeysProperties {
       concatLeftGlobalKeys(s.assertKeyMapping(cid, mbKey), glK)
   )
 
+  @pure
+  @opaque
+  def visitFetchConcatLeftGlobalKeys(
+      s: State,
+      cid: ContractId,
+      mbKey: Option[GlobalKey],
+      glK: Map[GlobalKey, KeyMapping],
+  ): Unit = {
+    require(containsOptionKey(s)(mbKey))
+
+    unfold(s.visitFetch(cid, mbKey))
+    unfold(concatLeftGlobalKeys(s, glK).visitFetch(cid, mbKey))
+    unfold(concatLeftGlobalKeys(s.visitFetch(cid, mbKey), glK))
+
+    assertKeyMappingConcatLeftGlobalKeys(s, cid, mbKey, glK)
+
+  }.ensuring(
+    concatLeftGlobalKeys(s, glK).visitFetch(cid, mbKey) ==
+      concatLeftGlobalKeys(s.visitFetch(cid, mbKey), glK)
+  )
+
   /** Concatenating keys to the globalKeys and consuming a contract leads to the same result than doing the same
     * operations in the reverse order.
     */
@@ -944,8 +965,8 @@ object CSMKeysProperties {
         visitCreateConcatLeftGlobalKeys(s, create.coid, create.gkeyOpt, glK)
         toKeyInputErrorConcatLeftGlobalKeys(s.visitCreate(create.coid, create.gkeyOpt), glK)
       case fetch: Node.Fetch =>
-        assertKeyMappingConcatLeftGlobalKeys(s, fetch.coid, fetch.gkeyOpt, glK)
-        toKeyInputErrorConcatLeftGlobalKeys(s.assertKeyMapping(fetch.coid, fetch.gkeyOpt), glK)
+        visitFetchConcatLeftGlobalKeys(s, fetch.coid, fetch.gkeyOpt, glK)
+        toKeyInputErrorConcatLeftGlobalKeys(s.visitFetch(fetch.coid, fetch.gkeyOpt), glK)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s)(n.gkeyOpt))
         visitLookupConcatLeftGlobalKeys(s, lookup.gkey, lookup.result, glK)

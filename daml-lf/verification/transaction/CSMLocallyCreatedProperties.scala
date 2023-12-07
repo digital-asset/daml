@@ -44,7 +44,8 @@ object CSMLocallyCreatedProperties {
     node match {
       case create: Node.Create => Trivial()
       case fetch: Node.Fetch =>
-        sameLocallyCreatedTransitivity(s, s.assertKeyMapping(fetch.coid, fetch.gkeyOpt), res)
+        unfold(s.visitFetch(fetch.coid, fetch.gkeyOpt))
+        sameLocallyCreatedTransitivity(s, s.visitFetch(fetch.coid, fetch.gkeyOpt), res)
         unfold(sameLocallyCreated(s, res))
       case lookup: Node.LookupByKey =>
         sameLocallyCreatedTransitivity(s, s.visitLookup(lookup.gkey, lookup.result), res)
@@ -128,7 +129,8 @@ object CSMLocallyCreatedProperties {
         sameConsumedTransitivity(s, s.visitCreate(create.coid, create.gkeyOpt), res)
         unfold(sameConsumed(s, res))
       case fetch: Node.Fetch =>
-        sameConsumedTransitivity(s, s.assertKeyMapping(fetch.coid, fetch.gkeyOpt), res)
+        unfold(s.visitFetch(fetch.coid, fetch.gkeyOpt))
+        sameConsumedTransitivity(s, s.visitFetch(fetch.coid, fetch.gkeyOpt), res)
         unfold(sameConsumed(s, res))
       case lookup: Node.LookupByKey =>
         sameConsumedTransitivity(s, s.visitLookup(lookup.gkey, lookup.result), res)

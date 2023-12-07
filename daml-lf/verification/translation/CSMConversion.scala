@@ -423,6 +423,27 @@ object CSMConversion {
 
   @pure
   @opaque
+  def visitFetchToAlt(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      gkey: Option[GlobalKey],
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey))
+    unfold(addKey(toAlt(consumed)(s), gkey, Some(cid)))
+    assertKeyMappingToAlt(s, cid, gkey, consumed, unbound, lc)
+
+  }.ensuring(
+    addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey) == toAlt(consumed)(
+      s.visitFetch(cid, gkey, true)
+    )
+  )
+
+  @pure
+  @opaque
   def visitExerciseToAlt(
       s: StateOriginal[NodeId],
       nodeId: NodeId,
@@ -497,7 +518,7 @@ object CSMConversion {
     node match {
       case create: Node.Create => visitCreateToAlt(s, create.coid, create.gkeyOpt, consumed)
       case fetch: Node.Fetch =>
-        assertKeyMappingToAlt(s, fetch.coid, fetch.gkeyOpt, consumed, unbound, lc)
+        visitFetchToAlt(s, fetch.coid, fetch.gkeyOpt, consumed, unbound, lc)
       case lookup: Node.LookupByKey =>
         unfold(addKey(toAlt(consumed)(s), node.gkeyOpt, nodeActionKeyMapping(node)))
         visitLookupToAlt(s, lookup.gkey, lookup.result, lookup.result, consumed, unbound, lc)

@@ -164,10 +164,13 @@ object CSMHelpers {
   def advanceIsDefined(init: State, substate: State): Unit = {
     require(!substate.withinRollbackScope)
   }.ensuring(
-    init.advance(substate).isRight ==
+    init.advance(substate).isRight == (
       substate.globalKeys.keySet.forall(k =>
         init.activeKeys.get(k).forall(m => Some(m) == substate.globalKeys.get(k))
       )
+        &&
+          !substate.locallyCreated.exists(init.locallyCreated.union(init.inputContractIds).contains)
+    )
   )
 
 }

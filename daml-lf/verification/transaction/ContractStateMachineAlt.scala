@@ -185,12 +185,19 @@ case class State(
       mbKey: Option[GlobalKey],
   ): Either[InconsistentContractKey, State] = {
     val state = witnessContractId(contractId)
-    state.assertKeyMapping(contractId, mbKey)
-  }
+    val res = state.assertKeyMapping(contractId, mbKey)
+    unfold(sameState(this, res))
+    res
+  }.ensuring(res => sameState(this, res))
 
-  private[lf] def witnessContractId(contractId: ContractId): State =
-    if (locallyCreated.contains(contractId)) this
-    else this.copy(inputContractIds = inputContractIds + contractId)
+  @pure @opaque
+  private[lf] def witnessContractId(contractId: ContractId): State = {
+    val res = {
+      if (locallyCreated.contains(contractId)) this
+      else this.copy(inputContractIds = inputContractIds + contractId)
+    }
+    res
+  }.ensuring(res => this == res)
 
   @pure @opaque
   def assertKeyMapping(
