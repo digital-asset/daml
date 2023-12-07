@@ -233,7 +233,6 @@ class SyncDomain(
     futureSupervisor,
     loggerFactory,
   )
-
   private val pruneObserver = new PruneObserver(
     persistent.requestJournalStore,
     persistent.sequencerCounterTrackerStore,
@@ -244,7 +243,6 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
-    parameters.stores.acsPruningInterval.toInternal,
     clock,
     timeouts,
     loggerFactory,
@@ -258,7 +256,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      pruneObserver.observer(_, _),
+      pruneObserver.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       timeouts,

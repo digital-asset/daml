@@ -40,7 +40,7 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
 import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbPrunableByTimeDomain}
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, PrunableByTimeParameters}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -71,6 +71,7 @@ class DbActiveContractStore(
     protected[this] override val domainId: IndexedDomain,
     enableAdditionalConsistencyChecks: Boolean,
     maxContractIdSqlInListSize: PositiveNumeric[Int],
+    batchingParametersConfig: PrunableByTimeParameters,
     indexedStringStore: IndexedStringStore,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
@@ -83,6 +84,10 @@ class DbActiveContractStore(
   import ActiveContractStore.*
   import DbStorage.Implicits.*
   import storage.api.*
+
+  override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
+    batchingParametersConfig
+  )
 
   protected[this] override val pruning_status_table = "active_contract_pruning"
 
@@ -529,7 +534,7 @@ class DbActiveContractStore(
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Unit] = processingTime.event {
+  ): Future[Int] = processingTime.event {
     // For each contract select the last deactivation before or at the timestamp.
     // If such a deactivation exists then delete all acs records up to and including the deactivation
 
@@ -628,11 +633,7 @@ class DbActiveContractStore(
               )
             )
         }
-    } yield {
-      logger.info(
-        s"Pruned at least $nrPruned entries from the ACS journal of domain $domainId older or equal to $beforeAndIncluding"
-      )
-    }).onShutdown(())
+    } yield nrPruned).onShutdown(0)
   }
 
   def deleteSince(criterion: RequestCounter)(implicit traceContext: TraceContext): Future[Unit] =

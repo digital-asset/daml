@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -636,7 +636,7 @@ class TransferOutProcessingSteps(
           Some(
             TimestampedEvent(
               transferOutEvent,
-              RequestOffset(requestId.unwrap, requestCounter),
+              LocalOffset(requestCounter),
               Some(requestSequencerCounter),
             )
           ),

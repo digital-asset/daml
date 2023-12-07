@@ -195,8 +195,12 @@ abstract class RetryWithDelay(
               Future.successful(RetryOutcome(succ, RetryTermination.Success))
 
             case outcome if performUnlessClosing.isClosing =>
-              logger.debug(
-                s"Giving up on retrying the operation '$operationName' due to shutdown. Last attempt was $lastErrorKind"
+              val str = outcome match {
+                case Failure(exception) => s"exception: ${exception.getMessage}"
+                case util.Success(value) => s"success with predicate=false: ${value}"
+              }
+              logger.info(
+                s"Giving up on retrying the operation '$operationName' due to shutdown. Last attempt was $lastErrorKind with $str"
               )
               Future.successful(RetryOutcome(outcome, RetryTermination.Shutdown))
 
@@ -336,7 +340,10 @@ abstract class RetryWithDelay(
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  private def throwableOfOutcome(outcome: Try[Any]): Throwable = outcome.fold(identity, null)
+  private def throwableOfOutcome(outcome: Try[Any]): Throwable = outcome match {
+    case Failure(exception) => exception
+    case util.Success(_) => null
+  }
 }
 
 object RetryWithDelay {

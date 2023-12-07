@@ -74,7 +74,7 @@ object ExampleTransactionFactory {
   val templateId = LfTransactionBuilder.defaultTemplateId
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val transactionVersion = protocol.DummyTransactionVersion
+  val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
 
   private def valueCapturing(coid: List[LfContractId]): Value = {
     val captives = coid.map(c => (None, ValueContractId(c)))

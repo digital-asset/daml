@@ -60,6 +60,9 @@ message DomainConnectionConfig {
   // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value
   // is interpreted as equivalent to the size of sequencer_connections.
   uint32 sequencerTrustThreshold = 9;
+  // If true, allows a participant to connect to a domain that it was previously connected to,
+  // without issuing a new domain trust certificate.
+  bool initializeFromTrustedDomain = 10;
 }
 
 message ReconnectDomainsRequest {

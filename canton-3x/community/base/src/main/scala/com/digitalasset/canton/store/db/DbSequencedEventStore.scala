@@ -242,16 +242,17 @@ class DbSequencedEventStore(
   override protected[canton] def doPrune(
       untilInclusive: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Int] =
     processingTime.event {
       val query =
         sqlu"delete from sequenced_events where client = $partitionKey and ts <= $untilInclusive"
       storage
-        .update(query, functionFullName)
+        .queryAndUpdate(query, functionFullName)
         .map { nrPruned =>
           logger.info(
             s"Pruned at least $nrPruned entries from the sequenced event store of client $partitionKey older or equal to $untilInclusive"
           )
+          nrPruned
         }
     }
 

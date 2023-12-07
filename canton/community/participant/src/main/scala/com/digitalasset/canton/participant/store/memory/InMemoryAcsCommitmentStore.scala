@@ -27,7 +27,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import pprint.Tree
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
@@ -269,14 +269,25 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override def doPrune(
       before: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Int] =
     Future.successful {
+      val counter = new AtomicInteger(0)
+      def count(res: Boolean): Boolean = { if (!res) counter.incrementAndGet(); res }
       computed.foreach { case (p, periods) =>
-        computed.update(p, periods.filter(_._1.toInclusive >= before))
+        computed.update(
+          p,
+          periods.filter { case (commitmentPeriod, _) =>
+            count(commitmentPeriod.toInclusive >= before)
+          },
+        )
       }
       received.foreach { case (p, commitmentMsgs) =>
-        received.update(p, commitmentMsgs.filter(_.message.period.toInclusive >= before))
+        received.update(
+          p,
+          commitmentMsgs.filter(x => count(x.message.period.toInclusive >= before)),
+        )
       }
+      counter.get()
     }
 
   override def close(): Unit = ()

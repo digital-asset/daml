@@ -22,8 +22,8 @@ import com.digitalasset.canton.participant.store.db.DbContractKeyJournal.DbContr
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
+import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
@@ -33,6 +33,7 @@ class DbContractKeyJournal(
     override protected val storage: DbStorage,
     override val domainId: IndexedDomain,
     maxContractIdSqlInListSize: PositiveNumeric[Int],
+    batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(override protected[this] implicit val ec: ExecutionContext)
@@ -43,6 +44,11 @@ class DbContractKeyJournal(
   import ContractKeyJournal.*
   import DbStorage.Implicits.*
   import storage.api.*
+
+  override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
+    batchingParametersConfig
+  )
+  override protected def kind: String = "contract keys"
 
   override protected val processingTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("contract-key-journal")
@@ -226,12 +232,13 @@ class DbContractKeyJournal(
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      val lastPruningTs = lastPruning.getOrElse(CantonTimestamp.MinValue)
-      val query = storage.profile match {
-        case _: DbStorage.Profile.H2 =>
-          sqlu"""
+  )(implicit traceContext: TraceContext): Future[Int] =
+    processingTime
+      .event {
+        val lastPruningTs = lastPruning.getOrElse(CantonTimestamp.MinValue)
+        val query = storage.profile match {
+          case _: DbStorage.Profile.H2 =>
+            sqlu"""
           with ordered_changes(domain_id, contract_key_hash, status, ts, request_counter, row_num) as (
              select domain_id, contract_key_hash, status, ts, request_counter,
                ROW_NUMBER() OVER (partition by domain_id, contract_key_hash order by ts desc, request_counter desc)
@@ -246,15 +253,15 @@ class DbContractKeyJournal(
               where ordered_changes.row_num > 1 or ordered_changes.status = ${ContractKeyJournal.Unassigned}
             );
           """
-        case _: DbStorage.Profile.Postgres =>
-          // Delete old key journal entries for which we have a newer entry
-          // We restrict the deletion to keys that have been updated since the last pruning as anything else remains unchanged,
-          // so doesn't need to be considered.
-          // Note that the last condition is <= and has a "unassigned" as a comparison in there
-          // This means that if the last statement is unassigned, then we'll delete that too, as
-          // Absent is equal to unassigned. If it is an assign statement, then it will be filtered
-          // out and won't be deleted.
-          sqlu"""
+          case _: DbStorage.Profile.Postgres =>
+            // Delete old key journal entries for which we have a newer entry
+            // We restrict the deletion to keys that have been updated since the last pruning as anything else remains unchanged,
+            // so doesn't need to be considered.
+            // Note that the last condition is <= and has a "unassigned" as a comparison in there
+            // This means that if the last statement is unassigned, then we'll delete that too, as
+            // Absent is equal to unassigned. If it is an assign statement, then it will be filtered
+            // out and won't be deleted.
+            sqlu"""
             with recent_changes(domain_id, contract_key_hash, status, ts, request_counter) as (
               select domain_id, contract_key_hash, status, ts, request_counter from contract_key_journal
                   where domain_id = $domainId
@@ -268,8 +275,8 @@ class DbContractKeyJournal(
               (ckj.ts, ckj.request_counter, ckj.status) <= (rc.ts, rc.request_counter, CAST('unassigned' as key_status));
           """
 
-        case _: DbStorage.Profile.Oracle =>
-          sqlu"""
+          case _: DbStorage.Profile.Oracle =>
+            sqlu"""
           delete from contract_key_journal
           where
             (domain_id, contract_key_hash, ts, request_counter) in (
@@ -282,9 +289,9 @@ class DbContractKeyJournal(
               where ordered_changes.row_num > 1 or ordered_changes.status = ${ContractKeyJournal.Unassigned}
             )
           """
+        }
+        storage.queryAndUpdate(query, functionFullName)
       }
-      storage.update_(query, functionFullName)
-    }
 
   override def deleteSince(
       inclusive: TimeOfChange

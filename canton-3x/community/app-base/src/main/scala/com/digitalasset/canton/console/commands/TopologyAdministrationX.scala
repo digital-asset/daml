@@ -15,6 +15,7 @@ import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   CommandErrors,
   ConsoleCommandResult,
@@ -315,33 +316,44 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] =
-      consoleEnvironment.run {
-        NonEmpty
-          .from(owners) match {
-          case Some(ownersNE) =>
-            adminCommand(
-              {
-                TopologyAdminCommandsX.Write.Propose(
-                  UnionspaceDefinitionX
-                    .create(
-                      UnionspaceDefinitionX.computeNamespace(owners),
-                      threshold,
-                      ownersNE,
-                    ),
-                  signedBy = signedBy.toList,
-                  serial = serial,
-                  change = TopologyChangeOpX.Replace,
-                  mustFullyAuthorize = mustFullyAuthorize,
-                  forceChange = false,
-                  store = store,
-                )
-              }
-            )
-          case None =>
+    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] = {
+      val ownersNE = NonEmpty
+        .from(owners)
+        .getOrElse(
+          consoleEnvironment.run(
             CommandErrors.GenericCommandError("Proposed unionspace needs at least one owner")
+          )
+        )
+      val unionspace = UnionspaceDefinitionX
+        .create(
+          UnionspaceDefinitionX.computeNamespace(owners),
+          threshold,
+          ownersNE,
+        )
+        .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
+      authorize(unionspace, store, mustFullyAuthorize, signedBy.toList, serial)
+    }
+
+    def authorize(
+        unionspace: UnionspaceDefinitionX,
+        store: String,
+        mustFullyAuthorize: Boolean = false,
+        signedBy: Seq[Fingerprint],
+        serial: Option[PositiveInt] = None,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] =
+      consoleEnvironment.run(
+        adminCommand {
+          TopologyAdminCommandsX.Write.Propose(
+            unionspace,
+            signedBy = signedBy.toList,
+            serial = serial,
+            change = TopologyChangeOpX.Replace,
+            mustFullyAuthorize = mustFullyAuthorize,
+            forceChange = false,
+            store = store,
+          )
         }
-      }
+      )
 
     def join(
         unionspace: Fingerprint,
@@ -1133,6 +1145,7 @@ class TopologyAdministrationGroupX(
         store: Option[String] = Some(AuthorizedStore.filterName),
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
+        change: TopologyChangeOpX = TopologyChangeOpX.Replace,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX] = {
       val cmd = TopologyAdminCommandsX.Write.Propose(
         mapping = DomainTrustCertificateX(
@@ -1145,6 +1158,7 @@ class TopologyAdministrationGroupX(
         store = store.getOrElse(domainId.filterString),
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
+        change = change,
       )
       synchronisation.runAdminCommand(synchronize)(cmd)
     }

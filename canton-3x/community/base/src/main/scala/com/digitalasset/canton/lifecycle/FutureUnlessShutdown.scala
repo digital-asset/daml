@@ -48,7 +48,7 @@ object FutureUnlessShutdown {
     * functor/applicative/monad such as [[cats.data.EitherT]] via `eitherT.mapK(outcomeK)`.
     */
   def outcomeK(implicit ec: ExecutionContext): Future ~> FutureUnlessShutdown =
-    // We can't use `FunktionK.lift` here because of the implicit execution context.
+    // We can't use `FunctionK.lift` here because of the implicit execution context.
     new FunctionK[Future, FutureUnlessShutdown] {
       override def apply[A](future: Future[A]): FutureUnlessShutdown[A] = outcomeF(future)
     }

@@ -518,7 +518,7 @@ object ConsoleEnvironment {
 
     implicit def toInstanceReferenceExtensions(
         instances: Seq[LocalInstanceReferenceCommon]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalInstanceReferenceCommon] =
       new LocalInstancesExtensions.Impl(instances)
 
     /** Implicit maps an LfPartyId to a PartyId */
@@ -528,7 +528,7 @@ object ConsoleEnvironment {
       */
     implicit def toLocalDomainExtensions(
         instances: Seq[LocalDomainReference]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalDomainReference] =
       new LocalDomainReferencesExtensions(instances)
 
     /** Extensions for many participant references
@@ -539,8 +539,10 @@ object ConsoleEnvironment {
       new ParticipantReferencesExtensions(participants)
 
     implicit def toLocalParticipantReferencesExtensions(
-        participants: Seq[LocalParticipantReference]
-    )(implicit consoleEnvironment: ConsoleEnvironment): LocalParticipantReferencesExtensions =
+        participants: Seq[LocalParticipantReferenceCommon]
+    )(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): LocalParticipantReferencesExtensions[LocalParticipantReferenceCommon] =
       new LocalParticipantReferencesExtensions(participants)
 
     /** Implicitly map strings to DomainAlias, Fingerprint and Identifier
