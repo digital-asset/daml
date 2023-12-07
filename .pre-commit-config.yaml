@@ -46,3 +46,8 @@ repos:
       pass_filenames: false
       entry: "dade-copyright-headers update"
       types: [text]
+    - id: platform-independence-check
+      name: platform-independence-check
+      language: system
+      pass_filenames: false
+      entry: "pre-commit/platform-independence-check.sh"

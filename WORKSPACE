@@ -111,6 +111,16 @@ nixpkgs_cc_configure(
 
 nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 
+dev_env_tool(
+    name = "python_dev_env",
+    nix_include = ["bogus"],
+    nix_paths = ["bogus"],
+    tools = ["python"],
+    win_include = ["."],
+    win_paths = ["python.exe"],
+    win_tool = "python-3.8.2",
+) if is_windows else None
+
 # Curl system dependency
 nixpkgs_package(
     name = "curl_nix",

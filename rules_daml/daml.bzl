@@ -5,6 +5,7 @@ load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@os_info//:os_info.bzl", "is_windows")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
@@ -366,6 +367,79 @@ def daml_compile_with_dalf(
         project_version = version,
         dar = name + ".dar",
         dalf = name + ".dalf",
+    )
+
+def generate_and_track_dar_hash_file(name):
+    """
+    Given a 'name', defines the following targets:
+      (1) ':{name}-dar-hash-file-matches',
+      (2) ':{name}-golden-hash'.
+      (3) ':{name}-generated-hash',
+    Target (1) is a test that checks that the files in targets (2) and (3) match.
+    It can also replace (2) with the output of (3) if run with the flag '--accept'.
+    Target (2) is an indirection to the file
+      ':{name}.dar-hash',
+    which must be present in the package where this macro is used.
+    Target (3) is transitively defined by 'generate_dar_hash_file'.
+    """
+    generate_dar_hash_file(name)
+
+    native.filegroup(
+        name = name + "-golden-hash",
+        srcs = native.glob([name + ".dar-hash"]),
+        visibility = ["//visibility:public"],
+    )
+
+    test_name = name + "-dar-hash-file-matches"
+
+    lbl = "//{package}:{target}".format(
+        package = native.package_name(),
+        target = test_name,
+    )
+
+    native.sh_test(
+        name = test_name,
+        srcs = ["//bazel_tools:match-golden-file"],
+        args = [
+            lbl,
+            "$(location :{}-generated-hash)".format(name),
+            "$(location :{}-golden-hash)".format(name),
+            "$(POSIX_DIFF)",
+        ],
+        data = [
+            ":{}-generated-hash".format(name),
+            ":{}-golden-hash".format(name),
+        ],
+        toolchains = [
+            "@rules_sh//sh/posix:make_variables",
+        ],
+        deps = [
+            "@bazel_tools//tools/bash/runfiles",
+        ],
+    )
+
+def generate_dar_hash_file(name):
+    """
+    Given a 'name', defines a target of the form
+      ':{name}-generated-hash'.
+    with a single file of the form
+      ':{name}-generated.dar-hash'.
+    The resulting file will contain one line per file present in
+      ':{name}.dar',
+    sorted by filename and excluding *.hi and *.hie files, where each line
+    has the sha256sum for the file followed by the path of the file relative to
+    the root of the dar.
+    """
+    native.genrule(
+        name = name + "-generated-hash",
+        srcs = ["//rules_daml:generate-dar-hash", ":{}.dar".format(name)],
+        tools = ["@python_dev_env//:python"] if is_windows else [],
+        outs = [name + "-generated.dar-hash"],
+        cmd = "{python} {exe} {dar} > $@".format(
+            python = "$(execpath @python_dev_env//:python)" if is_windows else "python",
+            exe = "$(location //rules_daml:generate-dar-hash)",
+            dar = "$(location :{}.dar)".format(name),
+        ),
     )
 
 def daml_build_test(

@@ -85,7 +85,7 @@ check 'org.scala-lang:scala-reflect (in {maven_install_json})' "$$SCALA_REFLECT_
 ) if not is_windows else None
 
 filegroup(
-    name = "match-cabal-file",
-    srcs = glob(["match-cabal-file.sh"]),
+    name = "match-golden-file",
+    srcs = glob(["match-golden-file.sh"]),
     visibility = ["//visibility:public"],
 )
