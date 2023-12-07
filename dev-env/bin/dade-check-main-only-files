@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Checks whether any of the modified files sit under packages with targets marked as 'main-only'.
+#
+# This is as intended a simple heuristic to avoid accidentally omitting 'run-all-tests: true'
+# on a PR branch which touches those files.
+#
+
+DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 | grep 'run-all-tests')}"
+if [[ -n "$DADE_SKIP_MAIN_ONLY_CHECK" ]]; then
+  # The user has been explicit about whether they want all tests run,
+  # either by setting the env var, or adding a line to their last commit.
+  exit 0; 
+fi
+
+MODIFIED_FILES=$(echo "$@" | xargs -n1 | sort)
+MAIN_ONLY_DIRS=$(bazel query "attr(tags, 'main-only', //...)" 2>/dev/null | awk -F: '{print $1}' | sort -u | sed -e 's|^//||')
+
+# Does a cartesian product of the main-only dirs and modified files, and filters to files that are within dir.
+SUSPECT_FILES=$(join -j99 <(echo "$MAIN_ONLY_DIRS") <(echo "$MODIFIED_FILES") | awk '$1 == substr($2, 1, length($1)) {print $2}')
+
+if [[ -n "$SUSPECT_FILES" ]]; then
+  echo """
+The following modified files sit under a directory with 'main-only' targets:
+$SUSPECT_FILES
+
+Consider putting a line with 'run-all-tests: true' in your PR description, or \`export DADE_SKIP_MAIN_ONLY_CHECK=1\` and try again.
+    """ >&2
+  exit 1
+fi

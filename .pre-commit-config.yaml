@@ -51,3 +51,10 @@ repos:
       language: system
       pass_filenames: false
       entry: "pre-commit/platform-independence-check.sh"
+    - id: mainonly
+      name: main only
+      description: Check for changes under packages with targets tagged with main-only
+      language: system
+      pass_filenames: true
+      entry: "dade-check-main-only-files"
+      types: [text]
