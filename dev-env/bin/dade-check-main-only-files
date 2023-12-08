@@ -6,7 +6,7 @@
 # on a PR branch which touches those files.
 #
 
-DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 | grep 'run-all-tests')}"
+DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 --format=%b | tr -d ' ' | grep '^run-all-tests:true$')}"
 if [[ -n "$DADE_SKIP_MAIN_ONLY_CHECK" ]]; then
   # The user has been explicit about whether they want all tests run,
   # either by setting the env var, or adding a line to their last commit.
@@ -20,11 +20,11 @@ MAIN_ONLY_DIRS=$(bazel query "attr(tags, 'main-only', //...)" 2>/dev/null | awk 
 SUSPECT_FILES=$(join -j99 <(echo "$MAIN_ONLY_DIRS") <(echo "$MODIFIED_FILES") | awk '$1 == substr($2, 1, length($1)) {print $2}')
 
 if [[ -n "$SUSPECT_FILES" ]]; then
-  echo """
+  echo "
 The following modified files sit under a directory with 'main-only' targets:
 $SUSPECT_FILES
 
 Consider putting a line with 'run-all-tests: true' in your PR description, or \`export DADE_SKIP_MAIN_ONLY_CHECK=1\` and try again.
-    """ >&2
+    " >&2
   exit 1
 fi
