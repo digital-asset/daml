@@ -64,6 +64,18 @@ object CSMInconsistencyDef {
     k.exists(gk => inconsistencyCheck(s, gk, m))
   }
 
+  @pure
+  def inconsistencyCheck(s: State, contractId: ContractId): Boolean = {
+    s.locallyCreated.union(s.inputContractIds).contains(contractId)
+  }
+
+  @pure
+  def inconsistencyCheck(s: State, node: Node): Boolean = {
+    node match {
+      case create: Node.Create => inconsistencyCheck(s, create.coid)
+      case _ => false
+    }
+  }
 }
 
 object CSMInconsistency {
@@ -86,7 +98,8 @@ object CSMInconsistency {
     }
 
   }.ensuring(
-    (s.visitCreate(contractId, mbKey).isLeft == inconsistencyCheck(s, mbKey, KeyInactive))
+    s.visitCreate(contractId, mbKey).isLeft ==
+      (inconsistencyCheck(s, mbKey, KeyInactive) || inconsistencyCheck(s, contractId))
   )
 
   /** The resulting state after handling a Fetch node is defined if any only if the inconsistencyCondition is not met
@@ -106,6 +119,16 @@ object CSMInconsistency {
     }
 
   }.ensuring(s.assertKeyMapping(cid, gkey).isLeft == inconsistencyCheck(s, gkey, KeyActive(cid)))
+
+  /** The resulting state after handling a Fetch node is defined if any only if the inconsistencyCondition is not met
+    */
+  @pure
+  @opaque
+  def visitFetchUndefined(s: State, cid: ContractId, gkey: Option[GlobalKey]): Unit = {
+    require(containsOptionKey(s)(gkey))
+    unfold(s.visitFetch(cid, gkey))
+    assertKeyMappingUndefined(s, cid, gkey)
+  }.ensuring(s.visitFetch(cid, gkey).isLeft == inconsistencyCheck(s, gkey, KeyActive(cid)))
 
   /** The resulting state after handling an Exercise node is defined if any only if the inconsistencyCondition is not met
     */
@@ -160,7 +183,7 @@ object CSMInconsistency {
 
     node match {
       case create: Node.Create => visitCreateUndefined(s, create.coid, create.gkeyOpt)
-      case fetch: Node.Fetch => assertKeyMappingUndefined(s, fetch.coid, fetch.gkeyOpt)
+      case fetch: Node.Fetch => visitFetchUndefined(s, fetch.coid, fetch.gkeyOpt)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s)(node.gkeyOpt))
         unfold(inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node)))
@@ -169,7 +192,11 @@ object CSMInconsistency {
         visitExerciseUndefined(s, id, exe.targetCoid, exe.gkeyOpt, exe.byKey, exe.consuming)
     }
   }.ensuring(
-    s.handleNode(id, node).isLeft == inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node))
+    s.handleNode(id, node).isLeft ==
+      (inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node)) || inconsistencyCheck(
+        s,
+        node,
+      ))
   )
 
   /** If two states are defined after handling a node then their activeKeys shared the same entry for the node's key

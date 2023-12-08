@@ -292,7 +292,7 @@ object CSMAdvance {
     n match {
       case create: Node.Create => visitCreateActiveState(s, create.coid, create.gkeyOpt)
       case fetch: Node.Fetch =>
-        sameActiveStateActiveState(s, s.assertKeyMapping(fetch.coid, fetch.gkeyOpt))
+        sameActiveStateActiveState(s, s.visitFetch(fetch.coid, fetch.gkeyOpt))
       case lookup: Node.LookupByKey =>
         sameActiveStateActiveState(s, s.visitLookup(lookup.gkey, lookup.result))
       case exe: Node.Exercise =>
