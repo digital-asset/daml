@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.console
 
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
 import com.digitalasset.canton.config.RequireTypes.Port
@@ -34,7 +33,7 @@ import com.digitalasset.canton.topology.{DomainId, NodeIdentity, ParticipantId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, TimeoutException}
 import scala.util.hashing.MurmurHash3
 
 trait InstanceReferenceCommon
@@ -538,10 +537,68 @@ abstract class ParticipantReference(
   @Help.Group("Topology")
   @Help.Description("This group contains access to the full set of topology management commands.")
   def topology: TopologyAdministrationGroup = topology_
-  override protected def vettedPackagesOfParticipant(): Set[PackageId] = topology.vetted_packages
-    .list(filterStore = "Authorized", filterParticipant = id.filterString)
-    .flatMap(_.item.packageIds)
-    .toSet
+
+  override protected def waitPackagesVetted(
+      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+  ): Unit = {
+    def waitForPackages(
+        targetTopology: TopologyAdministrationGroup,
+        observer: String,
+        domainId: DomainId,
+    ): Unit =
+      try {
+        AdminCommandRunner
+          .retryUntilTrue(timeout) {
+            // ensure that vetted packages on the domain match the ones in the authorized store
+            val onTargetTopologyDomainStore = targetTopology.vetted_packages
+              .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
+              .flatMap(_.item.packageIds)
+              .toSet
+            val onParticipantAuthorizedStore = topology.vetted_packages
+              .list(filterStore = "Authorized", filterParticipant = id.filterString)
+              .flatMap(_.item.packageIds)
+              .toSet
+            val ret = onParticipantAuthorizedStore == onTargetTopologyDomainStore
+            if (!ret) {
+              logger.debug(
+                show"Still waiting for package vetting updates to be observed by $observer on $domainId: vetted - onDomain is ${onParticipantAuthorizedStore -- onTargetTopologyDomainStore} while onDomain -- vetted is ${onTargetTopologyDomainStore -- onParticipantAuthorizedStore}"
+              )
+            }
+            ret
+          }
+          .discard
+      } catch {
+        case _: TimeoutException =>
+          logger.error(
+            show"$observer has not observed all vetting txs of $id on domain $domainId within the given timeout."
+          )
+      }
+
+    val connected = domains.list_connected().map(_.domainId).toSet
+
+    // for every domain this participant is connected to
+    consoleEnvironment.domains.all
+      .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
+      .foreach { domain =>
+        waitForPackages(domain.topology, s"Domain ${domain.name}", domain.id)
+      }
+
+    // for every participant
+    consoleEnvironment.participants.all
+      .filter(p => p.health.running() && p.health.initialized())
+      .foreach { participant =>
+        // for every domain this participant is connected to as well
+        participant.domains.list_connected().foreach {
+          case item if connected.contains(item.domainId) =>
+            waitForPackages(
+              participant.topology,
+              s"Participant ${participant.name}",
+              item.domainId,
+            )
+          case _ =>
+        }
+      }
+  }
 
   override protected def participantIsActiveOnDomain(
       domainId: DomainId,
@@ -724,10 +781,55 @@ abstract class ParticipantReferenceX(
   @Help.Group("Topology")
   @Help.Description("This group contains access to the full set of topology management commands.")
   override def topology: TopologyAdministrationGroupX = topology_
-  override protected def vettedPackagesOfParticipant(): Set[PackageId] = topology.vetted_packages
-    .list(filterStore = "Authorized", filterParticipant = id.filterString)
-    .flatMap(_.item.packageIds)
-    .toSet
+
+  override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
+    val connected = domains.list_connected().map(_.domainId).toSet
+
+    // for every participant
+    consoleEnvironment.participantsX.all
+      .filter(p => p.health.running() && p.health.initialized())
+      .foreach { participant =>
+        // for every domain this participant is connected to as well
+        participant.domains.list_connected().foreach {
+          case item if connected.contains(item.domainId) =>
+            try {
+              AdminCommandRunner
+                .retryUntilTrue(timeout) {
+                  // ensure that vetted packages on the domain match the ones in the authorized store
+                  val onDomain = participant.topology.vetted_packages
+                    .list(
+                      filterStore = item.domainId.filterString,
+                      filterParticipant = id.filterString,
+                    )
+                    .flatMap(_.item.packageIds)
+                    .toSet
+
+                  // Vetted packages from the participant's authorized store
+                  val onParticipantAuthorizedStore = topology.vetted_packages
+                    .list(filterStore = "Authorized", filterParticipant = id.filterString)
+                    .filter(_.item.domainId.forall(_ == item.domainId))
+                    .flatMap(_.item.packageIds)
+                    .toSet
+
+                  val ret = onParticipantAuthorizedStore == onDomain
+                  if (!ret) {
+                    logger.debug(
+                      show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted - onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
+                    )
+                  }
+                  ret
+                }
+                .discard
+            } catch {
+              case _: TimeoutException =>
+                logger.error(
+                  show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.domainId} within the given timeout."
+                )
+            }
+          case _ =>
+        }
+      }
+  }
   override protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,

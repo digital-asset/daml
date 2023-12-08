@@ -636,7 +636,7 @@ object TopologyAdminCommandsX {
             )
           ),
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = false,
+          forceChange = forceChange,
           signedBy = signedBy.map(_.toProtoPrimitive),
           store,
         )

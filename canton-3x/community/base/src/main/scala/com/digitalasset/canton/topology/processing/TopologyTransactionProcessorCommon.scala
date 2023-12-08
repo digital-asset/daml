@@ -327,7 +327,12 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
                   ),
                 )
                 internalProcessEnvelopes(sc, sequencedTime, transactionsF)
-              case _: DeliverError => HandlerResult.done
+              case err: DeliverError =>
+                internalProcessEnvelopes(
+                  err.counter,
+                  SequencedTime(err.timestamp),
+                  FutureUnlessShutdown.pure(Nil),
+                )
             }
           }
         }

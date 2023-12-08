@@ -6,7 +6,6 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
   GetParticipantScheduleCommand,
@@ -772,7 +771,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
   def id: ParticipantId
 
-  protected def vettedPackagesOfParticipant(): Set[PackageId]
+  protected def waitPackagesVetted(
+      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+  ): Unit
+
   protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,
@@ -959,7 +961,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def synchronize_vetting(
         timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
-      val connected = domains.list_connected().map(_.domainId).toSet
 
       // ensure that the ledger api server has seen all packages
       try {
@@ -984,61 +985,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           )
       }
 
-      def waitForPackages(
-          topology: TopologyAdministrationGroup,
-          observer: String,
-          domainId: DomainId,
-      ): Unit = {
-        try {
-          AdminCommandRunner
-            .retryUntilTrue(timeout) {
-              // ensure that vetted packages on the domain match the ones in the authorized store
-              val onDomain = topology.vetted_packages
-                .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
-                .flatMap(_.item.packageIds)
-                .toSet
-              val vetted = vettedPackagesOfParticipant()
-              val ret = vetted == onDomain
-              if (!ret) {
-                logger.debug(
-                  show"Still waiting for package vetting updates to be observed by $observer on $domainId: vetted - onDomain is ${vetted -- onDomain} while onDomain -- vetted is ${onDomain -- vetted}"
-                )
-              }
-              ret
-            }
-            .discard
-        } catch {
-          case _: TimeoutException =>
-            logger.error(
-              show"$observer has not observed all vetting txs of $id on domain $domainId within the given timeout."
-            )
-        }
-      }
-
-      // for every domain this participant is connected to
-      consoleEnvironment.domains.all
-        .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
-        .foreach { domain =>
-          waitForPackages(domain.topology, s"Domain ${domain.name}", domain.id)
-        }
-
-      // for every participant
-      consoleEnvironment.participants.all
-        .filter(p => p.health.running() && p.health.initialized())
-        .foreach { participant =>
-          // for every domain this participant is connected to as well
-          participant.domains.list_connected().foreach {
-            case item if connected.contains(item.domainId) =>
-              waitForPackages(
-                participant.topology,
-                s"Participant ${participant.name}",
-                item.domainId,
-              )
-            case _ =>
-          }
-        }
+      waitPackagesVetted(timeout)
     }
-
   }
 
   @Help.Summary("Manage domain connections")

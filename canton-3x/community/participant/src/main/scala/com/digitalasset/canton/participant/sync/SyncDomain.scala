@@ -56,14 +56,7 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsProvider,
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
-import com.digitalasset.canton.participant.store.{
-  ContractChange,
-  ParticipantNodePersistentState,
-  StateChangeType,
-  StoredContract,
-  SyncDomainEphemeralState,
-  SyncDomainPersistentState,
-}
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
@@ -78,7 +71,6 @@ import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.AuthorityOfResponse

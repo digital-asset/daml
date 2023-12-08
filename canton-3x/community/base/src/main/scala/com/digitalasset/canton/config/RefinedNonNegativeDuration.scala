@@ -13,10 +13,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.canton.time.{
-  NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal,
-  PositiveSeconds as PositiveSecondsInternal,
-}
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal}
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, StackTraceUtil}
@@ -438,12 +435,6 @@ final case class PositiveDurationSeconds(underlying: FiniteDuration)
   }
 
   def asFiniteApproximation: FiniteDuration = underlying
-
-  private[canton] def toInternal: PositiveSecondsInternal = checked(
-    PositiveSecondsInternal.tryCreate(
-      asJava
-    )
-  )
 }
 
 object PositiveDurationSeconds

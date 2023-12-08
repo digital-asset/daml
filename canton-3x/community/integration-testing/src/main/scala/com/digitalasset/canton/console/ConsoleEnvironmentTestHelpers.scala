@@ -34,7 +34,16 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
 
-  def px(name: String): LocalParticipantReferenceX = participantsX.local
+  def lpx(name: String): LocalParticipantReferenceX = participantsX.local
+    .find(_.name == name)
+    .getOrElse(sys.error(s"participant x [$name] not configured"))
+
+  def rpx(name: String): RemoteParticipantReferenceX =
+    participantsX.remote
+      .find(_.name == name)
+      .getOrElse(sys.error(s"remote participant [$name] not configured"))
+
+  def px(name: String): ParticipantReferenceX = participantsX.all
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant x [$name] is configured"))
 

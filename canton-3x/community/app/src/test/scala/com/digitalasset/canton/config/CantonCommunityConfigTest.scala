@@ -334,8 +334,14 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
   "parsing our config example snippets" should {
     "succeed on all examples" in {
       val inputDir = baseDir / "documentation-snippets"
+
+      val exclude = List(
+        "enforce-protocol-version-domain-2.5.conf" // Does not build anymore but needed in the docs
+      )
+
       inputDir
         .list(_.extension.contains(".conf"))
+        .filterNot(file => exclude.contains(file.name))
         .foreach(file =>
           loggerFactory.assertLogsUnorderedOptional(
             loadFiles(Seq(simpleConf, "documentation-snippets/" + file.name))

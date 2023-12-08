@@ -318,7 +318,7 @@ object SequencerClientFactory {
           auth,
           metrics,
           processingTimeout,
-          loggerFactory,
+          loggerFactory.append("sequencerConnection", connection.sequencerAlias.unwrap),
           domainParameters.protocolVersion,
         )
       }
