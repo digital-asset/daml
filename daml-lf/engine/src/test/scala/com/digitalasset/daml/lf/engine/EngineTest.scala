@@ -1122,29 +1122,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case Node.Exercise(
-              coid,
-              _,
-              _,
-              choice,
-              consuming,
-              actingParties,
-              _,
-              _,
-              _,
-              _,
-              _,
-              children,
-              _,
-              _,
-              _,
-              _,
-            ) =>
-          coid shouldBe originalCoid
-          consuming shouldBe true
-          actingParties shouldBe Set(bob)
-          children.map(_.index) shouldBe ImmArray(1)
-          choice shouldBe "Transfer"
+        case exe: Node.Exercise =>
+          exe.targetCoid shouldBe originalCoid
+          exe.consuming shouldBe true
+          exe.actingParties shouldBe Set(bob)
+          exe.children.map(_.index) shouldBe ImmArray(1)
+          exe.choiceId shouldBe "Transfer"
         case _ => fail("exercise expected first for Bob")
       }
 
@@ -1229,7 +1212,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     def actFetchActors(n: Node): Set[Party] = {
       n match {
-        case Node.Fetch(_, _, actingParties, _, _, _, _, _) => actingParties
+        case fetch: Node.Fetch => fetch.actingParties
         case _ => Set()
       }
     }
@@ -1420,7 +1403,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
-      tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
+      tx.nodes.collectFirst { case (nid, nl: Node.LookupByKey) =>
         nid -> nl
       }
 
@@ -1743,8 +1726,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
-          key match {
+        case Some(fetch: Node.Fetch) =>
+          fetch.keyOpt match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
@@ -1976,9 +1959,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
-        tx.transaction.nodes(exeNode1)
-      val nids = children.toSeq.take(2).toImmArray
+      val exe = tx.transaction.nodes(exeNode1).asInstanceOf[Node.Exercise]
+      val nids = exe.children.toSeq.take(2).toImmArray
 
       reinterpret(
         suffixStrictEngine,

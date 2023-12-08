@@ -14,6 +14,7 @@ import scala.collection.immutable.TreeSet
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   val version: TransactionVersion
   val contractId: Value.ContractId
+  val packageName: Option[Ref.PackageName]
   val templateId: Ref.TypeConName
   val createArg: Value
   val signatories: TreeSet[Ref.Party]
@@ -34,6 +35,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
 private[lf] final case class FatContractInstanceImpl(
     version: TransactionVersion,
     contractId: Value.ContractId,
+    packageName: Option[Ref.PackageName],
     templateId: Ref.TypeConName,
     createArg: Value,
     signatories: TreeSet[Ref.Party],
@@ -69,6 +71,7 @@ private[lf] final case class FatContractInstanceImpl(
 
   def toCreateNode = Node.Create(
     contractId,
+    packageName,
     templateId,
     createArg,
     "",
@@ -89,6 +92,7 @@ object FatContractInstance {
     FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,
+      packageName = create.packageName,
       templateId = create.templateId,
       createArg = create.arg,
       signatories = TreeSet.from(create.signatories),

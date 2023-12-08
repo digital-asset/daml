@@ -47,6 +47,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val aliceS: Set[Ref.Party] = Set(alice)
   val templateId: Ref.TypeConName = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
+  val pkgName = Some(Ref.PackageName.assertFromString("package-name"))
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
   val sharedKeys: Boolean = Util.sharedKey(txVersion)
   val unit: Value = Value.ValueUnit
@@ -85,6 +86,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   ): Node.Create =
     Node.Create(
       coid = contractId,
+      packageName = pkgName,
       templateId = templateId,
       arg = unit,
       agreementText = "",
@@ -102,6 +104,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   ): Node.Exercise = {
     Node.Exercise(
       targetCoid = contractId,
+      packageName = pkgName,
       templateId = templateId,
       interfaceId = None,
       choiceId = choiceId,
@@ -127,6 +130,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   ): Node.Fetch = {
     Node.Fetch(
       coid = contractId,
+      packageName = pkgName,
       templateId = templateId,
       actingParties = aliceS,
       signatories = aliceS,
@@ -142,6 +146,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       contractId: Option[ContractId],
   ): Node.LookupByKey =
     Node.LookupByKey(
+      packageName = pkgName,
       templateId = templateId,
       key = toKeyWithMaintainers(templateId, key),
       result = contractId,
