@@ -13,7 +13,9 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
@@ -23,7 +25,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.SimpleExecutionQueue
+import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -384,6 +386,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
       {
         val ts = timestampForValidation()
         for {
+          _ <- MonadUtil.sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
           // validate incrementally and apply to in-memory state
           _ <- processor
             .validateAndApplyAuthorization(
@@ -407,6 +410,59 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
       },
       "add-topology-transaction",
     )
+
+  private def transactionIsNotDangerous(
+      transaction: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+      force: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TopologyManagerError, Unit] = transaction.mapping match {
+    case DomainParametersStateX(domainId, newDomainParameters) =>
+      checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, force)
+    case _ => EitherT.rightT(())
+  }
+
+  private def checkLedgerTimeRecordTimeToleranceNotIncreasing(
+      domainId: DomainId,
+      newDomainParameters: DynamicDomainParameters,
+      force: Boolean,
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] = {
+    // See i9028 for a detailed design.
+
+    EitherT(for {
+      headTransactions <- store.findPositiveTransactions(
+        asOf = CantonTimestamp.MaxValue,
+        asOfInclusive = false,
+        isProposal = false,
+        types = Seq(DomainParametersStateX.code),
+        filterUid = Some(Seq(domainId.uid)),
+        filterNamespace = None,
+      )
+    } yield {
+      headTransactions.toTopologyState
+        .collectFirst { case DomainParametersStateX(_, previousParameters) =>
+          previousParameters
+        } match {
+        case None => Right(())
+        case Some(domainParameters) =>
+          val changeIsDangerous =
+            newDomainParameters.ledgerTimeRecordTimeTolerance > domainParameters.ledgerTimeRecordTimeTolerance
+          if (changeIsDangerous && force) {
+            logger.info(
+              s"Forcing dangerous increase of ledger time record time tolerance from ${domainParameters.ledgerTimeRecordTimeTolerance} to ${newDomainParameters.ledgerTimeRecordTimeTolerance}"
+            )
+          }
+          Either.cond(
+            !changeIsDangerous || force,
+            (),
+            IncreaseOfLedgerTimeRecordTimeTolerance.TemporarilyInsecure(
+              domainParameters.ledgerTimeRecordTimeTolerance,
+              newDomainParameters.ledgerTimeRecordTimeTolerance,
+            ),
+          )
+      }
+    })
+  }
 
   /** notify observers about new transactions about to be stored */
   protected def notifyObservers(

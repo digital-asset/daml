@@ -12,6 +12,10 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommandsX,
 }
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
+import com.digitalasset.canton.admin.api.client.data.{
+  DynamicDomainParameters as ConsoleDynamicDomainParameters,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
@@ -29,9 +33,10 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.BaseQueryX
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
@@ -39,9 +44,14 @@ import com.digitalasset.canton.topology.store.{StoredTopologyTransactionsX, Time
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
+import java.time.Duration
+import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
 trait InitNodeIdX extends ConsoleCommandGroup {
@@ -228,7 +238,7 @@ class TopologyAdministrationGroupX(
       val domainParameterState =
         instance.topology.domain_parameters.propose(
           domainId,
-          DynamicDomainParameters
+          ConsoleDynamicDomainParameters
             .initialValues(
               consoleEnvironment.environment.clock,
               ProtocolVersion.latest,
@@ -1498,9 +1508,7 @@ class TopologyAdministrationGroupX(
                     This transaction will be rejected if another fully authorized transaction with the same serial already
                     exists, or if there is a gap between this serial and the most recently used serial.
                     If None, the serial will be automatically selected by the node.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        ops: Either Replace or Remove the vetting. Default to Replace.
-        |""")
+        signedBy: the fingerprint of the key to be used to sign this proposal""")
     def propose(
         participant: ParticipantId,
         packageIds: Seq[PackageId],
@@ -1796,6 +1804,7 @@ class TopologyAdministrationGroupX(
   @Help.Summary("Manage domain parameters state", FeatureFlag.Preview)
   @Help.Group("Domain Parameters State")
   object domain_parameters extends Helpful {
+    @Help.Summary("List dynamic domain parameters")
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
@@ -1820,9 +1829,24 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Get the configured dynamic domain parameters")
+    def get_dynamic_domain_parameters(domainId: DomainId): ConsoleDynamicDomainParameters =
+      ConsoleDynamicDomainParameters(
+        expectExactlyOneResult(
+          list(
+            filterStore = domainId.filterString,
+            proposals = false,
+            timeQuery = TimeQueryX.HeadState,
+            operation = Some(TopologyChangeOpX.Replace),
+            filterDomain = domainId.filterString,
+          )
+        ).item
+      )
+
     @Help.Summary("Propose changes to dynamic domain parameters")
-    @Help.Description("""
-       domain: the target domain
+    @Help.Description(
+      """
+       domainId: the target domain
        parameters: the new dynamic domain parameters to be used on the domain
 
        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
@@ -1838,32 +1862,326 @@ class TopologyAdministrationGroupX(
        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
                This transaction will be rejected if another fully authorized transaction with the same serial already
                exists, or if there is a gap between this serial and the most recently used serial.
-               If None, the serial will be automatically selected by the node.""")
+               If None, the serial will be automatically selected by the node.
+       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+    )
     def propose(
-        domain: DomainId,
-        parameters: DynamicDomainParameters,
+        domainId: DomainId,
+        parameters: ConsoleDynamicDomainParameters,
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            // TODO(#14058) maybe don't just take default values for dynamic parameters
-            DomainParametersStateX(
-              domain,
-              parameters,
-            ),
-            signedBy.toList,
-            serial = serial,
-            mustFullyAuthorize = mustFullyAuthorize,
-            store = store.getOrElse(domain.filterString),
-          )
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        force: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommandsX.Write.Propose(
+          DomainParametersStateX(
+            domainId,
+            parameters.toInternal,
+          ),
+          signedBy.toList,
+          serial = serial,
+          mustFullyAuthorize = mustFullyAuthorize,
+          store = store.getOrElse(domainId.filterString),
+          forceChange = force,
         )
+      )
+    }
+
+    @Help.Summary("Propose an update to dynamic domain parameters")
+    @Help.Description(
+      """
+       domainId: the target domain
+       update: the new dynamic domain parameters to be used on the domain
+       mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                           satisfy the mapping's authorization requirements.
+       signedBy: the fingerprint of the key to be used to sign this proposal
+       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+    )
+    def propose_update(
+        domainId: DomainId, // TODO(#15803) check whether we can infer domainId
+        update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
+        mustFullyAuthorize: Boolean = false,
+        // TODO(#14056) don't use the instance's root namespace key by default.
+        signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        force: Boolean = false,
+    ): Unit = {
+      val domainStore = domainId.filterString
+
+      val previousParameters = expectExactlyOneResult(
+        list(
+          filterDomain = domainId.filterString,
+          filterStore = domainStore,
+          operation = Some(TopologyChangeOpX.Replace),
+        )
+      )
+      val newParameters = update(ConsoleDynamicDomainParameters(previousParameters.item))
+
+      // Avoid topology manager ALREADY_EXISTS error by not submitting a no-op proposal.
+      // TODO(#15817): Move such ux-resilience avoiding error to write_service
+      if (ConsoleDynamicDomainParameters(previousParameters.item) != newParameters) {
+        propose(
+          domainId,
+          newParameters,
+          Some(domainStore),
+          mustFullyAuthorize,
+          signedBy,
+          Some(previousParameters.context.serial.increment),
+          synchronize,
+          force,
+        ).discard
       }
+    }
+
+    @Help.Summary("Update the participant response timeout in the dynamic domain parameters")
+    def set_participant_response_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(participantResponseTimeout = timeout))
+
+    @Help.Summary("Update the mediator reaction timeout in the dynamic domain parameters")
+    def set_mediator_reaction_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(mediatorReactionTimeout = timeout))
+
+    @Help.Summary("Update the transfer exclusivity timeout in the dynamic domain parameters")
+    def set_transfer_exclusivity_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(transferExclusivityTimeout = timeout))
+
+    @Help.Summary("Update the topology change delay in the dynamic domain parameters")
+    def set_topology_change_delay(
+        domainId: DomainId,
+        delay: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(topologyChangeDelay = delay))
+
+    @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
+    @Help.Description(
+      """If it would be insecure to perform the change immediately,
+        |the command will block and wait until it is secure to perform the change.
+        |The command will block for at most twice of ``newLedgerTimeRecordTimeTolerance``.
+        |
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newLedgerTimeRecordTimeTolerance``.
+        |
+        |Do not modify domain parameters concurrently while running this command,
+        |because the command may override concurrent changes.
+        |
+        |force: update ``ledgerTimeRecordTimeTolerance`` immediately without blocking.
+        |This is safe to do during domain bootstrapping and in test environments, but should not be done in operational production systems."""
+    )
+    def set_ledger_time_record_time_tolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        force: Boolean = false,
+    ): Unit = {
+      TraceContext.withNewTraceContext { implicit tc =>
+        if (!force) {
+          securely_set_ledger_time_record_time_tolerance(
+            domainId,
+            newLedgerTimeRecordTimeTolerance,
+          )
+        } else {
+          logger.info(
+            s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+          )
+          propose_update(
+            domainId,
+            _.update(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
+            force = true,
+          )
+        }
+      }
+    }
+
+    private def securely_set_ledger_time_record_time_tolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+    )(implicit traceContext: TraceContext): Unit = {
+      implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+
+      // See i9028 for a detailed design.
+      // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
+      // We wait until the antecedent of Lemma 2 Item 2 is falsified for all changes that violate the conclusion.
+
+      // Compute new parameters
+      val oldDomainParameters = get_dynamic_domain_parameters(domainId)
+      val oldLedgerTimeRecordTimeTolerance = oldDomainParameters.ledgerTimeRecordTimeTolerance
+
+      val minMediatorDeduplicationTimeout = newLedgerTimeRecordTimeTolerance * 2
+
+      if (oldDomainParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout) {
+        val err = TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
+          .PermanentlyInsecure(
+            newLedgerTimeRecordTimeTolerance.toInternal,
+            oldDomainParameters.mediatorDeduplicationTimeout.toInternal,
+          )
+        val msg = CantonError.stringFromContext(err)
+        consoleEnvironment.run(GenericCommandError(msg))
+      }
+
+      logger.info(
+        s"Securely updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+      )
+
+      // Poll until it is safe to increase ledgerTimeRecordTimeTolerance
+      def checkPreconditions(): Future[Unit] = {
+        val startTs = consoleEnvironment.environment.clock.now
+
+        // Update mediatorDeduplicationTimeout for several reasons:
+        // 1. Make sure it is big enough.
+        // 2. The resulting topology transaction gives us a meaningful lower bound on the sequencer clock.
+        logger.info(
+          s"Do a no-op update of ledgerTimeRecordTimeTolerance to $oldLedgerTimeRecordTimeTolerance..."
+        )
+        propose_update(
+          domainId,
+          _.copy(ledgerTimeRecordTimeTolerance = oldLedgerTimeRecordTimeTolerance),
+        )
+
+        logger.debug("Check for incompatible past domain parameters...")
+
+        val allTransactions = list(
+          domainId.filterString,
+          // We can't specify a lower bound in range because that would be compared against validFrom.
+          // (But we need to compare to validUntil).
+          timeQuery = TimeQueryX.Range(None, None),
+        )
+
+        // This serves as a lower bound of validFrom for the next topology transaction.
+        val lastSequencerTs =
+          allTransactions
+            .map(_.context.validFrom)
+            .maxOption
+            .getOrElse(throw new NoSuchElementException("Missing domain parameters!"))
+
+        logger.debug(s"Last sequencer timestamp is $lastSequencerTs.")
+
+        // Determine how long we need to wait until all incompatible domainParameters have become
+        // invalid for at least minMediatorDeduplicationTimeout.
+        val waitDuration = allTransactions
+          .filterNot(tx =>
+            ConsoleDynamicDomainParameters(tx.item).compatibleWithNewLedgerTimeRecordTimeTolerance(
+              newLedgerTimeRecordTimeTolerance
+            )
+          )
+          .map { tx =>
+            val elapsedForAtLeast = tx.context.validUntil match {
+              case Some(validUntil) => Duration.between(validUntil, lastSequencerTs)
+              case None => Duration.ZERO
+            }
+            minMediatorDeduplicationTimeout.asJava minus elapsedForAtLeast
+          }
+          .maxOption
+          .getOrElse(Duration.ZERO)
+
+        if (waitDuration > Duration.ZERO) {
+          logger.info(
+            show"Found incompatible past domain parameters. Waiting for $waitDuration..."
+          )
+
+          // Use the clock instead of Threading.sleep to support sim clock based tests.
+          val delayF = consoleEnvironment.environment.clock
+            .scheduleAt(
+              _ => (),
+              startTs.plus(waitDuration),
+            ) // avoid scheduleAfter, because that causes a race condition in integration tests
+            .onShutdown(
+              throw new IllegalStateException(
+                "Update of ledgerTimeRecordTimeTolerance interrupted due to shutdown."
+              )
+            )
+          // Do not submit checkPreconditions() to the clock because it is blocking and would therefore block the clock.
+          delayF.flatMap(_ => checkPreconditions())
+        } else {
+          Future.unit
+        }
+      }
+
+      consoleEnvironment.commandTimeouts.unbounded.await(
+        "Wait until ledgerTimeRecordTimeTolerance can be increased."
+      )(
+        checkPreconditions()
+      )
+
+      // Now that past values of mediatorDeduplicationTimeout have been large enough,
+      // we can change ledgerTimeRecordTimeTolerance.
+      logger.info(
+        s"Now changing ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+      )
+      propose_update(
+        domainId,
+        _.copy(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
+        force = true,
+      )
+    }
+
+    @Help.Summary("Update the mediator deduplication timeout in the dynamic domain parameters")
+    def set_mediator_deduplication_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(mediatorDeduplicationTimeout = timeout))
+
+    @Help.Summary("Update the reconciliation interval in the dynamic domain parameters")
+    def set_reconciliation_interval(
+        domainId: DomainId,
+        interval: config.PositiveDurationSeconds,
+    ): Unit = propose_update(domainId, _.update(reconciliationInterval = interval))
+
+    @Help.Summary("Update the maximum rate per participant in the dynamic domain parameters")
+    def set_max_rate_per_participant(
+        domainId: DomainId,
+        rate: NonNegativeInt,
+    ): Unit = propose_update(domainId, _.update(maxRatePerParticipant = rate))
+
+    @Help.Summary("Update the maximum request size in the dynamic domain parameters")
+    @Help.Description(
+      """The update won't have any effect until the sequencers are restarted."""
+    )
+    def set_max_request_size(
+        domainId: DomainId,
+        size: NonNegativeInt,
+    ): Unit = propose_update(domainId, _.update(maxRequestSize = size))
+
+    @Help.Summary(
+      "Update the sequencer aggregate submission timeout in the dynamic domain parameters"
+    )
+    def set_sequencer_aggregate_submission_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit =
+      propose_update(domainId, _.update(sequencerAggregateSubmissionTimeout = timeout))
+
+    @Help.Summary(
+      "Update the `trafficControlParameters` in the dynamic domain parameters"
+    )
+    def set_traffic_control_parameters(
+        domainId: DomainId,
+        trafficControlParameters: TrafficControlParameters,
+    ): Unit = propose_update(
+      domainId,
+      _.update(trafficControlParameters = Some(trafficControlParameters)),
+    )
+
+    @Help.Summary(
+      "Clear the traffic control parameters in the dynamic domain parameters"
+    )
+    def clear_traffic_control_parameters(domainId: DomainId): Unit =
+      propose_update(domainId, _.update(trafficControlParameters = None))
   }
 
   @Help.Summary("Inspect topology stores")
@@ -1886,4 +2204,8 @@ class TopologyAdministrationGroupX(
         s"Found ${multipleResults.size} results, but expect at most one."
       )
   }
+
+  private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
+    throw new IllegalStateException(s"Expected exactly one result, but found none")
+  )
 }

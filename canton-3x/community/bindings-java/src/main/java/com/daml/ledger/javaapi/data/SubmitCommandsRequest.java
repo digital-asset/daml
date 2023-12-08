@@ -210,8 +210,8 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
-  // TODO(i15642) Refactor this to take CommmandsSubmission when deprecated methods using it below are
-  // removed
+  // TODO(i15642) Refactor this to take CommmandsSubmission when deprecated methods using it below
+  // are removed
   private static CommandsOuterClass.Commands deprecatedToProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,

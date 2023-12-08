@@ -141,6 +141,7 @@ class TopologyTransactionProcessorX(
             )
           )
 
+          // TODO(#15089): do not notify the terminate processing for replayed events
           _ <- performUnlessClosingF("terminate-processing")(
             terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
           )

@@ -20,8 +20,6 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.DurationConverters.*
-import scala.math.Ordering.Implicits.*
 
 private[participant] class PruneObserver(
     requestJournalStore: RequestJournalStore,

@@ -29,7 +29,7 @@ object TerminateProcessing {
     * is finished. Hence, this no-op terminate processing should be used only in domain nodes.
     */
 
-  private[processing] object NoOpTerminateTopologyProcessing extends TerminateProcessing {
+  private[canton] object NoOpTerminateTopologyProcessing extends TerminateProcessing {
     override def terminate(
         sc: SequencerCounter,
         sequencedTime: SequencedTime,
