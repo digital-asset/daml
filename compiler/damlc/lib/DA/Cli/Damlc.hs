@@ -31,6 +31,7 @@ import DA.Cli.Options (Debug(..),
                        MultiPackageCleanAll(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
+                       MultiPackageBuildCompositeDar(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
@@ -48,6 +49,7 @@ import DA.Cli.Options (Debug(..),
                        multiPackageBuildAllOpt,
                        multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
+                       multiPackageBuildCompositeDarOpt,
                        multiPackageNoCacheOpt,
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
@@ -528,6 +530,7 @@ cmdBuildParser numProcessors =
         <*> multiPackageBuildAllOpt
         <*> multiPackageNoCacheOpt
         <*> multiPackageLocationOpt
+        <*> multiPackageBuildCompositeDarOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -951,8 +954,12 @@ execBuild
   -> MultiPackageBuildAll
   -> MultiPackageNoCache
   -> MultiPackageLocation
+  -> [MultiPackageBuildCompositeDar]
   -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
+execBuild
+    projectOpts opts mbOutFile
+    incrementalBuild initPkgDb
+    enableMultiPackage buildAll noCache multiPackageLocation compositeDars =
   Command Build (Just projectOpts) $ evalContT $ do
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
@@ -960,18 +967,19 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
         buildMulti mPkgConfig multiPackageConfigPath = do
+          -- check composite vs all vs both vs neither for this print - a big ol case if you will
+          -- If composite is given
           putStrLn $ "Running multi-package build of "
             <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
-    -- TODO: This throws if you have the sdk-version only daml.yaml, ideally it should return Nothing
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
 
-      case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
+      case (getMultiPackageBuildAll buildAll || not (null compositeDars), mPkgConfig, mMultiPackagePath) of
         -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml
         (True, _, Just multiPackagePath) ->
           -- TODO[SW]: Ideally we would error here if any of the flags that change `opts` has been set, as it won't be propagated
@@ -981,7 +989,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         -- We're attempting to multi-package build --all but we don't have a multi-package.yaml
         (True, _, Nothing) -> do
           hPutStrLn stderr
-            "Attempted to build all packages, but could not find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
+            "Attempted to build all packages or a composite dar, but could not find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
           exitFailure
 
         -- We know the package we want and we have a multi-package.yaml
@@ -1012,6 +1020,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
                 getMultiPackageBuildAll buildAll
                   || getMultiPackageNoCache noCache
                   || multiPackageLocation /= MPLSearch
+                  || not (null compositeDars)
           if usedMultiPackageOption
             then do
               hPutStrLn stderr "Multi-package build option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."

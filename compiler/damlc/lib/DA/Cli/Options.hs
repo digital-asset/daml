@@ -6,8 +6,7 @@ module DA.Cli.Options
   ) where
 
 import Data.List.Extra     (lower, splitOn, trim)
-import Options.Applicative hiding (option, strOption)
-import qualified Options.Applicative (option, strOption)
+import Options.Applicative
 import Options.Applicative.Extended
 import Data.List
 import Data.Maybe
@@ -166,6 +165,14 @@ newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Boo
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
 multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies")
 
+newtype MultiPackageBuildCompositeDar = MultiPackageBuildCompositeDar {getMultiPackageBuildCompositeDar :: T.Text}
+multiPackageBuildCompositeDarOpt :: Parser [MultiPackageBuildCompositeDar]
+multiPackageBuildCompositeDarOpt = many $ MultiPackageBuildCompositeDar <$> strOption
+    (  metavar "COMPOSITE-DAR-NAME"
+    <> help "Builds the given composite dar as defined in multi-package.yaml"
+    <> long "composite-dar"
+    )
+
 data MultiPackageLocation
   -- | Search for the multi-package.yaml above the current directory
   = MPLSearch
@@ -302,7 +309,7 @@ dlintHintFilesParser =
         )
     explicitDlintHintFiles =
       fmap ExplicitDlintHintFiles $
-        some $ Options.Applicative.strOption
+        some $ strOption
           ( long "lint-hint-file"
             <> metavar "FILE"
             <> internal
@@ -440,19 +447,19 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $
-        Options.Applicative.strOption $
+        strOption $
         metavar "INCLUDE-PATH" <>
         help "Path to an additional source directory to be included" <>
         long "include"
 
     optPackageDir :: Parser [FilePath]
-    optPackageDir = many $ Options.Applicative.strOption $ metavar "LOC-OF-PACKAGE-DB"
+    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
 
     optPackageImport :: Parser PackageFlag
     optPackageImport =
-      Options.Applicative.option readPackageImport $
+      option readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
       long "package" <>
@@ -557,7 +564,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
     fmap concat $ many $
-    Options.Applicative.option (stringsSepBy ' ') $
+    option (stringsSepBy ' ') $
     long "ghc-option" <>
     metavar "OPTION" <>
     help "Options to pass to the underlying GHC"

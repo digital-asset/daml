@@ -52,6 +52,10 @@ newtype MultiPackageConfig = MultiPackageConfig
     { unwrapMultiPackageConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
+newtype MultiPackageCompositeDar = MultiPackageCompositeDar
+    { unwrapMultiPackageCompositeDar :: Y.Value
+    } deriving (Eq, Show, Y.FromJSON)
+
 newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
     { unwrapUnresolvedReleaseVersion :: V.Version
     } deriving (Eq, Ord, Show)

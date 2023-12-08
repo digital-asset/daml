@@ -21,6 +21,7 @@ module DA.Daml.Project.Config
     , queryProjectConfigRequired
     , querySdkConfigRequired
     , queryMultiPackageConfigRequired
+    , queryMultiPackageCompositeDarRequired
     ) where
 
 import DA.Daml.Project.Consts
@@ -110,6 +111,9 @@ querySdkConfigRequired path = queryConfigRequired "SDK" "SdkConfig" path . unwra
 -- | Like 'queryMultiPackageConfig' but returns an error if the property is missing.
 queryMultiPackageConfigRequired :: Y.FromJSON t => [Text] -> MultiPackageConfig -> Either ConfigError t
 queryMultiPackageConfigRequired path = queryConfigRequired "multi-package" "MultiPackageConfig" path . unwrapMultiPackageConfig
+
+queryMultiPackageCompositeDarRequired :: Y.FromJSON t => [Text] -> MultiPackageCompositeDar -> Either ConfigError t
+queryMultiPackageCompositeDarRequired path = queryConfigRequired "multi-package" "MultiPackageCompositeDar" path . unwrapMultiPackageCompositeDar
 
 -- | (internal) Helper function for querying config data. The 'path' argument
 -- represents the location of the desired property within the config file.
