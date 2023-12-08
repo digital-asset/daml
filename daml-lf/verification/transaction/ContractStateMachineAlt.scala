@@ -190,7 +190,8 @@ case class State(
     res
   }.ensuring(res => sameState(this, res))
 
-  @pure @opaque
+  @pure
+  @opaque
   private[lf] def witnessContractId(contractId: ContractId): State = {
     val res = {
       if (locallyCreated.contains(contractId)) this

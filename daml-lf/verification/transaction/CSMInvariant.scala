@@ -340,6 +340,22 @@ object CSMInvariant {
     stateInvariantSameState(s, s.assertKeyMapping(cid, mbKey), unbound, lc)
   }.ensuring(stateInvariant(s.assertKeyMapping(cid, mbKey))(unbound, lc))
 
+  /** If a state fulfills the invariants then the state obtained after calling visitFetch also fulfills the invariants.
+    */
+  @pure
+  @opaque
+  def stateInvariantvisitFetch(
+      s: State,
+      cid: ContractId,
+      mbKey: Option[GlobalKey],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(s)(unbound, lc))
+    unfold(s.visitFetch(cid, mbKey))
+    stateInvariantAssertKeyMapping(s, cid, mbKey, unbound, lc)
+  }.ensuring(stateInvariant(s.visitFetch(cid, mbKey))(unbound, lc))
+
   /** If a state fulfills the invariants then the state obtained after calling visitLookup also fulfills the invariants.
     */
   @pure
@@ -596,7 +612,7 @@ object CSMInvariant {
       case create: Node.Create =>
         stateInvariantVisitCreate(s, create.coid, create.gkeyOpt, unbound, lc)
       case fetch: Node.Fetch =>
-        stateInvariantAssertKeyMapping(s, fetch.coid, fetch.gkeyOpt, unbound, lc)
+        stateInvariantvisitFetch(s, fetch.coid, fetch.gkeyOpt, unbound, lc)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s)(node.gkeyOpt))
         stateInvariantVisitLookup(s, lookup.gkey, lookup.result, unbound, lc)

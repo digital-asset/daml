@@ -423,6 +423,38 @@ object CSMConversion {
 
   @pure
   @opaque
+    def witnessContractIdToAlt(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(toAlt(consumed)(s).witnessContractId(cid))
+  }.ensuring(
+    toAlt(consumed)(s).witnessContractId(cid) == toAlt(consumed)(s.witnessContractId(cid))
+  )
+
+  @pure
+  @opaque
+  def witnessContractIdAddKey(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      gkey: Option[GlobalKey],
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(toAlt(consumed)(s), gkey, Some(cid))
+  }.ensuring(
+    addKey(toAlt(consumed)(s), gkey, Some(cid)).witnessContractId(cid)
+      == addKey(toAlt(consumed)(s).witnessContractId(cid), gkey, Some(cid))
+  )
+
+  @pure
+  @opaque
   def visitFetchToAlt(
       s: StateOriginal[NodeId],
       cid: ContractId,
@@ -433,9 +465,9 @@ object CSMConversion {
   ): Unit = {
     require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
     unfold(addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey))
-    unfold(addKey(toAlt(consumed)(s), gkey, Some(cid)))
-    assertKeyMappingToAlt(s, cid, gkey, consumed, unbound, lc)
-
+    witnessContractIdAddKey(s, cid, gkey, consumed, unbound, lc)
+    witnessContractIdToAlt(s, cid, consumed, unbound, lc)
+    assertKeyMappingToAlt(s.witnessContractId(cid), cid, gkey, consumed, unbound, lc)
   }.ensuring(
     addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey) == toAlt(consumed)(
       s.visitFetch(cid, gkey, true)
@@ -460,6 +492,10 @@ object CSMConversion {
     unfold(
       addKey(toAlt(consumed)(s), gk, Some(targetId))
         .visitExercise(nodeId, targetId, gk, byKey, consuming)
+    )
+    unfold(
+      addKey(toAlt(consumed)(s), gk, Some(targetId))
+        .witnessContractId(targetId)
     )
 
     assertKeyMappingToAlt(s, targetId, gk, consumed, unbound, lc)
