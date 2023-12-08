@@ -78,6 +78,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
       ContractInstance(
+        basicTestsPkg.name,
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(
           Some(BasicTests_WithKey),
@@ -94,6 +95,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
           ContractInstance(
+            basicTestsPkg.name,
             TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
@@ -104,6 +106,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
           ContractInstance(
+            basicTestsPkg.name,
             TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
@@ -274,7 +277,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           requireSuffixedGlobalContractId = true,
         )
       )
-      val (multiKeysPkgId, _, allMultiKeysPkgs) =
+      val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
         loadPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
@@ -286,6 +289,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val cid2 = toContractId("2")
       val keyedInst = assertAsVersionedContract(
         ContractInstance(
+          multiKeysPkg.name,
           TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )

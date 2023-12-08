@@ -288,6 +288,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
     TransactionVersion.assignNodeVersion(newVersion),
     Value.ContractInstance(
+      implementsPkg.name,
       implementsTemplateId,
       Value.ValueRecord(
         None,
@@ -301,6 +302,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val coimplementsContract: Versioned[Value.ContractInstance] = Versioned(
     TransactionVersion.assignNodeVersion(newVersion),
     Value.ContractInstance(
+      coImplementsPkg.name,
       coimplementsTemplateId,
       Value.ValueRecord(
         None,

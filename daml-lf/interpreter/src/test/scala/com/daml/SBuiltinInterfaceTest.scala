@@ -83,7 +83,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(iouId, iouPayload),
+                ContractInstance(basePkg.name, iouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -99,7 +99,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload),
+                ContractInstance(extraPkgName, extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -115,7 +115,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload),
+                ContractInstance(extraPkgName, extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>
@@ -143,9 +143,8 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val basePkgId = parserParameters.defaultPackageId
   val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
-  lazy val basePkgs = {
-    val pkg =
-      p"""
+  lazy val basePkg =
+    p""" metadata ( 'basic-package' : '1.0.0' )
         module T_Co0_No1 {
           record @serializable T_Co0_No1 = { party: Party, msg: Text };
 
@@ -272,13 +271,16 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
     """
-    Map(basePkgId -> pkg)
-  }
+
+  val basePkgs = Map(basePkgId -> basePkg)
+
   lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs, compilerConfig)
 
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
-  val extraPkgId = Ref.PackageId.assertFromString("-extra-package-")
+  // We assume extraPkg use the same version as basePkg
+  val extraPkgName = basePkg.name.map(_ => Ref.PackageName.assertFromString("-extra-package-name-"))
+  val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 
   lazy val extendedPkgs = {

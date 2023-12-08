@@ -2123,6 +2123,9 @@ private[lf] object SBuiltin {
         }
         ContractInfo(
           version = version,
+          // TODO: https://github.com/digital-asset/daml/issues/17995
+          //  propagate package name
+          packageName = None,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           agreementText = extractText(
@@ -2182,7 +2185,7 @@ private[lf] object SBuiltin {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(srcTmplId, coinstArg) =>
+        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
           val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
             case Some(tycon) =>
               (true, tycon)

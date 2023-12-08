@@ -24,13 +24,13 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
 
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
-  val (mainPkgId, packages) = {
+  val (mainPkgId, mainPkg, packages) = {
     val packages = UniversalArchiveDecoder.assertReadFile(
       new File(
         BazelRunfiles.rlocation(s"daml-lf/engine/Demonstrator-v${majorLanguageVersion.pretty}.dar")
       )
     )
-    (packages.main._1, packages.all.toMap)
+    (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
   val engine = Engine.DevEngine(majorLanguageVersion)
@@ -48,6 +48,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     Versioned(
       transaction.TransactionVersion.VDev,
       Value.ContractInstance(
+        mainPkg.name,
         requestTmplId,
         Value.ValueRecord(
           None,
@@ -63,6 +64,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   val roleContract = Versioned(
     transaction.TransactionVersion.VDev,
     Value.ContractInstance(
+      mainPkg.name,
       roleTmplId,
       Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
     ),

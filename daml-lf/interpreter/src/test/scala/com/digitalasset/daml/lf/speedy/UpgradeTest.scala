@@ -43,9 +43,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
 
-  private lazy val (pkgId1, pkg1) = {
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg1-")
-    val pkg = p"""
+  val pkgId1 = Ref.PackageId.assertFromString("-pkg1-")
+  private lazy val pkg1 = {
+    implicit def pkgId: Ref.PackageId = pkgId1
+    p""" metadata ( '-upgrade-test-' : '1.0.0' )
     module M {
 
       record @serializable T = { sig: Party, aNumber: Int64 };
@@ -68,14 +69,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     }
     """
-
-    (pkgId, pkg)
   }
 
-  private lazy val (pkgId2, pkg2) = {
+  val pkgId2: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
+
+  private lazy val pkg2 = {
     // same signatures as pkg1
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
-    val pkg = p"""
+    implicit def pkgId: Ref.PackageId = pkgId2
+    p""" metadata ( '-upgrade-test-' : '2.0.0' )
       module M {
 
       record @serializable T = { sig: Party, aNumber: Int64 };
@@ -91,13 +92,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           fetch_template @M:T cId;
       }
     """
-    (pkgId, pkg)
   }
 
-  private lazy val (pkgId3, pkg3) = {
+  val pkgId3: Ref.PackageId = Ref.PackageId.assertFromString("-pkg3-")
+  private lazy val pkg3 = {
     // add an optional additional signatory
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg3-")
-    val pkg = p"""
+    implicit def pkgId: Ref.PackageId = pkgId3
+    p""" metadata ( '-upgrade-test-' : '3.0.0' )
       module M {
 
       record @serializable T = { sig: Party, aNumber: Int64, optSig: Option Party };
@@ -114,7 +115,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       }
     """
-    (pkgId, pkg)
+  }
+
+  val pkgName = {
+    assert(pkg1.name == pkg2.name && pkg2.name == pkg3.name)
+    pkg1.name
   }
 
   private lazy val pkgs =
@@ -164,6 +169,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
         version = VDev,
+        packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
         agreementText = "meh",
@@ -211,9 +217,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueOptional(None),
         )
 
-      inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pkg2-':M:T", v_missingField))) {
-        case Right((v, _)) =>
-          v shouldBe v_extendedWithNone
+      inside(
+        go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pkg2-':M:T", v_missingField))
+      ) { case Right((v, _)) =>
+        v shouldBe v_extendedWithNone
       }
     }
 
@@ -221,11 +228,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       // should be caught by package upgradability check
       val v_missingField = makeRecord(ValueParty(alice))
 
-      inside(go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v_missingField))) {
-        case Left(SError.SErrorCrash(_, reason)) =>
-          reason should include(
-            "Unexpected non-optional extra template field type encountered during upgrading"
-          )
+      inside(
+        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v_missingField))
+      ) { case Left(SError.SErrorCrash(_, reason)) =>
+        reason should include(
+          "Unexpected non-optional extra template field type encountered during upgrading"
+        )
       }
     }
 
@@ -240,10 +248,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val expectedTyCon = i"'-pkg3-':M:T"
       val negativeTestCase = i"'-pkg2-':M:T"
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
-      go(e"'-pkg3-':M:do_fetch", ContractInstance(negativeTestCase, v)) shouldBe a[Right[_, _]]
+      go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, negativeTestCase, v)) shouldBe a[
+        Right[_, _]
+      ]
 
       forEvery(positiveTestCases) { tyCon =>
-        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(tyCon, v))) {
+        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, tyCon, v))) {
           case Left(SError.SErrorDamlException(e)) =>
             e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
         }
@@ -255,7 +265,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "correct fields" in {
 
-      val res = go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-pkg2-':M:T", v1_base))
+      val res = go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-pkg2-':M:T", v1_base))
 
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
@@ -272,7 +282,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueText("extra"),
         )
 
-      val res = go(e"'-pkg1-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v1_extraText))
+      val res =
+        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v1_extraText))
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -291,7 +302,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueOptional(Some(ValueParty(bob))),
         )
 
-      val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(i"'-pkg3-':M:T", v1_extraSome))
+      val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraSome))
 
       inside(res) { case Left(SError.SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(e)))) =>
         e shouldBe IE.Dev.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", v1_extraSome)
@@ -307,7 +318,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           Value.ValueOptional(None),
         )
 
-      val res = go(e"'-pkg2-':M:do_fetch", ContractInstance(i"'-unknow-':M:T", v1_extraNone))
+      val res =
+        go(e"'-pkg2-':M:do_fetch", ContractInstance(pkgName, i"'-unknow-':M:T", v1_extraNone))
 
       inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
@@ -333,7 +345,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ValueOptional(Some(ValueParty(bob))),
       )
 
-    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pgk3-':M:T", v_alice_none))) {
+    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_none))) {
       case Right((v, List(uv))) =>
         v shouldBe v_alice_none
         uv.coid shouldBe theCid
@@ -342,7 +354,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         uv.keyOpt shouldBe None
     }
 
-    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(i"'-pgk3-':M:T", v_alice_bob))) {
+    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_bob))) {
       case Right((v, List(uv))) =>
         v shouldBe v_alice_bob
         uv.coid shouldBe theCid

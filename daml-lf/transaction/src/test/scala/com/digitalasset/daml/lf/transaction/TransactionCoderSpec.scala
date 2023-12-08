@@ -383,6 +383,26 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
+    "accept to encode ContractInstance with a packageName iff version >= 1.16" ignore {
+      forAll(
+        malformedCreateNodeGen(),
+        pkgNameGen(TransactionVersion.minUpgrade),
+        minSuccessful(5),
+      ) { (create, pkgName) =>
+        val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
+
+        val normalizedCreate =
+          adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
+        val instance = normalizedCreate.versionedCoinst.map(
+          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
+        )
+        TransactionCoder
+          .encodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
+      }
+    }
+
+    // TODO: https://github.com/digital-asset/daml/issues/17995
+    //  enable the test
     "accept to encode FatContractInstance with a packageName iff version >= 1.16" ignore {
       forAll(
         malformedCreateNodeGen(),
@@ -513,6 +533,24 @@ class TransactionCoderSpec
       }
     }
 
+    "do ContractInstance" in {
+      forAll(
+        malformedCreateNodeGen(),
+        minSuccessful(5),
+      ) { (create) =>
+        val normalizedCreate = adjustStakeholders(normalizeCreate(create))
+        val instance = normalizedCreate.versionedCoinst.map(
+          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
+        )
+        val Right(encoded) =
+          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
+        val Right(decoded) =
+          TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
+
+        decoded shouldBe instance
+      }
+    }
+
     "do FatContractInstance" in {
       forAll(
         malformedCreateNodeGen(),
@@ -541,6 +579,27 @@ class TransactionCoderSpec
       val Right(Versioned(v, bytes)) = TransactionCoder.decodeVersioned(encoded)
       val builder = TransactionOuterClass.FatContractInstance.parseFrom(bytes).toBuilder
       TransactionCoder.encodeVersioned(v, f(builder).toByteString)
+    }
+
+    // TODO: https://github.com/digital-asset/daml/issues/17995
+    //  enable the test
+    "accept to decode ContractInstance with packageName iff version >= 1.16" ignore {
+      forAll(
+        malformedCreateNodeGen(),
+        pkgNameGen(TransactionVersion.minUpgrade),
+        minSuccessful(5),
+      ) { (create, pkgName) =>
+        val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
+
+        val normalizedCreate = adjustStakeholders(normalizeCreate(create))
+        val instance = normalizedCreate.versionedCoinst.map(
+          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
+        )
+        val Right(encoded) =
+          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
+        val wrongProto = encoded.toBuilder.setPackageName(wrongPackageName.getOrElse("")).build()
+        TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, wrongProto)
+      }
     }
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
