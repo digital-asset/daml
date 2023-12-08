@@ -8,7 +8,7 @@ cd scripts
 
 STAINLESS=$1
 #ARGS="--watch=false --timeout=30 --vc-cache=false --compact=true --solvers=nativez3 --infer-measures=false"
-ARGS="--watch=false --timeout=30 --vc-cache=true --compact=true --solvers=nativez3 --infer-measures=false --debug=stack"
+ARGS="--watch=false --timeout=30 --vc-cache=true --compact=true --solvers=nativez3 --infer-measures=false --functions=visitLookupToAlt"
 
 #Running stainless, there are 3 modes:
 # - translate: translate the original file to a simplified version and verifies only that

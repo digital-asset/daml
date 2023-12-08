@@ -389,9 +389,24 @@ object CSMConversion {
       lc: Set[ContractId],
   ): Unit = {
     require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+
     unfold(addKey(toAlt(consumed)(s), gk, keyInput).visitLookup(gk, keyResolution))
-    resolveKeyToAlt(s, keyInput, gk, consumed, unbound, lc)
-    unfold(addKey(toAlt(consumed)(s), gk, keyInput).activeKeys.getOrElse(gk, KeyInactive))
+    keyInput match {
+      case Some(cid) =>
+        witnessContractIdAddKey(s, cid, Some(gk), consumed, unbound, lc)
+        witnessContractIdToAlt(s, cid, consumed, unbound, lc)
+        resolveKeyToAlt(s.witnessContractId(cid), keyInput, gk, consumed, unbound, lc)
+        unfold(
+          addKey(toAlt(consumed)(s), gk, keyInput)
+            .witnessContractId(cid)
+            .activeKeys
+            .getOrElse(gk, KeyInactive)
+        )
+      case None() =>
+        resolveKeyToAlt(s, keyInput, gk, consumed, unbound, lc)
+        unfold(addKey(toAlt(consumed)(s), gk, keyInput).activeKeys.getOrElse(gk, KeyInactive))
+    }
+
   }.ensuring(
     addKey(toAlt(consumed)(s), gk, keyInput).visitLookup(gk, keyResolution) ==
       toAlt(consumed)(s.visitLookup(gk, keyInput, keyResolution))
@@ -423,7 +438,7 @@ object CSMConversion {
 
   @pure
   @opaque
-    def witnessContractIdToAlt(
+  def witnessContractIdToAlt(
       s: StateOriginal[NodeId],
       cid: ContractId,
       consumed: Set[ContractId],
