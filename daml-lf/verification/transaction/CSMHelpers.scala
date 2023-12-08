@@ -68,6 +68,7 @@ object CSMHelpers {
     */
   @pure
   def toKeyInputError(e: Either[InconsistentContractKey, State]): Either[KeyInputError, State] = {
+    sameStateLeftProj(e, KeyInputError.inject(_: InconsistentContractKey))
     e.left.map(KeyInputError.inject)
   }.ensuring(res =>
     propagatesBothError(e, res) &&
@@ -77,6 +78,7 @@ object CSMHelpers {
   @pure
   @targetName("toKeyInputErrorCreateError")
   def toKeyInputError(e: Either[CreateError, State]): Either[KeyInputError, State] = {
+    sameStateLeftProj(e, KeyInputError.from(_: CreateError))
     e.left.map(KeyInputError.from)
   }.ensuring(res =>
     propagatesBothError(e, res) &&

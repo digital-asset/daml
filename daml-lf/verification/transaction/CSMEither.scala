@@ -51,6 +51,7 @@ object CSMEitherDef {
     unfold(sameGlobalKeys(s1, s2))
     unfold(sameActiveState(s1, s2))
     unfold(sameLocallyCreated(s1, s2))
+    unfold(sameInputContractIds(s1, s2))
     unfold(sameConsumed(s1, s2))
 
     s2.forall((s: State) => s1 == s)
@@ -58,7 +59,7 @@ object CSMEitherDef {
     _ == (sameStack(s1, s2) && sameGlobalKeys(s1, s2) && sameActiveState(
       s1,
       s2,
-    ) && sameLocallyCreated(s1, s2) && sameConsumed(s1, s2))
+    ) && sameLocallyCreated(s1, s2) && sameInputContractIds(s1, s2) && sameConsumed(s1, s2))
   )
 
   /** Checks state equality. Equivalent to checking equality for every field.
@@ -74,13 +75,15 @@ object CSMEitherDef {
     unfold(sameGlobalKeys(s1, s2))
     unfold(sameActiveState(s1, s2))
     unfold(sameLocallyCreated(s1, s2))
+    unfold(sameInputContractIds(s1, s2))
     unfold(sameConsumed(s1, s2))
+
     s1.forall((s: State) => sameState(s, s2))
   }.ensuring(
     _ == (sameStack(s1, s2) && sameGlobalKeys(s1, s2) && sameActiveState(
       s1,
       s2,
-    ) && sameLocallyCreated(s1, s2) && sameConsumed(s1, s2))
+    ) && sameLocallyCreated(s1, s2) && sameInputContractIds(s1, s2) && sameConsumed(s1, s2))
   )
 
   /** Checks that two states have the same [[State.locallyCreated]] field.
@@ -106,6 +109,31 @@ object CSMEitherDef {
   @opaque
   def sameLocallyCreated[U, T](s1: Either[U, State], s2: Either[T, State]): Boolean = {
     s1.forall((s: State) => sameLocallyCreated(s, s2))
+  }
+
+  /** Checks that two states have the same [[State.inputContractIds]] field.
+    *
+    * @param s1 A well-defined state
+    * @param s2 A state that can be either well-defined or erroneous
+    * @return Whether s1.inputContractIds is equal to s2.inputContractIds if s2 is well-defined, otherwise returns true
+    */
+  @pure
+  @opaque
+  def sameInputContractIds[T](s1: State, s2: Either[T, State]): Boolean = {
+    s2.forall((s: State) => s1.inputContractIds == s.inputContractIds)
+  }
+
+  /** Checks that two states have the same [[State.inputContractIds]] field.
+    *
+    * @param s1 A state that can be either well-defined or erroneous
+    * @param s2 A state that can be either well-defined or erroneous
+    * @return Whether s1.inputContractIds is equal to s2.inputContractIds when both are well-defined,
+    *         otherwise returns true
+    */
+  @pure
+  @opaque
+  def sameInputContractIds[U, T](s1: Either[U, State], s2: Either[T, State]): Boolean = {
+    s1.forall((s: State) => sameInputContractIds(s, s2))
   }
 
   /** Checks that two states have the same [[State.consumed]] field.

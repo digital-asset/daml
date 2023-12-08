@@ -4,6 +4,7 @@
 package lf.verified
 package utils
 
+import stainless.annotation._
 import Value.ContractId
 
 object TransactionErrors {
@@ -19,12 +20,15 @@ object TransactionErrors {
       extends TransactionError
 
   object TransactionError {
+    @pure
     def inject(error: DuplicateContractId): TransactionError =
       DuplicateContractIdTxError(error)
 
+    @pure
     def inject(error: DuplicateContractKey): TransactionError =
       DuplicateContractKeyTxError(error)
 
+    @pure
     def from(error: CreateError): TransactionError = error match {
       case DuplicateContractIdCreateError(e) => inject(e)
       case DuplicateContractKeyCreateError(e) => inject(e)
@@ -40,15 +44,19 @@ object TransactionErrors {
       extends KeyInputError
 
   object KeyInputError {
+    @pure
     def inject(error: DuplicateContractId): KeyInputError =
       DuplicateContractIdKIError(error)
 
+    @pure
     def inject(error: DuplicateContractKey): KeyInputError =
       DuplicateContractKeyKIError(error)
 
+    @pure
     def inject(error: InconsistentContractKey): KeyInputError =
       InconsistentContractKeyKIError(error)
 
+    @pure
     def from(error: CreateError): KeyInputError = error match {
       case DuplicateContractIdCreateError(e) => inject(e)
       case DuplicateContractKeyCreateError(e) => inject(e)
@@ -62,9 +70,11 @@ object TransactionErrors {
       extends CreateError
 
   object CreateError {
+    @pure
     def inject(error: DuplicateContractId): CreateError =
       DuplicateContractIdCreateError(error)
 
+    @pure
     def inject(error: DuplicateContractKey): CreateError =
       DuplicateContractKeyCreateError(error)
   }
