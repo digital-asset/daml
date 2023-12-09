@@ -80,9 +80,9 @@ object SendAsyncError {
 
   final case class UnknownRecipients(message: String) extends SendAsyncError {
     protected def toResponseReasonProto: v0.SendAsyncResponse.Error.Reason =
-      v0.SendAsyncResponse.Error.Reason.SenderUnknown(message)
+      v0.SendAsyncResponse.Error.Reason.UnknownRecipients(message)
     protected def toSignedResponseReasonProto: v0.SendAsyncSignedResponse.Error.Reason =
-      v0.SendAsyncSignedResponse.Error.Reason.SenderUnknown(message)
+      v0.SendAsyncSignedResponse.Error.Reason.UnknownRecipients(message)
     override def category: ErrorCategory = ErrorCategory.InvalidGivenCurrentSystemStateOther
   }
 

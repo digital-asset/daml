@@ -8,15 +8,15 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransactionX.AuthorizedNamespaceDelegationX
 import com.digitalasset.canton.topology.transaction.{
+  DecentralizedNamespaceDefinitionX,
   NamespaceDelegationX,
   TopologyMappingX,
-  UnionspaceDefinitionX,
 }
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeysX}
 import com.digitalasset.canton.{BaseTestWordSpec, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
-class UnionspaceAuthorizationGraphXTest
+class DecentralizedNamespaceAuthorizationGraphXTest
     extends AnyWordSpec
     with BaseTestWordSpec
     with ProtocolVersionChecksAnyWordSpec {
@@ -29,33 +29,42 @@ class UnionspaceAuthorizationGraphXTest
 
     import factory.SigningKeys.*
 
-    val unionspace = Namespace(Fingerprint.tryCreate("unionspace-fingerprint"))
+    val decentralizedNamespace =
+      Namespace(Fingerprint.tryCreate("decentralized-namespace-fingerprint"))
     val ns1 = Namespace(key1.fingerprint)
     val ns2 = Namespace(key2.fingerprint)
     val ns3 = Namespace(key3.fingerprint)
     val owners = NonEmpty(Set, ns1, ns2, ns3)
-    val unionspaceDefinition =
-      UnionspaceDefinitionX.create(unionspace, PositiveInt.two, owners).fold(sys.error, identity)
+    val decentralizedNamespaceDefinition =
+      DecentralizedNamespaceDefinitionX
+        .create(decentralizedNamespace, PositiveInt.two, owners)
+        .fold(sys.error, identity)
 
     def mkGraph =
-      UnionspaceAuthorizationGraphX(
-        unionspaceDefinition,
-        new AuthorizationGraphX(unionspace, extraDebugInfo = false, loggerFactory = loggerFactory),
+      DecentralizedNamespaceAuthorizationGraphX(
+        decentralizedNamespaceDefinition,
+        new AuthorizationGraphX(
+          decentralizedNamespace,
+          extraDebugInfo = false,
+          loggerFactory = loggerFactory,
+        ),
         owners
           .map(new AuthorizationGraphX(_, extraDebugInfo = false, loggerFactory = loggerFactory))
           .forgetNE
           .toSeq,
       )
 
-    implicit class UnionspaceAuthorizationGraphXExtension(us: UnionspaceAuthorizationGraphX) {
+    implicit class DecentralizedNamespaceAuthorizationGraphXExtension(
+        dns: DecentralizedNamespaceAuthorizationGraphX
+    ) {
       def addAuth(authorizedNSD: AuthorizedNamespaceDelegationX) = {
-        val found = (us.direct +: us.ownerGraphs)
+        val found = (dns.direct +: dns.ownerGraphs)
           .find(_.namespace == authorizedNSD.signedTransaction.transaction.mapping.namespace)
         found.exists(_.add(authorizedNSD))
       }
 
       def removeAuth(authorizedNSD: AuthorizedNamespaceDelegationX) =
-        (us.direct +: us.ownerGraphs)
+        (dns.direct +: dns.ownerGraphs)
           .find(_.namespace == authorizedNSD.signedTransaction.transaction.mapping.namespace)
           .exists(_.remove(authorizedNSD))
 
@@ -113,7 +122,7 @@ class UnionspaceAuthorizationGraphXTest
     ) shouldBe valid
   }
 
-  "authorization graph for a unionspace" when {
+  "authorization graph for a decentralized namespace" when {
 
     "only having namespace delegations for its constituents" should {
       import fixture.*
@@ -134,7 +143,7 @@ class UnionspaceAuthorizationGraphXTest
 
         // at least quorum number of signatures is enough
         Seq(key1, key2, key3)
-          .combinations(unionspaceDefinition.threshold.value)
+          .combinations(decentralizedNamespaceDefinition.threshold.value)
           .foreach { keys =>
             check(graph, requireRoot = false, valid = true)(keys *)
             check(graph, requireRoot = true, valid = true)(keys *)
@@ -263,6 +272,6 @@ class UnionspaceAuthorizationGraphXTest
     }
   }
 
-  // TODO(#12390) add test that checks that a namespace delegation for the unionspace gets invalidated if
+  // TODO(#12390) add test that checks that a namespace delegation for the decentralized namespace gets invalidated if
   //              one of the keys signing that NSD gets invalidated
 }

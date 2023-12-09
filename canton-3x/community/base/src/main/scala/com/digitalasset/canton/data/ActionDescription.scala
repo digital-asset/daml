@@ -108,7 +108,6 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     actionNode match {
       case LfNodeCreate(
             contractId,
-            _packageName,
             _templateId,
             _arg,
             _agreementText,
@@ -125,7 +124,6 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
       case LfNodeExercises(
             inputContract,
-            _packageName,
             templateId,
             interfaceId,
             choice,
@@ -161,7 +159,6 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
       case LfNodeFetch(
             inputContract,
-            _packageName,
             _templateId,
             actingParties,
             _signatories,
@@ -185,7 +182,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           protocolVersionRepresentativeFor(protocolVersion)
         )
 
-      case LfNodeLookupByKey(_, _, keyWithMaintainers, _result, version) =>
+      case LfNodeLookupByKey(_, keyWithMaintainers, _result, version) =>
         for {
           _ <- Either.cond(
             seedO.isEmpty,
