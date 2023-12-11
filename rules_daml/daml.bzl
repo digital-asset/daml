@@ -381,42 +381,45 @@ def generate_and_track_dar_hash_file(name):
       ':{name}.dar-hash',
     which must be present in the package where this macro is used.
     Target (3) is transitively defined by 'generate_dar_hash_file'.
+
+    These targets are only generated if 'sdk_version == "0.0.0"'.
     """
-    generate_dar_hash_file(name)
+    if sdk_version == "0.0.0":
+        generate_dar_hash_file(name)
 
-    native.filegroup(
-        name = name + "-golden-hash",
-        srcs = native.glob([name + ".dar-hash"]),
-        visibility = ["//visibility:public"],
-    )
+        native.filegroup(
+            name = name + "-golden-hash",
+            srcs = native.glob([name + ".dar-hash"]),
+            visibility = ["//visibility:public"],
+        )
 
-    test_name = name + "-dar-hash-file-matches"
+        test_name = name + "-dar-hash-file-matches"
 
-    lbl = "//{package}:{target}".format(
-        package = native.package_name(),
-        target = test_name,
-    )
+        lbl = "//{package}:{target}".format(
+            package = native.package_name(),
+            target = test_name,
+        )
 
-    native.sh_test(
-        name = test_name,
-        srcs = ["//bazel_tools:match-golden-file"],
-        args = [
-            lbl,
-            "$(location :{}-generated-hash)".format(name),
-            "$(location :{}-golden-hash)".format(name),
-            "$(POSIX_DIFF)",
-        ],
-        data = [
-            ":{}-generated-hash".format(name),
-            ":{}-golden-hash".format(name),
-        ],
-        toolchains = [
-            "@rules_sh//sh/posix:make_variables",
-        ],
-        deps = [
-            "@bazel_tools//tools/bash/runfiles",
-        ],
-    )
+        native.sh_test(
+            name = test_name,
+            srcs = ["//bazel_tools:match-golden-file"],
+            args = [
+                lbl,
+                "$(location :{}-generated-hash)".format(name),
+                "$(location :{}-golden-hash)".format(name),
+                "$(POSIX_DIFF)",
+            ],
+            data = [
+                ":{}-generated-hash".format(name),
+                ":{}-golden-hash".format(name),
+            ],
+            toolchains = [
+                "@rules_sh//sh/posix:make_variables",
+            ],
+            deps = [
+                "@bazel_tools//tools/bash/runfiles",
+            ],
+        )
 
 def generate_dar_hash_file(name):
     """
