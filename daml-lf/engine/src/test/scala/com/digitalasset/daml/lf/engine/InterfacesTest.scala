@@ -59,7 +59,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, _) =
+    val (interfacesPkgId, interfacesPkg, _) =
       loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
       loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
@@ -75,10 +75,18 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
-        ContractInstance(idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+        ContractInstance(
+          interfacesPkg.name,
+          idT1,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        )
       ),
       cid2 -> assertAsVersionedContract(
-        ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+        ContractInstance(
+          interfacesPkg.name,
+          idT2,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        )
       ),
     )
     def consume[X](x: Result[X]) =

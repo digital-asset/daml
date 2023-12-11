@@ -723,7 +723,7 @@ object SpeedyTest {
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
     val machine: Speedy.UpdateMachine = Speedy.Machine
       .fromUpdateSExpr(
-        pkg,
+        pkgs,
         crypto.Hash.hashPrivateKey("VisibilityChecking"),
         SEValue(SUnit),
         // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders

@@ -28,6 +28,7 @@ message Transaction {
 
 // architecture-handbook-entry-begin: Contract
 message ContractInstance {
+   string package_name = 4; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
     string agreement = 3;

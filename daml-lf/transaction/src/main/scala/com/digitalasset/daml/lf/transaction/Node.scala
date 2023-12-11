@@ -116,7 +116,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(templateId, arg)
+      Value.ContractInstance(packageName, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 

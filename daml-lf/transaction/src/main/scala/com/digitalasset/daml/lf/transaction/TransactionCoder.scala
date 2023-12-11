@@ -92,16 +92,17 @@ object TransactionCoder {
       encodeCid: ValueCoder.EncodeCid,
       coinst: Versioned[Value.ContractInstanceWithAgreement],
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
-    ValueCoder
-      .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.contractInstance.arg)
-      .map(
-        TransactionOuterClass.ContractInstance
-          .newBuilder()
-          .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
-          .setArgVersioned(_)
-          .setAgreement(coinst.unversioned.agreementText)
-          .build()
-      )
+    for {
+      value <- ValueCoder
+        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.contractInstance.arg)
+      pkgName <- encodePackageName(coinst.unversioned.contractInstance.packageName, coinst.version)
+    } yield TransactionOuterClass.ContractInstance
+      .newBuilder()
+      .setPackageName(pkgName)
+      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
+      .setArgVersioned(value)
+      .setAgreement(coinst.unversioned.agreementText)
+      .build()
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
     Ref.PackageName.fromString(s).left.map(err => DecodeError(s"Invalid package name '$s': $err"))
@@ -159,11 +160,8 @@ object TransactionCoder {
   def decodeContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
-  ): Either[DecodeError, Value.ContractInstance] =
-    for {
-      id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
-      value <- ValueCoder.decodeValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.ContractInstance(id, value)
+  ): Either[DecodeError, Versioned[Value.ContractInstance]] =
+    decodeVersionedContractInstance(decodeCid, protoCoinst).map(_.map(_.contractInstance))
 
   def decodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
@@ -172,8 +170,16 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
+      pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
     } yield value.map(arg =>
-      Value.ContractInstanceWithAgreement(Value.ContractInstance(id, arg), protoCoinst.getAgreement)
+      Value.ContractInstanceWithAgreement(
+        Value.ContractInstance(
+          pkgName,
+          id,
+          arg,
+        ),
+        protoCoinst.getAgreement,
+      )
     )
 
   private[transaction] def encodeKeyWithMaintainers(
@@ -487,27 +493,21 @@ object TransactionCoder {
           ni <- nodeId
           pkgName <- decodePackageName(protoCreate.getPackageName, nodeVersion)
           c <- decodeCid.decode(protoCreate.getContractIdStruct)
-          entry <- for {
-            tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
-            arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
-          } yield Value.ContractInstanceWithAgreement(
-            Value.ContractInstance(tmplId, arg),
-            protoCreate.getAgreement,
-          )
-          Value.ContractInstanceWithAgreement(ci, agreementText) = entry
+          tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
+          arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
           signatories <- toPartySet(protoCreate.getSignatoriesList)
           keyOpt <- decodeOptionalKeyWithMaintainers(
             nodeVersion,
-            ci.template,
+            tmplId,
             protoCreate.getKeyWithMaintainers,
           )
         } yield ni -> Node.Create(
           coid = c,
           packageName = pkgName,
-          templateId = ci.template,
-          arg = ci.arg,
-          agreementText = agreementText,
+          templateId = tmplId,
+          arg = arg,
+          agreementText = protoCreate.getAgreement,
           signatories = signatories,
           stakeholders = stakeholders,
           keyOpt = keyOpt,

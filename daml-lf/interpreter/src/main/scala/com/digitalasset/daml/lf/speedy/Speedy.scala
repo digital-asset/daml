@@ -128,6 +128,7 @@ private[lf] object Speedy {
 
   final case class ContractInfo(
       version: TxVersion,
+      packageName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       value: SValue,
       agreementText: String,
@@ -352,6 +353,7 @@ private[lf] object Speedy {
           markDisclosedcontractAsUsed(coid)
           f(
             V.ContractInstance(
+              contractInfo.packageName,
               contractInfo.templateId,
               contractInfo.value.toUnnormalizedValue,
             )

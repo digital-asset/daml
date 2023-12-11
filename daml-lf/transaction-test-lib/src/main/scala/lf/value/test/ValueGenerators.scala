@@ -269,18 +269,12 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val contractInstanceGen: Gen[ContractInstance] = {
-    for {
-      template <- idGen
-      arg <- valueGen()
-    } yield ContractInstance(template, arg)
-  }
-
   val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
-    } yield arg.map(Value.ContractInstance(template, _))
+      pkgName <- pkgNameGen(arg.version)
+    } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: Ref.TypeConName,

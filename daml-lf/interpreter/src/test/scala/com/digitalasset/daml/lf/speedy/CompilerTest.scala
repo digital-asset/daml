@@ -14,9 +14,15 @@ import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Util}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+  Util,
+  Versioned,
+}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.lf.value.Value.ContractId.`Cid Order`
 import com.daml.lf.value.Value.ContractId.V1.`V1 Order`
 import org.scalatest.Inside
@@ -74,17 +80,23 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:PreCondRecord")
       val disclosedContract1 =
         buildDisclosedContractWithPreCond(disclosedCid1, templateId, precondition = true)
-      val versionedContract1 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract1.argument.toUnnormalizedValue,
+      val versionedContract1 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract1.argument.toUnnormalizedValue,
+        ),
       )
       val disclosedContract2 =
         buildDisclosedContractWithPreCond(cid2, templateId, precondition = false)
-      val versionedContract2 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract2.argument.toUnnormalizedValue,
+      val versionedContract2 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract2.argument.toUnnormalizedValue,
+        ),
       )
 
       "accept disclosed contracts with a valid precondition" in {
@@ -116,16 +128,22 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     "using a template with no key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
       val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId, version)
-      val versionedContract1 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract1.argument.toUnnormalizedValue,
+      val versionedContract1 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract1.argument.toUnnormalizedValue,
+        ),
       )
       val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId, version)
-      val versionedContract2 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract2.argument.toUnnormalizedValue,
+      val versionedContract2 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract2.argument.toUnnormalizedValue,
+        ),
       )
 
       "with no commands" should {
@@ -287,17 +305,23 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:RecordKey")
       val disclosedContract1 =
         buildDisclosedContract(disclosedCid1, alice, templateId, version, keyLabel = "test-label-1")
-      val versionedContract1 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract1.argument.toUnnormalizedValue,
+      val versionedContract1 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract1.argument.toUnnormalizedValue,
+        ),
       )
       val disclosedContract2 =
         buildDisclosedContract(disclosedCid2, alice, templateId, version, keyLabel = "test-label-2")
-      val versionedContract2 = VersionedContractInstance(
-        version,
-        templateId,
-        disclosedContract2.argument.toUnnormalizedValue,
+      val versionedContract2 = Versioned(
+        version = version,
+        ContractInstance(
+          packageName = pkg.name,
+          template = templateId,
+          arg = disclosedContract2.argument.toUnnormalizedValue,
+        ),
       )
 
       "with no commands" should {
@@ -472,7 +496,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val preCondRecordCon: Ref.Identifier =
     Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:PreCondRecord"))
   val pkg =
-    p"""
+    p"""  metadata ( '-compiler-test-package-' : '1.0.0' )
         module Module {
 
           record @serializable Record = { label: Text, party: Party };

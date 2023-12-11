@@ -30,7 +30,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  val pkgs = SpeedyTestLib.typeAndCompile(p"""
+  val pkg = p""" metadata ( '-limits-spec-' : '1.0.0' )
   module Mod {
 
     record @serializable T = {
@@ -64,7 +64,9 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
           upure @Unit ();
      };
   }
-""")
+"""
+
+  val pkgs = SpeedyTestLib.typeAndCompile(pkg)
 
   def eval(
       limits: interpretation.Limits,
@@ -483,6 +485,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
     Versioned(
       TransactionVersion.StableVersions.max,
       Value.ContractInstance(
+        pkg.name,
         T,
         Value.ValueRecord(
           None,
