@@ -151,7 +151,7 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
   test(
     description = "Template",
     lookup = pkgInterface.lookupTemplate,
-    toContext = Reference.Template,
+    toContext = Reference.Template(_: Ref.TypeConName),
   )(
     nonErrorCase = ("Mod:Contract": Identifier) -> { case template =>
       template.param shouldBe "this"
@@ -161,7 +161,7 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
     ("AnotherModule:Contract": Identifier) ->
       Reference.Module(defaultPackageId, "AnotherModule"),
     ("Mod:unit": Identifier) ->
-      Reference.Template("Mod:unit"),
+      Reference.Template("Mod:unit": Ref.TypeConName),
   )
 
 }

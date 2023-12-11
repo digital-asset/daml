@@ -4,6 +4,7 @@
 package com.daml.lf
 package data
 
+import com.daml.lf
 import com.daml.scalautil.Statement.discard
 
 object Ref {
@@ -239,6 +240,8 @@ object Ref {
       else
         this.qualifiedName compare that.qualifiedName
     }
+
+    private[lf] def toRef = TypeConRef(PackageRef.Id(packageId), qualifiedName)
   }
 
   object Identifier {
@@ -284,6 +287,29 @@ object Ref {
   /** Reference to a type synonym. */
   type TypeSynName = Identifier
   val TypeSynName = Identifier
+
+  sealed abstract class PackageRef extends Product with Serializable
+  object PackageRef {
+    final case class Name(name: PackageName) extends PackageRef {
+      override def toString: String = "#" + name
+    }
+    final case class Id(id: PackageId) extends PackageRef {
+      override def toString: String = id
+    }
+  }
+
+  final case class TypeConRef(pkgRef: PackageRef, qName: QualifiedName) {
+    override def toString: String = s"$pkgRef:$qName"
+
+    // TODO: https://github.com/digital-asset/daml/issues/17995
+    //   drop this method
+    def assertToTypeConName: lf.data.Ref.ValueRef = pkgRef match {
+      case PackageRef.Name(_) =>
+        throw new IllegalArgumentException("call by package name is not supported")
+      case PackageRef.Id(id) =>
+        TypeConName(id, qName)
+    }
+  }
 
   /*
      max size when converted to string: 3068 ASCII chars

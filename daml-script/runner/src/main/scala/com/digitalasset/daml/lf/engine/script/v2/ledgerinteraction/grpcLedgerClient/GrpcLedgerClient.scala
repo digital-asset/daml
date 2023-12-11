@@ -452,46 +452,52 @@ class GrpcLedgerClient(
   // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
   private def toCommandPackageIds(cmd: command.ApiCommand): List[PackageId] =
     cmd match {
-      case command.CreateAndExerciseCommand(templateId, _, _, _) =>
-        List(templateId.packageId, templateId.packageId)
-      case cmd => List(cmd.typeId.packageId)
+      case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
+        List(tmplRef.assertToTypeConName.packageId, tmplRef.assertToTypeConName.packageId)
+      case cmd =>
+        List(cmd.typeRef.assertToTypeConName.packageId)
     }
 
   private def toCommand(cmd: command.ApiCommand): Either[String, Command] =
     cmd match {
-      case command.CreateCommand(templateId, argument) =>
+      case command.CreateCommand(tmplRef, argument) =>
         for {
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(
-          CreateCommand(Some(toApiIdentifierUpgrades(templateId)), Some(arg))
+          CreateCommand(Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName)), Some(arg))
         )
-      case command.ExerciseCommand(typeId, contractId, choice, argument) =>
+      case command.ExerciseCommand(typeRef, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifierUpgrades(typeId)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(
+            Some(toApiIdentifierUpgrades(typeRef.assertToTypeConName)),
+            contractId.coid,
+            choice,
+            Some(arg),
+          )
         )
-      case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
+      case command.ExerciseByKeyCommand(tmplRef, key, choice, argument) =>
         for {
           key <- lfValueToApiValue(true, key)
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withExerciseByKey(
           ExerciseByKeyCommand(
-            Some(toApiIdentifierUpgrades(templateId)),
+            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName)),
             Some(key),
             choice,
             Some(argument),
           )
         )
-      case command.CreateAndExerciseCommand(templateId, template, choice, argument) =>
+      case command.CreateAndExerciseCommand(tmplRef, template, choice, argument) =>
         for {
           template <- lfValueToApiRecord(true, template)
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
-            Some(toApiIdentifierUpgrades(templateId)),
+            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName)),
             Some(template),
             choice,
             Some(argument),

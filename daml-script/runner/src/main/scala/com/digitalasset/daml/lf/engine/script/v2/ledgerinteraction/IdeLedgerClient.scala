@@ -413,8 +413,22 @@ class IdeLedgerClient(
       ),
     )
 
+  private[this] def tyConRefToPkgId(tyCon: Ref.TypeConRef) =
+    tyCon.pkgRef match {
+      case PackageRef.Id(id) =>
+        id
+      case PackageRef.Name(_) =>
+        // TODO: https://github.com/digital-asset/daml/issues/17995
+        //  add support for package name
+        throw new IllegalArgumentException("package name not support")
+    }
+
   private def getReferencePackageId(ref: Reference): PackageId =
     ref match {
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  add support for package name
+      case Reference.PackageWithName(_) =>
+        throw new IllegalArgumentException("package name not support")
       case Reference.Package(packageId) => packageId
       case Reference.Module(packageId, _) => packageId
       case Reference.Definition(name) => name.packageId
@@ -427,7 +441,7 @@ class IdeLedgerClient(
       case Reference.DataEnum(name) => name.packageId
       case Reference.DataEnumConstructor(name, _) => name.packageId
       case Reference.Value(name) => name.packageId
-      case Reference.Template(name) => name.packageId
+      case Reference.Template(tyCon) => tyConRefToPkgId(tyCon)
       case Reference.Interface(name) => name.packageId
       case Reference.TemplateKey(name) => name.packageId
       case Reference.InterfaceInstance(_, name) => name.packageId
@@ -435,7 +449,7 @@ class IdeLedgerClient(
       case Reference.TemplateChoice(name, _) => name.packageId
       case Reference.InterfaceChoice(name, _) => name.packageId
       case Reference.InheritedChoice(name, _, _) => name.packageId
-      case Reference.TemplateOrInterface(name) => name.packageId
+      case Reference.TemplateOrInterface(tyCon) => tyConRefToPkgId(tyCon)
       case Reference.Choice(name, _) => name.packageId
       case Reference.Method(name, _) => name.packageId
       case Reference.Exception(name) => name.packageId
@@ -525,7 +539,7 @@ class IdeLedgerClient(
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
       val eitherSpeedyCommands =
         try {
-          Right(preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray)))
+          Right(preprocessor.unsafePreprocessApiCommands(Map.empty, commands.to(ImmArray)))
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
         }

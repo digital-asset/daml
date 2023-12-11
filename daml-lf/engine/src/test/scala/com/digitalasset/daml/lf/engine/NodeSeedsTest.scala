@@ -76,12 +76,12 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   val Right((tx, metaData)) =
     engine
       .submit(
-        Set(operator),
-        Set.empty,
-        command.ApiCommands(
+        submitters = Set(operator),
+        readAs = Set.empty,
+        cmds = command.ApiCommands(
           ImmArray(
             command.ApiCommand.Exercise(
-              roleTmplId,
+              roleTmplId.toRef,
               roleCid,
               Ref.ChoiceName.assertFromString("AcceptTransfer"),
               Value.ValueRecord(None, ImmArray(None -> Value.ValueContractId(requestCid))),

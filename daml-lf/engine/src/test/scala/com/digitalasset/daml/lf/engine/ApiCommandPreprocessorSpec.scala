@@ -130,36 +130,40 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // TEST_EVIDENCE: Integrity: well formed create API command is accepted
       val validCreate = ApiCommand.Create(
-        "Mod:Record",
-        ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
+        templateRef = "Mod:Record",
+        argument = ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
       // TEST_EVIDENCE: Integrity: well formed exercise API command is accepted
       val validExeTemplate = ApiCommand.Exercise(
-        "Mod:Record",
-        newCid,
-        "Transfer",
-        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+        typeRef = "Mod:Record",
+        contractId = newCid,
+        choiceId = "Transfer",
+        argument =
+          ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       // TEST_EVIDENCE: Integrity: well formed exercise-by-key API command is accepted
       val validExeByKey = ApiCommand.ExerciseByKey(
-        "Mod:Record",
-        valueParties,
-        "Transfer",
-        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+        templateRef = "Mod:Record",
+        contractKey = valueParties,
+        choiceId = "Transfer",
+        argument =
+          ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       // TEST_EVIDENCE: Integrity: well formed exercise-by-interface command is accepted
       val validExeInterface = ApiCommand.Exercise(
-        "Mod:Iface",
-        newCid,
-        "IfaceChoice",
-        ValueUnit,
+        typeRef = "Mod:Iface",
+        contractId = newCid,
+        choiceId = "IfaceChoice",
+        argument = ValueUnit,
       )
       // TEST_EVIDENCE: Integrity: well formed create-and-exercise API command is accepted
       val validCreateAndExe = ApiCommand.CreateAndExercise(
-        "Mod:Record",
-        ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
-        "Transfer",
-        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+        templateRef = "Mod:Record",
+        createArgument =
+          ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
+        choiceId = "Transfer",
+        choiceArgument =
+          ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       val noErrorTestCases = Table[ApiCommand](
         "command",
@@ -173,12 +177,12 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val errorTestCases = Table[ApiCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
         // TEST_EVIDENCE: Integrity: ill-formed create API command is rejected
-        validCreate.copy(templateId = "Mod:Undefined") ->
+        validCreate.copy(templateRef = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Integrity: ill-formed exercise API command is rejected
-        validExeTemplate.copy(typeId = "Mod:Undefined") ->
+        validExeTemplate.copy(typeRef = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
@@ -189,7 +193,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         validExeInterface.copy(choiceId = "IfaceChoice2") ->
           a[Error.Preprocessing.Lookup],
         // TEST_EVIDENCE: Integrity: ill-formed exercise-by-key API command is rejected
-        validExeByKey.copy(templateId = "Mod:Undefined") ->
+        validExeByKey.copy(templateRef = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
@@ -198,7 +202,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         validExeByKey.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Integrity: ill-formed create-and-exercise API command is rejected
-        validCreateAndExe.copy(templateId = "Mod:Undefined") ->
+        validCreateAndExe.copy(templateRef = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreateAndExe.copy(createArgument =
           ValueRecord("", ImmArray("content" -> ValueInt64(42)))
@@ -213,11 +217,13 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(noErrorTestCases) { command =>
-        Try(defaultPreprocessor.unsafePreprocessApiCommand(command)) shouldBe a[Success[_]]
+        Try(defaultPreprocessor.unsafePreprocessApiCommand(Map.empty, command)) shouldBe a[Success[
+          _
+        ]]
       }
 
       forEvery(errorTestCases) { (command, typ) =>
-        inside(Try(defaultPreprocessor.unsafePreprocessApiCommand(command))) {
+        inside(Try(defaultPreprocessor.unsafePreprocessApiCommand(Map.empty, command))) {
           case Failure(error: Error.Preprocessing.Error) =>
             error shouldBe typ
         }
@@ -227,38 +233,40 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     def contractIdTestCases(culpritCid: ContractId, innocentCid: ContractId) = Table[ApiCommand](
       "command",
       ApiCommand.Create(
-        "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
+        templateRef = "Mod:RecordRef",
+        argument = ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
-        innocentCid,
-        "Change",
-        ValueContractId(culpritCid),
+        typeRef = "Mod:RecordRef",
+        contractId = innocentCid,
+        choiceId = "Change",
+        argument = ValueContractId(culpritCid),
       ),
       ApiCommand.Exercise(
-        "Mod:RecordRef",
-        culpritCid,
-        "Change",
-        ValueContractId(innocentCid),
+        typeRef = "Mod:RecordRef",
+        contractId = culpritCid,
+        choiceId = "Change",
+        argument = ValueContractId(innocentCid),
       ),
       ApiCommand.CreateAndExercise(
-        "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
-        "Change",
-        ValueContractId(innocentCid),
+        templateRef = "Mod:RecordRef",
+        createArgument =
+          ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
+        choiceId = "Change",
+        choiceArgument = ValueContractId(innocentCid),
       ),
       ApiCommand.CreateAndExercise(
-        "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(innocentCid))),
-        "Change",
-        ValueContractId(culpritCid),
+        templateRef = "Mod:RecordRef",
+        createArgument =
+          ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(innocentCid))),
+        choiceId = "Change",
+        choiceArgument = ValueContractId(culpritCid),
       ),
       ApiCommand.ExerciseByKey(
-        "Mod:RecordRef",
-        valueParties,
-        "Change",
-        ValueContractId(culpritCid),
+        templateRef = "Mod:RecordRef",
+        contractKey = valueParties,
+        choiceId = "Change",
+        argument = ValueContractId(culpritCid),
       ),
     )
 
@@ -282,7 +290,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       cids.foreach(cid =>
         forEvery(contractIdTestCases(cids.head, cid))(cmd =>
-          Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
+          Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe a[Success[_]]
         )
       )
 
@@ -304,10 +312,10 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(contractIdTestCases(aLegalCid, anotherLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe a[Success[_]]
       }
       forEvery(contractIdTestCases(illegalCid, aLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe failure
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failure
       }
     }
 
