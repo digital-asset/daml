@@ -111,6 +111,7 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
+      packageName: Option[PackageName],
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
       shared: Boolean,
@@ -144,6 +145,7 @@ private[lf] object Speedy {
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
         coid = coid,
+        packageName = packageName,
         templateId = templateId,
         arg = arg,
         agreementText = agreementText,
@@ -913,6 +915,22 @@ private[lf] object Speedy {
       TxVersion.assignNodeVersion(
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
+
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
+      import Ordering.Implicits._
+      if (version < TxVersion.minUpgrade)
+        None
+      else
+        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
+          case Some(value) => Some(value.name)
+          case None =>
+            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${version.pretty} package without metadata",
+            )
+        }
+    }
 
     /* kont manipulation... */
 

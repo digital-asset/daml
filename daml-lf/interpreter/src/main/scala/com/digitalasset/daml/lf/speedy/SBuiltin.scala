@@ -1020,6 +1020,7 @@ private[lf] object SBuiltin {
 
       getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
+        val pkgName = machine.tmplId2PackageName(templateId, templateVersion)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1045,6 +1046,7 @@ private[lf] object SBuiltin {
         def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
           machine.ptx
             .beginExercises(
+              packageName = pkgName,
               templateId = templateId,
               targetId = coid,
               contract = contract,
@@ -1459,8 +1461,9 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId, keyVersion)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, templateId, args.get(0))
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1537,8 +1540,9 @@ private[lf] object SBuiltin {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId, version)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, keyValue)
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
@@ -1969,7 +1973,11 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val contractInfoStruct = args.get(0)
-      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
+      val contract = extractContractInfo(
+        machine.tmplId2TxVersion,
+        machine.tmplId2PackageName,
+        contractInfoStruct,
+      )
       (keyHash, contract.keyOpt) match {
         case (Some(hash), Some(key)) if hash != key.globalKey.hash =>
           Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
@@ -2051,6 +2059,7 @@ private[lf] object SBuiltin {
   private[this] def extractKey(
       location: String,
       packageTxVersion: TransactionVersion,
+      pkgName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedKey =
@@ -2065,12 +2074,13 @@ private[lf] object SBuiltin {
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
         CachedKey(
-          GlobalKeyWithMaintainers(
+          packageName = pkgName,
+          globalKeyWithMaintainers = GlobalKeyWithMaintainers(
             gkey,
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
           ),
-          keyValue,
-          shared,
+          key = keyValue,
+          shared = shared,
         )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
@@ -2099,6 +2109,7 @@ private[lf] object SBuiltin {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
+      tmplId2PackageName: (TypeConName, TransactionVersion) => Option[PackageName],
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2112,9 +2123,12 @@ private[lf] object SBuiltin {
             )
         }
         val version = tmplId2TxVersion(templateId)
+        val pkgName = tmplId2PackageName(templateId, version)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
-            mbKey.map(extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, _))
+            mbKey.map(
+              extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
+            )
           case v =>
             throw SErrorCrash(
               NameOf.qualifiedNameOfCurrentFunc,
@@ -2123,9 +2137,7 @@ private[lf] object SBuiltin {
         }
         ContractInfo(
           version = version,
-          // TODO: https://github.com/digital-asset/daml/issues/17995
-          //  propagate package name
-          packageName = None,
+          packageName = pkgName,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           agreementText = extractText(
@@ -2320,7 +2332,11 @@ private[lf] object SBuiltin {
       ),
     )
     executeExpression(machine, e) { contractInfoStruct =>
-      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
+      val contract = extractContractInfo(
+        machine.tmplId2TxVersion,
+        machine.tmplId2PackageName,
+        contractInfoStruct,
+      )
       f(contract)
     }
   }

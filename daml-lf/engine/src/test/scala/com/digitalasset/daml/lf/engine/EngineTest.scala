@@ -757,6 +757,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = Node.Create(
         coid = usedDisclosedContract.contractId,
+        packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1597,6 +1598,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
+        packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -1650,6 +1652,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
+        packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         signatories = Set(alice),
@@ -2523,6 +2526,13 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def participant: Ref.IdString.ParticipantId = Ref.ParticipantId.assertFromString("participant")
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
+
+  def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
+    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
+      None
+    else
+      Some(basicTestsPkg.metadata.get.name)
+  }
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

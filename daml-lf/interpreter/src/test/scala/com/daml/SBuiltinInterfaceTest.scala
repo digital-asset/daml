@@ -71,7 +71,6 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "fetch_interface" - {
-
       "should request unknown package before everything else" in {
 
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
@@ -288,8 +287,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
     val modifiedParserParameters: parser.ParserParameters[this.type] =
       parserParameters.copy(defaultPackageId = extraPkgId)
 
-    val pkg =
-      p"""
+    val pkg = p""" metadata ( 'extended-pkg' : '1.0.0' )
         module Mod {
 
           record @serializable MyUnit = {};

@@ -118,10 +118,7 @@ object TransactionCoder {
         Left(
           DecodeError(s"packageName is not supported by transaction version ${version.protoValue}")
         )
-    else
-    // TODO: https://github.com/digital-asset/daml/issues/17995
-    //  drop the `|| true`, once the interpreter populate the package name
-    if (version < TransactionVersion.minUpgrade || true)
+    else if (version < TransactionVersion.minUpgrade)
       Right(None)
     else
       Left(DecodeError(s"packageName is required for transaction version  ${version.protoValue}"))
@@ -141,9 +138,7 @@ object TransactionCoder {
             )
           )
       case None =>
-        // TODO: https://github.com/digital-asset/daml/issues/17995
-        //  drop the `|| true`, once the interpreter populate the package name
-        if (version < TransactionVersion.minUpgrade || true)
+        if (version < TransactionVersion.minUpgrade)
           Right("")
         else
           Left(

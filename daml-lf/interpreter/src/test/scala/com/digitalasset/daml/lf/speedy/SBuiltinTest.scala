@@ -34,6 +34,7 @@ import org.scalatest.Inside
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
+import scala.Ordering.Implicits._
 
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
@@ -1816,7 +1817,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             ),
           )
         ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe rmPkgNames(Map(contractId -> contractInfo))
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe empty
         }
       }
@@ -1834,6 +1835,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             sharedKey = sharedKey,
           )
         val cachedKey = CachedKey(
+          pkgName,
           GlobalKeyWithMaintainers
             .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), sharedKey),
           key,
@@ -1879,7 +1881,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             ),
           )
         ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe rmPkgNames(Map(contractId -> contractInfo))
+          disclosedContracts shouldBe Map(contractId -> contractInfo)
           disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
         }
       }
@@ -1966,6 +1968,11 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     """
 
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+  val pkgName =
+    if (txVersion < TransactionVersion.minUpgrade)
+      None
+    else
+      Some(Ref.PackageName.assertFromString("-sbuiltin-test-"))
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
@@ -2117,10 +2124,5 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   }
 
   val witness = Numeric.Scale.values.map(n => SNumeric(Numeric.assertFromBigDecimal(n, 1)))
-
-  // TODO: https://github.com/digital-asset/daml/issues/17995
-  //  remove that once engine popule packageNames properly
-  def rmPkgNames(disclosedContracts: Map[Value.ContractId, ContractInfo]) =
-    disclosedContracts.transform((_, info) => info.copy(packageName = None))
 
 }
