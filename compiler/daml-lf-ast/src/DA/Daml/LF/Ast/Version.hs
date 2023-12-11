@@ -270,7 +270,7 @@ featureNatTypeErasure :: Feature
 featureNatTypeErasure = Feature
     { featureName = "Erasing types of kind Nat"
     , featureVersionReq = VersionReq \case
-          V1 -> allMinorVersionsAfter PointDev
+          V1 -> noMinorVersion
           V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
     }

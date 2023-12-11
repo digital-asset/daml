@@ -1,9 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SUPPORTS-LF-FEATURE DAML_NAT_TYPE_ERASURE
--- @INFO range=49:22-49:32; Use sqrt
--- @INFO range=68:15-68:25; Use sqrt
+-- @INFO range=48:22-48:32; Use sqrt
+-- @INFO range=67:15-67:25; Use sqrt
 
 
 module Math where
@@ -60,12 +59,12 @@ sqrtTest = script do
 trigTest = script do
   let
     delta = 10.0 ^ (-10) : Decimal
-  assert (abs(sin (pi 0.0 / 4.0) - cos (pi 0.0 / 4.0)) <= 3.0 * delta)
+  assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= 3.0 * delta)
   assert (abs(0.0 - sin 0.0) <= delta)
-  assert (abs(1.0 - sin (pi 0.0 / 2.0)) <= delta)
-  assert (abs(1.0 + sin (3.0 * pi 0.0 / 2.0)) <= delta)
-  assert (abs(2.0 ** negate 0.5 - sin (pi 0.0 / 4.0)) <= delta)
-  assert (abs(3.0 ** 0.5 / 2.0 - sin (pi 0.0 / 3.0)) <= 2.0 * delta)
+  assert (abs(1.0 - sin (pi / 2.0)) <= delta)
+  assert (abs(1.0 + sin (3.0 * pi / 2.0)) <= delta)
+  assert (abs(2.0 ** negate 0.5 - sin (pi / 4.0)) <= delta)
+  assert (abs(3.0 ** 0.5 / 2.0 - sin (pi / 3.0)) <= 2.0 * delta)
 
-  assert (cos (15.0 * pi 0.0 / 2.0) <= delta)
-  assert (abs(0.5 - cos (pi 0.0 / 3.0)) <= 4.0 * delta)
+  assert (cos (15.0 * pi / 2.0) <= delta)
+  assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
