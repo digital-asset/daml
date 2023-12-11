@@ -21,6 +21,7 @@ module DA.Daml.Project.Config
     , queryProjectConfigRequired
     , querySdkConfigRequired
     , queryMultiPackageConfigRequired
+    , queryMultiPackageCompositeDar
     , queryMultiPackageCompositeDarRequired
     ) where
 
@@ -96,6 +97,9 @@ querySdkConfig path = queryConfig "SDK" "SdkConfig" path . unwrapSdkConfig
 queryMultiPackageConfig :: Y.FromJSON t => [Text] -> MultiPackageConfig -> Either ConfigError (Maybe t)
 queryMultiPackageConfig path = queryConfig "multi-package" "MultiPackageConfig" path . unwrapMultiPackageConfig
 
+queryMultiPackageCompositeDar :: Y.FromJSON t => [Text] -> MultiPackageCompositeDar -> Either ConfigError (Maybe t)
+queryMultiPackageCompositeDar path = queryConfig "multi-package" "MultiPackageCompositeDar" path . unwrapMultiPackageCompositeDar
+
 -- | Like 'queryDamlConfig' but returns an error if the property is missing.
 queryDamlConfigRequired :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError t
 queryDamlConfigRequired path = queryConfigRequired "daml" "DamlConfig" path . unwrapDamlConfig
@@ -112,6 +116,7 @@ querySdkConfigRequired path = queryConfigRequired "SDK" "SdkConfig" path . unwra
 queryMultiPackageConfigRequired :: Y.FromJSON t => [Text] -> MultiPackageConfig -> Either ConfigError t
 queryMultiPackageConfigRequired path = queryConfigRequired "multi-package" "MultiPackageConfig" path . unwrapMultiPackageConfig
 
+-- | Like 'queryMultiPackageCompositeDar' but returns an error if the property is missing.
 queryMultiPackageCompositeDarRequired :: Y.FromJSON t => [Text] -> MultiPackageCompositeDar -> Either ConfigError t
 queryMultiPackageCompositeDarRequired path = queryConfigRequired "multi-package" "MultiPackageCompositeDar" path . unwrapMultiPackageCompositeDar
 

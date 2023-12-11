@@ -9,9 +9,13 @@ module DA.Daml.LF.Reader
     , Dalfs(..)
     , readDalfManifest
     , readDalfs
+    , readDalfsWithMeta
+    , dalfsToList
     ) where
 
 import "zip-archive" Codec.Archive.Zip
+import qualified DA.Daml.LF.Ast as LF
+import Data.Bifunctor (bimap)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -19,7 +23,10 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Char
 import Data.Either.Extra
 import Data.List.Extra
+import Data.Maybe (fromJust)
+import qualified Data.Text as T
 import Data.Void
+import System.FilePath (takeBaseName)
 import Text.Megaparsec
 import Text.Megaparsec.Byte
 
@@ -90,11 +97,14 @@ data DalfManifest = DalfManifest
     } deriving (Show)
 
 -- | The dalfs stored in the DAR.
-data Dalfs = Dalfs
-    { mainDalf :: BSL.ByteString
-    , dalfs :: [BSL.ByteString]
+data Dalfs a = Dalfs
+    { mainDalf :: a
+    , dalfs :: [a]
     -- ^ Excludes the mainDalf.
-    } deriving (Show)
+    } deriving (Eq, Ord, Show, Functor)
+
+dalfsToList :: Dalfs a -> [a]
+dalfsToList d = mainDalf d : dalfs d
 
 readDalfManifest :: Archive -> Either String DalfManifest
 readDalfManifest dar = do
@@ -111,11 +121,25 @@ readDalfManifest dar = do
         lookup attrName attrs
     missingAttr attrName = Left $ "No " <> BSUTF8.toString attrName <> " attribute in manifest."
 
-readDalfs :: Archive -> Either String Dalfs
+readDalfs :: Archive -> Either String (Dalfs BSL.ByteString)
 readDalfs dar = do
     DalfManifest{..} <- readDalfManifest dar
     mainDalf <- getEntry dar mainDalfPath
     dalfs <- mapM (getEntry dar) (delete mainDalfPath dalfPaths)
+    pure $ Dalfs mainDalf dalfs
+
+extractNameAndPackageIdFromPath :: FilePath -> (T.Text, LF.PackageId)
+extractNameAndPackageIdFromPath = bimap (T.pack . intercalate "-") (LF.PackageId . T.pack) . fromJust . unsnoc . wordsBy (=='-') . takeBaseName
+
+readDalfsWithMeta :: Archive -> Either String (Dalfs (T.Text, BSL.ByteString, LF.PackageId))
+readDalfsWithMeta dar = do
+    DalfManifest{..} <- readDalfManifest dar
+    let getEntryWithMeta dar path = do
+          dalf <- getEntry dar path
+          let (name, pkgId) = extractNameAndPackageIdFromPath path
+          pure (name, dalf, pkgId)
+    mainDalf <- getEntryWithMeta dar mainDalfPath
+    dalfs <- mapM (getEntryWithMeta dar) (delete mainDalfPath dalfPaths)
     pure $ Dalfs mainDalf dalfs
 
 getEntry :: Archive -> FilePath -> Either String BSL.ByteString

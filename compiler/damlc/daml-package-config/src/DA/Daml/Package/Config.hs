@@ -7,6 +7,7 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
+    , CompositeDar (..)
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
@@ -104,13 +105,18 @@ data CompositeDar = CompositeDar
     { cdName :: LF.PackageName
     , cdVersion :: LF.PackageVersion
     , cdPackages :: [FilePath]
+    , cdDars :: [FilePath]
+    , cdPath :: Maybe FilePath
     }
+    deriving Show
 
 data MultiPackageConfigFields = MultiPackageConfigFields
     { mpPackagePaths :: [FilePath]
     , mpCompositeDars :: [CompositeDar]
-    , mpTransitiveCompositeDarNames :: [LF.PackageName]
+    , mpTransitiveCompositeDarNames :: [(FilePath, [LF.PackageName])]
+    , mpPath :: FilePath
     }
+    deriving Show
 
 -- | Intermediate of MultiPackageConfigFields that carries links to other config files, before being flattened into a single MultiPackageConfigFields
 data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
@@ -122,12 +128,17 @@ parseCompositeDar :: MultiPackageCompositeDar -> Either ConfigError CompositeDar
 parseCompositeDar compositeDar = do
     cdName <- queryMultiPackageCompositeDarRequired ["name"] compositeDar
     cdVersion <- queryMultiPackageCompositeDarRequired ["version"] compositeDar
-    cdPackages <- queryMultiPackageCompositeDarRequired ["packages"] compositeDar
-    Right CompositeDar {..}
+    cdPackages <- fromMaybe [] <$> queryMultiPackageCompositeDar ["packages"] compositeDar
+    cdDars <- fromMaybe [] <$> queryMultiPackageCompositeDar ["dars"] compositeDar
+    cdPath <- queryMultiPackageCompositeDar ["path"] compositeDar
+    if null $ cdPackages <> cdDars
+      then Left $ ConfigFileInvalid "multi-package" $ Y.InvalidYaml $ Just
+            $ Y.YamlException $ "Missing either `packages` or `dars` in composite dar \"" <> (T.unpack $ LF.unPackageName cdName) <> "\""
+      else Right CompositeDar {..}
 
 -- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
-parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFieldsIntermediate
-parseMultiPackageConfig multiPackage = do
+parseMultiPackageConfig :: MultiPackageConfig -> FilePath -> Either ConfigError MultiPackageConfigFieldsIntermediate
+parseMultiPackageConfig multiPackage mpPath = do
     mpPackagePaths <- fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
     mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
     compositeDarObjects <- fromMaybe [] <$> queryMultiPackageConfig ["composite-dars"] multiPackage
@@ -197,7 +208,10 @@ findMultiPackageConfig projectPath = do
 canonicalizeCompositeDar :: CompositeDar -> IO CompositeDar
 canonicalizeCompositeDar cd = do
   canonPackages <- traverse canonicalizePath $ cdPackages cd
-  pure cd { cdPackages = canonPackages }
+  canonDars <- traverse canonicalizePath $ cdDars cd
+  canonPath <- traverse canonicalizePath $ cdPath cd
+
+  pure cd { cdPackages = canonPackages, cdDars = canonDars, cdPath = canonPath }
 
 canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
 canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate mpc multiPackagePaths) =
@@ -208,6 +222,7 @@ canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFields
             <$> traverse canonicalizePath (mpPackagePaths mpc)
             <*> traverse canonicalizeCompositeDar (mpCompositeDars mpc)
             <*> pure (mpTransitiveCompositeDarNames mpc)
+            <*> pure (mpPath mpc)
         )
       <*> traverse canonicalizePath multiPackagePaths
 
@@ -231,14 +246,15 @@ fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
 fullParseMultiPackageConfig startPath = do
   mpcs <- exploreAndFlatten startPath $ \projectPath -> do
     multiPackage <- readMultiPackageConfig projectPath
-    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
+    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage $ unwrapProjectPath projectPath)
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
     pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
   pure MultiPackageConfigFields
     { mpPackagePaths = nubOrd $ concatMap mpPackagePaths mpcs
     , mpCompositeDars = mpCompositeDars $ head mpcs
-    , mpTransitiveCompositeDarNames = nubOrd $ concatMap (fmap cdName . mpCompositeDars) $ tail mpcs
+    , mpTransitiveCompositeDarNames = (\mpc -> (mpPath mpc, cdName <$> mpCompositeDars mpc)) <$> tail mpcs
+    , mpPath = mpPath $ head mpcs
     }
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.

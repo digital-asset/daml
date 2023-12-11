@@ -6,6 +6,7 @@
 module DA.Daml.LF.Proto3.Decode
   ( Error(..)
   , decodePayload
+  , extractLFVersion
   ) where
 
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
@@ -44,6 +45,14 @@ decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
     Just (ArchivePayloadSumDamlLf2 package) -> do
         version <- decodeLfVersion LF.V2 pkgId minorText
         DecodeV2.decodePackage version selfPackageRef package
+    Nothing -> Left $ ParseError "Empty payload"
+  where
+    minorText = TL.toStrict (archivePayloadMinor payload)
+
+extractLFVersion :: PackageId -> ArchivePayload -> Either Error LF.Version
+extractLFVersion pkgId payload = case archivePayloadSum payload of
+    Just (ArchivePayloadSumDamlLf1 _) -> decodeLfVersion LF.V1 pkgId minorText
+    Just (ArchivePayloadSumDamlLf2 _) -> decodeLfVersion LF.V2 pkgId minorText
     Nothing -> Left $ ParseError "Empty payload"
   where
     minorText = TL.toStrict (archivePayloadMinor payload)
