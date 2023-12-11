@@ -1,0 +1,23 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Proprietary code. All rights reserved.
+
+package com.daml.ledger.javaapi.data
+
+import com.daml.ledger.javaapi.data.GeneratorsV2._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
+class GetActiveContractsResponseV2Spec
+    extends AnyFlatSpec
+    with Matchers
+    with ScalaCheckDrivenPropertyChecks {
+
+  "GetActiveContractsResponse.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
+    getActiveContractResponseGen
+  ) { activeContractResponse =>
+    val converted =
+      GetActiveContractsResponseV2.fromProto(activeContractResponse)
+    GetActiveContractsResponseV2.fromProto(converted.toProto) shouldEqual converted
+  }
+}

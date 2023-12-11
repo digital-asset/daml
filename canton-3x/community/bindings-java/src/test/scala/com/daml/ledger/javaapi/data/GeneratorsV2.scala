@@ -1,0 +1,686 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Proprietary code. All rights reserved.
+
+package com.daml.ledger.javaapi.data
+
+import java.time.{Duration, Instant, LocalDate}
+
+import com.daml.ledger.api._
+import com.google.protobuf.{ByteString, Empty}
+import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.{Arbitrary, Gen}
+
+import scala.jdk.CollectionConverters._
+import scala.util.chaining.scalaUtilChainingOps
+
+// Allows using deprecated Protobuf fields for testing
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
+object GeneratorsV2 {
+
+  def valueGen: Gen[v1.ValueOuterClass.Value] =
+    Gen.sized(height =>
+      if (height <= 0) unitValueGen
+      else
+        Gen.oneOf(
+          recordValueGen,
+          variantValueGen,
+          contractIdValueGen,
+          listValueGen,
+          int64ValueGen,
+          decimalValueGen,
+          textValueGen,
+          timestampValueGen,
+          partyValueGen,
+          boolValueGen,
+          unitValueGen,
+          dateValueGen,
+        )
+    )
+
+  def recordGen: Gen[v1.ValueOuterClass.Record] =
+    for {
+      recordId <- Gen.option(identifierGen)
+      fields <- Gen.sized(height =>
+        for {
+          size <- Gen.size.flatMap(maxSize => Gen.chooseNum(1, math.max(maxSize, 1)))
+          newHeight = height / size
+          withLabel <- Arbitrary.arbBool.arbitrary
+          recordFields <- Gen.listOfN(size, Gen.resize(newHeight, recordFieldGen(withLabel)))
+        } yield recordFields
+      )
+    } yield {
+      val builder = v1.ValueOuterClass.Record.newBuilder()
+      recordId.foreach(builder.setRecordId)
+      builder.addAllFields(fields.asJava)
+      builder.build()
+    }
+
+  def recordValueGen: Gen[v1.ValueOuterClass.Value] = recordGen.map(valueFromRecord)
+
+  def valueFromRecord(
+      record: v1.ValueOuterClass.Record
+  ): com.daml.ledger.api.v1.ValueOuterClass.Value = {
+    v1.ValueOuterClass.Value.newBuilder().setRecord(record).build()
+  }
+
+  def identifierGen: Gen[v1.ValueOuterClass.Identifier] =
+    for {
+      moduleName <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
+      entityName <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
+      packageId <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
+    } yield v1.ValueOuterClass.Identifier
+      .newBuilder()
+      .setModuleName(moduleName)
+      .setEntityName(entityName)
+      .setPackageId(packageId)
+      .build()
+
+  def recordLabelGen: Gen[String] =
+    for {
+      head <- Arbitrary.arbChar.arbitrary
+      tail <- Arbitrary.arbString.arbitrary
+    } yield head +: tail
+
+  def recordFieldGen(withLabel: Boolean): Gen[v1.ValueOuterClass.RecordField] = {
+    if (withLabel) {
+      for {
+        label <- recordLabelGen
+        value <- valueGen
+      } yield v1.ValueOuterClass.RecordField.newBuilder().setLabel(label).setValue(value).build()
+    } else {
+      valueGen.flatMap(v1.ValueOuterClass.RecordField.newBuilder().setValue(_).build())
+    }
+  }
+
+  def unitValueGen: Gen[v1.ValueOuterClass.Value] =
+    Gen.const(v1.ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()).build())
+
+  def variantGen: Gen[v1.ValueOuterClass.Variant] =
+    for {
+      variantId <- identifierGen
+      constructor <- Arbitrary.arbString.arbitrary
+      value <- valueGen
+    } yield v1.ValueOuterClass.Variant
+      .newBuilder()
+      .setVariantId(variantId)
+      .setConstructor(constructor)
+      .setValue(value)
+      .build()
+
+  def variantValueGen: Gen[v1.ValueOuterClass.Value] =
+    variantGen.map(v1.ValueOuterClass.Value.newBuilder().setVariant(_).build())
+
+  def optionalGen: Gen[v1.ValueOuterClass.Optional] =
+    Gen
+      .option(valueGen)
+      .map(_.fold(v1.ValueOuterClass.Optional.getDefaultInstance) { v =>
+        v1.ValueOuterClass.Optional.newBuilder().setValue(v).build()
+      })
+
+  def optionalValueGen: Gen[v1.ValueOuterClass.Value] =
+    optionalGen.map(v1.ValueOuterClass.Value.newBuilder().setOptional(_).build())
+
+  def contractIdValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbString.arbitrary.map(v1.ValueOuterClass.Value.newBuilder().setContractId(_).build())
+
+  def byteStringGen: Gen[ByteString] =
+    Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
+
+  def listGen: Gen[v1.ValueOuterClass.List] =
+    Gen
+      .sized(height =>
+        for {
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          newHeight = height / size
+          list <- Gen
+            .listOfN(size, Gen.resize(newHeight, valueGen))
+            .map(_.asJava)
+        } yield list
+      )
+      .map(v1.ValueOuterClass.List.newBuilder().addAllElements(_).build())
+
+  def listValueGen: Gen[v1.ValueOuterClass.Value] =
+    listGen.map(v1.ValueOuterClass.Value.newBuilder().setList(_).build())
+
+  def textMapGen: Gen[v1.ValueOuterClass.Map] =
+    Gen
+      .sized(height =>
+        for {
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          newHeight = height / size
+          keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
+          values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+        } yield (keys zip values).map { case (k, v) =>
+          v1.ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
+        }
+      )
+      .map(x => v1.ValueOuterClass.Map.newBuilder().addAllEntries(x.asJava).build())
+
+  def textMapValueGen: Gen[v1.ValueOuterClass.Value] =
+    textMapGen.map(v1.ValueOuterClass.Value.newBuilder().setMap(_).build())
+
+  def genMapGen: Gen[v1.ValueOuterClass.GenMap] =
+    Gen
+      .sized(height =>
+        for {
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          newHeight = height / size
+          keys <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+          values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+        } yield (keys zip values).map { case (k, v) =>
+          v1.ValueOuterClass.GenMap.Entry.newBuilder().setKey(k).setValue(v).build()
+        }
+      )
+      .map(x => v1.ValueOuterClass.GenMap.newBuilder().addAllEntries(x.asJava).build())
+
+  def genMapValueGen: Gen[v1.ValueOuterClass.Value] =
+    genMapGen.map(v1.ValueOuterClass.Value.newBuilder().setGenMap(_).build())
+
+  def int64ValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbLong.arbitrary.map(v1.ValueOuterClass.Value.newBuilder().setInt64(_).build())
+
+  def textValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbString.arbitrary.map(v1.ValueOuterClass.Value.newBuilder().setText(_).build())
+
+  def timestampValueGen: Gen[v1.ValueOuterClass.Value] =
+    instantGen.map(instant =>
+      v1.ValueOuterClass.Value.newBuilder().setTimestamp(instant.toEpochMilli * 1000).build()
+    )
+
+  def instantGen: Gen[Instant] =
+    Gen
+      .chooseNum(
+        Instant.parse("0001-01-01T00:00:00Z").toEpochMilli,
+        Instant.parse("9999-12-31T23:59:59.999999Z").toEpochMilli,
+      )
+      .map(Instant.ofEpochMilli)
+
+  def partyValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbString.arbitrary.map(v1.ValueOuterClass.Value.newBuilder().setParty(_).build())
+
+  def boolValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbBool.arbitrary.map(v1.ValueOuterClass.Value.newBuilder().setBool(_).build())
+
+  def dateValueGen: Gen[v1.ValueOuterClass.Value] =
+    localDateGen.map(d => v1.ValueOuterClass.Value.newBuilder().setDate(d.toEpochDay.toInt).build())
+
+  def localDateGen: Gen[LocalDate] =
+    Gen
+      .chooseNum(LocalDate.parse("0001-01-01").toEpochDay, LocalDate.parse("9999-12-31").toEpochDay)
+      .map(LocalDate.ofEpochDay)
+
+  def decimalValueGen: Gen[v1.ValueOuterClass.Value] =
+    Arbitrary.arbBigDecimal.arbitrary.map(d =>
+      v1.ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build()
+    )
+
+  def eventGen: Gen[v1.EventOuterClass.Event] =
+    for {
+      eventBuilder <- eventBuilderGen
+    } yield {
+      val b = v1.EventOuterClass.Event
+        .newBuilder()
+      eventBuilder(b)
+      b.build()
+    }
+
+  def eventBuilderGen: Gen[v1.EventOuterClass.Event.Builder => v1.EventOuterClass.Event] =
+    Gen.oneOf(
+      createdEventGen.map(e => (b: v1.EventOuterClass.Event.Builder) => b.setCreated(e).build()),
+      archivedEventGen.map(e => (b: v1.EventOuterClass.Event.Builder) => b.setArchived(e).build()),
+    )
+
+  private[this] val failingStatusGen = Gen const com.google.rpc.Status.getDefaultInstance
+
+  private[this] val interfaceViewGen: Gen[v1.EventOuterClass.InterfaceView] =
+    Gen.zip(identifierGen, Gen.either(recordGen, failingStatusGen)).map { case (id, vs) =>
+      val b = v1.EventOuterClass.InterfaceView.newBuilder().setInterfaceId(id)
+      vs.fold(b.setViewValue, b.setViewStatus).build()
+    }
+
+  val createdEventGen: Gen[v1.EventOuterClass.CreatedEvent] =
+    for {
+      contractId <- contractIdValueGen.map(_.getContractId)
+      templateId <- identifierGen
+      createArgument <- recordGen
+      createEventBlob <- byteStringGen
+      interfaceViews <- Gen.listOf(interfaceViewGen)
+      eventId <- Arbitrary.arbString.arbitrary
+      witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      signatories <- Gen.listOf(Gen.asciiPrintableStr)
+      observers <- Gen.listOf(Gen.asciiPrintableStr)
+    } yield v1.EventOuterClass.CreatedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .setCreateArguments(createArgument)
+      .setCreatedEventBlob(createEventBlob)
+      .addAllInterfaceViews(interfaceViews.asJava)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .addAllSignatories(signatories.asJava)
+      .addAllObservers(observers.asJava)
+      .build()
+
+  val archivedEventGen: Gen[v1.EventOuterClass.ArchivedEvent] =
+    for {
+      contractId <- contractIdValueGen.map(_.getContractId)
+      templateId <- identifierGen
+      eventId <- Arbitrary.arbString.arbitrary
+      witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+
+    } yield v1.EventOuterClass.ArchivedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .build()
+
+  val exercisedEventGen: Gen[v1.EventOuterClass.ExercisedEvent] =
+    for {
+      contractId <- contractIdValueGen.map(_.getContractId)
+      templateId <- identifierGen
+      actingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      eventId <- Arbitrary.arbString.arbitrary
+      choice <- Arbitrary.arbString.arbitrary
+      choiceArgument <- valueGen
+      isConsuming <- Arbitrary.arbBool.arbitrary
+      witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      exerciseResult <- valueGen
+    } yield v1.EventOuterClass.ExercisedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .addAllActingParties(actingParties.asJava)
+      .setChoice(choice)
+      .setChoiceArgument(choiceArgument)
+      .setConsuming(isConsuming)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .setExerciseResult(exerciseResult)
+      .build()
+
+  def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
+    for {
+      filtersByParty <- Gen.mapOf(partyWithFiltersGen)
+    } yield v2.TransactionFilterOuterClass.TransactionFilter
+      .newBuilder()
+      .putAllFiltersByParty(filtersByParty.asJava)
+      .build()
+
+  def partyWithFiltersGen: Gen[(String, v1.TransactionFilterOuterClass.Filters)] =
+    for {
+      party <- Arbitrary.arbString.arbitrary
+      filters <- filtersGen
+    } yield (party, filters)
+
+  def filtersGen: Gen[v1.TransactionFilterOuterClass.Filters] =
+    for {
+      inclusive <- inclusiveGen
+    } yield v1.TransactionFilterOuterClass.Filters
+      .newBuilder()
+      .setInclusive(inclusive)
+      .build()
+
+  def inclusiveGen: Gen[v1.TransactionFilterOuterClass.InclusiveFilters] =
+    for {
+      templateIds <- Gen.listOf(identifierGen)
+      interfaceFilters <- Gen.listOf(interfaceFilterGen)
+    } yield v1.TransactionFilterOuterClass.InclusiveFilters
+      .newBuilder()
+      .addAllTemplateIds(templateIds.asJava)
+      .addAllInterfaceFilters(interfaceFilters.asJava)
+      .build()
+
+  private[this] def interfaceFilterGen: Gen[v1.TransactionFilterOuterClass.InterfaceFilter] =
+    Gen.zip(identifierGen, arbitrary[Boolean]).map { case (interfaceId, includeInterfaceView) =>
+      v1.TransactionFilterOuterClass.InterfaceFilter
+        .newBuilder()
+        .setInterfaceId(interfaceId)
+        .setIncludeInterfaceView(includeInterfaceView)
+        .build()
+    }
+
+  def getActiveContractRequestGen: Gen[v2.StateServiceOuterClass.GetActiveContractsRequest] =
+    for {
+      transactionFilter <- transactionFilterGen
+      verbose <- Arbitrary.arbBool.arbitrary
+      activeAtOffset <- Arbitrary.arbString.arbitrary
+    } yield v2.StateServiceOuterClass.GetActiveContractsRequest
+      .newBuilder()
+      .setFilter(transactionFilter)
+      .setVerbose(verbose)
+      .setActiveAtOffset(activeAtOffset)
+      .build()
+
+
+  def activeContractGen: Gen[v2.StateServiceOuterClass.ActiveContract] = {
+    for {
+      createdEvent <- createdEventGen
+      domainId <- Arbitrary.arbString.arbitrary
+      reassignmentCounter <- Arbitrary.arbLong.arbitrary
+    } yield v2.StateServiceOuterClass.ActiveContract
+      .newBuilder()
+      .setCreatedEvent(createdEvent)
+      .setDomainId(domainId)
+      .setReassignmentCounter(reassignmentCounter)
+      .build()
+  }
+
+  def unassignedEventGen: Gen[v2.ReassignmentOuterClass.UnassignedEvent] = {
+    for {
+      unassignId <- Arbitrary.arbString.arbitrary
+      contractId <- contractIdValueGen.map(_.getContractId)
+      templateId <- identifierGen
+      source <- Arbitrary.arbString.arbitrary
+      target <- Arbitrary.arbString.arbitrary
+      submitter <- Arbitrary.arbString.arbitrary
+      reassignmentCounter <- Arbitrary.arbLong.arbitrary
+      assignmentExclusivity <- instantGen
+      witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield v2.ReassignmentOuterClass.UnassignedEvent
+      .newBuilder()
+      .setUnassignId(unassignId)
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .setSource(source)
+      .setTarget(target)
+      .setSubmitter(submitter)
+      .setReassignmentCounter(reassignmentCounter)
+      .setAssignmentExclusivity(Utils.instantToProto(assignmentExclusivity))
+      .addAllWitnessParties(witnessParties.asJava)
+      .build()
+  }
+
+  def assignedEventGen: Gen[v2.ReassignmentOuterClass.AssignedEvent] = {
+    for {
+      source <- Arbitrary.arbString.arbitrary
+      target <- Arbitrary.arbString.arbitrary
+      unassignId <- Arbitrary.arbString.arbitrary
+      submitter <- Arbitrary.arbString.arbitrary
+      reassignmentCounter <- Arbitrary.arbLong.arbitrary
+      createdEvent <- createdEventGen
+    } yield v2.ReassignmentOuterClass.AssignedEvent
+      .newBuilder()
+      .setSource(source)
+      .setTarget(target)
+      .setUnassignId(unassignId)
+      .setSubmitter(submitter)
+      .setReassignmentCounter(reassignmentCounter)
+      .setCreatedEvent(createdEvent)
+      .build()
+  }
+
+  def incompleteUnassignedGen: Gen[v2.StateServiceOuterClass.IncompleteUnassigned] = {
+    for {
+      createdEvent <- createdEventGen
+      unassignedEvent <- unassignedEventGen
+    } yield v2.StateServiceOuterClass.IncompleteUnassigned
+      .newBuilder()
+      .setCreatedEvent(createdEvent)
+      .setUnassignedEvent(unassignedEvent)
+      .build()
+  }
+
+  def incompleteAssignedGen: Gen[v2.StateServiceOuterClass.IncompleteAssigned] = {
+    for {
+      assignedEvent <- assignedEventGen
+    } yield v2.StateServiceOuterClass.IncompleteAssigned
+      .newBuilder()
+      .setAssignedEvent(assignedEvent)
+      .build()
+  }
+
+  def contractEntryBuilderGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse.Builder => v2.StateServiceOuterClass.GetActiveContractsResponse.Builder] =
+    Gen.oneOf(
+      activeContractGen.map(e => (b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) => b.setActiveContract(e)),
+      incompleteUnassignedGen.map(e => (b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) => b.setIncompleteUnassigned(e)),
+      incompleteAssignedGen.map(e => (b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) => b.setIncompleteAssigned(e)),
+    )
+
+  def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] = {
+    for {
+      offset <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      entryGen <- contractEntryBuilderGen
+    } yield v2.StateServiceOuterClass.GetActiveContractsResponse
+      .newBuilder()
+      .setOffset(offset)
+      .setWorkflowId(workflowId)
+      .pipe(entryGen)
+      .build()
+  }
+
+  def getConnectedDomainsRequestGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsRequest] = {
+    for {
+      party <- Arbitrary.arbString.arbitrary
+    } yield v2.StateServiceOuterClass.GetConnectedDomainsRequest
+      .newBuilder()
+      .setParty(party)
+      .build()
+  }
+
+  def connectedDomainGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain] = {
+    for {
+      domainAlias <- Arbitrary.arbString.arbitrary
+      domainId <- Arbitrary.arbString.arbitrary
+      permission <- Gen.oneOf(
+        v2.StateServiceOuterClass.ParticipantPermission.Submission,
+        v2.StateServiceOuterClass.ParticipantPermission.Confirmation,
+        v2.StateServiceOuterClass.ParticipantPermission.Observation
+      )
+    } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain
+      .newBuilder()
+      .setDomainAlias(domainAlias)
+      .setDomainId(domainId)
+      .setPermission(permission)
+      .build()
+  }
+
+  def getConnectedDomainsResponseGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse] = {
+    for {
+      domains <- Gen.listOf(connectedDomainGen)
+    } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse
+      .newBuilder()
+      .addAllConnectedDomains(domains.asJava)
+      .build()
+  }
+
+  def participantOffsetGen: Gen[v2.ParticipantOffsetOuterClass.ParticipantOffset] = {
+    import v2.ParticipantOffsetOuterClass.{ParticipantOffset => OffsetProto}
+    for {
+      modifier <- Gen.oneOf(
+        Arbitrary.arbString.arbitrary.map(absolute => (b: OffsetProto.Builder) => b.setAbsolute(absolute)),
+        Gen.const((b: OffsetProto.Builder) => b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BEGIN)),
+        Gen.const((b: OffsetProto.Builder) => b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_END))
+      )
+    } yield OffsetProto.newBuilder()
+      .pipe(modifier)
+      .build()
+  }
+
+  def ledgerOffsetGen: Gen[v1.LedgerOffsetOuterClass.LedgerOffset] = {
+    import v1.LedgerOffsetOuterClass.{LedgerOffset => OffsetProto}
+    for {
+      modifier <- Gen.oneOf(
+        Arbitrary.arbString.arbitrary.map(absolute => (b: OffsetProto.Builder) => b.setAbsolute(absolute)),
+        Gen.const((b: OffsetProto.Builder) => b.setBoundary(OffsetProto.LedgerBoundary.LEDGER_BEGIN)),
+        Gen.const((b: OffsetProto.Builder) => b.setBoundary(OffsetProto.LedgerBoundary.LEDGER_END))
+      )
+    } yield OffsetProto.newBuilder()
+      .pipe(modifier)
+      .build()
+  }
+
+  def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] = {
+    for {
+      offset <- participantOffsetGen
+    } yield v2.StateServiceOuterClass.GetLedgerEndResponse
+      .newBuilder()
+      .setOffset(offset)
+      .build()
+  }
+
+  def getLatestPrunedOffsetsResponseGen: Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] = {
+    for {
+      participantPruned <- participantOffsetGen
+      allDivulgedPruned <- participantOffsetGen
+    } yield v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse
+      .newBuilder()
+      .setParticipantPrunedUpToInclusive(participantPruned)
+      .setAllDivulgedContractsPrunedUpToInclusive(allDivulgedPruned)
+      .build()
+  }
+
+  def createdGen: Gen[v2.EventQueryServiceOuterClass.Created] = {
+    for {
+      createdEvent <- createdEventGen
+      domainId <- Arbitrary.arbString.arbitrary
+    } yield v2.EventQueryServiceOuterClass.Created.newBuilder()
+      .setCreatedEvent(createdEvent)
+      .setDomainId(domainId)
+      .build()
+  }
+
+  def archivedGen: Gen[v2.EventQueryServiceOuterClass.Archived] = {
+    for {
+      archivedEvent <- archivedEventGen
+      domainId <- Arbitrary.arbString.arbitrary
+    } yield v2.EventQueryServiceOuterClass.Archived.newBuilder()
+      .setArchivedEvent(archivedEvent)
+      .setDomainId(domainId)
+      .build()
+  }
+
+  def getEventsByContractIdResponseGen: Gen[v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse] = {
+    import v2.EventQueryServiceOuterClass.{GetEventsByContractIdResponse => Response}
+    for {
+      optCreated <- Gen.option(createdGen)
+      optArchived <- Gen.option(archivedGen)
+    } yield Response.newBuilder()
+      .pipe(builder => optCreated.fold(builder)(c => builder.setCreated(c)))
+      .pipe(builder => optArchived.fold(builder)(a => builder.setArchived(a)))
+      .build()
+  }
+
+  def completionStreamRequestGen: Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamRequest] = {
+    import v2.CommandCompletionServiceOuterClass.{CompletionStreamRequest => Request}
+    for {
+      applicationId <- Arbitrary.arbString.arbitrary
+      parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      beginExclusive <- participantOffsetGen
+    } yield Request.newBuilder()
+      .setApplicationId(applicationId)
+      .addAllParties(parties.asJava)
+      .setBeginExclusive(beginExclusive)
+      .build()
+  }
+
+  def completionGen: Gen[v2.CompletionOuterClass.Completion] = {
+    import v2.CompletionOuterClass.Completion
+    for {
+      commandId <- Arbitrary.arbString.arbitrary
+      status <- Gen.const(com.google.rpc.Status.getDefaultInstance)
+      updateId <- Arbitrary.arbString.arbitrary
+      applicationId <- Arbitrary.arbString.arbitrary
+      actAs <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      submissionId <- Arbitrary.arbString.arbitrary
+      deduplication <- Gen.oneOf(
+        Arbitrary.arbString.arbitrary.map(
+          offset => (b: Completion.Builder) => b.setDeduplicationOffset(offset)),
+        Arbitrary.arbLong.arbitrary.map(
+          seconds => (b: Completion.Builder) => b.setDeduplicationDuration(Utils.durationToProto(Duration.ofSeconds(seconds)))
+        )
+      )
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+    } yield Completion.newBuilder()
+      .setCommandId(commandId)
+      .setStatus(status)
+      .setUpdateId(updateId)
+      .setApplicationId(applicationId)
+      .addAllActAs(actAs.asJava)
+      .setSubmissionId(submissionId)
+      .pipe(deduplication)
+      .setTraceContext(traceContext)
+      .build()
+  }
+
+  def checkpointGen: Gen[v1.CommandCompletionServiceOuterClass.Checkpoint] = {
+    import v1.CommandCompletionServiceOuterClass.Checkpoint
+    for {
+      recordTime <- instantGen
+      offset <- ledgerOffsetGen
+    } yield Checkpoint.newBuilder()
+      .setRecordTime(Utils.instantToProto(recordTime))
+      .setOffset(offset)
+      .build()
+  }
+
+  def completionStreamResponseGen: Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamResponse] = {
+    import v2.CommandCompletionServiceOuterClass.{CompletionStreamResponse => Response}
+    for {
+      checkpoint <- checkpointGen
+      completion <- completionGen
+      domainId <- Arbitrary.arbString.arbitrary
+    } yield Response.newBuilder()
+      .setCheckpoint(checkpoint)
+      .setCompletion(completion)
+      .setDomainId(domainId)
+      .build()
+  }
+
+  val createCommandGen: Gen[v1.CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      record <- recordGen
+    } yield v1.CommandsOuterClass.Command
+      .newBuilder()
+      .setCreate(
+        v1.CommandsOuterClass.CreateCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setCreateArguments(record)
+      )
+      .build()
+
+  val exerciseCommandGen: Gen[v1.CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      choiceName <- Arbitrary.arbString.arbitrary
+      value <- valueGen
+    } yield v1.CommandsOuterClass.Command
+      .newBuilder()
+      .setExercise(
+        v1.CommandsOuterClass.ExerciseCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setChoice(choiceName)
+          .setChoiceArgument(value)
+      )
+      .build()
+
+  val createAndExerciseCommandGen: Gen[v1.CommandsOuterClass.Command] =
+    for {
+      templateId <- identifierGen
+      record <- recordGen
+      choiceName <- Arbitrary.arbString.arbitrary
+      value <- valueGen
+    } yield v1.CommandsOuterClass.Command
+      .newBuilder()
+      .setCreateAndExercise(
+        v1.CommandsOuterClass.CreateAndExerciseCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setCreateArguments(record)
+          .setChoice(choiceName)
+          .setChoiceArgument(value)
+      )
+      .build()
+
+  val commandGen: Gen[v1.CommandsOuterClass.Command] =
+    Gen.oneOf(createCommandGen, exerciseCommandGen, createAndExerciseCommandGen)
+}

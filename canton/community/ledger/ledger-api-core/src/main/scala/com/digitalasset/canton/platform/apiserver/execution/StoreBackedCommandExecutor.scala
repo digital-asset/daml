@@ -396,6 +396,33 @@ private[apiserver] final class StoreBackedCommandExecutor(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[String]] = {
+
+    val stakeholders = signatories ++ observers
+    val maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _))
+    ContractMetadata.create(
+      signatories = signatories,
+      stakeholders = stakeholders,
+      maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+    ) match {
+      case Right(recomputedContractMetadata) =>
+        checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
+      case Left(message) =>
+        Future.successful(
+          Some(
+            s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
+          )
+        )
+    }
+
+  }
+
+  private def checkContractUpgradable(
+      coid: ContractId,
+      recomputedContractMetadata: ContractMetadata,
+      disclosedContracts: Map[ContractId, DisclosedContract],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[String]] = {
     import UpgradeVerificationResult.*
     type Result = EitherT[Future, UpgradeVerificationResult, UpgradeVerificationContractData]
 
@@ -453,13 +480,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
-
-    val recomputedContractMetadata =
-      ContractMetadata.tryCreate(
-        signatories = signatories,
-        stakeholders = signatories ++ observers,
-        maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _)),
-      )
 
     // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =

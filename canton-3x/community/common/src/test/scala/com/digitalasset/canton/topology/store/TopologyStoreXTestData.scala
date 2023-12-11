@@ -127,10 +127,10 @@ class TopologyStoreXTestData(
   val tx3_NSD = makeSignedTx(
     NamespaceDelegationX.tryCreate(daDomainNamespace, signingKeys.head1, isRootDelegation = false)
   )
-  val tx4_USD = makeSignedTx(
-    UnionspaceDefinitionX
+  val tx4_DND = makeSignedTx(
+    DecentralizedNamespaceDefinitionX
       .create(
-        Namespace(Fingerprint.tryCreate("unionspace")),
+        Namespace(Fingerprint.tryCreate("decentralized-namespace")),
         PositiveInt.one,
         owners = owners,
       )

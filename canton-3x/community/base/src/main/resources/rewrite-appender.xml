@@ -219,17 +219,7 @@
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestDefault</logger>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestOracle</logger>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestPostgres</logger>
+            <logger>com.digitalasset.canton.integration.tests.LoggingXIntegrationTestDefault</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>

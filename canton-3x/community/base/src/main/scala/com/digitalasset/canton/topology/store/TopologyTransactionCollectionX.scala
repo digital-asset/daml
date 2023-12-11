@@ -73,7 +73,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
     val certTypes = Set(
       TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.UnionspaceDefinitionX,
+      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
       TopologyMappingX.Code.IdentifierDelegationX,
     )
     val empty = Seq.empty[GenericStoredTopologyTransactionX]

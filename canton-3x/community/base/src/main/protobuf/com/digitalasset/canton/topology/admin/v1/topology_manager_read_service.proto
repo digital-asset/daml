@@ -17,7 +17,7 @@ import "google/protobuf/wrappers.proto";
 service TopologyManagerReadServiceX {
 
   rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResult);
-  rpc ListUnionspaceDefinition(ListUnionspaceDefinitionRequest) returns (ListUnionspaceDefinitionResult);
+  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResult);
   rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResult);
 
   rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResult);
@@ -102,15 +102,15 @@ message ListNamespaceDelegationResult {
     repeated Result results = 1;
 }
 
-message ListUnionspaceDefinitionRequest {
+message ListDecentralizedNamespaceDefinitionRequest {
   BaseQuery base_query = 1;
   string filter_namespace = 2;
 }
 
-message ListUnionspaceDefinitionResult {
+message ListDecentralizedNamespaceDefinitionResult {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v2.UnionspaceDefinitionX item = 2;
+    com.digitalasset.canton.protocol.v2.DecentralizedNamespaceDefinitionX item = 2;
   }
   repeated Result results = 1;
 }

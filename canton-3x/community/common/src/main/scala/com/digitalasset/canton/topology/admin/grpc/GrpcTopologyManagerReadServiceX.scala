@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.{
   AuthorityOfX,
+  DecentralizedNamespaceDefinitionX,
   DomainParametersStateX,
   DomainTrustCertificateX,
   IdentifierDelegationX,
@@ -51,7 +52,6 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOpX,
   TopologyMappingX,
   TrafficControlStateX,
-  UnionspaceDefinitionX,
   VettedPackagesX,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -254,27 +254,27 @@ class GrpcTopologyManagerReadServiceX(
     CantonGrpcUtil.mapErrNew(ret)
   }
 
-  override def listUnionspaceDefinition(
-      request: adminProto.ListUnionspaceDefinitionRequest
-  ): Future[adminProto.ListUnionspaceDefinitionResult] = {
+  override def listDecentralizedNamespaceDefinition(
+      request: adminProto.ListDecentralizedNamespaceDefinitionRequest
+  ): Future[adminProto.ListDecentralizedNamespaceDefinitionResult] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
         request.baseQuery,
-        UnionspaceDefinitionX.code,
+        DecentralizedNamespaceDefinitionX.code,
         Left(request.filterNamespace),
       )
     } yield {
       val results = res
-        .collect { case (result, x: UnionspaceDefinitionX) => (result, x) }
+        .collect { case (result, x: DecentralizedNamespaceDefinitionX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListUnionspaceDefinitionResult.Result(
+          new adminProto.ListDecentralizedNamespaceDefinitionResult.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListUnionspaceDefinitionResult(results = results)
+      adminProto.ListDecentralizedNamespaceDefinitionResult(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }

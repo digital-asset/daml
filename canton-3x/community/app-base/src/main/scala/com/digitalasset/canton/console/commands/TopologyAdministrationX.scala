@@ -270,9 +270,9 @@ class TopologyAdministrationGroupX(
     }
   }
 
-  @Help.Summary("Manage unionspaces")
-  @Help.Group("Unionspaces")
-  object unionspaces extends Helpful {
+  @Help.Summary("Manage decentralized namespaces")
+  @Help.Group("Decentralized namespaces")
+  object decentralized_namespaces extends Helpful {
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
@@ -281,9 +281,9 @@ class TopologyAdministrationGroupX(
         filterNamespace: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListUnionspaceDefinitionResult] = consoleEnvironment.run {
+    ): Seq[ListDecentralizedNamespaceDefinitionResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommandsX.Read.ListUnionspaceDefinition(
+        TopologyAdminCommandsX.Read.ListDecentralizedNamespaceDefinition(
           BaseQueryX(
             filterStore,
             proposals,
@@ -297,11 +297,11 @@ class TopologyAdministrationGroupX(
       )
     }
 
-    @Help.Summary("Propose the creation of a new unionspace")
+    @Help.Summary("Propose the creation of a new decentralized namespace")
     @Help.Description("""
-        owners: the namespaces of the founding members of the unionspace, which are used to compute the name of the unionspace.
-        threshold: this threshold specifies the minimum number of signatures of unionspace members that are required to
-                   satisfy authorization requirements on topology transactions for the namespace of the unionspace.
+        owners: the namespaces of the founding members of the decentralized namespace, which are used to compute the name of the decentralized namespace.
+        threshold: this threshold specifies the minimum number of signatures of decentralized namespace members that are required to
+                   satisfy authorization requirements on topology transactions for the namespace of the decentralized namespace.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                propagated to connected domains, if applicable.
@@ -326,35 +326,36 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] = {
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
       val ownersNE = NonEmpty
         .from(owners)
         .getOrElse(
           consoleEnvironment.run(
-            CommandErrors.GenericCommandError("Proposed unionspace needs at least one owner")
+            CommandErrors
+              .GenericCommandError("Proposed decentralized namespace needs at least one owner")
           )
         )
-      val unionspace = UnionspaceDefinitionX
+      val decentralizedNamespace = DecentralizedNamespaceDefinitionX
         .create(
-          UnionspaceDefinitionX.computeNamespace(owners),
+          DecentralizedNamespaceDefinitionX.computeNamespace(owners),
           threshold,
           ownersNE,
         )
         .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
-      authorize(unionspace, store, mustFullyAuthorize, signedBy.toList, serial)
+      authorize(decentralizedNamespace, store, mustFullyAuthorize, signedBy.toList, serial)
     }
 
     def authorize(
-        unionspace: UnionspaceDefinitionX,
+        decentralizedNamespace: DecentralizedNamespaceDefinitionX,
         store: String,
         mustFullyAuthorize: Boolean = false,
         signedBy: Seq[Fingerprint],
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] =
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] =
       consoleEnvironment.run(
         adminCommand {
           TopologyAdminCommandsX.Write.Propose(
-            unionspace,
+            decentralizedNamespace,
             signedBy = signedBy.toList,
             serial = serial,
             change = TopologyChangeOpX.Replace,
@@ -366,14 +367,14 @@ class TopologyAdministrationGroupX(
       )
 
     def join(
-        unionspace: Fingerprint,
+        decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
     ): GenericSignedTopologyTransactionX = {
       ???
     }
 
     def leave(
-        unionspace: Fingerprint,
+        decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
     ): ByteString = {
       ByteString.EMPTY
@@ -663,7 +664,8 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        mustFullyAuthorize: Boolean = true, // configurable in case of a key under a unionspace
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
     ): Unit = propose(
       key,
       purpose,
@@ -703,7 +705,8 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        mustFullyAuthorize: Boolean = true, // configurable in case of a key under a unionspace
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
     ): Unit = propose(
       key,
