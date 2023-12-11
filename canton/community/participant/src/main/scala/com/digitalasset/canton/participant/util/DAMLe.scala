@@ -255,7 +255,7 @@ class DAMLe(
               version,
             ) =>
           ContractWithMetadata(
-            LfContractInst(templateId, Versioned(version, arg)),
+            LfContractInst(template =templateId, arg = Versioned(version, arg)),
             signatories,
             stakeholders,
             nc.templateId,
