@@ -976,11 +976,6 @@ data MultiPackageBuildMode a
   | AllWithComposite [a] -- Usually empty
   | Composite [a] -- Should be non empty
 
-instance Show a => Show (MultiPackageBuildMode a) where
-  show (SinglePackage _) = "Single package"
-  show (AllWithComposite xs) = "All " <> show xs
-  show (Composite xs) = "Just " <> show xs 
-
 toMaybePackageConfig :: MultiPackageBuildMode a -> Maybe PackageConfigFields
 toMaybePackageConfig (SinglePackage pkgConfig) = Just pkgConfig
 toMaybePackageConfig _ = Nothing
@@ -1031,7 +1026,6 @@ execBuild
         buildMulti buildMode multiPackageConfigPath =
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig -> do
             realisedBuildMode <- realiseMultiBuildMode multiPackageConfig buildMode
-            -- Use the thing above
             
             putStrLn $ "Running multi-package build of " <> case realisedBuildMode of
               SinglePackage pkgConfig -> T.unpack $ LF.unPackageName $ pName pkgConfig

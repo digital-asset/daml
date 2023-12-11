@@ -206,7 +206,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                    , Just pkgId
                    )
 
--- Takes maybe list of dar paths, name version, path
+-- | Takes a list of paths to dars, composite package name and composite package version
+-- Merges together all the dars without usage checks, generates a main package with 0 modules
+-- Generated package uses latest LF version with matching Major version to the dars given, and the current builtin sdk version.
 buildCompositeDar :: [FilePath] -> LF.PackageName -> LF.PackageVersion -> IO (Zip.ZipArchive ())
 buildCompositeDar darPaths name version = do
   dars <-
