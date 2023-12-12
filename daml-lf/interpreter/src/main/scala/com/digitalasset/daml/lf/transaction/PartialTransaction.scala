@@ -389,15 +389,15 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.Fetch(
-        coid,
-        contract.packageName,
-        contract.templateId,
-        actingParties,
-        contract.signatories,
-        contract.stakeholders,
-        contract.keyOpt.map(_.globalKeyWithMaintainers),
-        normByKey(version, byKey),
-        version,
+        coid = coid,
+        packageName = contract.packageName,
+        templateId = contract.templateId,
+        actingParties = actingParties,
+        signatories = contract.signatories,
+        stakeholders = contract.stakeholders,
+        keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
+        byKey = normByKey(version, byKey),
+        version = version,
       )
 
       val newContractState = assertRightKey(
