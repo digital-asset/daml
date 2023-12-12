@@ -94,6 +94,11 @@ trait InstanceReference extends InstanceReferenceCommon {
 /** InstanceReferenceX with different topology administration x
   */
 trait InstanceReferenceX extends InstanceReferenceCommon {
+
+  @Help.Summary("Inspect parties")
+  @Help.Group("Parties")
+  def parties: PartiesAdministrationGroupX
+
   override def topology: TopologyAdministrationGroupX
 
   private lazy val trafficControl_ =
@@ -766,9 +771,7 @@ abstract class ParticipantReferenceX(
   override def health: ParticipantHealthAdministrationX =
     new ParticipantHealthAdministrationX(this, consoleEnvironment, loggerFactory)
 
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  def parties: ParticipantPartiesAdministrationGroupX
+  override def parties: ParticipantPartiesAdministrationGroupX
 
   private lazy val topology_ =
     new TopologyAdministrationGroupX(

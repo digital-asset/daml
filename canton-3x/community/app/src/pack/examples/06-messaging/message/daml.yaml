@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20231129.12441.0.v72cefd6f
+sdk-version: 2.9.0-snapshot.20231206.12472.0.vb6ba1ec6
 sandbox-options: 
 - --wall-clock-time
 name: message

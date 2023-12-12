@@ -11,7 +11,7 @@ import com.digitalasset.canton.console.{
   InstanceReference,
   InstanceReferenceWithSequencerConnection,
   LocalParticipantReference,
-  LocalParticipantReferenceX,
+  LocalParticipantReferenceCommon,
 }
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
@@ -86,7 +86,7 @@ object IntegrationTestUtilities {
 
   def grabCountsX(
       domain: DomainAlias,
-      pr: LocalParticipantReferenceX,
+      pr: LocalParticipantReferenceCommon,
       limit: Int = 100,
   ): GrabbedCounts = {
     val pcsCount = pr.testing.pcs_search(domain, limit = limit).length

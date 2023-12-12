@@ -7,12 +7,14 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.ListPartiesResult.ParticipantDomains
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.protocol.{DynamicDomainParameters as DynamicDomainParametersInternal}
+import com.digitalasset.canton.protocol.DynamicDomainParameters as DynamicDomainParametersInternal
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.admin.v0.ListDomainParametersChangesResult.Result.Parameters
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
 import com.google.protobuf.ByteString
 
@@ -74,7 +76,7 @@ object ListKeyOwnersResult {
 }
 
 final case class BaseResult(
-    domain: String,
+    store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
     operation: TopologyChangeOp,
@@ -90,8 +92,12 @@ object BaseResult {
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
       operation <- TopologyChangeOp.fromProtoV0(value.operation)
       signedBy <- Fingerprint.fromProtoPrimitive(value.signedByFingerprint)
-
-    } yield BaseResult(value.store, validFrom, validUntil, operation, value.serialized, signedBy)
+      store <-
+        if (value.store == AuthorizedStore.dbString.unwrap)
+          Right(TopologyStore.Authorized)
+        else
+          DomainId.fromProtoPrimitive(value.store, "store").map(TopologyStore.Domain)
+    } yield BaseResult(store, validFrom, validUntil, operation, value.serialized, signedBy)
 }
 
 final case class ListPartyToParticipantResult(context: BaseResult, item: PartyToParticipant)

@@ -28,7 +28,7 @@ import com.digitalasset.canton.protocol.{DomainParametersLookup, v0 as protocolV
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.{Clock, TimeProof}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,

@@ -7,7 +7,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.transaction.Versioned
+import com.daml.lf.transaction.{Util, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ValueContractId,
@@ -69,11 +69,12 @@ import scala.util.Random
 object ExampleTransactionFactory {
   val hkdfOps: HkdfOps = new SymbolicPureCrypto()
   // Helper methods for Daml-LF types
+  val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
   val templateId = LfTransactionBuilder.defaultTemplateId
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val transactionVersion = protocol.DummyTransactionVersion
+  val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
 
   private val random = new Random(0)
 
@@ -102,6 +103,15 @@ object ExampleTransactionFactory {
 
   val veryDeepContractInstance: LfContractInst =
     LfContractInst(templateId, veryDeepVersionedValue)
+
+  def globalKey(
+      templateId: LfTemplateId,
+      value: LfValue,
+  ): Versioned[LfGlobalKey] =
+    LfVersioned(
+      transactionVersion,
+      LfGlobalKey.assertBuild(templateId, value, Util.sharedKey(transactionVersion)),
+    )
 
   def globalKeyWithMaintainers(
       key: LfGlobalKey = defaultGlobalKey,

@@ -57,7 +57,7 @@ message ListTrafficStateResult {
 
 
 message BaseQuery {
-  string filter_store = 1;
+  Store filter_store = 1;
   // whether to query only for proposals instead of approved topology mappings
   bool proposals = 2;
   com.digitalasset.canton.protocol.v2.TopologyChangeOpX operation = 3;
@@ -77,8 +77,20 @@ message BaseQuery {
   google.protobuf.StringValue protocol_version = 9;
 }
 
+message Store {
+  message Authorized { }
+  message Domain {
+    string id = 1;
+  }
+
+  oneof store {
+    Authorized authorized = 1;
+    Domain domain = 2;
+  }
+}
+
 message BaseResult {
-  string store = 1;
+  Store store = 1;
   google.protobuf.Timestamp sequenced = 2;
   google.protobuf.Timestamp valid_from = 3;
   google.protobuf.Timestamp valid_until = 4;
