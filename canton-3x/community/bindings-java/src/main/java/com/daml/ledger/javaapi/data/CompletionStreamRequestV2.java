@@ -16,15 +16,15 @@ public final class CompletionStreamRequestV2 {
 
   @NonNull private final List<@NonNull String> parties;
 
-  @NonNull private final ParticipantOffsetV2 beginExlusive;
+  @NonNull private final ParticipantOffsetV2 beginExclusive;
 
   public CompletionStreamRequestV2(
       @NonNull String applicationId,
       @NonNull List<@NonNull String> parties,
-      @NonNull ParticipantOffsetV2 beginExlusive) {
+      @NonNull ParticipantOffsetV2 beginExclusive) {
     this.applicationId = applicationId;
     this.parties = List.copyOf(parties);
-    this.beginExlusive = beginExlusive;
+    this.beginExclusive = beginExclusive;
   }
 
   @NonNull
@@ -37,8 +37,8 @@ public final class CompletionStreamRequestV2 {
     return parties;
   }
 
-  public ParticipantOffsetV2 getBeginExlusive() {
-    return beginExlusive;
+  public ParticipantOffsetV2 getBeginExclusive() {
+    return beginExclusive;
   }
 
   public static CompletionStreamRequestV2 fromProto(
@@ -53,7 +53,7 @@ public final class CompletionStreamRequestV2 {
     return CommandCompletionServiceOuterClass.CompletionStreamRequest.newBuilder()
         .setApplicationId(applicationId)
         .addAllParties(parties)
-        .setBeginExclusive(beginExlusive.toProto())
+        .setBeginExclusive(beginExclusive.toProto())
         .build();
   }
 
@@ -64,13 +64,13 @@ public final class CompletionStreamRequestV2 {
     CompletionStreamRequestV2 that = (CompletionStreamRequestV2) o;
     return Objects.equals(applicationId, that.applicationId)
         && Objects.equals(parties, that.parties)
-        && Objects.equals(beginExlusive, that.beginExlusive);
+        && Objects.equals(beginExclusive, that.beginExclusive);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(applicationId, parties, beginExlusive);
+    return Objects.hash(applicationId, parties, beginExclusive);
   }
 
   @Override
@@ -80,8 +80,8 @@ public final class CompletionStreamRequestV2 {
         + applicationId
         + ", parties="
         + parties
-        + ", beginExlusive="
-        + beginExlusive
+        + ", beginExclusive="
+        + beginExclusive
         + '}';
   }
 }

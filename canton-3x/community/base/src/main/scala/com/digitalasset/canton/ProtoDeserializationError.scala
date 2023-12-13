@@ -38,9 +38,6 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   final case class FieldNotSet(field: String) extends ProtoDeserializationError {
     override val message = s"Field `$field` is not set"
   }
-  final case class NotImplementedYet(className: String) extends ProtoDeserializationError {
-    override val message = className
-  }
   final case class TimestampConversionError(message: String) extends ProtoDeserializationError
   final case class TimeModelConversionError(message: String) extends ProtoDeserializationError
   final case class ValueConversionError(field: String, error: String)
@@ -53,11 +50,6 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   }
   final case class InvariantViolation(error: String) extends ProtoDeserializationError {
     override def message = error
-  }
-  final case class VersionError(versionedMessage: String, invalidVersion: Int)
-      extends ProtoDeserializationError {
-    override val message =
-      s"Invalid version $invalidVersion in versioned message `$versionedMessage`"
   }
   final case class MaxBytesToDecompressExceeded(error: String) extends ProtoDeserializationError {
     override def message = error

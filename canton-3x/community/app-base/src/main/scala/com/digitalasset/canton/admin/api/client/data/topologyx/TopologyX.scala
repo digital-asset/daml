@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v1
 import com.digitalasset.canton.topology.transaction.{
   AuthorityOfX,
@@ -35,7 +36,7 @@ import com.google.protobuf.ByteString
 import java.time.Instant
 
 final case class BaseResult(
-    domain: String,
+    store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
     operation: TopologyChangeOpX,
@@ -60,8 +61,14 @@ object BaseResult {
           "signed_by_fingerprints",
           value.signedByFingerprints,
         )
+
+      store <- ProtoConverter.parseRequired(
+        TopologyStore.fromProto(_, "store"),
+        "store",
+        value.store,
+      )
     } yield BaseResult(
-      value.store,
+      store,
       validFrom,
       validUntil,
       operation,

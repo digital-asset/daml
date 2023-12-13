@@ -20,6 +20,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
@@ -35,13 +36,13 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
+import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   RequestAndRootHashMessage,
   RequestId,
   RequestProcessor,
   RootHash,
-  VerdictTest,
   ViewHash,
   v0 as protocolv0,
 }
@@ -53,7 +54,6 @@ import com.digitalasset.canton.sequencing.{
   SequencerTestUtils,
 }
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.tracing.Traced
@@ -417,7 +417,13 @@ trait MessageDispatcherTest {
     val commitment =
       SignedProtocolMessage.from(rawCommitment, testedProtocolVersion, dummySignature)
 
-    val reject = VerdictTest.malformedVerdict(testedProtocolVersion)
+    def malformedVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject =
+      MediatorReject.tryCreate(
+        MediatorError.MalformedMessage.Reject("").rpcStatusWithoutLoggingContext(),
+        protocolVersion,
+      )
+
+    val reject = malformedVerdict(testedProtocolVersion)
     val malformedMediatorRequestResult =
       SignedProtocolMessage.from(
         MalformedMediatorRequestResult.tryCreate(

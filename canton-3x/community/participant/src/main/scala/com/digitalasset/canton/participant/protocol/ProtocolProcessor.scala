@@ -158,7 +158,9 @@ abstract class ProtocolProcessor[
       result <- {
         submission match {
           case untracked: steps.UntrackedSubmission =>
-            submitWithoutTracking(submissionParam, untracked)
+            submitWithoutTracking(submissionParam, untracked).tapLeft(submissionError =>
+              logger.warn(s"Failed to submit submission due to $submissionError")
+            )
           case tracked: steps.TrackedSubmission => submitWithTracking(submissionParam, tracked)
         }
       }

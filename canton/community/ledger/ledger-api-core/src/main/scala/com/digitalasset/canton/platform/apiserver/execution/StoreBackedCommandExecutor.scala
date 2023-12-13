@@ -554,9 +554,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         driverMetadataBytes = disclosedContract.driverMetadata.toByteArray,
         contractInstance = Versioned(
           unusedTxVersion,
-          ContractInstance(
-            template = disclosedContract.templateId,
-            arg = disclosedContract.argument),
+          ContractInstance(disclosedContract.templateId, disclosedContract.argument),
         ),
         originalMetadata = ContractMetadata.tryCreate(
           signatories = disclosedContract.signatories,

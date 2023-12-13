@@ -536,7 +536,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           unusedTxVersion,
           ContractInstance(
             template = disclosedContract.templateId,
-            arg = disclosedContract.argument
+            arg = disclosedContract.argument,
           ),
         ),
         originalMetadata = ContractMetadata.tryCreate(

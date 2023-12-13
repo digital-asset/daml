@@ -437,7 +437,7 @@ object TopologyAdminCommandsX {
 
       override def createRequest(): Either[String, v1.ListMediatorDomainStateRequest] =
         Right(
-          new v1.ListMediatorDomainStateRequest(
+          v1.ListMediatorDomainStateRequest(
             baseQuery = Some(query.toProtoV1),
             filterDomain = filterDomain,
           )

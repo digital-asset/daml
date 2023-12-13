@@ -182,7 +182,8 @@ trait SequencerStoreTest
         val error = SequencerErrors.SigningTimestampTooEarly("too early!")
         val errorStatus = error.rpcStatusWithoutLoggingContext()
         val serialized = DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
-        val deserialized = DeliverErrorStoreEvent.fromByteString(Some(serialized))
+        val deserialized =
+          DeliverErrorStoreEvent.fromByteString(Some(serialized), testedProtocolVersion)
         deserialized shouldBe Right(errorStatus)
       }
     }

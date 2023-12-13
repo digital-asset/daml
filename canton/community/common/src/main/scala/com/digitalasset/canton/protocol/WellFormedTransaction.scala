@@ -275,25 +275,25 @@ object WellFormedTransaction {
           addReferencesByLfValue(nodeId, argRefs.to(LazyList))
         )
       } {
-        case (nodeId, nf:LfNodeFetch, _) =>
-          addReference(nodeId)(nf.coid)
-        case (nodeId, lookup: LfNodeLookupByKey, _) =>
-          lookup.result.traverse_(addReference(nodeId))
-        case (nodeId, nc: LfNodeCreate, _) =>
-          val argRefs = LfTransactionUtil.referencedContractIds(nc.arg)
+        case (nodeId: LfNodeId, LfNodeFetch(coid, _, _, _, _, _, _, _), _) =>
+          addReference(nodeId)(coid)
+        case (nodeId, LfNodeLookupByKey(_, _, result, _), _) =>
+          result.traverse_(addReference(nodeId))
+        case (nodeId, LfNodeCreate(cid, _, arg, _, _, _, _, _), _) =>
+          val argRefs = LfTransactionUtil.referencedContractIds(arg)
           for {
             _ <- addReferencesByLfValue(nodeId, argRefs.to(LazyList))
-            _ <- referenced.get(nc.coid).traverse_ { otherNodeId =>
+            _ <- referenced.get(cid).traverse_ { otherNodeId =>
               Checked.continue(
-                s"Contract id ${nc.coid.coid} created in node $nodeId is referenced before in $otherNodeId"
+                s"Contract id ${cid.coid} created in node $nodeId is referenced before in $otherNodeId"
               )
             }
-            _ <- created.put(nc.coid, (nodeId, rbContext.rollbackScope)).traverse_ {
+            _ <- created.put(cid, (nodeId, rbContext.rollbackScope)).traverse_ {
               case (otherNodeId, _otherRbScope) =>
                 Checked
-                  .continue(s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId")
+                  .continue(s"Contract id ${cid.coid} is created in nodes $otherNodeId and $nodeId")
             }
-            _ <- nc.coid match {
+            _ <- cid match {
               case cidV1: LfContractId.V1 =>
                 val discriminator = cidV1.discriminator
                 if (cidV1.suffix.isEmpty == state.withSuffixes)
@@ -309,7 +309,7 @@ object WellFormedTransaction {
                     }
                 } else Checked.result(())
               case _ =>
-                Checked.continue(s"Created contract id ${nc.coid.coid} in $nodeId is not of version V1")
+                Checked.continue(s"Created contract id ${cid.coid} in $nodeId is not of version V1")
             }
           } yield ()
       } { (nodeId, ne, _) =>

@@ -431,12 +431,17 @@ class ProtocolProcessorTest
         )(anyTraceContext)
       )
         .thenReturn(EitherT.leftT[Future, Unit](sendError))
-      val (sut, persistent, ephemeral) =
+      val (sut, _persistent, _ephemeral) =
         testProcessingSteps(
           sequencerClient = failingSequencerClient,
           pendingSubmissionMap = submissionMap,
         )
-      val submissionResult = sut.submit(0).onShutdown(fail("submission shutdown")).value.futureValue
+
+      val submissionResult = loggerFactory.assertLogs(
+        sut.submit(0).onShutdown(fail("submission shutdown")).value.futureValue,
+        _.warningMessage should include(s"Failed to submit submission due to"),
+      )
+
       submissionResult shouldEqual Left(TestProcessorError(SequencerRequestError(sendError)))
       submissionMap.get(0) shouldBe None // remove the pending submission
     }

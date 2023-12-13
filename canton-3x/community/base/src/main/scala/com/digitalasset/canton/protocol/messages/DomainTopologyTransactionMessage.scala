@@ -166,8 +166,8 @@ object DomainTopologyTransactionMessage
     val v1.DomainTopologyTransactionMessage(signature, domainId, timestamp, transactions) = message
     for {
       succeededContent <- transactions.toList.traverse(
-        SignedTopologyTransaction.fromByteString
-      )
+        SignedTopologyTransaction.fromByteStringUnsafe
+      ) // TODO(#12626) - try with context
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", signature)
       domainUid <- UniqueIdentifier.fromProtoPrimitive(domainId, "domainId")
       notSequencedAfter <- ProtoConverter.parseRequired(

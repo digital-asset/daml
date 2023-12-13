@@ -20,7 +20,8 @@ import com.digitalasset.canton.participant.store.TransferStore
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId, TransferId}
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProof}
+import com.digitalasset.canton.sequencing.protocol.TimeProof
+import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.OptionUtil

@@ -12,13 +12,15 @@ import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-object GeneratorsTransaction {
+final class GeneratorsTransaction(
+    protocolVersion: ProtocolVersion,
+    generatorsProtocol: GeneratorsProtocol,
+) {
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.protocol.GeneratorsProtocol.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsProtocol.*
 
   implicit val addRemoveChangeOp: Arbitrary[AddRemoveChangeOp] = genArbitrary
   implicit val topologyChangeOpArb: Arbitrary[TopologyChangeOp] = genArbitrary
@@ -30,10 +32,9 @@ object GeneratorsTransaction {
   }
   implicit val legalIdentityClaimArb: Arbitrary[LegalIdentityClaim] = Arbitrary(
     for {
-      pv <- Arbitrary.arbitrary[ProtocolVersion]
       uid <- Arbitrary.arbitrary[UniqueIdentifier]
       evidence = legalIdentityClaimEvidence
-    } yield LegalIdentityClaim.create(uid, evidence, pv)
+    } yield LegalIdentityClaim.create(uid, evidence, protocolVersion)
   )
   implicit val signedLegalIdentityClaimArb: Arbitrary[SignedLegalIdentityClaim] = Arbitrary(
     for {
@@ -63,10 +64,7 @@ object GeneratorsTransaction {
   implicit val topologyStateUpdateMappingArb: Arbitrary[TopologyStateUpdateMapping] = genArbitrary
   implicit val topologyStateUpdateElementArb: Arbitrary[TopologyStateUpdateElement] = genArbitrary
 
-  def domainParametersChangeGenFor(pv: ProtocolVersion): Gen[DomainParametersChange] = for {
-    domainId <- Arbitrary.arbitrary[DomainId]
-    parameters <- GeneratorsProtocol.dynamicDomainParametersGenFor(pv)
-  } yield DomainParametersChange(domainId, parameters)
+  implicit val domainParametersChangeArb: Arbitrary[DomainParametersChange] = genArbitrary
 
   // If the pattern match is not exhaustive, update generator below
   {
@@ -74,29 +72,22 @@ object GeneratorsTransaction {
       case _: DomainParametersChange => ()
     }).discard
   }
-  def domainGovernanceMappingGenFor(pv: ProtocolVersion): Gen[DomainGovernanceMapping] =
-    domainParametersChangeGenFor(pv)
+  implicit val domainGovernanceMappingArb: Arbitrary[DomainGovernanceMapping] = genArbitrary
 
-  def domainGovernanceElementGenFor(pv: ProtocolVersion): Gen[DomainGovernanceElement] =
-    domainGovernanceMappingGenFor(pv).map(DomainGovernanceElement)
   implicit val domainGovernanceElementArb: Arbitrary[DomainGovernanceElement] = genArbitrary
 
   implicit val topologyStateUpdateArb: Arbitrary[TopologyStateUpdate[AddRemoveChangeOp]] =
     Arbitrary(for {
       op <- Arbitrary.arbitrary[AddRemoveChangeOp]
       element <- Arbitrary.arbitrary[TopologyStateUpdateElement]
-      rpv <- representativeProtocolVersionGen(TopologyTransaction)
-    } yield TopologyStateUpdate(op, element, rpv.representative))
+    } yield TopologyStateUpdate(op, element, protocolVersion))
 
-  implicit val domainGovernanceTransactionArb: Arbitrary[DomainGovernanceTransaction] =
+  implicit val domainGovernanceTransactionArb: Arbitrary[DomainGovernanceTransaction] = {
+    val rpv = TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     Arbitrary(for {
-      rpv <- representativeProtocolVersionGen(TopologyTransaction)
-      element <- domainGovernanceElementGenFor(rpv.representative)
+      element <- domainGovernanceElementArb.arbitrary
     } yield DomainGovernanceTransaction(element, rpv.representative))
-  def domainGovernanceTransactionGenFor(pv: ProtocolVersion): Gen[DomainGovernanceTransaction] =
-    for {
-      element <- domainGovernanceElementGenFor(pv)
-    } yield DomainGovernanceTransaction(element, pv)
+  }
 
   // If this pattern match is not exhaustive anymore, update the generator below
   {
@@ -112,22 +103,18 @@ object GeneratorsTransaction {
     )
   )
 
-  def signedTopologyTransactionGenFor(
-      pv: ProtocolVersion
-  ): Gen[SignedTopologyTransaction[TopologyChangeOp]] = for {
-    transaction <- Arbitrary.arbitrary[TopologyTransaction[TopologyChangeOp]]
-    key <- Arbitrary.arbitrary[SigningPublicKey]
-    signature <- Arbitrary.arbitrary[Signature]
-  } yield SignedTopologyTransaction(
-    transaction,
-    key,
-    signature,
-    SignedTopologyTransaction.protocolVersionRepresentativeFor(pv),
+  implicit val signedTopologyTransactionArb
+      : Arbitrary[SignedTopologyTransaction[TopologyChangeOp]] = Arbitrary(
+    for {
+      transaction <- Arbitrary.arbitrary[TopologyTransaction[TopologyChangeOp]]
+      key <- Arbitrary.arbitrary[SigningPublicKey]
+      signature <- Arbitrary.arbitrary[Signature]
+    } yield SignedTopologyTransaction(
+      transaction,
+      key,
+      signature,
+      SignedTopologyTransaction.protocolVersionRepresentativeFor(protocolVersion),
+    )
   )
 
-  implicit val signedTopologyTransactionArb
-      : Arbitrary[SignedTopologyTransaction[TopologyChangeOp]] = Arbitrary(for {
-    rpv <- representativeProtocolVersionGen(SignedTopologyTransaction)
-    tx <- signedTopologyTransactionGenFor(rpv.representative)
-  } yield tx)
 }

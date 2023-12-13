@@ -24,7 +24,6 @@ import com.digitalasset.canton.protocol.{
   AgreementText,
   ContractMetadata,
   LfContractId,
-  LfContractInst,
   LfTransactionVersion,
   SerializableContract,
   SerializableRawContractInstance,
@@ -36,6 +35,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   LfPartyId,
   LfValue,
+  LfVersioned,
   RequestCounter,
   RequestCounterDiscriminator,
   TransferCounter,
@@ -130,10 +130,12 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
   private val MockedSerializableRawContractInstance =
     SerializableRawContractInstance
       .create(
-        LfContractInst(
+        LfVersioned(
           LfTransactionVersion.VDev,
-          Ref.Identifier.assertFromString("pkg:Mod:Template"),
-          LfValue.ValueNil,
+          LfValue.ContractInstance(
+            template = Ref.Identifier.assertFromString("pkg:Mod:Template"),
+            arg = LfValue.ValueNil,
+          ),
         ),
         AgreementText.empty,
       )

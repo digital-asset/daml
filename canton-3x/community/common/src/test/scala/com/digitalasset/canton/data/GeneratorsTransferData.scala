@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, HashPurpose, Salt, TestHash}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
@@ -11,33 +12,34 @@ import com.digitalasset.canton.protocol.messages.{
   TransferResult,
   Verdict,
 }
-import com.digitalasset.canton.sequencing.protocol.{Batch, SignedContent}
-import com.digitalasset.canton.time.TimeProof
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{
-  ApplicationId,
-  LedgerCommandId,
-  LedgerSubmissionId,
-  LfPartyId,
-  LfWorkflowId,
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  GeneratorsProtocol as GeneratorsProtocolSequencing,
+  SignedContent,
+  TimeProof,
 }
+import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 import scala.concurrent.ExecutionContext
 
-object GeneratorsTransferData {
+final class GeneratorsTransferData(
+    protocolVersion: ProtocolVersion,
+    generatorsDataTime: GeneratorsDataTime,
+    generatorsProtocol: GeneratorsProtocol,
+    generatorsProtocolSequencing: GeneratorsProtocolSequencing,
+) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.data.GeneratorsData.*
-  import com.digitalasset.canton.protocol.GeneratorsProtocol.*
-  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
-  import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import org.scalatest.EitherValues.*
+  import generatorsDataTime.cantonTimestampArb
+  import generatorsProtocol.*
+  import generatorsProtocolSequencing.*
 
   @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
   /*
@@ -45,6 +47,9 @@ object GeneratorsTransferData {
    too complex here, using the global one.
    */
   private implicit val ec: ExecutionContext = ExecutionContext.global
+
+  private val sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
+  private val targetProtocolVersion = TargetProtocolVersion(protocolVersion)
 
   implicit val transferInCommonData: Arbitrary[TransferInCommonData] = Arbitrary(
     for {
@@ -55,7 +60,6 @@ object GeneratorsTransferData {
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
-      targetProtocolVersion <- Arbitrary.arbitrary[TargetProtocolVersion]
 
       hashOps = TestHash // Not used for serialization
 
@@ -80,7 +84,6 @@ object GeneratorsTransferData {
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
-      sourceProtocolVersion <- Arbitrary.arbitrary[SourceProtocolVersion]
 
       hashOps = TestHash // Not used for serialization
 
@@ -96,58 +99,20 @@ object GeneratorsTransferData {
       )
   )
 
-  private def transferInSubmitterMetadataGen(
-      protocolVersion: TargetProtocolVersion
-  ): Gen[TransferSubmitterMetadata] =
-    for {
-      submitter <- Arbitrary.arbitrary[LfPartyId]
-      applicationId <- defaultValueGen(
-        protocolVersion.v,
-        TransferInView.applicationIdDefaultValue,
-        applicationIdArb.arbitrary.map(_.unwrap),
-      )
-      submittingParticipant <- defaultValueGen(
-        protocolVersion.v,
-        TransferInView.submittingParticipantDefaultValue,
-        Arbitrary.arbitrary[ParticipantId].map(_.toLf),
-      )
-      commandId <- defaultValueGen(
-        protocolVersion.v,
-        TransferInView.commandIdDefaultValue,
-        commandIdArb.arbitrary.map(_.unwrap),
-      )
-      submissionId <- defaultValueGen(
-        protocolVersion.v,
-        TransferInView.submissionIdDefaultValue,
-        Gen.option(ledgerSubmissionIdArb.arbitrary),
-      )
-      workflowId <- defaultValueGen(
-        protocolVersion.v,
-        TransferInView.workflowIdDefaultValue,
-        Gen.option(workflowIdArb.arbitrary.map(_.unwrap)),
-      )
-    } yield TransferSubmitterMetadata(
-      submitter,
-      applicationId,
-      submittingParticipant,
-      commandId,
-      submissionId,
-      workflowId,
-    )
-
-  implicit val transferOutSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
+  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
     Arbitrary(
       for {
         submitter <- Arbitrary.arbitrary[LfPartyId]
-        applicationId <- Arbitrary.arbitrary[ApplicationId]
-        submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
-        commandId <- Arbitrary.arbitrary[LedgerCommandId]
-        submissionId <- Gen.option(Arbitrary.arbitrary[LedgerSubmissionId])
-        workflowId <- Gen.option(Arbitrary.arbitrary[LfWorkflowId])
+        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
+        submittingParticipant <- Arbitrary.arbitrary[ParticipantId].map(_.toLf)
+        commandId <- commandIdArb.arbitrary.map(_.unwrap)
+        submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
+        workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
+
       } yield TransferSubmitterMetadata(
         submitter,
-        applicationId.unwrap,
-        submittingParticipant.toLf,
+        applicationId,
+        submittingParticipant,
         commandId,
         submissionId,
         workflowId,
@@ -180,12 +145,12 @@ object GeneratorsTransferData {
           GeneratorsCrypto.sign("TransferOutResult-mediator", HashPurpose.TransferResultSignature),
         )
 
-      recipients <- recipientsArb(protocolVersion).arbitrary
+      recipients <- recipientsArb.arbitrary
 
       transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
 
       batch = Batch.of(protocolVersion, signedResult -> recipients)
-      deliver <- deliverGen(sourceDomain.unwrap, batch, protocolVersion)
+      deliver <- deliverGen(sourceDomain.unwrap, batch)
     } yield DeliveredTransferOutResult {
       SignedContent(
         deliver,
@@ -198,13 +163,9 @@ object GeneratorsTransferData {
   implicit val transferInViewArb: Arbitrary[TransferInView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-
-      targetProtocolVersion <- Arbitrary.arbitrary[TargetProtocolVersion]
-      sourceProtocolVersion <- Arbitrary.arbitrary[SourceProtocolVersion]
-
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
-      submitterMetadata <- transferInSubmitterMetadataGen(targetProtocolVersion)
+      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
       transferOutResultEvent <- deliveryTransferOutResultGen(contract, sourceProtocolVersion)
       transferCounter <- transferCounterOGen
 
@@ -227,9 +188,6 @@ object GeneratorsTransferData {
   implicit val transferOutViewArb: Arbitrary[TransferOutView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-
-      sourceProtocolVersion <- Arbitrary.arbitrary[SourceProtocolVersion]
-      targetProtocolVersion <- Arbitrary.arbitrary[TargetProtocolVersion]
 
       submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
 

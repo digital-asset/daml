@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.test.{TransactionBuilder, TreeTransactionBuilder}
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
-import com.daml.lf.value.Value.{ValueParty, VersionedContractInstance}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion, Versioned}
+import com.daml.lf.value.Value.{ContractInstance, ValueParty}
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -43,9 +43,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val create =
         Node.Create(
           coid = contractId,
-          someTemplateId,
-          someContractArgument,
-          someAgreement,
+          templateId = someTemplateId,
+          arg = someContractArgument,
+          agreementText = someAgreement,
           signatories = Set(bob),
           stakeholders = Set(bob),
           keyOpt = Some(
@@ -113,9 +113,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
 
       val create3d = Node.Create(
         coid = TransactionBuilder.newCid,
-        someTemplateId,
-        someContractArgument,
-        someAgreement,
+        templateId = someTemplateId,
+        arg = someContractArgument,
+        agreementText = someAgreement,
         signatories = Set(bob),
         stakeholders = Set(alice, bob),
         keyOpt = Some(
@@ -136,10 +136,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     }
 
     val someVersionedContractInstance =
-      VersionedContractInstance(
-        version = TransactionVersion.V14,
-        template = someContractInstance.template,
-        arg = someContractInstance.arg,
+      Versioned(
+        TransactionVersion.V14,
+        ContractInstance(
+          template = someContractInstance.template,
+          arg = someContractInstance.arg,
+        ),
       )
 
     val t1 = Timestamp.now()

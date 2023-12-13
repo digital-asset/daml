@@ -56,7 +56,14 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsProvider,
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
-import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.{
+  ContractChange,
+  ParticipantNodePersistentState,
+  StateChangeType,
+  StoredContract,
+  SyncDomainEphemeralState,
+  SyncDomainPersistentState,
+}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter

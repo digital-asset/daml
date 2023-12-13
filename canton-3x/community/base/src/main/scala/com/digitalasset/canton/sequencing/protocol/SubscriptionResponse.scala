@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 final case class SubscriptionResponse(
     signedSequencedEvent: SignedContent[SequencedEvent[ClosedEnvelope]],
@@ -15,7 +16,9 @@ final case class SubscriptionResponse(
 )
 
 object SubscriptionResponse {
-  def fromVersionedProtoV0(responseP: v0.VersionedSubscriptionResponse)(implicit
+  def fromVersionedProtoV0(
+      protocolVersion: ProtocolVersion
+  )(responseP: v0.VersionedSubscriptionResponse)(implicit
       traceContext: TraceContext
   ): ParsingResult[SubscriptionResponse] = {
     val v0.VersionedSubscriptionResponse(
@@ -24,8 +27,12 @@ object SubscriptionResponse {
       trafficStateP,
     ) = responseP
     for {
-      signedContent <- SignedContent.fromByteString(signedSequencedEvent)
-      signedSequencedEvent <- signedContent.deserializeContent(SequencedEvent.fromByteString)
+      signedContent <- SignedContent.fromByteString(protocolVersion)(
+        signedSequencedEvent
+      )
+      signedSequencedEvent <- signedContent.deserializeContent(
+        SequencedEvent.fromByteString(protocolVersion)
+      )
       trafficState <- trafficStateP.traverse(SequencedEventTrafficState.fromProtoV0)
     } yield SubscriptionResponse(signedSequencedEvent, traceContext, trafficState)
 

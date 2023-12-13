@@ -95,10 +95,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .mapK(FutureUnlessShutdown.outcomeK)
 
       acceptedAgreement <- agreementClient
-        .isRequiredAgreementAccepted(
-          domainId,
-          sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
-        )
+        .isRequiredAgreementAccepted(domainId)
         .leftMap(e =>
           DomainRegistryError.HandshakeErrors.ServiceAgreementAcceptanceFailed.Error(e.reason)
         )

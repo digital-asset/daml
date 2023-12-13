@@ -227,6 +227,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       keyIdx -> GlobalKey.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
         ValueInt64(keyIdx),
+        shared = true,
       )
     }.toMap
 
@@ -302,7 +303,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def contract(idx: Long): Contract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
     val contractArgument = Value.ValueInt64(idx)
-    val contractInstance = ContractInstance(templateId, contractArgument)
+    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

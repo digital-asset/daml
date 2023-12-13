@@ -10,9 +10,9 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.TransferOutMediatorMessage
+import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
 import com.digitalasset.canton.util.EitherUtil
@@ -94,12 +94,13 @@ object TransferOutViewTree
       hashOps,
     )
 
+  // TODO(#12626) – try with context
   def fromProtoV1(hashOps: HashOps)(
       transferOutViewTreeP: v1.TransferViewTree
   ): ParsingResult[TransferOutViewTree] =
     GenTransferViewTree.fromProtoV1(
-      TransferOutCommonData.fromByteString(hashOps),
-      TransferOutView.fromByteString(hashOps),
+      TransferOutCommonData.fromByteStringUnsafe(hashOps),
+      TransferOutView.fromByteStringUnsafe(hashOps),
     )((commonData, view) =>
       TransferOutViewTree(commonData, view)(
         protocolVersionRepresentativeFor(ProtoVersion(1)),
@@ -461,7 +462,7 @@ object FullTransferOutTree {
       crypto: CryptoPureApi
   )(bytes: ByteString): ParsingResult[FullTransferOutTree] =
     for {
-      tree <- TransferOutViewTree.fromByteString(crypto)(bytes)
+      tree <- TransferOutViewTree.fromByteStringUnsafe(crypto)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-out request ${tree.rootHash} is not fully unblinded"),

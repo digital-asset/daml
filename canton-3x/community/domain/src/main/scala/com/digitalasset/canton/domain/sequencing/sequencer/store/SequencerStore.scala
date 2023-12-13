@@ -223,13 +223,14 @@ object DeliverErrorStoreEvent {
   }
 
   def fromByteString(
-      serializedErrorO: Option[ByteString]
+      serializedErrorO: Option[ByteString],
+      protocolVersion: ProtocolVersion,
   ): ParsingResult[Status] =
     serializedErrorO.fold[ParsingResult[Status]](
       Left(ProtoDeserializationError.FieldNotSet("error"))
     )(serializedError =>
       VersionedStatus
-        .fromByteString(serializedError)
+        .fromByteString(protocolVersion)(serializedError)
         .map(_.status)
     )
 }

@@ -171,7 +171,10 @@ object ProtocolVersion {
     }
   }
 
-  private[version] def unsupportedErrorMessage(pv: ProtocolVersion, includeDeleted: Boolean) = {
+  private[version] def unsupportedErrorMessage(
+      pv: ProtocolVersion,
+      includeDeleted: Boolean = false,
+  ) = {
     val supportedStablePVs = stableAndSupported.map(_.toString)
 
     val supportedPVs = if (includeDeleted) {
@@ -229,7 +232,7 @@ object ProtocolVersion {
     */
   def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
     val pv = ProtocolVersion(rawVersion)
-    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv, includeDeleted = false)))
+    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.

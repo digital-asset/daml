@@ -14,7 +14,8 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.TargetDomainId
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, TimeProof}
+import com.digitalasset.canton.sequencing.protocol.TimeProof
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 

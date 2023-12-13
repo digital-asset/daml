@@ -11,7 +11,9 @@ object TextFileUtil {
   /** writes the given string to the file.
     */
   def writeStringToFile(outputFile: File, s: String): Unit =
-    ResourceUtil.withResource(new BufferedWriter(new FileWriter(outputFile)))(_.write(s))
+    ResourceUtil.withResource(new FileWriter(outputFile)) { writer =>
+      ResourceUtil.withResource(new BufferedWriter(writer))(_.write(s))
+    }
 
   /** Gets full string content of a file
     */

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.time
+package com.digitalasset.canton.sequencing.protocol
 
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -13,7 +13,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.OrdinaryProtocolEvent
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
-import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{HasCryptographicEvidence, ProtoConverter}
 import com.digitalasset.canton.store.SequencedEventStore.{
@@ -21,6 +20,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
 }
+import com.digitalasset.canton.time.v0
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting

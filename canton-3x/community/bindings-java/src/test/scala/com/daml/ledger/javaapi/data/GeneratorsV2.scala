@@ -217,21 +217,29 @@ object GeneratorsV2 {
       v1.ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build()
     )
 
-  def eventGen: Gen[v1.EventOuterClass.Event] =
+  def eventGen: Gen[v1.EventOuterClass.Event] = {
+    import v1.EventOuterClass.Event
     for {
-      eventBuilder <- eventBuilderGen
-    } yield {
-      val b = v1.EventOuterClass.Event
-        .newBuilder()
-      eventBuilder(b)
-      b.build()
-    }
+      event <- Gen.oneOf(
+        createdEventGen.map(e => (b: Event.Builder) => b.setCreated(e)),
+        archivedEventGen.map(e => (b: Event.Builder) => b.setArchived(e)),
+      )
+    } yield v1.EventOuterClass.Event.newBuilder()
+      .pipe(event)
+      .build()
+  }
 
-  def eventBuilderGen: Gen[v1.EventOuterClass.Event.Builder => v1.EventOuterClass.Event] =
-    Gen.oneOf(
-      createdEventGen.map(e => (b: v1.EventOuterClass.Event.Builder) => b.setCreated(e).build()),
-      archivedEventGen.map(e => (b: v1.EventOuterClass.Event.Builder) => b.setArchived(e).build()),
-    )
+  def treeEventGen: Gen[v1.TransactionOuterClass.TreeEvent] = {
+    import v1.TransactionOuterClass.TreeEvent
+    for {
+      event <- Gen.oneOf(
+        createdEventGen.map(e => (b: TreeEvent.Builder) => b.setCreated(e)),
+        exercisedEventGen.map(e => (b: TreeEvent.Builder) => b.setExercised(e)),
+      )
+    } yield v1.TransactionOuterClass.TreeEvent.newBuilder()
+      .pipe(event)
+      .build()
+  }
 
   private[this] val failingStatusGen = Gen const com.google.rpc.Status.getDefaultInstance
 
@@ -241,6 +249,8 @@ object GeneratorsV2 {
       vs.fold(b.setViewValue, b.setViewStatus).build()
     }
 
+  val eventIdGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
+
   val createdEventGen: Gen[v1.EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
@@ -248,7 +258,7 @@ object GeneratorsV2 {
       createArgument <- recordGen
       createEventBlob <- byteStringGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
-      eventId <- Arbitrary.arbString.arbitrary
+      eventId <- eventIdGen
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
       observers <- Gen.listOf(Gen.asciiPrintableStr)
@@ -269,7 +279,7 @@ object GeneratorsV2 {
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
-      eventId <- Arbitrary.arbString.arbitrary
+      eventId <- eventIdGen
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
 
     } yield v1.EventOuterClass.ArchivedEvent
@@ -285,7 +295,7 @@ object GeneratorsV2 {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       actingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-      eventId <- Arbitrary.arbString.arbitrary
+      eventId <- eventIdGen
       choice <- Arbitrary.arbString.arbitrary
       choiceArgument <- valueGen
       isConsuming <- Arbitrary.arbBool.arbitrary
@@ -630,6 +640,164 @@ object GeneratorsV2 {
       .setCheckpoint(checkpoint)
       .setCompletion(completion)
       .setDomainId(domainId)
+      .build()
+  }
+
+  def transactionGen: Gen[v2.TransactionOuterClass.Transaction] = {
+    import v2.TransactionOuterClass.Transaction
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      commandId <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      effectiveAt <- instantGen
+      events <- Gen.listOf(eventGen)
+      offset <- Arbitrary.arbString.arbitrary
+      domainId <- Arbitrary.arbString.arbitrary
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+    } yield Transaction.newBuilder()
+      .setUpdateId(updateId)
+      .setCommandId(commandId)
+      .setWorkflowId(workflowId)
+      .setEffectiveAt(Utils.instantToProto(effectiveAt))
+      .addAllEvents(events.asJava)
+      .setOffset(offset)
+      .setDomainId(domainId)
+      .setTraceContext(traceContext)
+      .build()
+  }
+
+  def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
+    import v2.TransactionOuterClass.TransactionTree
+    def idTreeEventPairGen =
+      eventIdGen.flatMap(
+        id => treeEventGen.map(e => id -> e)
+      )
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      commandId <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      effectiveAt <- instantGen
+      eventsById <- Gen.mapOfN(10, idTreeEventPairGen)
+      rootEventIds = eventsById.headOption.map(_._1).toList
+      offset <- Arbitrary.arbString.arbitrary
+      domainId <- Arbitrary.arbString.arbitrary
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+    } yield TransactionTree.newBuilder()
+      .setUpdateId(updateId)
+      .setCommandId(commandId)
+      .setWorkflowId(workflowId)
+      .setEffectiveAt(Utils.instantToProto(effectiveAt))
+      .putAllEventsById(eventsById.asJava)
+      .addAllRootEventIds(rootEventIds.asJava)
+      .setOffset(offset)
+      .setDomainId(domainId)
+      .setTraceContext(traceContext)
+      .build()
+  }
+
+  def reassignmentGen: Gen[v2.ReassignmentOuterClass.Reassignment] = {
+    import v2.ReassignmentOuterClass.Reassignment
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      commandId <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbString.arbitrary
+      event <- Gen.oneOf(
+        unassignedEventGen.map(
+          unassigned => (b: Reassignment.Builder) => b.setUnassignedEvent(unassigned)),
+        assignedEventGen.map(
+          assigned => (b:Reassignment.Builder) => b.setAssignedEvent(assigned)
+        )
+      )
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+    } yield Reassignment.newBuilder()
+      .setUpdateId(updateId)
+      .setCommandId(commandId)
+      .setWorkflowId(workflowId)
+      .setOffset(offset)
+      .pipe(event)
+      .setTraceContext(traceContext)
+      .build()
+  }
+
+  def getTransactionByEventIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByEventIdRequest] = {
+    import v2.UpdateServiceOuterClass.{GetTransactionByEventIdRequest => Request}
+    for {
+      eventId <- eventIdGen
+      requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield Request.newBuilder()
+      .setEventId(eventId)
+      .addAllRequestingParties(requestingParties.asJava)
+      .build()
+  }
+
+  def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
+    import v2.UpdateServiceOuterClass.{GetTransactionByIdRequest => Request}
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield Request.newBuilder()
+      .setUpdateId(updateId)
+      .addAllRequestingParties(requestingParties.asJava)
+      .build()
+  }
+
+  def getTransactionResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionResponse] =
+    transactionGen.map(
+      v2.UpdateServiceOuterClass.GetTransactionResponse.newBuilder()
+        .setTransaction(_)
+        .build())
+
+  def getTransactionTreeResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionTreeResponse] =
+    transactionTreeGen.map(
+      v2.UpdateServiceOuterClass.GetTransactionTreeResponse.newBuilder()
+        .setTransaction(_)
+        .build())
+
+  def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
+    import v2.UpdateServiceOuterClass.{GetUpdatesRequest => Request}
+    for {
+      beginExclusive <- participantOffsetGen
+      endInclusive <- participantOffsetGen
+      filter <- transactionFilterGen
+      verbose <- Arbitrary.arbBool.arbitrary
+    } yield Request.newBuilder()
+      .setBeginExclusive(beginExclusive)
+      .setEndInclusive(endInclusive)
+      .setFilter(filter)
+      .setVerbose(verbose)
+      .build()
+  }
+
+  def getUpdatesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesResponse] = {
+    import v2.UpdateServiceOuterClass.{GetUpdatesResponse => Response}
+    for {
+      update <- Gen.oneOf(
+        transactionGen.map(
+          transaction => (b: Response.Builder) => b.setTransaction(transaction)
+        ),
+        reassignmentGen.map(
+          reassingment => (b: Response.Builder) => b.setReassignment(reassingment)
+        )
+      )
+    } yield Response.newBuilder()
+      .pipe(update)
+      .build()
+  }
+
+  def getUpdateTreesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateTreesResponse] = {
+    import v2.UpdateServiceOuterClass.{GetUpdateTreesResponse => Response}
+    for {
+      update <- Gen.oneOf(
+        transactionTreeGen.map(
+          transactionTree => (b: Response.Builder) => b.setTransactionTree(transactionTree)
+        ),
+        reassignmentGen.map(
+          reassingment => (b: Response.Builder) => b.setReassignment(reassingment)
+        )
+      )
+    } yield Response.newBuilder()
+      .pipe(update)
       .build()
   }
 

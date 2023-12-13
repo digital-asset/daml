@@ -277,7 +277,7 @@ class QueueBasedDomainOutboxX(
           markDone()
         }
 
-        EitherTUtil.onErrorOrFailureUnlessShutdown { () =>
+        EitherTUtil.onErrorOrFailureOrShutdown { () =>
           domainOutboxQueue.requeue()
           markDone(delayRetry = true)
         }(ret)

@@ -9,7 +9,13 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.sequencing.OrdinaryProtocolEvent
-import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, MessageId, SignedContent}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  Deliver,
+  MessageId,
+  SignedContent,
+  TimeProof,
+}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext

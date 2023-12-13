@@ -28,7 +28,7 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeCommon,
   ParticipantNodeX,
 }
-import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.topology.{DomainId, NodeIdentity, ParticipantId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
@@ -94,6 +94,11 @@ trait InstanceReference extends InstanceReferenceCommon {
 /** InstanceReferenceX with different topology administration x
   */
 trait InstanceReferenceX extends InstanceReferenceCommon {
+
+  @Help.Summary("Inspect parties")
+  @Help.Group("Parties")
+  def parties: PartiesAdministrationGroupX
+
   override def topology: TopologyAdministrationGroupX
 
   private lazy val trafficControl_ =
@@ -331,7 +336,7 @@ trait RemoteDomainReference extends DomainReference with GrpcRemoteInstanceRefer
   def config: RemoteDomainConfig =
     consoleEnvironment.environment.config.remoteDomainsByString(name)
 
-  override def sequencerConnection: SequencerConnection =
+  override def sequencerConnection: GrpcSequencerConnection =
     config.publicApi.toConnection
       .fold(
         err => sys.error(s"Domain $name has invalid sequencer connection config: $err"),
@@ -354,7 +359,7 @@ class CommunityRemoteDomainReference(val consoleEnvironment: ConsoleEnvironment,
 }
 
 trait InstanceReferenceWithSequencerConnection extends InstanceReferenceCommon {
-  def sequencerConnection: SequencerConnection
+  def sequencerConnection: GrpcSequencerConnection
 }
 trait InstanceReferenceWithSequencer extends InstanceReferenceWithSequencerConnection {
   def sequencer: SequencerAdministrationGroup
@@ -370,7 +375,7 @@ trait LocalDomainReference
   def config: consoleEnvironment.environment.config.DomainConfigType =
     consoleEnvironment.environment.config.domainsByString(name)
 
-  override def sequencerConnection: SequencerConnection =
+  override def sequencerConnection: GrpcSequencerConnection =
     config.sequencerConnectionConfig.toConnection
       .fold(
         err => sys.error(s"Domain $name has invalid sequencer connection config: $err"),
@@ -766,9 +771,7 @@ abstract class ParticipantReferenceX(
   override def health: ParticipantHealthAdministrationX =
     new ParticipantHealthAdministrationX(this, consoleEnvironment, loggerFactory)
 
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  def parties: ParticipantPartiesAdministrationGroupX
+  override def parties: ParticipantPartiesAdministrationGroupX
 
   private lazy val topology_ =
     new TopologyAdministrationGroupX(

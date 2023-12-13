@@ -244,7 +244,7 @@ class DAMLe(
       )
       (transaction, _metadata, _resolver) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
-        case nc : LfNodeCreate =>
+        case nc: LfNodeCreate =>
           ContractWithMetadata(
             LfContractInst(template = nc.templateId, arg = Versioned(nc.version, nc.arg)),
             nc.signatories,

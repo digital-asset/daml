@@ -32,21 +32,25 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
       message(basePV + 4).toProtoVersioned.version shouldBe 2
     }
 
+    def fromByteString(
+        bytes: ByteString,
+        protoVersion: Int,
+        domainProtocolVersion: ProtocolVersion,
+    ): ParsingResult[Message] = Message
+      .fromByteString(domainProtocolVersion)(
+        VersionedMessage[Message](bytes, protoVersion).toByteString
+      )
+
     "set correct protocol version depending on the proto version" in {
-      def fromByteString(bytes: ByteString, protoVersion: Int): Message = Message
-        .fromByteString(
-          VersionedMessage[Message](bytes, protoVersion).toByteString
-        )
-        .value
 
       val messageV1 = VersionedMessageV1("Hey", 42).toByteString
       val expectedV1Deserialization =
         Message("Hey", 42, 1.0)(protocolVersionRepresentative(basePV + 2), None)
-      fromByteString(messageV1, 1) shouldBe expectedV1Deserialization
+      fromByteString(messageV1, 1, basePV + 2).value shouldBe expectedV1Deserialization
 
       // Round trip serialization
       Message
-        .fromByteString(
+        .fromByteString(basePV + 2)(
           expectedV1Deserialization.toByteString
         )
         .value shouldBe expectedV1Deserialization
@@ -54,11 +58,11 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
       val messageV2 = VersionedMessageV2("Hey", 42, 43.0).toByteString
       val expectedV2Deserialization =
         Message("Hey", 42, 43.0)(protocolVersionRepresentative(basePV + 3), None)
-      fromByteString(messageV2, 2) shouldBe expectedV2Deserialization
+      fromByteString(messageV2, 2, basePV + 3).value shouldBe expectedV2Deserialization
 
       // Round trip serialization
       Message
-        .fromByteString(
+        .fromByteString(basePV + 3)(
           expectedV2Deserialization.toByteString
         )
         .value shouldBe expectedV2Deserialization
@@ -73,8 +77,37 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
       protocolVersionRepresentative(basePV + 5).representative shouldBe basePV + 3
     }
 
+    "return the highest inclusive protocol representative for an unknown proto version" in {
+      protocolVersionRepresentative(ProtocolVersion(-1)).representative shouldBe basePV + 3
+    }
+
+    "fail deserialization when the representative protocol version from the proto version does not match the expected (representative) protocol version" in {
+      val message = VersionedMessageV1("Hey", 42).toByteString
+      fromByteString(message, 1, basePV + 3).left.value should have message
+        Message.unexpectedProtoVersionError(basePV + 3, basePV + 2).message
+    }
+
+    "validate proto version against expected (representative) protocol version" in {
+      Message
+        .validateDeserialization(Some(basePV + 2), basePV + 2)
+        .value shouldBe ()
+      Message
+        .validateDeserialization(Some(basePV + 3), basePV + 2)
+        .left
+        .value should have message Message
+        .unexpectedProtoVersionError(basePV + 3, basePV + 2)
+        .message
+      Message
+        .validateDeserialization(
+          None, // skips expected protocol version check
+          basePV,
+        )
+        .value shouldBe ()
+    }
+
     "status consistency between protobuf messages and protocol versions" in {
       new HasMemoizedProtocolVersionedWrapperCompanion[Message] {
+
         import com.digitalasset.canton.version.HasProtocolVersionedWrapperTest.Message.*
 
         // Used by the compiled string below
