@@ -49,7 +49,6 @@ import com.digitalasset.canton.sequencing.{
   SequencerTestUtils,
 }
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.tracing.Traced

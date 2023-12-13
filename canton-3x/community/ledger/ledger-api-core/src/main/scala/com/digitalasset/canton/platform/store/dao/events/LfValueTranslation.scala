@@ -278,7 +278,12 @@ final class LfValueTranslation(
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
           globalKey <- createKey
-            .traverse(key => GlobalKey.build(templateId, key.unversioned).left.map(_.msg))
+            .traverse(key =>
+              GlobalKey
+                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .left
+                .map(_.msg)
+            )
           apiCreatedAt <- raw.partial.createdAt
             .fold[Either[String, ApiTimestamp]](Left("missing createdAt"))(Right(_))
           instant <- InstantConverter.fromProtoPrimitive(apiCreatedAt).left.map(_.message)
@@ -397,7 +402,12 @@ final class LfValueTranslation(
             .traverse(Party.fromString)
             .map(_.toSet)
           globalKey <- createKey
-            .traverse(key => GlobalKey.build(templateId, key.unversioned).left.map(_.msg))
+            .traverse(key =>
+              GlobalKey
+                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .left
+                .map(_.msg)
+            )
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,

@@ -94,13 +94,14 @@ object TransferInViewTree
     )
   )
 
+  // TODO(#12626) – try with context
   def fromProtoV1(
       hashOps: HashOps,
       transferInViewTreeP: v1.TransferViewTree,
   ): ParsingResult[TransferInViewTree] =
     GenTransferViewTree.fromProtoV1(
-      TransferInCommonData.fromByteString(hashOps),
-      TransferInView.fromByteString(hashOps),
+      TransferInCommonData.fromByteStringUnsafe(hashOps),
+      TransferInView.fromByteStringUnsafe(hashOps),
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
 }
 
@@ -349,49 +350,6 @@ object TransferInView
       _.toProtoV2.toByteString,
     )
   )
-
-  private lazy val rpvMultidomain: RepresentativeProtocolVersion[TransferInView.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.v30)
-
-  lazy val submittingParticipantDefaultValue: DefaultValueUntilExclusive[LedgerParticipantId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.submittingParticipant,
-      "submitterMetadata.submittingParticipant",
-      rpvMultidomain,
-      LedgerParticipantId.assertFromString("no-participant-id"),
-    )
-
-  lazy val commandIdDefaultValue: DefaultValueUntilExclusive[LedgerCommandId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.commandId,
-      "submitterMetadata.commandId",
-      rpvMultidomain,
-      LedgerCommandId.assertFromString("no-command-id"),
-    )
-
-  lazy val applicationIdDefaultValue: DefaultValueUntilExclusive[LedgerApplicationId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.applicationId,
-      "submitterMetadata.applicationId",
-      rpvMultidomain,
-      LedgerApplicationId.assertFromString("no-application-id"),
-    )
-
-  lazy val submissionIdDefaultValue: DefaultValueUntilExclusive[Option[LedgerSubmissionId]] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.submissionId,
-      "submitterMetadata.submissionId",
-      rpvMultidomain,
-      None,
-    )
-
-  lazy val workflowIdDefaultValue: DefaultValueUntilExclusive[Option[LfWorkflowId]] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.workflowId,
-      "submitterMetadata.worfklowId",
-      rpvMultidomain,
-      None,
-    )
 
   def create(hashOps: HashOps)(
       salt: Salt,

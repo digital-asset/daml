@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,6 +17,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.admin.v1.{
   ListPartyHostingLimitsRequest,
   ListPartyHostingLimitsResult,
@@ -25,9 +27,9 @@ import com.digitalasset.canton.topology.admin.v1.{
   ListTrafficStateResult,
 }
 import com.digitalasset.canton.topology.admin.v1 as adminProto
-import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
   TimeQueryX,
@@ -55,15 +57,15 @@ import com.digitalasset.canton.topology.transaction.{
   VettedPackagesX,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class BaseQueryX(
-    filterStore: String,
+    filterStore: Option[TopologyStore],
     proposals: Boolean,
     timeQuery: TimeQueryX,
     ops: Option[TopologyChangeOpX],
@@ -72,7 +74,7 @@ final case class BaseQueryX(
 ) {
   def toProtoV1: adminProto.BaseQuery =
     adminProto.BaseQuery(
-      filterStore,
+      filterStore.map(_.toProto),
       proposals,
       ops.map(_.toProto).getOrElse(TopologyChangeOpX.Replace.toProto),
       filterOperation = true,
@@ -83,15 +85,32 @@ final case class BaseQueryX(
 }
 
 object BaseQueryX {
+  def apply(
+      filterStore: String,
+      proposals: Boolean,
+      timeQuery: TimeQueryX,
+      ops: Option[TopologyChangeOpX],
+      filterSigningKey: String,
+      protocolVersion: Option[ProtocolVersion],
+  ): BaseQueryX =
+    BaseQueryX(
+      OptionUtil.emptyStringAsNone(filterStore).map(TopologyStore.tryFromString),
+      proposals,
+      timeQuery,
+      ops,
+      filterSigningKey,
+      protocolVersion,
+    )
+
   def fromProto(value: Option[adminProto.BaseQuery]): ParsingResult[BaseQueryX] =
     for {
       baseQuery <- ProtoConverter.required("base_query", value)
       proposals = baseQuery.proposals
-      filterStore = baseQuery.filterStore
       filterSignedKey = baseQuery.filterSignedKey
       timeQuery <- TimeQueryX.fromProto(baseQuery.timeQuery, "time_query")
       opsRaw <- TopologyChangeOpX.fromProtoV2(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
+      filterStore <- baseQuery.filterStore.traverse(TopologyStore.fromProto(_, "filter_store"))
     } yield BaseQueryX(
       filterStore,
       proposals,
@@ -102,9 +121,49 @@ object BaseQueryX {
     )
 }
 
+sealed trait TopologyStore extends Product with Serializable {
+  def toProto: adminProto.Store
+
+  def filterString: String
+}
+
+object TopologyStore {
+
+  def tryFromString(store: String): TopologyStore =
+    if (store.toLowerCase == "authorized") Authorized
+    else Domain(DomainId.tryFromString(store))
+
+  def fromProto(
+      store: adminProto.Store,
+      fieldName: String,
+  ): Either[ProtoDeserializationError, TopologyStore] = {
+    store.store match {
+      case adminProto.Store.Store.Empty => Left(ProtoDeserializationError.FieldNotSet(fieldName))
+      case adminProto.Store.Store.Authorized(_) => Right(TopologyStore.Authorized)
+      case adminProto.Store.Store.Domain(domain) =>
+        DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain)
+    }
+  }
+
+  final case class Domain(id: DomainId) extends TopologyStore {
+    override def toProto: adminProto.Store =
+      adminProto.Store(
+        adminProto.Store.Store.Domain(adminProto.Store.Domain(id.toProtoPrimitive))
+      )
+
+    override def filterString: String = id.toProtoPrimitive
+  }
+
+  case object Authorized extends TopologyStore {
+    override def toProto: adminProto.Store =
+      adminProto.Store(adminProto.Store.Store.Authorized(adminProto.Store.Authorized()))
+
+    override def filterString: String = "Authorized"
+  }
+}
+
 class GrpcTopologyManagerReadServiceX(
     stores: => Seq[TopologyStoreX[TopologyStoreId]],
-    ips: IdentityProvidingServiceClient,
     crypto: Crypto,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -123,13 +182,27 @@ class GrpcTopologyManagerReadServiceX(
   )
 
   private def collectStores(
-      filterStore: String
-  ): EitherT[Future, CantonError, Seq[TopologyStoreX[TopologyStoreId]]] =
-    EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore)))
+      filterStoreO: Option[TopologyStore]
+  ): EitherT[Future, CantonError, Seq[TopologyStoreX[TopologyStoreId]]] = filterStoreO match {
+    case Some(filterStore) =>
+      EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore.filterString)))
+    case None => EitherT.rightT(stores)
+  }
 
-  private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult =
+  private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult = {
+    val storeProto: adminProto.Store = context.store match {
+      case DomainStore(domainId, _) =>
+        adminProto.Store(
+          adminProto.Store.Store.Domain(adminProto.Store.Domain(domainId.toProtoPrimitive))
+        )
+      case TopologyStoreId.AuthorizedStore =>
+        adminProto.Store(
+          adminProto.Store.Store.Authorized(adminProto.Store.Authorized())
+        )
+    }
+
     new adminProto.BaseResult(
-      store = context.store.filterName,
+      store = Some(storeProto),
       sequenced = Some(context.sequenced.value.toProtoPrimitive),
       validFrom = Some(context.validFrom.value.toProtoPrimitive),
       validUntil = context.validUntil.map(_.value.toProtoPrimitive),
@@ -138,6 +211,7 @@ class GrpcTopologyManagerReadServiceX(
       serial = context.serial.unwrap,
       signedByFingerprints = context.signedBy.map(_.unwrap).toSeq,
     )
+  }
 
   // to avoid race conditions, we want to use the approximateTimestamp of the topology client.
   // otherwise, we might read stuff from the database that isn't yet known to the node
@@ -604,6 +678,9 @@ class GrpcTopologyManagerReadServiceX(
             )
           )
         )
+      }
+      if (logger.underlying.isDebugEnabled()) {
+        logger.debug(s"All listed topology transactions: ${res.result}")
       }
       adminProto.ListAllResponse(result = Some(res.toProtoV0))
     }

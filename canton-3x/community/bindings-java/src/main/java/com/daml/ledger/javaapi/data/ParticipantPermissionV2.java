@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.StateServiceOuterClass;
 
+// TODO (i15873) Eliminate V2 suffix
 public abstract class ParticipantPermissionV2 {
 
   public static final class Submission extends ParticipantPermissionV2 {

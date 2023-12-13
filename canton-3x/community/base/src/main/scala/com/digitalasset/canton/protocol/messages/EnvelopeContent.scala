@@ -91,7 +91,7 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       bytes: Array[Byte]
   )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] = {
     for {
-      envelopeContent <- fromByteString(protocolVersion)(hashOps)(ByteString.copyFrom(bytes))
+      envelopeContent <- fromByteStringLegacy(protocolVersion)(hashOps)(ByteString.copyFrom(bytes))
       message <- cast
         .toKind(envelopeContent.message)
         .toRight(

@@ -226,7 +226,6 @@ abstract class CantonNodeBootstrapX[
           .bindService(
             new GrpcTopologyManagerReadServiceX(
               sequencedTopologyStores :+ authorizedStore,
-              ips,
               crypto,
               loggerFactory,
             ),

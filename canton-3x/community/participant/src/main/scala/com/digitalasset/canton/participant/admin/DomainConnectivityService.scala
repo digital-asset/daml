@@ -168,7 +168,6 @@ class DomainConnectivityService(
               agreementService.getAgreement(
                 sequencerAggregatedInfo.domainId,
                 grpc,
-                staticDomainParameters.protocolVersion,
               )
           }
         } else EitherT.pure[Future, AgreementServiceError](None)

@@ -52,7 +52,8 @@ import scala.util.Try
 
 @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class PureConfigReaderWriter(secure: Boolean = true) {
-  val Secret = "<REDACTED>"
+
+  private val ReplaceSecretWithString = "<REDACTED>"
 
   implicit val javaDurationWriter: ConfigWriter[java.time.Duration] =
     ConfigWriter.stringConfigWriter.contramap[java.time.Duration] { duration =>
@@ -90,7 +91,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val secretsUrlWriter: ConfigWriter[SecretsUrl] =
     ConfigWriter.toString {
       case SecretsUrl.FromUrl(url) if !secure => url.toString
-      case _ => Secret
+      case _ => ReplaceSecretWithString
     }
 
   implicit val clientAuthReader: ConfigReader[ClientAuth] =
@@ -265,7 +266,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val participantDataSourceConfigWriter: ConfigWriter[ParticipantDataSourceConfig] =
     ConfigWriter.toString {
-      case _ if secure => Secret
+      case _ if secure => ReplaceSecretWithString
       case dataSourceConfig => dataSourceConfig.jdbcUrl
     }
 

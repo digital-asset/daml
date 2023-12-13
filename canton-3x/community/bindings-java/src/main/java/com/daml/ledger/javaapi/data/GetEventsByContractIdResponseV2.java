@@ -97,7 +97,7 @@ public final class GetEventsByContractIdResponseV2 {
 
     @Override
     public String toString() {
-      return "Created{" + "createdEvent=" + createdEvent + ", domainId=" + domainId + '}';
+      return "Created{" + "createdEvent=" + createdEvent + ", domainId='" + domainId + '\'' + '}';
     }
 
     @Override
@@ -148,7 +148,13 @@ public final class GetEventsByContractIdResponseV2 {
 
     @Override
     public String toString() {
-      return "Archived{" + "archivedEvent=" + archivedEvent + ", domainId=" + domainId + '}';
+      return "Archived{"
+          + "archivedEvent="
+          + archivedEvent
+          + ", domainId='"
+          + domainId
+          + '\''
+          + '}';
     }
 
     @Override

@@ -107,7 +107,8 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
   override protected val companionObj: MemoizedEvidenceSUT.type = MemoizedEvidenceSUT
 }
 
-object MemoizedEvidenceSUT extends HasProtocolVersionedWrapperCompanion[MemoizedEvidenceSUT, Unit] {
+object MemoizedEvidenceSUT
+    extends HasProtocolVersionedWrapperCompanion[MemoizedEvidenceSUT, Nothing] {
 
   override type Deserializer = Unit
 

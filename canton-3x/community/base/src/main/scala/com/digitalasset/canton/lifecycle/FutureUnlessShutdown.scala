@@ -12,6 +12,7 @@ import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
 import com.digitalasset.canton.{DoNotDiscardLikeFuture, DoNotTraverseLikeFuture}
 
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
+import scala.util.chaining.*
 import scala.util.{Failure, Success, Try}
 
 object FutureUnlessShutdown {
@@ -329,6 +330,10 @@ object FutureUnlessShutdownImpl {
         ec: ExecutionContext
     ): EitherT[Future, C, D] =
       EitherT(eitherT.value.onShutdown(f))
+
+    def tapLeft(f: A => Unit)(implicit
+        ec: ExecutionContext
+    ): EitherT[FutureUnlessShutdown, A, B] = eitherT.leftMap(_.tap(f))
 
     /** Evaluates `f` on shutdown but retains the result of the future. */
     def tapOnShutdown(f: => Unit)(implicit

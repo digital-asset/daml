@@ -60,8 +60,9 @@ public final class ConnectedDomainV2 {
     return "ConnectedDomain{"
         + "domainAlias="
         + domainAlias
-        + ", domainId="
+        + ", domainId='"
         + domainId
+        + '\''
         + ", permission="
         + permission
         + '}';

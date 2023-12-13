@@ -654,7 +654,7 @@ object DbTransferStore {
   ) = {
     val res: ParsingResult[DeliveredTransferOutResult] = for {
       signedContent <- SignedContent
-        .fromByteArray(bytes)
+        .fromByteArrayUnsafe(bytes)
         .flatMap(
           _.deserializeContent(
             SequencedEvent.fromByteStringOpen(cryptoApi, sourceProtocolVersion.v)

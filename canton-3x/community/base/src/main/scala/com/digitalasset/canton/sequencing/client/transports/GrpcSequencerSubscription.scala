@@ -22,6 +22,7 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.tracing.TraceContext.withTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Context.CancellableContext
 import io.grpc.Status.Code.CANCELLED
@@ -261,14 +262,15 @@ object GrpcSequencerSubscription {
       metrics: SequencerClientMetrics,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit
+  )(protocolVersion: ProtocolVersion)(implicit
       executionContext: ExecutionContext
   ): GrpcSequencerSubscription[E, v0.VersionedSubscriptionResponse] =
     new GrpcSequencerSubscription(
       context,
       deserializingSubscriptionHandler(
         handler,
-        (value, traceContext) => SubscriptionResponse.fromVersionedProtoV0(value)(traceContext),
+        (value, traceContext) =>
+          SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(value)(traceContext),
       ),
       timeouts,
       loggerFactory,

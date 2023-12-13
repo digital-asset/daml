@@ -4,11 +4,12 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.DarParser
+import com.daml.lf.archive.{DarParser, Decode}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
@@ -64,6 +65,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
+  protected val testLanguageVersion: LanguageVersion =
+    Decode.assertDecodeArchive(dar.main)._2.languageVersion
 
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
@@ -150,7 +153,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   private[this] val txVersion = TransactionVersion.StableVersions.min
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
-  protected final val someContractInstance = ContractInstance(someTemplateId, someContractArgument)
+  protected final val someContractInstance =
+    ContractInstance(template = someTemplateId, arg = someContractArgument)
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
@@ -258,7 +262,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
-      None,
+      keyOpt = None,
       byKey = false,
       version = txVersion,
     )
@@ -411,7 +415,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
-        None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       ),
@@ -808,10 +812,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val txBuilder = newBuilder()
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
-        someTemplateId,
-        GlobalKeyWithMaintainers
+        templateId = someTemplateId,
+        key = GlobalKeyWithMaintainers
           .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
-        result,
+        result = result,
         version = txVersion,
       )
     )
@@ -841,7 +845,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),
-        None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       )

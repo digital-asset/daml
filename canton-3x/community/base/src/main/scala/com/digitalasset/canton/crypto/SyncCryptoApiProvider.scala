@@ -229,12 +229,13 @@ object SyncCryptoClient {
   ): F[SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val knownUntil = client.topologyKnownUntilTimestamp
-    if (desiredTimestamp <= knownUntil) {
+    val snapshotKnown = desiredTimestamp <= knownUntil
+    loggingContext.logger.debug(
+      s"${if (snapshotKnown) "Getting" else "Waiting for"} topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
+    )
+    if (snapshotKnown) {
       getSnapshot(desiredTimestamp, traceContext)
     } else {
-      loggingContext.logger.debug(
-        s"Waiting for topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
-      )
       previousTimestampO match {
         case None =>
           val approximateSnapshot = client.currentSnapshotApproximation

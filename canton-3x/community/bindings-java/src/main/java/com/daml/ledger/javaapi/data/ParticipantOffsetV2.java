@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.ParticipantOffsetOuterClass;
 
 import java.util.Objects;
 
+// TODO (i15873) Eliminate V2 suffix
 public abstract class ParticipantOffsetV2 {
 
   public static final class ParticipantBegin extends ParticipantOffsetV2 {

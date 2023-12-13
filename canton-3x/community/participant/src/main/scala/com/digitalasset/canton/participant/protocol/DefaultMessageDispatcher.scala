@@ -26,7 +26,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   IgnoredSequencedEvent,
   OrdinarySequencedEvent,
 }
-import com.digitalasset.canton.time.TimeProof
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}

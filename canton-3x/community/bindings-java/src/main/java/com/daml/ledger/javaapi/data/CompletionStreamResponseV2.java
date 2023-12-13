@@ -62,8 +62,9 @@ public final class CompletionStreamResponseV2 {
         + checkpoint
         + ", completion="
         + completion
-        + ", domainId="
+        + ", domainId='"
         + domainId
+        + '\''
         + '}';
   }
 

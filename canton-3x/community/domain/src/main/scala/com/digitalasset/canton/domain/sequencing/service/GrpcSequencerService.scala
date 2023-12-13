@@ -28,7 +28,7 @@ import com.digitalasset.canton.protocol.{DynamicDomainParametersLookup, v1 as pr
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.{Clock, TimeProof}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
@@ -145,7 +145,11 @@ object GrpcSequencerService {
     type ValueClass
 
     /** Tries to parse the proto class to the value class, erroring if the request exceeds the given limit. */
-    def parse(requestP: ProtoClass, maxRequestSize: MaxRequestSize): ParsingResult[ValueClass]
+    def parse(
+        requestP: ProtoClass,
+        maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
+    ): ParsingResult[ValueClass]
 
     /** Extract the [[SubmissionRequest]] from the value class */
     def unwrap(request: ValueClass): SubmissionRequest
@@ -163,12 +167,17 @@ object GrpcSequencerService {
     override def parse(
         requestP: v0.SendAsyncVersionedRequest,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
     ): ParsingResult[SignedContent[SubmissionRequest]] = {
       for {
-        signedContent <- SignedContent.fromByteString(requestP.signedSubmissionRequest)
+        signedContent <- SignedContent.fromByteString(protocolVersion)(
+          requestP.signedSubmissionRequest
+        )
         signedSubmissionRequest <- signedContent.deserializeContent(
           SubmissionRequest
-            .fromByteString(MaxRequestSizeToDeserialize.Limit(maxRequestSize.value))
+            .fromByteString(protocolVersion)(
+              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+            )
         )
       } yield signedSubmissionRequest
     }
@@ -188,8 +197,11 @@ object GrpcSequencerService {
     override def parse(
         requestP: v0.SendAsyncUnauthenticatedVersionedRequest,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
     ): ParsingResult[SubmissionRequest] =
-      SubmissionRequest.fromByteString(MaxRequestSizeToDeserialize.Limit(maxRequestSize.value))(
+      SubmissionRequest.fromByteString(protocolVersion)(
+        MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+      )(
         requestP.submissionRequest
       )
 
@@ -281,7 +293,7 @@ class GrpcSequencerService(
         maxRequestSize: MaxRequestSize
     ): Either[SendAsyncError, processing.ValueClass] = for {
       request <- processing
-        .parse(proto, maxRequestSize)
+        .parse(proto, maxRequestSize, protocolVersion)
         .leftMap(requestDeserializationError(_, maxRequestSize))
       _ <- validateSubmissionRequest(
         proto.serializedSize,
@@ -710,7 +722,7 @@ class GrpcSequencerService(
   override def acknowledgeSigned(request: protocolV1.SignedContent): Future[Empty] = {
     val acknowledgeRequestE = SignedContent
       .fromProtoV1(request)
-      .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString))
+      .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }
 

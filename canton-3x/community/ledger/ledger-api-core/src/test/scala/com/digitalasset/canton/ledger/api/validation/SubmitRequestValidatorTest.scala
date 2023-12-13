@@ -715,7 +715,7 @@ class SubmitRequestValidatorTest
             request = testedValueValidator.validateValue(input),
             code = INVALID_ARGUMENT,
             description =
-              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Timestamp $long",
+              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: cannot convert long $long into Timestamp:out of bound Timestamp $long",
             metadata = Map.empty,
           )
         }

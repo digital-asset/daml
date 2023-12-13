@@ -87,6 +87,7 @@ object TypedSignedProtocolMessageContent
   ): TypedSignedProtocolMessageContent[M] =
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
+  // TODO(#12626) – try with context
   private def fromProtoV0(proto: v0.TypedSignedProtocolMessageContent)(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
@@ -95,15 +96,17 @@ object TypedSignedProtocolMessageContent
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteString(mediatorResponseBytes)
+          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(transactionResultMessageBytes)
+          TransactionResultMessage.fromByteStringUnsafe(transactionResultMessageBytes)
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteString(transferResultBytes)
+          TransferResult.fromByteStringUnsafe(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteString(acsCommitmentBytes)
+          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteString(malformedMediatorRequestResultBytes)
+          MalformedMediatorRequestResult.fromByteStringUnsafe(
+            malformedMediatorRequestResultBytes
+          )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]

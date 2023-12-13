@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
@@ -32,7 +33,13 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
   private val salt: Salt = factory.transactionSalt
   private val nodeSeed: LfHash = ExampleTransactionFactory.lfHash(1)
   private val globalKey: LfGlobalKey =
-    LfGlobalKey.build(LfTransactionBuilder.defaultTemplateId, Value.ValueInt64(100L)).value
+    LfGlobalKey
+      .build(
+        LfTransactionBuilder.defaultTemplateId,
+        Value.ValueInt64(100L),
+        shared = Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
+      )
+      .value
 
   private val defaultActionDescription: ActionDescription =
     ActionDescription.tryFromLfActionNode(
@@ -250,7 +257,9 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
         ).value
 
         ViewParticipantData
-          .fromByteString(hashOps)(vpd.getCryptographicEvidence)
+          .fromByteString(testedProtocolVersion)(hashOps)(
+            vpd.getCryptographicEvidence
+          )
           .map(_.unwrap) shouldBe Right(Right(vpd))
       }
     }

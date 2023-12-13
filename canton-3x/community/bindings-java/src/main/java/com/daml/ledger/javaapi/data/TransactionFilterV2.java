@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+// TODO (i15873) Eliminate V2 suffix
 public abstract class TransactionFilterV2 {
 
   public static TransactionFilterV2 fromProto(

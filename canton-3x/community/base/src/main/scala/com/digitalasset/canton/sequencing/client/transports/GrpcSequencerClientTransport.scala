@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, Traced}
 import com.digitalasset.canton.util.EitherTUtil.syntax.*
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
 import io.grpc.{CallOptions, Context, ManagedChannel}
 import org.apache.pekko.stream.Materializer
@@ -51,6 +52,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     clientAuth: GrpcSequencerClientAuth,
     val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    protocolVersion: ProtocolVersion,
 )(implicit
     executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
@@ -320,6 +322,7 @@ class GrpcSequencerClientTransport(
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
+    protocolVersion: ProtocolVersion,
 )(implicit
     executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
@@ -330,6 +333,7 @@ class GrpcSequencerClientTransport(
       clientAuth,
       timeouts,
       loggerFactory,
+      protocolVersion,
     )
     with SequencerClientTransport {
 
@@ -354,7 +358,7 @@ class GrpcSequencerClientTransport(
       metrics,
       timeouts,
       loggerFactory,
-    )
+    )(protocolVersion)
 
     context.run(() =>
       TraceContextGrpc.withGrpcContext(traceContext) {
