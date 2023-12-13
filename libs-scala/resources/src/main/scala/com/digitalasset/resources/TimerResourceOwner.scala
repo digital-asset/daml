@@ -7,8 +7,10 @@ import java.util.{Timer, TimerTask}
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
-class TimerResourceOwner[Context: HasExecutionContext](acquireTimer: () => Timer)
-    extends AbstractResourceOwner[Context, Timer] {
+class TimerResourceOwner[Context: HasExecutionContext](
+    acquireTimer: () => Timer,
+    waitForRunningTasks: Boolean,
+) extends AbstractResourceOwner[Context, Timer] {
   override def acquire()(implicit context: Context): Resource[Context, Timer] =
     ReleasableResource(Future(acquireTimer())) { timer =>
       val timerCancelledPromise = Promise[Unit]()
@@ -26,6 +28,14 @@ class TimerResourceOwner[Context: HasExecutionContext](acquireTimer: () => Timer
         )
       )
         // if timer.schedule fails, we do not want to wait for the timerCancelledPromise
-        .flatMap(_ => timerCancelledPromise.future)
+        .flatMap(_ =>
+          if (waitForRunningTasks) {
+            // waiting for cancellation
+            timerCancelledPromise.future
+          } else {
+            // not waiting for cancellation, finish Resource releasing right away
+            Future.unit
+          }
+        )
     }
 }
