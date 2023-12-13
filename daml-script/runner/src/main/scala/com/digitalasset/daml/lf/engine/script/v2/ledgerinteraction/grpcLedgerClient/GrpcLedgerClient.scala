@@ -10,14 +10,13 @@ import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
@@ -25,9 +24,9 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.{value => api}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.ledger.client.LedgerClient
 import com.daml.lf.CompiledPackages
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -36,7 +35,7 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.{
+import com.digitalasset.canton.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier,
   lfValueToApiRecord,
@@ -50,7 +49,6 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
-import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -291,7 +289,6 @@ class GrpcLedgerClient(
           actAs = actAs.toList,
           readAs = readAs.toList,
           commands = ledgerCommands,
-          ledgerId = grpcClient.ledgerId.unwrap,
           applicationId = applicationId.getOrElse(""),
           commandId = UUID.randomUUID.toString,
           disclosedContracts = ledgerDisclosures,
@@ -338,9 +335,7 @@ class GrpcLedgerClient(
   ): Future[Time.Timestamp] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      resp <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      resp <- timeService.getTime(GetTimeRequest())
       instant = Instant.ofEpochSecond(resp.getCurrentTime.seconds, resp.getCurrentTime.nanos.toLong)
     } yield Time.Timestamp.assertFromInstant(instant, java.math.RoundingMode.HALF_UP)
   }
@@ -352,12 +347,9 @@ class GrpcLedgerClient(
   ): Future[Unit] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      oldTime <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      oldTime <- timeService.getTime(GetTimeRequest())
       _ <- timeService.setTime(
         SetTimeRequest(
-          grpcClient.ledgerId.unwrap,
           oldTime.currentTime,
           Some(toTimestamp(time.toInstant)),
         )

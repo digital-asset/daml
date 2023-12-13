@@ -72,6 +72,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
@@ -153,6 +154,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":daml-common-staging_daml-errors",
         ":pekko-stream-minus-patched-classes",
@@ -238,6 +240,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",
@@ -260,6 +263,7 @@ scala_library(
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
@@ -563,6 +567,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":bindings-java",
         ":community_base",

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.participant.util
 
 import com.daml.ledger.api.v1.{value as api}
 import com.daml.lf.data.Numeric
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref
 import com.daml.lf.value.{Value as Lf}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -29,13 +29,18 @@ object LfEngineToApi {
 
   private[this] type LfValue = Lf
 
-  def toApiIdentifier(identifier: Identifier): api.Identifier = {
+  def toApiIdentifier(identifier: Ref.Identifier): api.Identifier = {
     api.Identifier(
       identifier.packageId,
       identifier.qualifiedName.module.toString(),
       identifier.qualifiedName.name.toString(),
     )
   }
+
+  def toApiIdentifier(typConRef: Ref.TypeConRef): api.Identifier =
+  // TODO: https://github.com/digital-asset/daml/issues/17995
+  //   drop this once the proto support package name
+    toApiIdentifier(typConRef.assertToTypeConName)
 
   def toTimestamp(instant: Instant): Timestamp = {
     Timestamp.apply(instant.getEpochSecond, instant.getNano)

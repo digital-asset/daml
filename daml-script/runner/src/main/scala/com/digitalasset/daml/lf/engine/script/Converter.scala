@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -20,8 +19,9 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
 import io.grpc.StatusRuntimeException
 import scalaz.std.list._
 import scalaz.std.either._
