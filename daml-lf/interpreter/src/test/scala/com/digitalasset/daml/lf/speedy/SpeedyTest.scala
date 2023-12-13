@@ -46,7 +46,7 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
   def qualify(name: String): Ref.ValueRef =
     Identifier(parserParameters.defaultPackageId, QualifiedName.assertFromString(name))
 
-  val anyPkgs: PureCompiledPackages = typeAndCompile(p"""
+  val anyPkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'any-pkg' : '1.0.0' )
       module Test {
         record @serializable T1 = { party: Party };
         template (record : T1) = {
@@ -68,7 +68,7 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
      }
     """)
   val pkgs: PureCompiledPackages = typeAndCompile(p"")
-  val recUpdPkgs: PureCompiledPackages = typeAndCompile(p"""
+  val recUpdPkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'rec-upd-pkgs' : '1.0.0' )
 module M {
   record Point = { x: Int64, y: Int64 } ;
   val f: Int64 -> Int64 = \(x: Int64) -> MUL_INT64 2 x ;
@@ -126,8 +126,7 @@ module M {
   }
 
   "pattern matching" - {
-    val pkg =
-      p"""
+    val pkg = p""" metadata ( 'pkg' : '1.0.0' )
     module Matcher {
       val unit : Unit -> Int64 = \ (x: Unit) -> case x of () -> 2;
       val bool : Bool -> Int64 = \ (x: Bool) -> case x of True -> 3 | False -> 5;

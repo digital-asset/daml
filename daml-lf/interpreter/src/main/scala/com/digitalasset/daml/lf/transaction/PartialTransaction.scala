@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
@@ -142,6 +142,7 @@ private[lf] object PartialTransaction {
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
+      packageName: Option[PackageName],
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
       contractKey: Option[GlobalKeyWithMaintainers],
@@ -389,6 +390,7 @@ private[speedy] case class PartialTransaction(
       val nid = NodeId(nextNodeIdx)
       val node = Node.Fetch(
         coid = coid,
+        packageName = contract.packageName,
         templateId = contract.templateId,
         actingParties = actingParties,
         signatories = contract.signatories,
@@ -424,10 +426,11 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.LookupByKey(
-        templateId = key.templateId,
-        key = key.globalKeyWithMaintainers,
-        result = result,
-        version = keyVersion,
+        key.packageName,
+        key.templateId,
+        key.globalKeyWithMaintainers,
+        result,
+        keyVersion,
       )
       // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
       // so the current state's global key inputs must resolve the key.
@@ -446,6 +449,7 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
+      packageName: Option[PackageName],
       templateId: TypeConName,
       targetId: Value.ContractId,
       contract: ContractInfo,
@@ -466,6 +470,7 @@ private[speedy] case class PartialTransaction(
       val ec =
         ExercisesContextInfo(
           targetId = targetId,
+          packageName = packageName,
           templateId = templateId, // may differ from contract.templateId during soft-exercise
           interfaceId = interfaceId,
           contractKey =
@@ -558,6 +563,7 @@ private[speedy] case class PartialTransaction(
   private[this] def makeExNode(ec: ExercisesContextInfo): Node.Exercise = {
     Node.Exercise(
       targetCoid = ec.targetId,
+      packageName = ec.packageName,
       templateId = ec.templateId,
       interfaceId = ec.interfaceId,
       choiceId = ec.choiceId,

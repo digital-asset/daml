@@ -120,7 +120,7 @@ object TransactionCoder {
         )
     else
     // TODO: https://github.com/digital-asset/daml/issues/17995
-    //  drop the `|| true`, once the interpreter populate the package name
+    //  drop the `|| true`, once canton populate the package name
     if (version < TransactionVersion.minUpgrade || true)
       Right(None)
     else
@@ -142,7 +142,7 @@ object TransactionCoder {
           )
       case None =>
         // TODO: https://github.com/digital-asset/daml/issues/17995
-        //  drop the `|| true`, once the interpreter populate the package name
+        //  drop the `|| true`, once canton populate the package name
         if (version < TransactionVersion.minUpgrade || true)
           Right("")
         else

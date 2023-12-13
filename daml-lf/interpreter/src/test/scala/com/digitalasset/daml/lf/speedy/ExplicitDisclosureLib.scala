@@ -99,6 +99,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val altDisclosureContractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-alternative-disclosure-contract-id"))
   val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
+  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
@@ -138,6 +139,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       if (withKey)
         Some(
           Speedy.CachedKey(
+            packageName,
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
@@ -264,6 +266,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       if (withKey)
         Some(
           CachedKey(
+            packageName = packageName,
             GlobalKeyWithMaintainers
               .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
             contract,

@@ -29,10 +29,6 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
 
 object Node {
 
-  // TODO: https://github.com/digital-asset/daml/issues/17995
-  //  drop this, once the interpreter populate the package name
-  private[this] val NoPackageName = None
-
   /** action nodes parametrized over identifier type */
   sealed abstract class Action extends Node with CidContainer[Action] {
 
@@ -89,7 +85,9 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
-      override val packageName: Option[PackageName] = NoPackageName,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String,
@@ -129,7 +127,7 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
       coid: ContractId,
-      override val packageName: Option[PackageName] = NoPackageName,
+      override val packageName: Option[PackageName],
       override val templateId: TypeConName,
       actingParties: Set[Party],
       signatories: Set[Party],
@@ -161,7 +159,9 @@ object Node {
     */
   final case class Exercise(
       targetCoid: ContractId,
-      override val packageName: Option[PackageName] = NoPackageName,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
@@ -215,7 +215,7 @@ object Node {
   }
 
   final case class LookupByKey(
-      override val packageName: Option[PackageName] = NoPackageName,
+      override val packageName: Option[PackageName],
       override val templateId: TypeConName,
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],

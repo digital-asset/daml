@@ -32,8 +32,7 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   private val pkgId = parserParameters.defaultPackageId
 
-  private[this] val pkg =
-    p"""
+  private[this] val pkg = p""" metadata ( 'pkg' : '1.0.0' )
         module M {
 
           record @serializable T = { party: Party };
