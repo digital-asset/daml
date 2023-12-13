@@ -395,7 +395,7 @@ object DomainRouter {
       tx: LfVersionedTransaction
   ): Map[LfContractId, Set[Ref.Party]] = {
 
-    val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, key, Some(cid), _) =>
+    val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, _, key, Some(cid), _) =>
       cid -> key.maintainers
     }.toMap
 

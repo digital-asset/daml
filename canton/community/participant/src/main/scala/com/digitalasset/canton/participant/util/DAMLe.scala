@@ -246,6 +246,7 @@ class DAMLe(
       md = transaction.nodes(transaction.roots(0)) match {
         case nc @ LfNodeCreate(
               _cid,
+              _packageName,
               templateId,
               arg,
               agreementText,
