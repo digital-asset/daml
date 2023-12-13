@@ -4,7 +4,7 @@
 package com.daml.lf.scenario
 
 import org.apache.pekko.actor.ActorSystem
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import org.apache.pekko.stream.Materializer
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -16,6 +16,7 @@ import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
@@ -413,6 +414,22 @@ class ScenarioService(implicit
 
       case Some(ctx) =>
         try {
+          val homePackageMetadata =
+            if (req.hasHomePackageMetadata) {
+              val metadata = req.getHomePackageMetadata
+              Some(
+                PackageMetadata(
+                  Ref.PackageName.assertFromString(metadata.getPackageName),
+                  Ref.PackageVersion.assertFromString(metadata.getPackageVersion),
+                  Option(metadata.getUpgradedPackageId)
+                    .filter(_.nonEmpty)
+                    .map(Ref.PackageId.assertFromString),
+                )
+              )
+            } else {
+              None
+            }
+
           val unloadModules =
             if (req.hasUpdateModules)
               req.getUpdateModules.getUnloadModulesList.asScala
@@ -442,6 +459,7 @@ class ScenarioService(implicit
               Seq.empty
 
           ctx.update(
+            homePackageMetadata,
             unloadModules,
             loadModules,
             unloadPackages,

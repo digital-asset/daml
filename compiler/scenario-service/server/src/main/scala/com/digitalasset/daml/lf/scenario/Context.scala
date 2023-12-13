@@ -8,24 +8,18 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
-import com.daml.lf.data.Ref.{
-  Identifier,
-  ModuleName,
-  PackageId,
-  PackageName,
-  PackageVersion,
-  QualifiedName,
-}
+import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
-import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.validation.Validation
 import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.logging.LoggingContext
 import org.slf4j.LoggerFactory
 
@@ -40,14 +34,13 @@ import scala.util.{Failure, Success}
   */
 object Context {
   type ContextId = Long
-  case class ContextException(err: String) extends RuntimeException(err)
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
+  def newContext(lfVersion: LanguageVersion, timeout: Duration)(implicit
       loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
+    new Context(contextCounter.incrementAndGet(), lfVersion, timeout)
 }
 
 class Context(
@@ -74,8 +67,9 @@ class Context(
     * self-references. We only care that the identifier is disjunct from the package ids
     * in extSignature.
     */
-  val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
+  def homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
+  private var homePackageMetadata: Option[Ast.PackageMetadata] = None
   private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
   private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
@@ -87,6 +81,7 @@ class Context(
 
   def cloneContext(): Context = synchronized {
     val newCtx = Context.newContext(languageVersion, timeout)
+    newCtx.homePackageMetadata = homePackageMetadata
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -97,12 +92,19 @@ class Context(
 
   @throws[archive.Error]
   def update(
+      homePackageMetadata: Option[PackageMetadata],
       unloadModules: Set[ModuleName],
       loadModules: collection.Seq[ProtoScenarioModule],
       unloadPackages: Set[PackageId],
       loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
   ): Unit = synchronized {
+
+    (this.homePackageMetadata, homePackageMetadata) match {
+      case (Some(oldMetadata), Some(newMetadata)) if oldMetadata != newMetadata =>
+        throw new IllegalArgumentException("home package metadata can only be modified once")
+      case _ => this.homePackageMetadata = homePackageMetadata
+    }
 
     val newModules = loadModules.map(module =>
       archive.moduleDecoder(languageVersion, homePackageId).assertFromByteString(module.getDamlLf1)
@@ -144,44 +146,14 @@ class Context(
     modDefns.values.foreach(defns ++= _)
   }
 
-  // TODO: https://github.com/digital-asset/daml/issues/17995
-  //  Get the package name and package version from the daml.yaml
-  private[this] val dummyMetadata = Some(
-    Ast.PackageMetadata(
-      name = PackageName.assertFromString("-dummy-package-name-"),
-      version = PackageVersion.assertFromString("0.0.0"),
-      upgradedPackageId = None,
-    )
-  )
-
   def allSignatures: Map[PackageId, Ast.PackageSignature] = {
     val extSignatures = this.extSignatures
     extSignatures.updated(
       homePackageId,
       AstUtil.toSignature(
-        Ast.Package(modules, extSignatures.keySet, languageVersion, dummyMetadata)
+        Ast.Package(modules, extSignatures.keySet, languageVersion, homePackageMetadata)
       ),
     )
-  }
-
-  // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val txSeeding =
-    crypto.Hash.hashPrivateKey(s"scenario-service")
-
-  private[this] def buildMachine(defn: SDefinition): Speedy.ScenarioMachine =
-    Speedy.Machine.fromScenarioSExpr(
-      PureCompiledPackages(allSignatures, defns, compilerConfig),
-      defn.body,
-    )
-
-  def interpretScenario(
-      pkgId: String,
-      name: String,
-  ): Option[ScenarioRunner.ScenarioResult] = {
-    val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    defns
-      .get(LfDefRef(id))
-      .map(defn => ScenarioRunner.run(buildMachine(defn), txSeeding, timeout))
   }
 
   def interpretScript(
@@ -202,7 +174,7 @@ class Context(
     val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
-    val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
+    val ledgerClient = IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val timeBombCanceller = timeBomb.start()
     val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,

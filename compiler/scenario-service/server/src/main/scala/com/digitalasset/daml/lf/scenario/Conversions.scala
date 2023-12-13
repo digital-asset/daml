@@ -517,11 +517,13 @@ final class Conversions(
       .setTemplateId(convertIdentifier(templateId))
       .build
 
-  def mkPackageMetadata(packageMetadata: PackageMetadata): proto.PackageMetadata =
-    proto.PackageMetadata.newBuilder
-      .setPackageName(packageMetadata.name.toString)
-      .setPackageVersion(packageMetadata.version.toString)
-      .build
+  def mkPackageMetadata(packageMetadata: PackageMetadata): proto.PackageMetadata = {
+    val builder = proto.PackageMetadata.newBuilder
+      .setPackageName(packageMetadata.name)
+      .setPackageVersion(packageMetadata.version)
+    packageMetadata.upgradedPackageId.foreach(builder.setUpgradedPackageId(_))
+    builder.build
+  }
 
   def convertScenarioStep(
       stepId: Int,

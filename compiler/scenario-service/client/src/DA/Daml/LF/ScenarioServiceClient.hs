@@ -196,7 +196,8 @@ parseScenarioServiceConfig conf = do
                 Just a -> pure (Just a)
 
 data Context = Context
-  { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
+  { ctxPackageMetadata :: Maybe LF.PackageMetadata
+  , ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxSkipValidation :: LowLevel.SkipValidation
   }
@@ -216,6 +217,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       S.fromList (map fst $ MS.elems ctxModules)
 
     ctxUpdate = LowLevel.ContextUpdate
+      ctxPackageMetadata
       (MS.elems loadModules)
       (S.toList unloadModules)
       loadPackages

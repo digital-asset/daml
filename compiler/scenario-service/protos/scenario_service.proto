@@ -108,9 +108,10 @@ message UpdateContextRequest {
   }
 
   int64 context_id = 1;
-  UpdateModules update_modules = 2;
-  UpdatePackages update_packages = 3;
-  bool noValidation = 4; // if true, does not run the package validations
+  PackageMetadata home_package_metadata = 2;
+  UpdateModules update_modules = 3;
+  UpdatePackages update_packages = 4;
+  bool noValidation = 5; // if true, does not run the package validations
 }
 
 message UpdateContextResponse {
@@ -174,6 +175,7 @@ message ContractRef {
 message PackageMetadata {
   string package_name = 1;
   string package_version = 2;
+  string upgraded_package_id = 3; // Optional
 }
 
 message GlobalKey {

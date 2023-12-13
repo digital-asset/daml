@@ -77,6 +77,7 @@ import qualified ScenarioService as SS
 
 import Development.IDE.Types.Logger (Logger)
 import qualified Development.IDE.Types.Logger as Logger
+import Data.Coerce (coerce)
 
 data Options = Options
   { optServerJar :: FilePath
@@ -106,7 +107,8 @@ newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
   deriving Show
 
 data ContextUpdate = ContextUpdate
-  { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
+  { updHomePackageMetadata :: Maybe LF.PackageMetadata
+  , updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
@@ -329,11 +331,17 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       (optGrpcTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
+          (fmap convPackageMetadata updHomePackageMetadata)
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
   pure (void res)
   where
+    convPackageMetadata metadata =
+      SS.PackageMetadata
+        (TL.fromStrict (coerce (LF.packageName metadata)))
+        (TL.fromStrict (coerce (LF.packageVersion metadata)))
+        (maybe TL.empty (TL.fromStrict . coerce) (LF.upgradedPackageId metadata))
     updModules =
       SS.UpdateContextRequest_UpdateModules
         (V.fromList (map convModule updLoadModules))

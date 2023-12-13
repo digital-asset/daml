@@ -1020,7 +1020,8 @@ prettyGlobalKey lvl world gk = vcat [
   ]
 
 prettyPackageMetadata :: PackageMetadata -> Doc SyntaxClass
-prettyPackageMetadata (PackageMetadata name version) = text $ TL.toStrict $ name <> "-" <> version
+prettyPackageMetadata (PackageMetadata name version _upgradedPackageId) =
+  text $ TL.toStrict $ name <> "-" <> version
 
 prettyChoiceId
   :: LF.World -> Maybe Identifier -> TL.Text
