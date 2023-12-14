@@ -54,11 +54,24 @@ trait ResourceOwnerFactories[Context] {
     new ReleasableResourceOwner(acquire)(release)
 
   def forExecutorService[T <: ExecutorService](
-      acquire: () => T
+      acquire: () => T,
+      gracefulAwaitTerminationMillis: Long = Long.MaxValue,
+      forcefulAwaitTerminationMillis: Long = Long.MaxValue,
   ): AbstractResourceOwner[Context, T] =
-    new ExecutorServiceResourceOwner(acquire)
+    new ExecutorServiceResourceOwner(
+      acquire,
+      gracefulAwaitTerminationMillis,
+      forcefulAwaitTerminationMillis,
+    )
 
-  def forTimer(acquire: () => Timer): AbstractResourceOwner[Context, Timer] =
-    new TimerResourceOwner(acquire)
+  /** @param waitForRunningTasks If this flag is false, there could be long running scheduled tasks blocking
+    *                            termination of the Timer instance. In this case it is recommended to instantiate
+    *                            Timer with isDaemon = true, to not let it block JVM termination.
+    */
+  def forTimer(
+      acquire: () => Timer,
+      waitForRunningTasks: Boolean = true,
+  ): AbstractResourceOwner[Context, Timer] =
+    new TimerResourceOwner(acquire, waitForRunningTasks)
 
 }
