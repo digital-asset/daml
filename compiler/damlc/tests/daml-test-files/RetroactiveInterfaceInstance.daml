@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
+{-# OPTIONS -Wno-retroactive-interface-instances #-}
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module RetroactiveInterfaceInstance where

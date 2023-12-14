@@ -9,6 +9,8 @@
 -- @ERROR range=1:1-1:1; Duplicate instance declarations: instance HasFromInterface Foo Bar
 -- @ERROR range=1:1-1:1; Duplicate instance declarations: instance HasToInterface Foo Bar
 
+{-# OPTIONS -Wno-retroactive-interface-instances #-}
+
 module AmbiguousInterfaceInstance where
 
 template Foo with
