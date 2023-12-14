@@ -108,29 +108,29 @@ template Exceptions
       controller p
       do pure (roundBankers 20 (1.0 : Decimal))
 
--- @LEDGER divByZero LfStableMustFails/divByZero.EXPECTED.ledger
+-- @LEDGER-VERSIONED divByZero LfStableMustFails/divByZero.EXPECTED.ledger
 divByZero = script do
   alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) DivZeroC)
 
--- @LEDGER aborted LfStableMustFails/aborted.EXPECTED.ledger
+-- @LEDGER-VERSIONED aborted LfStableMustFails/aborted.EXPECTED.ledger
 aborted = script do
   alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) AbortC)
 
--- @LEDGER int64overflow LfStableMustFails/int64overflow.EXPECTED.ledger
+-- @LEDGER-VERSIONED int64overflow LfStableMustFails/int64overflow.EXPECTED.ledger
 int64overflow = script do
   alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) OverflowC)
 
--- @LEDGER roundBadScale LfStableMustFails/roundBadScale.EXPECTED.ledger
+-- @LEDGER-VERSIONED roundBadScale LfStableMustFails/roundBadScale.EXPECTED.ledger
 roundBadScale = script do
   alice <- allocateParty "Alice"
   submitMustFail alice (createAndExerciseCmd (Exceptions alice) BadRoundC)
 
 -- 2. Failed lookups
 
--- @LEDGER contractNotEffective LfStableMustFails/contractNotEffective.EXPECTED.ledger
+-- @LEDGER-VERSIONED contractNotEffective LfStableMustFails/contractNotEffective.EXPECTED.ledger
 contractNotEffective = script do
   now <- getTime
   alice <- allocateParty "Alice"
@@ -139,7 +139,7 @@ contractNotEffective = script do
   passTime (seconds (-100))
   submitMustFail bob (exerciseCmd cid Swap)
 
--- @LEDGER undivulged LfStableMustFails/undivulged.EXPECTED.ledger
+-- @LEDGER-VERSIONED undivulged LfStableMustFails/undivulged.EXPECTED.ledger
 undivulged = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
@@ -148,13 +148,13 @@ undivulged = script do
 
 -- 3. Authorization errors
 
--- @LEDGER missingAuthInCreate LfStableMustFails/missingAuthInCreate.EXPECTED.ledger
+-- @LEDGER-VERSIONED missingAuthInCreate LfStableMustFails/missingAuthInCreate.EXPECTED.ledger
 missingAuthInCreate = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   submitMustFail alice (createCmd TwoParties with p = alice; p2 = bob)
 
--- @LEDGER missingAuthInExercise LfStableMustFails/missingAuthInExercise.EXPECTED.ledger
+-- @LEDGER-VERSIONED missingAuthInExercise LfStableMustFails/missingAuthInExercise.EXPECTED.ledger
 missingAuthInExercise = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
@@ -162,18 +162,18 @@ missingAuthInExercise = script do
   cid1 <- submit bob (exerciseCmd cid0 Convert)
   submitMustFail bob (exerciseCmd cid1 Hello)
 
--- @LEDGER noControllers LfStableMustFails/noControllers.EXPECTED.ledger
+-- @LEDGER-VERSIONED noControllers LfStableMustFails/noControllers.EXPECTED.ledger
 noControllers = script do
   alice <- allocateParty "Alice"
   cid <- submit alice (createCmd NoCtrls with p = alice; xs = [])
   submitMustFail alice (exerciseCmd cid NoController)
 
--- @LEDGER noSignatories LfStableMustFails/noSignatories.EXPECTED.ledger
+-- @LEDGER-VERSIONED noSignatories LfStableMustFails/noSignatories.EXPECTED.ledger
 noSignatories = script do
   alice <- allocateParty "Alice"
   submitMustFail alice (createCmd NoSignatory with text="blah")
 
--- @LEDGER unauthActor LfStableMustFails/unauthActor.EXPECTED.ledger
+-- @LEDGER-VERSIONED unauthActor LfStableMustFails/unauthActor.EXPECTED.ledger
 unauthActor = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
@@ -182,7 +182,7 @@ unauthActor = script do
 
 -- 4. Aborted transactions (DEL-5277)
 
--- @LEDGER exerciseInExercise LfStableMustFails/exerciseInExercise.EXPECTED.ledger
+-- @LEDGER-VERSIONED exerciseInExercise LfStableMustFails/exerciseInExercise.EXPECTED.ledger
 exerciseInExercise = script do
   alice <- allocateParty "Alice"
   cid <- submit alice (createCmd Recursive with p = alice)

@@ -24,7 +24,7 @@ template Helper
       do create (Keyed p 0)
          abort ""
 
--- @LEDGER run LfStableMustFailInterpretation.EXPECTED.ledger
+-- @LEDGER-VERSIONED run LfStableMustFailInterpretation.EXPECTED.ledger
 run = do
   p <- allocateParty "p"
   submit p $ createCmd (Keyed p 0)

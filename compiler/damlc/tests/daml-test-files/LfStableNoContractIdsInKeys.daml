@@ -19,7 +19,7 @@ template KeyWithContractId
     maintainer key._1
 
 -- @ERROR range=23:1-23:4; Contract IDs are not supported in contract key
--- @LEDGER run LfStableNoContractIdsInKeys.EXPECTED.ledger
+-- @LEDGER-VERSIONED run LfStableNoContractIdsInKeys.EXPECTED.ledger
 run = script do
   alice <- allocateParty "alice"
   cid <- submit alice $ createCmd Simple with p = alice

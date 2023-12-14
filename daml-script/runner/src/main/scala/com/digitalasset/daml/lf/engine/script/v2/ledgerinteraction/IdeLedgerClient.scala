@@ -637,15 +637,14 @@ class IdeLedgerClient(
           import ScriptLedgerClient.SubmissionErrorBehaviour._
           // Some compatibility logic to keep the "steps" the same.
           // We may consider changing this to always insert SubmissionFailed, but this requires splitting the golden files in the integration tests
+          _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
           errorBehaviour match {
             case MustSucceed =>
               _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
             case MustFail =>
               _currentSubmission = None
-              _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
             case Try =>
               _currentSubmission = None
-              _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
           }
           Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
       }

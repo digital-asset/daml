@@ -5,7 +5,7 @@ module LfStableEvalAgreement where
 
 import Daml.Script
 
--- @LEDGER run LfStableEvalAgreement.EXPECTED.ledger
+-- @LEDGER-VERSIONED run LfStableEvalAgreement.EXPECTED.ledger
 -- @ERROR range=10:1-10:4; ArithmeticError
 run = script do
   alice <- allocateParty "Alice"

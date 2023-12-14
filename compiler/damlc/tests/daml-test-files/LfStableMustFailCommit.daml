@@ -23,7 +23,7 @@ template Helper
       controller p
       do create (Keyed p 0)
 
--- @LEDGER run LfStableMustFailCommit.EXPECTED.ledger
+-- @LEDGER-VERSIONED run LfStableMustFailCommit.EXPECTED.ledger
 run = do
   p <- allocateParty "p"
   submit p $ createCmd (Keyed p 0)

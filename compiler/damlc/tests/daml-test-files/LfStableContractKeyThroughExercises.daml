@@ -39,7 +39,7 @@ template KeyOps
             assert $ S.member actor signatories
             lookupByKey @BasicKey keyMaintainers
 
--- @LEDGER run LfStableContractKeyThroughExercises.EXPECTED.ledger
+-- @LEDGER-VERSIONED run LfStableContractKeyThroughExercises.EXPECTED.ledger
 run = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"

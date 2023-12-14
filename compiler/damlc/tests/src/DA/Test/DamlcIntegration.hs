@@ -438,7 +438,8 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
                       . scriptResults
                       <$> getDamlOutput
                     pure $ BSL.fromStrict $ TE.encodeUtf8 scriptResult
-              | Ledger scriptName expectedFile <- anns
+              | Ledger scriptName expectedFileV1 expectedFileV2 <- anns
+              , let expectedFile = if isScriptV2Opt then expectedFileV2 else expectedFileV1
               ]
           ]
   where
@@ -549,9 +550,11 @@ data Ann
       -- ^ Run only in daml script V2
     | Todo String
       -- ^ Just a note that is printed out
-    | Ledger String FilePath
-      -- ^ I expect the output of running the script named <first argument> to match the golden file <second argument>.
+    | Ledger String FilePath FilePath
+      -- ^ I expect the output of running the script named <first argument> to match the first golden file <second argument> in script-v1.
+      -- and the second golden file <third argument> in script-v2
       -- The path of the golden file is relative to the `.daml` test file.
+      -- Written as either LEDGER or LEDGER-VERSIONED, where the latter will create separate files for script v1 and v2, suffixed with -v1 and -v2
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -571,7 +574,8 @@ readFileAnns file = do
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("SCRIPT-V2", _) -> Just ScriptV2
             ("TODO",x) -> Just $ Todo x
-            ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
+            ("LEDGER", words -> [script, path]) -> Just $ Ledger script path path
+            ("LEDGER-VERSIONED", words -> [script, path]) -> Just $ Ledger script (path <> "-v1") (path <> "-v2")
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 
