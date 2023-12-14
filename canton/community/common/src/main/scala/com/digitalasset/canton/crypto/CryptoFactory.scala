@@ -22,17 +22,10 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedSigningKeyScheme,
   selectSchemes,
 }
+import com.digitalasset.canton.crypto.format.{JceJavaConverter, TinkJavaConverter}
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
-import com.digitalasset.canton.crypto.provider.jce.{
-  JceJavaConverter,
-  JcePrivateCrypto,
-  JcePureCrypto,
-}
-import com.digitalasset.canton.crypto.provider.tink.{
-  TinkJavaConverter,
-  TinkPrivateCrypto,
-  TinkPureCrypto,
-}
+import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
+import com.digitalasset.canton.crypto.provider.tink.{TinkPrivateCrypto, TinkPureCrypto}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
 import com.digitalasset.canton.logging.NamedLoggerFactory

@@ -174,7 +174,7 @@ object LfTransactionUtil {
   val actingParties: LfActionNode => Set[LfPartyId] = {
     case _: LfNodeCreate => Set.empty
 
-    case node : LfNodeFetch  =>
+    case node: LfNodeFetch =>
       if (node.actingParties.isEmpty)
         throw new IllegalArgumentException(s"Fetch node $node without acting parties.")
       else

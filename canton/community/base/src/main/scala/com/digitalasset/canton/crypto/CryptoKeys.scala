@@ -294,6 +294,8 @@ object CryptoKeyFormat {
     override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Symbolic
   }
 
+  val allFormats: Set[CryptoKeyFormat] = Set(Tink, Der, Raw, Symbolic)
+
   def fromProtoEnum(
       field: String,
       formatP: v0.CryptoKeyFormat,

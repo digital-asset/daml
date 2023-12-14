@@ -87,27 +87,28 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       newCrypto: => Future[Crypto],
       convertName: String,
-  ): Unit = {
-    forAll(supportedSigningKeySchemes) { signingKeyScheme =>
-      javaSigningKeyConvertTest(
-        signingKeyScheme.toString,
-        newCrypto,
-        crypto => getSigningPublicKey(crypto, signingKeyScheme),
-        crypto => crypto.javaKeyConverter.fromJavaSigningKey,
-        convertName,
-      )
-    }
+  ): Unit =
+    "Convert public keys to java keys with own provider" should {
+      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+        javaSigningKeyConvertTest(
+          signingKeyScheme.toString,
+          newCrypto,
+          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          crypto => crypto.javaKeyConverter.fromJavaSigningKey,
+          convertName,
+        )
+      }
 
-    forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-      javaEncryptionKeyConvertTest(
-        encryptionKeyScheme.toString,
-        newCrypto,
-        crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
-        crypto => crypto.javaKeyConverter.fromJavaEncryptionKey,
-        convertName,
-      )
+      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
+        javaEncryptionKeyConvertTest(
+          encryptionKeyScheme.toString,
+          newCrypto,
+          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          crypto => crypto.javaKeyConverter.fromJavaEncryptionKey,
+          convertName,
+        )
+      }
     }
-  }
 
   def javaPublicKeyConverterProviderOther(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
@@ -115,25 +116,27 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       newCrypto: => Future[Crypto],
       otherConvertName: String,
       otherKeyConverter: JavaKeyConverter,
-  ): Unit = {
-    forAll(supportedSigningKeySchemes) { signingKeyScheme =>
-      javaSigningKeyConvertTest(
-        signingKeyScheme.toString,
-        newCrypto,
-        crypto => getSigningPublicKey(crypto, signingKeyScheme),
-        _ => otherKeyConverter.fromJavaSigningKey,
-        otherConvertName,
-      )
+  ): Unit =
+    "Convert public keys to java keys with different provider" should {
+      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+        javaSigningKeyConvertTest(
+          signingKeyScheme.toString,
+          newCrypto,
+          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          _ => otherKeyConverter.fromJavaSigningKey,
+          otherConvertName,
+        )
+      }
+
+      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
+        javaEncryptionKeyConvertTest(
+          encryptionKeyScheme.toString,
+          newCrypto,
+          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          _ => otherKeyConverter.fromJavaEncryptionKey,
+          otherConvertName,
+        )
+      }
     }
 
-    forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-      javaEncryptionKeyConvertTest(
-        encryptionKeyScheme.toString,
-        newCrypto,
-        crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
-        _ => otherKeyConverter.fromJavaEncryptionKey,
-        otherConvertName,
-      )
-    }
-  }
 }

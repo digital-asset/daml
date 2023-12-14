@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-\import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsDataTime}
+import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsDataTime}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.time.TimeProofTestUtil

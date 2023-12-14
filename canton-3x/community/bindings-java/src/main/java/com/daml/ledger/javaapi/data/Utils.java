@@ -19,6 +19,10 @@ public class Utils {
         .build();
   }
 
+  public static Instant instantFromProto(com.google.protobuf.Timestamp timestamp) {
+    return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
+  }
+
   public static com.google.protobuf.Duration durationToProto(Duration duration) {
     return com.google.protobuf.Duration.newBuilder()
         .setSeconds(duration.getSeconds())

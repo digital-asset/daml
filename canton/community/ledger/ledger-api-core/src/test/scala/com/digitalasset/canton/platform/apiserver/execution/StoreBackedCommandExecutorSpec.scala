@@ -216,8 +216,10 @@ class StoreBackedCommandExecutorSpec
 
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
-      contractInstance =
-        Versioned(LfTransactionVersion.maxVersion, ContractInstance(identifier, Value.ValueTrue)),
+      contractInstance = Versioned(
+        LfTransactionVersion.maxVersion,
+        ContractInstance(template = identifier, arg = Value.ValueTrue),
+      ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),

@@ -3,13 +3,13 @@
 
 package com.daml.ledger.javaapi.data
 
-import com.daml.ledger.javaapi.data.GeneratorsV2._
+import com.daml.ledger.javaapi.data.GeneratorsV2.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class GetUpdatesRequestV2Spec
-  extends AnyFlatSpec
+    extends AnyFlatSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 

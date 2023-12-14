@@ -27,6 +27,12 @@ final case class CacheConfig(
 
 }
 
+/** Configurations settings for a single cache where elements are evicted after a certain time as elapsed
+  * (regardless of access).
+  *
+  * @param maximumSize the maximum size of the cache
+  * @param expireAfterTimeout how quickly after creation items should be expired from the cache
+  */
 final case class CacheConfigWithTimeout(
     maximumSize: PositiveNumeric[Long],
     expireAfterTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
@@ -36,6 +42,12 @@ final case class CacheConfigWithTimeout(
     Scaffeine().maximumSize(maximumSize.value).expireAfterWrite(expireAfterTimeout.underlying)
 
 }
+
+final case class SessionKeyCacheConfig(
+    sessionKeyCacheEnabled: Boolean,
+    sessionKeyForSenderCache: CacheConfigWithTimeout,
+    sessionKeyForReceiverCache: CacheConfigWithTimeout,
+)
 
 /** Configuration settings for various internal caches
   *
@@ -52,7 +64,7 @@ final case class CachingConfigs(
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
-    sessionKeyCache: CacheConfigWithTimeout = CachingConfigs.defaultSessionKeyCache,
+    sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     trafficStatusCache: CacheConfig = CachingConfigs.defaultTrafficStatusCache,
@@ -72,8 +84,17 @@ object CachingConfigs {
   val defaultParticipantCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val defaultSessionKeyCache: CacheConfigWithTimeout =
-    CacheConfigWithTimeout(maximumSize = PositiveNumeric.tryCreate(10000))
+  val defaultSessionKeyCacheConfig: SessionKeyCacheConfig = SessionKeyCacheConfig(
+    sessionKeyCacheEnabled = true,
+    sessionKeyForSenderCache = CacheConfigWithTimeout(
+      maximumSize = PositiveNumeric.tryCreate(10000),
+      expireAfterTimeout = NonNegativeFiniteDuration.ofSeconds(10),
+    ),
+    sessionKeyForReceiverCache = CacheConfigWithTimeout(
+      maximumSize = PositiveNumeric.tryCreate(10000),
+      expireAfterTimeout = NonNegativeFiniteDuration.ofSeconds(20),
+    ),
+  )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMySigningKeyCache: CacheConfig =

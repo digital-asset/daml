@@ -106,23 +106,12 @@ class RepairExampleIntegrationTest
       advancedConfiguration / "storage" / "h2.conf",
       repairConfiguration / "domain-repair-lost.conf",
       repairConfiguration / "domain-repair-new.conf",
-      repairConfiguration / "domain-export-ledger.conf",
-      repairConfiguration / "domain-import-ledger.conf",
       repairConfiguration / "participant1.conf",
       repairConfiguration / "participant2.conf",
-      repairConfiguration / "participant3.conf",
-      repairConfiguration / "participant4.conf",
       repairConfiguration / "enable-preview-commands.conf",
     ) {
   "deploy repair user-manual topology and initialize" in { implicit env =>
     ExampleIntegrationTest.ensureSystemProperties("canton-examples.dar-path" -> CantonExamplesPath)
     runScript(repairConfiguration / "domain-repair-init.canton")(env.environment)
-  }
-
-  "deploy ledger import user-manual topology and initialize" in { implicit env =>
-    ExampleIntegrationTest.ensureSystemProperties(
-      "canton-examples.dar-path" -> CantonExamplesPath
-    )
-    runScript(repairConfiguration / "import-ledger-init.canton")(env.environment)
   }
 }

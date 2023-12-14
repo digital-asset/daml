@@ -78,7 +78,6 @@ import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.AuthorityOfResponse

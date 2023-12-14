@@ -53,12 +53,15 @@ class NamedEventCapturingLogger(
       expectedMessage: String,
       expectedLevel: Level,
       expectedThrowable: Throwable = null,
-  ): Unit = {
+  ): Boolean = {
     val event = eventQueue.peek()
     if (
       event != null && event.getMessage == expectedMessage && event.getLevel == expectedLevel && event.getThrowable == expectedThrowable
     ) {
       pollEventQueue(None)
+      true
+    } else {
+      false
     }
   }
 
