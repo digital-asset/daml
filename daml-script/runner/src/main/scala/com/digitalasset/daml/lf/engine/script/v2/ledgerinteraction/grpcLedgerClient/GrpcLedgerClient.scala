@@ -275,7 +275,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
@@ -310,13 +310,13 @@ class GrpcLedgerClient(
               Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
-          } yield Right((results, Some(tree)))
+          } yield Right((results, tree))
         case Left(status) =>
           Future.successful(
             Left(
               ScriptLedgerClient.SubmitFailure(
                 StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status)),
-                Some(GrpcErrorParser.convertStatusRuntimeException(status)),
+                GrpcErrorParser.convertStatusRuntimeException(status),
               )
             )
           )

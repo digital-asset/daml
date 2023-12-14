@@ -611,7 +611,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
     synchronized {
       unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
@@ -651,7 +651,7 @@ class IdeLedgerClient(
             _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
           else
             _currentSubmission = None
-          Right((results, Some(tree)))
+          Right((results, tree))
         case Left(ScenarioRunner.SubmissionError(err, tx)) =>
           import ScriptLedgerClient.SubmissionErrorBehaviour._
           // Some compatibility logic to keep the "steps" the same.
@@ -666,7 +666,7 @@ class IdeLedgerClient(
               _currentSubmission = None
               _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
           }
-          Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
+          Left(ScriptLedgerClient.SubmitFailure(err, fromScenarioError(err)))
       }
     }
   }
