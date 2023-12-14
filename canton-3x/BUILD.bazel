@@ -1219,6 +1219,10 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
     visibility = [
         "//ledger-service/http-json:__subpackages__",
     ],
@@ -1242,6 +1246,10 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
     deps = [
         ":bindings-java",
