@@ -127,6 +127,8 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
       coid: ContractId,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
       override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       actingParties: Set[Party],
@@ -215,6 +217,8 @@ object Node {
   }
 
   final case class LookupByKey(
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
       override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       key: GlobalKeyWithMaintainers,
