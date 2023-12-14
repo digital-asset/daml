@@ -1,6 +1,5 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 
 module Daml.Script.Questions.Submit
@@ -15,6 +14,7 @@ import Daml.Script.Questions.TransactionTree
 import DA.NonEmpty
 import DA.List.Total (head)
 import DA.Stack
+import DA.Set
 import DA.Functor (void)
 import DA.Bifunctor (first)
 
@@ -90,21 +90,20 @@ disclose d = discloseMany [d]
 class IsSubmitOptions a where
   toSubmitOptions : a -> SubmitOptions
 
--- Even though `IsParties SubmitOptions` doesn't exist, ghc doesn't consider context in instance selection.
-instance {-# OVERLAPS #-} IsSubmitOptions SubmitOptions where
+instance IsSubmitOptions SubmitOptions where
   toSubmitOptions = identity
 
--- | Allows a single (or many) parties to be directly provided as actAs parties.
--- This gives rise to the familiar syntax of
--- ```
--- alice `submit` createCmd MyContract with party = alice
--- ```
-instance IsParties p => IsSubmitOptions p where
+instance IsSubmitOptions Party where
   toSubmitOptions = actAs
 
--- | Defines an applicative that can run transaction submissions. Usually this is simply `Script`.
-class Applicative m => ScriptSubmit m where
-  submitInternal : HasCallStack => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either (Optional SubmitError) (a, Optional TransactionTree))
+instance IsSubmitOptions [Party] where
+  toSubmitOptions = actAs
+
+instance IsSubmitOptions (NonEmpty Party) where
+  toSubmitOptions = actAs
+
+instance IsSubmitOptions (Set Party) where
+  toSubmitOptions = actAs
 
 -- | Applicative that allows for multiple concurrent transaction submissions
 -- See `concurrently` for usage of this type.
@@ -130,22 +129,6 @@ actAsNonEmpty ps = case ps of
   [] -> error "actAs must be non-empty"
   p :: ps -> NonEmpty p ps
 
-instance ScriptSubmit ConcurrentSubmits where
-  submitInternal : HasCallStack => SubmitOptions -> ErrorBehaviour -> Commands a -> ConcurrentSubmits (Either (Optional SubmitError) (a, Optional TransactionTree))
-  submitInternal opts errorBehaviour cmds = ConcurrentSubmits with
-    submits =
-      [ Submission with
-          sActAs = actAsNonEmpty opts.soActAs
-          sReadAs = opts.soReadAs
-          sDisclosures = opts.soDisclosures
-          sErrorBehaviour = errorBehaviour
-          sCommands = cmds.commands
-          sLocation = head getExposedCallStack
-      ]
-    continue = \case
-      [res] -> fmap (first cmds.continue) res
-      _ -> error "CRASH! Incorrect number of submission results returned from ConcurrentSubmit!"
-
 -- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
 -- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
@@ -153,9 +136,32 @@ concurrently : HasCallStack => ConcurrentSubmits a -> Script a
 concurrently submissions = fmap submissions.continue $ lift $ Submit with
   submissions = submissions.submits
 
+-- | Defines an applicative that can run transaction submissions. Usually this is simply `Script`.
+class Applicative m => ScriptSubmit m where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> m a
+
+instance ScriptSubmit ConcurrentSubmits where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> ConcurrentSubmits a
+  liftSubmission = identity
+
 instance ScriptSubmit Script where
-  submitInternal : HasCallStack => SubmitOptions -> ErrorBehaviour -> Commands a -> Script (Either (Optional SubmitError) (a, Optional TransactionTree))
-  submitInternal opts errorBehaviour cmds = concurrently $ submitInternal opts errorBehaviour cmds
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> Script a
+  liftSubmission = concurrently
+
+submitInternal : (HasCallStack, ScriptSubmit m) => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either (Optional SubmitError) (a, Optional TransactionTree))
+submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
+  submits =
+    [ Submission with
+        sActAs = actAsNonEmpty opts.soActAs
+        sReadAs = opts.soReadAs
+        sDisclosures = opts.soDisclosures
+        sErrorBehaviour = errorBehaviour
+        sCommands = cmds.commands
+        sLocation = head getExposedCallStack
+    ]
+  continue = \case
+    [res] -> fmap (first cmds.continue) res
+    _ -> error "CRASH! Incorrect number of submission results returned from ConcurrentSubmit!"
 
 -- assertFromRight for mustsucceed. Error path should never be called, as scala handles it.
 mustSucceed : Either a b -> b
@@ -193,7 +199,7 @@ getTransactionTree = \case
 
 getError : Optional SubmitError -> SubmitError
 getError = \case
-  None -> error "No transaction tree returned! The JSON Ledger Client does not support submit for error."
+  None -> error "No SubmitError returned! The JSON Ledger Client does not support submit for error."
   Some e -> e
 
 -- | `submit p cmds` submits the commands `cmds` as a single transaction

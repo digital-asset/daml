@@ -161,7 +161,7 @@ queryUpgraded : Script ()
 queryUpgraded = do
   a <- allocatePartyOn "alice" participant0
 
-  cid <- a `submit` createCmdExact V1.ValidUpgrade with party = a
+  cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
   let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
   v2Name <- queryContractId a v2Cid
   v2Name === Some V2.ValidUpgrade with party = a, newField = None
@@ -195,7 +195,7 @@ tryExerciseV1Util : Choice V1Utils c r => Party -> c -> Script (Either SubmitErr
 tryExerciseV1Util p c = p `trySubmit` createAndExerciseCmd (V1Utils with party = p) c
 
 tryExerciseV1UtilExact : Choice V1Utils c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV1UtilExact p c = p `trySubmit` createAndExerciseCmdExact (V1Utils with party = p) c
+tryExerciseV1UtilExact p c = p `trySubmit` createAndExerciseExactCmd (V1Utils with party = p) c
 
 tryExerciseV2Util : Choice V2Utils c r => Party -> c -> Script (Either SubmitError r)
 tryExerciseV2Util p c = p `trySubmit` createAndExerciseCmd (V2Utils with party = p) c
@@ -203,7 +203,7 @@ tryExerciseV2Util p c = p `trySubmit` createAndExerciseCmd (V2Utils with party =
 fetchUpgraded : Script ()
 fetchUpgraded = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmdExact V1.ValidUpgrade with party = a
+  cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
 
   let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
   v2Name <- a `exerciseV2Util` V2Fetch with cid = v2Cid
@@ -233,7 +233,7 @@ fetchDowngradedSome = do
 fetchUpgradedSourceUnvetted : Script ()
 fetchUpgradedSourceUnvetted = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmdExact V1.ValidUpgrade with party = a
+  cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
 
   -- Unvet v1, so the engine cannot have type information about the real packageid of the contract
   unvetDarOnParticipant v1DarName participant0
@@ -266,7 +266,7 @@ fetchDowngradedNoneSourceUnvetted = do
 exerciseV1ChoiceV1ContractSameType : Script ()
 exerciseV1ChoiceV1ContractSameType = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmdExact V1.ValidUpgrade with party = a
+  cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
 
   sameTypeResult <- a `exerciseV1Util` V1SameChoiceExercise with cid = cid
   sameTypeResult === "V1"
@@ -318,9 +318,9 @@ genericUpgradeTest
   -> Script ()
 genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmdExact (makeV1Contract a)
+  cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
-  res <- a `trySubmit` (if explicitPackageIds then exerciseCmdExact else exerciseCmd) cidV2 v2Choice
+  res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
   handleRes res
 
 choiceTest : forall t2 t1 c2 r. (Template t1, HasAgreement t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
@@ -457,7 +457,7 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = do
   let (preSignatories, postSignatories) = sigF (alice, bob, charlie)
       (preObservers, postObservers) = obsF (alice, bob, charlie)
   
-  cid <- submitMulti [alice, bob, charlie] [] $ createCmdExact V1.InvalidUpgradeStakeholders with
+  cid <- submitMulti [alice, bob, charlie] [] $ createExactCmd V1.InvalidUpgradeStakeholders with
     signatories = preSignatories
     observers = preObservers
     replacementSignatories = postSignatories
@@ -597,7 +597,7 @@ templateVariantDowngradeFromNew = do
   let cidV1 = coerceContractId @V2.VariantAdditional @V1.VariantAdditional cid
 
   -- Ensure we can only call the V1 choice
-  res <- a `trySubmit` exerciseCmdExact cidV1 V1.VariantAdditionalCall
+  res <- a `trySubmit` exerciseExactCmd cidV1 V1.VariantAdditionalCall
 
   case res of
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()

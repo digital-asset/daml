@@ -141,39 +141,39 @@ exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> 
 exerciseByKeyCmd key arg = internalTypedExerciseByKeyCmd @t key arg False
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
-createAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
+createAndExerciseWithCidCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createAndExerciseCmdWithCid tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg False
+createAndExerciseWithCidCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg False
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
 createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createAndExerciseCmd tplArg choiceArg = snd <$> createAndExerciseCmdWithCid tplArg choiceArg
+createAndExerciseCmd tplArg choiceArg = snd <$> createAndExerciseWithCidCmd tplArg choiceArg
 
 -- Main command API, WITH explicit package ids
 -- | Create a contract of the given template, using the exact package ID of the template given - upgrades are disabled.
-createCmdExact : (Template t, HasAgreement t) => t -> Commands (ContractId t)
+createExactCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createCmdExact arg = internalTypedCreateCmd arg True
+createExactCmd arg = internalTypedCreateCmd arg True
 
 -- | Exercise a choice on the given contract, using the exact package ID of the template given - upgrades are disabled.
-exerciseCmdExact : forall t c r. Choice t c r => ContractId t -> c -> Commands r
-exerciseCmdExact cId arg = internalTypedExerciseCmd cId arg True
+exerciseExactCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
+exerciseExactCmd cId arg = internalTypedExerciseCmd cId arg True
 
 -- | Exercise a choice on the contract with the given key, using the exact package ID of the template given - upgrades are disabled.
-exerciseByKeyCmdExact : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
-exerciseByKeyCmdExact key arg = internalTypedExerciseByKeyCmd @t key arg True
+exerciseByKeyExactCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyExactCmd key arg = internalTypedExerciseByKeyCmd @t key arg True
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
 -- Uses the exact package ID of the template given - upgrades are disabled.
-createAndExerciseCmdWithCidExact : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
+createAndExerciseWithCidExactCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createAndExerciseCmdWithCidExact tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg True
+createAndExerciseWithCidExactCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg True
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
-createAndExerciseCmdExact : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+createAndExerciseExactCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
 -- The 'HasAgreement t' constraint prevents this function from being used on interface types.
-createAndExerciseCmdExact tplArg choiceArg = snd <$> createAndExerciseCmdWithCidExact tplArg choiceArg
+createAndExerciseExactCmd tplArg choiceArg = snd <$> createAndExerciseWithCidExactCmd tplArg choiceArg
 
 -- | Archive the given contract.
 --
