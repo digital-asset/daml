@@ -59,7 +59,7 @@ object ScriptLedgerClient {
 
   final case class SubmitFailure(
       statusError: RuntimeException,
-      submitError: Option[SubmitError],
+      submitError: SubmitError,
   )
 
   // Ideally this lives in ScriptF, but is needed to pass forward to IDELedgerClient
@@ -85,10 +85,8 @@ object ScriptLedgerClient {
           oAdminClient,
           enableContractUpgrading,
         )
-      case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
-        if (enableContractUpgrading)
-          throw new IllegalArgumentException("The JSON client does not support Upgrades")
-        new JsonLedgerClient(uri, token, envIface, actorSystem)
+      case _: abstractLedgers.JsonLedgerClient =>
+        throw new IllegalArgumentException("Daml3-script does not support the JSON interface")
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
@@ -191,7 +189,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]]
 
   def allocateParty(partyIdHint: String, displayName: String)(implicit

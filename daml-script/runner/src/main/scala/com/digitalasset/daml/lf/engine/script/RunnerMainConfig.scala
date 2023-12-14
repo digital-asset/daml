@@ -251,7 +251,9 @@ private[script] object RunnerMainConfigIntermediate {
         c.copy(jsonApi = true)
       }
       .text(
-        "Run Daml Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
+        """Run Daml Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
+          |Deprecated, removed in daml3-script.
+          """.stripMargin
       )
 
     opt[Int]("max-inbound-message-size")

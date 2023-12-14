@@ -20,7 +20,7 @@ import DA.Bifunctor (first)
 
 data Submit = Submit with
   submissions : [Submission]
-instance IsQuestion Submit [Either (Optional SubmitError) ([CommandResult], Optional TransactionTree)] where command = "Submit"
+instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where command = "Submit"
 
 data Submission = Submission with
   sActAs : NonEmpty Party
@@ -109,7 +109,7 @@ instance IsSubmitOptions (Set Party) where
 -- See `concurrently` for usage of this type.
 data ConcurrentSubmits a = ConcurrentSubmits with
     submits : [Submission]
-    continue : [Either (Optional SubmitError) ([CommandResult], Optional TransactionTree)] -> a
+    continue : [Either SubmitError ([CommandResult], TransactionTree)] -> a
   deriving Functor
 
 instance Applicative ConcurrentSubmits where
@@ -148,7 +148,7 @@ instance ScriptSubmit Script where
   liftSubmission : HasCallStack => ConcurrentSubmits a -> Script a
   liftSubmission = concurrently
 
-submitInternal : (HasCallStack, ScriptSubmit m) => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either (Optional SubmitError) (a, Optional TransactionTree))
+submitInternal : (HasCallStack, ScriptSubmit m) => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either SubmitError (a, TransactionTree))
 submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
   submits =
     [ Submission with
@@ -177,30 +177,16 @@ mustFail = \case
 
 -- ##### Main API #####
 -- | Equivalent to `submit` but returns the result and the full transaction tree.
-submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, Optional TransactionTree)
+submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, TransactionTree)
 submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
 
 -- | Equivalent to `trySubmit` but returns the result and the full transaction tree.
-trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, Optional TransactionTree))
-trySubmitResultAndTree opts cmds = first getError <$> submitInternal (toSubmitOptions opts) Try cmds
-
--- | HIDE
-submitWithError_ : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Optional SubmitError)
-submitWithError_ opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
+trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, TransactionTree))
+trySubmitResultAndTree opts cmds = submitInternal (toSubmitOptions opts) Try cmds
 
 -- | Equivalent to `submitMustFail` but returns the error thrown.
 submitWithError : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m SubmitError
-submitWithError opts cmds = getError <$> submitWithError_ opts cmds
-
-getTransactionTree : Optional TransactionTree -> TransactionTree
-getTransactionTree = \case
-  None -> error "No transaction tree returned! The JSON Ledger Client does not support submitTree."
-  Some t -> t
-
-getError : Optional SubmitError -> SubmitError
-getError = \case
-  None -> error "No SubmitError returned! The JSON Ledger Client does not support submit for error."
-  Some e -> e
+submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
 
 -- | `submit p cmds` submits the commands `cmds` as a single transaction
 -- from party `p` and returns the value returned by `cmds`.
@@ -211,7 +197,7 @@ submit opts cmds = fst <$> submitResultAndTree opts cmds
 
 -- | Equivalent to `submit` but returns the full transaction tree.
 submitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m TransactionTree
-submitTree opts cmds = getTransactionTree . snd <$> submitResultAndTree opts cmds
+submitTree opts cmds = snd <$> submitResultAndTree opts cmds
 
 -- | Submit a transaction and recieve back either the result, or a `SubmitError`.
 -- In the majority of failures, this will not crash at runtime.
@@ -220,14 +206,14 @@ trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds
 
 -- | Equivalent to `trySubmit` but returns the full transaction tree.
 trySubmitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError TransactionTree)
-trySubmitTree opts cmds = fmap (getTransactionTree . snd) <$> trySubmitResultAndTree opts cmds
+trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
 
 -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
 -- from party `p`.
 --
 -- It only succeeds if the submitting the transaction fails.
 submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
-submitMustFail opts cmds = void $ submitWithError_ opts cmds
+submitMustFail opts cmds = void $ submitWithError opts cmds
 
 -- ##### Old compatibility conveniences #####
 
