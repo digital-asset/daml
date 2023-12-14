@@ -1,12 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.provider.tink
+package com.digitalasset.canton.crypto.format
 
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.jce.JceSecurityProvider
-import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat.serializeHandle
+import com.digitalasset.canton.crypto.format.TinkKeyFormat.serializeHandle
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.google.crypto.tink.aead.AeadKeyTemplates
 import com.google.crypto.tink.hybrid.HybridKeyTemplates

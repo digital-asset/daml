@@ -275,7 +275,7 @@ object WellFormedTransaction {
           addReferencesByLfValue(nodeId, argRefs.to(LazyList))
         )
       } {
-        case (nodeId, nf:LfNodeFetch, _) =>
+        case (nodeId, nf: LfNodeFetch, _) =>
           addReference(nodeId)(nf.coid)
         case (nodeId, lookup: LfNodeLookupByKey, _) =>
           lookup.result.traverse_(addReference(nodeId))
@@ -291,7 +291,9 @@ object WellFormedTransaction {
             _ <- created.put(nc.coid, (nodeId, rbContext.rollbackScope)).traverse_ {
               case (otherNodeId, _otherRbScope) =>
                 Checked
-                  .continue(s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId")
+                  .continue(
+                    s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId"
+                  )
             }
             _ <- nc.coid match {
               case cidV1: LfContractId.V1 =>
@@ -309,7 +311,9 @@ object WellFormedTransaction {
                     }
                 } else Checked.result(())
               case _ =>
-                Checked.continue(s"Created contract id ${nc.coid.coid} in $nodeId is not of version V1")
+                Checked.continue(
+                  s"Created contract id ${nc.coid.coid} in $nodeId is not of version V1"
+                )
             }
           } yield ()
       } { (nodeId, ne, _) =>

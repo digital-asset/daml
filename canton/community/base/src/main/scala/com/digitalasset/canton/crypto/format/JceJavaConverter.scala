@@ -1,12 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.provider.jce
+package com.digitalasset.canton.crypto.format
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.google.crypto.tink.subtle.EllipticCurves
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
 import com.google.protobuf.ByteString
@@ -32,22 +31,16 @@ class JceJavaConverter(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  private def ensureFormat(
-      key: CryptoKey,
-      format: CryptoKeyFormat,
-  ): Either[JavaKeyConversionError, Unit] =
-    Either.cond(
-      key.format == format,
-      (),
-      JavaKeyConversionError.UnsupportedKeyFormat(key.format, format),
-    )
-
   private def toJavaEcDsa(
       publicKey: PublicKey,
       curveType: CurveType,
   ): Either[JavaKeyConversionError, (AlgorithmIdentifier, JPublicKey)] =
     for {
-      _ <- ensureFormat(publicKey, CryptoKeyFormat.Der)
+      _ <- CryptoPureApiHelper.ensureFormat(
+        publicKey.format,
+        Set(CryptoKeyFormat.Der),
+        _ => JavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, CryptoKeyFormat.Der),
+      )
       // We are using the tink-subtle API here, thus using the TinkJavaConverter to have a consistent mapping of curve
       // type to algo id.
       algoId <- TinkJavaConverter
@@ -70,7 +63,11 @@ class JceJavaConverter(
         keyInstance: String,
     ): Either[JavaKeyConversionError, JPublicKey] =
       for {
-        _ <- ensureFormat(publicKey, format)
+        _ <- CryptoPureApiHelper.ensureFormat(
+          publicKey.format,
+          Set(format),
+          _ => JavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, format),
+        )
         x509KeySpec = new X509EncodedKeySpec(x509PublicKey)
         keyFactory <- Either
           .catchOnly[NoSuchAlgorithmException](

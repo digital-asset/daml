@@ -16,6 +16,13 @@ import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiError
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServiceErrors extends AdminServicesErrorGroup {
 
+  val UserManagement: UserManagementServiceErrors.type =
+    UserManagementServiceErrors
+  val IdentityProviderConfig: IdentityProviderConfigServiceErrors.type =
+    IdentityProviderConfigServiceErrors
+  val PartyManagement: PartyManagementServiceErrors.type =
+    PartyManagementServiceErrors
+
   @Explanation("This rejection is given when a new configuration is rejected.")
   @Resolution("Fetch newest configuration and/or retry.")
   object ConfigurationEntryRejected

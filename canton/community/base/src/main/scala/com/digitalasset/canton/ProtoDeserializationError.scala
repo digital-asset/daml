@@ -23,6 +23,8 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
       extends ProtoDeserializationError {
     override val message = error.getMessage
   }
+
+  final case class CryptoKeyDeserializationError(message: String) extends ProtoDeserializationError
   final case class CryptoDeserializationError(error: DeserializationError)
       extends ProtoDeserializationError {
     override val message = error.message

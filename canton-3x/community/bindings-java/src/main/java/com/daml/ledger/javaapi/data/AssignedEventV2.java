@@ -104,15 +104,14 @@ public final class AssignedEventV2 {
   }
 
   public ReassignmentOuterClass.AssignedEvent toProto() {
-    ReassignmentOuterClass.AssignedEvent.Builder builder =
-        ReassignmentOuterClass.AssignedEvent.newBuilder()
-            .setSource(this.source)
-            .setTarget(this.target)
-            .setUnassignId(this.unassignId)
-            .setSubmitter(this.submitter)
-            .setReassignmentCounter(this.reassignmentCounter)
-            .setCreatedEvent(this.getCreatedEvent().toProto());
-    return builder.build();
+    return ReassignmentOuterClass.AssignedEvent.newBuilder()
+        .setSource(this.source)
+        .setTarget(this.target)
+        .setUnassignId(this.unassignId)
+        .setSubmitter(this.submitter)
+        .setReassignmentCounter(this.reassignmentCounter)
+        .setCreatedEvent(this.getCreatedEvent().toProto())
+        .build();
   }
 
   public static AssignedEventV2 fromProto(ReassignmentOuterClass.AssignedEvent assignedEvent) {

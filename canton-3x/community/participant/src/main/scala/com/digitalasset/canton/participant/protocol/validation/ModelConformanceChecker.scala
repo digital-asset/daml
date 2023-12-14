@@ -428,9 +428,7 @@ object ModelConformanceChecker {
         version = instance.contractInstance.version,
       )
       _ <- EitherT.cond[Future](
-        // TODO: https://github.com/digital-asset/daml/issues/17995
-        //  remove the copy packageName update, once canton handles it properly
-        actual.copy(packageName = None) == expected,
+        actual == expected,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,
       )
