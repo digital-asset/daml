@@ -5,8 +5,10 @@ package com.digitalasset.canton.crypto.provider.tink
 
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.{HkdfHmacError, HkdfInternalError}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.format.TinkKeyFormat
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
@@ -30,12 +32,98 @@ class TinkPureCrypto private (
     override val defaultHashAlgorithm: HashAlgorithm,
 ) extends CryptoPureApi {
 
-  // Cache for the public and private key keyset deserialization result
+  // TODO(#15632): Make these real caches with an eviction rule
+  // Cache for the public and private keyset deserialization result.
   // Note: We do not cache symmetric keys as we generate random keys for each new view.
-  private val publicKeysetCache: TrieMap[Fingerprint, Either[DeserializationError, KeysetHandle]] =
+  private val publicKeysetCache
+      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, KeysetHandle]] =
     TrieMap.empty
-  private val privateKeysetCache: TrieMap[Fingerprint, Either[DeserializationError, KeysetHandle]] =
+  private val privateKeysetCache
+      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, KeysetHandle]] =
     TrieMap.empty
+
+  /** Parses and converts a public key to a tink public key handle.
+    * We store the deserialization result in a cache.
+    *
+    * @return Either an error or the converted public keyset handle
+    */
+  private def parseAndGetPublicKey[E](
+      publicKey: PublicKey,
+      errFn: String => E,
+  ): Either[E, KeysetHandle] = {
+    val keyFormat = publicKey.format
+
+    def getFromCacheOrDeserializeKey: Either[E, KeysetHandle] =
+      // if the public key is already in cache it already has been deserialized and validated
+      publicKeysetCache
+        .getOrElseUpdate(
+          publicKey.id, {
+            for {
+              // convert key to Tink format so that we can deserialize it
+              tinkPublicKey <- keyConverter
+                .convert(publicKey, CryptoKeyFormat.Tink)
+                .leftMap(KeyParseAndValidateError)
+              handle <- TinkKeyFormat
+                .deserializeHandle(tinkPublicKey.key)
+                .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
+            } yield handle
+          },
+        )
+        .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
+
+    keyFormat match {
+      case CryptoKeyFormat.Tink | CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
+        getFromCacheOrDeserializeKey
+      case CryptoKeyFormat.Symbolic => Left(errFn("Symbolic key format not supported"))
+    }
+
+  }
+
+  /** Parses and converts a private or symmetric key to a tink keyset handle.
+    * We store the deserialization result in a cache.
+    *
+    * @return Either an error or the converted tink keyset handle
+    */
+  private def parseAndGetPrivateKey[E](
+      privateKey: CryptoKey,
+      cached: Boolean,
+      errFn: String => E,
+  ): Either[E, KeysetHandle] =
+    (for {
+      // we are using Tink as the provider so we expect all private keys to be in Tink format
+      _ <- CryptoPureApiHelper.ensureFormat(
+        privateKey.format,
+        Set(CryptoKeyFormat.Tink),
+        KeyParseAndValidateError,
+      )
+      keysetHandle <- privateKey match {
+        case key: PrivateKey if cached =>
+          privateKeysetCache
+            .getOrElseUpdate(
+              key.id,
+              TinkKeyFormat
+                .deserializeHandle(privateKey.key)
+                .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err")),
+            )
+        case _: SymmetricKey | _: PrivateKey if !cached =>
+          TinkKeyFormat
+            .deserializeHandle(privateKey.key)
+            .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
+        case _ => Left(KeyParseAndValidateError("Key is not a private or symmetric key"))
+      }
+    } yield keysetHandle)
+      .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
+
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  private def getPrimitive[P: ClassTag, E](
+      keysetHandle: KeysetHandle,
+      errFn: String => E,
+  ): Either[E, P] =
+    Either
+      .catchOnly[GeneralSecurityException](
+        keysetHandle.getPrimitive(classTag[P].runtimeClass.asInstanceOf[Class[P]])
+      )
+      .leftMap(err => errFn(show"Failed to get primitive: $err"))
 
   private def encryptWith[M <: HasVersionedToByteString](
       message: M,
@@ -79,40 +167,6 @@ class TinkPureCrypto private (
       .flatMap(plain =>
         deserialize(ByteString.copyFrom(plain)).leftMap(DecryptionError.FailedToDeserialize)
       )
-
-  private def ensureTinkFormat[E](format: CryptoKeyFormat, errFn: String => E): Either[E, Unit] =
-    Either.cond(format == CryptoKeyFormat.Tink, (), errFn(s"Key format must be Tink"))
-
-  private def convertPublicKey[E](publicKey: PublicKey, errFn: String => E): Either[E, PublicKey] =
-    keyConverter.convert(publicKey, CryptoKeyFormat.Tink).leftMap(errFn)
-
-  private def keysetNonCached[E](key: CryptoKey, errFn: String => E): Either[E, KeysetHandle] =
-    for {
-      _ <- ensureTinkFormat(key.format, errFn)
-      keysetHandle <- TinkKeyFormat
-        .deserializeHandle(key.key)
-        .leftMap(err => errFn(s"Failed to deserialize keyset: $err"))
-    } yield keysetHandle
-
-  private def keysetCached[E](key: CryptoKeyPairKey, errFn: String => E): Either[E, KeysetHandle] =
-    for {
-      _ <- ensureTinkFormat(key.format, errFn)
-      keysetCache = if (key.isPublicKey) publicKeysetCache else privateKeysetCache
-      keysetHandle <- keysetCache
-        .getOrElseUpdate(key.id, TinkKeyFormat.deserializeHandle(key.key))
-        .leftMap(err => errFn(s"Failed to deserialize keyset: $err"))
-    } yield keysetHandle
-
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def getPrimitive[P: ClassTag, E](
-      keysetHandle: KeysetHandle,
-      errFn: String => E,
-  ): Either[E, P] =
-    Either
-      .catchOnly[GeneralSecurityException](
-        keysetHandle.getPrimitive(classTag[P].runtimeClass.asInstanceOf[Class[P]])
-      )
-      .leftMap(err => errFn(show"Failed to get primitive: $err"))
 
   /** Generates a random symmetric key */
   override def generateSymmetricKey(
@@ -184,7 +238,11 @@ class TinkPureCrypto private (
       version: ProtocolVersion,
   ): Either[EncryptionError, Encrypted[M]] =
     for {
-      keysetHandle <- keysetNonCached(symmetricKey, EncryptionError.InvalidSymmetricKey)
+      keysetHandle <- parseAndGetPrivateKey(
+        symmetricKey,
+        cached = false,
+        EncryptionError.InvalidSymmetricKey,
+      )
       aead <- getPrimitive[tink.Aead, EncryptionError](
         keysetHandle,
         EncryptionError.InvalidSymmetricKey,
@@ -197,7 +255,11 @@ class TinkPureCrypto private (
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] =
     for {
-      keysetHandle <- keysetNonCached(symmetricKey, DecryptionError.InvalidSymmetricKey)
+      keysetHandle <- parseAndGetPrivateKey(
+        symmetricKey,
+        cached = false,
+        DecryptionError.InvalidSymmetricKey,
+      )
       aead <- getPrimitive[tink.Aead, DecryptionError](
         keysetHandle,
         DecryptionError.InvalidSymmetricKey,
@@ -212,8 +274,8 @@ class TinkPureCrypto private (
       version: ProtocolVersion,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      tinkPublicKey <- convertPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
-      keysetHandle <- keysetCached(tinkPublicKey, EncryptionError.InvalidEncryptionKey)
+      keysetHandle <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
+        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.show))
       hybrid <- getPrimitive[tink.HybridEncrypt, EncryptionError](
         keysetHandle,
         EncryptionError.InvalidEncryptionKey,
@@ -228,7 +290,11 @@ class TinkPureCrypto private (
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] =
     for {
-      keysetHandle <- keysetCached(privateKey, DecryptionError.InvalidEncryptionKey)
+      keysetHandle <- parseAndGetPrivateKey(
+        privateKey,
+        cached = true,
+        DecryptionError.InvalidEncryptionKey,
+      )
       hybrid <- getPrimitive[tink.HybridDecrypt, DecryptionError](
         keysetHandle,
         DecryptionError.InvalidEncryptionKey,
@@ -241,7 +307,11 @@ class TinkPureCrypto private (
       signingKey: SigningPrivateKey,
   ): Either[SigningError, Signature] =
     for {
-      keysetHandle <- keysetCached(signingKey, SigningError.InvalidSigningKey)
+      keysetHandle <- parseAndGetPrivateKey(
+        signingKey,
+        cached = true,
+        SigningError.InvalidSigningKey,
+      )
       verify <- getPrimitive[tink.PublicKeySign, SigningError](
         keysetHandle,
         SigningError.InvalidSigningKey,
@@ -265,8 +335,6 @@ class TinkPureCrypto private (
       signature: Signature,
   ): Either[SignatureCheckError, Unit] =
     for {
-      tinkPublicKey <- convertPublicKey(publicKey, SignatureCheckError.InvalidKeyError)
-      keysetHandle <- keysetCached(tinkPublicKey, SignatureCheckError.InvalidKeyError)
       _ <- Either.cond(
         signature.signedBy == publicKey.id,
         (),
@@ -274,6 +342,7 @@ class TinkPureCrypto private (
           s"Signature signed by ${signature.signedBy} instead of ${publicKey.id}"
         ),
       )
+      keysetHandle <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError)
       verify <- getPrimitive[tink.PublicKeyVerify, SignatureCheckError](
         keysetHandle,
         SignatureCheckError.InvalidKeyError,
@@ -331,7 +400,7 @@ class TinkPureCrypto private (
           hmacWithSecret(prk, last.concat(info.bytes).concat(chunkByte), algorithm)
             .bimap(HkdfHmacError, hmac => out.concat(hmac.unwrap) -> hmac.unwrap)
         }
-      (out, _last) = outputAndLast
+      (out, _) = outputAndLast
     } yield SecureRandomness(out.substring(0, outputBytes))
   }
 

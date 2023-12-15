@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class CompletionStreamResponseV2Spec
-  extends AnyFlatSpec
+    extends AnyFlatSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 

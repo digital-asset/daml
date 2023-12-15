@@ -149,7 +149,7 @@ final class TransferOutProcessingStepsTest
       ProcessingStartingPoints.default,
       _ => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
-      CachingConfigs.defaultSessionKeyCache,
+      CachingConfigs.defaultSessionKeyCacheConfig,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -206,9 +206,6 @@ final class TransferOutProcessingStepsTest
   private val cryptoSnapshot = createCryptoSnapshot()
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
-
-  private val cantonContractIdVersion =
-    CantonContractIdVersion.fromProtocolVersion(testedProtocolVersion)
 
   private def createTransferCoordination(
       cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
@@ -714,7 +711,7 @@ final class TransferOutProcessingStepsTest
       }
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCache)
+      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
         encryptedOutRequest <- encryptTransferOutTree(outTree, sessionKeyStore)
         envelopes =

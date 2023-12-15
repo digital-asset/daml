@@ -15,9 +15,7 @@ class GetPackageStatusRequestV2Spec
     with ScalaCheckDrivenPropertyChecks {
 
   "GetPackageStatusRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    Arbitrary
-      .arbString
-      .arbitrary
+    Arbitrary.arbString.arbitrary
       .map(GetPackageStatusRequest.newBuilder().setPackageId(_).build())
   ) { packageRequest =>
     val converted =

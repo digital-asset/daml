@@ -852,6 +852,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -862,6 +865,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
+        synchronize.foreach { timeout =>
+          ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+        }
       }
       res
     }

@@ -817,7 +817,7 @@ abstract class ParticipantReferenceX(
                   val ret = onParticipantAuthorizedStore == onDomain
                   if (!ret) {
                     logger.debug(
-                      show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted - onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
+                      show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
                     )
                   }
                   ret

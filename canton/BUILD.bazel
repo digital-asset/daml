@@ -356,6 +356,7 @@ scala_library(
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",

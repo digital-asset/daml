@@ -151,18 +151,17 @@ public final class UnassignedEventV2 {
   }
 
   public ReassignmentOuterClass.UnassignedEvent toProto() {
-    ReassignmentOuterClass.UnassignedEvent.Builder builder =
-        ReassignmentOuterClass.UnassignedEvent.newBuilder()
-            .setUnassignId(this.unassignId)
-            .setContractId(this.contractId)
-            .setTemplateId(this.getTemplateId().toProto())
-            .setSource(this.source)
-            .setTarget(this.target)
-            .setSubmitter(this.submitter)
-            .setReassignmentCounter(this.reassignmentCounter)
-            .setAssignmentExclusivity(Utils.instantToProto(this.assignmentExclusivity))
-            .addAllWitnessParties(this.getWitnessParties());
-    return builder.build();
+    return ReassignmentOuterClass.UnassignedEvent.newBuilder()
+        .setUnassignId(this.unassignId)
+        .setContractId(this.contractId)
+        .setTemplateId(this.getTemplateId().toProto())
+        .setSource(this.source)
+        .setTarget(this.target)
+        .setSubmitter(this.submitter)
+        .setReassignmentCounter(this.reassignmentCounter)
+        .setAssignmentExclusivity(Utils.instantToProto(this.assignmentExclusivity))
+        .addAllWitnessParties(this.getWitnessParties())
+        .build();
   }
 
   public static UnassignedEventV2 fromProto(

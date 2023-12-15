@@ -103,7 +103,7 @@ object RegisterTopologyTransactionRequest
       transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-  ): Iterable[RegisterTopologyTransactionRequest] = Seq(
+  ): RegisterTopologyTransactionRequest =
     RegisterTopologyTransactionRequest(
       requestedBy = requestedBy,
       participant = participant,
@@ -111,7 +111,6 @@ object RegisterTopologyTransactionRequest
       transactions = transactions,
       domainId = domainId,
     )(protocolVersionRepresentativeFor(protocolVersion))
-  )
 
   def fromProtoV0(
       message: v0.RegisterTopologyTransactionRequest
