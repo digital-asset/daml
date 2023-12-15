@@ -258,7 +258,7 @@ class MediatorNodeBootstrapX(
 
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[MediatorNodeX]]] = {
 

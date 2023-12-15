@@ -345,7 +345,7 @@ class ParticipantTopologyDispatcherX(
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def alreadyTrusted(
         state: SyncDomainPersistentStateX
-    ): EitherT[FutureUnlessShutdown, String, Boolean] =
+    ): EitherT[FutureUnlessShutdown, String, Boolean] = {
       for {
         alreadyTrusted <- EitherT
           .right[String](
@@ -359,13 +359,18 @@ class ParticipantTopologyDispatcherX(
                   filterUid = Some(Seq(participantId.uid)),
                   filterNamespace = None,
                 )
-                .map(_.toTopologyState.exists {
-                  case DomainTrustCertificateX(`participantId`, `domainId`, _, _) => true
-                  case _ => false
-                })
+                .map { storedTopologyTransactions =>
+                  val topologyState = storedTopologyTransactions.toTopologyState
+                  topologyState.exists {
+                    case DomainTrustCertificateX(`participantId`, `domainId`, _, _) => true
+                    case _ => false
+                  }
+                }
             )
           )
       } yield alreadyTrusted
+    }
+
     def trustDomain(
         state: SyncDomainPersistentStateX
     ): EitherT[FutureUnlessShutdown, String, Unit] =

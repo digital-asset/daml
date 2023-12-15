@@ -588,7 +588,9 @@ class CantonSyncService(
                 event
                   .traverse(eventTranslationStrategy.translate)
                   .map { e =>
-                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")
+                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
+                      e.traceContext
+                    )
                     (UpstreamOffsetConvert.fromGlobalOffset(offset), e)
                   }
               },

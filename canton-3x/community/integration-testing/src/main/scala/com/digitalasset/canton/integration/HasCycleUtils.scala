@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration
 
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.canton.console.ParticipantReferenceCommon
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.participant.admin.workflows.java.pingpong as M
@@ -23,10 +23,15 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
       commandId: String = "",
   ): Unit = {
 
-    def p2acs(): Seq[LedgerApiTypeWrappers.WrappedCreatedEvent] =
-      participant2.ledger_api.acs
+    def p2acs(): Seq[CreatedEvent] =
+      participant2.ledger_api_v2.state.acs
         .of_party(partyId)
-        .filter(_.templateId.isModuleEntity("PingPong", "Cycle"))
+        .flatMap(_.contractEntry.activeContract.flatMap(_.createdEvent))
+        .filter(
+          _.templateId.exists { identifier =>
+            identifier.moduleName == "PingPong" && identifier.entityName == "Cycle"
+          }
+        )
 
     p2acs() shouldBe empty
 
@@ -49,9 +54,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
       id: String,
       commandId: String = "",
   ): Unit = {
-
     val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement
     participant.ledger_api.javaapi.commands.submit(Seq(partyId), Seq(cycle), commandId = commandId)
-
   }
 }

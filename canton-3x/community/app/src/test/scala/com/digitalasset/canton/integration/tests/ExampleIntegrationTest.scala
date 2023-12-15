@@ -61,7 +61,6 @@ trait HasConsoleScriptRunner { this: NamedLogging =>
 object ExampleIntegrationTest {
   lazy val examplesPath: File = "community" / "app" / "src" / "pack" / "examples"
   lazy val simpleTopology: File = examplesPath / "01-simple-topology"
-  lazy val createDamlApp: File = examplesPath / "04-create-daml-app"
   lazy val advancedConfiguration: File = examplesPath / "03-advanced-configuration"
   lazy val composabilityConfiguration: File = examplesPath / "05-composability"
   lazy val messagingConfiguration: File = examplesPath / "06-messaging"
