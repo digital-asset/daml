@@ -390,10 +390,10 @@ object CSMInconsistency {
 
     node match {
       case create: Node.Create => visitCreateActiveKeysGet(s, create.coid, create.gkeyOpt, k2)
-      case fetch: Node.Fetch => {
+      case fetch: Node.Fetch =>
         unfold(s.visitFetch(fetch.coid, fetch.gkeyOpt))
+        assertKeyMapping_witnessContractId(s, fetch.coid, fetch.coid, fetch.gkeyOpt)
         assertKeyMappingActiveKeysGet(s, fetch.coid, fetch.gkeyOpt, k2)
-      }
       case lookup: Node.LookupByKey => visitLookupActiveKeysGet(s, lookup.gkey, lookup.result, k2)
       case exe: Node.Exercise =>
         unfold(stateNodeCompatibility(s, node, unbound, lc, TraversalDirection.Down))
@@ -752,6 +752,41 @@ object CSMInconsistency {
   }.ensuring(
     f(s.beginRollback()).endRollback().get.activeKeys.get(k) ==
       s.activeKeys.get(k)
+  )
+
+  /** witnessContractId does not affect keys */
+  def keys_witnessContractId(s: State, cid: ContractId): Unit = {
+    unfold(s.witnessContractId(cid))
+    unfold(s.witnessContractId(cid).keys)
+    unfold(s.keys)
+  }.ensuring(_ => s.witnessContractId(cid).keys == s.keys)
+
+  def activeKeys_witnessContractId(s: State, cid: ContractId): Unit = {
+    keys_witnessContractId(s, cid)
+    unfold(s.witnessContractId(cid).activeKeys)
+    unfold(s.activeKeys)
+  }.ensuring(_ => s.witnessContractId(cid).activeKeys == s.activeKeys)
+
+  /** assertKeyMapping commutes with witnessContractId */
+  @opaque @pure
+  def assertKeyMapping_witnessContractId(
+      s: State,
+      cid: ContractId,
+      cid2: ContractId,
+      mbKey: Option[GlobalKey],
+  ): Unit = {
+    unfold(s.assertKeyMapping(cid2, mbKey))
+    unfold(s.witnessContractId(cid).assertKeyMapping(cid2, mbKey))
+    activeKeys_witnessContractId(s, cid)
+    s.assertKeyMapping(cid2, mbKey) match {
+      case res @ Left(_) =>
+        ()
+      case Right(s2) =>
+        activeKeys_witnessContractId(s2, cid)
+    }
+  }.ensuring(_ =>
+    s.witnessContractId(cid).assertKeyMapping(cid2, mbKey) ==
+      s.assertKeyMapping(cid2, mbKey).map(_.witnessContractId(cid))
   )
 
 }

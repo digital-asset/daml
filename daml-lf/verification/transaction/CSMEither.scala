@@ -56,10 +56,8 @@ object CSMEitherDef {
 
     s2.forall((s: State) => s1 == s)
   }.ensuring(
-    _ == (sameStack(s1, s2) && sameGlobalKeys(s1, s2) && sameActiveState(
-      s1,
-      s2,
-    ) && sameLocallyCreated(s1, s2) && sameInputContractIds(s1, s2) && sameConsumed(s1, s2))
+    _ == (sameStack(s1, s2) && sameGlobalKeys(s1, s2) && sameActiveState(s1, s2) &&
+      sameLocallyCreated(s1, s2) && sameInputContractIds(s1, s2) && sameConsumed(s1, s2))
   )
 
   /** Checks state equality. Equivalent to checking equality for every field.

@@ -135,12 +135,11 @@ case class State(
       byKey: Boolean,
       consuming: Boolean,
   ): Either[InconsistentContractKey, State] = {
-    val state = witnessContractId(targetId)
+    val state = witnessContractIdBad(targetId)
     val res =
       for {
         state <- state.assertKeyMapping(targetId, mbKey)
       } yield {
-
         if (consuming)
           state.consume(targetId, nodeId)
         else state
@@ -172,12 +171,22 @@ case class State(
     }
     val res = Either.cond(
       state.activeKeys.getOrElse(gk, KeyInactive) == keyResolution,
-      this,
+      state,
       InconsistentContractKey(gk),
     )
-    unfold(sameState(this, res))
+    unfold(sameGlobalKeys(this, res))
+    unfold(sameStack(this, res))
+    unfold(sameLocalKeys(this, res))
+    unfold(sameLocallyCreated(this, res))
+    unfold(sameConsumed(this, res))
     res
-  }.ensuring(res => sameState(this, res))
+  }.ensuring(res =>
+    sameGlobalKeys(this, res) &&
+      sameStack(this, res) &&
+      sameLocalKeys(this, res) &&
+      sameLocallyCreated(this, res) &&
+      sameConsumed(this, res)
+  )
 
   @pure @opaque
   private[lf] def visitFetch(
@@ -186,18 +195,54 @@ case class State(
   ): Either[InconsistentContractKey, State] = {
     val state = witnessContractId(contractId)
     val res = state.assertKeyMapping(contractId, mbKey)
-    unfold(sameState(this, res))
+
+    @pure @opaque
+    def proof = {
+      unfold(sameGlobalKeys(state, res))
+      unfold(sameStack(state, res))
+      unfold(sameLocalKeys(state, res))
+      unfold(sameLocallyCreated(state, res))
+      unfold(sameConsumed(state, res))
+      unfold(sameGlobalKeys(this, res))
+      unfold(sameStack(this, res))
+      unfold(sameLocalKeys(this, res))
+      unfold(sameLocallyCreated(this, res))
+      unfold(sameConsumed(this, res))
+    }.ensuring { _ =>
+      sameGlobalKeys(this, res) &&
+      sameStack(this, res) &&
+      sameLocalKeys(this, res) &&
+      sameLocallyCreated(this, res) &&
+      sameConsumed(this, res)
+    }
+    proof
     res
-  }.ensuring(res => sameState(this, res))
+  }.ensuring(res =>
+    sameGlobalKeys(this, res) &&
+      sameStack(this, res) &&
+      sameLocalKeys(this, res) &&
+      sameLocallyCreated(this, res) &&
+      sameConsumed(this, res)
+  )
 
   @pure
   @opaque
   private[lf] def witnessContractId(contractId: ContractId): State = {
-    val res = {
-      if (locallyCreated.contains(contractId)) this
-      else this.copy(inputContractIds = inputContractIds + contractId)
-    }
-    res
+    if (locallyCreated.contains(contractId)) this
+    else this.copy(inputContractIds = inputContractIds + contractId)
+  }.ensuring(res =>
+    this.globalKeys == res.globalKeys &&
+      this.rollbackStack == res.rollbackStack &&
+      this.activeState == res.activeState &&
+      this.locallyCreated == res.locallyCreated &&
+      this.consumed == res.consumed
+  )
+
+  @pure
+  @opaque
+  private[lf] def witnessContractIdBad(contractId: ContractId): State = {
+    if (locallyCreated.contains(contractId)) this
+    else this.copy(inputContractIds = inputContractIds + contractId)
   }.ensuring(res => this == res)
 
   @pure @opaque
@@ -207,9 +252,17 @@ case class State(
   ): Either[InconsistentContractKey, State] = {
     val res = mbKey match {
       case None() => Right[InconsistentContractKey, State](this)
-      case Some(gk) => visitLookup(gk, KeyActive(cid))
+      case Some(gk) =>
+        Either.cond(
+          this.activeKeys.getOrElse(gk, KeyInactive) == KeyActive(cid),
+          this,
+          InconsistentContractKey(gk),
+        )
     }
-    unfold(sameState(this, res))
+    @opaque @pure def proof: Unit = {
+      unfold(sameState(this, res))
+    }.ensuring(_ => sameState(this, res))
+    proof
     res
   }.ensuring(res => sameState(this, res))
 
