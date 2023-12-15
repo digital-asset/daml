@@ -5,10 +5,12 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{Node, SubmittedTransaction}
+import com.daml.lf.transaction.{SubmittedTransaction, Node}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -89,14 +91,14 @@ private[engine] final class Preprocessor(
     }
 
   private[this] def collectNewPackagesFromTemplatesOrInterfaces(
-      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       tyRefs: Iterable[Ref.TypeConRef],
   ): List[(Ref.PackageId, language.Reference)] =
     tyRefs
       .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
         val pkgId = tycon.pkgRef match {
           case Ref.PackageRef.Name(name) =>
-            pkgMap.get(name)
+            pkgResolution.get(name)
           case Ref.PackageRef.Id(id) =>
             Some(id)
         }
@@ -147,10 +149,10 @@ private[engine] final class Preprocessor(
     collectNewPackagesFromTypes(List(typ)).flatMap(pullPackages)
 
   private[this] def pullPackage(
-      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       tyCons: Iterable[Ref.TypeConRef],
   ): Result[Unit] =
-    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(pkgMap, tyCons))
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(pkgResolution, tyCons))
 
   private[this] def pullPackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
     pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
@@ -166,21 +168,48 @@ private[engine] final class Preprocessor(
     }
 
   private[engine] def preprocessApiCommand(
-      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmd: command.ApiCommand,
   ): Result[speedy.Command] =
-    safelyRun(pullPackage(pkgMap, List(cmd.typeRef))) {
-      commandPreprocessor.unsafePreprocessApiCommand(pkgMap, cmd)
+    safelyRun(pullPackage(pkgResolution, List(cmd.typeRef))) {
+      commandPreprocessor.unsafePreprocessApiCommand(pkgResolution, cmd)
     }
+
+  def buildPackageResolution(
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+      packagePreference: Set[Ref.PackageId] = Set.empty,
+  ): Result[Map[PackageName, PackageId]] =
+    packagePreference.foldLeft(Result.done(Map.empty[Ref.PackageName, Ref.PackageId]))(
+      (acc, pkgId) =>
+        acc.flatMap(m =>
+          packageMap.get(pkgId) match {
+            case Some((pkgName, _)) =>
+              m.get(pkgName) match {
+                case None =>
+                  Result.done(m.updated(pkgName, pkgId))
+                case Some(pkgId0) =>
+                  ResultError(
+                    Error.Preprocessing.Internal(
+                      NameOf.qualifiedNameOfCurrentFunc,
+                      s"package $pkgId0 and $pkgId have the same name",
+                      None,
+                    )
+                  )
+              }
+            case None =>
+              ResultError(Error.Preprocessing.Lookup(language.LookupError.MissingPackage(pkgId)))
+          }
+        )
+    )
 
   /** Translates  LF commands to a speedy commands.
     */
   def preprocessApiCommands(
-      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullPackage(pkgMap, cmds.toSeq.view.map(_.typeRef))) {
-      commandPreprocessor.unsafePreprocessApiCommands(pkgMap, cmds)
+    safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
+      commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
 
   def preprocessDisclosedContracts(

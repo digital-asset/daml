@@ -293,9 +293,19 @@ object Ref {
     final case class Name(name: PackageName) extends PackageRef {
       override def toString: String = "#" + name
     }
+
     final case class Id(id: PackageId) extends PackageRef {
       override def toString: String = id
     }
+
+    def fromString(s: String): Either[String, PackageRef] =
+      if (s.startsWith("#"))
+        PackageName.fromString(s.tail).map(Name)
+      else
+        PackageId.fromString(s).map(Id)
+
+    def assertFromString(s: String): PackageRef =
+      assertRight(fromString(s))
   }
 
   final case class TypeConRef(pkgRef: PackageRef, qName: QualifiedName) {
@@ -309,6 +319,21 @@ object Ref {
       case PackageRef.Id(id) =>
         TypeConName(id, qName)
     }
+
+    def fromString(s: String): Either[String, TypeConRef] =
+      splitInTwo(s, ':') match {
+        case Some((packageRefString, qualifiedNameString)) =>
+          for {
+            packageRef <- PackageRef.fromString(packageRefString)
+            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+          } yield TypeConRef(packageRef, qualifiedName)
+        case None =>
+          Left(s"Separator ':' between package identifier and qualified name not found in $s")
+      }
+
+    def assertFromString(s: String): TypeConRef =
+      assertRight(fromString(s))
+
   }
 
   /*
