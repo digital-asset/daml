@@ -173,6 +173,10 @@ multiPackageBuildCompositeDarOpt = many $ MultiPackageBuildCompositeDar <$> strO
     <> long "composite-dar"
     )
 
+newtype MultiPackageBuildAllCompositeDars = MultiPackageBuildAllCompositeDars {getMultiPackageBuildAllCompositeDars :: Bool}
+multiPackageBuildAllCompositeDarsOpt :: Parser MultiPackageBuildAllCompositeDars
+multiPackageBuildAllCompositeDarsOpt = MultiPackageBuildAllCompositeDars <$> switch (long "all-composite-dars" <> help "Build all composite-dars in multi-package.daml")
+
 data MultiPackageLocation
   -- | Search for the multi-package.yaml above the current directory
   = MPLSearch

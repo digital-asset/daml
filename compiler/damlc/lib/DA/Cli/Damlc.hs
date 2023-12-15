@@ -32,6 +32,7 @@ import DA.Cli.Options (Debug(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
                        MultiPackageBuildCompositeDar(..),
+                       MultiPackageBuildAllCompositeDars(..),
                        ProjectOpts(..),
                        Style(..),
                        Telemetry(..),
@@ -50,6 +51,7 @@ import DA.Cli.Options (Debug(..),
                        multiPackageCleanAllOpt,
                        multiPackageLocationOpt,
                        multiPackageBuildCompositeDarOpt,
+                       multiPackageBuildAllCompositeDarsOpt,
                        multiPackageNoCacheOpt,
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
@@ -535,6 +537,7 @@ cmdBuildParser numProcessors =
         <*> multiPackageNoCacheOpt
         <*> multiPackageLocationOpt
         <*> multiPackageBuildCompositeDarOpt
+        <*> multiPackageBuildAllCompositeDarsOpt
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
@@ -970,11 +973,12 @@ warnTransitiveCompositeDar handle mpc name = do
         hPutStrLn handle $ "Use `--multi-package-path` to specify the multi-package.yaml "
           <> "defining the composite-dar if you intended to build one of these composite dars."
 
+data MultiPackageBuildModeComposite a = SelectCompositeDars [a] | AllCompositeDars
+
 -- a is either CompositeDar or LF.PackageName
 data MultiPackageBuildMode a
   = SinglePackage PackageConfigFields
-  | AllWithComposite [a] -- Usually empty
-  | Composite [a] -- Should be non empty
+  | MultiPackage MultiPackageBuildAll (MultiPackageBuildModeComposite a)
 
 toMaybePackageConfig :: MultiPackageBuildMode a -> Maybe PackageConfigFields
 toMaybePackageConfig (SinglePackage pkgConfig) = Just pkgConfig
@@ -984,8 +988,8 @@ realiseMultiBuildMode :: MultiPackageConfigFields -> MultiPackageBuildMode LF.Pa
 realiseMultiBuildMode multiPackageConfig buildMode =
   case buildMode of
     SinglePackage pkgConfig -> pure $ SinglePackage pkgConfig
-    AllWithComposite names -> AllWithComposite <$> extractCompositeDars names
-    Composite names -> Composite <$> extractCompositeDars names
+    MultiPackage buildAll (SelectCompositeDars names) -> MultiPackage buildAll . SelectCompositeDars <$> extractCompositeDars names
+    MultiPackage buildAll AllCompositeDars -> pure $ MultiPackage buildAll AllCompositeDars
   where
     extractCompositeDars :: [LF.PackageName] -> IO [CompositeDar]
     extractCompositeDars darNames = do
@@ -1013,11 +1017,12 @@ execBuild
   -> MultiPackageNoCache
   -> MultiPackageLocation
   -> [MultiPackageBuildCompositeDar]
+  -> MultiPackageBuildAllCompositeDars
   -> Command
 execBuild
     projectOpts opts mbOutFile
     incrementalBuild initPkgDb
-    enableMultiPackage buildAll noCache multiPackageLocation compositeDarNames =
+    enableMultiPackage buildAll noCache multiPackageLocation compositeDarNames allCompositeDars =
   Command Build (Just projectOpts) $ evalContT $ do
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
     let buildSingle :: PackageConfigFields -> IO () 
@@ -1029,32 +1034,39 @@ execBuild
             
             putStrLn $ "Running multi-package build of " <> case realisedBuildMode of
               SinglePackage pkgConfig -> T.unpack $ LF.unPackageName $ pName pkgConfig
-              AllWithComposite [] -> "all packages in " <> unwrapProjectPath multiPackageConfigPath
-              AllWithComposite compositeDars ->
-                "all packages in " <> unwrapProjectPath multiPackageConfigPath
-                  <> " and the following composite dar(s): "
-                  <> commaSepAnd (fmap (T.unpack . LF.unPackageName . cdName) compositeDars)
-              Composite compositeDars ->
-                "the following composite dar(s): "
-                  <> commaSepAnd (fmap (T.unpack . LF.unPackageName . cdName) compositeDars)
+              MultiPackage buildAll compositeDars ->
+                (if getMultiPackageBuildAll buildAll
+                  then "all packages in " <> unwrapProjectPath multiPackageConfigPath <> "and "
+                  else "") <>
+                (case compositeDars of
+                  SelectCompositeDars compositeDars ->
+                    "the following composite dar(s): " <> commaSepAnd (fmap (T.unpack . LF.unPackageName . cdName) compositeDars)
+                  AllCompositeDars -> "all composite dars in " <> unwrapProjectPath multiPackageConfigPath
+                )
             multiPackageBuildEffect relativize realisedBuildMode multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
 
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
+      
+      let buildAnyCompositeDars = not (null compositeDarNames) || getMultiPackageBuildAllCompositeDars allCompositeDars
 
-      case (getMultiPackageBuildAll buildAll || not (null compositeDarNames), mPkgConfig, mMultiPackagePath) of
+      case (getMultiPackageBuildAll buildAll || buildAnyCompositeDars, mPkgConfig, mMultiPackagePath) of
         -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml
-        (True, _, Just multiPackagePath) ->
+        (True, _, Just multiPackagePath) -> do
           -- TODO[SW]: Ideally we would error here if any of the flags that change `opts` has been set, as it won't be propagated
           -- Its unclear how to implement this.
 
-          -- If all is specified, we build all packages + the specified composite dars
-          -- If all isn't specified, we know compositeDarNames is non-empty, and we just build that
-          let makeBuildMode = if getMultiPackageBuildAll buildAll then AllWithComposite else Composite
-              buildMode = makeBuildMode $ LF.PackageName . getMultiPackageBuildCompositeDar <$> compositeDarNames
-           in buildMulti buildMode multiPackagePath
+          when (getMultiPackageBuildAllCompositeDars allCompositeDars && not (null compositeDarNames)) $ do
+            hPutStrLn stderr "Cannot specify `--composite-dar` when `all-composite-dars` is provided"
+            exitFailure
+
+          let buildMode = MultiPackage buildAll $ 
+                if getMultiPackageBuildAllCompositeDars allCompositeDars
+                  then AllCompositeDars
+                  else SelectCompositeDars $ LF.PackageName . getMultiPackageBuildCompositeDar <$> compositeDarNames
+          buildMulti buildMode multiPackagePath
 
         -- We're attempting to multi-package build --all but we don't have a multi-package.yaml
         (True, _, Nothing) -> do
@@ -1228,11 +1240,13 @@ multiPackageBuildEffect relativize buildMode multiPackageConfig projectOpts opts
     $ \ideState -> runActionSync ideState
       $ case (mRootPkgData, buildMode) of
           (Just (rootPkgPath, _), _) -> void $ use_ BuildMulti rootPkgPath
-          (_, AllWithComposite compositeDars) -> do
-            void $ uses_ BuildMulti $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
-            liftIO $ traverse_ (buildAndWriteCompositeDar loggerH multiPackageConfig buildableDataDeps) compositeDars
-          (_, Composite compositeDars) -> do
-            let packagePaths = nubOrd $ concatMap (fmap toNormalizedFilePath' . cdPackages) compositeDars 
+          (_, MultiPackage buildAll buildComposite) -> do
+            let compositeDars = case buildComposite of
+                  SelectCompositeDars dars -> dars
+                  AllCompositeDars -> mpCompositeDars multiPackageConfig
+                packagePaths = if getMultiPackageBuildAll buildAll
+                  then toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
+                  else nubOrd $ concatMap (fmap toNormalizedFilePath' . cdPackages) compositeDars
             void $ uses_ BuildMulti packagePaths
             liftIO $ traverse_ (buildAndWriteCompositeDar loggerH multiPackageConfig buildableDataDeps) compositeDars
           _ -> error "Impossible case"
