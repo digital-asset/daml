@@ -24,11 +24,11 @@
     "jest": "^27.0.5",
     "jest-cli": "^27.0.5",
     "jest-mock-console": "^1.0.0",
-    "semver": "5.7.2",
     "ts-jest": "^27.0.3",
     "typedoc": "^0.22.11"
   },
   "resolutions": {
-    "**/protobufjs": "^6.10.3"
+    "**/protobufjs": "^6.10.3",
+    "semver": "5.7.2"
   }
 }
