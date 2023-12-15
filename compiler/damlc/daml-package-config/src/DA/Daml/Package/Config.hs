@@ -106,7 +106,7 @@ data CompositeDar = CompositeDar
     , cdVersion :: LF.PackageVersion
     , cdPackages :: [FilePath]
     , cdDars :: [FilePath]
-    , cdPath :: Maybe FilePath
+    , cdPath :: FilePath
     }
     deriving Show
 
@@ -130,7 +130,7 @@ parseCompositeDar compositeDar = do
     cdVersion <- queryMultiPackageCompositeDarRequired ["version"] compositeDar
     cdPackages <- fromMaybe [] <$> queryMultiPackageCompositeDar ["packages"] compositeDar
     cdDars <- fromMaybe [] <$> queryMultiPackageCompositeDar ["dars"] compositeDar
-    cdPath <- queryMultiPackageCompositeDar ["path"] compositeDar
+    cdPath <- queryMultiPackageCompositeDarRequired ["path"] compositeDar
     if null $ cdPackages <> cdDars
       then Left $ ConfigFileInvalid "multi-package" $ Y.InvalidYaml $ Just
             $ Y.YamlException $ "Missing either `packages` or `dars` in composite dar \"" <> (T.unpack $ LF.unPackageName cdName) <> "\""
@@ -209,7 +209,7 @@ canonicalizeCompositeDar :: CompositeDar -> IO CompositeDar
 canonicalizeCompositeDar cd = do
   canonPackages <- traverse canonicalizePath $ cdPackages cd
   canonDars <- traverse canonicalizePath $ cdDars cd
-  canonPath <- traverse canonicalizePath $ cdPath cd
+  canonPath <- canonicalizePath $ cdPath cd
 
   pure cd { cdPackages = canonPackages, cdDars = canonDars, cdPath = canonPath }
 

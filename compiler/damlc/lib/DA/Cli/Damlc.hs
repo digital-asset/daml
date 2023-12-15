@@ -967,7 +967,7 @@ warnTransitiveCompositeDar :: Handle -> MultiPackageConfigFields -> LF.PackageNa
 warnTransitiveCompositeDar handle mpc name = do
   let otherDefiners = findCompositeDarTransitiveDefiners mpc name
    in when (not $ null otherDefiners) $ do
-        hPutStrLn handle $ "Note: Found definition for " <> T.unpack (LF.unPackageName name)
+        hPutStrLn handle $ "Warning: Found definition for " <> T.unpack (LF.unPackageName name)
           <> " in the following sub-projects: "
         traverse_ (hPutStrLn handle . ("  - " <>)) otherDefiners
         hPutStrLn handle $ "Use `--multi-package-path` to specify the multi-package.yaml "
@@ -1248,11 +1248,11 @@ multiPackageBuildEffect relativize buildMode multiPackageConfig projectOpts opts
                   then toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
                   else nubOrd $ concatMap (fmap toNormalizedFilePath' . cdPackages) compositeDars
             void $ uses_ BuildMulti packagePaths
-            liftIO $ traverse_ (buildAndWriteCompositeDar loggerH multiPackageConfig buildableDataDeps) compositeDars
+            liftIO $ traverse_ (buildAndWriteCompositeDar loggerH buildableDataDeps) compositeDars
           _ -> error "Impossible case"
 
-buildAndWriteCompositeDar :: Logger.Handle IO -> MultiPackageConfigFields -> BuildableDataDeps -> CompositeDar -> IO ()
-buildAndWriteCompositeDar loggerH mpc buildableDataDeps cd = do
+buildAndWriteCompositeDar :: Logger.Handle IO -> BuildableDataDeps -> CompositeDar -> IO ()
+buildAndWriteCompositeDar loggerH buildableDataDeps cd = do
   Logger.logInfo loggerH $ "Building " <> LF.unPackageName (cdName cd) <> " Composite Dar"
 
   let packageToDarPath pkgPath =
@@ -1262,10 +1262,7 @@ buildAndWriteCompositeDar loggerH mpc buildableDataDeps cd = do
       darPaths = fmap packageToDarPath (cdPackages cd) <> cdDars cd
 
   dar <- buildCompositeDar darPaths (cdName cd) (cdVersion cd)
-
-  let fp = fromMaybe (mpPath mpc </> "composite-dars" </> unitIdString (pkgNameVersion (cdName cd) (Just $ cdVersion cd)) <.> "dar") $ cdPath cd
-
-  createDarFile loggerH fp dar
+  createDarFile loggerH (cdPath cd) dar
 
 data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO () }
 
