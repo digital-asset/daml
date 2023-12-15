@@ -82,7 +82,7 @@ object ApiCommand {
   /** Command for creating a contract and exercising a choice
     * on that existing contract within the same transaction
     *
-    * @param templateId     template of teh contract
+    * @param templateRef     template of the contract
     * @param createArgument value passed to the template
     * @param choiceId       TypeConName choice
     * @param choiceArgument value passed for the choice
