@@ -89,6 +89,30 @@ private[engine] final class Preprocessor(
     }
 
   private[this] def collectNewPackagesFromTemplatesOrInterfaces(
+      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      tyRefs: Iterable[Ref.TypeConRef],
+  ): List[(Ref.PackageId, language.Reference)] =
+    tyRefs
+      .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
+        val pkgId = tycon.pkgRef match {
+          case Ref.PackageRef.Name(name) =>
+            pkgMap.get(name)
+          case Ref.PackageRef.Id(id) =>
+            Some(id)
+        }
+        pkgId match {
+          case Some(id) if !compiledPackages.packageIds(id) && !acc.contains(id) =>
+            acc.updated(
+              id,
+              language.Reference.TemplateOrInterface(Ref.TypeConName(id, tycon.qName)),
+            )
+          case _ =>
+            acc
+        }
+      }
+      .toList
+
+  private[this] def collectNewPackagesFromTemplatesOrInterfaces(
       tycons: Iterable[Ref.TypeConName]
   ): List[(Ref.PackageId, language.Reference)] =
     tycons
@@ -122,10 +146,13 @@ private[engine] final class Preprocessor(
   private[this] def pullTypePackages(typ: Ast.Type): Result[Unit] =
     collectNewPackagesFromTypes(List(typ)).flatMap(pullPackages)
 
-  private[this] def pullTemplatePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
-    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
+  private[this] def pullPackage(
+      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      tyCons: Iterable[Ref.TypeConRef],
+  ): Result[Unit] =
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(pkgMap, tyCons))
 
-  private[this] def pullInterfacePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+  private[this] def pullPackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
     pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
 
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
@@ -139,32 +166,34 @@ private[engine] final class Preprocessor(
     }
 
   private[engine] def preprocessApiCommand(
-      cmd: command.ApiCommand
+      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      cmd: command.ApiCommand,
   ): Result[speedy.Command] =
-    safelyRun(pullTemplatePackage(List(cmd.typeId))) {
-      commandPreprocessor.unsafePreprocessApiCommand(cmd)
+    safelyRun(pullPackage(pkgMap, List(cmd.typeRef))) {
+      commandPreprocessor.unsafePreprocessApiCommand(pkgMap, cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
     */
   def preprocessApiCommands(
-      cmds: data.ImmArray[command.ApiCommand]
+      pkgMap: Map[Ref.PackageName, Ref.PackageId],
+      cmds: data.ImmArray[command.ApiCommand],
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId))) {
-      commandPreprocessor.unsafePreprocessApiCommands(cmds)
+    safelyRun(pullPackage(pkgMap, cmds.toSeq.view.map(_.typeRef))) {
+      commandPreprocessor.unsafePreprocessApiCommands(pkgMap, cmds)
     }
 
   def preprocessDisclosedContracts(
       discs: data.ImmArray[command.DisclosedContract]
   ): Result[ImmArray[speedy.DisclosedContract]] =
-    safelyRun(pullTemplatePackage(discs.toSeq.view.map(_.templateId))) {
+    safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
 
   private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
   ): Result[speedy.Command] =
-    safelyRun(pullTemplatePackage(List(cmd.templateId))) {
+    safelyRun(pullPackage(List(cmd.templateId))) {
       commandPreprocessor.unsafePreprocessReplayCommand(cmd)
     }
 
@@ -173,7 +202,7 @@ private[engine] final class Preprocessor(
       tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
-      pullTemplatePackage(
+      pullPackage(
         tx.nodes.values.collect { case action: Node.Action => action.templateId }
       )
     ) {
@@ -186,7 +215,7 @@ private[engine] final class Preprocessor(
       interfaceId: Ref.Identifier,
   ): Result[speedy.InterfaceView] =
     safelyRun(
-      pullTemplatePackage(Seq(templateId)).flatMap(_ => pullInterfacePackage(Seq(interfaceId)))
+      pullPackage(Seq(templateId)).flatMap(_ => pullPackage(Seq(interfaceId)))
     ) {
       commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
     }

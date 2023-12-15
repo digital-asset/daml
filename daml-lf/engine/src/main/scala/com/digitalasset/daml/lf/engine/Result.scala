@@ -179,6 +179,7 @@ final case class ResultNeedUpgradeVerification[A](
 ) extends Result[A]
 
 object Result {
+
   // fails with ResultError if the package is not found
   private[lf] def needPackage[A](
       packageId: PackageId,

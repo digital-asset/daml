@@ -82,22 +82,25 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val let = Time.Timestamp.now()
     val command =
-      ApiCommand.Create(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
+      ApiCommand.Create(
+        id.toRef,
+        ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))),
+      )
     val submissionSeed = hash("minimal create command")
     val submitters = Set(party)
     val readAs = (Set.empty: Set[Party])
     val res = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult = suffixLenientEngine
       .submit(
-        submitters,
-        readAs,
-        ApiCommands(ImmArray(command), let, "test"),
-        ImmArray.empty,
-        participant,
-        submissionSeed,
+        submitters = submitters,
+        readAs = readAs,
+        cmds = ApiCommands(ImmArray(command), let, "test"),
+        disclosures = ImmArray.empty,
+        participantId = participant,
+        submissionSeed = submissionSeed,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -166,7 +169,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         Some[Name](label) -> ValueParty(party)
       }
       ApiCommand.Create(
-        id(templateId),
+        id(templateId).toRef,
         ValueRecord(Some(id(templateId)), templateArgs.to(ImmArray)),
       )
     }
@@ -182,18 +185,18 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val readAs = (Set.empty: Set[Party])
       val cmd = command(templateId, signatories)
       val res = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
+        .preprocessApiCommands(Map.empty, ImmArray(cmd))
         .consume(lookupContract, lookupPackage, lookupKey)
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       suffixLenientEngine
         .submit(
-          actAs,
-          readAs,
-          ApiCommands(ImmArray(cmd), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = actAs,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(cmd), let, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -284,7 +287,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val cid = toContractId("BasicTests:Simple:1")
     val command =
       ApiCommand.Exercise(
-        templateId,
+        templateId.toRef,
         cid,
         "Hello",
         ValueRecord(Some(hello), ImmArray.Empty),
@@ -293,7 +296,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult =
@@ -317,12 +320,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     "be translated" in {
       val Right((rtx, _)) = suffixLenientEngine
         .submit(
-          Set(party),
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = Set(party),
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       isReplayedBy(tx, rtx) shouldBe Right(())
@@ -363,7 +366,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
     val let = Time.Timestamp.now()
     val command = ApiCommand.ExerciseByKey(
-      templateId,
+      templateId.toRef,
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(43)))),
       "SumToK",
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
@@ -372,19 +375,19 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
 
     "fail at submission" in {
       val submitResult = suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
@@ -413,7 +416,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val command = ApiCommand.ExerciseByKey(
-      templateId,
+      templateId.toRef,
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
       "SumToK",
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
@@ -422,7 +425,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val result =
@@ -445,12 +448,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     "be translated" in {
       val Right((rtx, _)) = suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -792,7 +795,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command =
       ApiCommand.CreateAndExercise(
-        templateId,
+        templateId.toRef,
         ValueRecord(Some(templateId), ImmArray(Some[Name]("p") -> ValueParty(party))),
         "Hello",
         ValueRecord(Some(hello), ImmArray.Empty),
@@ -801,7 +804,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val submitters = Set(party)
 
     val res = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult =
@@ -1054,7 +1057,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
-      templateId,
+      templateId.toRef,
       originalCoid,
       "Transfer",
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
@@ -1065,12 +1068,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     val Right((tx, txMeta)) = suffixLenientEngine
       .submit(
-        submitters,
-        readAs,
-        ApiCommands(ImmArray(command), let, "test"),
-        ImmArray.empty,
-        participant,
-        submissionSeed,
+        submitters = submitters,
+        readAs = readAs,
+        cmds = ApiCommands(ImmArray(command), let, "test"),
+        disclosures = ImmArray.empty,
+        participantId = participant,
+        submissionSeed = submissionSeed,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1079,7 +1082,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val txSeed =
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
     val Right(cmds) = preprocessor
-      .preprocessApiCommands(ImmArray(command))
+      .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     val Right((rtx, _)) = suffixLenientEngine
       .interpretCommands(
@@ -1226,7 +1229,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     def runExample(cid: ContractId, exerciseActor: Party) = {
       val command = ApiCommand.Exercise(
-        fetcherTid,
+        fetcherTid.toRef,
         cid,
         "DoFetch",
         ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))),
@@ -1235,7 +1238,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val submitters = Set(exerciseActor)
 
       val res = preprocessor
-        .preprocessApiCommands(ImmArray(command))
+        .preprocessApiCommands(Map.empty, ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res
@@ -1415,7 +1418,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "mark all lookupByKey nodes as byKey" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        lookerUpTemplateId.toRef,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1424,12 +1427,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val readAs = (Set.empty: Set[Party])
       val Right((tx, _)) = newEngine()
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = seed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1443,7 +1446,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be reinterpreted to the same node when lookup finds a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        lookerUpTemplateId.toRef,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1453,12 +1456,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val Right((tx, txMeta)) = suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = seed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1482,7 +1485,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        lookerUpTemplateId,
+        lookerUpTemplateId.toRef,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))),
@@ -1492,12 +1495,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val Right((tx, txMeta)) = suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = seed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1678,7 +1681,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val submissionSeed = hash(s"getTime set dependsOnTime flag: ($choiceName)")
       val command =
         ApiCommand.CreateAndExercise(
-          templateId = templateId,
+          templateRef = templateId.toRef,
           createArgument = ValueRecord(None, ImmArray(None -> ValueParty(party))),
           choiceId = choiceName,
           choiceArgument = ValueRecord(None, ImmArray.Empty),
@@ -1687,12 +1690,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val readAs = (Set.empty: Set[Party])
       suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -1772,14 +1775,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val Right(cmds) = preprocessor
         .preprocessApiCommands(
+          Map.empty,
           ImmArray(
             ApiCommand.Exercise(
-              fetcherTemplateId,
+              fetcherTemplateId.toRef,
               fetcherCid,
               "Fetch",
               ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
             )
-          )
+          ),
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
@@ -1832,21 +1836,21 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
     val correctCommand =
       ApiCommand.Exercise(
-        withKeyId,
+        withKeyId.toRef,
         cid,
         "SumToK",
         ValueRecord(None, ImmArray((None, ValueInt64(42)))),
       )
     val incorrectCommand =
       ApiCommand.Exercise(
-        simpleId,
+        simpleId.toRef,
         cid,
         "Hello",
         ValueRecord(None, ImmArray.Empty),
       )
     val incorrectFetch =
       ApiCommand.Exercise(
-        fetcherId,
+        fetcherId.toRef,
         fetcherCid,
         "DoFetch",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -1860,12 +1864,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(cmds, now, ""),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(cmds, now, ""),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(contracts, lookupPackage, lookupKey)
 
@@ -1910,7 +1914,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     def run(n: Int) = {
       val command = ApiCommand.CreateAndExercise(
-        templateId = forkableTemplateId,
+        templateRef = forkableTemplateId.toRef,
         createArgument = forkableInst,
         choiceId = "Fork",
         choiceArgument = ValueRecord(None, ImmArray((None, ValueInt64(n.toLong)))),
@@ -1919,12 +1923,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val readAs = (Set.empty: Set[Party])
       suffixLenientEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "test"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
     }
@@ -2022,7 +2026,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
+        .preprocessApiCommands(Map.empty, ImmArray(cmd))
         .consume(contracts, allExceptionsPkgs, lookupKey)
       suffixLenientEngine
         .interpretCommands(
@@ -2039,7 +2043,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "RollbackArchiveTransient",
         ValueRecord(None, ImmArray((None, ValueInt64(0)))),
@@ -2048,7 +2052,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "archive of transient contract in try prevents consuming choice after try if not rolled back" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ArchiveTransient",
         ValueRecord(None, ImmArray((None, ValueInt64(0)))),
@@ -2057,7 +2061,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "rolled-back archive of non-transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "RollbackArchiveNonTransient",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -2066,7 +2070,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "archive of non-transient contract in try prevents consuming choice after try if not rolled back" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ArchiveNonTransient",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -2075,7 +2079,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "key updates in rollback node are rolled back" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "RollbackKey",
         ValueRecord(None, ImmArray((None, ValueInt64(0)))),
@@ -2084,7 +2088,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "key updates in try are not rolled back if no exception is thrown" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "Key",
         ValueRecord(None, ImmArray((None, ValueInt64(0)))),
@@ -2094,7 +2098,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     // TEST_EVIDENCE: Integrity: Rollback creates cannot be exercise
     "creates in rollback are rolled back" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ExerciseAfterRollbackCreate",
         ValueRecord(None, ImmArray.empty),
@@ -2105,7 +2109,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "ThrowInHandler" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ThrowInHandler",
         ValueRecord(None, ImmArray.empty),
@@ -2114,7 +2118,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "ThrowPureInHandler" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ThrowPureInHandler",
         ValueRecord(None, ImmArray.empty),
@@ -2123,7 +2127,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "ThrowPureInHandlerPattern" in {
       val command = ApiCommand.CreateAndExercise(
-        tId,
+        tId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "ThrowPureInHandlerPattern",
         ValueRecord(None, ImmArray.empty),
@@ -2171,7 +2175,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
+        .preprocessApiCommands(Map.empty, ImmArray(cmd))
         .consume(contracts, allExceptionsPkgs, lookupKey)
       suffixLenientEngine
         .interpretCommands(
@@ -2188,7 +2192,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "Only create and exercise nodes end up in actionNodeSeeds" in {
       val command = ApiCommand.CreateAndExercise(
-        seedId,
+        seedId.toRef,
         ValueRecord(None, ImmArray((None, ValueParty(party)))),
         "CreateAllTypes",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -2255,7 +2259,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       }
 
       val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
+        .preprocessApiCommands(Map.empty, ImmArray(cmd))
         .consume(contracts, allExceptionsPkgs, mockedKeyLookup)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2293,7 +2297,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       )
       forEvery(cases) { case (choice, argument, lookups) =>
         val command = ApiCommand.CreateAndExercise(
-          tId,
+          tId.toRef,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           choice,
           argument,

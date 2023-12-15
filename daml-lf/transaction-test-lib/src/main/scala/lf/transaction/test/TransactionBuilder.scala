@@ -142,7 +142,7 @@ object TransactionBuilder {
     implicit def toParty(s: String): Ref.Party =
       Ref.Party.assertFromString(s)
 
-    implicit def toParties(s: Iterable[String]): Set[Ref.IdString.Party] =
+    implicit def toParties(s: Iterable[String]): Set[Ref.Party] =
       s.iterator.map(Ref.Party.assertFromString).toSet
 
     implicit def toName(s: String): Ref.Name =
@@ -161,6 +161,9 @@ object TransactionBuilder {
 
     implicit def toIdentifier(s: String)(implicit defaultPackageId: Ref.PackageId): Ref.Identifier =
       Ref.Identifier(defaultPackageId, s)
+
+    implicit def toTypeConRef(s: String)(implicit defaultPackageId: Ref.PackageId): Ref.TypeConRef =
+      Ref.TypeConRef(Ref.PackageRef.Id(defaultPackageId), s)
 
     implicit def toTimestamp(s: String): Time.Timestamp =
       Time.Timestamp.assertFromString(s)

@@ -114,7 +114,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     val submissionTime = cmds.ledgerEffectiveTime
 
     for {
-      processedCmds <- preprocessor.preprocessApiCommands(cmds.commands)
+      processedCmds <- preprocessor.preprocessApiCommands(Map.empty, cmds.commands)
       processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
       result <-
         interpretCommands(

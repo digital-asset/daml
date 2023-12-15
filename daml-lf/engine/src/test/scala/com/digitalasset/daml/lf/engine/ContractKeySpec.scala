@@ -172,9 +172,11 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val Right(cmds) = preprocessor
         .preprocessApiCommands(
+          Map.empty,
           ImmArray(
-            ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
-          )
+            ApiCommand
+              .CreateAndExercise(templateId.toRef, createArg, "DontExecuteCreate", exerciseArg)
+          ),
         )
         .consume(pkgs = allPackages, keys = lookupKey)
 
@@ -205,7 +207,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+        .preprocessApiCommands(Map.empty, ImmArray(ApiCommand.Create(templateId.toRef, createArg)))
         .consume(pkgs = allPackages, keys = lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -237,7 +239,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+        .preprocessApiCommands(Map.empty, ImmArray(ApiCommand.Create(templateId.toRef, createArg)))
         .consume(pkgs = allPackages, keys = lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -301,13 +303,13 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       def run(engine: Engine, choice: String, argument: Value) = {
         val cmd = ApiCommand.CreateAndExercise(
-          opsId,
+          opsId.toRef,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           choice,
           argument,
         )
         val Right(cmds) = preprocessor
-          .preprocessApiCommands(ImmArray(cmd))
+          .preprocessApiCommands(Map.empty, ImmArray(cmd))
           .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
         engine
           .interpretCommands(

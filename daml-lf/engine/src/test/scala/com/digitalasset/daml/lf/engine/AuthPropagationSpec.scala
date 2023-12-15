@@ -117,12 +117,12 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     val interpretResult =
       testEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "commands-tag"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)
 
