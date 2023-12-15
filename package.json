@@ -37,5 +37,8 @@
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",
     "@bazel/typescript": "4.6.1"
+  },
+  "resolutions": {
+    "semver": "5.7.2"
   }
 }
