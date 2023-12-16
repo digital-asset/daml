@@ -125,13 +125,13 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       val cmds = request.commands.commands.commands
       logger.debug(show"Submitted commands are: ${if (cmds.length > 1) "\n  " else ""}${cmds
           .map {
-            case ApiCommand.Create(templateRef, _) => s"create ${templateRef.qName}"
-            case ApiCommand.Exercise(templateRef, _, choiceId, _) =>
-              s"exercise @${templateRef.qName} ${choiceId}"
-            case ApiCommand.ExerciseByKey(templateRef, _, choiceId, _) =>
-              s"exerciseByKey @${templateRef.qName} $choiceId"
-            case ApiCommand.CreateAndExercise(templateRef, _, choiceId, _) =>
-              s"createAndExercise ${templateRef.qName} ... $choiceId ..."
+            case ApiCommand.Create(templateId, _) => s"create ${templateId.qualifiedName}"
+            case ApiCommand.Exercise(templateId, _, choiceId, _) =>
+              s"exercise @${templateId.qualifiedName} ${choiceId}"
+            case ApiCommand.ExerciseByKey(templateId, _, choiceId, _) =>
+              s"exerciseByKey @${templateId.qualifiedName} $choiceId"
+            case ApiCommand.CreateAndExercise(templateId, _, choiceId, _) =>
+              s"createAndExercise ${templateId.qualifiedName} ... $choiceId ..."
           }
           .map(_.singleQuoted)
           .toSeq

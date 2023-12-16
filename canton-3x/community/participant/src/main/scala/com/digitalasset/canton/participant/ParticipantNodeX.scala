@@ -241,7 +241,7 @@ class ParticipantNodeBootstrapX(
 
     }
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNodeX]]] = {
       val indexedStringStore =

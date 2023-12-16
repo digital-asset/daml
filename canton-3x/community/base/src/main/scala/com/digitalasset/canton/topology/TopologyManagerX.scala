@@ -135,6 +135,9 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
   def addObserver(observer: TopologyManagerObserver): Unit =
     observers.updateAndGet(_ :+ observer).discard
 
+  def removeObserver(observer: TopologyManagerObserver): Unit =
+    observers.updateAndGet(_.filterNot(_ == observer)).discard
+
   @VisibleForTesting
   def clearObservers(): Unit = observers.set(Seq.empty)
 

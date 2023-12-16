@@ -41,7 +41,7 @@ object CryptoPureApiHelper {
       )
       outputPrefixType = handle.getKeysetInfo.getKeyInfo(0).getOutputPrefixType
       _ <- Either.cond(
-        outputPrefixType == OutputPrefixType.RAW,
+        (outputPrefixType == OutputPrefixType.RAW) || (outputPrefixType == OutputPrefixType.TINK),
         (),
         KeyParseAndValidateError(
           s"Wrong output prefix type: expected RAW got $outputPrefixType"
