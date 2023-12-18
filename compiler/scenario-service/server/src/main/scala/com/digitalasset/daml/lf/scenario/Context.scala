@@ -100,11 +100,10 @@ class Context(
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    (this.homePackageMetadata, homePackageMetadata) match {
-      case (Some(oldMetadata), Some(newMetadata)) if oldMetadata != newMetadata =>
-        throw new IllegalArgumentException("home package metadata can only be modified once")
-      case _ => this.homePackageMetadata = homePackageMetadata
-    }
+    // We trust the clients of the service (which we all control) to never
+    // ovewrite an already set homePackageMetadata unless the context was just
+    // freshly cloned.
+    this.homePackageMetadata = homePackageMetadata
 
     val newModules = loadModules.map(module =>
       archive.moduleDecoder(languageVersion, homePackageId).assertFromByteString(module.getDamlLf1)
