@@ -345,7 +345,19 @@ class ScenarioService(implicit
           majorVersion,
           LanguageVersion.Minor(req.getLfMinor),
         )
-        val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
+        val homePackageMetadata =
+          Option.when(req.hasHomePackageMetadata) {
+            val metadata = req.getHomePackageMetadata
+            PackageMetadata(
+              Ref.PackageName.assertFromString(metadata.getPackageName),
+              Ref.PackageVersion.assertFromString(metadata.getPackageVersion),
+              Option(metadata.getUpgradedPackageId)
+                .filter(_.nonEmpty)
+                .map(Ref.PackageId.assertFromString),
+            )
+          }
+        val ctx =
+          Context.newContext(lfVersion, homePackageMetadata, req.getEvaluationTimeout.seconds)
         contexts += (ctx.contextId -> ctx)
         val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
         respObs.onNext(response)
@@ -414,22 +426,6 @@ class ScenarioService(implicit
 
       case Some(ctx) =>
         try {
-          val homePackageMetadata =
-            if (req.hasHomePackageMetadata) {
-              val metadata = req.getHomePackageMetadata
-              Some(
-                PackageMetadata(
-                  Ref.PackageName.assertFromString(metadata.getPackageName),
-                  Ref.PackageVersion.assertFromString(metadata.getPackageVersion),
-                  Option(metadata.getUpgradedPackageId)
-                    .filter(_.nonEmpty)
-                    .map(Ref.PackageId.assertFromString),
-                )
-              )
-            } else {
-              None
-            }
-
           val unloadModules =
             if (req.hasUpdateModules)
               req.getUpdateModules.getUnloadModulesList.asScala
@@ -459,7 +455,6 @@ class ScenarioService(implicit
               Seq.empty
 
           ctx.update(
-            homePackageMetadata,
             unloadModules,
             loadModules,
             unloadPackages,

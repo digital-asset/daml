@@ -115,7 +115,7 @@ import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
                               Haddock(..),
                               IncrementalBuild (..),
-                              Options,
+                              Options (optMbPackageName),
                               SkipScenarioValidation(..),
                               StudioAutorunAllScenarios,
                               damlArtifactDir,
@@ -133,6 +133,7 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optMbPackageVersion,
                               optPackageDbs,
                               optPackageImports,
+                              optPackageMetadata,
                               optScenarioService,
                               optSkipScenarioValidation,
                               optThreads,
@@ -509,7 +510,7 @@ cmdBuild numProcessors =
     command "build" $
     info (helper <*> cmdBuildParser numProcessors) $
     progDesc "Initialize, build and package the Daml project" <> fullDesc
-    
+
 cmdBuildParser :: Int -> Parser Command
 cmdBuildParser numProcessors =
     execBuild
@@ -786,7 +787,7 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
-              withScenarioService' enableScenarioService (optEnableScenarios options) (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
+              withScenarioService' enableScenarioService (optEnableScenarios options) (optDamlLfVersion options) (optPackageMetadata options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer

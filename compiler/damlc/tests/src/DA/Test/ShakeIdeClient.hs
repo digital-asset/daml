@@ -52,7 +52,7 @@ test lfVersion scenarioLogger = do
     -- The startup of each scenario service is fairly expensive so instead of launching a separate
     -- service for each test, we launch a single service that is shared across all tests on the same LF version.
     withResourceCps
-        (SS.withScenarioService lfVersion scenarioLogger scenarioConfig)
+        (SS.withScenarioService lfVersion Nothing scenarioLogger scenarioConfig)
         $ \getScenarioService ->
             withResourceCps (withDamlScript (Just lfVersion)) $ \getScriptPackageData ->
                 ideTests lfVersion (Just getScenarioService) getScriptPackageData

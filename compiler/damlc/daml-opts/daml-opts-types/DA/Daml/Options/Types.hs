@@ -33,6 +33,7 @@ module DA.Daml.Options.Types
     , pkgNameVersion
     , fullPkgName
     , optUnitId
+    , optPackageMetadata
     , getLogger
     ) where
 
@@ -283,3 +284,12 @@ optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) 
 
 getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
 getLogger Options {optLogLevel} name = Logger.IO.newStderrLogger optLogLevel name
+
+optPackageMetadata :: Options -> Maybe LF.PackageMetadata
+optPackageMetadata Options{..}
+   | getIgnorePackageMetadata optIgnorePackageMetadata = Nothing
+   | otherwise =
+       LF.PackageMetadata
+           <$> optMbPackageName
+           <*> optMbPackageVersion
+           <*> pure Nothing

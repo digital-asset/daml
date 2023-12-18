@@ -67,8 +67,8 @@ data Options = Options
   , optEnableScenarios :: EnableScenarios
   }
 
-toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
-toLowLevelOpts optDamlLfVersion Options{..} =
+toLowLevelOpts :: LF.Version -> Maybe LF.PackageMetadata -> Options -> LowLevel.Options
+toLowLevelOpts optDamlLfVersion optPackageMetadata Options{..} =
     LowLevel.Options{..}
     where
         optGrpcTimeout = fromMaybe 70 $ cnfGrpcTimeout optScenarioServiceConfig
@@ -113,13 +113,13 @@ data RunInfo = RunInfo
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService :: LF.Version -> Maybe LF.PackageMetadata -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
 withScenarioService = withScenarioService'' (EnableScenarios True)
 
-withScenarioService'' :: EnableScenarios -> LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
+withScenarioService'' :: EnableScenarios -> LF.Version -> Maybe LF.PackageMetadata -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService'' optEnableScenarios ver metadata loggerH scenarioConfig f = do
   hOptions <- getOptions
-  LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
+  LowLevel.withScenarioService (toLowLevelOpts ver metadata hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
@@ -150,12 +150,13 @@ withScenarioService'
     :: EnableScenarioService
     -> EnableScenarios
     -> LF.Version
+    -> Maybe LF.PackageMetadata
     -> Logger.Handle IO
     -> ScenarioServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) enableScenarios ver loggerH conf f
-    | enable = withScenarioService'' enableScenarios ver loggerH conf (f . Just)
+withScenarioService' (EnableScenarioService enable) enableScenarios ver metadata loggerH conf f
+    | enable = withScenarioService'' enableScenarios ver metadata loggerH conf (f . Just)
     | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig
@@ -196,8 +197,7 @@ parseScenarioServiceConfig conf = do
                 Just a -> pure (Just a)
 
 data Context = Context
-  { ctxPackageMetadata :: Maybe LF.PackageMetadata
-  , ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
+  { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxSkipValidation :: LowLevel.SkipValidation
   }
@@ -217,7 +217,6 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       S.fromList (map fst $ MS.elems ctxModules)
 
     ctxUpdate = LowLevel.ContextUpdate
-      ctxPackageMetadata
       (MS.elems loadModules)
       (S.toList unloadModules)
       loadPackages

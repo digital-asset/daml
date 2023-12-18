@@ -783,8 +783,7 @@ contextForFile file = do
         NM.toList $ LF.packageModules pkg
     DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
-        { ctxPackageMetadata = LF.packageMetadata pkg
-        , ctxModules = Map.fromList encodedModules
+        { ctxModules = Map.fromList encodedModules
         , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap ++ Map.elems stablePackages]
         , ctxSkipValidation = SS.SkipValidation (getSkipScenarioValidation envSkipScenarioValidation)
         }
@@ -799,8 +798,7 @@ contextForPackage file pkg = do
     stablePackages <- useNoFile_ GenerateStablePackages
     pure
         SS.Context
-            { ctxPackageMetadata = LF.packageMetadata pkg
-            , ctxModules = Map.fromList encodedModules
+            { ctxModules = Map.fromList encodedModules
             , ctxPackages =
                   [ (LF.dalfPackageId pkg, LF.dalfPackageBytes pkg)
                   | pkg <- Map.elems pkgMap ++ Map.elems stablePackages

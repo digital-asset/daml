@@ -37,15 +37,20 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVersion: LanguageVersion, timeout: Duration)(implicit
+  def newContext(
+      lfVersion: LanguageVersion,
+      homePackageMetadata: Option[PackageMetadata],
+      timeout: Duration,
+  )(implicit
       loggingContext: LoggingContext
   ): Context =
-    new Context(contextCounter.incrementAndGet(), lfVersion, timeout)
+    new Context(contextCounter.incrementAndGet(), lfVersion, homePackageMetadata, timeout)
 }
 
 class Context(
     val contextId: Context.ContextId,
     languageVersion: LanguageVersion,
+    val homePackageMetadata: Option[PackageMetadata],
     timeout: Duration,
 )(implicit
     loggingContext: LoggingContext
@@ -67,9 +72,8 @@ class Context(
     * self-references. We only care that the identifier is disjunct from the package ids
     * in extSignature.
     */
-  def homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
+  val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
-  private var homePackageMetadata: Option[Ast.PackageMetadata] = None
   private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
   private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
@@ -80,8 +84,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout)
-    newCtx.homePackageMetadata = homePackageMetadata
+    val newCtx = Context.newContext(languageVersion, homePackageMetadata, timeout)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -92,18 +95,12 @@ class Context(
 
   @throws[archive.Error]
   def update(
-      homePackageMetadata: Option[PackageMetadata],
       unloadModules: Set[ModuleName],
       loadModules: collection.Seq[ProtoScenarioModule],
       unloadPackages: Set[PackageId],
       loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
   ): Unit = synchronized {
-
-    // We trust the clients of the service (which we all control) to never
-    // ovewrite an already set homePackageMetadata unless the context was just
-    // freshly cloned.
-    this.homePackageMetadata = homePackageMetadata
 
     val newModules = loadModules.map(module =>
       archive.moduleDecoder(languageVersion, homePackageId).assertFromByteString(module.getDamlLf1)

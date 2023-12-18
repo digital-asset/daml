@@ -10,7 +10,7 @@ import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
-import qualified DA.Daml.LF.Ast.Version as LF
+import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import DA.Daml.Options.Types
@@ -65,7 +65,7 @@ main =
             "- daml-stdlib",
             "- " <> show scriptDar
           ]
-      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
+      metadata <- withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         let projDir = toNormalizedFilePath' dir
         installDependencies
             projDir
@@ -77,11 +77,12 @@ main =
           projDir
           options
           pModulePrefixes
+        pure (LF.PackageMetadata pName <$> pVersion <*> pure Nothing)
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService ->
+      SS.withScenarioService lfVersion metadata logger scenarioConfig $ \scriptService ->
         defaultMain $
           testGroup
             "Script Service 1.15"

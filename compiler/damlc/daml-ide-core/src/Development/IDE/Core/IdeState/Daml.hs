@@ -52,7 +52,7 @@ withDamlIdeState
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scenarioServiceConfig <- Scenario.readScenarioServiceConfig
-    Scenario.withScenarioService' optScenarioService optEnableScenarios optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
+    Scenario.withScenarioService' optScenarioService optEnableScenarios optDamlLfVersion (optPackageMetadata opts) loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
         bracket
             (getDamlIdeState opts (StudioAutorunAllScenarios True) mbScenarioService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)

@@ -89,6 +89,7 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
+  , optPackageMetadata :: Maybe LF.PackageMetadata
   , optEnableScenarios :: EnableScenarios
   }
 
@@ -107,8 +108,7 @@ newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
   deriving Show
 
 data ContextUpdate = ContextUpdate
-  { updHomePackageMetadata :: Maybe LF.PackageMetadata
-  , updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
+  { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
@@ -292,9 +292,16 @@ newCtx Handle{..} = do
       (SS.NewContextRequest
          (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
          (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+         (convPackageMetadata <$> optPackageMetadata hOptions)
          (optEvaluationTimeout hOptions)
       )
   pure (ContextId . SS.newContextResponseContextId <$> res)
+ where
+  convPackageMetadata metadata =
+    SS.PackageMetadata
+      (TL.fromStrict (coerce (LF.packageName metadata)))
+      (TL.fromStrict (coerce (LF.packageVersion metadata)))
+      (maybe TL.empty (TL.fromStrict . coerce) (LF.upgradedPackageId metadata))
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
@@ -331,17 +338,11 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       (optGrpcTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
-          (fmap convPackageMetadata updHomePackageMetadata)
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
   pure (void res)
   where
-    convPackageMetadata metadata =
-      SS.PackageMetadata
-        (TL.fromStrict (coerce (LF.packageName metadata)))
-        (TL.fromStrict (coerce (LF.packageVersion metadata)))
-        (maybe TL.empty (TL.fromStrict . coerce) (LF.upgradedPackageId metadata))
     updModules =
       SS.UpdateContextRequest_UpdateModules
         (V.fromList (map convModule updLoadModules))

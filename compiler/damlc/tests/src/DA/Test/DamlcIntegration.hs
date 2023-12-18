@@ -206,9 +206,14 @@ main = do
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
                        }
+  let metadata =
+        LF.PackageMetadata
+          (LF.PackageName "-dummy-package-name-")
+          (LF.PackageVersion "0.0.0")
+          Nothing
 
   withDep $ \scriptPackageData ->
-    SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+    SS.withScenarioService lfVer (Just metadata) scenarioLogger scenarioConf $ \scenarioService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty

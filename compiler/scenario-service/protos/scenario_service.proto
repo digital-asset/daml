@@ -48,6 +48,7 @@ service ScenarioService {
 message NewContextRequest {
   string lf_major = 3;
   string lf_minor = 1;
+  PackageMetadata home_package_metadata = 4;
   int64 evaluation_timeout = 2;
 }
 
@@ -108,10 +109,9 @@ message UpdateContextRequest {
   }
 
   int64 context_id = 1;
-  PackageMetadata home_package_metadata = 2;
-  UpdateModules update_modules = 3;
-  UpdatePackages update_packages = 4;
-  bool noValidation = 5; // if true, does not run the package validations
+  UpdateModules update_modules = 2;
+  UpdatePackages update_packages = 3;
+  bool noValidation = 4; // if true, does not run the package validations
 }
 
 message UpdateContextResponse {
@@ -290,7 +290,7 @@ message ScenarioError {
       string instance = 1;
       string context = 2;
     }
-    
+
     oneof error {
       NotFound not_found = 1;
       AmbiguousInterfaceInstance ambiguous_interface_instance = 2;
