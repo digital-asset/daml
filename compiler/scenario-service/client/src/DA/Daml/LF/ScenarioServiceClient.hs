@@ -231,8 +231,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
           writeIORef hLoadedPackages newLoadedPackages
           writeIORef hLoadedModules ctxModules
           writeIORef hContextId clonedRootCtxId
-      -- clone again so that the returned context is independent of the root context
-      ExceptT $ LowLevel.cloneCtx hLowLevelHandle clonedRootCtxId
+      pure clonedRootCtxId
 
 deleteCtx :: Handle -> LowLevel.ContextId -> IO (Either LowLevel.BackendError ())
 deleteCtx Handle{..} ctxId = withSem hConcurrencySem $
