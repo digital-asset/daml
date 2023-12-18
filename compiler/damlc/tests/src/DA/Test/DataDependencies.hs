@@ -2459,7 +2459,11 @@ tests TestArgs{..} =
         , "  where"
         , "    signatory p"
         ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
+        [ "{-# OPTIONS -Werror #-}"
+        , "{-# OPTIONS -Wno-retroactive-interface-instances #-}"
+        -- TODO(https://github.com/digital-asset/daml/issues/18049):
+        -- Retroactive interface instances will be removed in LF 2.x, after which
+        -- this test will no longer make sense.
         , "module Main where"
         , "import Lib"
 
@@ -2482,7 +2486,11 @@ tests TestArgs{..} =
         , "  where"
         , "    signatory p"
         ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
+        [ "{-# OPTIONS -Werror #-}"
+        , "{-# OPTIONS -Wno-retroactive-interface-instances #-}"
+        -- TODO(https://github.com/digital-asset/daml/issues/18049):
+        -- Retroactive interface instances will be removed in LF 2.x, after which
+        -- this test will no longer make sense.
         , "module Main where"
         , "import qualified Lib"
 

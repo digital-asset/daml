@@ -220,7 +220,11 @@ unitTests =
          , damldocExpect
            Nothing
            "Interface instance in interface"
-           [ testModHdr
+           [ "{-# OPTIONS -Wno-retroactive-interface-instances #-}"
+           -- TODO(https://github.com/digital-asset/daml/issues/18049):
+           -- Retroactive interface instances will be removed in LF 2.x, after which
+           -- this test will no longer make sense.
+           , testModHdr
            , "data EmptyInterfaceView = EmptyInterfaceView"
            , "template Foo with"
            , "    field1 : Party"
