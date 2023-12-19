@@ -60,7 +60,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
 
   "ResilientSequencerSubscriberPekko" should {
     "not retry on an unrecoverable error" in assertAllStagesStopped {
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "unrecoverable-error")
+      )
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(UnretryableError))
       val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
@@ -77,7 +79,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
     }
 
     "retry on recoverable errors" in assertAllStagesStopped {
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "retry-on-error")
+      )
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(RetryableError))
       factory.add(Error(RetryableError))
@@ -99,7 +103,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
     }
 
     "retry on exceptions until one is fatal" in {
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "retry-on-exception")
+      )
       val subscriber = createResilientSubscriber(factory)
       factory.add(Failure(RetryableExn))
       factory.add(Failure(FatalExn))
@@ -121,7 +127,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
     }
 
     "restart from last received counter" in {
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "restart-from-counter")
+      )
       val subscriber = createResilientSubscriber(factory)
       factory.subscribe(start =>
         (start to (start + 10)).map(sc => Event(sc)) :+ Error(RetryableError)
@@ -162,7 +170,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
         override val initialDelay: FiniteDuration = 1.milli
         override val warnDelayDuration: FiniteDuration = 100.millis
       }
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "calculate-retry-delay")
+      )
       val subscriber = createResilientSubscriber(factory, captureHasEvent)
 
       // provide an event then close with a recoverable error
@@ -186,7 +196,9 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
     "retry until closing if the sequencer is permanently unavailable" in assertAllStagesStopped {
       val maxDelay = 100.milliseconds
 
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "retry-until-closing")
+      )
       val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
       // Always close with RetryableError
       for (_ <- 1 to 100) {
@@ -230,11 +242,13 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
     "return to healthy when messages are received again" in assertAllStagesStopped {
       val maxDelay = 100.milliseconds
 
-      val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factory = TestSequencerSubscriptionFactoryPekko(
+        loggerFactory.appendUnnamedKey("case", "return-to-healthy")
+      )
       val subscriber = createResilientSubscriber(factory, retryDelay(maxDelay))
       // retryDelay doubles the delay upon each attempt until it hits `maxDelay`,
-      // so we set it to one more such that we get the chance to see the unhealthy state
-      val retries = (Math.log(maxDelay.toMillis.toDouble) / Math.log(2.0d)).ceil.toInt + 1
+      // so we set it to two more such that we get the chance to see the unhealthy state
+      val retries = (Math.log(maxDelay.toMillis.toDouble) / Math.log(2.0d)).ceil.toInt + 2
       for (_ <- 1 to retries) {
         factory.add(Error(RetryableError))
       }
@@ -249,13 +263,15 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
           subscription.health.isFailed shouldBe false
 
           val (killSwitch, doneF) = subscription.source.toMat(Sink.ignore)(Keep.left).run()
-          // we retry until we become unhealthy
-          eventually() {
+
+          logger.debug("Wait until the subscription becomes unhealthy")
+          eventually(maxPollInterval = 10.milliseconds) {
             subscription.health.isFailed shouldBe true
           }
 
           // The factory should eventually produce new elements. So we should return to healthy
-          eventually() {
+          logger.debug("Wait until the subscription becomes healthy again")
+          eventually(maxPollInterval = 10.milliseconds) {
             subscription.health.getState shouldBe ComponentHealthState.Ok()
           }
 
@@ -300,6 +316,8 @@ class TestSequencerSubscriptionFactoryPekko(
         "Requesting more resubscriptions than provided by the test setup"
       )
     )
+
+    logger.debug(s"Creating SequencerSubscriptionPekko at starting counter $startingCounter")
 
     val source = Source(subscribe(startingCounter))
       // Add an incomplete unproductive source at the end to prevent automatic completion signals

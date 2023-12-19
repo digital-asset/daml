@@ -37,7 +37,6 @@ import java.util.concurrent.CompletionStage
 trait WriteService
     extends WritePackagesService
     with WritePartyService
-    with WriteConfigService
     with WriteParticipantPruningService
     with ReportsHealth {
 

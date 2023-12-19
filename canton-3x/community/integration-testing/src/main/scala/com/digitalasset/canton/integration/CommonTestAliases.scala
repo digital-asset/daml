@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleEnvironmentTestHelpers,
+  LocalMediatorReferenceX,
   LocalParticipantReference,
   LocalParticipantReferenceX,
   ParticipantReference,
@@ -32,5 +33,10 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val da: CE#DomainLocalRef = d("da")
   lazy val acme: CE#DomainLocalRef = d("acme")
   lazy val repairDomain: CE#DomainLocalRef = d("repair")
+
+  lazy val mediator1x: LocalMediatorReferenceX = mx("mediator1")
+  lazy val mediator2x: LocalMediatorReferenceX = mx("mediator2")
+  lazy val mediator3x: LocalMediatorReferenceX = mx("mediator3")
+  lazy val mediator4x: LocalMediatorReferenceX = mx("mediator4")
 
 }

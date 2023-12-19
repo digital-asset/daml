@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Util}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,7 +26,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     GlobalKey.assertBuild(
       someTemplateId,
       someContractKey(alice, value),
-      shared = Util.sharedKey(testLanguageVersion),
+      shared = true,
     ),
     Set(alice),
   )

@@ -24,6 +24,7 @@ final case class Traced[+A](value: A)(implicit override val traceContext: TraceC
 
   def withTraceContext[B](fn: TraceContext => A => B): B = fn(traceContext)(value)
 
+  def copy[B](value: B): Traced[B] = Traced(value)(traceContext)
   override def toString: String = s"Traced($value)($traceContext)"
 }
 

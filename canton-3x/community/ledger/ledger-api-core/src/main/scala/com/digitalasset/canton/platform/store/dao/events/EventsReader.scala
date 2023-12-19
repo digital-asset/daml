@@ -93,7 +93,7 @@ private[dao] sealed class EventsReader(
       maxIterations: Int,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
     val keyHash: String =
-      platform.Key.assertBuild(templateId, contractKey, shared = false).hash.bytes.toHexString
+      platform.Key.assertBuild(templateId, contractKey, shared = true).hash.bytes.toHexString
 
     val eventProjectionProperties = EventProjectionProperties(
       // Used by LfEngineToApi

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.config
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.{CryptoConfig, ProtocolConfig}
+import com.digitalasset.canton.config.{CommunityCryptoConfig, CryptoConfig, ProtocolConfig}
 import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionKeyScheme,
   selectAllowedHashAlgorithms,
@@ -68,7 +68,7 @@ final case class DomainParametersConfig(
     * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.
     */
   def toStaticDomainParameters(
-      cryptoConfig: CryptoConfig
+      cryptoConfig: CryptoConfig = CommunityCryptoConfig()
   ): Either[String, StaticDomainParameters] = {
 
     def selectSchemes[S](

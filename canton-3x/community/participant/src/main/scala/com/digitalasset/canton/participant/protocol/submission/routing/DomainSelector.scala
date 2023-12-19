@@ -9,7 +9,6 @@ import cats.syntax.parallel.*
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
-import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, UsableDomain}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError

@@ -109,6 +109,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
             templateId,
             Value.ValueUnit,
             Set(ExampleTransactionFactory.signatory),
+            shared = true,
           )
         ),
       )

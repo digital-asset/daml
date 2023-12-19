@@ -55,7 +55,7 @@ trait MediatorNodeBootstrapCommon[
     (TopologyTransactionProcessorCommon, DomainTopologyClientWithInit),
   ]
 
-  protected val replicaManager: MediatorReplicaManagerStub
+  protected val replicaManager: MediatorReplicaManager
 
   protected def mediatorRuntimeFactory: MediatorRuntimeFactory
 

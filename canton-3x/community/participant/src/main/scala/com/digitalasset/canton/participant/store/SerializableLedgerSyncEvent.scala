@@ -11,7 +11,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes as LfBytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.canton
 import com.digitalasset.canton.ProtoDeserializationError.{
   TimeModelConversionError,
   ValueConversionError,
@@ -90,10 +89,6 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
         case configurationChanged: LedgerSyncEvent.ConfigurationChanged =>
           SyncEventP.ConfigurationChanged(
             SerializableConfigurationChanged(configurationChanged).toProtoV0
-          )
-        case configurationChangeRejected: LedgerSyncEvent.ConfigurationChangeRejected =>
-          SyncEventP.ConfigurationChangeRejected(
-            SerializableConfigurationChangeRejected(configurationChangeRejected).toProtoV0
           )
         case partyAddedToParticipant: LedgerSyncEvent.PartyAddedToParticipant =>
           SyncEventP.PartyAddedToParticipant(
@@ -200,8 +195,13 @@ private[store] object SerializableLedgerSyncEvent
         Left(ProtoDeserializationError.FieldNotSet("LedgerSyncEvent.value"))
       case SyncEventP.ConfigurationChanged(configurationChanged) =>
         SerializableConfigurationChanged.fromProtoV0(configurationChanged)
-      case SyncEventP.ConfigurationChangeRejected(configurationChangeRejected) =>
-        SerializableConfigurationChangeRejected.fromProtoV0(configurationChangeRejected)
+      // Canton was never able to produce ConfigurationChangeRejected message
+      case SyncEventP.ConfigurationChangeRejected(_) =>
+        Left(
+          ProtoDeserializationError.OtherError(
+            "Unexpected LedgerSyncEvent.ConfigurationChangeRejected"
+          )
+        )
       case SyncEventP.PartyAddedToParticipant(partyAddedToParticipant) =>
         SerializablePartyAddedToParticipant.fromProtoV0(partyAddedToParticipant)
       case SyncEventP.PartyAllocationRejected(partyAllocationRejected) =>
@@ -298,59 +298,6 @@ private[store] object SerializableConfigurationChanged extends ConfigurationPara
       submissionId,
       participantId,
       configuration,
-    )
-  }
-}
-
-private[store] final case class SerializableConfigurationChangeRejected(
-    configurationChangeRejected: LedgerSyncEvent.ConfigurationChangeRejected
-) {
-  def toProtoV0: v0.ConfigurationChangeRejected = {
-    val LedgerSyncEvent.ConfigurationChangeRejected(
-      recordTime,
-      submissionId,
-      participantId,
-      proposedConfiguration,
-      reason,
-    ) =
-      configurationChangeRejected
-    v0.ConfigurationChangeRejected(
-      submissionId,
-      reason,
-      participantId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
-      Some(SerializableConfiguration(proposedConfiguration).toProtoV0),
-    )
-  }
-}
-
-private[store] object SerializableConfigurationChangeRejected
-    extends ConfigurationParamsDeserializer {
-  def fromProtoV0(
-      configurationChangeRejected: v0.ConfigurationChangeRejected
-  ): Either[canton.ProtoDeserializationError, LedgerSyncEvent.ConfigurationChangeRejected] = {
-    val v0.ConfigurationChangeRejected(
-      submissionIdP,
-      reason,
-      participantIdP,
-      recordTimeP,
-      proposedConfigurationP,
-    ) =
-      configurationChangeRejected
-    for {
-      cfg <- fromProtoV0(
-        recordTimeP,
-        submissionIdP,
-        participantIdP,
-        ("proposedConfiguration", proposedConfigurationP),
-      )
-      (recordTime, submissionId, participantId, proposedConfiguration) = cfg
-    } yield LedgerSyncEvent.ConfigurationChangeRejected(
-      recordTime,
-      submissionId,
-      participantId,
-      proposedConfiguration,
-      reason,
     )
   }
 }

@@ -346,6 +346,13 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       environment.config.remoteDomainsByString.keys.map(createRemoteDomainReference).toSeq,
     )
 
+  lazy val mediatorsX
+      : NodeReferences[MediatorReferenceX, RemoteMediatorReferenceX, LocalMediatorReferenceX] =
+    NodeReferences(
+      environment.config.mediatorsByStringX.keys.map(createMediatorReferenceX).toSeq,
+      environment.config.remoteMediatorsByStringX.keys.map(createRemoteMediatorReferenceX).toSeq,
+    )
+
   // the scala compiler / wartremover gets confused here if I use ++ directly
   def mergeLocalInstances(
       locals: Seq[LocalInstanceReferenceCommon]*
@@ -489,6 +496,12 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   protected def createDomainReference(name: String): DomainLocalRef
   protected def createRemoteDomainReference(name: String): DomainRemoteRef
+
+  private def createMediatorReferenceX(name: String): LocalMediatorReferenceX =
+    new LocalMediatorReferenceX(this, name)
+
+  private def createRemoteMediatorReferenceX(name: String): RemoteMediatorReferenceX =
+    new RemoteMediatorReferenceX(this, name)
 
   /** So we can we make this available
     */

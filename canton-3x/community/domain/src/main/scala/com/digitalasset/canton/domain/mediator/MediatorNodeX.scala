@@ -54,7 +54,7 @@ final case class CommunityMediatorNodeXConfig(
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
+    override val parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topologyX: TopologyXConfig = TopologyXConfig(),
 ) extends MediatorNodeConfigCommon(
@@ -65,6 +65,7 @@ final case class CommunityMediatorNodeXConfig(
       timeTracker,
       sequencerClient,
       caching,
+      parameters,
       monitoring,
     )
     with ConfigDefaults[DefaultPorts, CommunityMediatorNodeXConfig] {
@@ -118,7 +119,7 @@ class MediatorNodeBootstrapX(
       MediatorNodeParameters,
       MediatorNodeMetrics,
     ],
-    protected val replicaManager: MediatorReplicaManagerStub,
+    protected val replicaManager: MediatorReplicaManager,
     override protected val mediatorRuntimeFactory: MediatorRuntimeFactory,
 )(
     implicit executionContext: ExecutionContextIdlenessExecutorService,
@@ -258,7 +259,7 @@ class MediatorNodeBootstrapX(
 
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[MediatorNodeX]]] = {
 
@@ -363,7 +364,7 @@ class MediatorNodeX(
     config: MediatorNodeConfigCommon,
     mediatorId: MediatorId,
     domainId: DomainId,
-    protected[canton] val replicaManager: MediatorReplicaManagerStub,
+    protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     clock: Clock,
     loggerFactory: NamedLoggerFactory,

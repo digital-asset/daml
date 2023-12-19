@@ -546,9 +546,28 @@ class GrpcSequencerServiceTest
             sendAndCheckSucceed(defaultRequest)
           }
 
-          def expectOverloaded(): Future[Assertion] = {
-            sendAndCheckError(defaultRequest) { case SendAsyncError.Overloaded(message) =>
-              message should endWith("Submission rate exceeds rate limit of 5/s.")
+          def expectOneSuccessOneOverloaded(): Future[Assertion] = {
+            val result1F = send(defaultRequest, authenticated = true)
+            val result2F = send(defaultRequest, authenticated = true)
+            for {
+              result1 <- result1F
+              result2 <- result2F
+            } yield {
+              def assertOverloadedError(error: SendAsyncError): Assertion =
+                error match {
+                  case SendAsyncError.Overloaded(message) =>
+                    message should endWith("Submission rate exceeds rate limit of 5/s.")
+                  case wrongError =>
+                    fail(s"Unexpected error: $wrongError, expected Overloaded error instead")
+                }
+              (result1.value.error, result2.value.error) match {
+                case (Some(error), None) => assertOverloadedError(error)
+                case (None, Some(error)) => assertOverloadedError(error)
+                case (Some(_), Some(_)) =>
+                  fail("at least one successful submission expected, but both failed")
+                case (None, None) =>
+                  fail("at least one overloaded submission expected, but none failed")
+              }
             }
           }
 
@@ -556,11 +575,9 @@ class GrpcSequencerServiceTest
             _ <- expectSuccess() // push us beyond the max rate
             // Don't submit as we don't know when the current cycle ends
             _ = Threading.sleep(1000) // recover
-            _ <- expectSuccess() // good again
-            _ <- expectOverloaded() // resource exhausted
+            _ <- expectOneSuccessOneOverloaded()
             _ = Threading.sleep(1000)
-            _ <- expectSuccess() // good again
-            _ <- expectOverloaded() // exhausted again
+            _ <- expectOneSuccessOneOverloaded()
           } yield succeed
         }
 

@@ -26,10 +26,7 @@ import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v1.{EventQueryServiceOuterClass, ValueOuterClass}
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.state_service.{
-  GetActiveContractsResponse,
-  GetConnectedDomainsResponse,
-}
+import com.daml.ledger.api.v2.state_service.GetConnectedDomainsResponse
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeV2,
@@ -40,7 +37,10 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
+  WrappedContractEntry,
+  WrappedCreatedEvent,
+}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.{
   AssignedWrapper,
@@ -409,8 +409,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     object commands extends Helpful {
 
       @Help.Summary(
-        "Submit command and wait for the resulting transaction, returning the transaction tree or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit command and wait for the resulting transaction, returning the transaction tree or failing otherwise"
       )
       @Help.Description(
         """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit and returns it.
@@ -437,7 +436,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
-      ): TransactionTreeV2 = check(FeatureFlag.Testing) {
+      ): TransactionTreeV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
@@ -459,8 +458,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       }
 
       @Help.Summary(
-        "Submit command and wait for the resulting transaction, returning the flattened transaction or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit command and wait for the resulting transaction, returning the flattened transaction or failing otherwise"
       )
       @Help.Description(
         """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit, and returns the "flattened" transaction.
@@ -487,7 +485,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
-      ): TransactionV2 = check(FeatureFlag.Testing) {
+      ): TransactionV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
@@ -747,7 +745,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       @Help.Summary("Read active contracts", FeatureFlag.Testing)
       @Help.Group("Active Contracts")
       object acs extends Helpful {
-        @Help.Summary("List the set of active contracts of a given party", FeatureFlag.Testing)
+        @Help.Summary("List the set of active contracts of a given party")
         @Help.Description(
           """This command will return the current set of active contracts and incomplete reassignments for the given party.
             |
@@ -768,25 +766,27 @@ trait BaseLedgerApiAdministration extends NoTracing {
             activeAtOffset: String = "",
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
-        ): Seq[GetActiveContractsResponse] =
-          check(FeatureFlag.Testing)(consoleEnvironment.run {
-            ledgerApiCommand(
-              LedgerApiV2Commands.StateService
-                .GetActiveContracts(
-                  Set(party.toLf),
-                  limit,
-                  filterTemplates,
-                  activeAtOffset,
-                  verbose,
-                  timeout.asFiniteApproximation,
-                  includeCreatedEventBlob,
-                )(consoleEnvironment.environment.scheduler)
-            )
-          })
+        ): Seq[WrappedContractEntry] =
+          consoleEnvironment
+            .run {
+              ledgerApiCommand(
+                LedgerApiV2Commands.StateService
+                  .GetActiveContracts(
+                    Set(party.toLf),
+                    limit,
+                    filterTemplates,
+                    activeAtOffset,
+                    verbose,
+                    timeout.asFiniteApproximation,
+                    includeCreatedEventBlob,
+                  )(consoleEnvironment.environment.scheduler)
+              )
+            }
+            .filter(_.contractEntry.isDefined)
+            .map(activeContract => WrappedContractEntry(activeContract.contractEntry))
 
         @Help.Summary(
-          "List the set of active contracts for all parties hosted on this participant",
-          FeatureFlag.Testing,
+          "List the set of active contracts for all parties hosted on this participant"
         )
         @Help.Description(
           """This command will return the current set of active contracts for all parties.
@@ -809,7 +809,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             identityProviderId: String = "",
             includeCreatedEventBlob: Boolean = false,
-        ): Seq[GetActiveContractsResponse] = check(FeatureFlag.Testing)(
+        ): Seq[WrappedContractEntry] =
           consoleEnvironment.runE {
             for {
               parties <- ledgerApiCommand(
@@ -831,12 +831,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
                       timeout.asFiniteApproximation,
                       includeCreatedEventBlob,
                     )(consoleEnvironment.environment.scheduler)
-                  ).toEither
+                  ).toEither.map(
+                    _.filter(_.contractEntry.isDefined)
+                      .map(activeContract => WrappedContractEntry(activeContract.contractEntry))
+                  )
                 }
               }
             } yield res
           }
-        )
 
         @Help.Summary(
           "Wait until the party sees the given contract in the active contract service",
@@ -852,25 +854,21 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Unit = check(FeatureFlag.Testing) {
           ConsoleMacros.utils.retry_until_true(timeout) {
             of_party(party, verbose = false)
-              .exists(
-                _.contractEntry.activeContract.exists(
-                  _.getCreatedEvent.contractId == contractId.coid
-                )
-              )
+              .exists(_.contractId == contractId.coid)
           }
         }
 
-        @Help.Summary("Generic search for contracts", FeatureFlag.Testing)
+        @Help.Summary("Generic search for contracts")
         @Help.Description(
           """This search function returns an untyped ledger-api event.
             |The find will wait until the contract appears or throw an exception once it times out."""
         )
         def find_generic(
             partyId: PartyId,
-            filter: GetActiveContractsResponse => Boolean,
+            filter: WrappedContractEntry => Boolean,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): GetActiveContractsResponse = check(FeatureFlag.Testing) {
-          def scan: Option[GetActiveContractsResponse] = of_party(partyId).find(filter(_))
+        ): WrappedContractEntry = {
+          def scan: Option[WrappedContractEntry] = of_party(partyId).find(filter(_))
 
           ConsoleMacros.utils.retry_until_true(timeout)(scan.isDefined)
           consoleEnvironment.runE {
@@ -1796,27 +1794,26 @@ trait BaseLedgerApiAdministration extends NoTracing {
           subscribe_trees(observer, filterParty, end(), verbose = false)
         }
 
-      @Help.Summary("Get a (tree) transaction by its ID", FeatureFlag.Testing)
+      @Help.Summary("Get a (tree) transaction by its ID")
       @Help.Description(
         """Get a transaction tree from the transaction stream by its ID. Returns None if the transaction is not (yet)
           |known at the participant or if the transaction has been pruned via `pruning.prune`."""
       )
       def by_id(parties: Set[PartyId], id: String): Option[TransactionTree] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.TransactionService.GetTransactionById(parties.map(_.toLf), id)(
               consoleEnvironment.environment.executionContext
             )
           )
-        })
+        }
 
-      @Help.Summary("Get the domain that a transaction was committed over.", FeatureFlag.Testing)
+      @Help.Summary("Get the domain that a transaction was committed over.")
       @Help.Description(
         """Get the domain that a transaction was committed over. Throws an error if the transaction is not (yet) known
           |to the participant or if the transaction has been pruned via `pruning.prune`."""
       )
-      def domain_of(transactionId: String): DomainId =
-        check(FeatureFlag.Testing)(domainOfTransaction(transactionId))
+      def domain_of(transactionId: String): DomainId = domainOfTransaction(transactionId)
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -1957,7 +1954,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     @Help.Summary("Read active contracts", FeatureFlag.Testing)
     @Help.Group("Active Contracts")
     object acs extends Helpful {
-      @Help.Summary("List the set of active contracts of a given party", FeatureFlag.Testing)
+      @Help.Summary("List the set of active contracts of a given party")
       @Help.Description(
         """This command will return the current set of active contracts for the given party.
 
@@ -1979,7 +1976,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           timeout: config.NonNegativeDuration = timeouts.unbounded,
           includeCreatedEventBlob: Boolean = false,
       ): Seq[WrappedCreatedEvent] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.AcsService
               .GetActiveContracts(
@@ -1991,7 +1988,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 includeCreatedEventBlob,
               )(consoleEnvironment.environment.scheduler)
           )
-        })
+        }
 
       @Help.Summary(
         "List the set of active contracts for all parties hosted on this participant",
@@ -2085,7 +2082,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     @Help.Group("Party Management")
     object parties extends Helpful {
 
-      @Help.Summary("Allocate a new party", FeatureFlag.Testing)
+      @Help.Summary("Allocate a new party")
       @Help.Description(
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
@@ -2099,7 +2096,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
       ): PartyDetails = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.AllocateParty(
               partyIdHint = party,
@@ -2108,23 +2105,23 @@ trait BaseLedgerApiAdministration extends NoTracing {
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
         PartyDetails.fromProtoPartyDetails(proto)
       }
 
-      @Help.Summary("List parties known by the Ledger API server", FeatureFlag.Testing)
+      @Help.Summary("List parties known by the Ledger API server")
       @Help.Description(
         """Lists parties known by the Ledger API server.
            identityProviderId: identity provider id"""
       )
       def list(identityProviderId: String = ""): Seq[PartyDetails] = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.ListKnownParties(
               identityProviderId = identityProviderId
             )
           )
-        })
+        }
         proto.map(PartyDetails.fromProtoPartyDetails)
       }
 

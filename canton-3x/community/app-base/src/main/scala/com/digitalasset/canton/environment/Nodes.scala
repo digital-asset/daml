@@ -12,6 +12,12 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.domain.config.DomainConfig
+import com.digitalasset.canton.domain.mediator.{
+  MediatorNodeBootstrapX,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameters,
+  MediatorNodeX,
+}
 import com.digitalasset.canton.domain.{Domain, DomainNodeBootstrap, DomainNodeParameters}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -436,5 +442,28 @@ class DomainNodes[DC <: DomainConfig](
       configs,
       parameters,
       startUpGroup = 0,
+      loggerFactory,
+    )
+
+class MediatorNodesX[MNC <: MediatorNodeConfigCommon](
+    create: (String, MNC) => MediatorNodeBootstrapX,
+    migrationsFactory: DbMigrationsFactory,
+    timeouts: ProcessingTimeout,
+    configs: Map[String, MNC],
+    parameters: String => MediatorNodeParameters,
+    loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext)
+    extends ManagedNodes[
+      MediatorNodeX,
+      MNC,
+      MediatorNodeParameters,
+      MediatorNodeBootstrapX,
+    ](
+      create,
+      migrationsFactory,
+      timeouts,
+      configs,
+      parameters,
+      startUpGroup = 1,
       loggerFactory,
     )

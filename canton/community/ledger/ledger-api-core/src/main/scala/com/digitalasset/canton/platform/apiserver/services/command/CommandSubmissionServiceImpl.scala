@@ -125,7 +125,8 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       val cmds = request.commands.commands.commands
       logger.debug(show"Submitted commands are: ${if (cmds.length > 1) "\n  " else ""}${cmds
           .map {
-            case ApiCommand.Create(templateRef, _) => s"create ${templateRef.qName}"
+            case ApiCommand.Create(templateRef, _) =>
+              s"create ${templateRef.qName}"
             case ApiCommand.Exercise(templateRef, _, choiceId, _) =>
               s"exercise @${templateRef.qName} ${choiceId}"
             case ApiCommand.ExerciseByKey(templateRef, _, choiceId, _) =>
