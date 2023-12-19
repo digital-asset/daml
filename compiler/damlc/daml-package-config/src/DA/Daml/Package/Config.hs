@@ -22,7 +22,7 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import Control.Exception.Safe (throwIO, displayException)
-import Control.Monad (when)
+import Control.Monad (forM_, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy
@@ -143,6 +143,13 @@ parseMultiPackageConfig multiPackage mpPath = do
     mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
     compositeDarObjects <- fromMaybe [] <$> queryMultiPackageConfig ["composite-dars"] multiPackage
     mpCompositeDars <- traverse parseCompositeDar compositeDarObjects
+    -- n^2 but this list is usually so small that its not worth complicating the logic
+    forM_ mpCompositeDars $ \cd ->
+      let matching = length $ filter (\otherCd -> (cdName cd, cdVersion cd) == (cdName otherCd, cdVersion otherCd)) mpCompositeDars
+       in when (matching > 1) $ Left $ ConfigFileInvalid "multi-package" $ Y.InvalidYaml $ Just
+            $ Y.YamlException $ "Multiple composite dars with the same name and version: " <>
+              T.unpack (LF.unPackageName (cdName cd) <> "-" <> LF.unPackageVersion (cdVersion cd))
+
     let mpTransitiveCompositeDarNames = []
         mpiConfigFields = MultiPackageConfigFields {..}
     Right MultiPackageConfigFieldsIntermediate {..}

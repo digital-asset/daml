@@ -184,7 +184,7 @@ import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import Data.Foldable (traverse_)
 import qualified Data.HashSet as HashSet
-import Data.List (find, intercalate, isPrefixOf, isInfixOf)
+import Data.List (intercalate, isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn, unsnoc)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
@@ -993,15 +993,23 @@ realiseMultiBuildMode multiPackageConfig buildMode =
   where
     extractCompositeDars :: [LF.PackageName] -> IO [CompositeDar]
     extractCompositeDars darNames = do
-      let (missingCompositeDarNames, compositeDars) =
-            partitionEithers $ (\name -> 
-              maybe (Left name) Right $ find ((==name) . cdName) $ mpCompositeDars multiPackageConfig
-            ) <$> darNames
-      when (not $ null missingCompositeDarNames) $ do
-        hPutStrLn stderr $ "Couldn't find the following composite dars in top level multi-package.yaml: "
-          <> commaSepAnd (T.unpack . LF.unPackageName <$> missingCompositeDarNames)
-        forM_ missingCompositeDarNames $ \name -> warnTransitiveCompositeDar stderr multiPackageConfig name
-        exitFailure
+      compositeDars <-
+        forM darNames $ \darName -> do
+          let isMatchingCompositeDar cd =
+                cdName cd == darName ||
+                  (LF.unPackageName (cdName cd) <> "-" <> LF.unPackageVersion (cdVersion cd)) == LF.unPackageName darName
+              matchingCompositeDars = filter isMatchingCompositeDar $ mpCompositeDars multiPackageConfig
+          case matchingCompositeDars of
+            [dar] -> pure dar
+            [] -> do
+              hPutStrLn stderr $ "Couldn't find composite dar with the name " <> T.unpack (LF.unPackageName darName) <> " in " <> mpPath multiPackageConfig
+              warnTransitiveCompositeDar stderr multiPackageConfig darName
+              exitFailure
+            dars -> do
+              hPutStrLn stderr "Multiple composite dars with the same name were found, to specify which you need, use one of the following full names:"
+              let toDarFullName cd = T.unpack $ LF.unPackageName (cdName cd) <> "-" <> LF.unPackageVersion (cdVersion cd)
+              traverse_ (hPutStrLn stderr . ("  - " <>) . toDarFullName) dars
+              exitFailure
 
       forM_ compositeDars $ warnTransitiveCompositeDar stdout multiPackageConfig . cdName
       pure compositeDars
