@@ -13,6 +13,7 @@ import com.digitalasset.canton.domain.config.{
   DomainBaseConfig,
   RemoteDomainConfig,
 }
+import com.digitalasset.canton.domain.mediator.{CommunityMediatorNodeXConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
@@ -32,9 +33,11 @@ final case class CantonCommunityConfig(
     domains: Map[InstanceName, CommunityDomainConfig] = Map.empty,
     participants: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
     participantsX: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
+    mediatorsX: Map[InstanceName, CommunityMediatorNodeXConfig] = Map.empty,
     remoteDomains: Map[InstanceName, RemoteDomainConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
     remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
+    remoteMediatorsX: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
     monitoring: MonitoringConfig = MonitoringConfig(),
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
@@ -43,6 +46,7 @@ final case class CantonCommunityConfig(
 
   override type DomainConfigType = CommunityDomainConfig
   override type ParticipantConfigType = CommunityParticipantConfig
+  override type MediatorNodeXConfigType = CommunityMediatorNodeXConfig
 
   /** renders the config as json (used for dumping config for diagnostic purposes) */
   override def dumpString: String = CantonCommunityConfig.makeConfidentialString(this)
@@ -98,6 +102,8 @@ object CantonCommunityConfig {
       deriveReader[CommunityDomainConfig].applyDeprecations
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
       deriveReader[CommunityParticipantConfig].applyDeprecations
+    implicit val communityMediatorNodeXConfigReader: ConfigReader[CommunityMediatorNodeXConfig] =
+      deriveReader[CommunityMediatorNodeXConfig]
 
     deriveReader[CantonCommunityConfig]
   }
@@ -110,6 +116,8 @@ object CantonCommunityConfig {
       deriveWriter[CommunityDomainConfig]
     implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
       deriveWriter[CommunityParticipantConfig]
+    implicit val communityMediatorNodeXConfigWriter: ConfigWriter[CommunityMediatorNodeXConfig] =
+      deriveWriter[CommunityMediatorNodeXConfig]
 
     deriveWriter[CantonCommunityConfig]
   }

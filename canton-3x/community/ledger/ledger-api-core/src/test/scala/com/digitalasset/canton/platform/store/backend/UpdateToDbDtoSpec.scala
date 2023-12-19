@@ -85,29 +85,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "handle ConfigurationChangeRejected" in {
-      val rejectionReason = "Test rejection reason"
-      val update = state.Update.ConfigurationChangeRejected(
-        someRecordTime,
-        someSubmissionId,
-        someParticipantId,
-        someConfiguration,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.ConfigurationEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = someSubmissionId,
-          typ = JdbcLedgerDao.rejectType,
-          configuration = Configuration.encode(someConfiguration).toByteArray,
-          rejection_reason = Some(rejectionReason),
-        )
-      )
-    }
-
     "handle PartyAddedToParticipant (local party)" in {
       val displayName = "Test party"
       val update = state.Update.PartyAddedToParticipant(

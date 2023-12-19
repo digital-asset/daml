@@ -50,7 +50,12 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           stakeholders = Set(bob),
           keyOpt = Some(
             GlobalKeyWithMaintainers
-              .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+              .assertBuild(
+                someTemplateId,
+                someContractKey(bob, "some key"),
+                Set(bob),
+                shared = true,
+              )
           ),
           version = TransactionVersion.minVersion,
         )
@@ -83,7 +88,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         signatories = Set(bob),
         stakeholders = Set(bob),
         keyOpt = Some(
-          GlobalKeyWithMaintainers.assertBuild(someTemplateId, ValueParty(bob), Set(bob))
+          GlobalKeyWithMaintainers
+            .assertBuild(someTemplateId, ValueParty(bob), Set(bob), shared = true)
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
@@ -105,7 +111,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         exerciseResult = Some(someChoiceResult),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob), shared = true)
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
@@ -120,7 +126,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         stakeholders = Set(alice, bob),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
+            .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob), shared = true)
         ),
         version = TransactionVersion.minVersion,
       )

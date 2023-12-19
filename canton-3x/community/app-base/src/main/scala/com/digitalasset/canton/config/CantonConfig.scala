@@ -36,6 +36,12 @@ import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.domain.DomainNodeParameters
 import com.digitalasset.canton.domain.config.*
+import com.digitalasset.canton.domain.mediator.{
+  MediatorNodeConfigCommon,
+  MediatorNodeParameterConfig,
+  MediatorNodeParameters,
+  RemoteMediatorConfig,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpApiConfig, StaticContentConfig, WebsocketConfig}
@@ -342,6 +348,7 @@ trait CantonConfig {
     DefaultPorts,
     ParticipantConfigType,
   ]
+  type MediatorNodeXConfigType <: MediatorNodeConfigCommon
 
   /** all domains that this Canton process can operate
     *
@@ -375,6 +382,23 @@ trait CantonConfig {
     */
   def participantsByStringX: Map[String, ParticipantConfigType] = participantsX.map { case (n, c) =>
     n.unwrap -> c
+  }
+
+  def mediatorsX: Map[InstanceName, MediatorNodeXConfigType]
+
+  /** Use `mediatorsX` instead!
+    */
+  def mediatorsByStringX: Map[String, MediatorNodeXConfigType] = mediatorsX.map { case (n, c) =>
+    n.unwrap -> c
+  }
+
+  def remoteMediatorsX: Map[InstanceName, RemoteMediatorConfig]
+
+  /** Use `remoteMediators` instead!
+    */
+  def remoteMediatorsByStringX: Map[String, RemoteMediatorConfig] = remoteMediatorsX.map {
+    case (n, c) =>
+      n.unwrap -> c
   }
 
   /** all remotely running domains to which the console can connect and operate on */
@@ -474,6 +498,20 @@ trait CantonConfig {
   private[canton] def participantNodeParametersByString(name: String) = participantNodeParameters(
     InstanceName.tryCreate(name)
   )
+
+  private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
+    mediatorsX.fmap { mediatorNodeConfig =>
+      MediatorNodeParameters(
+        general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
+        protocol = CantonNodeParameterConverter.protocol(this, mediatorNodeConfig.parameters),
+      )
+    }
+
+  private[canton] def mediatorNodeParametersX(name: InstanceName): MediatorNodeParameters =
+    nodeParametersFor(mediatorNodeParametersX_, "mediator-x", name)
+
+  private[canton] def mediatorNodeParametersByStringX(name: String): MediatorNodeParameters =
+    mediatorNodeParametersX(InstanceName.tryCreate(name))
 
   protected def nodeParametersFor[A](
       cachedNodeParameters: Map[InstanceName, A],
@@ -899,6 +937,10 @@ object CantonConfig {
       deriveReader[SequencerWriterConfig.LowLatency]
     lazy implicit val communitySequencerConfigReader: ConfigReader[CommunitySequencerConfig] =
       deriveReader[CommunitySequencerConfig]
+    lazy implicit val mediatorNodeParameterConfigReader: ConfigReader[MediatorNodeParameterConfig] =
+      deriveReader[MediatorNodeParameterConfig]
+    lazy implicit val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
+      deriveReader[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigReader: ConfigReader[DomainParametersConfig] =
       deriveReader[DomainParametersConfig]
     lazy implicit val domainNodeParametersConfigReader: ConfigReader[DomainNodeParametersConfig] =
@@ -1274,6 +1316,10 @@ object CantonConfig {
       deriveWriter[SequencerWriterConfig.LowLatency]
     lazy implicit val communitySequencerConfigWriter: ConfigWriter[CommunitySequencerConfig] =
       deriveWriter[CommunitySequencerConfig]
+    lazy implicit val mediatorNodeParameterConfigWriter: ConfigWriter[MediatorNodeParameterConfig] =
+      deriveWriter[MediatorNodeParameterConfig]
+    lazy implicit val remoteMediatorConfigWriter: ConfigWriter[RemoteMediatorConfig] =
+      deriveWriter[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigWriter: ConfigWriter[DomainParametersConfig] =
       deriveWriter[DomainParametersConfig]
     lazy implicit val domainNodeParametersConfigWriter: ConfigWriter[DomainNodeParametersConfig] =

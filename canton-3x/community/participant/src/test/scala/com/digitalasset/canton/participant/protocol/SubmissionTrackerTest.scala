@@ -67,7 +67,8 @@ class SubmissionTrackerTest
     // Internal structures should be clean
     submissionTracker match {
       case st: SubmissionTrackerImpl =>
-        st.internalSize shouldBe 0
+        // Use `eventually()` to account for pending futures not yet completed
+        eventually() { st.internalSize shouldBe 0 }
       case _ => fail("Unexpected SubmissionTracker instance")
     }
   }

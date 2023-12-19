@@ -11,9 +11,20 @@ import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.domain.config.RemoteDomainConfig
+import com.digitalasset.canton.domain.mediator.{
+  MediatorNodeBootstrapX,
+  MediatorNodeConfigCommon,
+  MediatorNodeX,
+  RemoteMediatorConfig,
+}
 import com.digitalasset.canton.domain.{Domain, DomainNodeBootstrap}
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.{DomainStatus, NodeStatus, ParticipantStatus}
+import com.digitalasset.canton.health.admin.data.{
+  DomainStatus,
+  MediatorNodeStatus,
+  NodeStatus,
+  ParticipantStatus,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.config.{
@@ -29,7 +40,7 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeX,
 }
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
-import com.digitalasset.canton.topology.{DomainId, NodeIdentity, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, MediatorId, NodeIdentity, ParticipantId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -923,4 +934,96 @@ class LocalParticipantReferenceX(
   @Help.Summary("Commands to repair the local participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
   def repair: LocalParticipantRepairAdministration = repair_
+}
+
+trait MediatorReferenceCommon extends InstanceReferenceCommon {
+
+  @Help.Summary(
+    "Yields the mediator id of this mediator. " +
+      "Throws an exception, if the id has not yet been allocated (e.g., the mediator has not yet been initialised)."
+  )
+  def id: MediatorId = topology.idHelper(MediatorId(_))
+
+  override type Status = MediatorNodeStatus
+
+}
+
+object MediatorReferenceX {
+  val InstanceType = "MediatorX"
+}
+
+abstract class MediatorReferenceX(val consoleEnvironment: ConsoleEnvironment, name: String)
+    extends MediatorReferenceCommon
+    with MediatorXAdministrationGroupWithInit
+    with InstanceReferenceX {
+
+  override protected def runner: AdminCommandRunner = this
+
+  override protected val instanceType: String = MediatorReferenceX.InstanceType
+  override protected val loggerFactory: NamedLoggerFactory =
+    consoleEnvironment.environment.loggerFactory
+      .append(MediatorNodeBootstrapX.LoggerFactoryKeyName, name)
+
+  @Help.Summary("Health and diagnostic related commands")
+  @Help.Group("Health")
+  override def health =
+    new HealthAdministrationX[MediatorNodeStatus](
+      this,
+      consoleEnvironment,
+      MediatorNodeStatus.fromProtoV0,
+    )
+
+  private lazy val topology_ =
+    new TopologyAdministrationGroupX(
+      this,
+      health.status.successOption.map(_.topologyQueue),
+      consoleEnvironment,
+      loggerFactory,
+    )
+
+  override def topology: TopologyAdministrationGroupX = topology_
+
+  private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
+
+  override def parties: PartiesAdministrationGroupX = parties_
+
+  override def equals(obj: Any): Boolean =
+    obj match {
+      case x: MediatorReferenceX => x.consoleEnvironment == consoleEnvironment && x.name == name
+      case _ => false
+    }
+}
+
+class LocalMediatorReferenceX(consoleEnvironment: ConsoleEnvironment, val name: String)
+    extends MediatorReferenceX(consoleEnvironment, name)
+    with LocalInstanceReferenceX
+    with SequencerConnectionAdministration
+    with BaseInspection[MediatorNodeX] {
+
+  override protected[canton] def executionContext: ExecutionContext =
+    consoleEnvironment.environment.executionContext
+
+  @Help.Summary("Returns the mediator-x configuration")
+  override def config: MediatorNodeConfigCommon =
+    consoleEnvironment.environment.config.mediatorsByStringX(name)
+
+  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediatorsX
+
+  override protected[console] def runningNode: Option[MediatorNodeBootstrapX] =
+    nodes.getRunning(name)
+
+  override protected[console] def startingNode: Option[MediatorNodeBootstrapX] =
+    nodes.getStarting(name)
+}
+
+class RemoteMediatorReferenceX(val environment: ConsoleEnvironment, val name: String)
+    extends MediatorReferenceX(environment, name)
+    with GrpcRemoteInstanceReference {
+
+  @Help.Summary("Returns the remote mediator configuration")
+  def config: RemoteMediatorConfig =
+    environment.environment.config.remoteMediatorsByStringX(name)
+
+  override protected[canton] def executionContext: ExecutionContext =
+    consoleEnvironment.environment.executionContext
 }

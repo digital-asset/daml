@@ -697,7 +697,7 @@ class SyncDomain(
     }).value
   }
 
-  def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
+  private def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val fetchLimit = 1000
 

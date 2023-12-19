@@ -470,8 +470,6 @@ object ApiServices {
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(
           configManagementService,
-          writeService,
-          timeProvider,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
         )

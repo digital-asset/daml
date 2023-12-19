@@ -407,11 +407,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
       case Right(recomputedContractMetadata) =>
         checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
       case Left(message) =>
-        Future.successful(
-          Some(
-            s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
-          )
-        )
+        val enriched =
+          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
+        logger.info(enriched)
+        Future.successful(Some(enriched))
     }
 
   }
@@ -508,22 +507,26 @@ private[apiserver] final class StoreBackedCommandExecutor(
         EitherT.leftT(DeprecatedDisclosedContractFormat: UpgradeVerificationResult)
     }
 
-    val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
-      case Valid => None
-      case UpgradeFailure(message) => Some(message)
-      case ContractNotFound =>
-        // During submission the ResultNeedUpgradeVerification should only be called
-        // for contracts that are being upgraded. We do not support the upgrading of
-        // divulged contracts.
-        Some(s"Contract with $coid was not found or it refers to a divulged contract.")
-      case MissingDriverMetadata =>
-        Some(
-          s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
-        )
-      case DeprecatedDisclosedContractFormat =>
-        Some(
-          s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-        )
+    val handleVerificationResult: UpgradeVerificationResult => Option[String] = { result =>
+      val response: Option[String] = result match {
+        case Valid => None
+        case UpgradeFailure(message) => Some(message)
+        case ContractNotFound =>
+          // During submission the ResultNeedUpgradeVerification should only be called
+          // for contracts that are being upgraded. We do not support the upgrading of
+          // divulged contracts.
+          Some(s"Contract with $coid was not found or it refers to a divulged contract.")
+        case MissingDriverMetadata =>
+          Some(
+            s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+          )
+        case DeprecatedDisclosedContractFormat =>
+          Some(
+            s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
+          )
+      }
+      response.foreach(message => logger.info(message))
+      response
     }
 
     disclosedContracts

@@ -277,6 +277,7 @@ class StoreBackedCommandExecutorSpec
                   identifier,
                   someContractKey(signatory, "some key"),
                   Set(signatory),
+                  shared = true,
                 )
             ),
             resume = verdict => {

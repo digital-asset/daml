@@ -69,7 +69,7 @@ final case class CommunityMediatorNodeConfig(
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
+    override val parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed,
 ) extends MediatorNodeConfigCommon(
@@ -80,6 +80,7 @@ final case class CommunityMediatorNodeConfig(
       timeTracker,
       sequencerClient,
       caching,
+      parameters,
       monitoring,
     )
     with ConfigDefaults[DefaultPorts, CommunityMediatorNodeConfig] {
@@ -103,6 +104,7 @@ abstract class MediatorNodeConfigCommon(
     val timeTracker: DomainTimeTrackerConfig,
     val sequencerClient: SequencerClientConfig,
     val caching: CachingConfigs,
+    val parameters: MediatorNodeParameterConfig,
     val monitoring: NodeMonitoringConfig,
 ) extends LocalNodeConfig {
 
@@ -144,7 +146,7 @@ class MediatorNodeBootstrap(
       MediatorNodeParameters,
       MediatorNodeMetrics,
     ],
-    override protected val replicaManager: MediatorReplicaManagerStub,
+    override protected val replicaManager: MediatorReplicaManager,
     override protected val mediatorRuntimeFactory: MediatorRuntimeFactory,
 )(
     implicit executionContext: ExecutionContextIdlenessExecutorService,
@@ -472,7 +474,7 @@ class MediatorNodeCommon(
     config: MediatorNodeConfigCommon,
     mediatorId: MediatorId,
     domainId: DomainId,
-    replicaManager: MediatorReplicaManagerStub,
+    replicaManager: MediatorReplicaManager,
     storage: Storage,
     override protected val clock: Clock,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -492,7 +494,7 @@ class MediatorNodeCommon(
         uptime(),
         ports,
         replicaManager.isActive,
-        replicaManager.getTopologyQueueStatus(),
+        replicaManager.getTopologyQueueStatus,
         healthData,
       )
     )
@@ -509,7 +511,7 @@ class MediatorNode(
     config: MediatorNodeConfigCommon,
     mediatorId: MediatorId,
     domainId: DomainId,
-    replicaManager: MediatorReplicaManagerStub,
+    replicaManager: MediatorReplicaManager,
     storage: Storage,
     clock: Clock,
     loggerFactory: NamedLoggerFactory,

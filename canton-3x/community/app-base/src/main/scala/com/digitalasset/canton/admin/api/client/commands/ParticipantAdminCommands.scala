@@ -716,9 +716,8 @@ object ParticipantAdminCommands {
       ): Future[RegisterDomainResponse] =
         service.registerDomain(request)
 
-      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] = Right(
-        ()
-      )
+      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] =
+        Right(())
 
       // can take long if we need to wait to become active
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
