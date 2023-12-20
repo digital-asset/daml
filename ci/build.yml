@@ -27,8 +27,6 @@ jobs:
         fi
       name: out
 
-- template: build-local-canton.yml
-
 - job: Linux
   dependsOn:
     - check_for_release
