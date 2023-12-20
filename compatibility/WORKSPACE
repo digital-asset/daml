@@ -347,7 +347,8 @@ load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "sc
 maven_install(
     name = "maven",
     artifacts = [
-        "com.daml:bindings-akka_2.13:{}".format(latest_stable_version),
+        "com.daml:bindings-akka_2.13:{}".format("2.7.6"),
+        "com.daml:bindings-pekko_2.13:{}".format(latest_stable_version),
         "com.daml:daml-lf-archive-reader_2.13:{}".format(latest_stable_version),
         "com.daml:daml-lf-transaction_2.13:{}".format(latest_stable_version),
         "com.daml:ledger-api-common_2.13:{}".format(latest_stable_version),
