@@ -75,8 +75,11 @@ main = do
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
   withTempDir $ \damlHome -> do
     setEnv "DAML_HOME" damlHome True
-    -- Install sdk 0.0.0 into temp DAML_HOME
-    void $ readCreateProcess (proc damlAssistant ["install", release]) ""
+    -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
+    -- corresponds to:
+    --   - `0.0.0` on PR builds
+    --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
+    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", sdkVersion]) ""
     -- Install a copy under the release version 10.0.0
     void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
     defaultMain $ tests damlAssistant
