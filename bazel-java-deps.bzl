@@ -58,7 +58,7 @@ guava_version = "31.1-jre"
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
 dropwizard_version = "4.1.33"
-opentelemetry_version = "1.22.0"
+opentelemetry_version = "1.32.0"
 prometheus_version = "0.14.1"
 
 # group libraries controlled by the same org
@@ -179,24 +179,22 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:{}".format(opentelemetry_version),
+            "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java8:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-jaeger:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-otlp-common:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-exporter-otlp-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-zipkin:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-logs:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-logs:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-metrics:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-semconv:{}-alpha".format(opentelemetry_version),
-            "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry.semconv:opentelemetry-semconv:1.23.1-alpha",
             "io.opentelemetry.contrib:opentelemetry-prometheus-client-bridge:{}-alpha".format(opentelemetry_version),
             "io.prometheus:simpleclient:{}".format(prometheus_version),
             "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
