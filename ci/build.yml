@@ -32,7 +32,6 @@ jobs:
 - job: Linux
   dependsOn:
     - check_for_release
-    - build_canton
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -154,8 +153,6 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
-  dependsOn:
-  - build_canton
   timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
@@ -316,7 +313,6 @@ jobs:
   dependsOn:
     - check_for_release
     - compatibility_ts_libs
-    - build_canton
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
