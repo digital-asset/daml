@@ -41,7 +41,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
@@ -156,7 +156,7 @@ object LedgerConnection {
       .builderFor(config.address, config.port.unwrap)
       .executor(ec)
       .intercept(
-        GrpcTracing.builder(tracerProvider.openTelemetry).build().newClientInterceptor()
+        GrpcTelemetry.builder(tracerProvider.openTelemetry).build().newClientInterceptor()
       )
     LedgerClient(builder.build(), clientConfig, loggerFactory)
   }

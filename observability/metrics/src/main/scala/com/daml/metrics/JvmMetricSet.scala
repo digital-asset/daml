@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import java.util
-import io.opentelemetry.instrumentation.runtimemetrics.{
+import io.opentelemetry.instrumentation.runtimemetrics.java8.{
   BufferPools,
   Classes,
   Cpu,
@@ -47,12 +47,14 @@ class JvmMetricSet extends MetricSet {
 object JvmMetricSet {
   private val Prefix = MetricName("jvm")
 
-  def registerObservers(openTelemetry: OpenTelemetry): Unit = {
-    BufferPools.registerObservers(openTelemetry)
-    Classes.registerObservers(openTelemetry)
-    Cpu.registerObservers(openTelemetry)
-    Threads.registerObservers(openTelemetry)
-    MemoryPools.registerObservers(openTelemetry)
-    GarbageCollector.registerObservers(openTelemetry)
+  def registerObservers(openTelemetry: OpenTelemetry): Seq[AutoCloseable] = {
+    Seq(
+      BufferPools.registerObservers(openTelemetry),
+      Classes.registerObservers(openTelemetry),
+      Cpu.registerObservers(openTelemetry),
+      Threads.registerObservers(openTelemetry),
+      MemoryPools.registerObservers(openTelemetry),
+      GarbageCollector.registerObservers(openTelemetry),
+    ).flatMap(_.asScala)
   }
 }

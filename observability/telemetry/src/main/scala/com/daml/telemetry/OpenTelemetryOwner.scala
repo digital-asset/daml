@@ -36,7 +36,7 @@ case class OpenTelemetryOwner(
           // if no trace exporter is configured then default to none instead of the oltp default used by the library
           sys.props.addOne("otel.traces.exporter" -> "none")
         }
-        AutoConfiguredOpenTelemetrySdk
+        val builder = AutoConfiguredOpenTelemetrySdk
           .builder()
           .addMeterProviderCustomizer { case (builder, _) =>
             val meterProviderBuilder = addViewsToProvider(builder, histograms)
@@ -48,10 +48,12 @@ case class OpenTelemetryOwner(
               meterProviderBuilder.registerMetricReader(PrometheusCollector.create())
             } else meterProviderBuilder
           }
-          .registerShutdownHook(false)
-          .setResultAsGlobal(setAsGlobal)
-          .build()
-          .getOpenTelemetrySdk
+          .disableShutdownHook()
+        val sdk =
+          if (setAsGlobal)
+            builder.setResultAsGlobal().build()
+          else builder.build()
+        sdk.getOpenTelemetrySdk
       }
     ) { sdk =>
       Future {

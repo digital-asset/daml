@@ -16,42 +16,43 @@ import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.{SimpleSpanProcessor, SpanExporter}
-import io.opentelemetry.semconv.resource.attributes.ResourceAttributes
+import io.opentelemetry.semconv.ResourceAttributes
 
 import java.util
 
 /** Provides tracer for span reporting and takes care of closing resources
-  */
+ */
 trait TracerProvider {
   def tracer: Tracer
+
   def openTelemetry: OpenTelemetry
 }
 
 /** Generates traces and reports using given exporter
-  */
+ */
 private[tracing] class ReportingTracerProvider(
-    exporter: SpanExporter,
-    name: String,
-    attributes: Map[String, String] = Map(),
-) extends TracerProviderWithBuilder(
-      ConfiguredOpenTelemetry(
-        OpenTelemetrySdk
-          .builder()
-          .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-          .build(),
-        SdkTracerProvider.builder
-          .addSpanProcessor(SimpleSpanProcessor.create(exporter)),
-        NoOpOnDemandMetricsReader$,
-      ),
-      name,
-      attributes,
-    )
+                                                exporter: SpanExporter,
+                                                name: String,
+                                                attributes: Map[String, String] = Map(),
+                                              ) extends TracerProviderWithBuilder(
+  ConfiguredOpenTelemetry(
+    OpenTelemetrySdk
+      .builder()
+      .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+      .build(),
+    SdkTracerProvider.builder
+      .addSpanProcessor(SimpleSpanProcessor.create(exporter)),
+    NoOpOnDemandMetricsReader$,
+  ),
+  name,
+  attributes,
+)
 
 private[tracing] class TracerProviderWithBuilder(
-    configuredOpenTelemetry: ConfiguredOpenTelemetry,
-    name: String,
-    attributes: Map[String, String] = Map(),
-) extends TracerProvider {
+                                                  configuredOpenTelemetry: ConfiguredOpenTelemetry,
+                                                  name: String,
+                                                  attributes: Map[String, String] = Map(),
+                                                ) extends TracerProvider {
   private val tracerProvider: SdkTracerProvider = {
     val attrs = attributes
       .foldRight(Attributes.builder()) { case ((key, value), builder) =>
@@ -69,7 +70,7 @@ private[tracing] class TracerProviderWithBuilder(
     OpenTelemetrySdk.builder
       .setPropagators(configuredOpenTelemetry.openTelemetry.getPropagators)
       .setMeterProvider(configuredOpenTelemetry.openTelemetry.getSdkMeterProvider)
-      .setLogEmitterProvider(configuredOpenTelemetry.openTelemetry.getSdkLogEmitterProvider)
+      .setLoggerProvider(configuredOpenTelemetry.openTelemetry.getSdkLoggerProvider)
       .setTracerProvider(tracerProvider)
       .build
 
@@ -78,13 +79,15 @@ private[tracing] class TracerProviderWithBuilder(
 }
 
 /** Generates traces but does not report
-  */
+ */
 object NoReportingTracerProvider extends ReportingTracerProvider(NoopSpanExporter, "no-reporting")
 
 object NoopSpanExporter extends SpanExporter {
   override def `export`(spans: util.Collection[SpanData]): CompletableResultCode =
     CompletableResultCode.ofSuccess()
+
   override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()
+
   override def shutdown(): CompletableResultCode = CompletableResultCode.ofSuccess()
 }
 

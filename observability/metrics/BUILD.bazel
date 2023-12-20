@@ -36,7 +36,7 @@ da_scala_library(
         "@maven//:io_dropwizard_metrics_metrics_graphite",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_metrics",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_telemetry_java8",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
@@ -103,7 +103,7 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:io_opentelemetry_opentelemetry_semconv",
+        "@maven//:io_opentelemetry_semconv_opentelemetry_semconv",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

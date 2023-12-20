@@ -126,10 +126,12 @@ final case class MetricsFactory(
     reporters: Seq[metrics.Reporter],
     registry: metrics.MetricRegistry,
     reportJVMMetrics: Boolean,
-    meter: Meter,
+    openTelemetry: OpenTelemetry,
     factoryType: MetricsFactoryType,
     reportExecutionContextMetrics: Boolean,
 ) extends AutoCloseable {
+
+  private val otelMeter = openTelemetry.meterBuilder("canton").build()
 
   @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
   val metricsFactory: MetricHandle.MetricsFactory =
@@ -157,7 +159,7 @@ final case class MetricsFactory(
   // add default, system wide metrics to the metrics reporter
   if (reportJVMMetrics) {
     registry.registerAll(new JvmMetricSet) // register Daml repo JvmMetricSet
-    JvmMetricSet.registerObservers() // requires OpenTelemetry to have the global lib setup
+    JvmMetricSet.registerObservers(openTelemetry)
   }
 
   private def newRegistry(prefix: String): metrics.MetricRegistry = {
@@ -259,7 +261,7 @@ final case class MetricsFactory(
         provider(extraContext)
       case MetricsFactoryType.External =>
         new CantonOpenTelemetryMetricsFactory(
-          meter,
+          otelMeter,
           globalMetricsContext = MetricsContext(
             "canton_version" -> BuildInfo.version
           ).merge(extraContext),
@@ -322,7 +324,7 @@ object MetricsFactory extends LazyLogging {
       reporter,
       registry,
       config.reportJvmMetrics,
-      openTelemetry.meterBuilder("canton").build(),
+      openTelemetry,
       metricsFactoryType,
       config.reportExecutionContextMetrics,
     )

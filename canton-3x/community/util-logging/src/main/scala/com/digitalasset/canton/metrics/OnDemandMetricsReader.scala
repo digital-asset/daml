@@ -4,8 +4,9 @@
 package com.digitalasset.canton.metrics
 
 import io.opentelemetry.sdk.common.CompletableResultCode
+import io.opentelemetry.sdk.metrics.InstrumentType
+import io.opentelemetry.sdk.metrics.`export`.{CollectionRegistration, MetricReader}
 import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
-import io.opentelemetry.sdk.metrics.`export`.{MetricProducer, MetricReader, MetricReaderFactory}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
@@ -24,30 +25,28 @@ object OnDemandMetricsReader {
 }
 
 class OpenTelemetryOnDemandMetricsReader
-    extends MetricReaderFactory
-    with MetricReader
+  extends MetricReader
+    with CollectionRegistration
     with OnDemandMetricsReader {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val optionalProducer = new AtomicReference[Option[MetricProducer]](None)
+  private val optionalRegistration = new AtomicReference[Option[CollectionRegistration]](None)
 
-  override def apply(producer: MetricProducer): MetricReader = {
-    optionalProducer.set(Some(producer))
-    this
-  }
+  override def register(registration: CollectionRegistration): Unit =
+    optionalRegistration.set(Some(registration))
 
-  override def getPreferredTemporality: AggregationTemporality = AggregationTemporality.CUMULATIVE
+  override def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality = AggregationTemporality.CUMULATIVE
 
-  override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()
+  override def forceFlush(): CompletableResultCode = CompletableResultCode.ofSuccess()
 
   override def shutdown(): CompletableResultCode = {
-    optionalProducer.set(None)
+    optionalRegistration.set(None)
     CompletableResultCode.ofSuccess()
   }
 
   override def read(): Seq[MetricData] = {
-    optionalProducer
+    optionalRegistration
       .get()
       .map { producer =>
         producer.collectAllMetrics().asScala.toSeq
@@ -57,5 +56,4 @@ class OpenTelemetryOnDemandMetricsReader
         Seq.empty
       }
   }
-
 }

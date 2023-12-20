@@ -58,7 +58,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.atomic.AtomicReference
@@ -382,7 +382,7 @@ class StartableStoppableLedgerApiServer(
       config.loggerFactory,
       config.cantonParameterConfig.loggingConfig.api,
     ),
-    GrpcTracing
+    GrpcTelemetry
       .builder(config.tracerProvider.openTelemetry)
       .build()
       .newServerInterceptor(),

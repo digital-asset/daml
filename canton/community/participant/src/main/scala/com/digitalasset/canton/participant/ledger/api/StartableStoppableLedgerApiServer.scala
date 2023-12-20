@@ -4,30 +4,19 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalExplicitDisclosure,
-}
+import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalExplicitDisclosure}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.concurrent.{
-  ExecutionContextIdlenessExecutorService,
-  FutureSupervisor,
-}
+import com.digitalasset.canton.concurrent.{ExecutionContextIdlenessExecutorService, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
-  TimedReadService,
-  TimedWriteService,
-}
+import com.digitalasset.canton.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
@@ -35,19 +24,12 @@ import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticatorImpl
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
-import com.digitalasset.canton.platform.apiserver.ratelimiting.{
-  RateLimitingInterceptor,
-  ThreadpoolCheck,
-}
+import com.digitalasset.canton.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.indexer.IndexerConfig.DefaultIndexerStartupMode
-import com.digitalasset.canton.platform.indexer.{
-  IndexerConfig,
-  IndexerServiceOwner,
-  IndexerStartupMode,
-}
+import com.digitalasset.canton.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.digitalasset.canton.platform.localstore.*
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.platform.store.DbSupport
@@ -58,7 +40,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.atomic.AtomicReference
@@ -385,7 +367,7 @@ class StartableStoppableLedgerApiServer(
       config.loggerFactory,
       config.cantonParameterConfig.loggingConfig.api,
     ),
-    GrpcTracing
+    GrpcTelemetry
       .builder(config.tracerProvider.openTelemetry)
       .build()
       .newServerInterceptor(),
