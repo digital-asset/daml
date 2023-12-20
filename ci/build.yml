@@ -91,7 +91,6 @@ jobs:
 - job: Windows
   dependsOn:
     - check_for_release
-    - build_canton
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
