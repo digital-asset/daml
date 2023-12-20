@@ -38,7 +38,6 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: get-local-canton.yml
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
