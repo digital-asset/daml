@@ -329,7 +329,6 @@ class ProtocolProcessorTest
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,
-        skipRecipientsCheck = false,
       )(
         directExecutionContext: ExecutionContext,
         TransactionResultMessage.transactionResultMessageCast,

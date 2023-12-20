@@ -10,9 +10,10 @@ import java.sql.Connection
 private[postgresql] object PGTable {
 
   private def transposedInsertBase[FROM](
-      insertStatement: String
+      insertStatement: String,
+      ordering: Option[Ordering[FROM]] = None,
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
-    new BaseTable[FROM](fields) {
+    new BaseTable[FROM](fields, ordering) {
       override def executeUpdate: Array[Array[_]] => Connection => Unit =
         data =>
           connection =>
@@ -59,10 +60,17 @@ private[postgresql] object PGTable {
   ): Table[FROM] =
     transposedInsertBase(transposedInsertStatement(tableName, fields))(fields)
 
-  def idempotentTransposedInsert[FROM](tableName: String, keyFieldIndex: Int)(
+  def idempotentTransposedInsert[FROM](
+      tableName: String,
+      keyFieldIndex: Int,
+      ordering: Ordering[FROM],
+  )(
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] = {
     val insertSuffix = s"on conflict (${fields(keyFieldIndex)._1}) do nothing"
-    transposedInsertBase(transposedInsertStatement(tableName, fields, insertSuffix))(fields)
+    transposedInsertBase(
+      transposedInsertStatement(tableName, fields, insertSuffix),
+      Some(ordering),
+    )(fields)
   }
 }

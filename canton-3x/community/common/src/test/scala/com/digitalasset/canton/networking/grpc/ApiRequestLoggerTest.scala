@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.ApiLoggingConfig
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
@@ -31,7 +30,6 @@ import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 @nowarn("msg=match may not be exhaustive")
-@UnstableTest
 class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
   val ChannelName: String = "testSender"

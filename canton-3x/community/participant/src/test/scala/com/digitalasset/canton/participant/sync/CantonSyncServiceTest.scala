@@ -167,7 +167,6 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       () => true,
       FutureSupervisor.Noop,
       SuppressingLogger(getClass),
-      skipRecipientsCheck = false,
       multiDomainLedgerAPIEnabled = false,
     )
   }
