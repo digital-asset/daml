@@ -93,6 +93,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     *   <li>The transaction is annotated with the packages used during interpretation.</li>
     * </ul>
     *
+    * @param packageMap all the package known by the ledger with their name and version
+    * @param packagePreference the set of package that should be use to resolve package name in command and interface exercise
     * @param submitters the parties authorizing the root actions (both read and write) of the resulting transaction
     *                   ("committers" according to the ledger model)
     * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
@@ -103,6 +105,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     * @param submissionSeed the master hash used to derive node and contractId discriminators
     */
   def submit(
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+      packagePreference: Set[Ref.PackageId] = Set.empty,
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
@@ -114,7 +118,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     val submissionTime = cmds.ledgerEffectiveTime
 
     for {
-      processedCmds <- preprocessor.preprocessApiCommands(Map.empty, cmds.commands)
+      pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
+      processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
       result <-
         interpretCommands(
@@ -623,4 +628,5 @@ object Engine {
   def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
     StableConfig.copy(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
+
 }
