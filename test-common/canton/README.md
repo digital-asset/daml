@@ -1,18 +1,18 @@
 # Canton dependency
 
-This folder (along with the `canton` entry in `//deps.bzl`) contains the
-infrastructure to work with custom Canton Enterprise Edition versions.
+This folder contains the  infrastructure to work with custom 
+Canton Enterprise Edition versions.
 
-By default, we rely on the Canton-EE artifact defined in `BUILD.bazel`.
-However, we have the ability to, rather than depend on a published version,
-depend on an arbitrary Canton build.
+By default, we rely on the Canton-EE artifact defined in
+`BUILD.bazel`.  However, we have the ability to, rather than depend on
+a published version, depend on an arbitrary jar.
 
 ## Local development
 
-For local development, you can set the `local` attribute to `True` in
-`canton_dep.bzl`, and, rather than looking at the downloaded Canton-EE release,
-the Bazel build will then look for a local file under `canton/lib/canton-ee.jar`
-for its Canton source.
+For local development, you can set the `local_ee_canton` variable in
+`BUILD.bazel`, and, rather than looking at the downloaded Canton-EE
+release, the Bazel build will then look for a local file under
+`canton/lib/canton-ee.jar` for its Canton source.
 
 How you get that canton-ee jar there is entirely up to you; the assumption is
 that this would be the result of building a local checkout of Canton with your
@@ -36,9 +36,3 @@ filters to empty for the current run, you overwrite the `-canton-ee` set in
 and including the tests).
 
 Those tests are run on CI.
-
-## Running Tests with a Custom Open-Source Edition Canton
-
-The non-ee tests run against the code under the `canton` directory at the root
-of the repo. In order to run against a custom version of that code, simply
-modify it.
