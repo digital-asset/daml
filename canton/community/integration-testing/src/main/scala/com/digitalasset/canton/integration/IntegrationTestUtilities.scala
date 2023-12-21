@@ -11,6 +11,7 @@ import com.digitalasset.canton.console.{
   InstanceReference,
   InstanceReferenceWithSequencerConnection,
   LocalParticipantReference,
+  LocalParticipantReferenceCommon,
 }
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
@@ -83,6 +84,16 @@ object IntegrationTestUtilities {
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
+  def grabCountsX(
+      domain: DomainAlias,
+      pr: LocalParticipantReferenceCommon,
+      limit: Int = 100,
+  ): GrabbedCounts = {
+    val pcsCount = pr.testing.pcs_search(domain, limit = limit).length
+    val acceptedTransactionCount = pr.testing.transaction_search(Some(domain), limit = limit).length
+    mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
+  }
+
   def expectedGrabbedCountsForBong(levels: Long, validators: Int = 0): GrabbedCounts = {
     // 2^(n+2) - 3 contracts plus input ping (last collapse changes to pong) plus PingProposals for validator
     val contracts = (math.pow(2, levels + 2d) - 3 + 1).toInt + validators
@@ -91,7 +102,7 @@ object IntegrationTestUtilities {
     GrabbedCounts(contracts, events)
   }
 
-  def assertIncreasingRecordTime(domain: DomainAlias, pr: LocalParticipantReference): Unit =
+  def assertIncreasingRecordTime(domain: DomainAlias, pr: LocalParticipantReferenceCommon): Unit =
     assertIncreasingRecordTime(domain, alias => pr.testing.event_search(alias))
 
   def assertIncreasingRecordTime(
@@ -117,7 +128,7 @@ object IntegrationTestUtilities {
       tree.rootEventIds.size == 1,
       s"Received transaction with not exactly one root node: $tree",
     )
-    tree.eventsById(tree.rootEventIds(0)).kind match {
+    tree.eventsById(tree.rootEventIds.head).kind match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(

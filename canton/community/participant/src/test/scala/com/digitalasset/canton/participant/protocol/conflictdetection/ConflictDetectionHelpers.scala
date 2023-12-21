@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.syntax.functor.*
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -99,7 +98,7 @@ private[protocol] trait ConflictDetectionHelpers {
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   def insertEntriesAcs(
       acs: ActiveContractStore,

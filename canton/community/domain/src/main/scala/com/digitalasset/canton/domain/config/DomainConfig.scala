@@ -194,7 +194,7 @@ final case class CommunityDomainConfig(
   *
   * @param adminApi the client settings used to connect to the admin api of the remote process.
   * @param publicApi these details are provided to other nodes to use for how they should
-  *                  connect to the sequencer if the domain node has an embedded sequencer
+  *                            connect to the sequencer if the domain node has an embedded sequencer
   */
 final case class RemoteDomainConfig(
     adminApi: ClientConfig,

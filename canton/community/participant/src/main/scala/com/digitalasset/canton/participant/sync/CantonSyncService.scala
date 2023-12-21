@@ -34,7 +34,6 @@ import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.Tra
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
@@ -109,8 +108,8 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.event.Level
 
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -363,6 +362,7 @@ class CantonSyncService(
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
+      optDomainId: Option[DomainId],
       transactionMeta: TransactionMeta,
       transaction: LfSubmittedTransaction,
       _estimatedInterpretationCost: Long,
@@ -377,6 +377,7 @@ class CantonSyncService(
       logger.debug(s"Received submit-transaction ${submitterInfo.commandId} from ledger-api server")
       submitTransactionF(
         submitterInfo,
+        optDomainId,
         transactionMeta,
         transaction,
         keyResolver,
@@ -472,6 +473,7 @@ class CantonSyncService(
 
   private def submitTransactionF(
       submitterInfo: SubmitterInfo,
+      optDomainId: Option[DomainId],
       transactionMeta: TransactionMeta,
       transaction: LfSubmittedTransaction,
       keyResolver: LfKeyResolver,
@@ -508,6 +510,7 @@ class CantonSyncService(
     } else {
       val submittedFF = domainRouter.submitTransaction(
         submitterInfo,
+        optDomainId,
         transactionMeta,
         keyResolver,
         transaction,
@@ -520,18 +523,18 @@ class CantonSyncService(
             // Reply with ACK as soon as the submission has been registered as in-flight,
             // and asynchronously send it to the sequencer.
             logger.debug(s"Command ${submitterInfo.commandId} is now in flight.")
-            val loggedF = sequencedF.transform {
-              case Success(UnlessShutdown.Outcome(_)) =>
-                logger.debug(s"Successfully submitted transaction ${submitterInfo.commandId}.")
-                Success(UnlessShutdown.Outcome(()))
-              case Success(UnlessShutdown.AbortedDueToShutdown) =>
-                logger.debug(
-                  s"Transaction submission aborted due to shutdown ${submitterInfo.commandId}."
-                )
-                Success(UnlessShutdown.Outcome(()))
-              case Failure(ex) =>
-                logger.error(s"Command submission for ${submitterInfo.commandId} failed", ex)
-                Success(UnlessShutdown.Outcome(()))
+            val loggedF = sequencedF.transformIntoSuccess { result =>
+              result match {
+                case Success(UnlessShutdown.Outcome(_)) =>
+                  logger.debug(s"Successfully submitted transaction ${submitterInfo.commandId}.")
+                case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                  logger.debug(
+                    s"Transaction submission aborted due to shutdown ${submitterInfo.commandId}."
+                  )
+                case Failure(ex) =>
+                  logger.error(s"Command submission for ${submitterInfo.commandId} failed", ex)
+              }
+              UnlessShutdown.unit
             }
             Right(loggedF)
           case Success(Left(submissionError)) =>
@@ -550,17 +553,6 @@ class CantonSyncService(
         Success(loggedResult)
       }
     }
-  }
-
-  override def submitConfiguration(
-      _maxRecordTimeToBeRemovedUpstream: participant.LedgerSyncRecordTime,
-      submissionId: LedgerSubmissionId,
-      config: Configuration,
-  )(implicit
-      traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] = {
-    logger.info("Canton does not support dynamic reconfiguration of time model")
-    CompletableFuture.completedFuture(TransactionError.NotSupported)
   }
 
   /** Build source for subscription (for ledger api server indexer).
@@ -584,7 +576,9 @@ class CantonSyncService(
                 event
                   .traverse(eventTranslationStrategy.translate)
                   .map { e =>
-                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")
+                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
+                      e.traceContext
+                    )
                     (UpstreamOffsetConvert.fromGlobalOffset(offset), e)
                   }
               },
@@ -1154,7 +1148,7 @@ class CantonSyncService(
                     loggerFactory,
                   ),
                 domainMetrics,
-                parameters.cachingConfigs.sessionKeyCacheConfig,
+                parameters.cachingConfigs.sessionKeyCache,
                 participantId,
               )
           )

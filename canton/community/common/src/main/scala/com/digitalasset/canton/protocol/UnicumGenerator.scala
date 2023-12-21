@@ -205,7 +205,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       .build(HashPurpose.Unicum)
       // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
       // so salts have fixed length.
-      .addWithoutLengthPrefix(contractSalt.forHashing(contractIdVersion))
+      .addWithoutLengthPrefix(contractSalt.forHashing)
       .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
       // The hash of the contract instance has a fixed length, so we do not need a length prefix
       .addWithoutLengthPrefix(suffixedContractInstance.contractHash.bytes.toByteString)
@@ -218,13 +218,13 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       contractSalt: Salt,
       contractIdVersion: CantonContractIdVersion,
   ): Hash = {
-    val observers = metadata.stakeholders -- metadata.signatories
+    val nonSignatoryStakeholders = metadata.stakeholders -- metadata.signatories
 
     val hash = cryptoOps
       .build(HashPurpose.Unicum)
       // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
       // so salts have fixed length.
-      .addWithoutLengthPrefix(contractSalt.forHashing(contractIdVersion))
+      .addWithoutLengthPrefix(contractSalt.forHashing)
       .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
       .add(
         DeterministicEncoding.encodeSeqWith(metadata.signatories.toSeq.sorted)(
@@ -232,7 +232,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         )
       )
       .add(
-        DeterministicEncoding.encodeSeqWith(observers.toSeq.sorted)(
+        DeterministicEncoding.encodeSeqWith(nonSignatoryStakeholders.toSeq.sorted)(
           DeterministicEncoding.encodeParty
         )
       )

@@ -196,26 +196,21 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
     TraceContext.withNewTraceContext { traceContext =>
       val withExtendedMst = extendMaxSequencingTime(submission)
-      val sendET = if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-        for {
-          // We need a new signature because we've modified the max sequencing time.
-          signedRequest <- requestSigner
-            .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)(
-              implicitly,
-              traceContext,
-            )
-            .leftMap(error =>
-              SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
-            )
-          _ <- underlyingTransport.sendAsyncSigned(
-            signedRequest,
-            replaySendsConfig.sendTimeout.toScala,
-          )(traceContext)
-        } yield ()
-      } else {
-        underlyingTransport
-          .sendAsync(withExtendedMst, replaySendsConfig.sendTimeout.toScala)(traceContext)
-      }
+      val sendET = for {
+        // We need a new signature because we've modified the max sequencing time.
+        signedRequest <- requestSigner
+          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)(
+            implicitly,
+            traceContext,
+          )
+          .leftMap(error =>
+            SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
+          )
+        _ <- underlyingTransport.sendAsyncSigned(
+          signedRequest,
+          replaySendsConfig.sendTimeout.toScala,
+        )(traceContext)
+      } yield ()
 
       sendET.value
         .map(handleSendResult)
@@ -390,21 +385,14 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   }
 
   /** We're replaying sends so shouldn't allow the app to send any new ones */
-  override def sendAsync(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
-
-  /** We're replaying sends so shouldn't allow the app to send any new ones */
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     EitherT.rightT(())
 
-  override def sendAsyncUnauthenticated(
+  /** We're replaying sends so shouldn't allow the app to send any new ones */
+  override def sendAsyncUnauthenticatedVersioned(
       request: SubmissionRequest,
       timeout: Duration,
   )(implicit
@@ -441,7 +429,7 @@ class ReplayingSendsSequencerClientTransportImpl(
     recordedPath: Path,
     replaySendsConfig: ReplayAction.SequencerSends,
     member: Member,
-    underlyingTransport: SequencerClientTransport,
+    val underlyingTransport: SequencerClientTransport & SequencerClientTransportPekko,
     requestSigner: RequestSigner,
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
@@ -458,7 +446,8 @@ class ReplayingSendsSequencerClientTransportImpl(
       timeouts,
       loggerFactory,
     )
-    with SequencerClientTransport {
+    with SequencerClientTransport
+    with SequencerClientTransportPekko {
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
@@ -487,6 +476,19 @@ class ReplayingSendsSequencerClientTransportImpl(
   ): AutoCloseable =
     underlyingTransport.subscribe(request, handler)
 
+  override type SubscriptionError = underlyingTransport.SubscriptionError
+
+  override def subscribe(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
+
+  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[SubscriptionError] =
+    underlyingTransport.subscribeUnauthenticated(request)
+
+  override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
+    SubscriptionErrorRetryPolicyPekko.never
 }
 
 class ReplayingSendsSequencerClientTransportPekko(
@@ -494,7 +496,7 @@ class ReplayingSendsSequencerClientTransportPekko(
     recordedPath: Path,
     replaySendsConfig: ReplayAction.SequencerSends,
     member: Member,
-    val underlyingTransport: SequencerClientTransportPekko & SequencerClientTransport,
+    underlyingTransport: SequencerClientTransportPekko & SequencerClientTransport,
     requestSigner: RequestSigner,
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
@@ -514,8 +516,6 @@ class ReplayingSendsSequencerClientTransportPekko(
     )
     with SequencerClientTransportPekko {
 
-  override type SubscriptionError = underlyingTransport.SubscriptionError
-
   override protected def subscribe(
       request: SubscriptionRequest,
       handler: SerializedEventHandler[NotUsed],
@@ -534,21 +534,4 @@ class ReplayingSendsSequencerClientTransportPekko(
       }
     }
   }
-
-  override def subscribe(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
-
-  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    underlyingTransport.subscribeUnauthenticated(request)
-
-  override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
-    SubscriptionErrorRetryPolicy.never
-
-  /** The transport can decide which errors will cause the sequencer client to not try to reestablish a subscription */
-  override def subscriptionRetryPolicyPekko
-      : SubscriptionErrorRetryPolicyPekko[underlyingTransport.SubscriptionError] =
-    SubscriptionErrorRetryPolicyPekko.never
 }

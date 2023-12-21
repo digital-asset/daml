@@ -188,9 +188,7 @@ private[domain] object RequestProcessingStrategy {
         transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, DomainTopologyManagerError, Unit] = if (protocolVersion < ProtocolVersion.v3)
-      EitherT.pure(())
-    else {
+    ): EitherT[Future, DomainTopologyManagerError, Unit] = {
       EitherT
         .fromEither[Future](transactions.traverse { tx =>
           for {
@@ -403,7 +401,6 @@ private[domain] object RequestProcessingStrategy {
 private[domain] class DomainTopologyManagerRequestService(
     strategy: RequestProcessingStrategy,
     crypto: CryptoPureApi,
-    protocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -422,31 +419,21 @@ private[domain] class DomainTopologyManagerRequestService(
       // run pre-checks first
       preChecked <- FutureUnlessShutdown.outcomeF(res.parTraverse(preCheck))
       preCheckedTx = res.zip(preChecked)
-      valid = preCheckedTx.collect { case (tx, Accepted) =>
-        tx
-      }
+      valid = preCheckedTx.collect { case (tx, Accepted) => tx }
       // pass the tx that passed the pre-check to the strategy
       outcome <- strategy.decide(requestedBy, participant, valid)
     } yield {
       val (rest, result) =
-        preCheckedTx.foldLeft((outcome, List.empty[RegisterTopologyTransactionResponseResult])) {
-          case ((result :: rest, acc), (tx, Accepted)) =>
+        preChecked.foldLeft((outcome, List.empty[RegisterTopologyTransactionResponseResult])) {
+          case ((result :: rest, acc), Accepted) =>
             (
               rest,
-              acc :+ RegisterTopologyTransactionResponseResult.create(
-                tx.uniquePath.toProtoPrimitive,
-                result,
-                protocolVersion,
-              ),
+              acc :+ RegisterTopologyTransactionResponseResult(result),
             )
-          case ((rest, acc), (tx, failed)) =>
+          case ((rest, acc), failed) =>
             (
               rest,
-              acc :+ RegisterTopologyTransactionResponseResult.create(
-                tx.uniquePath.toProtoPrimitive,
-                failed,
-                protocolVersion,
-              ),
+              acc :+ RegisterTopologyTransactionResponseResult(failed),
             )
         }
       ErrorUtil.requireArgument(rest.isEmpty, "rest should be empty!")
@@ -514,7 +501,6 @@ private[domain] object DomainTopologyManagerRequestService {
         futureSupervisor,
       ),
       manager.crypto.pureCrypto,
-      manager.protocolVersion,
       loggerFactory,
     )
   }

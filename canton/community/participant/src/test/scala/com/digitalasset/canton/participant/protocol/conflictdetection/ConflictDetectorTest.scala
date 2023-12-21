@@ -105,7 +105,7 @@ class ConflictDetectorTest
   private val key5: LfGlobalKey = ContractKeyJournalTest.globalKey(5)
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
   private val transferCounter1 = initialTransferCounter.map(_ + 1)
   private val transferCounter2 = initialTransferCounter.map(_ + 2)
 

@@ -19,8 +19,7 @@ import scala.annotation.nowarn
 
 class SequencerMetrics(
     parent: MetricName,
-    @nowarn("cat=deprecation")
-    val metricsFactory: MetricsFactory,
+    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
@@ -82,7 +81,7 @@ class SequencerMetrics(
 
   // TODO(i14580): add testing
   object trafficControl {
-    private val prefix = SequencerMetrics.this.prefix :+ "traffic-control"
+    private val prefix: MetricName = SequencerMetrics.this.prefix :+ "traffic-control"
 
     @MetricDoc.Tag(
       summary = "Raw size of an event received in the sequencer.",
@@ -122,11 +121,12 @@ object SequencerMetrics {
 }
 
 class EnvMetrics(
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory
+    @nowarn("cat=deprecation") factory: MetricsFactory
 ) {
   def prefix: MetricName = MetricName("env")
 
-  val executionContextQueueSizeName: MetricName = prefix :+ "execution-context" :+ "queue-size"
+  private val executionContextQueueSizeName: MetricName =
+    prefix :+ "execution-context" :+ "queue-size"
   @MetricDoc.Tag(
     summary = "Gives the number size of the global execution context queue",
     description = """This execution context is shared across all nodes running on the JVM""",
@@ -136,7 +136,6 @@ class EnvMetrics(
   private val executionContextQueueSizeDoc: Gauge[Long] = // For docs only
     NoOpGauge(executionContextQueueSizeName, 0L)
 
-  @nowarn("cat=deprecation")
   def registerExecutionContextQueueSize(f: () => Long): Unit = {
     factory
       .gaugeWithSupplier(
@@ -145,7 +144,6 @@ class EnvMetrics(
       )(MetricsContext.Empty)
       .discard
   }
-
 }
 
 @MetricDoc.GroupTag(
@@ -154,8 +152,7 @@ class EnvMetrics(
 )
 class DomainMetrics(
     val prefix: MetricName,
-    @nowarn("cat=deprecation")
-    val metricsFactory: MetricsFactory,
+    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
@@ -173,17 +170,15 @@ class DomainMetrics(
 
 class MediatorNodeMetrics(
     val prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") val metricsFactory: MetricsFactory,
+    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  @nowarn("cat=deprecation")
   object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
 
-  @nowarn("cat=deprecation")
   object mediator extends MediatorMetrics(prefix, metricsFactory)
 }
 
@@ -238,8 +233,7 @@ class MediatorMetrics(
 
 class IdentityManagerMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation")
-    metricsFactory: MetricsFactory,
+    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
 ) {
   val prefix: MetricName = basePrefix :+ "topology-manager"
 

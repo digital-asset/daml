@@ -154,6 +154,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
       ),
+      optDomainId = commands.domainId,
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,
         commands.workflowId.map(_.unwrap),
@@ -166,7 +167,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
             .to(ImmArray)
         ),
-        commands.domainId,
       ),
       transaction = updateTx,
       dependsOnLedgerTime = meta.dependsOnTime,
@@ -396,32 +396,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[String]] = {
-
-    val stakeholders = signatories ++ observers
-    val maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _))
-    ContractMetadata.create(
-      signatories = signatories,
-      stakeholders = stakeholders,
-      maybeKeyWithMaintainers = maybeKeyWithMaintainers,
-    ) match {
-      case Right(recomputedContractMetadata) =>
-        checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
-      case Left(message) =>
-        val enriched =
-          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
-        logger.info(enriched)
-        Future.successful(Some(enriched))
-    }
-
-  }
-
-  private def checkContractUpgradable(
-      coid: ContractId,
-      recomputedContractMetadata: ContractMetadata,
-      disclosedContracts: Map[ContractId, DisclosedContract],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[String]] = {
     import UpgradeVerificationResult.*
     type Result = EitherT[Future, UpgradeVerificationResult, UpgradeVerificationContractData]
 
@@ -480,6 +454,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
 
+    val recomputedContractMetadata =
+      ContractMetadata.tryCreate(
+        signatories = signatories,
+        stakeholders = signatories ++ observers,
+        maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _)),
+      )
+
     // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =
       EitherT(
@@ -507,26 +488,22 @@ private[apiserver] final class StoreBackedCommandExecutor(
         EitherT.leftT(DeprecatedDisclosedContractFormat: UpgradeVerificationResult)
     }
 
-    val handleVerificationResult: UpgradeVerificationResult => Option[String] = { result =>
-      val response: Option[String] = result match {
-        case Valid => None
-        case UpgradeFailure(message) => Some(message)
-        case ContractNotFound =>
-          // During submission the ResultNeedUpgradeVerification should only be called
-          // for contracts that are being upgraded. We do not support the upgrading of
-          // divulged contracts.
-          Some(s"Contract with $coid was not found or it refers to a divulged contract.")
-        case MissingDriverMetadata =>
-          Some(
-            s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
-          )
-        case DeprecatedDisclosedContractFormat =>
-          Some(
-            s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-          )
-      }
-      response.foreach(message => logger.info(message))
-      response
+    val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
+      case Valid => None
+      case UpgradeFailure(message) => Some(message)
+      case ContractNotFound =>
+        // During submission the ResultNeedUpgradeVerification should only be called
+        // for contracts that are being upgraded. We do not support the upgrading of
+        // divulged contracts.
+        Some(s"Contract with $coid was not found or it refers to a divulged contract.")
+      case MissingDriverMetadata =>
+        Some(
+          s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+        )
+      case DeprecatedDisclosedContractFormat =>
+        Some(
+          s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
+        )
     }
 
     disclosedContracts
@@ -568,11 +545,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
                 Versioned(
                   unusedTxVersion,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
+                    .assertBuild(disclosedContract.templateId, value, maintainers, shared = true),
                 )
             },
         ),

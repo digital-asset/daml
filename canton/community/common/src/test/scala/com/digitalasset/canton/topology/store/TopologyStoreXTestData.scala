@@ -33,14 +33,14 @@ class TopologyStoreXTestData(
         op,
         serial,
         mapping,
-        ProtocolVersion.CNTestNet,
+        ProtocolVersion.v30,
       ),
       signatures = NonEmpty(Set, Signature.noSignature),
       isProposal = isProposal,
     )(
       SignedTopologyTransactionX.supportedProtoVersions
         .protocolVersionRepresentativeFor(
-          ProtocolVersion.CNTestNet
+          ProtocolVersion.v30
         )
     )
 
@@ -103,8 +103,7 @@ class TopologyStoreXTestData(
 
   val tx1_NSD_Proposal = makeSignedTx(
     NamespaceDelegationX
-      .create(daDomainNamespace, signingKeys.head1, isRootDelegation = false)
-      .getOrElse(fail()),
+      .tryCreate(daDomainNamespace, signingKeys.head1, isRootDelegation = false),
     isProposal = true,
   )
   val tx2_OTK = makeSignedTx(
@@ -126,14 +125,12 @@ class TopologyStoreXTestData(
     isProposal = true,
   )
   val tx3_NSD = makeSignedTx(
-    NamespaceDelegationX
-      .create(daDomainNamespace, signingKeys.head1, isRootDelegation = false)
-      .getOrElse(fail())
+    NamespaceDelegationX.tryCreate(daDomainNamespace, signingKeys.head1, isRootDelegation = false)
   )
-  val tx4_USD = makeSignedTx(
-    UnionspaceDefinitionX
+  val tx4_DND = makeSignedTx(
+    DecentralizedNamespaceDefinitionX
       .create(
-        Namespace(Fingerprint.tryCreate("unionspace")),
+        Namespace(Fingerprint.tryCreate("decentralized-namespace")),
         PositiveInt.one,
         owners = owners,
       )

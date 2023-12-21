@@ -7,7 +7,6 @@ package com.digitalasset.canton.participant.protocol.v0;
 
 import "com/digitalasset/canton/participant/protocol/v0/ledger_sync_event.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message SubmissionTrackingData {
@@ -22,7 +21,7 @@ message SubmissionTrackingData {
 message TransactionSubmissionTrackingData {
   com.digitalasset.canton.participant.protocol.v0.CompletionInfo completion_info = 1;
   RejectionCause rejection_cause = 2;
-  google.protobuf.StringValue domain_id = 3; // optional for backwards compatibility
+  string domain_id = 3;
 
   message RejectionCause {
     oneof cause {

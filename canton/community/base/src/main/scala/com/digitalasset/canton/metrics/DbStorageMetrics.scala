@@ -16,10 +16,12 @@ import scala.concurrent.duration.*
   representative = "canton.db-storage.<service>.executor",
   groupableClass = classOf[DbQueueMetrics],
 )
+@nowarn("cat=deprecation")
 class DbStorageMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
+    metricsFactory: MetricsFactory,
 ) {
+
   val prefix: MetricName = basePrefix :+ "db-storage"
 
   def loadGaugeM(name: String): TimedLoadGauge = {
@@ -53,10 +55,13 @@ class DbStorageMetrics(
   object writeQueue extends DbQueueMetrics(prefix :+ "write", metricsFactory)
 
   object locks extends DbQueueMetrics(prefix :+ "locks", metricsFactory)
-
 }
 
-class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory: MetricsFactory) {
+@nowarn("cat=deprecation")
+class DbQueueMetrics(
+    basePrefix: MetricName,
+    factory: MetricsFactory,
+) {
   val prefix: MetricName = basePrefix :+ "executor"
 
   @MetricDoc.Tag(
@@ -69,7 +74,7 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |will be retried, but won't show up in this metric.""",
     qualification = Debug,
   )
-  val queue = factory.counter(prefix :+ "queued")
+  val queue: Counter = factory.counter(prefix :+ "queued")
 
   @MetricDoc.Tag(
     summary = "Number of database access tasks currently running",
@@ -77,7 +82,7 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |the current number of tasks running in parallel.""",
     qualification = Debug,
   )
-  val running = factory.counter(prefix :+ "running")
+  val running: Counter = factory.counter(prefix :+ "running")
 
   @MetricDoc.Tag(
     summary = "Scheduling time metric for database tasks",
@@ -85,11 +90,15 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |The time a task is waiting in this queue is monitored using this metric.""",
     qualification = Debug,
   )
-  val waitTimer = factory.timer(prefix :+ "waittime")
+  val waitTimer: Timer = factory.timer(prefix :+ "waittime")
 
 }
 
-class DbAlertMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory: MetricsFactory) {
+@nowarn("cat=deprecation")
+class DbAlertMetrics(
+    basePrefix: MetricName,
+    factory: MetricsFactory,
+) {
   val prefix: MetricName = basePrefix :+ "alerts"
 
   @MetricDoc.Tag(
@@ -117,5 +126,4 @@ class DbAlertMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
     qualification = Debug,
   )
   val failedMultiDomainEventLogWrites: Counter = factory.counter(prefix :+ "multi-domain-event-log")
-
 }

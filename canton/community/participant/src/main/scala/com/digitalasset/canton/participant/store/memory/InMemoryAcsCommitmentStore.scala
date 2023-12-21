@@ -23,7 +23,6 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import pprint.Tree
 
@@ -33,6 +32,7 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.math.Ordering
 
 class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory)(implicit
     val ec: ExecutionContext
@@ -66,13 +66,13 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       computed.synchronized {
         val oldMap = computed.getOrElse(counterParticipant, Map.empty)
         val oldCommitment = oldMap.getOrElse(period, commitment)
-        if (oldCommitment != commitment) {
-          ErrorUtil.internalError(
+        if (oldCommitment != commitment)
+          Future.failed(
             new IllegalArgumentException(
               s"Trying to store $commitment for $period and counter-participant $counterParticipant, but $oldCommitment is already stored"
             )
           )
-        } else {
+        else {
           computed.update(counterParticipant, oldMap + (period -> commitment))
           Future.unit
         }
@@ -110,9 +110,11 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(
       implicit traceContext: TraceContext
   ): Future[Unit] = {
-    if (counterParticipants.nonEmpty) {
+    logger.debug(
+      s"Added outstanding commitment period: $period with participants $counterParticipants"
+    )
+    if (counterParticipants.nonEmpty)
       _outstanding.updateAndGet(os => os ++ counterParticipants.map(period -> _))
-    }
     Future.unit
   }
 
@@ -190,6 +192,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
             sortedReconciliationIntervals,
           )
         )
+
         ()
     }
 
@@ -376,32 +379,6 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[List[AcsCommitment]] = syncF {
     queue.takeWhile(_.period.toInclusive <= timestamp).toList
-  }
-
-  /** Returns all commitments whose period ends at or after the given timestamp.
-    *
-    * Does not delete them from the queue.
-    */
-  override def peekThroughAtOrAfter(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] = {
-    syncF {
-      queue.filter(_.period.toInclusive >= timestamp).toSeq
-    }
-  }
-
-  def peekOverlapsForCounterParticipant(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]] = {
-    syncF {
-      queue
-        .filter(_.period.overlaps(period))
-        .filter(_.sender == counterParticipant)
-        .toSeq
-    }
   }
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */

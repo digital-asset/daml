@@ -10,10 +10,9 @@ import com.digitalasset.canton.domain.admin.v0 as adminproto
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.protocol.StaticDomainParameters as StaticDomainParametersInternal
 import com.google.protobuf.empty.Empty
-import io.grpc.{ManagedChannel, Status}
+import io.grpc.ManagedChannel
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
 
 object DomainAdminCommands {
 
@@ -45,7 +44,7 @@ object DomainAdminCommands {
         .bimap(_.toString, _.toSeq)
   }
 
-  final case class GetDomainParameters()(implicit ec: ExecutionContext)
+  final case class GetDomainParameters()
       extends BaseDomainServiceCommand[
         adminproto.GetDomainParameters.Request,
         adminproto.GetDomainParameters.Response,
@@ -57,27 +56,8 @@ object DomainAdminCommands {
     override def submitRequest(
         service: adminproto.DomainServiceGrpc.DomainServiceStub,
         request: adminproto.GetDomainParameters.Request,
-    ): Future[adminproto.GetDomainParameters.Response] = {
-      service
-        .getDomainParametersVersioned(adminproto.GetDomainParameters.Request())
-        .transformWith {
-          case Failure(exception: io.grpc.StatusRuntimeException)
-              if exception.getStatus.getCode == Status.Code.UNIMPLEMENTED =>
-            /*
-              The retry here is for backward compatibility reason.
-              The initial GetDomainParameters endpoints was not returning properly versioned
-              responses. If the new endpoint does not respond, we try the old one.
-             */
-            service
-              .getDomainParameters(Empty())
-              .map(adminproto.GetDomainParameters.Response.Parameters.ParametersV0(_))
-              .map(adminproto.GetDomainParameters.Response(_))
-
-          case Failure(exception) => Future.failed(exception)
-
-          case Success(value) => Future.successful(value)
-        }
-    }
+    ): Future[adminproto.GetDomainParameters.Response] =
+      service.getDomainParametersVersioned(adminproto.GetDomainParameters.Request())
 
     override def handleResponse(
         response: adminproto.GetDomainParameters.Response
@@ -86,32 +66,12 @@ object DomainAdminCommands {
 
       response.parameters match {
         case Parameters.Empty => Left("Field parameters was not found in the response")
-        case Parameters.ParametersV0(parametersV0) =>
-          (for {
-            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV0(
-              parametersV0
-            )
-            staticDomainParametersConfig <- StaticDomainParametersConfig(
-              staticDomainParametersInternal
-            )
-          } yield staticDomainParametersConfig).leftMap(_.toString)
-
         case Parameters.ParametersV1(parametersV1) =>
           (for {
             staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV1(
               parametersV1
             )
-            staticDomainParametersConfig <- StaticDomainParametersConfig(
-              staticDomainParametersInternal
-            )
-          } yield staticDomainParametersConfig).leftMap(_.toString)
-
-        case Parameters.ParametersV2(parametersV2) =>
-          (for {
-            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV2(
-              parametersV2
-            )
-            staticDomainParametersConfig <- StaticDomainParametersConfig(
+            staticDomainParametersConfig = StaticDomainParametersConfig(
               staticDomainParametersInternal
             )
           } yield staticDomainParametersConfig).leftMap(_.toString)

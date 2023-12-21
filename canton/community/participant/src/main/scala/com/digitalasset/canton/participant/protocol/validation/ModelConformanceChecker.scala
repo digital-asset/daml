@@ -378,8 +378,7 @@ object ModelConformanceChecker {
 
     new ModelConformanceChecker(
       reinterpret,
-      if (protocolVersion >= ProtocolVersion.v5) validateSerializedContract(damle)
-      else noSerializedContractValidation,
+      validateSerializedContract(damle),
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
@@ -395,13 +394,6 @@ object ModelConformanceChecker {
       actual: LfNodeCreate,
       expected: LfNodeCreate,
   ) extends ContractValidationFailure
-
-  private def noSerializedContractValidation(
-      contract: SerializableContract,
-      traceContext: TraceContext,
-  )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
-    EitherT.pure[Future, ContractValidationFailure](())
-  }
 
   private def validateSerializedContract(damle: DAMLe)(
       contract: SerializableContract,

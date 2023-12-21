@@ -102,7 +102,7 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
   * For example:
   * {{{
   * class MyTest extends FixtureAsyncWordSpec with ProtocolVersionChecksFixtureAsyncWordSpec {
-  *   "some feature" onlyRunWithOrGreaterThan ProtocolVersion.v4 in { implicit env =>
+  *   "some feature"  in { implicit env =>
   *     // this test is run only if the protocol version is v4 or later.
   *     // otherwise scalatest reports this test as ignored.
   *     testedProtocolVersion should be >= ProtocolVersion.v4
@@ -177,7 +177,7 @@ trait ProtocolVersionChecksFixtureAsyncWordSpec {
   * For example:
   * {{{
   * class MyTest extends AsyncWordSpec with ProtocolVersionChecksAsyncWordSpec {
-  *   "some feature" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+  *   "some feature"  in {
   *     // this test is run only if the protocol version is v4 or later.
   *     // otherwise scalatest reports this test as ignored.
   *     Future {
@@ -198,6 +198,11 @@ trait ProtocolVersionChecksAsyncWordSpec {
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion >= minProtocolVersion)
+
+    def onlyRunWithOrLessThan(
+        minProtocolVersion: ProtocolVersion
+    ): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion <= minProtocolVersion)
   }
 
   protected final class OnlyRunWhenWordSpecStringWrapper(
@@ -218,7 +223,7 @@ trait ProtocolVersionChecksAsyncWordSpec {
   * For example:
   * {{{
   * class MyTest extends AnyWordSpec with ProtocolVersionChecksAnyWordSpec {
-  *   "some feature" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+  *   "some feature"  in {
   *     // this test is run only if the protocol version is v4 or later.
   *     // otherwise scalatest reports this test as ignored.
   *     testedProtocolVersion should be >= ProtocolVersion.v4

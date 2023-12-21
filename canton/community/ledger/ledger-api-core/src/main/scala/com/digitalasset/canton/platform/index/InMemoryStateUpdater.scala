@@ -13,7 +13,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Util}
+import com.daml.lf.transaction.{Node, NodeId, Util}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
@@ -213,11 +213,6 @@ private[platform] object InMemoryStateUpdater {
           if (contractStateEventsBatch.nonEmpty) {
             inMemoryState.contractStateCaches.push(contractStateEventsBatch)
           }
-
-          inMemoryState.eventsByContractKeyCache.foreach { cache =>
-            val keyEventsBatch = convertToKeyEvents(transaction)
-            if (keyEventsBatch.nonEmpty) cache.push(keyEventsBatch)
-          }
         }
       )
     }
@@ -276,33 +271,6 @@ private[platform] object InMemoryStateUpdater {
         }.toVector
       case _ => Vector.empty
     }
-
-  private def convertToKeyEvents(
-      tx: TransactionLogUpdate
-  ): Vector[(GlobalKey, TransactionLogUpdate.Event)] = {
-    // TODO(i15443) if we want to keep this caching, we should re-visit it to support re-assignments
-    tx match {
-      case tx: TransactionLogUpdate.TransactionAccepted =>
-        tx.events.iterator
-          .collect({
-            case create: TransactionLogUpdate.CreatedEvent =>
-              create.contractKey.map { ck =>
-                val globalKey = Key.assertBuild(create.templateId, ck.unversioned)
-                globalKey -> create
-              }
-            case exercise: TransactionLogUpdate.ExercisedEvent if exercise.consuming =>
-              exercise.contractKey.map { ck =>
-                val globalKey = Key.assertBuild(exercise.templateId, ck.unversioned)
-                globalKey -> exercise
-              }
-            case _ => None
-
-          })
-          .flatten
-          .toVector
-      case _ => Vector.empty
-    }
-  }
 
   private def convertTransactionAccepted(
       offset: Offset,
@@ -400,7 +368,7 @@ private[platform] object InMemoryStateUpdater {
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = txAccepted.transactionMeta.optDomainId.map(_.toProtoPrimitive),
+            domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
             traceContext = traceContext,
           ),
           submitters = completionInfo.actAs.toSet,
@@ -415,7 +383,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,
-      domainId = txAccepted.transactionMeta.optDomainId.map(_.toProtoPrimitive),
+      domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
     )
   }
 
@@ -440,7 +408,7 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationOffset = deduplicationOffset,
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
-          domainId = u.domainId.map(_.toProtoPrimitive),
+          domainId = Some(u.domainId.toProtoPrimitive), // TODO(i15280)
           traceContext = traceContext,
         ),
         submitters = u.completionInfo.actAs.toSet,

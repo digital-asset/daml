@@ -255,6 +255,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map(),
+        domainId = DomainId.tryFromString("da::default"),
       )
 
       Option(sync.eventTranslationStrategy.augmentTransactionStatistics(event))

@@ -6,7 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands
+import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -99,6 +99,18 @@ abstract class TopologyAdministrationGroupCommon(
       ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
       ret
     }
+
+    /** run a topology change command synchronized and wait until the node becomes idle again */
+    private[console] def runAdminCommand[T](
+        timeout: Option[NonNegativeDuration]
+    )(grpcCommand: => GrpcAdminCommand[_, _, T]): T = {
+      val ret = consoleEnvironment.run(runner.adminCommand(grpcCommand))
+      // Only wait for topology synchronization if a timeout is specified.
+      if (timeout.nonEmpty) {
+        ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
+      }
+      ret
+    }
   }
 
 }
@@ -109,14 +121,8 @@ abstract class OwnerToKeyMappingsGroup(
     commandTimeouts: ConsoleCommandTimeout
 ) {
   def rotate_key(
-      owner: KeyOwner,
-      currentKey: PublicKey,
-      newKey: PublicKey,
-  ): Unit
-
-  def rotate_key(
       nodeInstance: InstanceReferenceCommon,
-      owner: KeyOwner,
+      owner: Member,
       currentKey: PublicKey,
       newKey: PublicKey,
   ): Unit
@@ -401,7 +407,7 @@ class TopologyAdministrationGroup(
   """)
     def authorize(
         ops: TopologyChangeOp,
-        keyOwner: KeyOwner,
+        keyOwner: Member,
         key: Fingerprint,
         purpose: KeyPurpose,
         signedBy: Option[Fingerprint] = None,
@@ -431,7 +437,7 @@ class TopologyAdministrationGroup(
       operation: Optionally, what type of operation the transaction should have. State store only has "Add".
       filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
 
-      filterKeyOwnerType: Filter for a particular type of key owner (KeyOwnerCode).
+      filterKeyOwnerType: Filter for a particular type of key owner.
       filterKeyOwnerUid: Filter for key owners unique identifier starting with the given filter string.
       filterKeyPurpose: Filter for keys with a particular purpose (Encryption or Signing)
       protocolVersion: Export the topology transactions in the optional protocol version.
@@ -441,7 +447,7 @@ class TopologyAdministrationGroup(
         useStateStore: Boolean = true,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = None,
-        filterKeyOwnerType: Option[KeyOwnerCode] = None,
+        filterKeyOwnerType: Option[MemberCode] = None,
         filterKeyOwnerUid: String = "",
         filterKeyPurpose: Option[KeyPurpose] = None,
         filterSigningKey: String = "",
@@ -479,7 +485,7 @@ class TopologyAdministrationGroup(
     )
     def rotate_key(
         nodeInstance: InstanceReferenceCommon,
-        owner: KeyOwner,
+        owner: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
     ): Unit = {
@@ -510,15 +516,6 @@ class TopologyAdministrationGroup(
         currentKey.purpose,
       ).discard
     }
-
-    def rotate_key(
-        owner: KeyOwner,
-        currentKey: PublicKey,
-        newKey: PublicKey,
-    ): Unit =
-      throw new IllegalArgumentException(
-        s"For this node use `rotate_key` where you specify the node instance"
-      )
   }
 
   @Help.Summary("Manage party to participant mappings")
@@ -1206,7 +1203,6 @@ class TopologyAdministrationGroup(
                 signedBy,
                 domainId,
                 newParameters,
-                protocolVersion,
                 force,
               )
           )

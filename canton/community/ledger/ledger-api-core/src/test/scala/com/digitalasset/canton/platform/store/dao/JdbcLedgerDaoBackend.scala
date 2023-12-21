@@ -9,12 +9,12 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.resources.PureResource
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
+import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -77,7 +77,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         new DropwizardMetricsFactory(registry),
         NoOpMetricsFactory,
         registry,
-        true,
+        reportExecutionContextMetrics = true,
       )
     }
     val dbType = DbType.jdbcType(jdbcUrl)

@@ -140,10 +140,6 @@ abstract sealed case class AcsCommitment private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  protected[messages] def toProtoSomeSignedProtocolMessage
-      : v0.SignedProtocolMessage.SomeSignedProtocolMessage =
-    v0.SignedProtocolMessage.SomeSignedProtocolMessage.AcsCommitment(getCryptographicEvidence)
-
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
       : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
     v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
@@ -167,7 +163,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
   override val name: String = "AcsCommitment"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.AcsCommitment)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.AcsCommitment)(
       supportedProtoVersionMemoized(_)(fromProtoV0),
       _.toProtoV0.toByteString,
     )

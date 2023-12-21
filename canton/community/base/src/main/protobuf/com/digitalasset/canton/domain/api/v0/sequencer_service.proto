@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.api.v0;
 
-import "com/digitalasset/canton/protocol/v0/sequencing.proto";
+import "com/digitalasset/canton/protocol/v1/signed_content.proto";
 import "com/digitalasset/canton/topology/admin/v0/topology_ext.proto";
 import "com/digitalasset/canton/v0/trace_context.proto";
 import "google/protobuf/empty.proto";
@@ -15,35 +15,6 @@ import "scalapb/scalapb.proto";
 // The service that a member can use to send messages to the domain and
 // receive events from the domain
 service SequencerService {
-  // Submit a send request to the sequencer for sequencing asynchronously.
-  // The rpc request may return an error if the request cannot be processed at all - see SendAsyncResponse for these scenarios.
-  // The sequencer may emit a Deliver or DeliverError event from this send,
-  // if the subscriber witnesses an event greater or equal to the supplied maxSequencingTime, the sequencer
-  // guarantees not to publish a future Deliver event for this send.
-  // The sequencer implementation may however publish a future DeliverError (typically used to indicate maxSequencingTime exceeded).
-  // Used in protocol version 3
-  rpc SendAsync(com.digitalasset.canton.protocol.v0.SubmissionRequest) returns (SendAsyncResponse);
-
-  // Newer version of request submission (for authenticated members).
-  // To be active for protocol versions 4.
-  // The argument here is a SubmissionRequest wrapped in SignedContent.
-  // The signature is checked on the server side to avoid that malicious sequencers create fake
-  // submission requests in multi-writer architectures where writers don't fully trust each other.
-  //
-  // Submit a send request to the sequencer for sequencing asynchronously.
-  // The rpc request may return an error if the request cannot be processed at all - see SendAsyncResponse for these scenarios.
-  // The sequencer may emit a Deliver or DeliverError event from this send,
-  // if the subscriber witnesses an event greater or equal to the supplied maxSequencingTime, the sequencer
-  // guarantees not to publish a future Deliver event for this send.
-  // The sequencer implementation may however publish a future DeliverError (typically used to indicate maxSequencingTime exceeded).
-  rpc SendAsyncSigned(com.digitalasset.canton.protocol.v0.SignedContent) returns (SendAsyncSignedResponse);
-
-  // Submit a send request to the sequencer for sequencing asynchronously exactly like SendAsync, except that this
-  // meant to be used only by unauthenticated members for very specific operations that do not require authentication
-  // such as requesting that a participant's topology data gets accepted by the topology manager
-  // Used in protocol versions 3 and 4
-  rpc SendAsyncUnauthenticated(com.digitalasset.canton.protocol.v0.SubmissionRequest) returns (SendAsyncResponse);
-
   // Submit a send request to the sequencer for sequencing asynchronously.
   // The rpc request may return an error if the request cannot be processed at all - see SendAsyncResponse for these scenarios.
   // The sequencer may emit a Deliver or DeliverError event from this send.
@@ -102,7 +73,7 @@ service SequencerService {
   // There is no requirement for every event to be individually acknowledged, and in fact callers are encouraged to
   // only periodically record acknowledgements (at an interval of minutes is expected to be more than sufficient for
   // pruning).
-  rpc AcknowledgeSigned(com.digitalasset.canton.protocol.v0.SignedContent) returns (google.protobuf.Empty);
+  rpc AcknowledgeSigned(com.digitalasset.canton.protocol.v1.SignedContent) returns (google.protobuf.Empty);
 
   // Download the topology state for a member up to including the topology transaction that made the member
   // known on the domain.
@@ -184,7 +155,7 @@ message SubscriptionRequest {
 }
 
 message SubscriptionResponse {
-  com.digitalasset.canton.protocol.v0.SignedContent signed_sequenced_event = 1;
+  com.digitalasset.canton.protocol.v1.SignedContent signed_sequenced_event = 1;
 
   // optional, canton trace context
   //

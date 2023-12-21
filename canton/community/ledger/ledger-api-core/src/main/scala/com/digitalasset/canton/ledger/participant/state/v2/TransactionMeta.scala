@@ -7,7 +7,6 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.NodeId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.topology.DomainId
 
 /** Meta-data of a transaction visible to all parties that can see a part of
   * the transaction.
@@ -43,15 +42,11 @@ final case class TransactionMeta(
     optUsedPackages: Option[Set[Ref.PackageId]],
     optNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
     optByKeyNodes: Option[ImmArray[NodeId]],
-    optDomainId: Option[
-      DomainId
-    ], // TODO(#13173) None for backwards compatibility, expected to be set for X nodes
 ) extends PrettyPrinting {
   override def pretty: Pretty[TransactionMeta.this.type] = prettyOfClass(
     param("ledgerEffectiveTime", _.ledgerEffectiveTime),
     paramIfDefined("workflowId", _.workflowId),
     param("submissionTime", _.submissionTime),
-    paramIfDefined("domainId", _.optDomainId),
     indicateOmittedFields,
   )
 }

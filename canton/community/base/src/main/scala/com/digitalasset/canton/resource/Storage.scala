@@ -597,6 +597,9 @@ object DbStorage {
     def ++(other: SQLActionBuilderChain): SQLActionBuilderChain = {
       new SQLActionBuilderChain(builders.concat(other.builders))
     }
+    def ++(others: Seq[SQLActionBuilderChain]): SQLActionBuilderChain = {
+      others.foldLeft(this)(_ ++ _)
+    }
     def intercalate(item: SQLActionBuilder): SQLActionBuilderChain = {
       new SQLActionBuilderChain(
         builders.foldLeft(Chain.empty[SQLActionBuilder]) { case (acc, elem) =>

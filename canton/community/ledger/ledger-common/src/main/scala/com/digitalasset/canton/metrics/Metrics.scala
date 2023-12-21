@@ -12,6 +12,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{ExecutorServiceMetrics, HealthMetrics}
 import io.opentelemetry.api.metrics.Meter
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
 
 import scala.annotation.nowarn
 
@@ -29,9 +30,9 @@ object Metrics {
     val registry = new MetricRegistry
     new Metrics(
       new DropwizardMetricsFactory(registry),
-      NoOpMetricsFactory,
+      new OpenTelemetryMetricsFactory(SdkMeterProvider.builder().build().get("for_testing")),
       registry,
-      true,
+      reportExecutionContextMetrics = true,
     )
   }
 }
@@ -103,6 +104,7 @@ final class Metrics(
           defaultMetricsFactory,
           labeledMetricsFactory,
         )
+
     @nowarn("cat=deprecation")
     object services
         extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labeledMetricsFactory)
@@ -110,6 +112,5 @@ final class Metrics(
     object grpc extends DamlGrpcServerMetrics(labeledMetricsFactory, "participant")
 
     object health extends HealthMetrics(labeledMetricsFactory)
-
   }
 }

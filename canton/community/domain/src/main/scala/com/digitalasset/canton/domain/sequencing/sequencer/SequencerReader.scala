@@ -507,11 +507,11 @@ class SequencerReader(
             filteredBatch,
             protocolVersion,
           )
-        case DeliverErrorStoreEvent(_, messageId, message, error, _traceContext) =>
+        case DeliverErrorStoreEvent(_, messageId, error, _traceContext) =>
           val status = DeliverErrorStoreEvent
-            .deserializeError(message, error, protocolVersion)
+            .fromByteString(error, protocolVersion)
             .valueOr(err => throw new DbDeserializationException(err.toString))
-          DeliverError.tryCreate(
+          DeliverError.create(
             counter,
             timestamp,
             domainId,

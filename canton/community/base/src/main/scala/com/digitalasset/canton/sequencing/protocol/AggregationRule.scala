@@ -79,11 +79,10 @@ object AggregationRule
   override def name: String = "AggregationRule"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v0.AggregationRule)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.AggregationRule)(
       supportedProtoVersion(_)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
+    )
   )
 
   private[canton] def fromProtoV0(proto: v0.AggregationRule): ParsingResult[AggregationRule] = {

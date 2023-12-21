@@ -295,9 +295,8 @@ class SendEventGenerator(
     def validateAndGenerateEvent(senderId: SequencerMemberId): Future[StoreEvent[Payload]] = {
       def deliverError(unknownRecipients: NonEmpty[Seq[Member]]): DeliverErrorStoreEvent = {
         val error = SequencerErrors.UnknownRecipients(unknownRecipients)
-        val (message, serializedError) =
-          DeliverErrorStoreEvent.serializeError(error, protocolVersion)
-        DeliverErrorStoreEvent.create(
+
+        DeliverErrorStoreEvent(
           senderId,
           submission.messageId,
           error,
@@ -416,8 +415,8 @@ object SequenceWritesFlow {
             else {
               val reason = SequencerErrors
                 .SigningTimestampAfterSequencingTimestamp(signingTimestamp, timestamp)
-                .forProtocolVersion(protocolVersion)
-              DeliverErrorStoreEvent.create(
+
+              DeliverErrorStoreEvent(
                 sender,
                 messageId,
                 reason,

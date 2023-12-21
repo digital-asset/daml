@@ -73,7 +73,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
     val certTypes = Set(
       TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.UnionspaceDefinitionX,
+      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
       TopologyMappingX.Code.IdentifierDelegationX,
     )
     val empty = Seq.empty[GenericStoredTopologyTransactionX]
@@ -121,22 +121,11 @@ object StoredTopologyTransactionsX
     StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> ProtoCodec(
-      ProtocolVersion.minimum,
-      _ =>
-        throw new UnsupportedOperationException(
-          s"Cannot deserialize: StoredTopologyTransactionsX are only supported from protocol version ${ProtocolVersion.CNTestNet}"
-        ),
-      _ =>
-        throw new UnsupportedOperationException(
-          s"Cannot serialize: StoredTopologyTransactionsX are only supported from protocol version ${ProtocolVersion.CNTestNet}"
-        ),
-    ),
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.CNTestNet,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.TopologyTransactions)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
+    )
   )
 
   def fromProtoV0(

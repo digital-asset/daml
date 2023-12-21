@@ -30,7 +30,6 @@ import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   LfPackageId,
@@ -56,7 +55,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
   lazy val acsDomainId: DomainId = DomainId.tryFromString(acsDomainStr.unwrap)
 
   lazy val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   lazy val tc1: TransferCounterO = initialTransferCounter.map(_ + 1)
   lazy val tc2: TransferCounterO = initialTransferCounter.map(_ + 2)
@@ -295,9 +294,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       val toc = TimeOfChange(rc, ts)
 
-      val faultyTransferCounter =
-        if (testedProtocolVersion < ProtocolVersion.CNTestNet) Some(TransferCounter.Genesis)
-        else None
+      val faultyTransferCounter = None
 
       for {
         marked <- acs.markContractActive(coid00 -> faultyTransferCounter, toc).value

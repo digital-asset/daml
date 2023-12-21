@@ -346,6 +346,13 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       environment.config.remoteDomainsByString.keys.map(createRemoteDomainReference).toSeq,
     )
 
+  lazy val mediatorsX
+      : NodeReferences[MediatorReferenceX, RemoteMediatorReferenceX, LocalMediatorReferenceX] =
+    NodeReferences(
+      environment.config.mediatorsByStringX.keys.map(createMediatorReferenceX).toSeq,
+      environment.config.remoteMediatorsByStringX.keys.map(createRemoteMediatorReferenceX).toSeq,
+    )
+
   // the scala compiler / wartremover gets confused here if I use ++ directly
   def mergeLocalInstances(
       locals: Seq[LocalInstanceReferenceCommon]*
@@ -490,6 +497,12 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def createDomainReference(name: String): DomainLocalRef
   protected def createRemoteDomainReference(name: String): DomainRemoteRef
 
+  private def createMediatorReferenceX(name: String): LocalMediatorReferenceX =
+    new LocalMediatorReferenceX(this, name)
+
+  private def createRemoteMediatorReferenceX(name: String): RemoteMediatorReferenceX =
+    new RemoteMediatorReferenceX(this, name)
+
   /** So we can we make this available
     */
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
@@ -518,7 +531,7 @@ object ConsoleEnvironment {
 
     implicit def toInstanceReferenceExtensions(
         instances: Seq[LocalInstanceReferenceCommon]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalInstanceReferenceCommon] =
       new LocalInstancesExtensions.Impl(instances)
 
     /** Implicit maps an LfPartyId to a PartyId */
@@ -528,19 +541,21 @@ object ConsoleEnvironment {
       */
     implicit def toLocalDomainExtensions(
         instances: Seq[LocalDomainReference]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalDomainReference] =
       new LocalDomainReferencesExtensions(instances)
 
     /** Extensions for many participant references
       */
-    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
-        consoleEnvironment: ConsoleEnvironment
+    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReferenceCommon])(
+        implicit consoleEnvironment: ConsoleEnvironment
     ): ParticipantReferencesExtensions =
       new ParticipantReferencesExtensions(participants)
 
     implicit def toLocalParticipantReferencesExtensions(
-        participants: Seq[LocalParticipantReference]
-    )(implicit consoleEnvironment: ConsoleEnvironment): LocalParticipantReferencesExtensions =
+        participants: Seq[LocalParticipantReferenceCommon]
+    )(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): LocalParticipantReferencesExtensions[LocalParticipantReferenceCommon] =
       new LocalParticipantReferencesExtensions(participants)
 
     /** Implicitly map strings to DomainAlias, Fingerprint and Identifier

@@ -6,9 +6,9 @@ package com.digitalasset.canton.platform.indexer.ha
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, IndexServiceConfig}
@@ -91,7 +91,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             new DropwizardMetricsFactory(registry),
             NoOpMetricsFactory,
             registry,
-            true,
+            reportExecutionContextMetrics = true,
           )
         }
         (inMemoryState, inMemoryStateUpdaterFlow) <-
@@ -104,7 +104,6 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
               tracer,
               loggerFactory,
               multiDomainEnabled = false,
-              maxEventsByContractKeyCacheSize = None,
             )
             .acquire()
 

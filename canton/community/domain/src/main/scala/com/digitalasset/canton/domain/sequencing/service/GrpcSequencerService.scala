@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.{DomainParametersLookup, v0 as protocolV0}
+import com.digitalasset.canton.protocol.{DynamicDomainParametersLookup, v1 as protocolV1}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -106,7 +106,7 @@ object GrpcSequencerService {
       metrics: SequencerMetrics,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
-      domainParamsLookup: DomainParametersLookup[SequencerDomainParameters],
+      domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
       topologyStateForInitializationService: Option[TopologyStateForInitializationService],
@@ -158,56 +158,6 @@ object GrpcSequencerService {
     def send(request: ValueClass, sequencer: Sequencer)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit]
-  }
-
-  private object PlainSubmissionRequestProcessing
-      extends SubmissionRequestProcessing[protocolV0.SubmissionRequest] {
-    override type ValueClass = SubmissionRequest
-
-    override def parse(
-        requestP: protocolV0.SubmissionRequest,
-        maxRequestSize: MaxRequestSize,
-        protocolVersion: ProtocolVersion, // unused; because this parse implementation uses proto version 0 always
-    ): ParsingResult[SubmissionRequest] =
-      SubmissionRequest.fromProtoV0(
-        requestP,
-        MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
-      )
-
-    override def unwrap(request: SubmissionRequest): SubmissionRequest = request
-
-    override def send(request: SubmissionRequest, sequencer: Sequencer)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] =
-      sequencer.sendAsync(request)
-  }
-
-  private object SignedSubmissionRequestProcessing
-      extends SubmissionRequestProcessing[protocolV0.SignedContent] {
-    override type ValueClass = SignedContent[SubmissionRequest]
-
-    override def parse(
-        requestP: protocolV0.SignedContent,
-        maxRequestSize: MaxRequestSize,
-        protocolVersion: ProtocolVersion,
-    ): ParsingResult[SignedContent[SubmissionRequest]] =
-      SignedContent
-        .fromProtoV0(requestP)
-        .flatMap(
-          _.deserializeContent(
-            SubmissionRequest
-              .fromByteString(protocolVersion)(
-                MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
-              )
-          )
-        )
-
-    override def unwrap(request: SignedContent[SubmissionRequest]): SubmissionRequest =
-      request.content
-
-    override def send(request: SignedContent[SubmissionRequest], sequencer: Sequencer)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = sequencer.sendAsyncSigned(request)
   }
 
   private object VersionedSignedSubmissionRequestProcessing
@@ -288,8 +238,9 @@ class GrpcSequencerService(
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
-    domainParamsLookup: DomainParametersLookup[SequencerDomainParameters],
+    domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
     parameters: SequencerParameters,
+    // TODO(#15161) Remove the option
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     protocolVersion: ProtocolVersion,
     enableBroadcastOfUnauthenticatedMessages: Boolean,
@@ -310,94 +261,23 @@ class GrpcSequencerService(
   def disconnectAllMembers()(implicit traceContext: TraceContext): Unit =
     subscriptionPool.closeAllSubscriptions()
 
-  override def sendAsyncSigned(
-      requestP: protocolV0.SignedContent
-  ): Future[v0.SendAsyncSignedResponse] =
-    if (!SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unsigned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The versioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        SignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncSignedResponseProto)
-    }
-
-  override def sendAsync(requestP: protocolV0.SubmissionRequest): Future[v0.SendAsyncResponse] =
-    if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The signed send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        PlainSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncResponseProto)
-    }
-
-  override def sendAsyncUnauthenticated(
-      requestP: protocolV0.SubmissionRequest
-  ): Future[v0.SendAsyncResponse] =
-    if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The versioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        PlainSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = false,
-      ).map(_.toSendAsyncResponseProto)
-    }
-
   override def sendAsyncVersioned(
       requestP: v0.SendAsyncVersionedRequest
   ): Future[v0.SendAsyncSignedResponse] =
-    if (!SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unversioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        VersionedSignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncSignedResponseProto)
-    }
+    validateAndSend(
+      requestP,
+      VersionedSignedSubmissionRequestProcessing,
+      isUsingAuthenticatedEndpoint = true,
+    ).map(_.toSendAsyncSignedResponseProto)
 
   override def sendAsyncUnauthenticatedVersioned(
       requestP: v0.SendAsyncUnauthenticatedVersionedRequest
   ): Future[v0.SendAsyncResponse] =
-    if (!SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unversioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        VersionedUnsignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = false,
-      ).map(_.toSendAsyncResponseProto)
-    }
+    validateAndSend(
+      requestP,
+      VersionedUnsignedSubmissionRequestProcessing,
+      isUsingAuthenticatedEndpoint = false,
+    ).map(_.toSendAsyncResponseProto)
 
   private def validateAndSend[ProtoClass <: scalapb.GeneratedMessage](
       proto: ProtoClass,
@@ -643,11 +523,7 @@ class GrpcSequencerService(
       nonIdmRecipients.isEmpty,
       (),
       refuse(request.messageId.toProtoPrimitive, unauthenticatedMember)(
-        if (protocolVersion >= ProtocolVersion.CNTestNet)
-          s"Unauthenticated member is trying to send message to members other than the topology broadcast address ${TopologyBroadcastAddress.recipient}"
-        else
-          s"Unauthenticated member is trying to send message to members other than the domain manager: ${nonIdmRecipients.toSet
-              .mkString(" ,")}."
+        s"Unauthenticated member is trying to send message to members other than the topology broadcast address ${TopologyBroadcastAddress.recipient}"
       ),
     )
   }
@@ -720,7 +596,7 @@ class GrpcSequencerService(
 
   private def toSubscriptionResponseV0(event: OrdinarySerializedEvent) =
     v0.SubscriptionResponse(
-      signedSequencedEvent = Some(event.signedEvent.toProtoV0),
+      signedSequencedEvent = Some(event.signedEvent.toProtoV1),
       Some(SerializableTraceContext(event.traceContext).toProtoV0),
     )
 
@@ -735,76 +611,42 @@ class GrpcSequencerService(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.SubscriptionResponse],
   ): Unit =
-    if (usingVersionedSubscription(protocolVersion))
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    else
-      subscribeInternal[v0.SubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = true,
-        toSubscriptionResponseV0,
-      )
-
-  def usingVersionedSubscription(protocolVersion: ProtocolVersion) =
-    protocolVersion >= ProtocolVersion.v5
+    responseObserver.onError(
+      wrongProtocolVersion(
+        s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def subscribeUnauthenticated(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.SubscriptionResponse],
-  ): Unit =
-    if (usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.SubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = false,
-        toSubscriptionResponseV0,
-      )
+  ): Unit = responseObserver.onError(
+    wrongProtocolVersion(
+      s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
+    ).asException
+  )
 
   override def subscribeVersioned(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
   ): Unit =
-    if (!usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The unversioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.VersionedSubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = true,
-        toVersionSubscriptionResponseV0,
-      )
+    subscribeInternal[v0.VersionedSubscriptionResponse](
+      request,
+      responseObserver,
+      requiresAuthentication = true,
+      toVersionSubscriptionResponseV0,
+    )
 
   override def subscribeUnauthenticatedVersioned(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
   ): Unit =
-    if (!usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The unversioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.VersionedSubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = false,
-        toVersionSubscriptionResponseV0,
-      )
+    subscribeInternal[v0.VersionedSubscriptionResponse](
+      request,
+      responseObserver,
+      requiresAuthentication = false,
+      toVersionSubscriptionResponseV0,
+    )
 
   private def subscribeInternal[T](
       request: v0.SubscriptionRequest,
@@ -871,34 +713,17 @@ class GrpcSequencerService(
     }
 
   override def acknowledge(requestP: v0.AcknowledgeRequest): Future[Empty] =
-    if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      performAcknowledge(
-        AcknowledgeRequest
-          .fromProtoV0Unmemoized(requestP)
-          .map(ack => PlainAcknowledgeRequest(ack))
-      )
+    Future.failed(
+      wrongProtocolVersion(
+        s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
-  override def acknowledgeSigned(request: protocolV0.SignedContent): Future[Empty] = {
-    if (!SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unsigned acknowledgement endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      val acknowledgeRequestE = SignedContent
-        .fromProtoV0(request)
-        .flatMap(
-          _.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion))
-        )
-      performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
-    }
+  override def acknowledgeSigned(request: protocolV1.SignedContent): Future[Empty] = {
+    val acknowledgeRequestE = SignedContent
+      .fromProtoV1(request)
+      .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
+    performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }
 
   private def performAcknowledge(
@@ -944,7 +769,7 @@ class GrpcSequencerService(
 
     logger.info(s"$member subscribes from counter=$counter")
     new GrpcManagedSubscription(
-      handler => directSequencerSubscriptionFactory.create(counter, "direct", member, handler),
+      handler => directSequencerSubscriptionFactory.create(counter, member, handler),
       observer,
       member,
       expireAt,

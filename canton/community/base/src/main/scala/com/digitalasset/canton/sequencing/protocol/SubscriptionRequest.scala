@@ -36,7 +36,7 @@ object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionReq
   override val name: String = "SubscriptionRequest"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> LegacyProtoConverter(ProtocolVersion.v3)(v0.SubscriptionRequest)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.SubscriptionRequest)(
       supportedProtoVersion(_)(fromProtoV0),
       _.toProtoV0.toByteString,
     )

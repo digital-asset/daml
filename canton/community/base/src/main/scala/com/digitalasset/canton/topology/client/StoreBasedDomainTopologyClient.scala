@@ -317,7 +317,7 @@ class StoreBasedDomainTopologyClient(
     val domainId: DomainId,
     val protocolVersion: ProtocolVersion,
     store: TopologyStore[TopologyStoreId],
-    initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
+    initKeys: Map[Member, Seq[SigningPublicKey]],
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
@@ -364,7 +364,7 @@ object StoreBasedDomainTopologyClient {
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
     store: TopologyStore[TopologyStoreId],
-    initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
+    initKeys: Map[Member, Seq[SigningPublicKey]],
     useStateTxs: Boolean,
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     val loggerFactory: NamedLoggerFactory,
@@ -525,7 +525,7 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  override def allKeys(owner: KeyOwner): Future[KeyCollection] =
+  override def allKeys(owner: Member): Future[KeyCollection] =
     findTransactions(
       asOfInclusive = false,
       includeSecondary = false,
@@ -673,9 +673,9 @@ class StoreBasedTopologySnapshot(
   /** Returns a list of all known parties on this domain */
   override def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] = {
+  ): Future[Map[Member, KeyCollection]] = {
     store
       .inspect(
         stateStore = useStateTxs,

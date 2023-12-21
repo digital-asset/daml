@@ -23,6 +23,7 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
@@ -68,7 +69,6 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatche
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
@@ -227,8 +227,7 @@ class SyncDomain(
     skipRecipientsCheck = skipRecipientsCheck,
   )
 
-  private val sortedReconciliationIntervalsProvider = SortedReconciliationIntervalsProvider(
-    staticDomainParameters,
+  private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
     topologyClient,
     futureSupervisor,
     loggerFactory,
@@ -259,7 +258,6 @@ class SyncDomain(
       pruneObserver.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.catchUpParameters,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,
@@ -511,12 +509,12 @@ class SyncDomain(
       // the multi-domain event log before the crash
       pending <- cleanPreHeadO.fold(
         EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
-      ) { lastProcessedCounter =>
+      ) { lastProcessedOffset =>
         EitherT.right(
           participantNodePersistentState.value.multiDomainEventLog
             .fetchUnpublished(
               id = persistent.eventLog.id,
-              upToInclusiveO = Some(LocalOffset(lastProcessedCounter)),
+              upToInclusiveO = Some(lastProcessedOffset),
             )
         )
       }
@@ -699,7 +697,7 @@ class SyncDomain(
     }).value
   }
 
-  def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
+  private def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val fetchLimit = 1000
 

@@ -32,15 +32,6 @@ final case class SequencerSnapshot(
 
   @transient override protected lazy val companionObj: SequencerSnapshot.type = SequencerSnapshot
 
-  def toProtoV0: v0.SequencerSnapshot = v0.SequencerSnapshot(
-    Some(lastTs.toProtoPrimitive),
-    heads.map { case (member, counter) =>
-      member.toProtoPrimitive -> counter.toProtoPrimitive
-    },
-    Some(status.toProtoV0),
-    additional.map(a => v0.ImplementationSpecificInfo(a.implementationName, a.info)),
-  )
-
   def toProtoV1: v1.SequencerSnapshot = {
     def serializeInFlightAggregation(
         args: (AggregationId, InFlightAggregation)
@@ -83,14 +74,10 @@ final case class SequencerSnapshot(
 
 object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SequencerSnapshot)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v1.SequencerSnapshot)(
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.SequencerSnapshot)(
       supportedProtoVersion(_)(fromProtoV1),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
 
   override def name: String = "sequencer snapshot"
@@ -108,7 +95,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def unimplemented(protocolVersion: ProtocolVersion) = SequencerSnapshot(
+  def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
     CantonTimestamp.MinValue,
     Map.empty,
     SequencerPruningStatus.Unimplemented,
@@ -118,36 +105,6 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
   )(protocolVersionRepresentativeFor(protocolVersion))
 
   final case class ImplementationSpecificInfo(implementationName: String, info: ByteString)
-
-  def fromProtoV0(
-      request: v0.SequencerSnapshot
-  ): ParsingResult[SequencerSnapshot] =
-    for {
-      lastTs <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "latestTimestamp",
-        request.latestTimestamp,
-      )
-      heads <- request.headMemberCounters.toList
-        .traverse { case (member, counter) =>
-          Member
-            .fromProtoPrimitive(member, "registeredMembers")
-            .map(m => m -> SequencerCounter(counter))
-        }
-        .map(_.toMap)
-      status <- ProtoConverter.parseRequired(
-        SequencerPruningStatus.fromProtoV0,
-        "status",
-        request.status,
-      )
-    } yield SequencerSnapshot(
-      lastTs,
-      heads,
-      status,
-      Map.empty,
-      request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
-      Map.empty,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
 
   def fromProtoV1(
       request: v1.SequencerSnapshot

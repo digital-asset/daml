@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTickerX
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   TrafficStateController,
@@ -230,11 +231,17 @@ class TopologyComponentFactoryX(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
 
+      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingTickerX(
+        recordOrderPublisher,
+        loggerFactory,
+      )
+
       val processor = new TopologyTransactionProcessorX(
         domainId,
         crypto,
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
+        terminateTopologyProcessing,
         topologyXConfig.enableTopologyTransactionValidation,
         futureSupervisor,
         timeouts,

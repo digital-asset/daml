@@ -3,7 +3,7 @@ build-options:
 - --target=1.14
 name: JsonEncodingTest
 source: JsonEncodingTest.daml
-version: 2.9.0
+version: 3.0.0
 dependencies: 
 - daml-prim
 - daml-stdlib

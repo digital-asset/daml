@@ -177,7 +177,7 @@ object ProtocolVersion {
   ) = {
     val supportedStablePVs = stableAndSupported.map(_.toString)
 
-    val supportedPVs: NonEmpty[List[String]] = if (includeDeleted) {
+    val supportedPVs = if (includeDeleted) {
       val deletedPVs = deleted.map(pv => s"(${pv.toString})")
       supportedStablePVs ++ deletedPVs
     } else supportedStablePVs
@@ -244,49 +244,38 @@ object ProtocolVersion {
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
   // All stable protocol versions supported by this release
-  private val stableAndSupported: NonEmpty[List[ProtocolVersion]] =
-    NonEmpty
-      .from(
-        BuildInfo.protocolVersions
-          .map(parseUnchecked)
-          .map(_.valueOr(sys.error))
-          .toList
-      )
-      .getOrElse(
-        sys.error("Release needs to support at least one protocol version")
-      )
+  // TODO(#15561) Switch to non-empty again
+  val stableAndSupported: List[ProtocolVersion] =
+    BuildInfo.protocolVersions
+      .map(parseUnchecked)
+      .map(_.valueOr(sys.error))
+      .toList
 
-  private val deprecated: Seq[ProtocolVersion] = Seq(v3, v4)
-  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2))
+  private val deprecated: Seq[ProtocolVersion] = Seq()
+  private val deleted: NonEmpty[Seq[ProtocolVersion]] =
+    NonEmpty(
+      Seq,
+      ProtocolVersion(2),
+      ProtocolVersion(3),
+      ProtocolVersion(4),
+      ProtocolVersion(5),
+      ProtocolVersion(6),
+    )
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
-    NonEmpty.mk(List, ProtocolVersion.v6, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v30, ProtocolVersion.dev)
 
-  val supported: NonEmpty[List[ProtocolVersion]] =
-    stableAndSupported ++ unstable
+  val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ stableAndSupported).sorted
 
-  val latest: ProtocolVersion = stableAndSupported.max1
-
-  def lastStableVersions2: (ProtocolVersion, ProtocolVersion) = {
-    val List(beforeLastStableProtocolVersion, lastStableProtocolVersion) =
-      ProtocolVersion.stableAndSupported.forgetNE.sorted.takeRight(2): @unchecked
-
-    (beforeLastStableProtocolVersion, lastStableProtocolVersion)
-  }
+  // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
+  val latest: ProtocolVersion = stableAndSupported.lastOption.getOrElse(unstable.head1)
 
   lazy val dev: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(Int.MaxValue)
 
-  lazy val v3: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(3)
-  lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(4)
-  lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(5)
-  lazy val v6: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(6)
+  lazy val v30: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(30)
 
   // Minimum stable protocol version introduced
-  lazy val minimum: ProtocolVersion = v3
-
-  // Aliases for easier releasing of upcoming not yet defined protocol versions
-  // TODO(#15358) Adapt when releasing BFT
-  lazy val CNTestNet: ProtocolVersionWithStatus[Unstable] = dev
+  lazy val minimum: ProtocolVersion = v30
 }
 
 /*

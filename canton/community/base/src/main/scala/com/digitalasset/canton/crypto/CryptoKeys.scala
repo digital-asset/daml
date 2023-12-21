@@ -116,7 +116,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.CryptoKeyPair)(fromProtoCryptoKeyPairV0),
       _.toProtoCryptoKeyPairV0.toByteString,
     )
@@ -214,7 +214,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.PublicKeyWithName)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -293,8 +293,6 @@ object CryptoKeyFormat {
     override val name: String = "Symbolic"
     override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Symbolic
   }
-
-  val allFormats: Set[CryptoKeyFormat] = Set(Tink, Der, Raw, Symbolic)
 
   def fromProtoEnum(
       field: String,

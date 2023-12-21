@@ -199,6 +199,10 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
       // not rejected
       entry.rejected.isEmpty &&
+      // is not a proposal
+      !entry.transaction.isProposal &&
+      // is of type Replace
+      entry.transaction.operation == TopologyChangeOpX.Replace &&
       // matches a party to participant mapping (with appropriate filters)
       (entry.transaction.transaction.mapping match {
         case ptp: PartyToParticipantX =>
@@ -476,13 +480,15 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]] =
+  ): Future[Option[GenericStoredTopologyTransactionX]] = {
+    val rpv = TopologyTransactionX.protocolVersionRepresentativeFor(protocolVersion)
+
     allTransactions().map(
       _.result.findLast(tx =>
-        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == TopologyTransactionX
-          .protocolVersionRepresentativeFor(protocolVersion)
+        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == rpv
       )
     )
+  }
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,

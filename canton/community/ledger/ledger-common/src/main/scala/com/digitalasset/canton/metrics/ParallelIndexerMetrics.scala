@@ -5,21 +5,14 @@ package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  Histogram,
-  LabeledMetricsFactory,
-  MetricsFactory,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 import scala.annotation.nowarn
 
 class ParallelIndexerMetrics(
     prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
-    factory: MetricsFactory,
+    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
   val initialization = new DatabaseMetrics(prefix :+ "initialization", labeledMetricsFactory)
@@ -34,8 +27,7 @@ class ParallelIndexerMetrics(
                     |party allocations, rejections, etc.""",
     qualification = Traffic,
   )
-  @nowarn("cat=deprecation")
-  val updates: Counter = factory.counter(prefix :+ "updates")
+  val updates: Counter = metricsFactory.counter(prefix :+ "updates")
 
   @MetricDoc.Tag(
     summary = "The number of elements in the queue in front of the indexer.",
@@ -43,8 +35,7 @@ class ParallelIndexerMetrics(
                     |batch formation during the database ingestion.""",
     qualification = Saturation,
   )
-  @nowarn("cat=deprecation")
-  val inputBufferLength: Counter = factory.counter(prefix :+ "input_buffer_length")
+  val inputBufferLength: Counter = metricsFactory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The size of the queue between the indexer and the in-memory state updating flow.",
@@ -53,8 +44,8 @@ class ParallelIndexerMetrics(
                     |downstream stages of the flow.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
-  val outputBatchedBufferLength: Counter = factory.counter(prefix :+ "output_batched_buffer_length")
+  val outputBatchedBufferLength: Counter =
+    metricsFactory.counter(prefix :+ "output_batched_buffer_length")
 
   // Input mapping stage
   // Translating state updates to data objects corresponding to individual SQL insert statements
@@ -70,8 +61,7 @@ class ParallelIndexerMetrics(
                       |database submission.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val batchSize: Histogram = factory.histogram(prefix :+ "batch_size")
+    val batchSize: Histogram = metricsFactory.histogram(prefix :+ "batch_size")
   }
 
   // Batching stage
@@ -93,8 +83,7 @@ class ParallelIndexerMetrics(
                       |indexer.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val duration: Timer = factory.timer(prefix :+ "duration")
+    val duration: Timer = metricsFactory.timer(prefix :+ "duration")
   }
 
   // Ingestion stage

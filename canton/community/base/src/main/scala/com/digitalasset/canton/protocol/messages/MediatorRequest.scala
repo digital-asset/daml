@@ -12,7 +12,7 @@ import com.digitalasset.canton.topology.MediatorRef
 
 import java.util.UUID
 
-trait MediatorRequest extends ProtocolMessage with UnsignedProtocolMessage {
+trait MediatorRequest extends UnsignedProtocolMessage {
   def requestUuid: UUID
 
   def mediator: MediatorRef

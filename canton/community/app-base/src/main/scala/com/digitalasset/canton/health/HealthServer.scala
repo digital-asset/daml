@@ -39,7 +39,7 @@ class HealthServer(
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.*
     List[AsyncOrSyncCloseable](
-      AsyncCloseable("binding", binding.unbind(), timeouts.shutdownNetwork.unwrap),
+      AsyncCloseable("binding", binding.unbind(), timeouts.shutdownNetwork),
       SyncCloseable("check", Lifecycle.close(check)(logger)),
     )
   }
@@ -66,7 +66,7 @@ object HealthServer {
     */
   @VisibleForTesting
   private[health] def route(check: HealthCheck): Route = {
-    implicit val marshaller: ToResponseMarshaller[HealthCheckResult] =
+    implicit val _marshaller: ToResponseMarshaller[HealthCheckResult] =
       Marshaller.opaque {
         case Healthy =>
           HttpResponse(status = StatusCodes.OK, entity = HttpEntity("healthy"))

@@ -11,6 +11,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
@@ -265,7 +266,7 @@ object ResilientSequencerSubscriberPekko {
   }
 }
 
-trait SequencerSubscriptionFactoryPekko[E] {
+trait SequencerSubscriptionFactoryPekko[E] extends HasSequencerSubscriptionFactoryPekko[E] {
 
   /** The ID of the sequencer this factory creates subscriptions to */
   def sequencerId: SequencerId
@@ -275,6 +276,8 @@ trait SequencerSubscriptionFactoryPekko[E] {
   )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[E]
 
   def retryPolicy: SubscriptionErrorRetryPolicyPekko[E]
+
+  override def subscriptionFactory: this.type = this
 }
 
 object SequencerSubscriptionFactoryPekko {

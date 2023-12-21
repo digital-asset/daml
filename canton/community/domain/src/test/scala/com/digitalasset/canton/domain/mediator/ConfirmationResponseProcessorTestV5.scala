@@ -57,14 +57,14 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     with BaseTest
     with HasTestCloseContext {
 
-  val domainId: DomainId = DomainId(
+  protected val domainId: DomainId = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::test")
   )
-  val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
-  val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
-  val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
+  protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
+  protected val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
+  protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
 
-  val mediatorGroup: MediatorGroup = MediatorGroup(
+  protected val mediatorGroup: MediatorGroup = MediatorGroup(
     index = NonNegativeInt.zero,
     active = Seq(
       activeMediator1,
@@ -76,58 +76,59 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     threshold = PositiveInt.tryCreate(2),
   )
 
-  def mediatorId: MediatorId
-  def mediatorRef: MediatorRef
+  protected def mediatorId: MediatorId
+  protected def mediatorRef: MediatorRef
 
-  lazy val factory: ExampleTransactionFactory =
+  protected lazy val factory: ExampleTransactionFactory =
     new ExampleTransactionFactory()(domainId = domainId, mediatorRef = mediatorRef)
-  lazy val fullInformeeTree: FullInformeeTree =
+  protected lazy val fullInformeeTree: FullInformeeTree =
     factory.MultipleRootsAndViewNestings.fullInformeeTree
-  lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
-  val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
+  private lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
+  protected val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
 
-  lazy val view0Position =
+  protected lazy val view0Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree0.viewPosition
-  lazy val view1Position =
+  private lazy val view1Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree1.viewPosition
-  lazy val view10Position =
+  private lazy val view10Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree10.viewPosition
-  lazy val view11Position =
+  private lazy val view11Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree11.viewPosition
-  lazy val view110Position =
+  private lazy val view110Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree110.viewPosition
 
-  val notSignificantCounter: SequencerCounter = SequencerCounter(0)
+  protected val notSignificantCounter: SequencerCounter = SequencerCounter(0)
 
-  val initialDomainParameters: DynamicDomainParameters = TestDomainParameters.defaultDynamic
+  protected val initialDomainParameters: DynamicDomainParameters =
+    TestDomainParameters.defaultDynamic
 
   private lazy val localVerdictProtocolVersion =
     LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
-  val participantResponseTimeout: NonNegativeFiniteDuration =
+  protected val participantResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(100L)
 
-  lazy val submitter = ExampleTransactionFactory.submitter
-  lazy val signatory = ExampleTransactionFactory.signatory
-  lazy val observer = ExampleTransactionFactory.observer
+  protected lazy val submitter = ExampleTransactionFactory.submitter
+  protected lazy val signatory = ExampleTransactionFactory.signatory
+  protected lazy val observer = ExampleTransactionFactory.observer
 
   // Create a topology with several participants so that we can have several root hash messages or Malformed messages
-  val participant1 = participant
-  val participant2 = ExampleTransactionFactory.signatoryParticipant
-  val participant3 = ParticipantId("participant3")
+  protected val participant1 = participant
+  protected val participant2 = ExampleTransactionFactory.signatoryParticipant
+  protected val participant3 = ParticipantId("participant3")
 
-  def identityFactory: TestingIdentityFactoryBase
+  protected def identityFactory: TestingIdentityFactoryBase
 
-  def identityFactory2: TestingIdentityFactoryBase
+  protected def identityFactory2: TestingIdentityFactoryBase
 
-  def identityFactoryNoParticipants: TestingIdentityFactoryBase
+  protected def identityFactoryNoParticipants: TestingIdentityFactoryBase
 
-  lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
+  protected lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
     identityFactory.forOwnerAndDomain(mediatorId, domainId)
 
-  lazy val requestIdTs = CantonTimestamp.Epoch
-  lazy val requestId = RequestId(requestIdTs)
-  lazy val decisionTime = requestIdTs.plusSeconds(120)
+  protected lazy val requestIdTs = CantonTimestamp.Epoch
+  protected lazy val requestId = RequestId(requestIdTs)
+  protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
   class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
     val interceptedBatchesQueue: java.util.concurrent.BlockingQueue[
@@ -155,10 +156,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     def interceptedBatches: Iterable[Batch[DefaultOpenEnvelope]] =
       interceptedBatchesQueue.asScala.map(_._1)
 
-    def interceptedBatchesWithAggRule
-        : Iterable[(Batch[DefaultOpenEnvelope], Option[AggregationRule])] =
-      interceptedBatchesQueue.asScala
-
     val verdictSender: TestVerdictSender =
       new TestVerdictSender(
         syncCryptoApi,
@@ -167,7 +164,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         testedProtocolVersion,
         loggerFactory,
       )
-    val timeTracker: DomainTimeTracker = mock[DomainTimeTracker]
+    private val timeTracker: DomainTimeTracker = mock[DomainTimeTracker]
     val mediatorState = new MediatorState(
       new InMemoryFinalizedResponseStore(loggerFactory),
       new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts),
@@ -191,12 +188,11 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     )
   }
 
-  lazy val domainSyncCryptoApi2: DomainSyncCryptoClient =
+  private lazy val domainSyncCryptoApi2: DomainSyncCryptoClient =
     identityFactory2.forOwnerAndDomain(SequencerId(domainId), domainId)
 
   def signedResponse(
       confirmers: Set[LfPartyId],
-      view: TransactionView,
       viewPosition: ViewPosition,
       verdict: LocalVerdict,
       requestId: RequestId,
@@ -204,7 +200,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     val response: MediatorResponse = MediatorResponse.tryCreate(
       requestId,
       participant,
-      Some(view.viewHash),
       Some(viewPosition),
       verdict,
       Some(fullInformeeTree.transactionId.toRootHash),
@@ -324,14 +319,14 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         when(mockTopologySnapshot.mediatorGroup(any[NonNegativeInt]))
           .thenReturn(Future.successful(Some(mediatorGroup)))
         when(mockSnapshot.ipsSnapshot).thenReturn(mockTopologySnapshot)
-        when(mockSnapshot.verifySignatures(any[Hash], any[KeyOwner], any[NonEmpty[Seq[Signature]]]))
+        when(mockSnapshot.verifySignatures(any[Hash], any[Member], any[NonEmpty[Seq[Signature]]]))
           .thenReturn(EitherT.rightT(()))
         when(mockSnapshot.sign(any[Hash])(anyTraceContext))
           .thenReturn(EitherT.rightT[Future, SyncCryptoError](mockSignature))
         when(mockSnapshot.pureCrypto).thenReturn(domainSyncCryptoApi.pureCrypto)
 
         val mockedSnapshotCrypto = new DomainSyncCryptoClient(
-          domainSyncCryptoApi.owner,
+          domainSyncCryptoApi.member,
           domainSyncCryptoApi.domainId,
           domainSyncCryptoApi.ips,
           domainSyncCryptoApi.crypto,
@@ -353,7 +348,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         val responseF =
           signedResponse(
             Set(submitter),
-            view,
             view0Position,
             LocalApprove(testedProtocolVersion),
             reqId,
@@ -391,7 +385,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             _ <- handleEvents(sut.processor)
             _ = verify(mockSnapshot, timeout(1000)).verifySignatures(
               any[Hash],
-              any[KeyOwner],
+              any[Member],
               eqMatch(response.signatures),
             )
           } yield succeed
@@ -783,7 +777,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             ResponseAggregation.fromRequest(
               requestId,
               informeeMessage,
-              testedProtocolVersion,
               mockTopologySnapshot,
             )
 
@@ -800,7 +793,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           ) { case (viewPosition, view) =>
             signedResponse(
               Set(submitter),
-              view,
               viewPosition,
               LocalApprove(testedProtocolVersion),
               requestId,
@@ -908,7 +900,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           ) { case (viewPosition, view) =>
             signedResponse(
               Set(signatory),
-              view,
               viewPosition,
               LocalApprove(testedProtocolVersion),
               requestId,
@@ -983,13 +974,11 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         }
 
         def malformedResponse(
-            participant: ParticipantId,
-            viewHashO: Option[ViewHash] = None,
+            participant: ParticipantId
         ): Future[SignedProtocolMessage[MediatorResponse]] = {
           val response = MediatorResponse.tryCreate(
             requestId,
             participant,
-            viewHashO,
             None,
             LocalReject.MalformedRejects.Payloads.Reject(malformedMsg)(localVerdictProtocolVersion),
             Some(fullInformeeTree.transactionId.toRootHash),
@@ -1021,19 +1010,10 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           malformed <- sequentialTraverse(
             List(
               malformedResponse(participant1),
-              malformedResponse(
-                participant3,
-                Some(factory.MultipleRootsAndViewNestings.view1.viewHash),
-              ),
-              malformedResponse(
-                participant3,
-                Some(factory.MultipleRootsAndViewNestings.view11.viewHash),
-              ),
+              malformedResponse(participant3),
+              malformedResponse(participant3),
               malformedResponse(participant2), // This should finalize the request
-              malformedResponse(
-                participant3,
-                Some(factory.MultipleRootsAndViewNestings.view10.viewHash),
-              ),
+              malformedResponse(participant3),
             )
           )(Predef.identity)
 
@@ -1114,7 +1094,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           )
           response <- signedResponse(
             Set(submitter),
-            view,
             ViewPosition.root,
             LocalApprove(testedProtocolVersion),
             requestId,
@@ -1226,7 +1205,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 }
 
 class ConfirmationResponseProcessorTestV5
-    extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.v5) {
+    extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.v30) {
 
   override lazy val mediatorId: MediatorId = MediatorId(
     UniqueIdentifier.tryCreate("mediator", "one")
@@ -1281,7 +1260,7 @@ class ConfirmationResponseProcessorTestV5
       dynamicDomainParameters = initialDomainParameters,
     )
 
-  if (testedProtocolVersion >= ProtocolVersion.v5) {
+  if (testedProtocolVersion >= ProtocolVersion.v30) {
     "inactive mediator ignores requests" in {
       val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, domainId)
       val sut = new Fixture(domainSyncCryptoApi3)
@@ -1320,7 +1299,6 @@ class ConfirmationResponseProcessorTestV5
         // If it nevertheless gets a response, it will complain about the request not being known
         response <- signedResponse(
           Set(submitter),
-          view,
           view0Position,
           LocalApprove(testedProtocolVersion),
           requestId,
@@ -1348,7 +1326,7 @@ class ConfirmationResponseProcessorTestV5
 }
 
 class ConfirmationResponseProcessorTestV5X
-    extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.CNTestNet) {
+    extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.v30) {
   override lazy val mediatorRef: MediatorRef = MediatorRef(mediatorGroup)
   override lazy val mediatorId: MediatorId = activeMediator2
 

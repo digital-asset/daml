@@ -219,7 +219,9 @@ final class RateLimitingInterceptorSpec
         for {
           fStatus1 <- streamHello(channel) // Ok
           fStatus2 <- streamHello(channel) // Ok
-          activeStreams = metrics.daml.lapi.streams.active.getValue
+          // Metrics are used by the limiting interceptor, so the following assert causes the test to fail
+          //  rather than being stuck if metrics don't work.
+          _ = metrics.daml.lapi.streams.active.getValue shouldBe limitStreamConfig.maxStreams
           fStatus3 <- streamHello(channel) // Limited
           status3 <- fStatus3 // Closed as part of limiting
           _ = waitService.completeStream()
@@ -230,7 +232,6 @@ final class RateLimitingInterceptorSpec
           _ = waitService.completeStream()
           status4 <- fStatus4
         } yield {
-          activeStreams shouldBe limitStreamConfig.maxStreams
           status1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
           status3.getCode shouldBe Code.ABORTED

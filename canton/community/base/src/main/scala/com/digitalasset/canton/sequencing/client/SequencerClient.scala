@@ -25,8 +25,8 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DomainParametersLookup
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
+import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.SequencerAggregator.MessageAggregationConfig
@@ -34,13 +34,15 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.*
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.handlers.{
   CleanSequencerCounterTracker,
   StoreSequencedEvent,
   ThrottlingApplicationEventHandler,
 }
-import com.digitalasset.canton.sequencing.protocol.SubmissionRequest.usingSignedSubmissionRequest
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
@@ -48,6 +50,7 @@ import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
@@ -55,6 +58,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerAlias, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
+import org.slf4j.event.Level
 
 import java.nio.file.Path
 import java.time.Duration as JDuration
@@ -151,7 +155,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def completion: Future[SequencerClient.CloseReason]
 
   def changeTransport(
-      sequencerTransports: SequencerTransports
+      sequencerTransports: SequencerTransports[?]
   )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Returns a future that completes after asynchronous processing has completed for all events
@@ -185,11 +189,11 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
 class SequencerClientImpl(
     val domainId: DomainId,
     val member: Member,
-    sequencerTransports: SequencerTransports,
+    sequencerTransports: SequencerTransports[?],
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     val protocolVersion: ProtocolVersion,
-    domainParametersLookup: DomainParametersLookup[SequencerDomainParameters],
+    domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
     override val timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -378,10 +382,7 @@ class SequencerClientImpl(
   ): Either[SendAsyncClientError, Unit] = {
     // We're ignoring the size of the SignedContent wrapper here.
     // TODO(#12320) Look into what we really want to do here
-    val serializedRequestSize =
-      if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion))
-        request.toProtoV0.serializedSize
-      else request.toByteString.size()
+    val serializedRequestSize = request.toProtoV1.serializedSize
 
     Either.cond(
       serializedRequestSize <= maxRequestSize.unwrap,
@@ -499,21 +500,19 @@ class SequencerClientImpl(
       .timed(metrics.submissions.sends) {
         val timeout = timeouts.network.duration
         if (requiresAuthentication) {
-          if (usingSignedSubmissionRequest(protocolVersion)) {
-            for {
-              signedContent <- requestSigner
-                .signRequest(request, HashPurpose.SubmissionRequestSignature)
-                .leftMap { err =>
-                  val message = s"Error signing submission request $err"
-                  logger.error(message)
-                  SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
-                }
-              _ <- sequencersTransportState.transport.sendAsyncSigned(signedContent, timeout)
-            } yield ()
-          } else
-            sequencersTransportState.transport.sendAsync(request, timeout)
+          for {
+            signedContent <- requestSigner
+              .signRequest(request, HashPurpose.SubmissionRequestSignature)
+              .leftMap { err =>
+                val message = s"Error signing submission request $err"
+                logger.error(message)
+                SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
+              }
+            _ <- sequencersTransportState.transport.sendAsyncSigned(signedContent, timeout)
+          } yield ()
+
         } else
-          sequencersTransportState.transport.sendAsyncUnauthenticated(request, timeout)
+          sequencersTransportState.transport.sendAsyncUnauthenticatedVersioned(request, timeout)
       }
       .leftSemiflatMap { err =>
         // increment appropriate error metrics
@@ -661,7 +660,7 @@ class SequencerClientImpl(
           .fold(CantonTimestamp.MinValue)(_.timestamp)
           .immediateSuccessor
         _ = logger.info(
-          s"Processing events from the SequencedEventStore from ${replayStartTimeInclusive} on"
+          s"Processing events from the SequencedEventStore from $replayStartTimeInclusive on"
         )
 
         replayEvents <- FutureUnlessShutdown.outcomeF(
@@ -735,7 +734,6 @@ class SequencerClientImpl(
                 clock,
                 timeouts,
                 loggerFactory,
-                protocolVersion,
               )
               .some,
           )
@@ -977,8 +975,8 @@ class SequencerClientImpl(
     * then [[applicationHandlerFailure]] contains an error.
     */
   private def processEventBatch[
-      Box[+X <: Envelope[_]] <: PossiblyIgnoredSequencedEvent[X],
-      Env <: Envelope[_],
+      Box[+X <: Envelope[?]] <: PossiblyIgnoredSequencedEvent[X],
+      Env <: Envelope[?],
   ](
       eventHandler: ApplicationHandler[Lambda[`+X <: Envelope[_]` => Traced[Seq[Box[X]]]], Env],
       eventBatch: Seq[Box[Env]],
@@ -1111,7 +1109,7 @@ class SequencerClientImpl(
   }
 
   def changeTransport(
-      sequencerTransports: SequencerTransports
+      sequencerTransports: SequencerTransports[?]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     sequencerAggregator.changeMessageAggregationConfig(
       MessageAggregationConfig(
@@ -1127,18 +1125,16 @@ class SequencerClientImpl(
     */
   def completion: Future[SequencerClient.CloseReason] = sequencersTransportState.completion
 
-  def waitForHandlerToComplete(): Unit = {
+  private def waitForHandlerToComplete(): Unit = {
     import TraceContext.Implicits.Empty.*
     logger.trace(s"Wait for the handler to become idle")
     // This logs a warn if the handle does not become idle within 60 seconds.
     // This happen because the handler is not making progress, for example due to a db outage.
-    FutureUtil
-      .valueOrLog(
-        handlerIdle.get().future,
-        timeoutMessage = s"Clean close of the sequencer subscriptions timed out",
-        timeout = timeouts.shutdownProcessing.unwrap,
-      )
-      .discard
+    valueOrLog(
+      handlerIdle.get().future,
+      timeoutMessage = s"Clean close of the sequencer subscriptions timed out",
+      timeout = timeouts.shutdownProcessing.unwrap,
+    ).discard
   }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
@@ -1165,24 +1161,64 @@ class SequencerClientImpl(
     */
   @VisibleForTesting
   def flush(): Future[Unit] = doFlush()
+
+  /** Await the completion of `future`. Log a message if the future does not complete within `timeout`.
+    * If the `future` fails with an exception within `timeout`, this method rethrows the exception.
+    *
+    * Instead of using this method, you should use the respective method on one of the ProcessingTimeouts
+    *
+    * @return Optionally the completed value of `future` if it successfully completes in time.
+    */
+  private def valueOrLog[T](
+      future: Future[T],
+      timeoutMessage: => String,
+      timeout: Duration,
+      level: Level = Level.WARN,
+      stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
+  )(implicit loggingContext: ErrorLoggingContext): Option[T] = {
+    // Use Await.ready instead of Await.result to be able to tell the difference between the awaitable throwing a
+    // TimeoutException and a TimeoutException being thrown because the awaitable is not ready.
+    val ready = Try(Await.ready(future, timeout))
+    ready match {
+      case Success(awaited) =>
+        val result = awaited.value.getOrElse(
+          throw new RuntimeException(s"Future $future not completed after successful Await.ready.")
+        )
+        result.fold(throw _, Some(_))
+
+      case Failure(timeoutExc: TimeoutException) =>
+        val stackTraces = StackTraceUtil.formatStackTrace(stackTraceFilter)
+        if (stackTraces.isEmpty)
+          LoggerUtil.logThrowableAtLevel(level, timeoutMessage, timeoutExc)
+        else
+          LoggerUtil.logThrowableAtLevel(
+            level,
+            s"$timeoutMessage\nStack traces:\n$stackTraces",
+            timeoutExc,
+          )
+        None
+
+      case Failure(exc) => ErrorUtil.internalError(exc)
+    }
+  }
 }
 
 object SequencerClient {
   val healthName: String = "sequencer-client"
 
-  final case class SequencerTransportContainer(
+  final case class SequencerTransportContainer[E](
       sequencerId: SequencerId,
-      clientTransport: SequencerClientTransport,
+      clientTransport: SequencerClientTransport & SequencerClientTransportPekko.Aux[E],
   )
 
-  final case class SequencerTransports(
-      sequencerToTransportMap: NonEmpty[Map[SequencerAlias, SequencerTransportContainer]],
+  final case class SequencerTransports[E](
+      sequencerToTransportMap: NonEmpty[Map[SequencerAlias, SequencerTransportContainer[E]]],
       sequencerTrustThreshold: PositiveInt,
   ) {
     def expectedSequencers: NonEmpty[Set[SequencerId]] =
       sequencerToTransportMap.map(_._2.sequencerId).toSet
 
-    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer]] = {
+    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer[E]]] = {
       sequencerToTransportMap.map { case (_, transport) =>
         transport.sequencerId -> transport
       }.toMap
@@ -1193,11 +1229,13 @@ object SequencerClient {
   }
 
   object SequencerTransports {
-    def from(
-        sequencerTransportsMap: NonEmpty[Map[SequencerAlias, SequencerClientTransport]],
+    def from[E](
+        sequencerTransportsMap: NonEmpty[
+          Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko.Aux[E]]
+        ],
         expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
         sequencerSignatureThreshold: PositiveInt,
-    ): Either[String, SequencerTransports] =
+    ): Either[String, SequencerTransports[E]] =
       if (sequencerTransportsMap.keySet != expectedSequencers.keySet) {
         Left("Inconsistent map of sequencer transports and their ids.")
       } else
@@ -1212,11 +1250,11 @@ object SequencerClient {
           )
         )
 
-    def single(
+    def single[E](
         sequencerAlias: SequencerAlias,
         sequencerId: SequencerId,
-        transport: SequencerClientTransport,
-    ): SequencerTransports =
+        transport: SequencerClientTransport & SequencerClientTransportPekko.Aux[E],
+    ): SequencerTransports[E] =
       SequencerTransports(
         NonEmpty
           .mk(
@@ -1227,10 +1265,10 @@ object SequencerClient {
         PositiveInt.tryCreate(1),
       )
 
-    def default(
+    def default[E](
         sequencerId: SequencerId,
-        transport: SequencerClientTransport,
-    ): SequencerTransports =
+        transport: SequencerClientTransport & SequencerClientTransportPekko.Aux[E],
+    ): SequencerTransports[E] =
       single(SequencerAlias.Default, sequencerId, transport)
   }
 

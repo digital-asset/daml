@@ -13,7 +13,6 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.ProtocolVersion.ProtocolVersionWithStatus
 import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
@@ -434,49 +433,6 @@ trait HasSupportedProtoVersions[ValueClass] {
     )
   }
 
-  /** Used to (de)serialize classes which for legacy reasons where not wrapped in VersionedMessage
-    * Chances are this is NOT the class you want to use, use VersionedProtoConverter instead when adding serialization
-    * to a new class
-    */
-  protected[this] case class LegacyProtoConverter private (
-      fromInclusive: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type],
-      deserializer: Deserializer,
-      serializer: Serializer,
-  ) extends ProtoCodec
-      with PrettyPrinting {
-    override val isVersioned: Boolean = false
-    override val isSupported: Boolean = true
-
-    override def pretty: Pretty[this.type] = prettyOfClass(
-      unnamedParam(_ => HasSupportedProtoVersions.this.getClass.getSimpleName.unquoted),
-      param("fromInclusive", _.fromInclusive),
-    )
-  }
-
-  object LegacyProtoConverter {
-    def apply[ProtoClass <: scalapb.GeneratedMessage](
-        fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[ProtocolVersion.Stable]
-    )(
-        // A legacy converter should not be used for an unstable Protobuf message.
-        protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & ProtocolVersion.Stable
-    )(
-        parser: scalapb.GeneratedMessageCompanion[ProtoClass] => Deserializer,
-        serializer: Serializer,
-    ): LegacyProtoConverter =
-      LegacyProtoConverter.raw(fromInclusive, parser(protoCompanion), serializer)
-
-    @VisibleForTesting
-    def raw(
-        fromInclusive: ProtocolVersionWithStatus[ProtocolVersion.Stable],
-        deserializer: Deserializer,
-        serializer: Serializer,
-    ): LegacyProtoConverter = LegacyProtoConverter(
-      new RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type](fromInclusive) {},
-      deserializer,
-      serializer,
-    )
-  }
-
   protected def deserializationErrorK(error: ProtoDeserializationError): Deserializer
 
   protected[this] case class UnsupportedProtoCodec(
@@ -534,6 +490,7 @@ trait HasSupportedProtoVersions[ValueClass] {
       }
       .getOrElse(higherProtoVersion)
 
+    // TODO(#15628) We should not have a fallback here. Change return type to an either and propagate
     def protocolVersionRepresentativeFor(
         protoVersion: ProtoVersion
     ): RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type] =
@@ -654,14 +611,12 @@ trait HasProtocolVersionedWrapperCompanion[
 
   protected def deserializeForVersion(
       rpv: RepresentativeProtocolVersion[this.type],
-      deserializeLegacyProto: Deserializer => ParsingResult[DeserializedValueClass],
       deserializeVersionedProto: => ParsingResult[DeserializedValueClass],
   ): ParsingResult[DeserializedValueClass] = {
     val converter =
       supportedProtoVersions.converterFor(rpv.representative)
 
     converter match {
-      case LegacyProtoConverter(_, deserializer, _) => deserializeLegacyProto(deserializer)
       case _: VersionedProtoConverter => deserializeVersionedProto
       case unsupported: UnsupportedProtoCodec =>
         Left(unsupported.deserializationError)
@@ -797,7 +752,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protoVersion),
-      _(bytes, bytes),
       fromByteStringUnsafe(bytes),
     )
   }
@@ -984,7 +938,6 @@ trait HasProtocolVersionedCompanion2[
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
-      _(bytes),
       fromByteStringUnsafe(bytes),
     )
   }
@@ -1078,7 +1031,6 @@ trait HasProtocolVersionedWithContextCompanion[
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protoVersion),
-      _(context, bytes),
       fromByteStringUnsafe(context)(bytes),
     )
   }
@@ -1094,7 +1046,6 @@ trait HasProtocolVersionedWithContextCompanion[
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
-      _(context, bytes),
       fromByteStringUnsafe(context)(bytes),
     )
   }

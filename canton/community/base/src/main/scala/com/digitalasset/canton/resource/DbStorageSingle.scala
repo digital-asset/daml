@@ -147,7 +147,11 @@ object DbStorageSingle {
       tc: TraceContext,
       closeContext: CloseContext,
   ): EitherT[UnlessShutdown, String, DbStorageSingle] = {
-    val numCombined = config.numCombinedConnectionsCanton(connectionPoolForParticipant)
+    val numCombined = config.numCombinedConnectionsCanton(
+      connectionPoolForParticipant,
+      withWriteConnectionPool = false,
+      withMainConnection = false,
+    )
     val logger = loggerFactory.getTracedLogger(getClass)
     logger.info(s"Creating storage, num-combined: $numCombined")
     for {

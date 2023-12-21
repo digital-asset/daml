@@ -30,3 +30,7 @@ trait SequencerClientTransportPekko extends SequencerClientTransportCommon {
   def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError]
 
 }
+
+object SequencerClientTransportPekko {
+  type Aux[E] = SequencerClientTransportPekko { type SubscriptionError = E }
+}

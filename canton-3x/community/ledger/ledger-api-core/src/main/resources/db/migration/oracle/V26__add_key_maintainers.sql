@@ -1,2 +1,0 @@
-ALTER TABLE participant_events_create ADD create_key_maintainers CLOB CONSTRAINT ensure_json_pec_create_key_maintainers CHECK (create_key_maintainers IS JSON);
-ALTER TABLE participant_events_assign ADD create_key_maintainers CLOB CONSTRAINT ensure_json_pea_create_key_maintainers CHECK (create_key_maintainers IS JSON);

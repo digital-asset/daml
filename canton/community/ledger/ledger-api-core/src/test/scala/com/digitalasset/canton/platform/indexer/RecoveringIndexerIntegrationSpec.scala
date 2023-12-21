@@ -261,7 +261,6 @@ class RecoveringIndexerIntegrationSpec
             tracer,
             loggerFactory,
             multiDomainEnabled = false,
-            maxEventsByContractKeyCacheSize = None,
           )
       _ <- new IndexerServiceOwner(
         readService = participantState._1,

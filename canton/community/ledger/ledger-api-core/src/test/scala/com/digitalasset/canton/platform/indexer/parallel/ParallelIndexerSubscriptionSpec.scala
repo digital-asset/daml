@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscrip
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{DbDto, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -261,7 +262,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,
-      optDomainId = None,
     )
 
     val someTransactionAccepted = state.Update.TransactionAccepted(
@@ -276,6 +276,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = DomainId.tryFromString("da::default"),
     )
 
     val expected: Vector[DbDto.TransactionMetering] = Vector(

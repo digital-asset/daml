@@ -113,7 +113,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       }
 
       def checkDomainKeys(did: UniqueIdentifier, expectedLength: Int): Unit = {
-        Seq[KeyOwner](MediatorId(did), DomainTopologyManagerId(did), SequencerId(did)).foreach(
+        Seq[Member](MediatorId(did), DomainTopologyManagerId(did), SequencerId(did)).foreach(
           member =>
             p1.currentSnapshotApproximation.ipsSnapshot
               .signingKeys(member)

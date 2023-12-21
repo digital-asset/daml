@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.environment
 
+import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.{
@@ -26,10 +27,19 @@ import com.digitalasset.canton.console.{
   NodeReferences,
   StandardConsoleOutput,
 }
+import com.digitalasset.canton.crypto.CommunityCryptoFactory
+import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.domain.DomainNodeBootstrap
+import com.digitalasset.canton.domain.mediator.*
+import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.{ParticipantNodeBootstrap, ParticipantNodeBootstrapX}
-import com.digitalasset.canton.resource.{CommunityDbMigrationsFactory, DbMigrationsFactory}
+import com.digitalasset.canton.resource.{
+  CommunityDbMigrationsFactory,
+  CommunityStorageFactory,
+  DbMigrationsFactory,
+}
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,
@@ -65,6 +75,37 @@ class CommunityEnvironment(
       commandRunner: GrpcAdminCommandRunner
   ): HealthDumpGenerator[CommunityCantonStatus] = {
     new CommunityHealthDumpGenerator(this, commandRunner)
+  }
+
+  override protected def createMediatorX(
+      name: String,
+      mediatorConfig: CommunityMediatorNodeXConfig,
+  ): MediatorNodeBootstrapX = {
+
+    val factoryArguments = mediatorNodeFactoryArguments(name, mediatorConfig)
+    val arguments = factoryArguments
+      .toCantonNodeBootstrapCommonArguments(
+        new CommunityStorageFactory(mediatorConfig.storage),
+        new CommunityCryptoFactory(),
+        new CommunityCryptoPrivateStoreFactory(),
+        new CommunityGrpcVaultServiceFactory(),
+      )
+      .valueOr(err =>
+        throw new RuntimeException(s"Failed to create mediator bootstrap: $err")
+      ): CantonNodeBootstrapCommonArguments[
+      MediatorNodeConfigCommon,
+      MediatorNodeParameters,
+      MediatorNodeMetrics,
+    ]
+
+    new MediatorNodeBootstrapX(
+      arguments,
+      new CommunityMediatorReplicaManager(
+        config.parameters.timeouts.processing,
+        loggerFactory,
+      ),
+      CommunityMediatorRuntimeFactory,
+    )
   }
 }
 

@@ -42,7 +42,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessSet,
 }
 import com.digitalasset.canton.participant.store.{
-  ContractLookup,
   SyncDomainEphemeralState,
   SyncDomainEphemeralStateLookup,
   TransferLookup,
@@ -239,7 +238,6 @@ class TestProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,

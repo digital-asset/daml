@@ -4,9 +4,8 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
 
 import scala.annotation.nowarn
 

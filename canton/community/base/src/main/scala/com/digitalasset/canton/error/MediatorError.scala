@@ -73,22 +73,6 @@ object MediatorError extends MediatorErrorGroup {
     }
   }
 
-  /** Used as a fallback to represent mediator errors coming from a mediator running a higher version.
-    * Only used for protocol versions from
-    * [[com.digitalasset.canton.protocol.messages.Verdict.MediatorRejectV1.firstApplicableProtocolVersion]]
-    * to [[com.digitalasset.canton.protocol.messages.Verdict.MediatorRejectV1.lastApplicableProtocolVersion]].
-    *
-    * @param id the id of the error code at the mediator. Only pass documented error code ids here, to avoid confusion.
-    */
-  final case class GenericError(
-      override val cause: String,
-      id: String,
-      category: ErrorCategory,
-      _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
-  ) extends BaseCantonError {
-    override def code: ErrorCode = new ErrorCode(id, category) {}
-  }
-
   @Explanation(
     """The mediator has received a malformed message. This may occur due to a bug at the sender of the message.
       |The message will be discarded. As a consequence, the underlying request may be rejected.

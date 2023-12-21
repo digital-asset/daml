@@ -43,6 +43,7 @@ class TopologyTransactionProcessorX(
     crypto: Crypto,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
+    terminateProcessing: TerminateProcessing,
     enableTopologyTransactionValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
@@ -139,6 +140,11 @@ class TopologyTransactionProcessorX(
               )
             )
           )
+
+          // TODO(#15089): do not notify the terminate processing for replayed events
+          _ <- performUnlessClosingF("terminate-processing")(
+            terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
+          )
         } yield ()
 
       }
@@ -209,6 +215,7 @@ object TopologyTransactionProcessorX {
       crypto,
       topologyStore,
       _ => (),
+      TerminateProcessing.NoOpTerminateTopologyProcessing,
       enableTopologyTransactionValidation,
       futureSupervisor,
       parameters.processingTimeouts,

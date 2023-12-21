@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, v0, v1}
+import com.digitalasset.canton.protocol.v1
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
@@ -37,15 +37,12 @@ sealed trait Informee extends Product with Serializable with PrettyPrinting {
     */
   def withAdditionalWeight(delta: NonNegativeInt): Informee
 
-  /** Creates the v0-proto version of an informee.
+  /** Creates the v1-proto version of an informee.
     *
     * Plain informees get weight 0.
     * Confirming parties get their assigned (positive) weight.
     */
-  def toProtoV0: v0.Informee =
-    v0.Informee(party = party, weight = weight.unwrap)
-
-  def toProtoV1: v1.Informee =
+  private[data] def toProtoV1: v1.Informee =
     v1.Informee(
       party = party,
       weight = weight.unwrap,
@@ -66,23 +63,7 @@ object Informee {
     if (weight == NonNegativeInt.zero) PlainInformee(party)
     else ConfirmingParty(party, PositiveInt.tryCreate(weight.unwrap), requiredTrustLevel)
 
-  def fromProtoV0(
-      confirmationPolicy: ConfirmationPolicy
-  )(informeeP: v0.Informee): ParsingResult[Informee] = {
-    val v0.Informee(partyP, weightP) = informeeP
-    for {
-      party <- LfPartyId
-        .fromString(partyP)
-        .leftMap(ProtoDeserializationError.ValueDeserializationError("party", _))
-
-      weight <- NonNegativeInt
-        .create(weightP)
-        .leftMap(err => ProtoDeserializationError.InvariantViolation(err.message))
-
-    } yield Informee.create(party, weight, confirmationPolicy.requiredTrustLevel)
-  }
-
-  def fromProtoV1(informeeP: v1.Informee): ParsingResult[Informee] = {
+  private[data] def fromProtoV1(informeeP: v1.Informee): ParsingResult[Informee] = {
     val v1.Informee(partyP, weightP, requiredTrustLevelP) = informeeP
     for {
       party <- LfPartyId

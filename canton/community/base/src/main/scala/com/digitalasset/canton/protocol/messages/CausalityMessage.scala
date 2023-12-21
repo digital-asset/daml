@@ -8,7 +8,8 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId, v0, v1}
+import com.digitalasset.canton.protocol.v4.EnvelopeContent
+import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId, v0}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -33,9 +34,7 @@ final case class CausalityMessage private (
     clock: VectorClock,
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[CausalityMessage.type])
     extends UnsignedProtocolMessage
-    with PrettyPrinting
-    with ProtocolMessageV0
-    with ProtocolMessageV1 {
+    with PrettyPrinting {
 
   val domainId = targetDomain.unwrap
 
@@ -45,11 +44,10 @@ final case class CausalityMessage private (
     clock = Some(clock.toProtoV0),
   )
 
-  override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
-    v0.EnvelopeContent(v0.EnvelopeContent.SomeEnvelopeContent.CausalityMessage(toProtoV0))
-
-  override def toProtoEnvelopeContentV1: v1.EnvelopeContent =
-    v1.EnvelopeContent(v1.EnvelopeContent.SomeEnvelopeContent.CausalityMessage(toProtoV0))
+  override protected[messages] def toProtoSomeEnvelopeContentV4
+      : EnvelopeContent.SomeEnvelopeContent = throw new RuntimeException(
+    "This should not be called"
+  )
 
   override def pretty: Pretty[CausalityMessage.this.type] =
     prettyOfClass(
@@ -64,7 +62,7 @@ final case class CausalityMessage private (
 object CausalityMessage extends HasProtocolVersionedCompanion[CausalityMessage] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.CausalityMessage)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.CausalityMessage)(
       supportedProtoVersion(_)(fromProtoV0),
       _.toProtoV0.toByteString,
     )

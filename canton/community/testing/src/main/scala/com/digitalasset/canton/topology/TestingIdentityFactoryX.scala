@@ -44,7 +44,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * pure part [[CryptoPureApi]] and the more complicated part, the [[SyncCryptoApi]] such that from the transaction
   * protocol perspective, we can conveniently use methods like [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
   *
-  * The abstraction creates the following hierarchy of classes to resolve the state for a given [[KeyOwner]]
+  * The abstraction creates the following hierarchy of classes to resolve the state for a given [[Member]]
   * on a per (domainId, timestamp)
   *
   * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a node accessible
@@ -396,13 +396,13 @@ class TestingIdentityFactoryX(
       )
     }
 
-  private def keyFingerprintForOwner(owner: KeyOwner): Fingerprint =
+  private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
     Fingerprint.tryCreate(owner.uid.id.toLengthLimitedString.unwrap)
 
   def newCrypto(
-      owner: KeyOwner,
+      owner: Member,
       signingFingerprints: Seq[Fingerprint] = Seq(),
       fingerprintSuffixes: Seq[String] = Seq(),
   ): Crypto = {
@@ -427,7 +427,7 @@ class TestingIdentityFactoryX(
     )
   }
 
-  def newSigningPublicKey(owner: KeyOwner): SigningPublicKey = {
+  def newSigningPublicKey(owner: Member): SigningPublicKey = {
     SymbolicCrypto.signingPublicKey(keyFingerprintForOwner(owner))
   }
 
@@ -435,7 +435,7 @@ class TestingIdentityFactoryX(
 
 /** something used often: somebody with keys and ability to created signed transactions */
 class TestingOwnerWithKeysX(
-    val keyOwner: KeyOwner,
+    val keyOwner: Member,
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
 ) extends NoTracing {
@@ -472,18 +472,18 @@ class TestingOwnerWithKeysX(
     val ts = CantonTimestamp.Epoch
     val ts1 = ts.plusSeconds(1)
     val ns1k1 = mkAdd(
-      NamespaceDelegationX
-        .create(
-          Namespace(namespaceKey.fingerprint),
-          namespaceKey,
-          isRootDelegation = true,
-        )
-        .getOrElse(sys.error("creating NamespaceDelegationX should not have failed"))
+      NamespaceDelegationX.tryCreate(
+        Namespace(namespaceKey.fingerprint),
+        namespaceKey,
+        isRootDelegation = true,
+      )
     )
     val ns1k2 = mkAdd(
-      NamespaceDelegationX
-        .create(Namespace(namespaceKey.fingerprint), key2, isRootDelegation = false)
-        .getOrElse(sys.error("creating NamespaceDelegationX should not have failed"))
+      NamespaceDelegationX.tryCreate(
+        Namespace(namespaceKey.fingerprint),
+        key2,
+        isRootDelegation = false,
+      )
     )
     val id1k1 = mkAdd(IdentifierDelegationX(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegationX(uid2, key2))

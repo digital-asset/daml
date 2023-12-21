@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
@@ -59,20 +58,18 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
-      TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
-      HashOps,
+    extends HasMemoizedProtocolVersionedWrapperCompanion[
+      TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
     ProtoVersion(0) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
+      ProtocolVersion.v30
     )(v0.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
+    )
   )
 
   def apply[M <: SignedProtocolMessageContent](
@@ -90,10 +87,8 @@ object TypedSignedProtocolMessageContent
   ): TypedSignedProtocolMessageContent[M] =
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
-  private def fromProtoV0(
-      hashOps: HashOps,
-      proto: v0.TypedSignedProtocolMessageContent,
-  )( // TODO(#12626) – try with context
+  // TODO(#12626) – try with context
+  private def fromProtoV0(proto: v0.TypedSignedProtocolMessageContent)(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
     import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
@@ -103,9 +98,7 @@ object TypedSignedProtocolMessageContent
         case Sm.MediatorResponse(mediatorResponseBytes) =>
           MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteStringUnsafe(hashOps)(
-            transactionResultMessageBytes
-          )
+          TransactionResultMessage.fromByteStringUnsafe(transactionResultMessageBytes)
         case Sm.TransferResult(transferResultBytes) =>
           TransferResult.fromByteStringUnsafe(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>

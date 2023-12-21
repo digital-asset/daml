@@ -22,7 +22,8 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
-  CommandExecutionFailedException,
+  CantonInternalError,
+  CommandFailure,
   ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
@@ -46,6 +47,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.google.protobuf.ByteString
 
 import java.time.Instant
+import scala.util.Try
 
 class PartiesAdministrationGroup(runner: AdminCommandRunner, consoleEnvironment: ConsoleEnvironment)
     extends Helpful {
@@ -91,12 +93,11 @@ class PartiesAdministrationGroup(runner: AdminCommandRunner, consoleEnvironment:
         )
       )
     }
-
 }
 
 class ParticipantPartiesAdministrationGroup(
     participantId: => ParticipantId,
-    runner: AdminCommandRunner with ParticipantAdministration with BaseLedgerApiAdministration,
+    runner: AdminCommandRunner & ParticipantAdministration & BaseLedgerApiAdministration,
     consoleEnvironment: ConsoleEnvironment,
 ) extends PartiesAdministrationGroup(runner, consoleEnvironment) {
 
@@ -135,9 +136,9 @@ class ParticipantPartiesAdministrationGroup(
   def find(filterParty: String): PartyId = {
     list(filterParty).map(_.party).distinct.toList match {
       case one :: Nil => one
-      case Nil => throw new IllegalArgumentException(s"No party matching ${filterParty}")
+      case Nil => throw new IllegalArgumentException(s"No party matching $filterParty")
       case more =>
-        throw new IllegalArgumentException(s"Multiple parties match ${filterParty}: ${more}")
+        throw new IllegalArgumentException(s"Multiple parties match $filterParty: $more")
     }
   }
 
@@ -210,7 +211,7 @@ class ParticipantPartiesAdministrationGroup(
       if (domainIds.nonEmpty) {
         retryE(
           domainIds subsetOf registered,
-          show"Party ${partyId} did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
+          show"Party $partyId did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
         )
       } else Right(())
     }
@@ -235,9 +236,11 @@ class ParticipantPartiesAdministrationGroup(
           additionalSync <- synchronizeParticipants.traverse { p =>
             findDomainIds(
               p.name,
-              Either
-                .catchOnly[CommandExecutionFailedException](p.domains.list_connected())
-                .leftMap(_.getMessage),
+              Try(p.domains.list_connected()).toEither.leftMap {
+                case exception @ (_: CommandFailure | _: CantonInternalError) =>
+                  exception.getMessage
+                case exception => throw exception
+              },
             )
               .map(domains => (p, domains intersect domainIds))
           }
@@ -258,7 +261,7 @@ class ParticipantPartiesAdministrationGroup(
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
                 runner.ledger_api.parties.list().map(_.party).contains(partyId),
-                show"The party ${partyId} never appeared on the ledger API server",
+                show"The party $partyId never appeared on the ledger API server",
               )
             else Right(())
           _ <- additionalSync.traverse_ { case (p, domains) =>
@@ -335,15 +338,14 @@ class ParticipantPartiesAdministrationGroup(
       ParticipantAdminCommands.PartyNameManagement.SetPartyDisplayName(party, displayName)
     )
   }
-
 }
 
 class LocalParticipantPartiesAdministrationGroup(
     reference: LocalParticipantReference,
     runner: AdminCommandRunner
-      with BaseInspection[ParticipantNode]
-      with ParticipantAdministration
-      with BaseLedgerApiAdministration,
+      & BaseInspection[ParticipantNode]
+      & ParticipantAdministration
+      & BaseLedgerApiAdministration,
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends ParticipantPartiesAdministrationGroup(reference.id, runner, consoleEnvironment)

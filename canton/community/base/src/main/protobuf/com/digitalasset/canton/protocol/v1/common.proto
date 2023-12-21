@@ -11,9 +11,16 @@ import "google/protobuf/timestamp.proto";
 
 // Compared to v0: contract_salt was added
 message SerializableContract {
+  message Metadata {
+    repeated string non_maintainer_signatories = 1;
+    repeated string non_signatory_stakeholders = 2;
+    v0.GlobalKey key = 3; // optional: only set if contract has a key
+    repeated string maintainers = 4; // optional; only set if contract has a key
+  }
+
   string contract_id = 1;
   bytes raw_contract_instance = 2;
-  v0.SerializableContract.Metadata metadata = 3;
+  Metadata metadata = 3;
   google.protobuf.Timestamp ledger_create_time = 4;
   com.digitalasset.canton.crypto.v0.Salt contract_salt = 5; // optional
 }

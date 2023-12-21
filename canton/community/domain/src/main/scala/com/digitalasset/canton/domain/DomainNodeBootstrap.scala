@@ -124,8 +124,6 @@ class DomainNodeBootstrap(
     )
   private val settingsStore = DomainNodeSettingsStore.create(
     storage,
-    staticDomainParametersFromConfig,
-    config.init.domainParameters.resetStoredStaticConfig,
     timeouts,
     loggerFactory,
   )

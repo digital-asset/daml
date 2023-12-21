@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
   TestingOwnerWithKeysX,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -49,7 +48,7 @@ class ValidatingTopologyMappingXChecksTest
     (check, store)
   }
 
-  "TopologyMappingXChecks" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet when {
+  "TopologyMappingXChecks" when {
     import DefaultTestIdentities.{participant1, participant2, participant3, party1, domainId}
     import factory.TestingTransactions.*
 

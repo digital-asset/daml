@@ -70,7 +70,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       )
     }
     "owner to key mapping" should {
-      val owners = Seq[KeyOwner](
+      val owners = Seq[Member](
         ParticipantId(uid),
         MediatorId(uid),
         SequencerId(uid),

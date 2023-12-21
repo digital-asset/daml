@@ -7,14 +7,11 @@ import cats.Functor
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
-import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -40,7 +37,6 @@ import org.scalatestplus.scalacheck.CheckerAsserting
 import org.slf4j.bridge.SLF4JBridgeHandler
 import org.typelevel.discipline.Laws
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -125,11 +121,6 @@ trait BaseTest
     with AppendedClues { self =>
 
   import scala.language.implicitConversions
-
-  protected val testTrafficState: Boolean = testedProtocolVersion >= ProtocolVersion.CNTestNet
-
-  protected def whenTestTrafficState[K, V](m: Map[K, V]): Map[K, V] =
-    if (testTrafficState) m else Map.empty
 
   /** Allows for invoking `myEitherT.futureValue` when `myEitherT: EitherT[Future, _, _]`.
     */
@@ -360,25 +351,10 @@ object BaseTest {
   lazy val defaultStaticDomainParameters: StaticDomainParameters =
     defaultStaticDomainParametersWith()
 
-  lazy val defaultMaxRatePerParticipant: NonNegativeInt =
-    defaultStaticDomainParameters.maxRatePerParticipant: @nowarn("msg=deprecated")
-  lazy val defaultMaxRequestSize: MaxRequestSize =
-    defaultStaticDomainParameters.maxRequestSize: @nowarn(
-      "msg=deprecated"
-    )
-
   def defaultStaticDomainParametersWith(
-      maxRatePerParticipant: Int = StaticDomainParameters.defaultMaxRatePerParticipant.unwrap,
-      reconciliationInterval: PositiveSeconds =
-        StaticDomainParameters.defaultReconciliationInterval,
       uniqueContractKeys: Boolean = false,
-      maxRequestSize: Int = StaticDomainParameters.defaultMaxRequestSize.unwrap,
       protocolVersion: ProtocolVersion = testedProtocolVersion,
-      catchUpParameters: Option[CatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters.create(
-    reconciliationInterval = reconciliationInterval,
-    maxRatePerParticipant = NonNegativeInt.tryCreate(maxRatePerParticipant),
-    maxRequestSize = MaxRequestSize(NonNegativeInt.tryCreate(maxRequestSize)),
     uniqueContractKeys = uniqueContractKeys,
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
@@ -386,7 +362,6 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
-    catchUpParameters = catchUpParameters,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =

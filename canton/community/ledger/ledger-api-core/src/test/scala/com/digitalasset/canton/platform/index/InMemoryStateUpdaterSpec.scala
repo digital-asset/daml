@@ -253,7 +253,7 @@ object InMemoryStateUpdaterSpec {
         offset = offset(1L),
         events = Vector(),
         completionDetails = None,
-        domainId = None,
+        domainId = Some(domainId1.toProtoPrimitive),
       )
     )(emptyTraceContext)
 
@@ -330,7 +330,6 @@ object InMemoryStateUpdaterSpec {
 
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
-    val eventsByContractKeyCache = None
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
@@ -354,7 +353,6 @@ object InMemoryStateUpdaterSpec {
     val inMemoryState = new InMemoryState(
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
-      eventsByContractKeyCache = eventsByContractKeyCache,
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
@@ -524,7 +522,6 @@ object InMemoryStateUpdaterSpec {
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,
-    optDomainId = None,
   )
 
   private val update1 = offset(1L) -> Traced(
@@ -538,6 +535,7 @@ object InMemoryStateUpdaterSpec {
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = domainId1,
     )
   )
   private val rawMetadataChangedUpdate = offset(2L) -> Update.ConfigurationChanged(
@@ -558,6 +556,7 @@ object InMemoryStateUpdaterSpec {
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = DomainId.tryFromString("da::default"),
     )
   )
   private val update4 = offset(4L) -> Traced[Update](
@@ -572,7 +571,7 @@ object InMemoryStateUpdaterSpec {
         statistics = None,
       ),
       reasonTemplate = FinalReason(new Status()),
-      domainId = None,
+      domainId = DomainId.tryFromString("da::default"),
     )
   )
   private val archive = DamlLf.Archive.newBuilder

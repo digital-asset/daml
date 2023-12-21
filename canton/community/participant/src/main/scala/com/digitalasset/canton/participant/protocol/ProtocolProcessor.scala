@@ -158,7 +158,9 @@ abstract class ProtocolProcessor[
       result <- {
         submission match {
           case untracked: steps.UntrackedSubmission =>
-            submitWithoutTracking(submissionParam, untracked)
+            submitWithoutTracking(submissionParam, untracked).tapLeft(submissionError =>
+              logger.warn(s"Failed to submit submission due to $submissionError")
+            )
           case tracked: steps.TrackedSubmission => submitWithTracking(submissionParam, tracked)
         }
       }
@@ -969,7 +971,6 @@ abstract class ProtocolProcessor[
             pendingDataAndResponses <- steps.constructPendingDataAndResponse(
               pendingDataAndResponseArgs,
               ephemeral.transferCache,
-              ephemeral.contractStore,
               requestFuturesF.flatMap(_.activenessResult),
               mediator,
               freshOwnTimelyTx,
@@ -1197,13 +1198,7 @@ abstract class ProtocolProcessor[
   ): EitherT[Future, steps.ResultError, EitherT[FutureUnlessShutdown, steps.ResultError, Unit]] = {
     ephemeral.recordOrderPublisher.tick(sc, resultTs)
 
-    val snapshotTs =
-      if (protocolVersion >= ProtocolVersion.v5) requestId.unwrap
-      else {
-        // Keeping legacy behavior to enforce a consistent behavior in old protocol versions.
-        // If different participants pick different values, this could result in a ledger fork.
-        resultTs
-      }
+    val snapshotTs = requestId.unwrap
 
     for {
       snapshot <- EitherT.right(
@@ -1341,7 +1336,6 @@ abstract class ProtocolProcessor[
           _verdict,
           resultRootHash,
           _domainId,
-          _,
         ) <- unsignedResultE.toOption
         case WrappedPendingRequestData(pendingRequestData) <- Some(pendingRequestDataOrReplayData)
         case PendingTransaction(txId, _, _, _, _, requestTime, _, _, _, _) <- Some(

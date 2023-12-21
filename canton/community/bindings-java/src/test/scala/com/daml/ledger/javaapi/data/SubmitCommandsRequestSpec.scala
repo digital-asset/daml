@@ -3,15 +3,14 @@
 
 package com.daml.ledger.javaapi.data
 
-import java.time.Duration
-import java.util.Optional
-
 import com.daml.ledger.api.v1.CommandsOuterClass
 import com.daml.ledger.api.v1.CommandsOuterClass.Commands.DeduplicationPeriodCase
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.jdk.CollectionConverters._
+import java.time.Duration
+import java.util.Optional
+import scala.jdk.CollectionConverters.*
 
 // Allows using deprecated Protobuf fields for testing
 @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")

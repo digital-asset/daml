@@ -49,7 +49,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
+import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
@@ -378,7 +378,7 @@ final class RepairService(
                         _.contract.rawContractInstance.contractInstance.unversioned.template.packageId
                       )
                       .distinct
-                      .parTraverse_(packageVetted)
+                      .parTraverse_(packageKnown)
 
                     _uniqueKeysWithHostedMaintainerInContractsToAdd <- EitherTUtil.ifThenET(
                       repair.domain.parameters.uniqueContractKeys
@@ -978,7 +978,7 @@ final class RepairService(
       repair: RepairRequest,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = repair.transactionId.tryAsLedgerTransactionId
-    val offset = LocalOffset(repair.tryExactlyOneRequestCounter)
+    val offset = RequestOffset(repair.timestamp, repair.tryExactlyOneRequestCounter)
     val event =
       TimestampedEvent(
         LedgerSyncEvent.ContractsPurged(
@@ -1010,7 +1010,7 @@ final class RepairService(
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId
-    val offset = LocalOffset(requestCounter)
+    val offset = RequestOffset(repair.timestamp, requestCounter)
     val contractMetadata = contractsAdded.view
       .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
       .toMap
@@ -1066,7 +1066,7 @@ final class RepairService(
         )
     }
 
-  private def packageVetted(
+  private def packageKnown(
       lfPackageId: LfPackageId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {
@@ -1197,7 +1197,7 @@ final class RepairService(
         (),
         log(
           s"""Cannot apply a repair command as events have been published up to
-             |${domain.startingPoints.lastPublishedLocalOffset} offset inclusive
+             |${domain.startingPoints.lastPublishedRequestOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),

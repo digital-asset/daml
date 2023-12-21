@@ -24,7 +24,6 @@ import com.digitalasset.canton.topology.admin.v0.TopologyManagerWriteServiceGrpc
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, *}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -80,7 +79,7 @@ object TopologyAdminCommands {
 
     final case class ListKeyOwners(
         filterDomain: String,
-        filterKeyOwnerType: Option[KeyOwnerCode],
+        filterKeyOwnerType: Option[MemberCode],
         filterKeyOwnerUid: String,
         asOf: Option[Instant],
         limit: PositiveInt,
@@ -202,7 +201,7 @@ object TopologyAdminCommands {
     final case class AuthorizeOwnerToKeyMapping(
         ops: TopologyChangeOp,
         signedBy: Option[Fingerprint],
-        keyOwner: KeyOwner,
+        keyOwner: Member,
         fingerprintOfKey: Fingerprint,
         purpose: KeyPurpose,
         force: Boolean,
@@ -342,19 +341,15 @@ object TopologyAdminCommands {
         signedBy: Option[Fingerprint],
         domainId: DomainId,
         newParameters: DynamicDomainParameters,
-        protocolVersion: ProtocolVersion,
         force: Boolean,
     ) extends BaseCommand[v0.DomainParametersChangeAuthorization] {
-      override def createRequest(): Either[String, v0.DomainParametersChangeAuthorization] = {
-        newParameters.toProto(protocolVersion).map { parameters =>
-          v0.DomainParametersChangeAuthorization(
-            authorization =
-              authData(TopologyChangeOp.Replace, signedBy, replaceExisting = false, force = force),
-            domain = domainId.toProtoPrimitive,
-            parameters = parameters,
-          )
-        }
-      }
+      override def createRequest(): Either[String, v0.DomainParametersChangeAuthorization] =
+        v0.DomainParametersChangeAuthorization(
+          authorization =
+            authData(TopologyChangeOp.Replace, signedBy, replaceExisting = false, force = force),
+          domain = domainId.toProtoPrimitive,
+          parameters = newParameters.toProto,
+        ).asRight
 
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
@@ -369,31 +364,16 @@ object TopologyAdminCommands {
         force: Boolean,
     ) extends BaseCommand[v0.DomainParametersChangeAuthorization] {
       override def createRequest(): Either[String, v0.DomainParametersChangeAuthorization] = {
-        val protoVersion = newParameters.protoVersion.v
+        val parameters =
+          v0.DomainParametersChangeAuthorization.Parameters
+            .ParametersV1(newParameters.toProtoV2)
 
-        val parameters = protoVersion match {
-          case 0 =>
-            Right(
-              v0.DomainParametersChangeAuthorization.Parameters
-                .ParametersV0(newParameters.toProtoV0)
-            )
-          case 1 =>
-            Right(
-              v0.DomainParametersChangeAuthorization.Parameters
-                .ParametersV1(newParameters.toProtoV1)
-            )
-          case _ =>
-            Left(s"Unsupported Proto version $protoVersion for dynamic domain parameters")
-        }
-
-        parameters.map { parameters =>
-          v0.DomainParametersChangeAuthorization(
-            authorization =
-              authData(TopologyChangeOp.Replace, signedBy, replaceExisting = false, force = force),
-            domain = domainId.toProtoPrimitive,
-            parameters = parameters,
-          )
-        }
+        v0.DomainParametersChangeAuthorization(
+          authorization =
+            authData(TopologyChangeOp.Replace, signedBy, replaceExisting = false, force = force),
+          domain = domainId.toProtoPrimitive,
+          parameters = parameters,
+        ).asRight
       }
 
       override def submitRequest(
@@ -472,7 +452,7 @@ object TopologyAdminCommands {
 
     final case class ListOwnerToKeyMapping(
         query: BaseQuery,
-        filterKeyOwnerType: Option[KeyOwnerCode],
+        filterKeyOwnerType: Option[MemberCode],
         filterKeyOwnerUid: String,
         filterKeyPurpose: Option[KeyPurpose],
     ) extends BaseCommand[v0.ListOwnerToKeyMappingRequest, v0.ListOwnerToKeyMappingResult, Seq[

@@ -120,7 +120,7 @@ object CommitSet {
             ),
           )
       }
-      val transferCounter = TransferCounter.forCreatedContract(protocolVersion)
+      val transferCounter = Some(TransferCounter.Genesis)
       val creations = createdContracts.fmap(c =>
         WithContractHash.fromContract(c, CommitSet.CreationCommit(c.metadata, transferCounter))
       )

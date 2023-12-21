@@ -21,19 +21,9 @@ import scala.concurrent.duration.Duration
 /** Implementation dependent operations for a client to write to a domain sequencer. */
 trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshake {
 
-  /** Sends a submission request to the sequencer.
-    * If we failed to make the request, an error will be returned.
-    * If the sequencer accepted (or may have accepted) the request this call will return successfully.
-    * This is about to be deprecated in favor of [[sendAsyncSigned]]
-    */
-  def sendAsync(request: SubmissionRequest, timeout: Duration)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit]
-
   /** Sends a signed submission request to the sequencer.
     * If we failed to make the request, an error will be returned.
     * If the sequencer accepted (or may have accepted) the request this call will return successfully.
-    * This is replacing [[sendAsync]]
     */
   def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
@@ -42,7 +32,7 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncClientError, Unit]
 
-  def sendAsyncUnauthenticated(
+  def sendAsyncUnauthenticatedVersioned(
       request: SubmissionRequest,
       timeout: Duration,
   )(implicit

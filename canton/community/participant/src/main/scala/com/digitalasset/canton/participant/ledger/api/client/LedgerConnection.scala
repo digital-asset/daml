@@ -98,11 +98,11 @@ trait LedgerConnection extends LedgerSubmit with LedgerAcs {
       offset: LedgerOffset,
       filter: TransactionFilter = LedgerConnection.transactionFilter(sender),
   )(f: Transaction => Future[Unit]): LedgerSubscription
-  def subscription[T](
+  def subscription[_T](
       subscriptionName: String,
       offset: LedgerOffset,
       filter: TransactionFilter = LedgerConnection.transactionFilter(sender),
-  )(mapOperator: Flow[Transaction, Any, _]): LedgerSubscription
+  )(mapOperator: Flow[Transaction, Any, ?]): LedgerSubscription
 
   def subscribeTree(
       subscriptionName: String,
@@ -114,11 +114,11 @@ trait LedgerConnection extends LedgerSubmit with LedgerAcs {
       offset: LedgerOffset,
       filter: Seq[Any] = Seq(sender),
   )(f: TransactionTree => Future[Unit]): LedgerSubscription
-  def subscriptionTree[T](
+  def subscriptionTree[_T](
       subscriptionName: String,
       offset: LedgerOffset,
       filter: Seq[Any] = Seq(sender),
-  )(mapOperator: Flow[TransactionTree, Any, _]): LedgerSubscription
+  )(mapOperator: Flow[TransactionTree, Any, ?]): LedgerSubscription
 
   def transactionById(id: String): Future[Option[Transaction]]
 
@@ -178,7 +178,7 @@ object LedgerConnection {
       ec: ExecutionContextExecutor,
       as: ActorSystem,
       sequencerPool: ExecutionSequencerFactory,
-  ): LedgerConnection with NamedLogging =
+  ): LedgerConnection & NamedLogging =
     new LedgerConnection with NamedLogging {
       protected val loggerFactory: NamedLoggerFactory = loggerFactoryForLedgerConnectionOverride
 
@@ -215,7 +215,7 @@ object LedgerConnection {
           overrideRetryable,
         )
 
-      override def sender = senderParty
+      override def sender: Party = senderParty
 
       override def ledgerEnd: Future[LedgerOffset] =
         transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
@@ -352,11 +352,11 @@ object LedgerConnection {
         SyncCloseable("ledgerClient", client.close()),
       )
 
-      override def subscription[T](
+      override def subscription[_T](
           subscriptionName: String,
           offset: LedgerOffset,
           filter: TransactionFilter = transactionFilter(sender),
-      )(mapOperator: Flow[Transaction, Any, _]): LedgerSubscription =
+      )(mapOperator: Flow[Transaction, Any, ?]): LedgerSubscription =
         makeSubscription(
           transactionClient.getTransactions(offset, None, filter),
           mapOperator,
@@ -381,11 +381,11 @@ object LedgerConnection {
           Flow[TransactionTree].mapAsync(1)(f)
         })
 
-      override def subscriptionTree[T](
+      override def subscriptionTree[_T](
           subscriptionName: String,
           offset: LedgerOffset,
           filterParty: Seq[Any] = Seq(sender),
-      )(mapOperator: Flow[TransactionTree, Any, _]): LedgerSubscription =
+      )(mapOperator: Flow[TransactionTree, Any, ?]): LedgerSubscription =
         makeSubscription(
           transactionClient.getTransactionTrees(offset, None, transactionFilter(sender)),
           mapOperator,
@@ -394,7 +394,7 @@ object LedgerConnection {
 
       private def makeSubscription[S, T](
           source: Source[S, NotUsed],
-          mapOperator: Flow[S, T, _],
+          mapOperator: Flow[S, T, ?],
           subscriptionName: String,
       ): LedgerSubscription =
         new LedgerSubscription {
@@ -411,7 +411,7 @@ object LedgerConnection {
               // was processed
               .toMat(Sink.ignore)(Keep.both),
           )
-          override val loggerFactory =
+          override val loggerFactory: NamedLoggerFactory =
             if (subscriptionName.isEmpty)
               loggerFactoryForLedgerConnectionOverride
             else
@@ -428,13 +428,13 @@ object LedgerConnection {
                 s"graph.completed $subscriptionName",
                 completed.transform {
                   case Success(v) => Success(v)
-                  case Failure(ex: StatusRuntimeException) =>
+                  case Failure(_: StatusRuntimeException) =>
                     // don't fail to close if there was a grpc status runtime exception
                     // this can happen (i.e. server not available etc.)
                     Success(Done)
                   case Failure(ex) => Failure(ex)
                 },
-                processingTimeouts.shutdownShort.unwrap,
+                processingTimeouts.shutdownShort,
               ),
             )
           }
@@ -469,7 +469,7 @@ object LedgerConnection {
       entityName = id.getEntityName,
     )
 
-  val ledgerBegin = LedgerOffset(
+  val ledgerBegin: LedgerOffset = LedgerOffset(
     LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
   )
 

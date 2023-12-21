@@ -3,23 +3,17 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Signature}
 import com.digitalasset.canton.data.{
+  CantonTimestamp,
   CantonTimestampSecond,
   GeneratorsData,
   GeneratorsDataTime,
   ViewPosition,
   ViewType,
 }
-import com.digitalasset.canton.protocol.{
-  GeneratorsProtocol,
-  RequestId,
-  RootHash,
-  TransferDomainId,
-  ViewHash,
-}
+import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, TransferDomainId}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -28,7 +22,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-import scala.Ordered.orderingToOrdered
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -45,12 +38,12 @@ final class GeneratorsMessages(
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
-  import org.scalatest.EitherValues.*
   import generatorsData.*
   import generatorsDataTime.*
   import generatorsProtocol.*
   import generatorsTransaction.*
+  import generatorsLocalVerdict.*
+  import generatorsVerdict.*
 
   @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
   /*
@@ -84,7 +77,7 @@ final class GeneratorsMessages(
     requestId <- Arbitrary.arbitrary[RequestId]
     informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
     domain <- Arbitrary.arbitrary[TransferDomainId]
-    verdict <- generatorsVerdict.verdictGen
+    verdict <- verdictArb.arbitrary
   } yield TransferResult.create(requestId, informees, domain, verdict, protocolVersion))
 
   implicit val malformedMediatorRequestResultArb: Arbitrary[MalformedMediatorRequestResult] =
@@ -93,9 +86,7 @@ final class GeneratorsMessages(
         requestId <- Arbitrary.arbitrary[RequestId]
         domainId <- Arbitrary.arbitrary[DomainId]
         viewType <- Arbitrary.arbitrary[ViewType]
-        mediatorReject <- generatorsVerdict.mediatorRejectGen(
-          Verdict.protocolVersionRepresentativeFor(protocolVersion)
-        )
+        mediatorReject <- mediatorRejectArb.arbitrary
       } yield MalformedMediatorRequestResult.tryCreate(
         requestId,
         domainId,
@@ -106,7 +97,7 @@ final class GeneratorsMessages(
     )
 
   implicit val transactionResultMessageArb: Arbitrary[TransactionResultMessage] = Arbitrary(for {
-    verdict <- generatorsVerdict.verdictGen
+    verdict <- verdictArb.arbitrary
     rootHash <- Arbitrary.arbitrary[RootHash]
     requestId <- Arbitrary.arbitrary[RequestId]
     domainId <- Arbitrary.arbitrary[DomainId]
@@ -118,7 +109,7 @@ final class GeneratorsMessages(
     for {
       requestId <- Arbitrary.arbitrary[RequestId]
       sender <- Arbitrary.arbitrary[ParticipantId]
-      localVerdict <- generatorsLocalVerdict.localVerdictArb.arbitrary
+      localVerdict <- localVerdictArb.arbitrary
 
       domainId <- Arbitrary.arbitrary[DomainId]
 
@@ -135,18 +126,8 @@ final class GeneratorsMessages(
         case _ => Gen.option(Arbitrary.arbitrary[RootHash])
       }
 
-      rpv = MediatorResponse.protocolVersionRepresentativeFor(protocolVersion)
-
-      viewHashO <- localVerdict match {
-        case _: LocalApprove | _: LocalReject
-            if rpv < MediatorResponse.protocolVersionRepresentativeFor(ProtocolVersion.v5) =>
-          Gen.some(Arbitrary.arbitrary[ViewHash])
-        case _ => Gen.option(Arbitrary.arbitrary[ViewHash])
-      }
-
       viewPositionO <- localVerdict match {
-        case _: LocalApprove | _: LocalReject
-            if rpv >= MediatorResponse.protocolVersionRepresentativeFor(ProtocolVersion.v5) =>
+        case _: LocalApprove | _: LocalReject =>
           Gen.some(Arbitrary.arbitrary[ViewPosition])
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }
@@ -154,7 +135,6 @@ final class GeneratorsMessages(
     } yield MediatorResponse.tryCreate(
       requestId,
       sender,
-      viewHashO,
       viewPositionO,
       localVerdict,
       rootHash,
@@ -189,15 +169,16 @@ final class GeneratorsMessages(
   } yield TypedSignedProtocolMessageContent(content, protocolVersion))
 
   implicit val signedProtocolMessageArb
-      : Arbitrary[SignedProtocolMessage[SignedProtocolMessageContent]] = Arbitrary(for {
-    typedMessage <- Arbitrary
-      .arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]]
-    rpv = SignedProtocolMessage.protocolVersionRepresentativeFor(protocolVersion)
-    signatures <- nonEmptyListGen(implicitly[Arbitrary[Signature]]).map { signatures =>
-      if (rpv >= SignedProtocolMessage.multipleSignaturesSupportedSince) signatures
-      else NonEmpty(List, signatures.head1)
-    }
-  } yield SignedProtocolMessage.create(typedMessage, signatures, rpv).value)
+      : Arbitrary[SignedProtocolMessage[SignedProtocolMessageContent]] = Arbitrary(
+    for {
+      typedMessage <- Arbitrary
+        .arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]]
+
+      signatures <- nonEmptyListGen(implicitly[Arbitrary[Signature]])
+    } yield SignedProtocolMessage(typedMessage, signatures)(
+      SignedProtocolMessage.protocolVersionRepresentativeFor(protocolVersion)
+    )
+  )
 
   private implicit val emptyTraceContext: TraceContext = TraceContext.empty
   private lazy val syncCrypto = GeneratorsCrypto.cryptoFactory.headSnapshot
@@ -209,10 +190,7 @@ final class GeneratorsMessages(
           signedTopologyTransactionArb.arbitrary
         )
         domainId <- Arbitrary.arbitrary[DomainId]
-        notSequencedAfter <- valueForEmptyOptionExactlyUntilExclusive(
-          protocolVersion,
-          DomainTopologyTransactionMessage.notSequencedAfterInvariant,
-        )
+        notSequencedAfter <- Arbitrary.arbitrary[CantonTimestamp]
       } yield Await.result(
         DomainTopologyTransactionMessage.tryCreate(
           transactions,
@@ -226,37 +204,16 @@ final class GeneratorsMessages(
     )
 
   // TODO(#14241) Once we have more generators for merkle trees base classes, make these generators exhaustive
-  private def protocolMessageV1Gen: Gen[ProtocolMessageV1] =
-    domainTopologyTransactionMessageArb.arbitrary
-  private def protocolMessageV2Gen: Gen[ProtocolMessageV2] =
-    domainTopologyTransactionMessageArb.arbitrary
-  private def protocolMessageV3Gen: Gen[ProtocolMessageV3] =
-    domainTopologyTransactionMessageArb.arbitrary
-  private def unsignedProtocolMessageV4Gen: Gen[UnsignedProtocolMessageV4] =
-    domainTopologyTransactionMessageArb.arbitrary
-  private def UnsignedProtocolMessageGen: Gen[UnsignedProtocolMessage] =
-    domainTopologyTransactionMessageArb.arbitrary
+  implicit val unsignedProtocolMessageArb: Arbitrary[UnsignedProtocolMessage] =
+    Arbitrary(domainTopologyTransactionMessageArb.arbitrary)
 
   // TODO(#14515) Check that the generator is exhaustive
-  // We don't include `protocolMessageV0Gen` because we don't want
-  // to test EnvelopeContentV0 that uses a legacy converter
-  def protocolMessageGen: Gen[ProtocolMessage] = Gen.oneOf(
-    protocolMessageV1Gen,
-    protocolMessageV2Gen,
-    protocolMessageV3Gen,
-    unsignedProtocolMessageV4Gen,
-    UnsignedProtocolMessageGen,
-  )
+  implicit val protocolMessageArb: Arbitrary[ProtocolMessage] =
+    Arbitrary(unsignedProtocolMessageArb.arbitrary)
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val envelopeContentArb: Arbitrary[EnvelopeContent] = Arbitrary(for {
-    // We don't test EnvelopeContentV0 because it uses legacy converter which is incompatible with this test
-    protocolMessage <- Map(
-      EnvelopeContent.representativeV1 -> protocolMessageV1Gen,
-      EnvelopeContent.representativeV2 -> protocolMessageV2Gen,
-      EnvelopeContent.representativeV3 -> protocolMessageV3Gen,
-      EnvelopeContent.representativeV4 -> unsignedProtocolMessageV4Gen,
-    )(EnvelopeContent.protocolVersionRepresentativeFor(protocolVersion))
+    protocolMessage <- protocolMessageArb.arbitrary
   } yield EnvelopeContent.tryCreate(protocolMessage, protocolVersion))
 
 }

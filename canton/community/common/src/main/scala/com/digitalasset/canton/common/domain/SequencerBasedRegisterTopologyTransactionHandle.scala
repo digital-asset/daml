@@ -5,6 +5,7 @@ package com.digitalasset.canton.common.domain
 
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
+import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
@@ -81,18 +82,20 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[RegisterTopologyTransactionResponseResult.State]] =
-    service.registerTopologyTransaction(
-      RegisterTopologyTransactionRequest
-        .create(
-          requestedBy = requestedBy,
-          participant = participantId,
-          requestId = String255.tryCreate(UUID.randomUUID().toString),
-          transactions = transactions.toList,
-          domainId = domainId,
-          protocolVersion = protocolVersion,
-        )
-    )
+  ): FutureUnlessShutdown[Seq[RegisterTopologyTransactionResponseResult.State]] = {
+    RegisterTopologyTransactionRequest
+      .create(
+        requestedBy = requestedBy,
+        participant = participantId,
+        requestId = String255.tryCreate(UUID.randomUUID().toString),
+        transactions = transactions.toList,
+        domainId = domainId,
+        protocolVersion = protocolVersion,
+      )
+      .toList
+      .parTraverse(service.registerTopologyTransaction)
+      .map(_.flatten)
+  }
 
   override def onClosed(): Unit = service.close()
 }
@@ -169,7 +172,7 @@ class DomainTopologyService(
 
   type RequestIndex = (TopologyRequestId, ParticipantId)
   type Request = RegisterTopologyTransactionRequest
-  type Response = RegisterTopologyTransactionResponse.Result
+  type Response = RegisterTopologyTransactionResponse
   type Result = Seq[RegisterTopologyTransactionResponseResult.State]
 
   val recipients = Recipients.cc(DomainTopologyManagerId(domainId))
@@ -178,17 +181,17 @@ class DomainTopologyService(
   ): (TopologyRequestId, ParticipantId) = (request.requestId, request.participant)
 
   protected def responseToIndex(
-      response: RegisterTopologyTransactionResponse.Result
+      response: RegisterTopologyTransactionResponse
   ): (TopologyRequestId, ParticipantId) = (response.requestId, response.participant)
 
   protected def responseToResult(
-      response: RegisterTopologyTransactionResponse.Result
+      response: RegisterTopologyTransactionResponse
   ): Seq[RegisterTopologyTransactionResponseResult.State] = response.results.map(_.state)
 
   protected def protocolMessageToResponse(
       m: ProtocolMessage
-  ): Option[RegisterTopologyTransactionResponse.Result] = m match {
-    case m: RegisterTopologyTransactionResponse.Result => Some(m)
+  ): Option[RegisterTopologyTransactionResponse] = m match {
+    case m: RegisterTopologyTransactionResponse => Some(m)
     case _ => None
   }
 

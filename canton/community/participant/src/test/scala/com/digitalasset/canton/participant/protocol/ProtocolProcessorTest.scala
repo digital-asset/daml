@@ -14,13 +14,23 @@ import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   ProcessingTimeout,
 }
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Encrypted, SyncCryptoApi, TestHash}
+import com.digitalasset.canton.crypto.{
+  AsymmetricEncrypted,
+  DomainSyncCryptoClient,
+  Encrypted,
+  Fingerprint,
+  SecureRandomness,
+  SymmetricKeyScheme,
+  SyncCryptoApi,
+  TestHash,
+}
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
@@ -42,6 +52,7 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
 }
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.AsyncResult
@@ -168,6 +179,13 @@ class ProtocolProcessorTest
     domain,
   )
 
+  private val encryptedRandomnessTest =
+    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY).value
+  private val sessionKeyMapTest = NonEmpty(
+    Seq,
+    new AsymmetricEncrypted[SecureRandomness](ByteString.EMPTY, Fingerprint.tryCreate("dummy")),
+  )
+
   private type TestInstance =
     ProtocolProcessor[
       Int,
@@ -280,7 +298,7 @@ class ProtocolProcessorTest
         startingPoints,
         _ => timeTracker,
         ParticipantTestMetrics.domain,
-        CachingConfigs.defaultSessionKeyCacheConfig,
+        CachingConfigs.defaultSessionKeyCache,
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,
@@ -329,13 +347,16 @@ class ProtocolProcessorTest
   private lazy val viewHash = ViewHash(TestHash.digest(2))
   private lazy val encryptedView =
     EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive).value)
-  private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessageV0(
+  private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
     submitterParticipantSignature = None,
     viewHash = viewHash,
-    randomnessMap = Map.empty,
+    randomness = encryptedRandomnessTest,
+    sessionKey = sessionKeyMapTest,
     encryptedView = encryptedView,
     domainId = DefaultTestIdentities.domainId,
-  )
+    SymmetricKeyScheme.Aes128Gcm,
+    testedProtocolVersion,
+  )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
   private lazy val rootHashMessage = RootHashMessage(
     rootHash,
     DefaultTestIdentities.domainId,
@@ -373,7 +394,7 @@ class ProtocolProcessorTest
           None,
         ),
         TransactionSubmissionTrackingData.TimeoutCause,
-        Some(domain),
+        domain,
         testedProtocolVersion,
       ),
     ),
@@ -410,12 +431,17 @@ class ProtocolProcessorTest
         )(anyTraceContext)
       )
         .thenReturn(EitherT.leftT[Future, Unit](sendError))
-      val (sut, persistent, ephemeral) =
+      val (sut, _persistent, _ephemeral) =
         testProcessingSteps(
           sequencerClient = failingSequencerClient,
           pendingSubmissionMap = submissionMap,
         )
-      val submissionResult = sut.submit(0).onShutdown(fail("submission shutdown")).value.futureValue
+
+      val submissionResult = loggerFactory.assertLogs(
+        sut.submit(0).onShutdown(fail("submission shutdown")).value.futureValue,
+        _.warningMessage should include(s"Failed to submit submission due to"),
+      )
+
       submissionResult shouldEqual Left(TestProcessorError(SequencerRequestError(sendError)))
       submissionMap.get(0) shouldBe None // remove the pending submission
     }
@@ -506,12 +532,12 @@ class ProtocolProcessorTest
               CantonTimestamp.Epoch.minusSeconds(20),
             ),
             processing = MessageProcessingStartingPoint(
-              Some(rc),
+              Some(RequestOffset(CantonTimestamp.now(), rc)),
               rc + 1,
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
             ),
-            lastPublishedLocalOffset = None,
+            lastPublishedRequestOffset = None,
             rewoundSequencerCounterPrehead = None,
           ),
         )
@@ -575,13 +601,16 @@ class ProtocolProcessorTest
       val viewHash1 = ViewHash(TestHash.digest(2))
       val encryptedViewWrongRH =
         EncryptedView(TestViewType)(Encrypted.fromByteString(wrongRootHash.toProtoPrimitive).value)
-      val viewMessageWrongRH = EncryptedViewMessageV0(
+      val viewMessageWrongRH = EncryptedViewMessage(
         submitterParticipantSignature = None,
         viewHash = viewHash1,
-        randomnessMap = Map.empty,
+        randomness = encryptedRandomnessTest,
+        sessionKey = sessionKeyMapTest,
         encryptedView = encryptedViewWrongRH,
         domainId = DefaultTestIdentities.domainId,
-      )
+        SymmetricKeyScheme.Aes128Gcm,
+        testedProtocolVersion,
+      )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
       val requestBatchWrongRH = RequestAndRootHashMessage(
         NonEmpty(
           Seq,
@@ -608,14 +637,18 @@ class ProtocolProcessorTest
     }
 
     "log decryption errors" in {
-      val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessageV0(
+      val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
         submitterParticipantSignature = None,
         viewHash = viewHash,
-        randomnessMap = Map.empty,
+        randomness = encryptedRandomnessTest,
+        sessionKey = sessionKeyMapTest,
         encryptedView =
           EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY).value),
         domainId = DefaultTestIdentities.domainId,
-      )
+        viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
+        protocolVersion = testedProtocolVersion,
+      )(Some(RecipientsInfo(Set.empty, Set.empty, Set.empty)))
+
       val requestBatchDecryptError = RequestAndRootHashMessage(
         NonEmpty(
           Seq,
@@ -671,7 +704,7 @@ class ProtocolProcessorTest
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
               submitterParticipant = participant,
-              maxSequencingTimeO = Some(requestId.unwrap.plusSeconds(10)),
+              maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
         )
@@ -695,7 +728,7 @@ class ProtocolProcessorTest
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
               submitterParticipant = participant,
-              maxSequencingTimeO = Some(requestId.unwrap.plusSeconds(10)),
+              maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
         )
@@ -716,7 +749,7 @@ class ProtocolProcessorTest
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
               submitterParticipant = otherParticipant,
-              maxSequencingTimeO = Some(requestId.unwrap.plusSeconds(10)),
+              maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
         )
@@ -754,7 +787,7 @@ class ProtocolProcessorTest
         submissionDataForTrackerO = Some(
           SubmissionTracker.SubmissionData(
             submitterParticipant = participant,
-            maxSequencingTimeO = Some(requestId.unwrap.plusSeconds(10)),
+            maxSequencingTime = requestId.unwrap.plusSeconds(10),
           )
         ),
         overrideInFlightSubmissionStoreO = Some(inFlightSubmissionStore),
@@ -946,7 +979,7 @@ class ProtocolProcessorTest
         startingPoints = ProcessingStartingPoints.tryCreate(
           MessageCleanReplayStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(1)),
           MessageProcessingStartingPoint(
-            Some(rc + 4),
+            Some(RequestOffset(requestId.unwrap, rc + 4)),
             rc + 5,
             requestSc + 10,
             CantonTimestamp.Epoch.plusSeconds(30),
@@ -1020,7 +1053,7 @@ class ProtocolProcessorTest
             requestSc - 1L,
             CantonTimestamp.Epoch.minusSeconds(11),
           ),
-          lastPublishedLocalOffset = None,
+          lastPublishedRequestOffset = None,
           rewoundSequencerCounterPrehead = Some(CursorPrehead(requestSc, requestTimestamp)),
         )
       )

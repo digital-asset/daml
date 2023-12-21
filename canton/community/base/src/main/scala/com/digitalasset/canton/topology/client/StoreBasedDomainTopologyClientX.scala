@@ -117,24 +117,30 @@ class StoreBasedTopologySnapshotX(
       }
     )
 
-    val requiredPackagesET = EitherT.right[PackageId](
-      findTransactions(
-        asOfInclusive = false,
-        types = Seq(TopologyMappingX.Code.DomainParametersStateX),
-        filterUid = None,
-        filterNamespace = None,
-      ).map { transactions =>
-        collectLatestMapping(
-          TopologyMappingX.Code.DomainParametersStateX,
-          transactions.collectOfMapping[DomainParametersStateX].result,
-        ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
-          .discard
+    val requiredPackagesET = store.storeId match {
+      case _: TopologyStoreId.DomainStore =>
+        EitherT.right[PackageId](
+          findTransactions(
+            asOfInclusive = false,
+            types = Seq(TopologyMappingX.Code.DomainParametersStateX),
+            filterUid = None,
+            filterNamespace = None,
+          ).map { transactions =>
+            collectLatestMapping(
+              TopologyMappingX.Code.DomainParametersStateX,
+              transactions.collectOfMapping[DomainParametersStateX].result,
+            ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
+              .discard
 
-        // TODO(#14054) Once the non-proto DynamicDomainParametersX is available, use it
-        //   _.parameters.requiredPackages
-        Seq.empty[PackageId]
-      }
-    )
+            // TODO(#14054) Once the non-proto DynamicDomainParametersX is available, use it
+            //   _.parameters.requiredPackages
+            Seq.empty[PackageId]
+          }
+        )
+
+      case TopologyStoreId.AuthorizedStore =>
+        EitherT.pure[Future, PackageId](Seq.empty)
+    }
 
     lazy val dependenciesET = packageDependencies(packageId)
 
@@ -449,9 +455,9 @@ class StoreBasedTopologySnapshotX(
   /** Returns a list of owner's keys (at most limit) */
   override def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] = {
+  ): Future[Map[Member, KeyCollection]] = {
     store
       .inspect(
         proposals = false,
@@ -615,7 +621,7 @@ class StoreBasedTopologySnapshotX(
     )
 
   /** abstract loading function used to obtain the full key collection for a key owner */
-  override def allKeys(owner: KeyOwner): Future[KeyCollection] = findTransactions(
+  override def allKeys(owner: Member): Future[KeyCollection] = findTransactions(
     asOfInclusive = false,
     types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
     filterUid = Some(Seq(owner.uid)),

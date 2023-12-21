@@ -5,14 +5,16 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.sequencing.service.DirectSequencerSubscriptionFactory
 import com.digitalasset.canton.lifecycle.SyncCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.*
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -27,6 +29,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.{DiscardOps, Uninhabited}
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
@@ -43,20 +46,11 @@ class DirectSequencerClientTransport(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit materializer: Materializer, ec: ExecutionContext)
     extends SequencerClientTransport
+    with SequencerClientTransportPekko
     with NamedLogging {
 
   private val subscriptionFactory =
     new DirectSequencerSubscriptionFactory(sequencer, timeouts, loggerFactory)
-
-  override def sendAsync(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] =
-    sequencer
-      .sendAsync(request)
-      .leftMap(SendAsyncClientError.RequestRefused)
 
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
@@ -66,7 +60,7 @@ class DirectSequencerClientTransport(
       .sendAsyncSigned(request)
       .leftMap(SendAsyncClientError.RequestRefused)
 
-  override def sendAsyncUnauthenticated(
+  override def sendAsyncUnauthenticatedVersioned(
       request: SubmissionRequest,
       timeout: Duration,
   )(implicit
@@ -103,7 +97,6 @@ class DirectSequencerClientTransport(
         subscriptionFactory
           .create(
             request.counter,
-            "direct",
             request.member,
             {
               case Right(event) => handler(event)
@@ -152,6 +145,9 @@ class DirectSequencerClientTransport(
       request: SubscriptionRequest,
       handler: SerializedEventHandler[E],
   )(implicit traceContext: TraceContext): SequencerSubscription[E] =
+    unsupportedUnauthenticatedSubscription
+
+  private def unsupportedUnauthenticatedSubscription(implicit traceContext: TraceContext): Nothing =
     ErrorUtil.internalError(
       new UnsupportedOperationException(
         "Direct client does not support unauthenticated subscriptions"
@@ -159,13 +155,24 @@ class DirectSequencerClientTransport(
     )
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
-    new SubscriptionErrorRetryPolicy {
-      override def retryOnError(
-          subscriptionError: SubscriptionCloseReason.SubscriptionError,
-          receivedItems: Boolean,
-      )(implicit traceContext: TraceContext): Boolean =
-        false // unlikely there will be any errors with this direct transport implementation
-    }
+    // unlikely there will be any errors with this direct transport implementation
+    SubscriptionErrorRetryPolicy.never
+
+  override type SubscriptionError = Uninhabited
+
+  override def subscribe(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[SubscriptionError] =
+    ??? // TODO(#13789) implement this
+
+  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[SubscriptionError] =
+    unsupportedUnauthenticatedSubscription
+
+  override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
+    // unlikely there will be any errors with this direct transport implementation
+    SubscriptionErrorRetryPolicyPekko.never
 
   override def handshake(request: HandshakeRequest)(implicit
       traceContext: TraceContext

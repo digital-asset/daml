@@ -133,7 +133,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       PartyToParticipant(RequestSide.Both, party2, participant2, Submission)
     )
 
-    class Fixture(initialKeys: Map[KeyOwner, Seq[SigningPublicKey]] = Map()) {
+    class Fixture(initialKeys: Map[Member, Seq[SigningPublicKey]] = Map()) {
       val store = mk()
       val client =
         new StoreBasedDomainTopologyClient(

@@ -9,7 +9,15 @@ import com.daml.metrics.api.MetricName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ApiType.Grpc.prettyOfString
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{Encrypted, HashPurpose, TestHash}
+import com.digitalasset.canton.crypto.{
+  AsymmetricEncrypted,
+  Encrypted,
+  Fingerprint,
+  HashPurpose,
+  SecureRandomness,
+  SymmetricKeyScheme,
+  TestHash,
+}
 import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.MediatorError
@@ -27,11 +35,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.Verdict.{
-  MediatorRejectV0,
-  MediatorRejectV1,
-  MediatorRejectV2,
-}
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
+import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   RequestAndRootHashMessage,
@@ -83,6 +88,13 @@ trait MessageDispatcherTest {
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
   private val mediatorId = MediatorId(domainId)
   private val mediatorId2 = MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))
+
+  private val encryptedRandomnessTest =
+    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY).value
+  private val sessionKeyMapTest = NonEmpty(
+    Seq,
+    new AsymmetricEncrypted[SecureRandomness](ByteString.EMPTY, Fingerprint.tryCreate("dummy")),
+  )
 
   case class Fixture(
       messageDispatcher: MessageDispatcher,
@@ -302,27 +314,33 @@ trait MessageDispatcherTest {
 
   private val encryptedTestView = EncryptedView(TestViewType)(emptyEncryptedViewTree)
   private val encryptedTestViewMessage =
-    EncryptedViewMessageV0(
+    EncryptedViewMessage(
       None,
       ViewHash(TestHash.digest(9000)),
-      Map.empty,
+      randomness = encryptedRandomnessTest,
+      sessionKey = sessionKeyMapTest,
       encryptedTestView,
       domainId,
-    )
+      SymmetricKeyScheme.Aes128Gcm,
+      testedProtocolVersion,
+    )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
 
   private val encryptedOtherTestView = EncryptedView(OtherTestViewType)(emptyEncryptedViewTree)
   private val encryptedOtherTestViewMessage =
-    EncryptedViewMessageV0(
-      None,
-      ViewHash(TestHash.digest(9001)),
-      Map.empty,
-      encryptedOtherTestView,
-      domainId,
-    )
+    EncryptedViewMessage(
+      submitterParticipantSignature = None,
+      viewHash = ViewHash(TestHash.digest(9001)),
+      randomness = encryptedRandomnessTest,
+      sessionKey = sessionKeyMapTest,
+      encryptedView = encryptedOtherTestView,
+      domainId = domainId,
+      viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
+      protocolVersion = testedProtocolVersion,
+    )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val testMediatorResult =
-    SignedProtocolMessage.tryFrom(
+    SignedProtocolMessage.from(
       TestRegularMediatorResult(
         TestViewType,
         domainId,
@@ -333,7 +351,7 @@ trait MessageDispatcherTest {
       dummySignature,
     )
   private val otherTestMediatorResult =
-    SignedProtocolMessage.tryFrom(
+    SignedProtocolMessage.from(
       TestRegularMediatorResult(
         OtherTestViewType,
         domainId,
@@ -385,7 +403,7 @@ trait MessageDispatcherTest {
           .currentSnapshotApproximation,
         domainId = domainId,
         protocolVersion = testedProtocolVersion,
-        notSequencedAfter = Some(CantonTimestamp.Epoch),
+        notSequencedAfter = CantonTimestamp.Epoch,
       )
       .futureValue
 
@@ -397,30 +415,17 @@ trait MessageDispatcherTest {
     when(rawCommitment.pretty).thenReturn(prettyOfString(_ => "test"))
 
     val commitment =
-      SignedProtocolMessage.tryFrom(rawCommitment, testedProtocolVersion, dummySignature)
+      SignedProtocolMessage.from(rawCommitment, testedProtocolVersion, dummySignature)
 
     def malformedVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject =
-      if (protocolVersion >= Verdict.MediatorRejectV2.firstApplicableProtocolVersion)
-        MediatorRejectV2.tryCreate(
-          MediatorError.MalformedMessage.Reject("").rpcStatusWithoutLoggingContext(),
-          protocolVersion,
-        )
-      else if (protocolVersion >= Verdict.MediatorRejectV1.firstApplicableProtocolVersion)
-        MediatorRejectV1.tryCreate(
-          "",
-          MediatorError.MalformedMessage.id,
-          MediatorError.MalformedMessage.category.asInt,
-          protocolVersion,
-        )
-      else
-        MediatorRejectV0.tryCreate(
-          com.digitalasset.canton.protocol.v0.MediatorRejection.Code.Timeout,
-          "",
-        )
+      MediatorReject.tryCreate(
+        MediatorError.MalformedMessage.Reject("").rpcStatusWithoutLoggingContext(),
+        protocolVersion,
+      )
 
     val reject = malformedVerdict(testedProtocolVersion)
     val malformedMediatorRequestResult =
-      SignedProtocolMessage.tryFrom(
+      SignedProtocolMessage.from(
         MalformedMediatorRequestResult.tryCreate(
           RequestId(CantonTimestamp.MinValue),
           domainId,
@@ -599,13 +604,16 @@ trait MessageDispatcherTest {
         "not be let through if UCK is enabled" in {
           val sut = mk(initRc = RequestCounter(-12), uck = Some(true))
           val encryptedTransferViewMessage =
-            EncryptedViewMessageV0(
+            EncryptedViewMessage(
               None,
               ViewHash(TestHash.digest(9002)),
-              Map.empty,
+              randomness = encryptedRandomnessTest,
+              sessionKey = sessionKeyMapTest,
               transferView,
               domainId,
-            )
+              SymmetricKeyScheme.Aes128Gcm,
+              testedProtocolVersion,
+            )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
           val rootHashMessage =
             RootHashMessage(
               rootHash(1),
@@ -751,13 +759,16 @@ trait MessageDispatcherTest {
       val sut = mk(initRc = RequestCounter(-12))
       val encryptedUnknownTestView = EncryptedView(UnknownTestViewType)(emptyEncryptedViewTree)
       val encryptedUnknownTestViewMessage =
-        EncryptedViewMessageV0(
+        EncryptedViewMessage(
           None,
           ViewHash(TestHash.digest(9002)),
-          Map.empty,
+          randomness = encryptedRandomnessTest,
+          sessionKey = sessionKeyMapTest,
           encryptedUnknownTestView,
           domainId,
-        )
+          SymmetricKeyScheme.Aes128Gcm,
+          testedProtocolVersion,
+        )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
       val rootHashMessage =
         RootHashMessage(
           rootHash(1),
@@ -793,7 +804,7 @@ trait MessageDispatcherTest {
     "complain about unknown view types in a result" in {
       val sut = mk(initRc = RequestCounter(-11))
       val unknownTestMediatorResult =
-        SignedProtocolMessage.tryFrom(
+        SignedProtocolMessage.from(
           TestRegularMediatorResult(
             UnknownTestViewType,
             domainId,
@@ -1208,7 +1219,7 @@ trait MessageDispatcherTest {
       "malformed mediator requests be sent to the right processor" in {
         def malformed(viewType: ViewType, processor: ProcessorOfFixture): Future[Assertion] = {
           val result =
-            SignedProtocolMessage.tryFrom(
+            SignedProtocolMessage.from(
               MalformedMediatorRequestResult.tryCreate(
                 RequestId(CantonTimestamp.MinValue),
                 domainId,
@@ -1401,11 +1412,6 @@ private[protocol] object MessageDispatcherTest {
         BaseTest.testedProtocolVersion
       )
 
-    override def toProtoSomeSignedProtocolMessage
-        : protocolv0.SignedProtocolMessage.SomeSignedProtocolMessage =
-      throw new UnsupportedOperationException(
-        s"${this.getClass.getSimpleName} cannot be serialized"
-      )
     override def toProtoTypedSomeSignedProtocolMessage
         : protocolv0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
       throw new UnsupportedOperationException(
@@ -1425,7 +1431,7 @@ private[protocol] object MessageDispatcherTest {
     val name: String = "TestRegularMediatorResult"
 
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> UnsupportedProtoCodec(ProtocolVersion.v3)
+      ProtoVersion(0) -> UnsupportedProtoCodec(ProtocolVersion.v30)
     )
 
     override protected def deserializationErrorK(error: ProtoDeserializationError): Unit = ()

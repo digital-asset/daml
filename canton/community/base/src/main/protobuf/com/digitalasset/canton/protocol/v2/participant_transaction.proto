@@ -7,8 +7,6 @@ package com.digitalasset.canton.protocol.v2;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/common.proto";
-import "com/digitalasset/canton/protocol/v0/participant_transaction.proto";
-import "com/digitalasset/canton/protocol/v1/participant_transaction.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
@@ -43,29 +41,21 @@ message EncryptedViewMessage {
   v0.ViewType view_type = 8;
 }
 
-// Compared to v1: action_description changed type from v0.ActionDescription to v1.ActionDescription
-//                 created_core changed type from v0.CreatedContract to v1.CreatedContract
-//                 core_inputs change from v0.ViewParticipantData.InputContract to v1.InputContract
-message ViewParticipantData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-  com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  repeated v1.InputContract core_inputs = 2;
-  repeated v1.CreatedContract created_core = 3;
-  repeated string created_in_subview_archived_in_core = 4; // ids of contracts created in a subview and archived in the core
-  repeated v0.ViewParticipantData.ResolvedKey resolved_keys = 5;
-  v1.ActionDescription action_description = 6;
-  v0.ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
-}
-
 // Compared to v1: templateId added to ExerciseActionDescription
 message ActionDescription {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   oneof description {
-    v0.ActionDescription.CreateActionDescription create = 1;
+    ActionDescription.CreateActionDescription create = 1;
     ExerciseActionDescription exercise = 2;
-    v0.ActionDescription.FetchActionDescription fetch = 3;
-    v0.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+    ActionDescription.FetchActionDescription fetch = 3;
+    ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+  }
+
+  message CreateActionDescription {
+    string contract_id = 1;
+    bytes node_seed = 2;
+    string version = 3;
   }
 
   message ExerciseActionDescription {
@@ -79,5 +69,16 @@ message ActionDescription {
     bool failed = 8;
     optional string interface_id = 9;
     optional string template_id = 10;
+  }
+
+  message FetchActionDescription {
+    string input_contract_id = 1;
+    repeated string actors = 2;
+    bool by_key = 3;
+    string version = 4;
+  }
+
+  message LookupByKeyActionDescription {
+    v0.GlobalKey key = 1;
   }
 }

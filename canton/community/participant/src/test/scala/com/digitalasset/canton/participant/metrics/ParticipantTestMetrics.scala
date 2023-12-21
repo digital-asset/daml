@@ -16,9 +16,8 @@ object ParticipantTestMetrics
       new CantonDropwizardMetricsFactory(new MetricRegistry()),
       new InMemoryMetricsFactory,
       new MetricRegistry,
-      false,
+      reportExecutionContextMetrics = false,
     ) {
 
   val domain: SyncDomainMetrics = this.domainMetrics(DomainAlias.tryCreate("test"))
-
 }

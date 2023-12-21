@@ -84,7 +84,6 @@ class BadRootHashMessagesRequestProcessor(
           MediatorResponse.tryCreate(
             requestId = requestId,
             sender = participantId,
-            viewHashO = None,
             viewPositionO = None,
             localVerdict = reject,
             rootHash = Some(rootHash),

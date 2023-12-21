@@ -328,23 +328,23 @@ trait KeyTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
   /** returns newest signing public key */
-  def signingKey(owner: KeyOwner): Future[Option[SigningPublicKey]]
+  def signingKey(owner: Member): Future[Option[SigningPublicKey]]
 
   /** returns all signing keys */
-  def signingKeys(owner: KeyOwner): Future[Seq[SigningPublicKey]]
+  def signingKeys(owner: Member): Future[Seq[SigningPublicKey]]
 
   /** returns newest encryption public key */
-  def encryptionKey(owner: KeyOwner): Future[Option[EncryptionPublicKey]]
+  def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]]
 
   /** returns all encryption keys */
-  def encryptionKeys(owner: KeyOwner): Future[Seq[EncryptionPublicKey]]
+  def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]]
 
   /** Returns a list of all known parties on this domain */
   def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]]
+  ): Future[Map[Member, KeyCollection]]
 
 }
 
@@ -619,18 +619,18 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
   this: BaseTopologySnapshotClient =>
 
   /** abstract loading function used to obtain the full key collection for a key owner */
-  def allKeys(owner: KeyOwner): Future[KeyCollection]
+  def allKeys(owner: Member): Future[KeyCollection]
 
-  override def signingKey(owner: KeyOwner): Future[Option[SigningPublicKey]] =
+  override def signingKey(owner: Member): Future[Option[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys.lastOption)
 
-  override def signingKeys(owner: KeyOwner): Future[Seq[SigningPublicKey]] =
+  override def signingKeys(owner: Member): Future[Seq[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys)
 
-  override def encryptionKey(owner: KeyOwner): Future[Option[EncryptionPublicKey]] =
+  override def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys.lastOption)
 
-  override def encryptionKeys(owner: KeyOwner): Future[Seq[EncryptionPublicKey]] =
+  override def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys)
 
 }

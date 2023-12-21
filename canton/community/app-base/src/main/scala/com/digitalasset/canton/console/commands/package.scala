@@ -23,7 +23,8 @@ package object commands {
         body()
         None
       } catch {
-        case e: CommandExecutionFailedException => Some(e)
+        case e: CommandFailure => Some(e)
+        case e: CantonInternalError => Some(e)
       }
     )
     // It is ok to discard all except one exceptions, because:

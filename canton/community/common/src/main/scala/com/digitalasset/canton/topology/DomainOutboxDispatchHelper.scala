@@ -137,7 +137,6 @@ trait DomainOutboxDispatchHelperOld
 
   override def isExpectedState(state: RegisterTopologyTransactionResponseResult.State): Boolean =
     state match {
-      case RegisterTopologyTransactionResponseResult.State.Requested => false
       case RegisterTopologyTransactionResponseResult.State.Failed => false
       case RegisterTopologyTransactionResponseResult.State.Rejected => false
       case RegisterTopologyTransactionResponseResult.State.Accepted => true

@@ -10,7 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, NonNegativeDuration}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
@@ -96,7 +96,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   )
 
   lazy val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   protected def ts(i: Int): CantonTimestampSecond = CantonTimestampSecond.ofEpochSecond(i.longValue)
 
@@ -216,12 +216,12 @@ sealed trait AcsCommitmentProcessorBaseTest
         LfContractId,
         (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounterO, TransferCounterO),
       ],
+      // contractSetup: Map[LfContractId, (Set[LfPartyId], TimeOfChange, TimeOfChange)],
       topology: Map[ParticipantId, Set[LfPartyId]],
       optCommitmentStore: Option[AcsCommitmentStore] = None,
       overrideDefaultSortedReconciliationIntervalsProvider: Option[
         SortedReconciliationIntervalsProvider
       ] = None,
-      catchUpModeEnabled: Boolean = false,
   )(implicit ec: ExecutionContext): (
       AcsCommitmentProcessor,
       AcsCommitmentStore,
@@ -257,11 +257,6 @@ sealed trait AcsCommitmentProcessorBaseTest
         constantSortedReconciliationIntervalsProvider(interval)
       }
 
-    val catchUpConfig =
-      if (catchUpModeEnabled)
-        Some(CatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
-      else None
-
     val acsCommitmentProcessor = new AcsCommitmentProcessor(
       domainId,
       localId,
@@ -272,7 +267,6 @@ sealed trait AcsCommitmentProcessorBaseTest
       _ => (),
       ParticipantTestMetrics.pruning,
       testedProtocolVersion,
-      catchUpConfig,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
@@ -283,6 +277,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       false,
       loggerFactory,
     )
+
     (acsCommitmentProcessor, store, sequencerClient, changes)
   }
 
@@ -724,7 +719,6 @@ class AcsCommitmentProcessorTest
     }
 
     "correctly issue local and process buffered remote commitments" in {
-
       val timeProofs = List(3L, 6, 10, 16).map(CantonTimestamp.ofEpochSecond)
       val contractSetup = Map(
         // contract ID to stakeholders, creation and archival time
@@ -799,7 +793,7 @@ class AcsCommitmentProcessorTest
      in `commitmentMsg`, otherwise the test will fail.
      */
 
-    "work when commitment tick falls between two participants connection to the domain" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+    "work when commitment tick falls between two participants connection to the domain" in {
       /*
         The goal here is to check that ACS commitment processing works even when
         a commitment tick falls between two participants' connection timepoints to the domain.
@@ -1376,13 +1370,9 @@ class AcsCommitmentProcessorTest
       val (activeCommitment1, deltaAddedCommitment1) =
         addCommonContractId(rc1, hash, initialTransferCounter)
       val (activeCommitment2, deltaAddedCommitment2) = addCommonContractId(rc2, hash, tc2)
-      if (testedProtocolVersion < ProtocolVersion.CNTestNet) {
-        activeCommitment1 shouldBe activeCommitment2
-        deltaAddedCommitment1 shouldBe deltaAddedCommitment2
-      } else {
-        activeCommitment1 should not be activeCommitment2
-        deltaAddedCommitment1 should not be deltaAddedCommitment2
-      }
+
+      activeCommitment1 should not be activeCommitment2
+      deltaAddedCommitment1 should not be deltaAddedCommitment2
     }
 
     "transient contracts in a commit set obtain the correct transfer counter for archivals, hence do not appear in the ACS change" in {
@@ -1728,429 +1718,6 @@ class AcsCommitmentProcessorTest
         assert(commitments9 equals rcBasedCommitments9)
         assert(commitments10 equals rcBasedCommitments10)
         assert(commitments12 equals rcBasedCommitments12)
-      }
-    }
-
-    "use catch-up logic correctly:" must {
-
-      def checkCatchUpModeCfgCorrect(processor: pruning.AcsCommitmentProcessor): Assertion = {
-        processor.catchUpConfig match {
-          case Some(cfg) =>
-            assert(cfg.nrIntervalsToTriggerCatchUp == PositiveInt.tryCreate(1))
-            assert(cfg.catchUpIntervalSkip == PositiveInt.tryCreate(2))
-          case None => fail("catch up mode needs to be enabled")
-        }
-      }
-
-      "enter catch up mode when processing falls behind" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
-        val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
-        val contractSetup = Map(
-          // contract ID to stakeholders, creation and archival time
-          (
-            coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
-          ),
-        )
-
-        val topology = Map(
-          localId -> Set(alice),
-          remoteId1 -> Set(bob),
-          remoteId2 -> Set(carol),
-        )
-
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
-
-        checkCatchUpModeCfgCorrect(processor)
-
-        val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15)),
-          (
-            remoteId2,
-            Map((coid(1, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
-            ts(15),
-            ts(20),
-          ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25)),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(25), ts(30)),
-        )
-
-        for {
-          remote <- remoteCommitments.parTraverse(commitmentMsg)
-          delivered = remote.map(cmt =>
-            (
-              cmt.message.period.toInclusive.plusSeconds(1),
-              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-            )
-          )
-          // First ask for the remote commitments to be processed, and then compute locally
-          // This triggers catch-up mode
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
-            .onShutdown(fail())
-          _ = changes.foreach { case (ts, tb, change) =>
-            processor.publish(RecordTime(ts, tb.v), change)
-          }
-          _ <- processor.flush()
-          outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-        } yield {
-          // the participant catches up to ticks 10, 20, 30
-          // the only ticks with non-empty commitments are at 20 and 30, and they match the remote ones,
-          // therefore there are 2 sends of commitments
-          verify(processor.sequencerClient, times(2)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
-          assert(computed.size === 4)
-          assert(received.size === 5)
-          // all local commitments were matched and can be pruned
-          assert(outstanding == Some(toc(55).timestamp))
-        }
-      }
-
-      "pruning works correctly for a participant ahead of a counter-participant that catches up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
-        val timeProofs = List(5L, 10, 15, 20, 25, 30).map(CantonTimestamp.ofEpochSecond)
-        val contractSetup = Map(
-          // contract ID to stakeholders, creation and archival time
-          (
-            coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
-          ),
-        )
-
-        val topology = Map(
-          localId -> Set(alice),
-          remoteId1 -> Set(bob),
-          remoteId2 -> Set(carol),
-        )
-
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
-
-        checkCatchUpModeCfgCorrect(processor)
-
-        val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15)),
-          (
-            remoteId2,
-            Map((coid(1, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
-            ts(15),
-            ts(20),
-          ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(30)),
-        )
-
-        for {
-          remote <- remoteCommitments.parTraverse(commitmentMsg)
-          delivered = remote.map(cmt =>
-            (
-              cmt.message.period.toInclusive.plusSeconds(1),
-              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-            )
-          )
-          // First ask for the local commitments to be processed, and then receive the remote ones,
-          // because the remote participants are catching up
-          _ = changes.foreach { case (ts, tb, change) =>
-            processor.publish(RecordTime(ts, tb.v), change)
-          }
-          _ <- processor.flush()
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
-            .onShutdown(fail())
-          _ <- processor.flush()
-          outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-        } yield {
-          // regular sends (no catch-up) at ticks 5, 15, 20, 25, 30 (tick 10 has an empty commitment)
-          verify(processor.sequencerClient, times(5)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
-          assert(computed.size === 5)
-          assert(received.size === 4)
-          // all local commitments were matched and can be pruned
-          assert(outstanding == Some(toc(30).timestamp))
-        }
-      }
-
-      "send skipped commitments on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
-
-        val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
-        val contractSetup = Map(
-          // contract ID to stakeholders, creation and archival time
-          (
-            coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
-          ),
-        )
-
-        val topology = Map(
-          localId -> Set(alice),
-          remoteId1 -> Set(bob),
-          remoteId2 -> Set(carol),
-        )
-
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
-
-        checkCatchUpModeCfgCorrect(processor)
-
-        val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15)),
-          // wrong contract, causes mismatch
-          (
-            remoteId2,
-            Map(
-              (coid(1, 1), initialTransferCounter.map(_ + 1)),
-              (coid(2, 1), initialTransferCounter.map(_ + 2)),
-            ),
-            ts(15),
-            ts(20),
-          ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25)),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(25), ts(30)),
-        )
-
-        for {
-          remote <- remoteCommitments.parTraverse(commitmentMsg)
-          delivered = remote.map(cmt =>
-            (
-              cmt.message.period.toInclusive.plusSeconds(1),
-              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-            )
-          )
-          // First ask for the remote commitments to be processed, and then compute locally
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
-            .onShutdown(fail())
-
-          _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
-            {
-              changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
-              }
-              for {
-                _ <- processor.flush()
-              } yield ()
-            },
-            // there should be one mismatch
-            // however, since buffered remote commitments are deleted asynchronously, it can happen that they
-            // are processed (checked for matches) several times before deleted
-            forAtLeast(1, _) {
-              _.warningMessage
-                .sliding("ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match".length)
-                .count(substr =>
-                  substr == "ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match"
-                ) shouldEqual 1
-            },
-          )
-
-          outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-        } yield {
-          // there are three sends, at the end of each coarse-grained interval 10, 20, 30
-          // the send at the end of interval 10 is empty, so that is not performed
-          // therefore, there should be 2 async sends
-          // there should be one mismatch, with carol, for the interval 15-20
-          // which means we send the fine-grained commitment 10-15
-          // therefore, there should be 3 async sends in total
-          verify(processor.sequencerClient, times(3)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
-          assert(computed.size === 4)
-          assert(received.size === 5)
-          // cannot prune past the mismatch
-          assert(outstanding == Some(toc(30).timestamp))
-        }
-      }
-
-      "prune correctly on mismatch during catch-up" in {
-
-        val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
-        val contractSetup = Map(
-          // contract ID to stakeholders, creation and archival time
-          (
-            coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
-          ),
-          (
-            coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
-          ),
-        )
-
-        val topology = Map(
-          localId -> Set(alice),
-          remoteId1 -> Set(bob),
-          remoteId2 -> Set(carol),
-        )
-
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
-
-        checkCatchUpModeCfgCorrect(processor)
-
-        val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15)),
-          // wrong contract, causes mismatch
-          (
-            remoteId2,
-            Map(
-              (coid(1, 1), initialTransferCounter.map(_ + 1)),
-              (coid(2, 1), initialTransferCounter.map(_ + 2)),
-            ),
-            ts(15),
-            ts(20),
-          ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25)),
-          // wrong contract, causes mismatch
-          (remoteId2, Map((coid(1, 1), initialTransferCounter)), ts(25), ts(30)),
-        )
-
-        for {
-          remote <- remoteCommitments.parTraverse(commitmentMsg)
-          delivered = remote.map(cmt =>
-            (
-              cmt.message.period.toInclusive.plusSeconds(1),
-              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-            )
-          )
-          // First ask for the remote commitments to be processed, and then compute locally
-          _ <- delivered
-            .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
-            }
-            .onShutdown(fail())
-
-          _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
-            {
-              changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
-              }
-              for {
-                _ <- processor.flush()
-              } yield ()
-            },
-            // there should be two mismatches
-            // however, since buffered remote commitments are deleted asynchronously, it can happen that they
-            // are processed (checked for matches) several times before deleted
-            forAtLeast(2, _) {
-              _.warningMessage
-                .sliding("ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match".length)
-                .count(substr =>
-                  substr == "ACS_COMMITMENT_MISMATCH(5,0): The local commitment does not match"
-                ) shouldEqual 1
-            },
-          )
-
-          outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computed <- store.searchComputedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-          received <- store.searchReceivedBetween(
-            CantonTimestamp.Epoch,
-            timeProofs.lastOption.value,
-          )
-        } yield {
-          // there are three sends, at the end of each coarse-grained interval 10, 20, 30
-          // the send at the end of interval 10 is empty, so that is not performed
-          // therefore, there should be 2 async sends
-          // there should be two mismatch, with carol, for the intervals 15-20 and 20-30.
-          // which means we send the fine-grained commitment 10-15
-          // however, there is no commitment to send for the interval 20-25, because we never observed this interval;
-          // we only observed the interval 20-30, for which we already sent a commitment.
-          // therefore, there should be 3 async sends in total
-          verify(processor.sequencerClient, times(3)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
-          assert(computed.size === 4)
-          assert(received.size === 5)
-          // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
-          assert(outstanding == Some(toc(25).timestamp))
-        }
       }
     }
   }

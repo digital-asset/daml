@@ -105,12 +105,11 @@ class MediatorEventDeduplicatorTest
     OpenEnvelope(protocolMessage, Recipients.cc(mediator))(testedProtocolVersion)
 
   private lazy val response: DefaultOpenEnvelope = {
-    val message =
-      SignedProtocolMessage.tryCreate(
-        mock[TypedSignedProtocolMessageContent[MediatorResponse]],
-        NonEmpty(Seq, SymbolicCrypto.emptySignature),
-        testedProtocolVersion,
-      )
+    val message = SignedProtocolMessage(
+      mock[TypedSignedProtocolMessageContent[MediatorResponse]],
+      NonEmpty(Seq, SymbolicCrypto.emptySignature),
+      testedProtocolVersion,
+    )
     mkDefaultOpenEnvelope(message)
   }
 

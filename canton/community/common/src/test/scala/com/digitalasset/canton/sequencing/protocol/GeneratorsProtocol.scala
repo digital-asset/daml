@@ -26,8 +26,8 @@ final class GeneratorsProtocol(
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import generatorsDataTime.*
+  import generatorsMessages.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
     ts <- Arbitrary.arbitrary[CantonTimestamp]
@@ -66,12 +66,7 @@ final class GeneratorsProtocol(
 
   implicit val recipientsArb: Arbitrary[Recipients] = {
 
-    // For pv < ClosedEnvelope.groupAddressesSupportedSince, the recipients should contain only members
-    val protocolVersionDependentRecipientGen =
-      if (protocolVersion < ClosedEnvelope.groupAddressesSupportedSince.representative) {
-        Arbitrary.arbitrary[MemberRecipient]
-      } else
-        Arbitrary.arbitrary[Recipient]
+    val protocolVersionDependentRecipientGen = Arbitrary.arbitrary[Recipient]
 
     Arbitrary(for {
       depths <- nonEmptyListGen(Arbitrary(Gen.choose(0, 3)))
@@ -81,15 +76,12 @@ final class GeneratorsProtocol(
     } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
   }
 
-  implicit val closedEnvelopeArb: Arbitrary[ClosedEnvelope] = Arbitrary(
-    for {
-      bytes <- Arbitrary.arbitrary[ByteString]
-      signatures <- defaultValueGen(protocolVersion, ClosedEnvelope.defaultSignaturesUntil)(
-        Arbitrary(Gen.listOfN(5, signatureArb.arbitrary))
-      )
-      recipients <- recipientsArb.arbitrary
-    } yield ClosedEnvelope.tryCreate(bytes, recipients, signatures, protocolVersion)
-  )
+  implicit val closedEnvelopeArb: Arbitrary[ClosedEnvelope] = Arbitrary(for {
+    bytes <- Arbitrary.arbitrary[ByteString]
+    signatures <- Gen.listOfN(5, signatureArb.arbitrary)
+
+    recipients <- recipientsArb.arbitrary
+  } yield ClosedEnvelope.create(bytes, recipients, signatures, protocolVersion))
 
   implicit val mediatorsOfDomainArb: Arbitrary[MediatorsOfDomain] = Arbitrary(
     Arbitrary.arbitrary[NonNegativeInt].map(MediatorsOfDomain(_))
@@ -101,7 +93,7 @@ final class GeneratorsProtocol(
 
   implicit val openEnvelopArb: Arbitrary[OpenEnvelope[ProtocolMessage]] = Arbitrary(
     for {
-      protocolMessage <- generatorsMessages.protocolMessageGen
+      protocolMessage <- protocolMessageArb.arbitrary
       recipients <- recipientsArb.arbitrary
     } yield OpenEnvelope(protocolMessage, recipients)(protocolVersion)
   )

@@ -17,17 +17,10 @@ final case class ActiveContractsData private (
     contracts: Iterable[ActiveContractData],
 ) {
 
-  if (protocolVersion < ProtocolVersion.CNTestNet) {
-    require(
-      contracts.forall(tc => tc.transferCounter.isEmpty),
-      s"The reassignment counter must be empty for protocol version lower than '${ProtocolVersion.CNTestNet}'.",
-    )
-  } else {
-    require(
-      contracts.forall(tc => tc.transferCounter.isDefined),
-      s"The reassignment counter must be defined for protocol version '${ProtocolVersion.CNTestNet}' or higher.",
-    )
-  }
+  require(
+    contracts.forall(tc => tc.transferCounter.isDefined),
+    s"The reassignment counter must be defined for protocol version '${ProtocolVersion.v30}' or higher.",
+  )
 
   def contractIds: Seq[LfContractId] = contracts.map(_.contractId).toSeq
 

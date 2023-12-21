@@ -58,7 +58,8 @@ object ParticipantNodeParameters {
       logQueryCost = None,
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      nonStandardConfig = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      nonStandardConfig = true,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(),
       sequencerClient = SequencerClientConfig(),
@@ -80,7 +81,8 @@ object ParticipantNodeParameters {
     transferTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
-      devVersionSupport = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      devVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
       initialProtocolVersion = testedProtocolVersion,
     ),

@@ -12,13 +12,11 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.AgreementService.AgreementServiceError
-import com.digitalasset.canton.participant.domain.grpc.GrpcDomainServiceClient
 import com.digitalasset.canton.participant.store.ServiceAgreementStore
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -32,18 +30,14 @@ class AgreementService(
 
   override protected val timeouts: ProcessingTimeout = nodeParameters.processingTimeouts
 
-  private lazy val domainServiceClient =
-    new GrpcDomainServiceClient(nodeParameters.tracing.propagation, loggerFactory)
-
   private[domain] def isRequiredAgreementAccepted(
       sequencerConnection: GrpcSequencerConnection,
       domainId: DomainId,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =
     for {
-      requiredAgreement <- getAgreement(domainId, sequencerConnection, protocolVersion)
+      requiredAgreement <- getAgreement(domainId, sequencerConnection)
       acceptedAgreement <- requiredAgreement match {
         case Some(agreement) =>
           for {
@@ -65,30 +59,22 @@ class AgreementService(
   def getAgreement(
       domainId: DomainId,
       sequencerConnection: GrpcSequencerConnection,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =
     for {
-      optAgreement <- {
-        if (protocolVersion >= ProtocolVersion.v3) {
-          ResourceUtil.withResource(
-            new GrpcSequencerConnectClient(
-              sequencerConnection,
-              timeouts,
-              nodeParameters.tracing.propagation,
-              loggerFactory,
-            )
-          )(client =>
-            client
-              .getAgreement(domainId)
-              .leftMap(err => AgreementServiceError(err.message))
-          )
-        } else
-          domainServiceClient
-            .getAgreement(domainId, sequencerConnection)
-            .leftMap(err => AgreementServiceError(err.message))
-      }
+      optAgreement <- ResourceUtil.withResource(
+        new GrpcSequencerConnectClient(
+          sequencerConnection,
+          timeouts,
+          nodeParameters.tracing.propagation,
+          loggerFactory,
+        )
+      )(client =>
+        client
+          .getAgreement(domainId)
+          .leftMap(err => AgreementServiceError(err.message))
+      )
 
       _ <- optAgreement.traverse_(ag =>
         acceptedAgreements

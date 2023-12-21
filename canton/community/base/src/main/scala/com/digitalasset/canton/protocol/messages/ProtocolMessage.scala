@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.v4
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.{
@@ -33,30 +33,7 @@ trait ProtocolMessage
 }
 
 /** Marker trait for [[ProtocolMessage]]s that are not a [[SignedProtocolMessage]] */
-trait UnsignedProtocolMessage extends ProtocolMessage
-
-/** Trait for [[ProtocolMessage]]s that can be serialized as a v0 [[EnvelopeContent]] */
-trait ProtocolMessageV0 extends ProtocolMessage {
-  protected[messages] def toProtoEnvelopeContentV0: v0.EnvelopeContent
-}
-
-/** Trait for [[ProtocolMessage]]s that can be serialized as a v1 [[EnvelopeContent]] */
-trait ProtocolMessageV1 extends ProtocolMessage {
-  protected[messages] def toProtoEnvelopeContentV1: v1.EnvelopeContent
-}
-
-/** Trait for [[ProtocolMessage]]s that can be serialized as a v2 [[EnvelopeContent]] */
-trait ProtocolMessageV2 extends ProtocolMessage {
-  protected[messages] def toProtoEnvelopeContentV2: v2.EnvelopeContent
-}
-
-/** Trait for [[ProtocolMessage]]s that can be serialized as a v3 [[EnvelopeContent]] */
-trait ProtocolMessageV3 extends ProtocolMessage {
-  protected[messages] def toProtoEnvelopeContentV3: v3.EnvelopeContent
-}
-
-/** Trait for [[ProtocolMessage]]s that can be serialized as a v4 [[EnvelopeContent]] */
-trait UnsignedProtocolMessageV4 extends ProtocolMessage {
+trait UnsignedProtocolMessage extends ProtocolMessage {
   protected[messages] def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent
 }
 

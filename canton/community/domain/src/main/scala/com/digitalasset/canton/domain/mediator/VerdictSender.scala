@@ -11,7 +11,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoError}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
-import com.digitalasset.canton.domain.mediator.MediatorMessageId.VerdictMessageId
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
@@ -203,37 +202,25 @@ private[mediator] class DefaultVerdictSender(
       )
       (informeesMap, informeesWithGroupAddressing) = result
       envelopes <- {
-        if (protocolVersion >= ProtocolVersion.v5) {
-          val result = request.createMediatorResult(requestId, verdict, request.allInformees)
-          val recipientSeq =
-            informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
-              .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
-          val recipients =
-            NonEmpty
-              .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
-              .map(Recipients.recipientGroups)
-              .getOrElse(
-                // Should never happen as the topology (same snapshot) is checked in
-                // `ConfirmationResponseProcessor.validateRequest`
-                ErrorUtil.invalidState("No active participants for informees")
-              )
+        val result = request.createMediatorResult(requestId, verdict, request.allInformees)
+        val recipientSeq =
+          informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
+            .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
+        val recipients =
+          NonEmpty
+            .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
+            .map(Recipients.recipientGroups)
+            .getOrElse(
+              // Should never happen as the topology (same snapshot) is checked in
+              // `ConfirmationResponseProcessor.validateRequest`
+              ErrorUtil.invalidState("No active participants for informees")
+            )
 
-          SignedProtocolMessage
-            .signAndCreate(result, snapshot, protocolVersion)
-            .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
-        } else {
-          // TODO(i12171): Remove this block in 3.0
-          informeesMap.toList
-            .parTraverse { case (participantId, informees) =>
-              val result = request.createMediatorResult(requestId, verdict, informees)
-              SignedProtocolMessage
-                .signAndCreate(result, snapshot, protocolVersion)
-                .map(signedResult =>
-                  OpenEnvelope(signedResult, Recipients.cc(participantId))(protocolVersion)
-                )
-            }
-        }
+        SignedProtocolMessage
+          .signAndCreate(result, snapshot, protocolVersion)
+          .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
       }
+
     } yield Batch(envelopes, protocolVersion)
 
   private def informeesByParticipantAndWithGroupAddressing(
@@ -282,37 +269,32 @@ private[mediator] class DefaultVerdictSender(
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Option[AggregationRule]] = {
-    if (protocolVersion >= ProtocolVersion.CNTestNet) {
-      mediatorRef match {
-        case MediatorRef.Group(MediatorsOfDomain(index)) =>
-          for {
-            mediatorGroup <- EitherT(
-              topologySnapshot
-                .mediatorGroup(index)
-                .map(
-                  _.toRight(
-                    s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
-                  )
-                )
-            )
-            activeNE = NonEmpty
-              .from(mediatorGroup.active)
-              .getOrElse(
-                ErrorUtil.invalidState(
-                  "MediatorGroup is expected to have at least 1 active member at this point"
+  ): EitherT[Future, String, Option[AggregationRule]] =
+    mediatorRef match {
+      case MediatorRef.Group(MediatorsOfDomain(index)) =>
+        for {
+          mediatorGroup <- EitherT(
+            topologySnapshot
+              .mediatorGroup(index)
+              .map(
+                _.toRight(
+                  s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
                 )
               )
-          } yield {
-            Some(AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion))
-          }
-        case MediatorRef.Single(_) =>
-          EitherT.right[String](Future.successful(Option.empty[AggregationRule]))
-      }
-    } else {
-      EitherT.right[String](Future.successful(Option.empty[AggregationRule]))
+          )
+          activeNE = NonEmpty
+            .from(mediatorGroup.active)
+            .getOrElse(
+              ErrorUtil.invalidState(
+                "MediatorGroup is expected to have at least 1 active member at this point"
+              )
+            )
+        } yield {
+          Some(AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion))
+        }
+      case MediatorRef.Single(_) =>
+        EitherT.right[String](Future.successful(Option.empty[AggregationRule]))
     }
-  }
 
   override def sendReject(
       requestId: RequestId,

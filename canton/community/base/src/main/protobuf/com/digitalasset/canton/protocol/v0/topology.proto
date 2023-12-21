@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v0;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
-import "com/digitalasset/canton/protocol/v0/sequencing.proto";
 import "scalapb/scalapb.proto";
 
 enum TopologyChangeOp {
@@ -131,45 +130,6 @@ message VettedPackages {
   repeated string package_ids = 2;
 }
 
-message TopologyStateUpdate {
-  TopologyChangeOp operation = 1;
-  // unique id of this element
-  string id = 2;
-  // the element of this topology transaction
-  oneof mapping {
-    NamespaceDelegation namespace_delegation = 3;
-    IdentifierDelegation identifier_delegation = 4;
-    OwnerToKeyMapping owner_to_key_mapping = 5;
-    PartyToParticipant party_to_participant = 6;
-    SignedLegalIdentityClaim signed_legal_identity_claim = 7;
-    ParticipantState participant_state = 8;
-    VettedPackages vetted_packages = 9;
-    MediatorDomainState mediator_domain_state = 10;
-  }
-}
-
-message DomainParametersChange {
-  // domain affected by the new domain parameters
-  string domain = 1;
-  DynamicDomainParameters domain_parameters = 2;
-}
-
-message DomainGovernanceTransaction {
-  // the element of this topology transaction
-  oneof mapping {
-    DomainParametersChange domain_parameters_change = 1;
-  }
-}
-
-message TopologyTransaction {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  oneof transaction {
-    TopologyStateUpdate state_update = 1;
-    DomainGovernanceTransaction domain_governance = 2;
-  }
-}
-
 message SignedTopologyTransaction {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
@@ -179,16 +139,6 @@ message SignedTopologyTransaction {
   com.digitalasset.canton.crypto.v0.SigningPublicKey key = 2;
   // signature of serialized topology transaction, signed with above key
   com.digitalasset.canton.crypto.v0.Signature signature = 3;
-}
-
-message DomainTopologyTransactionMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  // signature of the domain topology manager
-  com.digitalasset.canton.crypto.v0.Signature signature = 1;
-  string domain_id = 2;
-  /** versioned signed topology transactions serialized as byte-strings such that we can compute the signature here */
-  repeated bytes transactions = 3;
 }
 
 message RegisterTopologyTransactionRequest {
@@ -201,36 +151,5 @@ message RegisterTopologyTransactionRequest {
   string participant = 2;
   string request_id = 3;
   repeated bytes signed_topology_transactions = 4;
-  string domain_id = 5;
-}
-
-message RegisterTopologyTransactionResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  message Result {
-    enum State {
-      MISSING_STATE = 0;
-      // requested transaction has been stored with the domain, for the domain operator to inspect and decide
-      // TODO(#15223) remove once we move to 3.0
-      REQUESTED = 1;
-      // the request failed with an error message
-      FAILED = 2;
-      // the request has been automatically rejected.
-      REJECTED = 3;
-      // the request has been accepted by the domain topology manager
-      ACCEPTED = 4;
-      // the request is a duplicate (i.e. yields an topology state element that already exists)
-      DUPLICATE = 5;
-      // the request is obsolete (i.e. a Remove to a topology mapping that does not exist on the server)
-      OBSOLETE = 6;
-    }
-    string unique_path = 1;
-    State state = 2;
-    string error_message = 3;
-  }
-  string requested_by = 1;
-  string participant = 2;
-  string request_id = 3;
-  repeated Result results = 4;
   string domain_id = 5;
 }

@@ -33,8 +33,7 @@ class DynamicDomainGrpcServer(
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    @nowarn("cat=deprecation")
-    metrics: MetricHandle.MetricsFactory,
+    @nowarn("cat=deprecation") metrics: MetricHandle.MetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
     domainHealthService: HealthService,

@@ -22,6 +22,8 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.DomainNodeBootstrap
+import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrapX, MediatorNodeParameters}
+import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.environment.ParticipantNodes.{ParticipantNodesOld, ParticipantNodesX}
@@ -30,14 +32,8 @@ import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.Prometheus
 import com.digitalasset.canton.metrics.MetricsFactory
+import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.participant.{
-  ParticipantNode,
-  ParticipantNodeBootstrap,
-  ParticipantNodeBootstrapCommon,
-  ParticipantNodeBootstrapX,
-  ParticipantNodeCommon,
-}
 import com.digitalasset.canton.resource.DbMigrationsFactory
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
@@ -296,6 +292,15 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       config.participantNodeParametersByString,
       loggerFactory,
     )
+  val mediatorsX =
+    new MediatorNodesX(
+      createMediatorX,
+      migrationsFactory,
+      timeouts,
+      config.mediatorsByStringX,
+      config.mediatorNodeParametersByStringX,
+      loggerFactory,
+    )
 
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
@@ -522,6 +527,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
   }
 
+  protected def createMediatorX(
+      name: String,
+      mediatorConfig: Config#MediatorNodeXConfigType,
+  ): MediatorNodeBootstrapX
+
   protected def createParticipantX(
       name: String,
       participantConfig: Config#ParticipantConfigType,
@@ -567,6 +577,26 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         )
       )
       .valueOr(err => throw new RuntimeException(s"Failed to create domain bootstrap: $err"))
+
+  protected def mediatorNodeFactoryArguments(
+      name: String,
+      mediatorConfig: Config#MediatorNodeXConfigType,
+  ): NodeFactoryArguments[
+    Config#MediatorNodeXConfigType,
+    MediatorNodeParameters,
+    MediatorNodeMetrics,
+  ] = NodeFactoryArguments(
+    name,
+    mediatorConfig,
+    config.mediatorNodeParametersByStringX(name),
+    createClock(Some(MediatorNodeBootstrapX.LoggerFactoryKeyName -> name)),
+    metricsFactory.forMediator(name),
+    testingConfig,
+    futureSupervisor,
+    loggerFactory.append(MediatorNodeBootstrapX.LoggerFactoryKeyName, name),
+    writeHealthDumpToFile,
+    configuredOpenTelemetry,
+  )
 
   private def simClocks: Seq[SimClock] = {
     val clocks = clock +: (participants.running.map(_.clock) ++ domains.running.map(_.clock))

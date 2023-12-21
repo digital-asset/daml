@@ -15,13 +15,14 @@ final class GeneratorsData(
     protocolVersion: ProtocolVersion,
     generatorsProtocol: GeneratorsProtocol,
 ) {
+  import generatorsProtocol.*
 
   implicit val activeContractArb: Arbitrary[ActiveContract] = {
 
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
-      contract <- generatorsProtocol.serializableContractArb.arbitrary
-      transferCounter <- transferCounterOGen(protocolVersion)
+      contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+      transferCounter <- transferCounterOGen
 
       ac = ActiveContract.create(domainId, contract, transferCounter)(protocolVersion)
 

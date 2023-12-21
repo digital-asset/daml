@@ -44,7 +44,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
     @Override
     public <A, R> Update<Exercised<R>> makeExerciseCmd(
         Choice<?, ? super A, R> choice, A choiceArgument) {
-      // TODO i15638 use getCompanion().TEMPLATE_ID as the interface ID
+      // TODO(i15638) use getCompanion().TEMPLATE_ID as the interface ID
       var command =
           new ExerciseByKeyCommand(
               keySource.TEMPLATE_ID,

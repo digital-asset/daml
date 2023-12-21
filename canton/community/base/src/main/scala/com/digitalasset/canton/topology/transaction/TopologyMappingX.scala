@@ -31,6 +31,7 @@ import com.digitalasset.canton.topology.transaction.TopologyMappingX.{
 }
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
+import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.SetParameter
 
 import scala.reflect.ClassTag
@@ -48,7 +49,7 @@ sealed trait TopologyMappingX extends Product with Serializable with PrettyPrint
   def namespace: Namespace
 
   /** The "primary" identity authorizing the topology mapping, optional as some mappings (namespace delegations and
-    * unionspace definitions) only have a namespace
+    * decentralized namespace definitions) only have a namespace
     * Used for filtering query results.
     */
   def maybeUid: Option[UniqueIdentifier]
@@ -96,7 +97,7 @@ object TopologyMappingX {
 
     object NamespaceDelegationX extends Code(1, "nsd")
     object IdentifierDelegationX extends Code(2, "idd")
-    object UnionspaceDefinitionX extends Code(3, "usd")
+    object DecentralizedNamespaceDefinitionX extends Code(3, "dnd")
 
     object OwnerToKeyMappingX extends Code(4, "otk")
 
@@ -119,7 +120,7 @@ object TopologyMappingX {
     lazy val all = Seq(
       NamespaceDelegationX,
       IdentifierDelegationX,
-      UnionspaceDefinitionX,
+      DecentralizedNamespaceDefinitionX,
       OwnerToKeyMappingX,
       DomainTrustCertificateX,
       ParticipantDomainPermissionX,
@@ -303,7 +304,8 @@ object TopologyMappingX {
         Left(ProtoDeserializationError.TransactionDeserialization("No mapping set"))
       case Mapping.NamespaceDelegation(value) => NamespaceDelegationX.fromProtoV2(value)
       case Mapping.IdentifierDelegation(value) => IdentifierDelegationX.fromProtoV2(value)
-      case Mapping.UnionspaceDefinition(value) => UnionspaceDefinitionX.fromProtoV2(value)
+      case Mapping.DecentralizedNamespaceDefinition(value) =>
+        DecentralizedNamespaceDefinitionX.fromProtoV2(value)
       case Mapping.OwnerToKeyMapping(value) => OwnerToKeyMappingX.fromProtoV2(value)
       case Mapping.DomainTrustCertificate(value) => DomainTrustCertificateX.fromProtoV2(value)
       case Mapping.PartyHostingLimits(value) => PartyHostingLimitsX.fromProtoV2(value)
@@ -386,6 +388,14 @@ object NamespaceDelegationX {
       s"Root certificate for $namespace needs to be set as isRootDelegation = true",
     )
 
+  @VisibleForTesting
+  protected[canton] def tryCreate(
+      namespace: Namespace,
+      target: SigningPublicKey,
+      isRootDelegation: Boolean,
+  ): NamespaceDelegationX =
+    create(namespace, target, isRootDelegation).fold(err => sys.error(err), identity)
+
   def code: TopologyMappingX.Code = Code.NamespaceDelegationX
 
   /** Returns true if the given transaction is a self-signed root certificate */
@@ -426,36 +436,33 @@ object NamespaceDelegationX {
 
 }
 
-/** which sequencers are active on the given domain
+/** Defines a decentralized namespace
   *
   * authorization: whoever controls the domain and all the owners of the active or observing sequencers that
   *   were not already present in the tx with serial = n - 1
   *   exception: a sequencer can leave the consortium unilaterally as long as there are enough members
   *              to reach the threshold
   */
-final case class UnionspaceDefinitionX private (
-    unionspace: Namespace,
+final case class DecentralizedNamespaceDefinitionX private (
+    override val namespace: Namespace,
     threshold: PositiveInt,
     owners: NonEmpty[Set[Namespace]],
 ) extends TopologyMappingX {
 
-  def toProto: v2.UnionspaceDefinitionX =
-    v2.UnionspaceDefinitionX(
-      unionspace = unionspace.fingerprint.unwrap,
+  def toProto: v2.DecentralizedNamespaceDefinitionX =
+    v2.DecentralizedNamespaceDefinitionX(
+      decentralizedNamespace = namespace.fingerprint.unwrap,
       threshold = threshold.unwrap,
       owners = owners.toSeq.map(_.toProtoPrimitive),
     )
 
   override def toProtoV2: v2.TopologyMappingX =
     v2.TopologyMappingX(
-      v2.TopologyMappingX.Mapping.UnionspaceDefinition(
-        toProto
-      )
+      v2.TopologyMappingX.Mapping.DecentralizedNamespaceDefinition(toProto)
     )
 
-  override def code: Code = Code.UnionspaceDefinitionX
+  override def code: Code = Code.DecentralizedNamespaceDefinitionX
 
-  override def namespace: Namespace = unionspace
   override def maybeUid: Option[UniqueIdentifier] = None
 
   override def restrictedToDomain: Option[DomainId] = None
@@ -470,7 +477,7 @@ final case class UnionspaceDefinitionX private (
             TopologyTransactionX(
               _op,
               _serial,
-              UnionspaceDefinitionX(`unionspace`, previousThreshold, previousOwners),
+              DecentralizedNamespaceDefinitionX(`namespace`, previousThreshold, previousOwners),
             )
           ) =>
         val added = owners.diff(previousOwners)
@@ -479,7 +486,7 @@ final case class UnionspaceDefinitionX private (
           // and the quorum of existing owners
           .and(
             RequiredNamespaces(
-              Set(unionspace)
+              Set(namespace)
             )
           )
       case Some(topoTx) =>
@@ -489,32 +496,34 @@ final case class UnionspaceDefinitionX private (
   }
 
   override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(unionspace.fingerprint.unwrap)
+    builder.add(namespace.fingerprint.unwrap)
 }
 
-object UnionspaceDefinitionX {
+object DecentralizedNamespaceDefinitionX {
 
-  def code: TopologyMappingX.Code = Code.UnionspaceDefinitionX
+  def code: TopologyMappingX.Code = Code.DecentralizedNamespaceDefinitionX
 
   def create(
-      unionspace: Namespace,
+      decentralizedNamespace: Namespace,
       threshold: PositiveInt,
       owners: NonEmpty[Set[Namespace]],
-  ): Either[String, UnionspaceDefinitionX] =
+  ): Either[String, DecentralizedNamespaceDefinitionX] =
     for {
       _ <- Either.cond(
         owners.size >= threshold.value,
         (),
-        s"Invalid threshold (${threshold}) for ${unionspace} with ${owners.size} owners",
+        s"Invalid threshold (${threshold}) for ${decentralizedNamespace} with ${owners.size} owners",
       )
-    } yield UnionspaceDefinitionX(unionspace, threshold, owners)
+    } yield DecentralizedNamespaceDefinitionX(decentralizedNamespace, threshold, owners)
 
   def fromProtoV2(
-      value: v2.UnionspaceDefinitionX
-  ): ParsingResult[UnionspaceDefinitionX] = {
-    val v2.UnionspaceDefinitionX(unionspaceP, thresholdP, ownersP) = value
+      value: v2.DecentralizedNamespaceDefinitionX
+  ): ParsingResult[DecentralizedNamespaceDefinitionX] = {
+    val v2.DecentralizedNamespaceDefinitionX(decentralizedNamespaceP, thresholdP, ownersP) = value
     for {
-      unionspace <- Fingerprint.fromProtoPrimitive(unionspaceP).map(Namespace(_))
+      decentralizedNamespace <- Fingerprint
+        .fromProtoPrimitive(decentralizedNamespaceP)
+        .map(Namespace(_))
       threshold <- ProtoConverter.parsePositiveInt(thresholdP)
       owners <- ownersP.traverse(Fingerprint.fromProtoPrimitive)
       ownersNE <- NonEmpty
@@ -524,7 +533,7 @@ object UnionspaceDefinitionX {
             "owners cannot be empty"
           )
         )
-      item <- create(unionspace, threshold, ownersNE.map(Namespace(_)))
+      item <- create(decentralizedNamespace, threshold, ownersNE.map(Namespace(_)))
         .leftMap(ProtoDeserializationError.OtherError)
     } yield item
   }
@@ -532,7 +541,7 @@ object UnionspaceDefinitionX {
   def computeNamespace(
       owners: Set[Namespace]
   ): Namespace = {
-    val builder = Hash.build(HashPurpose.UnionspaceNamespace, HashAlgorithm.Sha256)
+    val builder = Hash.build(HashPurpose.DecentralizedNamespaceNamespace, HashAlgorithm.Sha256)
     owners.toSeq
       .sorted(Namespace.namespaceOrder.toOrdering)
       .foreach(ns => builder.add(ns.fingerprint.unwrap))

@@ -94,7 +94,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
 /** Read interface for ACS commitments, with no usage restrictions. */
 trait AcsCommitmentLookup {
 
-  /** Finds for a counter participant all stored computed commitments whose period overlaps with the given period.
+  /** Finds all stored computed commitments whose period overlaps with the given period.
     *
     *      No guarantees on the order of the returned commitments.
     */
@@ -211,39 +211,6 @@ trait CommitmentQueue {
   def peekThrough(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[List[AcsCommitment]]
-
-  /** Returns an unordered list of commitments whose period ends at or after the given timestamp.
-    *
-    * Does not delete them from the queue.
-    */
-  def peekThroughAtOrAfter(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]]
-
-  /** Returns, if exists, a list containing all commitments originating from the given participant
-    * that overlap the given period.
-    * Does not delete them from the queue.
-    *
-    * When the period covers a single reconciliation interval, there should be only one such commitment
-    * if the counter participant is correct; otherwise, the counter participant is malicious.
-    * The method is unaware of reconciliation intervals, however, thus cannot distinguish malicious behavior,
-    * and leaves this up to the caller.
-    * The caller (who has access to the reconciliation interval duration) should signal malicious behavior by emitting
-    * an AcsCommitmentAlarm if the list contains more than one element.
-    * Even with possible malicious behavior, the list of commitments might still be useful to the caller, for example
-    * if the list contains the expected commitment among all unexpected ones.
-    *
-    * However, the period passed to the method can cover several reconciliation intervals (e.g., when the caller
-    * participant hasn't heard from the sequencer in a while, and thus did not observe intermediate ticks).
-    * But the counter participant might have sent commitments for several reconciliation intervals in the period.
-    * Thus, in this case, the method returns a list and there is no malicious behavior.
-    */
-  def peekOverlapsForCounterParticipant(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]]
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   def deleteThrough(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Future[Unit]

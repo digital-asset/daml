@@ -79,7 +79,7 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
           closeReasonPromise.trySuccess(SubscriptionCloseReason.Closed).discard
           closeReasonPromise.future
         },
-        timeouts.shutdownNetwork.duration,
+        timeouts.shutdownNetwork,
       )
     )
   }

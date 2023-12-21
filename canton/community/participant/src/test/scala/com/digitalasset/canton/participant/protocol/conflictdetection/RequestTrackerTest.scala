@@ -38,7 +38,7 @@ private[conflictdetection] trait RequestTrackerTest {
   val coid11: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   private val active = Active(initialTransferCounter)
 

@@ -545,9 +545,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       .groupBy(x => (x.sequenced, x.validFrom))
       .toList
       .sortBy { case ((_, validFrom), _) => validFrom }
-    if (logger.underlying.isDebugEnabled) {
-      logger.debug(s"Bootstrapping ${storeId} with ${groupedBySequencedAndValidFrom}")
-    }
     MonadUtil
       .sequentialTraverse_(groupedBySequencedAndValidFrom) {
         case ((sequenced, effective), transactions) =>
@@ -589,7 +586,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   /** query interface used by DomainTopologyManager to find the set of initial keys */
   def findInitialState(id: DomainTopologyManagerId)(implicit
       traceContext: TraceContext
-  ): Future[Map[KeyOwner, Seq[PublicKey]]]
+  ): Future[Map[Member, Seq[PublicKey]]]
 
   /** update active topology transaction to the active topology transaction table
     *
@@ -837,9 +834,9 @@ object TopologyStore {
     */
   private[topology] def findInitialStateAccumulator(
       uid: UniqueIdentifier,
-      accumulated: Map[KeyOwner, Seq[PublicKey]],
+      accumulated: Map[Member, Seq[PublicKey]],
       transaction: SignedTopologyTransaction[TopologyChangeOp],
-  ): (Boolean, Map[KeyOwner, Seq[PublicKey]]) = {
+  ): (Boolean, Map[Member, Seq[PublicKey]]) = {
     // we are done once we observe a transaction that does not act on our uid
     val done =
       transaction.uniquePath.maybeUid.nonEmpty && !transaction.uniquePath.maybeUid.contains(uid) &&

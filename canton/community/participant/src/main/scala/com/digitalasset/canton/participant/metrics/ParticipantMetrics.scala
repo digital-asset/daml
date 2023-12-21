@@ -180,7 +180,7 @@ class SyncDomainMetrics(
     @MetricDoc.Tag(
       summary = "Size of record order publisher sequencer counter queue",
       description = """Same as for conflict-detection, but measuring the sequencer counter
-          |queues for the publishing to the ledger api server according to record time.""",
+                      |queues for the publishing to the ledger api server according to record time.""",
       qualification = Debug,
     )
     @nowarn("cat=deprecation")

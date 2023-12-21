@@ -336,59 +336,6 @@ object ParticipantAdminCommands {
 
   object ParticipantRepairManagement {
 
-    // TODO(i14441): Remove deprecated ACS download / upload functionality
-    @deprecated("Use ExportAcs", since = "2.8.0")
-    final case class Download(
-        parties: Set[PartyId],
-        filterDomainId: String,
-        timestamp: Option[Instant],
-        protocolVersion: Option[ProtocolVersion],
-        chunkSize: Option[PositiveInt],
-        observer: StreamObserver[AcsSnapshotChunk],
-        gzipFormat: Boolean,
-        contractDomainRenames: Map[DomainId, DomainId],
-    ) extends GrpcAdminCommand[
-          DownloadRequest,
-          CancellableContext,
-          CancellableContext,
-        ] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        ParticipantRepairServiceGrpc.stub(channel)
-
-      override def createRequest(): Either[String, DownloadRequest] = {
-        Right(
-          DownloadRequest(
-            parties.map(_.toLf).toSeq,
-            filterDomainId,
-            timestamp.map(Timestamp.apply),
-            protocolVersion.map(_.toProtoPrimitiveS).getOrElse(""),
-            chunkSize.map(_.value),
-            gzipFormat,
-            contractDomainRenames.map { case (source, target) =>
-              (source.toProtoPrimitive, target.toProtoPrimitive)
-            },
-          )
-        )
-      }
-
-      override def submitRequest(
-          service: ParticipantRepairServiceStub,
-          request: DownloadRequest,
-      ): Future[CancellableContext] = {
-        val context = Context.current().withCancellation()
-        context.run(() => service.download(request, observer))
-        Future.successful(context)
-      }
-
-      override def handleResponse(
-          response: CancellableContext
-      ): Either[String, CancellableContext] = Right(response)
-
-    }
-
     sealed trait StreamingMachinery[Req, Resp] {
       def stream(
           load: StreamObserver[Resp] => StreamObserver[Req],
@@ -429,37 +376,6 @@ object ParticipantAdminCommands {
           }
         requestObserver.onCompleted()
         requestComplete.future
-      }
-    }
-
-    // TODO(i14441): Remove deprecated ACS download / upload functionality
-    @deprecated("Use ImportAcs", since = "2.8.0")
-    final case class Upload(acsChunk: ByteString, gzip: Boolean)
-        extends GrpcAdminCommand[UploadRequest, UploadResponse, Unit]
-        with StreamingMachinery[UploadRequest, UploadResponse] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        ParticipantRepairServiceGrpc.stub(channel)
-
-      override def createRequest(): Either[String, UploadRequest] = {
-        Right(UploadRequest(acsChunk, gzip))
-      }
-
-      override def submitRequest(
-          service: ParticipantRepairServiceStub,
-          request: UploadRequest,
-      ): Future[UploadResponse] = {
-        stream(
-          service.upload,
-          (bytes: Array[Byte]) => UploadRequest(ByteString.copyFrom(bytes), gzip),
-          request.acsSnapshot,
-        )
-      }
-
-      override def handleResponse(response: UploadResponse): Either[String, Unit] = {
-        Right(())
       }
     }
 
@@ -800,9 +716,8 @@ object ParticipantAdminCommands {
       ): Future[RegisterDomainResponse] =
         service.registerDomain(request)
 
-      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] = Right(
-        ()
-      )
+      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] =
+        Right(())
 
       // can take long if we need to wait to become active
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout

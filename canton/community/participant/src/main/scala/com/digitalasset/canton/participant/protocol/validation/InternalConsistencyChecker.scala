@@ -58,18 +58,12 @@ class InternalConsistencyChecker(
 
   private def checkRollbackScopes(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
-  ): Result[Unit] = {
-    // TransactionViewDecompositionFactory prior to ProtocolVersion.v5 did not enforce this
-    if (protocolVersion >= ProtocolVersion.v5) {
-      checkRollbackScopeOrder(
-        rootViewTrees.map(_.viewParticipantData.rollbackContext)
-      ).left.map { error =>
-        ErrorWithInternalConsistencyCheck(IncorrectRollbackScopeOrder(error))
-      }
-    } else {
-      Right(())
+  ): Result[Unit] =
+    checkRollbackScopeOrder(
+      rootViewTrees.map(_.viewParticipantData.rollbackContext)
+    ).left.map { error =>
+      ErrorWithInternalConsistencyCheck(IncorrectRollbackScopeOrder(error))
     }
-  }
 
   private def checkContractState(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]

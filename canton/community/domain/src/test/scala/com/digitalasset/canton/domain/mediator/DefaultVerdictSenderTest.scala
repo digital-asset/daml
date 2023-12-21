@@ -102,7 +102,7 @@ class DefaultVerdictSenderTest
     }
 
     "for active mediators" should {
-      "send approvals" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "send approvals" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -111,7 +111,7 @@ class DefaultVerdictSenderTest
           tester.interceptedMessages should have size 1
         }
       }
-      "send rejects" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "send rejects" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -123,7 +123,7 @@ class DefaultVerdictSenderTest
     }
 
     "for passive mediators" should {
-      "not send approvals" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "not send approvals" in {
         val tester = TestHelper(
           mediatorId = passiveMediator3,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -132,7 +132,7 @@ class DefaultVerdictSenderTest
           tester.interceptedMessages should have size 0
         }
       }
-      "not send rejects" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "not send rejects" in {
         val tester = TestHelper(
           mediatorId = passiveMediator3,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -144,7 +144,7 @@ class DefaultVerdictSenderTest
     }
 
     "for requests to a singular mediator should set no aggregation rule" should {
-      "for approvals" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "for approvals" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(activeMediator1),
@@ -155,7 +155,7 @@ class DefaultVerdictSenderTest
           aggregationRule shouldBe None
         }
       }
-      "for rejects" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "for rejects" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(activeMediator1),
@@ -169,7 +169,7 @@ class DefaultVerdictSenderTest
     }
 
     "for requests to a mediator group should set aggregation rule" should {
-      "for approvals" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "for approvals" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -180,7 +180,7 @@ class DefaultVerdictSenderTest
           aggregationRule shouldBe expectedMediatorGroupAggregationRule
         }
       }
-      "for rejects" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+      "for rejects" in {
         val tester = TestHelper(
           mediatorId = activeMediator1,
           transactionMediatorRef = MediatorRef(mediatorGroup),
@@ -232,7 +232,7 @@ class DefaultVerdictSenderTest
     val initialDomainParameters = TestDomainParameters.defaultDynamic
 
     val domainSyncCryptoApi: DomainSyncCryptoClient =
-      if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
+      if (testedProtocolVersion >= ProtocolVersion.v30) {
         val topology = TestingTopologyX(
           Set(domainId),
           Map(

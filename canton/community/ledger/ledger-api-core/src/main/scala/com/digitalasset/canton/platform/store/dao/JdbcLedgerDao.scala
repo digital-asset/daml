@@ -51,6 +51,7 @@ import com.digitalasset.canton.platform.store.entries.{
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -273,7 +274,7 @@ private class JdbcLedgerDao(
                 recordTime = recordTime,
                 completionInfo = info,
                 reasonTemplate = reason,
-                domainId = None,
+                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
               )
             )
           ),
@@ -503,7 +504,7 @@ private class JdbcLedgerDao(
         .participantAllDivulgedContractsPrunedUpToInclusive(conn)
     }
 
-  val translation: LfValueTranslation =
+  private val translation: LfValueTranslation =
     new LfValueTranslation(
       metrics = metrics,
       engineO = engine,
@@ -675,7 +676,6 @@ private class JdbcLedgerDao(
                   optUsedPackages = None, // not used for DbDto generation
                   optNodeSeeds = None, // not used for DbDto generation
                   optByKeyNodes = None, // not used for DbDto generation
-                  optDomainId = None,
                 ),
                 transaction = transaction,
                 transactionId = transactionId,
@@ -684,6 +684,7 @@ private class JdbcLedgerDao(
                 blindingInfoO = blindingInfoO,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
+                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
               )
             )
           ),

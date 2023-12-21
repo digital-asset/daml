@@ -131,10 +131,10 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           case _: DbStorage.Profile.Oracle =>
             val query =
               """merge into event_log e
-                 using dual on ( (e.event_id = ?) or (e.log_id = ? and e.local_offset = ?))
+                 using dual on ( (e.event_id = ?) or (e.log_id = ? and e.local_offset_effective_time = ? and e.local_offset_discriminator = ? and e.local_offset_tie_breaker = ?))
                  when not matched then
-                 insert (log_id, local_offset, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
-                 values (?, ?, ?, ?, ?, ?, ?, ?)"""
+                 insert (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
+                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
             DbStorage.bulkOperation(
               query,
               eventsWithAssociatedDomainId,
@@ -156,8 +156,8 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
             }
           case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
             val query =
-              """insert into event_log (log_id, local_offset, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
-               values (?, ?, ?, ?, ?, ?, ?, ?)
+              """insert into event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
+               values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                on conflict do nothing"""
             DbStorage.bulkOperation(query, eventsWithAssociatedDomainId, storage.profile) {
               pp => eventWithDomain =>
@@ -198,12 +198,18 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
             delete from event_log
             where
               log_id = $log_id
-              and local_offset <= $beforeAndIncluding"""
+              and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) <= (${beforeAndIncluding.effectiveTime}, ${beforeAndIncluding.discriminator}, ${beforeAndIncluding.tieBreaker})"""
 
         case _: Profile.Oracle =>
+          val t = beforeAndIncluding.effectiveTime
+          val disc = beforeAndIncluding.discriminator
+          val tie = beforeAndIncluding.tieBreaker
+
           sqlu"""
             delete from event_log
-            where log_id = $log_id and local_offset<=$beforeAndIncluding"""
+            where
+              log_id = $log_id
+              and ((local_offset_effective_time<$t) or (local_offset_effective_time=$t and local_offset_discriminator<$disc) or (local_offset_effective_time=$t and local_offset_discriminator=$disc and local_offset_tie_breaker<=$tie))"""
       }
 
       storage.update_(query, functionFullName)
@@ -238,14 +244,14 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     processingTime.optionTEvent {
       val query = storage.profile match {
         case _: Profile.H2 | _: Profile.Postgres =>
-          sql"""select local_offset, request_sequencer_counter, event_id, content, trace_context
+          sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
               from event_log
-              where log_id = $log_id and local_offset=$offset"""
+              where log_id = $log_id and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker)=(${offset.effectiveTime}, ${offset.discriminator}, ${offset.tieBreaker})"""
         case _: Profile.Oracle =>
           sql"""select /*+ INDEX (event_log pk_event_log) */
-              local_offset, request_sequencer_counter, event_id, content, trace_context
+              local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
               from event_log
-              where log_id = $log_id and local_offset=$offset"""
+              where log_id = $log_id and local_offset_effective_time=${offset.effectiveTime} and local_offset_discriminator=${offset.discriminator} and local_offset_tie_breaker=${offset.tieBreaker}"""
       }
 
       storage
@@ -258,8 +264,8 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
   override def lastOffset(implicit traceContext: TraceContext): OptionT[Future, LocalOffset] =
     processingTime.optionTEvent {
       storage.querySingle(
-        sql"""select local_offset from event_log where log_id = $log_id
-              order by local_offset desc #${storage
+        sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker from event_log where log_id = $log_id
+              order by local_offset_effective_time desc, local_offset_discriminator desc, local_offset_tie_breaker desc #${storage
             .limit(1)}"""
           .as[LocalOffset]
           .headOption,
@@ -273,7 +279,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     processingTime.optionTEvent {
       storage
         .querySingle(
-          sql"""select local_offset, request_sequencer_counter, event_id, content, trace_context
+          sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
               from event_log
               where log_id = $log_id and event_id = $eventId"""
             .as[TimestampedEvent]
@@ -311,14 +317,18 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           delete from event_log
           where
             log_id = $log_id
-            and local_offset>$exclusive"""
+            and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) > (${exclusive.effectiveTime}, ${exclusive.discriminator}, ${exclusive.tieBreaker})"""
 
       case _: Profile.Oracle =>
+        val t = exclusive.effectiveTime
+        val disc = exclusive.discriminator
+        val tie = exclusive.tieBreaker
+
         sqlu"""
           delete from event_log
           where
             log_id = $log_id
-            and local_offset>$exclusive"""
+            and ((local_offset_effective_time>$t) or (local_offset_effective_time=$t and local_offset_discriminator>$disc) or (local_offset_effective_time=$t and local_offset_discriminator=$disc and local_offset_tie_breaker>$tie))"""
     }
 
     processingTime.event {
@@ -337,7 +347,18 @@ object DbSingleDimensionEventLog {
       storage: DbStorage
   )(op: String, offset: LocalOffset): canton.SQLActionBuilder = {
     import storage.api.*
-    sql" and local_offset #$op $offset"
+
+    val t = offset.effectiveTime
+    val disc = offset.discriminator
+    val tie = offset.tieBreaker
+
+    storage.profile match {
+      case _: Profile.H2 | _: Profile.Postgres =>
+        sql" and ((local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) #$op ($t, $disc, $tie))"
+
+      case _: Profile.Oracle =>
+        sql" and ((local_offset_effective_time#$op$t) or (local_offset_effective_time=$t and local_offset_discriminator#$op$disc) or (local_offset_effective_time=$t and local_offset_discriminator=$disc and local_offset_tie_breaker#$op$tie))"
+    }
   }
 
   private[store] def lookupEventRange(
@@ -368,10 +389,10 @@ object DbSingleDimensionEventLog {
 
     for {
       eventsVector <- storage.query(
-        (sql"""select local_offset, request_sequencer_counter, event_id, content, trace_context
+        (sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
                  from event_log
                  where log_id = ${eventLogId.index}""" ++ filters ++
-          sql""" order by local_offset asc #${storage
+          sql""" order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc #${storage
               .limit(limit.getOrElse(Int.MaxValue))}""")
           .as[TimestampedEvent]
           .map(_.map { event => event.localOffset -> event }),

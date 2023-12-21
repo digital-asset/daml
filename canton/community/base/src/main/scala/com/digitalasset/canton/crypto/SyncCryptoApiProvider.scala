@@ -55,7 +55,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * the right keys to use for signing / decryption based on domain and timestamp.
   */
 class SyncCryptoApiProvider(
-    val owner: KeyOwner,
+    val member: Member,
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
     cachingConfigs: CachingConfigs,
@@ -70,7 +70,7 @@ class SyncCryptoApiProvider(
 
   def tryForDomain(domain: DomainId, alias: Option[DomainAlias] = None): DomainSyncCryptoClient =
     new DomainSyncCryptoClient(
-      owner,
+      member,
       domain,
       ips.tryForDomain(domain),
       crypto,
@@ -84,7 +84,7 @@ class SyncCryptoApiProvider(
     for {
       dips <- ips.forDomain(domain)
     } yield new DomainSyncCryptoClient(
-      owner,
+      member,
       domain,
       dips,
       crypto,
@@ -229,12 +229,13 @@ object SyncCryptoClient {
   ): F[SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val knownUntil = client.topologyKnownUntilTimestamp
-    if (desiredTimestamp <= knownUntil) {
+    val snapshotKnown = desiredTimestamp <= knownUntil
+    loggingContext.logger.debug(
+      s"${if (snapshotKnown) "Getting" else "Waiting for"} topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
+    )
+    if (snapshotKnown) {
       getSnapshot(desiredTimestamp, traceContext)
     } else {
-      loggingContext.logger.debug(
-        s"Waiting for topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
-      )
       previousTimestampO match {
         case None =>
           val approximateSnapshot = client.currentSnapshotApproximation
@@ -285,7 +286,7 @@ object SyncCryptoClient {
 /** Crypto operations on a particular domain
   */
 class DomainSyncCryptoClient(
-    val owner: KeyOwner,
+    val member: Member,
     val domainId: DomainId,
     val ips: DomainTopologyClient,
     val crypto: Crypto,
@@ -331,7 +332,7 @@ class DomainSyncCryptoClient(
 
   private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi = {
     new DomainSnapshotSyncCryptoApi(
-      owner,
+      member,
       domainId,
       snapshot,
       crypto,
@@ -353,7 +354,7 @@ class DomainSyncCryptoClient(
     import TraceContext.Implicits.Empty.*
     for {
       snapshot <- EitherT.right(ipsSnapshot(referenceTime))
-      signingKeys <- EitherT.right(snapshot.signingKeys(owner))
+      signingKeys <- EitherT.right(snapshot.signingKeys(member))
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError)
@@ -361,7 +362,7 @@ class DomainSyncCryptoClient(
         .toRight[SyncCryptoError](
           SyncCryptoError
             .KeyNotAvailable(
-              owner,
+              member,
               KeyPurpose.Signing,
               snapshot.timestamp,
               signingKeys.map(_.fingerprint),
@@ -415,7 +416,7 @@ class DomainSyncCryptoClient(
 
 /** crypto operations for a (domain,timestamp) */
 class DomainSnapshotSyncCryptoApi(
-    val owner: KeyOwner,
+    val member: Member,
     val domainId: DomainId,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
@@ -430,9 +431,9 @@ class DomainSnapshotSyncCryptoApi(
   private val validKeysCache =
     validKeysCacheConfig
       .buildScaffeine()
-      .buildAsyncFuture[KeyOwner, Map[Fingerprint, SigningPublicKey]](loadSigningKeysForOwner)
+      .buildAsyncFuture[Member, Map[Fingerprint, SigningPublicKey]](loadSigningKeysForMember)
 
-  /** Sign given hash with signing key for (owner, domain, timestamp)
+  /** Sign given hash with signing key for (member, domain, timestamp)
     */
   override def sign(
       hash: Hash
@@ -444,10 +445,10 @@ class DomainSnapshotSyncCryptoApi(
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError)
     } yield signature
 
-  private def loadSigningKeysForOwner(
-      owner: KeyOwner
+  private def loadSigningKeysForMember(
+      member: Member
   ): Future[Map[Fingerprint, SigningPublicKey]] =
-    ipsSnapshot.signingKeys(owner).map(_.map(x => (x.fingerprint, x)).toMap)
+    ipsSnapshot.signingKeys(member).map(_.map(x => (x.fingerprint, x)).toMap)
 
   private def verifySignature(
       hash: Hash,
@@ -479,7 +480,7 @@ class DomainSnapshotSyncCryptoApi(
 
   override def verifySignature(
       hash: Hash,
-      signer: KeyOwner,
+      signer: Member,
       signature: Signature,
   ): EitherT[Future, SignatureCheckError, Unit] = {
     for {
@@ -492,7 +493,7 @@ class DomainSnapshotSyncCryptoApi(
 
   override def verifySignatures(
       hash: Hash,
-      signer: KeyOwner,
+      signer: Member,
       signatures: NonEmpty[Seq[Signature]],
   ): EitherT[Future, SignatureCheckError, Unit] = {
     for {
@@ -573,7 +574,7 @@ class DomainSnapshotSyncCryptoApi(
   private def ownerIsInitialized(
       validKeys: Seq[SigningPublicKey]
   ): EitherT[Future, SignatureCheckError, Boolean] =
-    owner match {
+    member match {
       case participant: ParticipantId => EitherT.right(ipsSnapshot.isParticipantActive(participant))
       case _ => // we assume that a member other than a participant is initialised if at least one valid key is known
         EitherT.rightT(validKeys.nonEmpty)
@@ -584,12 +585,12 @@ class DomainSnapshotSyncCryptoApi(
   )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
     EitherT(
       ipsSnapshot
-        .encryptionKey(owner)
+        .encryptionKey(member)
         .map { keyO =>
           keyO
             .toRight(
               KeyNotAvailable(
-                owner,
+                member,
                 KeyPurpose.Encryption,
                 ipsSnapshot.timestamp,
                 Seq.empty,
@@ -614,23 +615,23 @@ class DomainSnapshotSyncCryptoApi(
       .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoDecryptionError(err))
   }
 
-  /** Encrypts a message for the given key owner
+  /** Encrypts a message for the given member
     *
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
-    * most suitable key for the respective key owner.
+    * most suitable key for the respective member.
     */
   override def encryptFor[M <: HasVersionedToByteString](
       message: M,
-      owner: KeyOwner,
+      member: Member,
       version: ProtocolVersion,
   ): EitherT[Future, SyncCryptoError, AsymmetricEncrypted[M]] =
     EitherT(
       ipsSnapshot
-        .encryptionKey(owner)
+        .encryptionKey(member)
         .map { keyO =>
           keyO
             .toRight(
-              KeyNotAvailable(owner, KeyPurpose.Encryption, ipsSnapshot.timestamp, Seq.empty)
+              KeyNotAvailable(member, KeyPurpose.Encryption, ipsSnapshot.timestamp, Seq.empty)
             )
             .flatMap(k =>
               crypto.pureCrypto

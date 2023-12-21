@@ -51,7 +51,7 @@ object MetricsReporterConfig {
   object DeprecatedImplicits {
     implicit def deprecatedDomainBaseConfig[X <: MetricsReporterConfig]: DeprecatedFieldsFor[X] =
       new DeprecatedFieldsFor[MetricsReporterConfig] {
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
+        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
           DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("jmx")),
           DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("csv")),
           DeprecatedConfigUtils
@@ -86,7 +86,6 @@ object MetricsPrefix {
     case NoPrefix => None
     case Static(prefix) => Some(prefix)
   }
-
 }
 
 object MetricsConfig {
@@ -135,15 +134,14 @@ final case class MetricsFactory(
   val metricsFactory: MetricHandle.MetricsFactory =
     createUnlabeledMetricsFactory(MetricsContext.Empty, registry)
 
-  @nowarn("cat=deprecation")
-  private val envMetrics = new EnvMetrics(metricsFactory)
+  @nowarn("cat=deprecation") private val envMetrics = new EnvMetrics(metricsFactory)
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val domains = TrieMap[String, DomainMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
   private val mediators = TrieMap[String, MediatorNodeMetrics]()
-  private val allNodeMetrics: Seq[TrieMap[String, _]] =
+  private val allNodeMetrics: Seq[TrieMap[String, ?]] =
     Seq(participants, domains, sequencers, mediators)
-  private def nodeMetricsExcept(toExclude: TrieMap[String, _]): Seq[TrieMap[String, _]] =
+  private def nodeMetricsExcept(toExclude: TrieMap[String, ?]): Seq[TrieMap[String, ?]] =
     allNodeMetrics filterNot (_ eq toExclude)
 
   val executionServiceMetrics: ExecutorServiceMetrics = new ExecutorServiceMetrics(
@@ -247,7 +245,7 @@ final case class MetricsFactory(
   private def deduplicateName(
       name: String,
       nodeType: String,
-      nodesToExclude: TrieMap[String, _],
+      nodesToExclude: TrieMap[String, ?],
   ): String =
     if (nodeMetricsExcept(nodesToExclude).exists(_.keySet.contains(name)))
       s"$nodeType-$name"
@@ -270,11 +268,9 @@ final case class MetricsFactory(
   private def createUnlabeledMetricsFactory(
       extraContext: MetricsContext,
       registry: MetricRegistry,
-  ) = {
-    factoryType match {
-      case MetricsFactoryType.InMemory(builder) => builder(extraContext)
-      case MetricsFactoryType.External => new CantonDropwizardMetricsFactory(registry)
-    }
+  ) = factoryType match {
+    case MetricsFactoryType.InMemory(builder) => builder(extraContext)
+    case MetricsFactoryType.External => new CantonDropwizardMetricsFactory(registry)
   }
 
   /** returns the documented metrics by possibly creating fake participants / domains */
@@ -378,11 +374,9 @@ class HealthMetrics(prefix: MetricName, registry: metrics.MetricRegistry)
     extends MetricsGroup(prefix, registry) {
 
   val pingLatency: metrics.Timer = timer("ping-latency")
-
 }
 
 abstract class MetricsGroup(prefix: MetricName, registry: metrics.MetricRegistry) {
 
   def timer(name: String): metrics.Timer = registry.timer(MetricName(prefix :+ name))
-
 }

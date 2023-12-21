@@ -84,11 +84,11 @@ class GrpcSequencerConnectClient(
     } yield DomainClientBootstrapInfo(domainId, sequencerId)
 
   override def getDomainParameters(
-      domainAlias: DomainAlias
+      domainIdentifier: String
   )(implicit traceContext: TraceContext): EitherT[Future, Error, StaticDomainParameters] = for {
     responseP <- CantonGrpcUtil
       .sendSingleGrpcRequest(
-        serverName = domainAlias.unwrap,
+        serverName = domainIdentifier,
         requestDescription = "get domain parameters",
         channel = builder.build(),
         stubFactory = v0.SequencerConnectServiceGrpc.stub,
@@ -205,8 +205,6 @@ object GrpcSequencerConnectClient {
   ): ParsingResult[StaticDomainParameters] = response.parameters match {
     case Parameters.Empty =>
       Left(ProtoDeserializationError.FieldNotSet("GetDomainParameters.parameters"))
-    case Parameters.ParametersV0(parametersV0) => StaticDomainParameters.fromProtoV0(parametersV0)
     case Parameters.ParametersV1(parametersV1) => StaticDomainParameters.fromProtoV1(parametersV1)
-    case Parameters.ParametersV2(parametersV2) => StaticDomainParameters.fromProtoV2(parametersV2)
   }
 }

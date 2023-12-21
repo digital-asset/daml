@@ -8,12 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  TransferInView,
-  TransferOutView,
-  TransferSubmitterMetadata,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -36,7 +31,6 @@ import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
   LfContractId,
-  LfTemplateId,
   RequestId,
   SerializableContract,
   SourceDomainId,
@@ -49,8 +43,7 @@ import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{Checked, FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.{Checked, MonadUtil}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
@@ -62,6 +55,7 @@ import com.digitalasset.canton.{
   SequencerCounter,
   TransferCounter,
   TransferCounterO,
+  config,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -72,7 +66,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.implicitConversions
 
 trait TransferStoreTest {
-  this: AsyncWordSpec with BaseTest =>
+  this: AsyncWordSpec & BaseTest =>
 
   import TransferStoreTest.*
   private implicit val _ec: ExecutionContext = ec
@@ -80,27 +74,26 @@ trait TransferStoreTest {
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
   protected def transferStore(mk: TargetDomainId => TransferStore): Unit = {
-    val transferData = FutureUtil.noisyAwaitResult(
-      mkTransferData(transfer10, mediator1),
-      "make transfer data",
-      10.seconds,
-    )
+    val transferData =
+      config
+        .NonNegativeFiniteDuration(10.seconds)
+        .await("make transfer data")(mkTransferData(transfer10, mediator1))
 
     def transferDataFor(
         transferId: TransferId,
         contract: SerializableContract,
         transferOutGlobalOffset: Option[GlobalOffset] = None,
-    ) =
-      FutureUtil.noisyAwaitResult(
-        mkTransferData(
-          transferId,
-          mediator1,
-          contract = contract,
-          transferOutGlobalOffset = transferOutGlobalOffset,
-        ),
-        "make transfer data",
-        10.seconds,
-      )
+    ): TransferData =
+      config
+        .NonNegativeFiniteDuration(10.seconds)
+        .await("make transfer data")(
+          mkTransferData(
+            transferId,
+            mediator1,
+            contract = contract,
+            transferOutGlobalOffset = transferOutGlobalOffset,
+          )
+        )
 
     val transferOutResult = mkTransferOutResult(transferData)
     val withTransferOutResult = transferData.copy(transferOutResult = Some(transferOutResult))
@@ -1152,28 +1145,19 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(BaseTest.testedProtocolVersion)
+  private val initialTransferCounter: TransferCounterO = Some(TransferCounter.Genesis)
 
   val seedGenerator = new SeedGenerator(pureCryptoApi)
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
     val submittingParticipant: LedgerParticipantId =
-      TransferInView.submittingParticipantDefaultValue.orValue(
-        LedgerParticipantId.assertFromString("participant1"),
-        BaseTest.testedProtocolVersion,
-      )
+      LedgerParticipantId.assertFromString("participant1")
 
-    val applicationId: LedgerApplicationId = TransferInView.applicationIdDefaultValue.orValue(
-      LedgerApplicationId.assertFromString("application-tests"),
-      BaseTest.testedProtocolVersion,
-    )
+    val applicationId: LedgerApplicationId =
+      LedgerApplicationId.assertFromString("application-tests")
 
-    val commandId: LedgerCommandId = TransferInView.commandIdDefaultValue.orValue(
-      LedgerCommandId.assertFromString("transfer-store-command-id"),
-      BaseTest.testedProtocolVersion,
-    )
+    val commandId: LedgerCommandId = LedgerCommandId.assertFromString("transfer-store-command-id")
 
     TransferSubmitterMetadata(
       submitter,
@@ -1185,12 +1169,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private[participant] val templateId: LfTemplateId =
-    TransferOutView.templateIdDefaultValue.orValue(
-      contract.contractInstance.unversioned.template,
-      BaseTest.testedProtocolVersion,
-    )
-
   def mkTransferDataForDomain(
       transferId: TransferId,
       sourceMediator: MediatorRef,
@@ -1200,15 +1178,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
   ): Future[TransferData] = {
-
-    /*
-      Method TransferOutView.fromProtoV0 set protocol version to v3 (not present in Protobuf v0).
-     */
-    val targetProtocolVersion =
-      if (BaseTest.testedProtocolVersion <= ProtocolVersion.v3)
-        TargetProtocolVersion(ProtocolVersion.v3)
-      else
-        TargetProtocolVersion(BaseTest.testedProtocolVersion)
 
     val transferOutRequest = TransferOutRequest(
       submitterMetadata(submittingParty),
@@ -1220,7 +1189,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       SourceProtocolVersion(BaseTest.testedProtocolVersion),
       sourceMediator,
       targetDomainId,
-      targetProtocolVersion,
+      TargetProtocolVersion(BaseTest.testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(
         timestamp = CantonTimestamp.Epoch,
         targetDomain = targetDomainId,
@@ -1236,7 +1205,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
         seed,
         uuid,
       )
-      .value
     Future.successful(
       TransferData(
         sourceProtocolVersion = SourceProtocolVersion(BaseTest.testedProtocolVersion),
@@ -1281,7 +1249,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
         mediatorMessage.allInformees,
       )
       val signedResult =
-        SignedProtocolMessage.tryFrom(
+        SignedProtocolMessage.from(
           result,
           BaseTest.testedProtocolVersion,
           sign("TransferOutResult-mediator"),

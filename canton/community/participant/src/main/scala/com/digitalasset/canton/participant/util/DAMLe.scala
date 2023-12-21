@@ -244,24 +244,14 @@ class DAMLe(
       )
       (transaction, _metadata, _resolver) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
-        case nc @ LfNodeCreate(
-              _cid,
-              _packageName,
-              templateId,
-              arg,
-              agreementText,
-              signatories,
-              stakeholders,
-              key,
-              version,
-            ) =>
+        case nc: LfNodeCreate =>
           ContractWithMetadata(
-            LfContractInst(template = templateId, arg = Versioned(version, arg)),
-            signatories,
-            stakeholders,
+            LfContractInst(template = nc.templateId, arg = Versioned(nc.version, nc.arg)),
+            nc.signatories,
+            nc.stakeholders,
             nc.templateId,
-            key,
-            AgreementText(agreementText),
+            nc.keyOpt,
+            AgreementText(nc.agreementText),
           )
         case node => throw new RuntimeException(s"DAMLe reinterpreted a create node as $node")
       }

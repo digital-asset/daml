@@ -6,8 +6,8 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v2;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
-import "com/digitalasset/canton/protocol/v0/sequencing.proto";
 import "com/digitalasset/canton/protocol/v1/common.proto";
+import "com/digitalasset/canton/protocol/v1/signed_content.proto";
 import "com/digitalasset/canton/time/v0/time_proof.proto";
 import "scalapb/scalapb.proto";
 
@@ -37,7 +37,7 @@ message TransferInView {
   com.digitalasset.canton.crypto.v0.Salt salt = 1;
   string submitter = 2;
   v1.SerializableContract contract = 3;
-  v0.SignedContent transfer_out_result_event = 4;
+  v1.SignedContent transfer_out_result_event = 4;
   bytes creating_transaction_id = 5;
   int32 source_protocol_version = 6;
   string submitting_participant = 7; // added in v2

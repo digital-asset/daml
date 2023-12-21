@@ -13,6 +13,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement
+import com.digitalasset.canton.util.PekkoUtil.{LoggingInHandler, LoggingOutHandler}
 import com.digitalasset.canton.util.ShowUtil.*
 import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.Source
@@ -354,7 +355,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         completeStage(None, force = true)
       }
     }
-    setHandler(out, outHandler)
+    setHandler(out, LoggingOutHandler(noTracingLogger, "OrderedBucketMergeHub.out")(outHandler))
 
     private[this] val configChangeHandler: InHandler = new InHandler {
       override def onPush(): Unit = {
@@ -425,7 +426,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         terminateStage(Some(ex))
       }
     }
-    setHandler(in, configChangeHandler)
+    setHandler(
+      in,
+      LoggingInHandler(noTracingLogger, "OrderedBucketMergeHub.in")(configChangeHandler),
+    )
 
     private[this] def terminateStage(cause: Option[Throwable]): Unit = {
       checkInvariantIfEnabled(s"$qualifiedNameOfCurrentFunc begin")
@@ -453,13 +457,23 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     override def postStop(): Unit = {
       // Remove references to avoid memory leak
       lastBucketQueuedForEmission = None
+      // Under unforeseen circumstances (e.g., handlers failing due to exceptions),
+      // make sure that we complete the completion future.
+      completeCompletionFuture()
     }
 
     /** Callback used to receive signals from the ordered sources.
       * Avoids that we have to access the mutable states from the ordered source's handlers.
       */
     private[this] val orderedSourceCallback =
-      getAsyncCallback[OrderedSourceSignal[Name, A]](processOrderedSourceSignal)
+      getAsyncCallback[OrderedSourceSignal[Name, A]](
+        PekkoUtil.loggingAsyncCallback(
+          noTracingLogger,
+          "OrderedBucketMergeHub.orderedSourceCallback",
+        )(
+          processOrderedSourceSignal
+        )
+      )
 
     private[this] def processOrderedSourceSignal(signal: OrderedSourceSignal[Name, A]): Unit =
       signal match {
@@ -683,14 +697,18 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
           orderedSources.foreach { case (_id, source) => source.inlet.cancel() }
         }
         cause.fold(completeStage())(failStage)
-        val directExecutionContext = DirectExecutionContext(noTracingLogger)
-        completionPromise.completeWith(
-          flushFutureForOrderedSources.flush().map(_ => Done)(directExecutionContext)
-        )
+        completeCompletionFuture()
       } else
         noTracingLogger.debug(
           show"Cannot complete OrderedBucketMergeHub stage due to remaining ordered sources: $outstanding"
         )
+    }
+
+    private[this] def completeCompletionFuture(): Unit = {
+      val directExecutionContext = DirectExecutionContext(noTracingLogger)
+      completionPromise.completeWith(
+        flushFutureForOrderedSources.flush().map(_ => Done)(directExecutionContext)
+      )
     }
 
     private[this] def removeFromBuckets(elems: Seq[BucketElement[OrderedSource, A]]): Unit =
@@ -735,8 +753,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         lastBucketQueuedForEmission.map(ops.toPriorElement).orElse(ops.priorElement),
       )
       val subsink = new SubSinkInlet[A](s"OrderedMergeHub.sink($name-$id)")
-      subsink.setHandler(
+      val inHandler =
         new ActiveSourceInHandler(id, name, () => subsink.grab(), orderedSourceCallback)
+      subsink.setHandler(
+        LoggingInHandler(noTracingLogger, s"OrderedMergeHub.sink($name-$id).in")(inHandler)
       )
 
       val killSwitchCell = new SingleUseCell[KillSwitch]

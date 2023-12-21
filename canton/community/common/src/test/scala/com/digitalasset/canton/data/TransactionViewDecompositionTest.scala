@@ -32,9 +32,7 @@ class TransactionViewDecompositionTest
     with ComparesLfTransactions
     with NeedsNewLfContractIds {
 
-  lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory(
-    testedProtocolVersion
-  )
+  lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory.V2
   s"With factory ${factory.getClass.getSimpleName}" when {
 
     ConfirmationPolicy.values foreach { confirmationPolicy =>

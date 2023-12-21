@@ -373,7 +373,7 @@ private[admin] class ResilientTransactionsSubscription(
           logger.warn(s"$name finished with an error", error)
           ()
         },
-        timeouts.closing.duration,
+        timeouts.closing,
       )
     )
   }

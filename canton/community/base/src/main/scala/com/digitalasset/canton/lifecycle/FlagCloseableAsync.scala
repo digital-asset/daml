@@ -4,10 +4,9 @@
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.config.RefinedNonNegativeDuration
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.util.FutureUtil
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Future, TimeoutException}
 
 /** AutoCloseableAsync eases the proper closing of futures.
@@ -19,41 +18,42 @@ trait FlagCloseableAsync extends FlagCloseable {
     */
   protected def closeAsync(): Seq[AsyncOrSyncCloseable]
 
-  final override def onClosed(): Unit = Lifecycle.close(closeAsync(): _*)(logger)
+  final override def onClosed(): Unit = Lifecycle.close(closeAsync() *)(logger)
 }
 
 trait AsyncOrSyncCloseable extends AutoCloseable
 
-class AsyncCloseable private (
+class AsyncCloseable[D <: RefinedNonNegativeDuration[D]] private (
     name: String,
-    closeFuture: () => Future[_],
-    timeout: Duration,
+    closeFuture: () => Future[?],
+    timeout: D,
     onTimeout: TimeoutException => Unit,
 )(implicit
     loggingContext: ErrorLoggingContext
 ) extends AsyncOrSyncCloseable {
-  override def close(): Unit = FutureUtil
-    .noisyAwaitResult(closeFuture(), s"closing $name", timeout, onTimeout = onTimeout)
-    .discard
+  override def close(): Unit =
+    timeout.await(s"closing $name", onTimeout = onTimeout)(closeFuture()).discard
 
-  override def toString: String = s"AsyncCloseable(name=${name})"
+  override def toString: String = s"AsyncCloseable(name=$name)"
 }
+
 object AsyncCloseable {
-  def apply(
+  def apply[D <: RefinedNonNegativeDuration[D]](
       name: String,
-      closeFuture: => Future[_],
-      timeout: Duration,
+      closeFuture: => Future[?],
+      timeout: D,
       onTimeout: TimeoutException => Unit = _ => (),
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): AsyncCloseable =
+  ): AsyncCloseable[D] =
     new AsyncCloseable(name, () => closeFuture, timeout, onTimeout)
 }
 
 class SyncCloseable private (name: String, sync: () => Unit) extends AsyncOrSyncCloseable {
   override def close(): Unit = sync()
-  override def toString: String = s"SyncCloseable(name=${name})"
+  override def toString: String = s"SyncCloseable(name=$name)"
 }
+
 object SyncCloseable {
   def apply(name: String, sync: => Unit): SyncCloseable =
     new SyncCloseable(name, () => sync)

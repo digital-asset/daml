@@ -29,21 +29,12 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.messages.{
-  ProtocolMessage,
-  ProtocolMessageV0,
-  ProtocolMessageV1,
-  ProtocolMessageV2,
-  ProtocolMessageV3,
-  UnsignedProtocolMessageV4,
-}
+import com.digitalasset.canton.protocol.messages.UnsignedProtocolMessage
 import com.digitalasset.canton.protocol.{
   DomainParametersLookup,
+  DynamicDomainParameters,
+  DynamicDomainParametersLookup,
   TestDomainParameters,
-  v0 as protocolV0,
-  v1 as protocolV1,
-  v2 as protocolV2,
-  v3 as protocolV3,
   v4 as protocolV4,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
@@ -109,8 +100,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val futureSupervisor = FutureSupervisor.Noop
   private val topologyClient = mock[DomainTopologyClient]
   private val mockTopologySnapshot = mock[TopologySnapshot]
-  private val maxRatePerParticipant = BaseTest.defaultMaxRatePerParticipant
-  private val maxRequestSize = BaseTest.defaultMaxRequestSize
+  private val maxRatePerParticipant = DynamicDomainParameters.defaultMaxRatePerParticipant
+  private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -129,18 +120,16 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
     )
 
-  private val domainParamsLookup: DomainParametersLookup[SequencerDomainParameters] =
+  private val domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
     DomainParametersLookup.forSequencerDomainParameters(
-      BaseTest.defaultStaticDomainParametersWith(maxRatePerParticipant =
-        maxRatePerParticipant.unwrap
-      ),
+      BaseTest.defaultStaticDomainParametersWith(),
       None,
       topologyClient,
       futureSupervisor,
       loggerFactory,
     )
 
-  val authenticationCheck = new AuthenticationCheck {
+  private val authenticationCheck = new AuthenticationCheck {
 
     override def authenticate(
         member: Member,
@@ -309,7 +298,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory
         .create(
           any[SequencerCounter],
-          any[String],
           any[Member],
           any[SerializedEventOrErrorHandler[NotUsed]],
         )(any[TraceContext])
@@ -406,45 +394,13 @@ class GrpcSequencerIntegrationTest
     }
   }
 
-  private case object MockProtocolMessage
-      extends ProtocolMessage
-      with ProtocolMessageV0
-      with ProtocolMessageV1
-      with ProtocolMessageV2
-      with ProtocolMessageV3
-      with UnsignedProtocolMessageV4 {
-    // no significance to this payload, just need anything valid and this was the easiest to construct
-    private val payload =
-      protocolV0.SignedProtocolMessage(
-        None,
-        protocolV0.SignedProtocolMessage.SomeSignedProtocolMessage.Empty,
-      )
-
+  private case object MockProtocolMessage extends UnsignedProtocolMessage {
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       ???
 
     override protected lazy val companionObj = MockProtocolMessage
 
     override def domainId: DomainId = DefaultTestIdentities.domainId
-    override def toProtoEnvelopeContentV0: protocolV0.EnvelopeContent =
-      protocolV0.EnvelopeContent(
-        protocolV0.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoEnvelopeContentV1: protocolV1.EnvelopeContent =
-      protocolV1.EnvelopeContent(
-        protocolV1.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoEnvelopeContentV2: protocolV2.EnvelopeContent =
-      protocolV2.EnvelopeContent(
-        protocolV2.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoEnvelopeContentV3: protocolV3.EnvelopeContent =
-      protocolV3.EnvelopeContent(
-        protocolV3.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
 
     override def toProtoSomeEnvelopeContentV4: protocolV4.EnvelopeContent.SomeEnvelopeContent =
       protocolV4.EnvelopeContent.SomeEnvelopeContent.Empty

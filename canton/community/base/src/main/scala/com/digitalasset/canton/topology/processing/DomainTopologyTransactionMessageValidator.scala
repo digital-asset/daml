@@ -159,7 +159,7 @@ object DomainTopologyTransactionMessageValidator {
         // found in the initial message
         snapshot = StoreBasedTopologySnapshot.headstateOfAuthorizedStore(store, loggerFactory)
         keys <- EitherT
-          .right(snapshot.allKeys(client.domainId.keyOwner))
+          .right(snapshot.allKeys(client.domainId.member))
           .mapK(FutureUnlessShutdown.outcomeK)
         _ <- EitherT.fromEither[FutureUnlessShutdown](
           validateMessageAgainstKeys(ts, keys.signingKeys, message)
@@ -197,7 +197,7 @@ object DomainTopologyTransactionMessageValidator {
         // as it would be contained in the state. so the only scenario it matters is if you quickly add an
         // add and then remove it immediately. then you can replay the add.
         _ <- Either.cond(
-          message.notSequencedAfter.exists(mst => mst >= ts.value),
+          message.notSequencedAfter >= ts.value,
           (),
           s"Detected malicious replay of a domain topology transaction message: Sequenced at ${ts.value}, but max-sequencing-time is ${message.notSequencedAfter}. Skipping ${message.transactions.length} transactions!",
         )
@@ -228,7 +228,7 @@ object DomainTopologyTransactionMessageValidator {
         )
         keys <- EitherT
           .right(
-            snapshot.ipsSnapshot.signingKeys(client.domainId.keyOwner)
+            snapshot.ipsSnapshot.signingKeys(client.domainId.member)
           )
           .mapK(FutureUnlessShutdown.outcomeK)
         _ <-
@@ -251,7 +251,6 @@ object DomainTopologyTransactionMessageValidator {
         .mapFilter(ProtocolMessage.select[DomainTopologyTransactionMessage])
         .map(_.protocolMessage)
       val lastTs = lastSequencingTimestamp.getAndSet(Some(ts.value))
-      val skipCheck = protocolVersion < ProtocolVersion.v5
       NonEmpty.from(messages) match {
         case None => FutureUnlessShutdown.pure(List.empty)
         case Some(messages) if messages.sizeCompare(1) > 0 =>
@@ -261,7 +260,6 @@ object DomainTopologyTransactionMessageValidator {
             )
             .report()
           FutureUnlessShutdown.pure(List.empty)
-        case Some(messages) if skipCheck => FutureUnlessShutdown.pure(messages.head1.transactions)
         case Some(messages) =>
           validateMessage(ts, lastTs, messages.head1).fold(
             err => {

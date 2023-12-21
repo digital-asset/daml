@@ -36,7 +36,10 @@ import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.{
   HandlerError,
   HandlerException,
 }
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
@@ -72,10 +75,8 @@ import scala.util.{Failure, Success}
 class SequencerClientTest
     extends AnyWordSpec
     with BaseTest
-    with HasExecutorService
+    with HasExecutionContext
     with CloseableTest {
-
-  implicit lazy val executionContext: ExecutionContext = executorService
 
   private lazy val metrics =
     new SequencerClientMetrics(
@@ -271,7 +272,7 @@ class SequencerClientTest
       val error =
         EventValidationError(GapInSequencerCounter(SequencerCounter(666), SequencerCounter(0)))
       val closeReasonF = for {
-        env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
+        env @ Env(client, transport, _, _, _) <- Env.create()
 
         _ <- env.subscribeAfter(CantonTimestamp.MinValue, alwaysSuccessfulHandler)
         subscription = transport.subscriber
@@ -301,7 +302,7 @@ class SequencerClientTest
         )
 
       val closeReasonF = for {
-        env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
+        env @ Env(client, transport, _, _, _) <- Env.create()
         _ <- env.subscribeAfter(CantonTimestamp.MinValue, handler)
         closeReason <- loggerFactory.assertLogs(
           {
@@ -340,7 +341,7 @@ class SequencerClientTest
         ApplicationHandler.create("shutdown")(_ => FutureUnlessShutdown.abortedDueToShutdown)
 
       val closeReasonF = for {
-        env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
+        env @ Env(client, transport, _, _, _) <- Env.create()
         _ <- env.subscribeAfter(eventHandler = handler)
         closeReason <- {
           for {
@@ -365,7 +366,7 @@ class SequencerClientTest
       val asyncException = ApplicationHandlerException(error, deliver.counter, deliver.counter)
 
       val closeReasonF = for {
-        env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
+        env @ Env(client, transport, _, _, _) <- Env.create()
         _ <- env.subscribeAfter(
           eventHandler = ApplicationHandler.create("async-failure")(_ => asyncFailure)
         )
@@ -409,7 +410,7 @@ class SequencerClientTest
       val asyncShutdown = HandlerResult.asynchronous(FutureUnlessShutdown.abortedDueToShutdown)
 
       val closeReasonF = for {
-        env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
+        env @ Env(client, transport, _, _, _) <- Env.create()
         _ <- env.subscribeAfter(
           CantonTimestamp.MinValue,
           ApplicationHandler.create("async-shutdown")(_ => asyncShutdown),
@@ -490,7 +491,6 @@ class SequencerClientTest
             eventInboxSize = PositiveInt.tryCreate(1),
             maximumInFlightEventBatches = PositiveInt.tryCreate(5),
           ),
-          useParallelExecutionContext = true,
           initialSequencerCounter = SequencerCounter(1L),
         )
         _ <- env.subscribeAfter(
@@ -670,12 +670,9 @@ class SequencerClientTest
 
   "changeTransport" should {
     "create second subscription from the same counter as the previous one when there are no events" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
       val testF = for {
-        env <- Env.create(
-          useParallelExecutionContext = true,
-          initialSequencerCounter = SequencerCounter.Genesis,
-        )
+        env <- Env.create(initialSequencerCounter = SequencerCounter.Genesis)
         _ <- env.subscribeAfter()
         _ <- env.changeTransport(secondTransport)
       } yield {
@@ -696,10 +693,10 @@ class SequencerClientTest
     }
 
     "create second subscription from the same counter as the previous one when there are events" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
 
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create()
         _ <- env.subscribeAfter()
 
         _ <- env.transport.subscriber.value.sendToHandler(deliver)
@@ -721,10 +718,10 @@ class SequencerClientTest
     }
 
     "have new transport be used for sends" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
 
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create()
         _ <- env.changeTransport(secondTransport)
         _ <- env.sendAsync(Batch.empty(testedProtocolVersion))
       } yield {
@@ -739,10 +736,10 @@ class SequencerClientTest
     }
 
     "have new transport be used for sends when there is subscription" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
 
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create()
         _ <- env.subscribeAfter()
         _ <- env.changeTransport(secondTransport)
         _ <- env.sendAsync(Batch.empty(testedProtocolVersion))
@@ -755,10 +752,10 @@ class SequencerClientTest
     }
 
     "have new transport be used with same sequencerId but different sequencer alias" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
 
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create()
         _ <- env.subscribeAfter()
         _ <- env.changeTransport(
           SequencerTransports.single(
@@ -777,13 +774,13 @@ class SequencerClientTest
     }
 
     "fail to reassign sequencerId" in {
-      val secondTransport = new MockTransport
+      val secondTransport = MockTransport()
       val secondSequencerId = SequencerId(
         UniqueIdentifier(Identifier.tryCreate("da2"), Namespace(Fingerprint.tryCreate("default")))
       )
 
       val testF = for {
-        env <- Env.create(useParallelExecutionContext = true)
+        env <- Env.create()
         _ <- env.subscribeAfter()
         error <- loggerFactory
           .assertLogs(
@@ -845,13 +842,15 @@ class SequencerClientTest
         PeriodicAcknowledgements.noAcknowledgements,
       )
 
-    def changeTransport(newTransport: SequencerClientTransport): Future[Unit] = {
+    def changeTransport(
+        newTransport: SequencerClientTransport & SequencerClientTransportPekko
+    ): Future[Unit] = {
       client.changeTransport(
         SequencerTransports.default(sequencerId, newTransport)
       )
     }
 
-    def changeTransport(sequencerTransports: SequencerTransports): Future[Unit] =
+    def changeTransport(sequencerTransports: SequencerTransports[?]): Future[Unit] =
       client.changeTransport(sequencerTransports)
 
     def sendAsync(
@@ -880,7 +879,10 @@ class SequencerClientTest
       this.closeReasonPromise.success(HandlerException(error))
   }
 
-  private class MockTransport extends SequencerClientTransport with NamedLogging {
+  private class MockTransport
+      extends SequencerClientTransport
+      with SequencerClientTransportPekko
+      with NamedLogging {
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
@@ -916,11 +918,8 @@ class SequencerClientTest
     ): EitherT[Future, String, Unit] =
       EitherT.rightT(())
 
-    override def sendAsync(
-        request: SubmissionRequest,
-        timeout: Duration,
-    )(implicit
-        traceContext: TraceContext
+    private def sendAsync(
+        request: SubmissionRequest
     ): EitherT[Future, SendAsyncClientError, Unit] = {
       lastSend.set(Some(request))
       EitherT.rightT(())
@@ -930,9 +929,9 @@ class SequencerClientTest
         request: SignedContent[SubmissionRequest],
         timeout: Duration,
     )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
-      sendAsync(request.content, timeout)
+      sendAsync(request.content)
 
-    override def sendAsyncUnauthenticated(
+    override def sendAsyncUnauthenticatedVersioned(
         request: SubmissionRequest,
         timeout: Duration,
     )(implicit
@@ -969,6 +968,25 @@ class SequencerClientTest
     override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, String, TopologyStateForInitResponse] = ???
+
+    override type SubscriptionError = Uninhabited
+
+    override def subscribe(request: SubscriptionRequest)(implicit
+        traceContext: TraceContext
+    ): SequencerSubscriptionPekko[SubscriptionError] =
+      ??? // TODO(#13789) implement this
+
+    override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
+        traceContext: TraceContext
+    ): SequencerSubscriptionPekko[SubscriptionError] = subscribe(request)
+
+    override def subscriptionRetryPolicyPekko
+        : SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
+      SubscriptionErrorRetryPolicyPekko.never
+  }
+  private object MockTransport {
+    def apply(): MockTransport & SequencerClientTransportPekko.Aux[Uninhabited] =
+      new MockTransport
   }
 
   private implicit class RichSequencerClient(client: SequencerClientImpl) {
@@ -987,28 +1005,16 @@ class SequencerClientTest
       warn = false,
     )
 
-    /** @param useParallelExecutionContext Set to true to use a parallel execution context which is handy for
-      *                                     verifying close behavior that can involve an Await that would deadlock
-      *                                     on ScalaTest's default serial execution context. However by enabling this
-      *                                     it means the order of asynchronous operations within the SequencerClient
-      *                                     will no longer be deterministic.
-      */
     def create(
         storedEvents: Seq[SequencedEvent[ClosedEnvelope]] = Seq.empty,
         cleanPrehead: Option[SequencerCounterCursorPrehead] = None,
         eventValidator: SequencedEventValidator = eventAlwaysValid,
         options: SequencerClientConfig = SequencerClientConfig(),
-        useParallelExecutionContext: Boolean = false,
         initialSequencerCounter: SequencerCounter = firstSequencerCounter,
     )(implicit closeContext: CloseContext): Future[Env] = {
-      // if parallel execution is desired use the UseExecutorService executor service (which is a parallel execution context)
-      // otherwise use the default serial execution context provided by ScalaTest
-      implicit val executionContext: ExecutionContext =
-        if (useParallelExecutionContext) SequencerClientTest.this.executorService
-        else SequencerClientTest.this.executionContext
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing
-      val transport = new MockTransport
+      val transport = MockTransport()
       val sendTrackerStore = new InMemorySendTrackerStore()
       val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
       val sendTracker =
@@ -1090,7 +1096,7 @@ class SequencerClientTest
         loggerFactory,
         futureSupervisor,
         initialSequencerCounter,
-      )(executionContext, tracer)
+      )(parallelExecutionContext, tracer)
       val signedEvents = storedEvents.map(SequencerTestUtils.sign)
 
       for {

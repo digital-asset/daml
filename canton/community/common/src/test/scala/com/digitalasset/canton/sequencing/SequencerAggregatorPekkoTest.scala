@@ -30,7 +30,6 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{ActiveSourceTerminated, NewConfiguration}
 import com.digitalasset.canton.util.{OrderedBucketMergeConfig, ResourceUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -248,8 +247,8 @@ class SequencerAggregatorPekkoTest
       doneF.futureValue
     }
 
-    "pass through the event only if sufficiently many sequencer IDs send it" onlyRunWithOrGreaterThan
-      ProtocolVersion.CNTestNet in { implicit fixture =>
+    "pass through the event only if sufficiently many sequencer IDs send it" in {
+      implicit fixture =>
         import fixture.*
 
         val aggregator = mkAggregatorPekko()
@@ -302,100 +301,99 @@ class SequencerAggregatorPekkoTest
         killSwitch.shutdown()
         sink.expectComplete()
         doneF.futureValue
-      }
+    }
 
-    "support reconfiguring the threshold and sequencers" onlyRunWithOrGreaterThan
-      ProtocolVersion.CNTestNet in { implicit fixture =>
-        import fixture.*
+    "support reconfiguring the threshold and sequencers" in { implicit fixture =>
+      import fixture.*
 
-        val validator = new SequencedEventValidatorImpl(
-          // Disable signature checking
-          unauthenticated = true,
-          optimistic = false,
-          defaultDomainId,
-          testedProtocolVersion,
-          subscriberCryptoApi,
-          loggerFactory,
-          timeouts,
-        )
-        val initialCounter = SequencerCounter(10)
-        val aggregator = mkAggregatorPekko(validator)
-        val ((source, (doneF, health_)), sink) = Source
-          .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
-          .viaMat(
-            aggregator.aggregateFlow(Right(Event(initialCounter).asOrdinarySerializedEvent))
-          )(Keep.both)
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+      val validator = new SequencedEventValidatorImpl(
+        // Disable signature checking
+        unauthenticated = true,
+        optimistic = false,
+        defaultDomainId,
+        testedProtocolVersion,
+        subscriberCryptoApi,
+        loggerFactory,
+        timeouts,
+      )
+      val initialCounter = SequencerCounter(10)
+      val aggregator = mkAggregatorPekko(validator)
+      val ((source, (doneF, health_)), sink) = Source
+        .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
+        .viaMat(
+          aggregator.aggregateFlow(Right(Event(initialCounter).asOrdinarySerializedEvent))
+        )(Keep.both)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-        val factoryAlice = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryBob = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-        val factoryCarlos = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factoryAlice = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factoryBob = TestSequencerSubscriptionFactoryPekko(loggerFactory)
+      val factoryCarlos = TestSequencerSubscriptionFactoryPekko(loggerFactory)
 
-        val config1 = OrderedBucketMergeConfig(
-          PositiveInt.tryCreate(2),
-          NonEmpty(
-            Map,
-            sequencerAlice -> Config("Alice")(factoryAlice),
-            sequencerBob -> Config("BobV1")(factoryBob),
-          ),
-        )
-        // Keep Alice, reconfigure Bob, add Carlos
-        val config2 = OrderedBucketMergeConfig(
-          PositiveInt.tryCreate(2),
-          NonEmpty(
-            Map,
-            sequencerAlice -> Config("Alice")(factoryAlice),
-            sequencerBob -> Config("BobV2")(factoryBob),
-            sequencerCarlos -> Config("Carlos")(factoryCarlos),
-          ),
-        )
+      val config1 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          sequencerAlice -> Config("Alice")(factoryAlice),
+          sequencerBob -> Config("BobV1")(factoryBob),
+        ),
+      )
+      // Keep Alice, reconfigure Bob, add Carlos
+      val config2 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          sequencerAlice -> Config("Alice")(factoryAlice),
+          sequencerBob -> Config("BobV2")(factoryBob),
+          sequencerCarlos -> Config("Carlos")(factoryCarlos),
+        ),
+      )
 
-        val signatureAlice = fakeSignatureFor("Alice")
-        val signatureBob = fakeSignatureFor("Bob")
-        val signatureCarlos = fakeSignatureFor("Carlos")
+      val signatureAlice = fakeSignatureFor("Alice")
+      val signatureBob = fakeSignatureFor("Bob")
+      val signatureCarlos = fakeSignatureFor("Carlos")
 
-        val events = mkEvents(initialCounter, 4)
-        val events1 = events.take(2)
-        factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *)
-        factoryBob.add(events1.map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
+      val events = mkEvents(initialCounter, 4)
+      val events1 = events.take(2)
+      factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *)
+      factoryBob.add(events1.map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
 
-        val events2 = events.drop(1)
-        factoryBob.add(events2.drop(1).map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
-        factoryCarlos.add(
-          events2.take(2).map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *
-        )
+      val events2 = events.drop(1)
+      factoryBob.add(events2.drop(1).map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
+      factoryCarlos.add(
+        events2.take(2).map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *
+      )
 
-        source.offer(config1) shouldBe QueueOfferResult.Enqueued
+      source.offer(config1) shouldBe QueueOfferResult.Enqueued
 
-        sink.request(10)
-        sink.expectNext() shouldBe Left(NewConfiguration(config1, initialCounter))
-        normalize(sink.expectNext().value) shouldBe normalize(
-          Event(
-            initialCounter + 1,
-            NonEmpty(Set, signatureAlice, signatureBob),
-          ).asOrdinarySerializedEvent
-        )
-        sink.expectNoMessage()
-        loggerFactory.assertLogs(
-          {
-            source.offer(config2) shouldBe QueueOfferResult.Enqueued
-            sink.expectNext() shouldBe Left(NewConfiguration(config2, initialCounter + 1))
-            val outputs =
-              Set(sink.expectNext(), sink.expectNext()).map(_.map(normalize))
-            val expected = Set(
-              Left(ActiveSourceTerminated(sequencerBob, None)),
-              Right(Event(initialCounter + 2, NonEmpty(Set, signatureAlice, signatureCarlos))),
-            ).map(_.map(event => normalize(event.asOrdinarySerializedEvent)))
-            outputs shouldBe expected
-          },
-          _.errorMessage should include(ResilientSequencerSubscription.ForkHappened.id),
-          _.warningMessage should include(s"Sequencer subscription for $sequencerBob failed with"),
-        )
-        source.complete()
-        sink.expectComplete()
-        doneF.futureValue
-      }
+      sink.request(10)
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, initialCounter))
+      normalize(sink.expectNext().value) shouldBe normalize(
+        Event(
+          initialCounter + 1,
+          NonEmpty(Set, signatureAlice, signatureBob),
+        ).asOrdinarySerializedEvent
+      )
+      sink.expectNoMessage()
+      loggerFactory.assertLogs(
+        {
+          source.offer(config2) shouldBe QueueOfferResult.Enqueued
+          sink.expectNext() shouldBe Left(NewConfiguration(config2, initialCounter + 1))
+          val outputs =
+            Set(sink.expectNext(), sink.expectNext()).map(_.map(normalize))
+          val expected = Set(
+            Left(ActiveSourceTerminated(sequencerBob, None)),
+            Right(Event(initialCounter + 2, NonEmpty(Set, signatureAlice, signatureCarlos))),
+          ).map(_.map(event => normalize(event.asOrdinarySerializedEvent)))
+          outputs shouldBe expected
+        },
+        _.errorMessage should include(ResilientSequencerSubscription.ForkHappened.id),
+        _.warningMessage should include(s"Sequencer subscription for $sequencerBob failed with"),
+      )
+      source.complete()
+      sink.expectComplete()
+      doneF.futureValue
+    }
 
     "forward health signal for a single sequencer" in { implicit fixture =>
       import fixture.*
@@ -451,100 +449,99 @@ class SequencerAggregatorPekkoTest
       doneF.futureValue
     }
 
-    "aggregate health signal for a multiple sequencers" onlyRunWithOrGreaterThan
-      ProtocolVersion.CNTestNet in { implicit fixture =>
-        import fixture.*
+    "aggregate health signal for a multiple sequencers" in { implicit fixture =>
+      import fixture.*
 
-        val aggregator = mkAggregatorPekko()
-        val healthAlice = new TestAtomicHealthComponent("health-signal-alice")
-        val healthBob = new TestAtomicHealthComponent("health-signal-bob")
-        val healthCarlos = new TestAtomicHealthComponent("health-signal-carlos")
+      val aggregator = mkAggregatorPekko()
+      val healthAlice = new TestAtomicHealthComponent("health-signal-alice")
+      val healthBob = new TestAtomicHealthComponent("health-signal-bob")
+      val healthCarlos = new TestAtomicHealthComponent("health-signal-carlos")
 
-        val factoryAlice = new TestSequencerSubscriptionFactoryPekko(healthAlice, loggerFactory)
-        val factoryBob = new TestSequencerSubscriptionFactoryPekko(healthBob, loggerFactory)
-        val factoryCarlos = new TestSequencerSubscriptionFactoryPekko(healthCarlos, loggerFactory)
+      val factoryAlice = new TestSequencerSubscriptionFactoryPekko(healthAlice, loggerFactory)
+      val factoryBob = new TestSequencerSubscriptionFactoryPekko(healthBob, loggerFactory)
+      val factoryCarlos = new TestSequencerSubscriptionFactoryPekko(healthCarlos, loggerFactory)
 
-        factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
-        factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
-        factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
 
-        val config = OrderedBucketMergeConfig(
-          PositiveInt.tryCreate(2),
-          NonEmpty(
-            Map,
-            sequencerAlice -> Config("")(factoryAlice),
-            sequencerBob -> Config("")(factoryBob),
-            sequencerCarlos -> Config("")(factoryCarlos),
-          ),
-        )
-        val configSource =
-          Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
+      val config = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          sequencerAlice -> Config("")(factoryAlice),
+          sequencerBob -> Config("")(factoryBob),
+          sequencerCarlos -> Config("")(factoryCarlos),
+        ),
+      )
+      val configSource =
+        Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
-        val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
-          .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
-          .toMat(TestSink.probe)(Keep.both)
-          .run()
+      val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
+        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
 
-        reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
+      reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
 
-        sink.request(10)
-        Seq(healthAlice, healthBob, healthCarlos).foreach(_.resolveUnhealthy())
+      sink.request(10)
+      Seq(healthAlice, healthBob, healthCarlos).foreach(_.resolveUnhealthy())
 
-        sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+      sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
 
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.Ok()
-        }
-
-        healthAlice.failureOccurred("Alice failed")
-        // We still have threshold many sequencers that are healthy, so the subscription is healthy overall
-        always(durationOfSuccess = 100.milliseconds) {
-          reportedHealth.getState shouldBe ComponentHealthState.Ok()
-        }
-
-        healthBob.degradationOccurred("Bob degraded")
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.degraded(
-            s"Failed sequencer subscriptions for [$sequencerAlice]. Degraded sequencer subscriptions for [$sequencerBob]."
-          )
-        }
-
-        healthAlice.resolveUnhealthy()
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.Ok()
-        }
-
-        healthAlice.degradationOccurred("Alice degraded")
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.degraded(
-            s"Degraded sequencer subscriptions for [$sequencerBob, $sequencerAlice]."
-          )
-        }
-
-        healthBob.failureOccurred("Bob failed")
-        healthCarlos.failureOccurred("Carlos failed")
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.failed(
-            s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]. Degraded sequencer subscriptions for [$sequencerAlice]."
-          )
-        }
-
-        healthAlice.resolveUnhealthy()
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.failed(
-            s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]."
-          )
-        }
-
-        killSwitch.shutdown()
-        doneF.futureValue
-
-        eventually() {
-          reportedHealth.getState shouldBe ComponentHealthState.failed(
-            s"Disconnected from domain $domainId"
-          )
-        }
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
       }
+
+      healthAlice.failureOccurred("Alice failed")
+      // We still have threshold many sequencers that are healthy, so the subscription is healthy overall
+      always(durationOfSuccess = 100.milliseconds) {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
+      }
+
+      healthBob.degradationOccurred("Bob degraded")
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.degraded(
+          s"Failed sequencer subscriptions for [$sequencerAlice]. Degraded sequencer subscriptions for [$sequencerBob]."
+        )
+      }
+
+      healthAlice.resolveUnhealthy()
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
+      }
+
+      healthAlice.degradationOccurred("Alice degraded")
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.degraded(
+          s"Degraded sequencer subscriptions for [$sequencerBob, $sequencerAlice]."
+        )
+      }
+
+      healthBob.failureOccurred("Bob failed")
+      healthCarlos.failureOccurred("Carlos failed")
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.failed(
+          s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]. Degraded sequencer subscriptions for [$sequencerAlice]."
+        )
+      }
+
+      healthAlice.resolveUnhealthy()
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.failed(
+          s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]."
+        )
+      }
+
+      killSwitch.shutdown()
+      doneF.futureValue
+
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.failed(
+          s"Disconnected from domain $domainId"
+        )
+      }
+    }
   }
 }
 

@@ -272,12 +272,12 @@ class CommandSubmissionServiceImplSpec
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,
-      optDomainId = None,
     )
     val estimatedInterpretationCost = 5L
     val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
+      optDomainId = None,
       transactionMeta = transactionMeta,
       transaction = transaction,
       dependsOnLedgerTime = false,
@@ -297,6 +297,7 @@ class CommandSubmissionServiceImplSpec
     when(
       writeService.submitTransaction(
         eqTo(submitterInfo),
+        eqTo(None),
         eqTo(transactionMeta),
         eqTo(transaction),
         eqTo(estimatedInterpretationCost),

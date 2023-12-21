@@ -93,7 +93,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
           multiDomainEnabled = multiDomainEnabled,
-          maxEventsByContractKeyCacheSize = None,
         )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),

@@ -16,7 +16,10 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
   SequencerClient,
@@ -84,7 +87,7 @@ class DomainNodeSequencerClientFactory(
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SequencerClientTransport] =
+  ): EitherT[Future, String, SequencerClientTransport & SequencerClientTransportPekko] =
     factory(member).makeTransport(connection, member, requestSigner)
 
   private def factory(member: Member)(implicit

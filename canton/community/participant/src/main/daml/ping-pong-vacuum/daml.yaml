@@ -5,7 +5,7 @@ name: AdminWorkflowsWithVacuuming
 data-dependencies: 
 - ../../../src/main/resources/dar/AdminWorkflows.dar
 source: PingPongVacuum.daml
-version: 2.9.0
+version: 3.0.0
 dependencies: 
 - daml-prim
 - daml-stdlib

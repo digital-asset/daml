@@ -23,12 +23,6 @@ final case class InputContract(contract: SerializableContract, consumed: Boolean
 
   def maintainers: Set[LfPartyId] = contract.metadata.maintainers
 
-  def toProtoV0: v0.ViewParticipantData.InputContract =
-    v0.ViewParticipantData.InputContract(
-      contract = Some(contract.toProtoV0),
-      consumed = consumed,
-    )
-
   def toProtoV1: v1.InputContract =
     v1.InputContract(
       contract = Some(contract.toProtoV1),
@@ -42,13 +36,6 @@ final case class InputContract(contract: SerializableContract, consumed: Boolean
 }
 
 object InputContract {
-  def fromProtoV0(
-      inputContractP: v0.ViewParticipantData.InputContract
-  ): ParsingResult[InputContract] = {
-    val v0.ViewParticipantData.InputContract(contractP, consumed) = inputContractP
-    toInputContract(contractP, consumed, SerializableContract.fromProtoV0)
-  }
-
   def fromProtoV1(
       inputContractP: v1.InputContract
   ): ParsingResult[InputContract] = {

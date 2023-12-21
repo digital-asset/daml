@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervals.ReconciliationInterval
 import com.digitalasset.canton.protocol.DomainParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
@@ -138,17 +139,6 @@ object SortedReconciliationIntervals {
   val empty: SortedReconciliationIntervals =
     SortedReconciliationIntervals(Nil, CantonTimestamp.MinValue)
 
-  /*
-  A single reconciliation interval defines tick starting from epoch.
-  This way, we have a single point of origin for the computation.
-  For example, take two intervals, one with a duration of 3 minutes, the other 10 minutes.
-  The first is valid until time = 49.
-  Per interval, the ticks to publish commitments are defined as follows:
-  1st: epoch, ..., -9, -6, -3, 0, 3, 6, 9
-  2st: epoch, ..., -10, 0, 10, 20, 30, 40, 50, 60
-  To obtain the final list of ticks, we intersect the ticks with the validity of the domain parameters:
-  epoch, .., -9, -6, -3, 0, 3, 6, 9, ..., 45, 48, 50, 60, ...
-   */
   final case class ReconciliationInterval(
       validFrom: CantonTimestamp,
       validUntil: Option[CantonTimestamp],
@@ -160,9 +150,19 @@ object SortedReconciliationIntervals {
   def create(
       reconciliationIntervals: Seq[DomainParameters.WithValidity[PositiveSeconds]],
       validUntil: CantonTimestamp,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
   ): Either[String, SortedReconciliationIntervals] = {
     val sortedReconciliationIntervals =
       reconciliationIntervals.sortBy(_.validFrom)(implicitly[Ordering[CantonTimestamp]].reverse)
+
+    sortedReconciliationIntervals.headOption.foreach { parameters =>
+      if (parameters.validFrom > validUntil)
+        errorLoggingContext.logger.warn(
+          s"validFrom of latest domain parameters=${parameters.validFrom} is more recent than the validity of the list of domain parameters=$validUntil. " +
+            "Some parameters will not be taken into account."
+        )(errorLoggingContext.traceContext)
+    }
 
     val overlappingValidityIntervals =
       sortedReconciliationIntervals

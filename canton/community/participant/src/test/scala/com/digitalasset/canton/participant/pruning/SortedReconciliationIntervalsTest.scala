@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervals.ReconciliationInterval
 import com.digitalasset.canton.protocol.DomainParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
@@ -491,7 +492,7 @@ private[pruning] object SortedReconciliationIntervalsTestHelpers extends EitherV
   def timeProofPeriodFlow(
       dynamicDomainParameters: DomainParameters.WithValidity[PositiveSeconds],
       times: Seq[CantonTimestamp],
-  ): Seq[CommitmentPeriod] = {
+  )(implicit errorLoggingContext: ErrorLoggingContext): Seq[CommitmentPeriod] = {
     val reconciliationIntervals = SortedReconciliationIntervals
       .create(Seq(dynamicDomainParameters), CantonTimestamp.MaxValue)
       .value

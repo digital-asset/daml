@@ -21,6 +21,8 @@ import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesSto
 import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
 import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
+import org.apache.pekko.testkit.EventFilter
+import org.apache.pekko.testkit.TestEvent.{Mute, UnMute}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -775,5 +777,35 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     doneF.futureValue
 
     priors.get shouldBe Seq("one" -> Some(mkElem("prior", 10)))
+  }
+
+  "logs an error when Ops throws" in assertAllStagesStopped {
+    class SourceCreationException(msg: String) extends Exception(msg)
+
+    val ops = mkOps(10) { (name, _config, offset, _prior) =>
+      throw new SourceCreationException(s"Source creation failed for $name at $offset")
+    }
+    val ((configQueue, doneF), sink) =
+      Source.queue(1).viaMat(mkHub(ops))(Keep.both).toMat(TestSink.probe)(Keep.both).run()
+
+    // The test will log the exception because of the TestEventListener having been registered,
+    // but this logger is not used in a normal deployment.
+    val filter = EventFilter[SourceCreationException]()
+    system.eventStream.publish(Mute(filter))
+
+    val config1 = OrderedBucketMergeConfig(PositiveInt.one, NonEmpty(Map, "one" -> 1))
+    loggerFactory.assertLogs(
+      {
+        configQueue.offer(config1) shouldBe Enqueued
+        sink.request(1)
+        sink.expectError()
+      },
+      logEntry => {
+        logEntry.errorMessage should include("OrderedBucketMergeHub.in onPush failed")
+        logEntry.throwable.value.getMessage should include("Source creation failed for one at 10")
+      },
+    )
+    doneF.futureValue
+    system.eventStream.publish(UnMute(filter))
   }
 }

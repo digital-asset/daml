@@ -254,9 +254,6 @@ object ActiveContractStore {
     val transferCounter: TransferCounterO
   }
 
-  /** Starting protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    * transfer counter should be defined for Creations.
-    */
   final case class TransferDetails(
       remoteDomainId: DomainId,
       transferCounter: TransferCounterO,
@@ -285,10 +282,7 @@ object ActiveContractStore {
       Order.by[ActivenessChangeDetail, Option[DomainId]](_.unwrap)
   }
 
-  /** Starting protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    * transfer counter should be defined for creations.
-    *
-    * The transfer counter for archivals stored in the acs is always None, because we cannot
+  /** The transfer counter for archivals stored in the acs is always None, because we cannot
     * determine the correct transfer counter when the contract is archived.
     * We only determine the transfer counter later, when the record order publisher triggers the
     * computation of acs commitments, but we never store it in the acs.

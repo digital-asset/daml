@@ -5,14 +5,7 @@ package com.digitalasset.canton.metrics
 
 import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  Histogram,
-  LabeledMetricsFactory,
-  Meter,
-  MetricsFactory,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 import scala.annotation.nowarn

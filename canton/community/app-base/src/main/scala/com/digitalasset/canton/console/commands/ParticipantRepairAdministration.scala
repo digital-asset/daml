@@ -24,12 +24,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNodeCommon
-import com.digitalasset.canton.participant.admin.v0.{
-  AcsSnapshotChunk,
-  DownloadRequest,
-  ExportAcsRequest,
-  ExportAcsResponse,
-}
+import com.digitalasset.canton.participant.admin.v0.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContractWithWitnesses}
 import com.digitalasset.canton.topology.{DomainId, PartyId}
@@ -105,64 +100,6 @@ class ParticipantRepairAdministration(
     }
   }
 
-  @Help.Summary("Download all contracts for the given set of parties to a file.")
-  @Help.Description(
-    """This command can be used to download the current active contract set of a given set of parties to a text file.
-        |This is mainly interesting for recovery and operational purposes.
-        |
-        |The file will contain base64 encoded strings, one line per contract. The lines are written
-        |sorted according to their domain and contract id. This allows to compare the contracts stored
-        |by two participants using standard file comparison tools.
-        |The domain-id is printed with the prefix domain-id before the block of contracts starts.
-        |
-        |This command may take a long time to complete and may require significant resources.
-        |It will first load the contract ids of the active contract set into memory and then subsequently
-        |load the contracts in batches and inspect their stakeholders. As this operation needs to traverse
-        |the entire datastore, it might take a long time to complete.
-        |
-        |The command will return a map of domainId -> number of active contracts stored
-        |
-        The arguments are:
-        - parties: identifying contracts having at least one stakeholder from the given set
-        - outputFile: the output file name where to store the data. Use .gz as a suffix to get a compressed file (recommended)
-        - filterDomainId: restrict the export to a given domain
-        - timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
-        - protocolVersion: optional the protocol version to use for the serialization. Defaults to the one of the domains.
-        - chunkSize: size of the byte chunks to stream back: default 1024 * 1024 * 2 = (2MB)
-        - contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
-        """
-  )
-  @deprecated(
-    "Use export_acs",
-    since = "2.8.0",
-  ) // TODO(i14441): Remove deprecated ACS download / upload functionality
-  def download(
-      parties: Set[PartyId],
-      outputFile: String = ParticipantRepairAdministration.DefaultFile,
-      filterDomainId: String = "",
-      timestamp: Option[Instant] = None,
-      protocolVersion: Option[ProtocolVersion] = None,
-      chunkSize: Option[PositiveInt] = None,
-      contractDomainRenames: Map[DomainId, DomainId] = Map.empty,
-  ): Unit = {
-    check(FeatureFlag.Repair) {
-      val generator = AcsSnapshotFileCollector[DownloadRequest, AcsSnapshotChunk](outputFile)
-      val command = ParticipantAdminCommands.ParticipantRepairManagement
-        .Download(
-          parties,
-          filterDomainId,
-          timestamp,
-          protocolVersion,
-          chunkSize,
-          generator.observer,
-          generator.hasGzipExtension,
-          contractDomainRenames,
-        )
-
-      generator.materializeFile(command)
-    }
-  }
-
   @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
     """This command exports the current Active Contract Set (ACS) of a given set of parties to ACS snapshot file.
@@ -204,7 +141,6 @@ class ParticipantRepairAdministration(
       requestComplete,
     )
     private val timeout = consoleEnvironment.commandTimeouts.ledgerCommand
-    val hasGzipExtension: Boolean = target.toJava.getName.endsWith(".gz")
 
     def materializeFile(
         command: GrpcAdminCommand[
@@ -241,28 +177,6 @@ class ParticipantRepairAdministration(
             target.delete(swallowIOExceptions = true)
             CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
         }
-      }
-    }
-  }
-
-  @Help.Summary("Import ACS snapshot")
-  @Help.Description("""Uploads a binary into the participant's ACS""")
-  @deprecated(
-    "Use import_acs",
-    since = "2.8.0",
-  ) // TODO(i14441): Remove deprecated ACS download / upload functionality
-  def upload(
-      inputFile: String = ParticipantRepairAdministration.DefaultFile
-  ): Unit = {
-    check(FeatureFlag.Repair) {
-      val file = File(inputFile)
-      consoleEnvironment.run {
-        runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.Upload(
-            ByteString.copyFrom(file.loadBytes),
-            file.extension().contains(".gz"),
-          )
-        )
       }
     }
   }

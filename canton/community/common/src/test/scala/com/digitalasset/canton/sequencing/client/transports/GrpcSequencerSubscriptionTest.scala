@@ -6,9 +6,8 @@ package com.digitalasset.canton.sequencing.client.transports
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.v0 as cryptoproto
 import com.digitalasset.canton.domain.api.v0 as v0domain
-import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.{v0, v1}
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
@@ -26,21 +25,29 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Future, Promise}
 
 class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+  private lazy val domainId: DomainId = DomainId(
+    UniqueIdentifier.tryFromProtoPrimitive("da::default")
+  )
 
-  val MessageP: v0domain.SubscriptionResponse = v0domain
+  private lazy val messageP: v0domain.SubscriptionResponse = v0domain
     .SubscriptionResponse(
       Some(
-        v0.SignedContent(
+        v1.SignedContent(
           Some(
-            v0.SequencedEvent(
+            v1.SequencedEvent(
               timestamp = Some(Timestamp()),
               batch = Some(
-                v0.CompressedBatch(
+                v1.CompressedBatch(
                   algorithm = v0.CompressedBatch.CompressionAlgorithm.None,
                   compressedBatch = ByteStringUtil.compressGzip(
-                    v0.Batch(envelopes =
-                      Seq(v0.Envelope(content = MockMessageContent.toByteString, recipients = None))
+                    v1.Batch(envelopes =
+                      Seq(
+                        v1.Envelope(
+                          content = MockMessageContent.toByteString,
+                          recipients = None,
+                          signatures = Nil,
+                        )
+                      )
                     ).toByteString
                   ),
                 )
@@ -51,7 +58,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
               deliverErrorReason = None,
             ).toByteString
           ),
-          Some(
+          Seq(
             cryptoproto.Signature(
               format = cryptoproto.SignatureFormat.RawSignatureFormat,
               signature = ByteString.copyFromUtf8("not checked in this test"),
@@ -79,7 +86,6 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     new GrpcSequencerSubscription[String, v0domain.SubscriptionResponse](
       context,
       tracedEvent => handler(tracedEvent.value), // ignore Traced[..] wrapper
-      CommonMockMetrics.sequencerClient,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     ) {
@@ -136,16 +142,16 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
       val sut =
         createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
 
-      sut.observer.onNext(MessageP)
+      sut.observer.onNext(messageP)
 
-      messagePromise.future.futureValue shouldBe MessageP
+      messagePromise.future.futureValue shouldBe messageP
     }
 
     "close with exception if the handler throws" in {
       val ex = new RuntimeException("Handler Error")
       val sut = createSubscription(handler = _ => Future.failed(ex))
 
-      sut.observer.onNext(MessageP)
+      sut.observer.onNext(messageP)
 
       sut.closeReason.futureValue shouldBe SubscriptionCloseReason.HandlerException(ex)
     }
@@ -155,7 +161,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
       val sut = createSubscription(handler = _ => handlerCompleted.future)
 
-      val onNextF = Future { sut.observer.onNext(MessageP) }
+      val onNextF = Future { sut.observer.onNext(messageP) }
 
       eventuallyForever(timeUntilSuccess = 0.seconds, durationOfSuccess = 100.milliseconds) {
         !onNextF.isCompleted
@@ -176,7 +182,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
       })
 
       // Processing this message takes forever...
-      Future { sut.observer.onNext(MessageP) }.failed
+      Future { sut.observer.onNext(messageP) }.failed
         .foreach(logger.error("Unexpected exception", _))
 
       // Make sure that the handler has been invoked before doing the next step.
@@ -194,7 +200,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
       sut.close()
 
-      sut.observer.onNext(MessageP)
+      sut.observer.onNext(messageP)
 
       eventuallyForever(timeUntilSuccess = 0.seconds, durationOfSuccess = 100.milliseconds) {
         !messagePromise.isCompleted

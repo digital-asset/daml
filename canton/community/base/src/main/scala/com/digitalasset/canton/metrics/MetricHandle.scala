@@ -28,7 +28,6 @@ object MetricHandle {
       val registeredLoadGauge = gaugeWithSupplier(name, () => definedLoadGauge.getLoad)
       new TimedLoadGauge(timer, definedLoadGauge, registeredLoadGauge)
     }
-
   }
 
   @nowarn("cat=deprecation")

@@ -6,7 +6,6 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
   GetParticipantScheduleCommand,
@@ -42,14 +41,13 @@ import com.digitalasset.canton.console.{
   Helpful,
   InstanceReferenceWithSequencerConnection,
   LedgerApiCommandRunner,
-  ParticipantReference,
   ParticipantReferenceCommon,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.ParticipantNode
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
@@ -338,7 +336,7 @@ class ParticipantTestingGroup(
 }
 
 class LocalParticipantTestingGroup(
-    participantRef: ParticipantReference with BaseInspection[ParticipantNode],
+    participantRef: ParticipantReferenceCommon with BaseInspection[ParticipantNodeCommon],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
 ) extends ParticipantTestingGroup(participantRef, consoleEnvironment, loggerFactory)
@@ -671,7 +669,7 @@ class ParticipantPruningAdministrationGroup(
 }
 
 class LocalCommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
+    runner: AdminCommandRunner with BaseInspection[ParticipantNodeCommon],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -773,7 +771,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
   def id: ParticipantId
 
-  protected def vettedPackagesOfParticipant(): Set[PackageId]
+  protected def waitPackagesVetted(
+      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+  ): Unit
+
   protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,
@@ -851,6 +852,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -861,6 +865,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
+        synchronize.foreach { timeout =>
+          ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+        }
       }
       res
     }
@@ -960,7 +967,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def synchronize_vetting(
         timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
-      val connected = domains.list_connected().map(_.domainId).toSet
 
       // ensure that the ledger api server has seen all packages
       try {
@@ -985,61 +991,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           )
       }
 
-      def waitForPackages(
-          topology: TopologyAdministrationGroup,
-          observer: String,
-          domainId: DomainId,
-      ): Unit = {
-        try {
-          AdminCommandRunner
-            .retryUntilTrue(timeout) {
-              // ensure that vetted packages on the domain match the ones in the authorized store
-              val onDomain = topology.vetted_packages
-                .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
-                .flatMap(_.item.packageIds)
-                .toSet
-              val vetted = vettedPackagesOfParticipant()
-              val ret = vetted == onDomain
-              if (!ret) {
-                logger.debug(
-                  show"Still waiting for package vetting updates to be observed by $observer on $domainId: vetted - onDomain is ${vetted -- onDomain} while onDomain -- vetted is ${onDomain -- vetted}"
-                )
-              }
-              ret
-            }
-            .discard
-        } catch {
-          case _: TimeoutException =>
-            logger.error(
-              show"$observer has not observed all vetting txs of $id on domain $domainId within the given timeout."
-            )
-        }
-      }
-
-      // for every domain this participant is connected to
-      consoleEnvironment.domains.all
-        .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
-        .foreach { domain =>
-          waitForPackages(domain.topology, s"Domain ${domain.name}", domain.id)
-        }
-
-      // for every participant
-      consoleEnvironment.participants.all
-        .filter(p => p.health.running() && p.health.initialized())
-        .foreach { participant =>
-          // for every domain this participant is connected to as well
-          participant.domains.list_connected().foreach {
-            case item if connected.contains(item.domainId) =>
-              waitForPackages(
-                participant.topology,
-                s"Participant ${participant.name}",
-                item.domainId,
-              )
-            case _ =>
-          }
-        }
+      waitPackagesVetted(timeout)
     }
-
   }
 
   @Help.Summary("Manage domain connections")
@@ -1099,6 +1052,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     )
     def is_connected(reference: DomainAdministration): Boolean =
       list_connected().exists(_.domainId == reference.id)
+
+    @Help.Summary(
+      "Test whether a participant is connected to a domain reference"
+    )
+    def is_connected(domainId: DomainId): Boolean =
+      list_connected().exists(_.domainId == domainId)
 
     private def confirm_agreement(domainAlias: DomainAlias): Unit = {
 
@@ -1269,26 +1228,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary(
-      "Deprecated macro to connect a participant to a domain that supports connecting via many endpoints"
-    )
-    @Help.Description("""Use the command connect_ha with the updated arguments list""")
-    @Deprecated(since = "2.2.0")
-    def connect_ha(
-        domainAlias: DomainAlias,
-        firstConnection: SequencerConnection,
-        additionalConnections: SequencerConnection*
-    ): DomainConnectionConfig = {
-      val sequencerConnection = SequencerConnection
-        .merge(firstConnection +: additionalConnections)
-        .getOrElse(sys.error("Invalid sequencer connection"))
-      val sequencerConnections =
-        SequencerConnections.single(sequencerConnection)
-      val config = DomainConnectionConfig(domainAlias, sequencerConnections)
-      connect(config)
-      config
-    }
-
-    @Help.Summary(
       "Macro to connect a participant to a domain that supports connecting via many endpoints"
     )
     @Help.Description("""Domains can provide many endpoints to connect to for availability and performance benefits.
@@ -1366,7 +1305,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
-        ref: DomainReference,
+        ref: InstanceReferenceWithSequencerConnection,
         retry: Boolean = true,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1408,8 +1347,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("Disconnect this participant from the given local domain")
-    def disconnect_local(domain: DomainReference): Unit = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain.name))
+    def disconnect_local(domain: DomainReference): Unit = disconnect_local(domain.name)
+
+    @Help.Summary("Disconnect this participant from the given local domain")
+    def disconnect_local(domain: DomainAlias): Unit = consoleEnvironment.run {
+      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain))
     }
 
     @Help.Summary("List the connected domains of this participant")

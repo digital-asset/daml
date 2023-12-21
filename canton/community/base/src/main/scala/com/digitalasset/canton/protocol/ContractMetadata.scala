@@ -53,8 +53,8 @@ final case class ContractMetadata private (
   def maintainers: Set[LfPartyId] =
     maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.maintainers)
 
-  def toProtoV0: v0.SerializableContract.Metadata = {
-    v0.SerializableContract.Metadata(
+  private[protocol] def toProtoV1: v1.SerializableContract.Metadata = {
+    v1.SerializableContract.Metadata(
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
       key = maybeKeyWithMaintainersVersioned.map(x =>
@@ -79,9 +79,9 @@ object ContractMetadata
     with HasVersionedMessageCompanionDbHelpers[ContractMetadata] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.SerializableContract.Metadata)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      ProtocolVersion.v30,
+      supportedProtoVersion(v1.SerializableContract.Metadata)(fromProtoV1),
+      _.toProtoV1.toByteString,
     )
   )
 
@@ -109,10 +109,10 @@ object ContractMetadata
 
   def empty: ContractMetadata = checked(ContractMetadata.tryCreate(Set.empty, Set.empty, None))
 
-  def fromProtoV0(
-      metadataP: v0.SerializableContract.Metadata
+  def fromProtoV1(
+      metadataP: v1.SerializableContract.Metadata
   ): ParsingResult[ContractMetadata] = {
-    val v0.SerializableContract.Metadata(
+    val v1.SerializableContract.Metadata(
       nonMaintainerSignatoriesP,
       nonSignatoryStakeholdersP,
       keyP,

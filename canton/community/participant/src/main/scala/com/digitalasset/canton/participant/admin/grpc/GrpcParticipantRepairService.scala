@@ -656,9 +656,9 @@ final class GrpcParticipantRepairService(
         ifNone = s"Domain ID's protocol version not found: $domainId",
       )
       _ <- EitherT.cond[Future](
-        protocolVersion < ProtocolVersion.CNTestNet,
+        protocolVersion < ProtocolVersion.v30,
         (),
-        s"Refusing to add contracts for a domain running on ${ProtocolVersion.CNTestNet} or higher. Please use export_acs and import_acs commands instead.",
+        s"Refusing to add contracts for a domain running on ${ProtocolVersion.v30} or higher. Please use export_acs and import_acs commands instead.",
       )
       alias <- EitherT.fromEither[Future](
         sync.aliasManager

@@ -9,7 +9,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
+import com.digitalasset.canton.metrics.MetricHandle
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*
 import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
@@ -58,7 +58,7 @@ object CantonServerBuilder {
     * As we only create our servers from our configuration this is intentionally private.
     */
   private class BaseBuilder(
-      serverBuilder: ServerBuilder[_ <: ServerBuilder[_]],
+      serverBuilder: ServerBuilder[_ <: ServerBuilder[?]],
       interceptors: CantonServerInterceptors,
   ) extends CantonServerBuilder {
 
@@ -142,7 +142,7 @@ object CantonServerBuilder {
   def forConfig(
       config: ServerConfig,
       metricsPrefix: MetricName,
-      @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
+      @nowarn("cat=deprecation") metricsFactory: MetricHandle.MetricsFactory,
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,
@@ -179,7 +179,7 @@ object CantonServerBuilder {
     import scala.jdk.CollectionConverters.*
     val s1 =
       GrpcSslContexts.forServer(config.certChainFile.unwrap, config.privateKeyFile.unwrap)
-    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols: _*))
+    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols *))
     config.ciphers.fold(s2)(ciphers => s2.ciphers(ciphers.asJava))
   }
 
@@ -189,7 +189,7 @@ object CantonServerBuilder {
     // TODO(#7086): secrets service support not yet implemented for canton admin services
     config.secretsUrl.foreach { url =>
       throw new IllegalArgumentException(
-        s"Canton admin services do not yet support 'Secrets Service' ${url}."
+        s"Canton admin services do not yet support 'Secrets Service' $url."
       )
     }
 
@@ -205,7 +205,6 @@ object CantonServerBuilder {
     * This method isolates the usage of `asInstanceOf` to only here.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def reifyBuilder(builder: ServerBuilder[_]): ServerBuilder[_ <: ServerBuilder[_]] =
-    builder.asInstanceOf[ServerBuilder[_ <: ServerBuilder[_]]]
-
+  private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[_ <: ServerBuilder[?]] =
+    builder.asInstanceOf[ServerBuilder[_ <: ServerBuilder[?]]]
 }

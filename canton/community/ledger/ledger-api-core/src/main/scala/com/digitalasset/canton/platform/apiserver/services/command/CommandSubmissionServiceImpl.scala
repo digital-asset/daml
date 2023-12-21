@@ -253,6 +253,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     writeService
       .submitTransaction(
         result.submitterInfo,
+        result.optDomainId,
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,

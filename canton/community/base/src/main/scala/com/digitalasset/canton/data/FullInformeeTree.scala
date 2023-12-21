@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.InformeeTree.InvalidInformeeTree
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{v0, *}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -88,9 +88,6 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     tree.commonMetadata.tryUnwrap
   ).confirmationPolicy
 
-  def toProtoV0: v0.FullInformeeTree =
-    v0.FullInformeeTree(tree = Some(tree.toProtoV0))
-
   def toProtoV1: v1.FullInformeeTree =
     v1.FullInformeeTree(tree = Some(tree.toProtoV1))
 
@@ -102,14 +99,10 @@ object FullInformeeTree
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.FullInformeeTree)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.FullInformeeTree)(
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV1),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
 
   /** Creates a full informee tree from a [[GenTransactionTree]].
@@ -141,20 +134,6 @@ object FullInformeeTree
     Lens[FullInformeeTree, GenTransactionTree](_.tree)(newTree =>
       fullInformeeTree => FullInformeeTree(newTree)(fullInformeeTree.representativeProtocolVersion)
     )
-
-  def fromProtoV0(
-      hashOps: HashOps,
-      protoInformeeTree: v0.FullInformeeTree,
-  ): ParsingResult[FullInformeeTree] =
-    for {
-      protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV0(hashOps, protoTree)
-      fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(0)))
-        .leftMap(e =>
-          ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
-        )
-    } yield fullInformeeTree
 
   def fromProtoV1(
       hashOps: HashOps,
