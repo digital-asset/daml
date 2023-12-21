@@ -155,7 +155,6 @@ class CantonSyncService(
     val isActive: () => Boolean,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
-    skipRecipientsCheck: Boolean,
     multiDomainLedgerAPIEnabled: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
@@ -1203,7 +1202,6 @@ class CantonSyncService(
           trafficStateController,
           futureSupervisor,
           domainLoggerFactory,
-          skipRecipientsCheck = skipRecipientsCheck,
         )
 
         // update list of connected domains
@@ -1638,7 +1636,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
@@ -1669,7 +1666,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
     )(implicit
         ec: ExecutionContext,
@@ -1703,7 +1699,6 @@ object CantonSyncService {
         () => storage.isActive,
         futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck = skipRecipientsCheck,
         multiDomainLedgerAPIEnabled: Boolean,
       )
   }

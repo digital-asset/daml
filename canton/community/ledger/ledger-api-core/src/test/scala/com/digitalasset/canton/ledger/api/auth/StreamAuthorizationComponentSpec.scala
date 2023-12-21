@@ -32,6 +32,7 @@ import com.digitalasset.canton.ledger.api.auth.services.TransactionServiceAuthor
 import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
+import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
@@ -69,6 +70,8 @@ class StreamAuthorizationComponentSpec
     with Matchers
     with PekkoBeforeAndAfterAll {
 
+  private val OngoingAuthorizationObserverLoggerName = "OngoingAuthorizationObserver"
+
   private implicit val ec: ExecutionContextExecutor = materializer.executionContext
 
   behavior of s"Stream authorization"
@@ -84,26 +87,69 @@ class StreamAuthorizationComponentSpec
         .map(_ => fixture.waitForServerPekkoStream shouldBe None)
   }
 
-  it should "cancel streams if user rights changed" in test { fixture =>
-    fixture.clientStream
-      .take(10)
-      .zipWithIndex
-      .map { case (_, index) =>
-        if (index == 1) {
-          // after 2 received entries (400 millis) the user right change,
-          // which triggers a STALE_STREAM_AUTHORIZATION
-          fixture.changeUserRights
+  it should "not emit STALE_STREAM_AUTHORIZATION after it was cancelled downstream" in test {
+    fixture =>
+      // this stream takes 10 elements (takes 2 seconds to produce), then it is closed (user side cancellation).
+      // after one second a scheduled user right check will commence, this check expected to be successful
+      fixture.clientStream
+        .take(10)
+        .zipWithIndex
+        .map { case (_, index) =>
+          if (index == 9) {
+            // towards the end we change the user rights, which makes the next scheduled user right check fail
+            fixture.changeUserRights
+          }
+          logger.debug("received")
         }
-        logger.debug(s"received #$index")
+        .run()
+        .map { _ =>
+          // now the stream is cancelled from downstream because of the take(10) above
+          fixture.waitForServerPekkoStream shouldBe None
+          val suppressionRules = FullSuppression &&
+            LoggerNameContains(OngoingAuthorizationObserverLoggerName)
+          loggerFactory.suppress(suppressionRules) {
+            // waiting 2 seconds for the user right checker schedule task to execute
+            Threading.sleep(2000)
+            loggerFactory.fetchRecordedLogEntries shouldBe Nil
+          }
+        }
+  }
+
+  it should "cancel streams if user rights changed" in test { fixture =>
+    val suppressionRules = FullSuppression &&
+      LoggerNameContains(OngoingAuthorizationObserverLoggerName)
+    loggerFactory.suppress(suppressionRules) {
+      val result = fixture.clientStream
+        .take(10)
+        .zipWithIndex
+        .map { case (_, index) =>
+          if (index == 1) {
+            // after 2 received entries (400 millis) the user right change,
+            // which triggers a STALE_STREAM_AUTHORIZATION
+            fixture.changeUserRights
+          }
+          logger.debug(s"received #$index")
+        }
+        .run()
+        .failed
+        .map { t =>
+          // the client stream should be cancelled with error
+          t.getMessage should include("STALE_STREAM_AUTHORIZATION")
+          // the server stream should be completed
+          fixture.waitForServerPekkoStream shouldBe None
+        }
+      // Please note: asserting on the log message is important because in the previous test
+      // "not emit STALE_STREAM_AUTHORIZATION after it was cancelled downstream" we are doing
+      // a negative lookup, and we need to make sure that the negative lookup looks for the
+      // right log messages.
+      eventually() {
+        loggerFactory.fetchRecordedLogEntries should have size (1)
+        loggerFactory.fetchRecordedLogEntries(0).infoMessage should include(
+          "STALE_STREAM_AUTHORIZATION"
+        )
       }
-      .run()
-      .failed
-      .map { t =>
-        // the client stream should be cancelled with error
-        t.getMessage should include("STALE_STREAM_AUTHORIZATION")
-        // the server stream should be completed
-        fixture.waitForServerPekkoStream shouldBe None
-      }
+      result
+    }
   }
 
   it should "cancel streams if authorization expired" in test { fixture =>

@@ -454,7 +454,7 @@ class ExternalLedgerApiClient(
 
 object ExternalLedgerApiClient {
 
-  def forReference(participant: LocalParticipantReference, token: String)(implicit
+  def forReference(participant: LocalParticipantReferenceCommon, token: String)(implicit
       env: ConsoleEnvironment
   ): ExternalLedgerApiClient = {
     val cc = participant.config.ledgerApi.clientConfig

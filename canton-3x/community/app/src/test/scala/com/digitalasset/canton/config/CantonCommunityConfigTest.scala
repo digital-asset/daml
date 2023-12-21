@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
   SubstitutionError,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +22,8 @@ import org.scalatest.wordspec.AnyWordSpec
 class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
   import scala.jdk.CollectionConverters.*
-  val simpleConf = "examples/01-simple-topology/simple-topology.conf"
+  private val simpleConf = "examples/01-simple-topology/simple-topology.conf"
+
   "the example simple topology configuration" should {
     lazy val config =
       loadFile(simpleConf).valueOrFail("failed to load simple-topology.conf")
@@ -360,8 +361,6 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     loadFiles(Seq(resourcePath))
   }
 
-  val elc: ErrorLoggingContext = ErrorLoggingContext(logger, loggerFactory.properties, traceContext)
-
   private def loadFiles(
       resourcePaths: Seq[String]
   ): Either[CantonConfigError, CantonCommunityConfig] = {
@@ -369,6 +368,6 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     CantonCommunityConfig.parseAndLoad(files)
   }
 
-  lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"
+  private lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"
 
 }

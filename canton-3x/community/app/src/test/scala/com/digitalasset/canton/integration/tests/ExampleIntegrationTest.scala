@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests
 
 import better.files.*
-import com.digitalasset.canton.ConsoleScriptRunner
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.environment.Environment
@@ -25,6 +24,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.{ConsoleScriptRunner, DiscardOps}
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.blocking
@@ -53,9 +53,8 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
 trait HasConsoleScriptRunner { this: NamedLogging =>
   import org.scalatest.EitherValues.*
-  def runScript(scriptPath: File)(implicit env: Environment): Unit = {
-    val () = ConsoleScriptRunner.run(env, scriptPath.toJava, logger = logger).value
-  }
+  def runScript(scriptPath: File)(implicit env: Environment): Unit =
+    ConsoleScriptRunner.run(env, scriptPath.toJava, logger = logger).value.discard
 }
 
 object ExampleIntegrationTest {
