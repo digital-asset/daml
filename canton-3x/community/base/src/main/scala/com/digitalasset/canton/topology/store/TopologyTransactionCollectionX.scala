@@ -55,6 +55,20 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
       result.mapFilter(_.selectMapping[T])
     )
 
+  def collectOfMapping(
+      codes: TopologyMappingX.Code*
+  ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
+    val codeSet = codes.toSet
+    StoredTopologyTransactionsX(
+      result.filter(tx => codeSet(tx.transaction.mapping.code))
+    )
+  }
+
+  def filter(
+      pred: SignedTopologyTransactionX[Op, M] => Boolean
+  ): StoredTopologyTransactionsX[Op, M] =
+    StoredTopologyTransactionsX(result.filter(stored => pred(stored.transaction)))
+
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(
       result

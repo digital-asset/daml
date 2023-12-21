@@ -871,7 +871,7 @@ trait HasProtocolVersionedCompanion2[
       valueClass <- fromProtoVersioned(VersionedMessage(proto))
     } yield valueClass
 
-  private def fromProtoVersioned(
+  def fromProtoVersioned(
       proto: VersionedMessage[DeserializedValueClass]
   ): ParsingResult[DeserializedValueClass] =
     proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data")).flatMap {

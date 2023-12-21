@@ -195,13 +195,13 @@ object ApiServices {
           transactionServiceRequestValidator,
         )
 
-      val apiEventQueryService =
+      val apiEventQueryServiceLegacy =
         EventQueryServiceImpl.create(ledgerId, eventQueryService, telemetry, loggerFactory)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId, telemetry, loggerFactory)
 
-      val apiVersionService =
+      val apiVersionServiceLegacy =
         ApiVersionService.create(
           ledgerFeatures,
           userManagementServiceConfig = userManagementServiceConfig,
@@ -209,7 +209,7 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
-      val apiPackageService =
+      val apiPackageServiceLegacy =
         ApiPackageService.create(ledgerId, packagesService, telemetry, loggerFactory)
 
       val apiConfigurationService =
@@ -239,7 +239,7 @@ object ApiServices {
           transactionFilterValidator,
         )
 
-      val apiTimeServiceOpt =
+      val apiTimeServiceLegacyOpt =
         optTimeServiceBackend.map(tsb =>
           new TimeServiceAuthorization(
             ApiTimeService
@@ -248,68 +248,64 @@ object ApiServices {
           )
         )
 
-      val (ledgerApiV2Services, ledgerApiUpdateService) = if (multiDomainEnabled) {
-        val apiTimeServiceOpt =
-          optTimeServiceBackend.map(tsb =>
-            new TimeServiceV2Authorization(
-              new ApiTimeServiceV2(tsb, telemetry, loggerFactory),
-              authorizer,
-            )
+      val apiTimeServiceOpt =
+        optTimeServiceBackend.map(tsb =>
+          new TimeServiceV2Authorization(
+            new ApiTimeServiceV2(tsb, telemetry, loggerFactory),
+            authorizer,
           )
-        val apiCommandCompletionService = new ApiCommandCompletionServiceV2(
-          completionsService,
+        )
+      val apiCommandCompletionService = new ApiCommandCompletionServiceV2(
+        completionsService,
+        metrics,
+        telemetry,
+        loggerFactory,
+      )
+      val apiEventQueryService =
+        new ApiEventQueryServiceV2(eventQueryService, telemetry, loggerFactory)
+      val apiPackageService = new ApiPackageServiceV2(packagesService, telemetry, loggerFactory)
+      val apiUpdateService =
+        new ApiUpdateService(
+          transactionsService,
           metrics,
           telemetry,
           loggerFactory,
+          transactionServiceRequestValidator,
         )
-        val apiEventQueryService =
-          new ApiEventQueryServiceV2(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageServiceV2(packagesService, telemetry, loggerFactory)
-        val apiUpdateService =
-          new ApiUpdateService(
-            transactionsService,
-            metrics,
-            telemetry,
-            loggerFactory,
-            transactionServiceRequestValidator,
-          )
-        val apiStateService =
-          new ApiStateService(
-            acsService = activeContractsService,
-            readService = readService,
-            txService = transactionsService,
-            metrics = metrics,
-            telemetry = telemetry,
-            loggerFactory = loggerFactory,
-            transactionFilterValidator = transactionFilterValidator,
-          )
-        val apiVersionService =
-          new ApiVersionServiceV2(
-            ledgerFeatures,
-            userManagementServiceConfig,
-            telemetry,
-            loggerFactory,
-          )
+      val apiStateService =
+        new ApiStateService(
+          acsService = activeContractsService,
+          readService = readService,
+          txService = transactionsService,
+          metrics = metrics,
+          telemetry = telemetry,
+          loggerFactory = loggerFactory,
+          transactionFilterValidator = transactionFilterValidator,
+        )
+      val apiVersionService =
+        new ApiVersionServiceV2(
+          ledgerFeatures,
+          userManagementServiceConfig,
+          telemetry,
+          loggerFactory,
+        )
 
-        val v2Services = apiTimeServiceOpt.toList :::
-          List(
-            new CommandCompletionServiceV2Authorization(apiCommandCompletionService, authorizer),
-            new EventQueryServiceV2Authorization(apiEventQueryService, authorizer),
-            new PackageServiceV2Authorization(apiPackageService, authorizer),
-            new UpdateServiceAuthorization(apiUpdateService, authorizer),
-            new StateServiceAuthorization(apiStateService, authorizer),
-            apiVersionService,
-          )
-
-        v2Services -> Some(apiUpdateService)
-      } else Nil -> None
+      val v2Services = apiTimeServiceOpt.toList :::
+        List(
+          new CommandCompletionServiceV2Authorization(apiCommandCompletionService, authorizer),
+          new EventQueryServiceV2Authorization(apiEventQueryService, authorizer),
+          new PackageServiceV2Authorization(apiPackageService, authorizer),
+          new UpdateServiceAuthorization(apiUpdateService, authorizer),
+          new StateServiceAuthorization(apiStateService, authorizer),
+          apiVersionService,
+        )
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigurationSubscription,
           apiTransactionService,
-          ledgerApiUpdateService,
+          Some(apiUpdateService),
           checkOverloaded,
         )
 
@@ -357,20 +353,20 @@ object ApiServices {
           loggerFactory,
         )
 
-      ledgerApiV2Services :::
-        apiTimeServiceOpt.toList :::
+      v2Services :::
+        apiTimeServiceLegacyOpt.toList :::
         writeServiceBackedApiServices :::
         List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
-          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new PackageServiceAuthorization(apiPackageServiceLegacy, authorizer),
           new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
           new TransactionServiceAuthorization(apiTransactionService, authorizer),
-          new EventQueryServiceAuthorization(apiEventQueryService, authorizer),
+          new EventQueryServiceAuthorization(apiEventQueryServiceLegacy, authorizer),
           new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,
           apiHealthService,
-          apiVersionService,
+          apiVersionServiceLegacy,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
         ) ::: userManagementServices
     }

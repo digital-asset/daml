@@ -34,7 +34,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] val metric = DropwizardTimer("test-metric", metricRegistry.timer("test-metric"))
 
   private[this] val dar =
-    TestModels.com_daml_ledger_test_ModelTestDar_1_15_path
+    TestModels.com_daml_ledger_test_ModelTestDar_2_1_path
       .pipe(TestResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 

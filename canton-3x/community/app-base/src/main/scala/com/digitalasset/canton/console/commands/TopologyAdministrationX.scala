@@ -7,10 +7,7 @@ import cats.syntax.either.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.api.client.commands.{
-  TopologyAdminCommands,
-  TopologyAdminCommandsX,
-}
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommandsX
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.admin.api.client.data.{
   DynamicDomainParameters as ConsoleDynamicDomainParameters,
@@ -138,19 +135,24 @@ class TopologyAdministrationGroupX(
         .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
     }
 
-    @Help.Summary("Upload signed topology transaction")
+    @Help.Summary("Serializes node's topology identity transactions to a file")
     @Help.Description(
-      """Topology transactions can be issued with any topology manager. In some cases, such
-      |transactions need to be copied manually between nodes. This function allows for
-      |uploading previously exported topology transaction into the authorized store (which is
-      |the name of the topology managers transaction store."""
+      "Transactions serialized this way should be loaded into another node with load_from_file"
     )
-    def load_serialized(bytes: ByteString): Unit =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommands.Write.AddSignedTopologyTransaction(bytes)
-        )
-      }
+    def export_identity_transactions(file: String): Unit = {
+      instance.topology.transactions
+        .list()
+        .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
+        .filter(_.mapping.namespace == instance.id.uid.namespace)
+        .writeToFile(file)
+    }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by TopologyTransactionsX.")
+    def load_from_file(file: String, store: String): Unit = {
+      val txs = StoredTopologyTransactionsX.tryReadFromFile(file)
+      load(txs.signedTransactions.result, store)
+    }
 
     def load(transactions: Seq[GenericSignedTopologyTransactionX], store: String): Unit =
       consoleEnvironment.run {

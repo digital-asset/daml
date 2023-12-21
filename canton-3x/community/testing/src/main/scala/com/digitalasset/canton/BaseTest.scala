@@ -307,7 +307,7 @@ trait BaseTest
   lazy val CantonTestsPath: String = BaseTest.CantonTestsPath
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
-  lazy val DamlTestLfV15FilesPath: String = BaseTest.DamlTestLfV15FilesPath
+  lazy val DamlTestLfV21FilesPath: String = BaseTest.DamlTestLfV21FilesPath
 }
 
 object BaseTest {
@@ -374,11 +374,11 @@ object BaseTest {
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")
   lazy val CantonLfDev: String = getResourcePath("CantonLfDev.dar")
-  lazy val CantonLfV15: String = getResourcePath("CantonLfV15.dar")
+  lazy val CantonLfV21: String = getResourcePath("CantonLfV21.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
-  lazy val DamlTestLfV15FilesPath: String = getResourcePath("DamlTestLfV15Files.dar")
+  lazy val DamlTestLfV21FilesPath: String = getResourcePath("DamlTestLfV21Files.dar")
   lazy val UpgradeV1: String = getResourcePath("upgrade-v1.dar")
   lazy val UpgradeV2: String = getResourcePath("upgrade-v2.dar")
 
