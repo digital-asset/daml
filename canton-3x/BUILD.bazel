@@ -828,7 +828,7 @@ genrule(
     name = "community_participant_admin-workflows-with-vacuuming_dar",
     srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
         ":community_participant_admin-workflows_dar",
-        "//daml-script/daml:daml-script-1.14.dar",
+        "//daml-script/daml3:daml3-script-2.1.dar",
     ],
     outs = ["AdminWorkflowsWithVacuuming.dar"],
     cmd = """
@@ -838,10 +838,10 @@ genrule(
       trap "rm -rf $$tmpdir" EXIT
       cp -r $$project_dir/* $$tmpdir
       cp $(location :community_participant_admin-workflows_dar) $$tmpdir
-      cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
+      cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
       sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
       sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
-      sed -i 's/daml-script/daml-script-1.14.dar/' $$tmpdir/daml.yaml
+      sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
       $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
     """.format(sdk_version = sdk_version),
     tools = ["//compiler/damlc"],
