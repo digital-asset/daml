@@ -11,6 +11,7 @@ trigger:
   branches:
     include:
       - main
+      - main-3.x
       - release/*
 
 # Enable PR triggers that target the main branch
