@@ -98,7 +98,10 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-client",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/engine",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/error",
@@ -122,8 +125,5 @@ da_scala_test_suite(
         "//test-common/canton/it-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/language",
     ],
 )

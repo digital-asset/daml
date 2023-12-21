@@ -1,3 +1,6 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 sdk-version: 0.0.0
 name: upgrades-example
 version: 2.0.0
@@ -14,3 +17,4 @@ upgrades: ../v1/.daml/dist/upgrades-example-1.0.0.dar
 typecheck-upgrades: true
 build-options:
 - --target=1.dev
+

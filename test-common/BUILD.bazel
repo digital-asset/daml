@@ -21,6 +21,7 @@ alias(
     actual = "dar-files-default",
     visibility = ["//visibility:public"],
 )
+
 load("//rules_daml:daml.bzl", "daml_compile")
 
 canonical_lf_versions = [
@@ -109,26 +110,25 @@ da_scala_dar_resources_library(
 daml_compile(
     name = "upgrades-example-v1",
     srcs = [":src/main/daml/upgrades/v1/Main.daml"],
+    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
     project_name = "upgrades-example",
     target = "1.dev",
     version = "1.0.0",
-    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
     visibility = ["//visibility:public"],
 )
 
 daml_compile(
     name = "upgrades-example-v2",
     srcs = [":src/main/daml/upgrades/v2/Main.daml"],
+    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
     project_name = "upgrades-example",
     target = "1.dev",
-    version = "2.0.0",
-    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
-    upgrades = "//test-common:upgrades-example-v1.dar",
     # We want to check the validity of this upgrade on the ledger client
     typecheck_upgrades = False,
+    upgrades = "//test-common:upgrades-example-v1.dar",
+    version = "2.0.0",
     visibility = ["//visibility:public"],
 )
-
 
 [
     [

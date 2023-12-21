@@ -37,7 +37,10 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
       .uploadDarFile(UploadDarFileRequest(darFile))
       .map(_ => ())
 
-  def uploadDarFilePrime(darFile: ByteString, token: Option[String] = None): Future[UploadDarFileResponse] =
+  def uploadDarFilePrime(
+      darFile: ByteString,
+      token: Option[String] = None,
+  ): Future[UploadDarFileResponse] =
     LedgerClient
       .stub(service, token)
       .uploadDarFile(UploadDarFileRequest(darFile))
