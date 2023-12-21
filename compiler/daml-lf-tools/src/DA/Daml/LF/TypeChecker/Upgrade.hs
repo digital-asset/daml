@@ -7,7 +7,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiWayIf #-}
 
-module DA.Daml.LF.TypeChecker.Upgrade where
+module DA.Daml.LF.TypeChecker.Upgrade (
+        module DA.Daml.LF.TypeChecker.Upgrade
+    ) where
 
 import           Control.DeepSeq
 import           Control.Monad (unless, forM_, when)
@@ -345,7 +347,7 @@ checkDefDataType origin datatype = do
           (existing, new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
           when (not (null new)) $
               throwWithContextF present $ EUpgradeError (VariantAddedVariant origin)
-          when (any (not . foldU alphaType) existing) $
+          when (not (all (foldU alphaType) existing)) $
               throwWithContextF present $ EUpgradeError (VariantChangedVariantType origin)
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
           let upgrade = Upgrading{..}
@@ -387,4 +389,3 @@ checkUpgradeType :: MonadUpgrade m => Upgrading Type -> Error -> m ()
 checkUpgradeType type_ err = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     unless (foldU alphaType expandedTypes) (throwWithContextF present err)
-    pure ()
