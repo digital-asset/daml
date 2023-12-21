@@ -69,14 +69,15 @@ trait CantonFixtureWithResource[A]
   //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
   //   - output from the canton process is sent to stdout
-  protected val cantonFixtureDebugMode = false
+  protected val cantonFixtureDebugMode = true
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
-  if (cantonFixtureDebugMode)
+  if (cantonFixtureDebugMode) {
     logger
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(ch.qos.logback.classic.Level.INFO)
+  }
 
   override protected def afterAll(): Unit = {
     cantonCleanUp()

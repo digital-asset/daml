@@ -1,0 +1,25 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts_stricter",
+)
+
+da_scala_library(
+    name = "upgrades",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-upgrades:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        # "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        # "//daml-lf/engine",
+        # "@maven//:org_scalaz_scalaz_core_2_13",
+    ],
+)

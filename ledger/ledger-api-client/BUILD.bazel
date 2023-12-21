@@ -84,6 +84,8 @@ da_scala_test_suite(
     srcs = glob(["src/it/**/*.scala"]),
     data = [
         "//test-common:dar-files-default",
+        "//test-common:upgrades-example-v1.dar",
+        "//test-common:upgrades-example-v2.dar",
     ],
     resources = [
         "src/it/resources/logback-test.xml",
@@ -120,5 +122,8 @@ da_scala_test_suite(
         "//test-common/canton/it-lib",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/language",
     ],
 )

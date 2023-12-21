@@ -8,8 +8,10 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
+import com.daml.lf.upgrades.Typecheck
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
+import com.daml.lf.language.Ast
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
@@ -39,13 +41,14 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
 import scalaz.std.list.*
+import scalaz.std.option.*
 import scalaz.syntax.traverse.*
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Try, Using}
+import scala.util.{Try, Success, Failure, Using}
 
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
@@ -106,23 +109,55 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(
       darFile: ByteString
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContext: LoggingContextWithTrace
   ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
-    val result = for {
-      darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
-        darReader.readArchive("package-upload", stream)
-      }
-      dar <- darArchive.handleError(Validation.handleLfArchiveError)
-      packages <- dar.all
-        .traverse(Decode.decodeArchive(_))
-        .handleError(Validation.handleLfArchiveError)
-      _ <- engine
-        .validatePackages(packages.toMap)
-        .handleError(Validation.handleLfEnginePackageError)
+    for {
+      (dar, decodedDar) <- Future.fromTry(
+        for {
+          darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
+            darReader.readArchive("package-upload", stream)
+          }
+          dar <- darArchive.handleError(Validation.handleLfArchiveError)
+          decodedDar <- dar
+            .traverse(Decode.decodeArchive(_))
+            .handleError(Validation.handleLfArchiveError)
+          _ <- engine
+            .validatePackages(decodedDar.all.toMap)
+            .handleError(Validation.handleLfEnginePackageError)
+        } yield (dar, decodedDar)
+      )
+      _ <- validateUpgrade(decodedDar)
     } yield dar
-    Future.fromTry(result)
+  }
+
+  private def validateUpgrade(upgradingPackage: Dar[(Ref.PackageId, Ast.Package)])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Boolean] = {
+    logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
+    upgradingPackage.main._2.metadata.flatMap(_.upgradedPackageId) match {
+      case Some(upgradedPackageId) =>
+        for {
+          upgradedArchiveMb <- packagesIndex.getLfArchive(upgradedPackageId)
+          upgradedPackageMb <- Future.fromTry {
+            upgradedArchiveMb.traverse(Decode.decodeArchive(_))
+              .handleError(Validation.handleLfArchiveError)
+          }
+        } yield {
+          upgradedPackageMb match {
+            case Some(upgradedPackage) =>
+              Typecheck.checkPackage(upgradingPackage.main, upgradedPackage) match {
+                case Success(()) => true
+                case Failure(_) => false
+              }
+            case None => false // No available package means upgrade is not valid
+          }
+        }
+      case None =>
+        Future(false)
+    }
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {

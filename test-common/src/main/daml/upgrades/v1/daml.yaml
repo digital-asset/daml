@@ -1,0 +1,14 @@
+sdk-version: 0.0.0
+name: upgrades-example
+version: 1.0.0
+source: Main.daml
+scenario: Main:main
+parties:
+- Alice
+- Bob
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-script
+build-options:
+- --target=1.dev

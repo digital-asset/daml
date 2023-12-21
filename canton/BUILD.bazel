@@ -535,6 +535,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
+        "//daml-lf/upgrades",
         "//daml-lf/validation",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
