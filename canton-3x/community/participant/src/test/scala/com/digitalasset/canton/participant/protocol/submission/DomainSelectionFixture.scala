@@ -40,9 +40,9 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
     }.last
 
   lazy val fixtureLanguageVersion: LanguageVersion = {
-    LanguageVersion
-      .fromString(s"1.${fixtureTransactionVersion.protoValue}")
-      .fold(err => throw new IllegalArgumentException(err), identity)
+    // TODO(#14706): map fixtureTransactionVersion to the right 2.x LF version once there is a 1:1 correspondance
+    //  between the two versions
+    LanguageVersion.v2_1
   }
 
   /*

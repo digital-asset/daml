@@ -5,11 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ledger.participant.state.v2.Update
-import com.digitalasset.canton.participant.admin.workflows.java.{
-  dardistribution,
-  pingpong,
-  pingpongvacuum,
-}
+import com.digitalasset.canton.participant.admin.workflows.java.pingpong
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
 import com.digitalasset.canton.protocol.LedgerTransactionNodeStatistics
 
@@ -55,9 +51,7 @@ final class EventTranslationStrategy(
   private val excludedPackageIds: Set[LfPackageId] =
     if (excludeInfrastructureTransactions) {
       Set(
-        LfPackageId.assertFromString(pingpong.Ping.TEMPLATE_ID.getPackageId),
-        LfPackageId.assertFromString(dardistribution.AcceptedDar.TEMPLATE_ID.getPackageId),
-        LfPackageId.assertFromString(pingpongvacuum.PingCleanup.TEMPLATE_ID.getPackageId),
+        LfPackageId.assertFromString(pingpong.Ping.TEMPLATE_ID.getPackageId)
       )
     } else {
       Set.empty[LfPackageId]
