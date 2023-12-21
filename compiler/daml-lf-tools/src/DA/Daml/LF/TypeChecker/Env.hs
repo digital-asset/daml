@@ -4,13 +4,15 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | This module provides the data type for the environment of the Daml-LF type
 -- checker and functions to manipulate it.
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
-    throwWithContext,
-    warnWithContext,
+    MonadGammaF,
+    throwWithContext, throwWithContextF,
+    warnWithContext, warnWithContextF,
     catchAndRethrow,
     inWorld,
     match,
@@ -19,10 +21,12 @@ module DA.Daml.LF.TypeChecker.Env(
     introTypeVars,
     introExprVar,
     lookupExprVar,
-    withContext,
+    withContext, withContextF,
     getLfVersion,
     getWorld,
-    runGamma
+    runGamma, runGammaF,
+    Gamma,
+    emptyGamma
     ) where
 
 import           Control.Lens hiding (Context)
@@ -58,14 +62,21 @@ getWorld = view world
 
 -- | Type class constraint capturing the needed monadic effects for the
 -- functions manipulating the type checker environment.
-type MonadGamma m = (MonadError Error m, MonadReader Gamma m, MonadState [Warning] m)
+type MonadGamma m = MonadGammaF Gamma m
+type MonadGammaF gamma m = ReaderT gamma (StateT [Warning] (Either Error)) ~ m
 
 runGamma
   :: World
   -> Version
-  -> StateT [Warning] (ReaderT Gamma (Either Error)) a
+  -> ReaderT Gamma (StateT [Warning] (Either Error)) a
   -> Either Error (a, [Warning])
-runGamma world0 version act = runReaderT (runStateT act []) (emptyGamma world0 version)
+runGamma world0 version act = runStateT (runReaderT act (emptyGamma world0 version)) []
+
+runGammaF
+  :: gamma
+  -> ReaderT gamma (StateT [Warning] (Either Error)) a
+  -> Either Error (a, [Warning])
+runGammaF gamma act = runStateT (runReaderT act gamma) []
 
 -- | Helper function which tries to match on a prism and fails with a provided
 -- error in case is does not match.
@@ -125,3 +136,16 @@ withContext ctx = local (set locCtx ctx)
 
 catchAndRethrow :: MonadGamma m => (Error -> Error) -> m b -> m b
 catchAndRethrow handler mb = catchError mb $ throwWithContext . handler
+
+throwWithContextF :: MonadGammaF gamma m => Getter gamma Gamma -> Error -> m a
+throwWithContextF getter err = do
+  ctx <- view $ getter . locCtx
+  throwError $ EContext ctx err
+
+warnWithContextF :: MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
+warnWithContextF getter warning = do
+  ctx <- view $ getter . locCtx
+  modify' (WContext ctx warning :)
+
+withContextF :: MonadGammaF gamma m => Setter' gamma Gamma -> Context -> m b -> m b
+withContextF setter ctx = local (set (setter . locCtx) ctx)

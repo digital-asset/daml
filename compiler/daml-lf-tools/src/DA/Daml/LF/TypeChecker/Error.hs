@@ -176,6 +176,13 @@ data UpgradeError
   | RecordFieldsMissing !UpgradedRecordOrigin
   | RecordFieldsExistingChanged !UpgradedRecordOrigin
   | RecordFieldsNewNonOptional !UpgradedRecordOrigin
+  | RecordFieldsOrderChanged !UpgradedRecordOrigin
+  | VariantAddedVariant !UpgradedRecordOrigin
+  | VariantRemovedVariant !UpgradedRecordOrigin
+  | VariantChangedVariantType !UpgradedRecordOrigin
+  | VariantAddedVariantField !UpgradedRecordOrigin
+  | EnumAddedVariant !UpgradedRecordOrigin
+  | EnumRemovedVariant !UpgradedRecordOrigin
   | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
   | TemplateChangedKeyType !TypeConName
   | ChoiceChangedReturnType !ChoiceName
@@ -185,7 +192,8 @@ data UpgradeError
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
   | TemplateChoiceInput TypeConName ChoiceName
-  | TopLevel
+  | VariantConstructor TypeConName VariantConName
+  | TopLevel TypeConName
   deriving (Eq, Ord, Show)
 
 contextLocation :: Context -> Maybe SourceLoc
@@ -567,6 +575,13 @@ instance Pretty UpgradeError where
     RecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
     RecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
     RecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
+    RecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
+    VariantAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
+    VariantRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
+    VariantChangedVariantType origin -> "The upgraded " <> pPrint origin <> " has changed the type of a variant."
+    VariantAddedVariantField origin -> "The upgraded " <> pPrint origin <> " has added a field."
+    EnumAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
+    EnumRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
@@ -576,7 +591,8 @@ instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
-    TopLevel -> "record"
+    VariantConstructor variantName variantConName -> "variant constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
+    TopLevel datatype -> "data type " <> pPrint datatype
 
 instance Pretty Context where
   pPrint = \case

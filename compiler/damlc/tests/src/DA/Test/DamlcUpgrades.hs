@@ -679,6 +679,163 @@ tests damlc =
                       ]
                 )
               ]
+        , test
+              "Fails when a top-level record adds a non-optional field"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int, y : Text }"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level record adds an optional field at the end"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int, y : Optional Text }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level record adds an optional field before the end"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { x : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = A { y : Optional Text, x : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant adds a variant"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added a new variant.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant removes a variant"
+              (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant adds a field to a variant's type"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int, y2 : Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level variant adds an optional field to a variant's type"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int }"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X { x : Int } | Y { y : Int, y2 : Optional Int }"
+                      ]
+                )
+              ]
+        , test
+              "Fails when a top-level enum changes"
+              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added a new variant.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data A = X | Y"
+                      ]
+                )
+              ]
+        , test
+              "Succeeds when a top-level type synonym changes"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data X = X"
+                      , "data Y = Y"
+                      , "type A = X"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "data X = X"
+                      , "data Y = Y"
+                      , "type A = Y"
+                      ]
+                )
+              ]
         ]
   where
     test ::
