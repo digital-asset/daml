@@ -174,6 +174,7 @@ private[lf] object Speedy {
       override var compiledPackages: CompiledPackages,
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
+      val packageResolution: Map[Ref.PackageName, Ref.PackageId],
       val validating: Boolean, // TODO: Better: Mode = SubmissionMode | ValidationMode
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -723,6 +724,7 @@ private[lf] object Speedy {
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         iterationsBetweenInterruptions: Long = UpdateMachine.iterationsBetweenInterruptions,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -732,6 +734,7 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
         sexpr = expr,
+        packageResolution = packageResolution,
         validating = validating,
         submissionTime = submissionTime,
         ptx = PartialTransaction
@@ -1516,16 +1519,18 @@ private[lf] object Speedy {
         updateE: Expr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
       fromUpdateSExpr(
-        compiledPackages,
-        transactionSeed,
-        updateSE,
-        committers,
-        authorizationChecker,
-        limits,
+        compiledPackages = compiledPackages,
+        transactionSeed = transactionSeed,
+        updateSE = updateSE,
+        committers = committers,
+        authorizationChecker = authorizationChecker,
+        packageResolution = packageResolution,
+        limits = limits,
       )
     }
 
@@ -1538,6 +1543,7 @@ private[lf] object Speedy {
         updateSE: SExpr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
@@ -1548,6 +1554,7 @@ private[lf] object Speedy {
         expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
         readAs = Set.empty,
+        packageResolution = packageResolution,
         limits = limits,
         traceLog = traceLog,
         authorizationChecker = authorizationChecker,

@@ -173,31 +173,34 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessApiCommand(pkgResolution, cmd)
     }
 
-
-  private[lf] val EmptyPackageResolution: Result[Map[Ref.PackageName, Ref.PackageId]] = ResultDone(Map.empty)
+  private[lf] val EmptyPackageResolution: Result[Map[Ref.PackageName, Ref.PackageId]] = ResultDone(
+    Map.empty
+  )
 
   def buildPackageResolution(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
       packagePreference: Set[Ref.PackageId] = Set.empty,
   ): Result[Map[Ref.PackageName, Ref.PackageId]] =
-    packagePreference.foldLeft(EmptyPackageResolution)(
-      (acc, pkgId) =>
-        for {
-          pkgName <- packageMap.get(pkgId) match {
-            case Some((pkgName, _)) => ResultDone(pkgName)
-            case None => ResultError(Error.Preprocessing.Lookup(language.LookupError.MissingPackage(pkgId)))
-          }
-          m <- acc
-          _ <- m.get(pkgName) match {
-            case None => Result.unit
-            case Some(pkgId0) =>
-              ResultError(Error.Preprocessing.Internal(
+    packagePreference.foldLeft(EmptyPackageResolution)((acc, pkgId) =>
+      for {
+        pkgName <- packageMap.get(pkgId) match {
+          case Some((pkgName, _)) => ResultDone(pkgName)
+          case None =>
+            ResultError(Error.Preprocessing.Lookup(language.LookupError.MissingPackage(pkgId)))
+        }
+        m <- acc
+        _ <- m.get(pkgName) match {
+          case None => Result.unit
+          case Some(pkgId0) =>
+            ResultError(
+              Error.Preprocessing.Internal(
                 NameOf.qualifiedNameOfCurrentFunc,
                 s"package $pkgId0 and $pkgId have the same name $pkgName",
                 None,
-            ))
-          }
-        } yield m.updated(pkgName, pkgId)
+              )
+            )
+        }
+      } yield m.updated(pkgName, pkgId)
     )
 
   /** Translates  LF commands to a speedy commands.
