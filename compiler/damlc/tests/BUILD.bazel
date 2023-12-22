@@ -770,6 +770,11 @@ da_haskell_test(
     name = "repl",
     timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
+    # TODO(https://github.com/digital-asset/daml/issues/18071) change the test to only test v2
+    args = [
+        "-p",
+        "'$$2 ~ /LF v2/'",
+    ],
     data = [f for major in LF_MAJOR_VERSIONS for f in [
         ":repl-multi-test-v{}.dar".format(major),
         ":repl-test-v{}.dar".format(major),
