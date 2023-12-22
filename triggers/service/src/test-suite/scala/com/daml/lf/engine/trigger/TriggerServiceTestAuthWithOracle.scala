@@ -5,13 +5,8 @@ package com.daml.lf.engine.trigger
 
 import com.daml.lf.language.LanguageMajorVersion
 
-class TriggerServiceTestAuthWithOracleV1
-    extends TriggerServiceTestAuthWithOracle(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class TriggerServiceTestAuthWithOracleV2
-//    extends TriggerServiceTestAuthWithOracle(LanguageMajorVersion.V2)
+class TriggerServiceTestAuthWithOracleV2
+    extends TriggerServiceTestAuthWithOracle(LanguageMajorVersion.V2)
 
 class TriggerServiceTestAuthWithOracle(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTest

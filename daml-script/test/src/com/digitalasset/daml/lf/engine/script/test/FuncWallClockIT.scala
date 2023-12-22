@@ -9,11 +9,7 @@ import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-class FuncWallClockITV1 extends FuncWallClockIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
+class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
 
 class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractFuncIT {

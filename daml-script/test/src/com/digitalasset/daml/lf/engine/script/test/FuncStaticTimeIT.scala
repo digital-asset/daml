@@ -9,11 +9,7 @@ import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.SRecord
 
-class FuncStaticTimeITV1 extends FuncStaticTimeIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class FuncStaticTimeITV2 extends FuncStaticTimeIT(LanguageMajorVersion.V2)
+class FuncStaticTimeITV2 extends FuncStaticTimeIT(LanguageMajorVersion.V2)
 
 class FuncStaticTimeIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractFuncIT {

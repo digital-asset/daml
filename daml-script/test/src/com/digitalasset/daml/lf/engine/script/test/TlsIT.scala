@@ -10,11 +10,7 @@ import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TlsITV1 extends TlsIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
+class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
 
 class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

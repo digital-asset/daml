@@ -78,11 +78,7 @@ abstract class LoadTesting
   }
 }
 
-class BaseLoadTestingV1 extends BaseLoadTesting(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class BaseLoadTestingV2 extends BaseLoadTesting(LanguageMajorVersion.V2)
+class BaseLoadTestingV2 extends BaseLoadTesting(LanguageMajorVersion.V2)
 
 class BaseLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
 
@@ -204,11 +200,7 @@ class InFlightLoadTesting(override val majorLanguageVersion: LanguageMajorVersio
   }
 }
 
-class ACSLoadTestingV1 extends ACSLoadTesting(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class ACSLoadTestingV2 extends ACSLoadTesting(LanguageMajorVersion.V2)
+class ACSLoadTestingV2 extends ACSLoadTesting(LanguageMajorVersion.V2)
 
 class ACSLoadTesting(override val majorLanguageVersion: LanguageMajorVersion) extends LoadTesting {
 
