@@ -156,7 +156,7 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
