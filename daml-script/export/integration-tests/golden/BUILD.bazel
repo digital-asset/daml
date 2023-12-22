@@ -85,6 +85,6 @@ daml_test(
         ":interface-choices/InterfaceChoices/Asset.daml",
         ":interface-choices/InterfaceChoices/Token.daml",
     ],
-    target = "1.15",
-    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
 )
