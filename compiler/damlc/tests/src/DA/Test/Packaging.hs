@@ -34,10 +34,10 @@ import Test.Tasty.QuickCheck
 
 import "ghc-lib-parser" Module (stringToUnitId)
 
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain $ tests Tools{..}
@@ -46,7 +46,7 @@ data Tools = Tools -- and places
   { damlc :: FilePath
   }
 
-tests :: Tools -> TestTree
+tests :: SdkVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
@@ -1120,7 +1120,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               exitFailure
 
 -- | Test that a package build with --target=targetVersion never has a dependency on a package with version > targetVersion
-lfVersionTests :: FilePath -> TestTree
+lfVersionTests :: SdkVersioned => FilePath -> TestTree
 lfVersionTests damlc = testGroup "LF version dependencies"
     [ testCase ("Package in " <> LF.renderVersion version) $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines

@@ -19,7 +19,9 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Encoding as TE
 import qualified Test.Tasty.Extended as Tasty
 
-mkTestTree :: FilePath -> IO Tasty.TestTree
+import SdkVersion.Class (SdkVersioned)
+
+mkTestTree :: SdkVersioned => FilePath -> IO Tasty.TestTree
 mkTestTree testDir = do
   let isExpectationFile filePath =
         ".EXPECTED" == takeExtensions (dropExtension filePath)
@@ -30,7 +32,7 @@ mkTestTree testDir = do
 
   pure $ Tasty.testGroup "DA.Daml.Desugar" $ concat goldenTests
 
-runDamlDesugar :: FilePath -> IO Text
+runDamlDesugar :: SdkVersioned => FilePath -> IO Text
 runDamlDesugar input = desugar opts input
   where
     opts = (defaultOptions Nothing)
@@ -41,7 +43,7 @@ runDamlDesugar input = desugar opts input
 
 -- | For the given file <name>.daml (assumed), this test checks if
 -- <name>.EXPECTED.desugared-daml exists, and produces output accordingly.
-fileTest :: FilePath -> IO [Tasty.TestTree]
+fileTest :: SdkVersioned => FilePath -> IO [Tasty.TestTree]
 fileTest damlFile = do
 
   damlFileAbs <- makeAbsolute damlFile

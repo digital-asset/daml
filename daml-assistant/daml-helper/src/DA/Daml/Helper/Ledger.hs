@@ -82,6 +82,8 @@ import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
 import qualified Data.Aeson as Aeson
 import DA.Daml.Project.Types (unresolvedBuiltinSdkVersion)
 
+import SdkVersion.Class (SdkVersioned)
+
 data LedgerApi
   = Grpc
   | HttpJson
@@ -279,7 +281,7 @@ runLedgerListParties flags (JsonFlag json) = do
         mapM_ print xs
 
 -- | Fetch the packages reachable from a main package-id, and reconstruct a DAR file.
-runLedgerFetchDar :: LedgerFlags -> String -> FilePath -> IO ()
+runLedgerFetchDar :: SdkVersioned => LedgerFlags -> String -> FilePath -> IO ()
 runLedgerFetchDar flags pidString saveAs = do
     args <- getDefaultArgs flags
     let pid = LF.PackageId $ T.pack pidString
@@ -291,7 +293,7 @@ runLedgerFetchDar flags pidString saveAs = do
     putStrLn $ "DAR fetch succeeded; contains " <> show n <> " packages."
 
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
-fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
+fetchDar :: SdkVersioned => LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
   loggerH <- Logger.newStderrLogger Logger.Info "fetch-dar"
   pkgs <- downloadAllReachablePackages (downloadPackage args) [rootPid] []

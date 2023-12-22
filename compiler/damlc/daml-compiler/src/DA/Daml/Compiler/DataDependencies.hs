@@ -61,7 +61,7 @@ import DA.Daml.Options
 import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
 
-import SdkVersion
+import SdkVersion.Class (SdkVersioned, damlStdlib)
 
 panicOnError :: HasCallStack => Either LF.Error a -> a
 panicOnError (Left e) =
@@ -288,7 +288,8 @@ freshTypeName env = mkRdrName . (prefix <>) . T.pack . show <$> freshInt
 -- | Extract all data definitions from a daml-lf module and generate
 -- a haskell source file from it.
 generateSrcFromLf ::
-       Env
+       SdkVersioned
+    => Env
     -> ParsedSource
 generateSrcFromLf env = noLoc mod
   where
@@ -890,7 +891,7 @@ mkErrorCall env msg = do
     let errorMsg = noLoc $ HsLit noExt (HsString (SourceText $ show msg) $ mkFastString msg) :: LHsExpr GhcPs
     pure $ noLoc $ HsPar noExt $ noLoc $ HsApp noExt errorFun (noLoc $ HsPar noExt $ noLoc $ HsApp noExt fromStringFun errorMsg)
 
-mkConDeclField :: Env -> LF.FieldName -> LF.Type -> Gen (LConDeclField GhcPs)
+mkConDeclField :: SdkVersioned => Env -> LF.FieldName -> LF.Type -> Gen (LConDeclField GhcPs)
 mkConDeclField env fieldName fieldTy = do
     fieldTy' <- convType env MS.empty fieldTy
     pure . noLoc $ ConDeclField
@@ -957,7 +958,7 @@ rewriteClassReexport env reexported syn@LF.Qualified{..}
   | otherwise = syn
 
 
-convType :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
+convType :: SdkVersioned => Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
 convType env reexported =
     \case
         LF.TVar tyVarName -> pure $
@@ -1029,7 +1030,7 @@ convType env reexported =
 -- otherwise GHC will expand them out as regular constraints.
 -- See issues https://github.com/digital-asset/daml/issues/9663,
 --            https://github.com/digital-asset/daml/issues/11455
-convTypeLiftingConstraintTuples :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
+convTypeLiftingConstraintTuples :: SdkVersioned => Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
 convTypeLiftingConstraintTuples env reexported = go where
     go = \case
         ty@(LF.TStruct fls) | isConstraint ty -> do
@@ -1055,7 +1056,7 @@ convTypeLiftingConstraintTuples env reexported = go where
         ty ->
             convType env reexported ty
 
-convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
+convBuiltInTy :: SdkVersioned => Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
     \case
         LF.BTInt64 -> mkGhcType env "Int"
@@ -1134,7 +1135,7 @@ mkGhcType :: Env -> String -> Gen (HsType GhcPs)
 mkGhcType env = mkStableType env primUnitId $
     LF.ModuleName ["GHC", "Types"]
 
-mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
+mkLfInternalType :: SdkVersioned => Env -> String -> Gen (HsType GhcPs)
 mkLfInternalType env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "LF"]
 
@@ -1142,7 +1143,7 @@ mkDesugarType :: Env -> String -> Gen (HsType GhcPs)
 mkDesugarType env = mkStableType env primUnitId $
     LF.ModuleName ["DA", "Internal", "Desugar"]
 
-mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
+mkLfInternalPrelude :: SdkVersioned => Env -> String -> Gen (HsType GhcPs)
 mkLfInternalPrelude env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "Prelude"]
 
@@ -1151,7 +1152,7 @@ mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occNa
     where name = getName tyCon
 
 -- | Generate the full source for a daml-lf package.
-generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
+generateSrcPkgFromLf :: SdkVersioned => Config -> LF.Package -> [(NormalizedFilePath, String)]
 generateSrcPkgFromLf envConfig pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     let fp =
@@ -1490,7 +1491,7 @@ isDFunName :: LF.ExprValName -> Bool
 isDFunName (LF.ExprValName t) = any (`T.isPrefixOf` t) ["$f", "$d"]
 
 -- | Convert dictionary function signature into a Daml type.
-convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
+convDFunSig :: SdkVersioned => Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env reexported DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders
     context <- mapM (convTypeLiftingConstraintTuples env reexported) dfsContext

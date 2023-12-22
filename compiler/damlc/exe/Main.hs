@@ -1,6 +1,11 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Main (module DA.Cli.Damlc) where
+module Main (main) where
 
-import DA.Cli.Damlc
+import SdkVersion (withSdkVersions)
+
+import qualified DA.Cli.Damlc
+
+main :: IO ()
+main = withSdkVersions DA.Cli.Damlc.main

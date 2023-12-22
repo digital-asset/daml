@@ -37,10 +37,10 @@ da_haskell_test(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-ide-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
         "@ghcide_ghc_lib//:testing",
     ],
 )

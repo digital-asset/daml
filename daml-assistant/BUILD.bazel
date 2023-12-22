@@ -24,7 +24,7 @@ da_haskell_library(
     ],
     src_strip_prefix = "daml-project-config",
     visibility = ["//visibility:public"],
-    deps = ["//:sdk-version-hs-lib"],
+    deps = ["//sdk-version/hs:sdk-version-class-lib"],
 )
 
 da_haskell_library(
@@ -99,6 +99,7 @@ da_haskell_binary(
         ":daml-lib",
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 

@@ -7,7 +7,7 @@ module DA.Cli.Damlc.BuildInfo
   ) where
 
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
-import SdkVersion
+import SdkVersion.Class (SdkVersioned, sdkVersion)
 
-buildInfo :: PP.Doc
+buildInfo :: SdkVersioned => PP.Doc
 buildInfo = "SDK Version: " <> PP.text sdkVersion

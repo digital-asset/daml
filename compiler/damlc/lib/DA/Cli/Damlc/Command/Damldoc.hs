@@ -19,6 +19,8 @@ import Data.List.Extra
 import qualified Data.Text as T
 import qualified Data.Set as Set
 
+import SdkVersion.Class (SdkVersioned)
+
 ------------------------------------------------------------
 
 cmd :: Int -> (CmdArgs -> a) -> Mod CommandFields a
@@ -296,7 +298,7 @@ data CmdArgs = Damldoc
     , cMainFiles :: [FilePath]
     }
 
-exec :: CmdArgs -> IO ()
+exec :: SdkVersioned => CmdArgs -> IO ()
 exec Damldoc{..} = do
     when (cOutputFormat == OutputDocs Markdown && cGlobalInternalExt /= "md") $
         putStrLn $ 

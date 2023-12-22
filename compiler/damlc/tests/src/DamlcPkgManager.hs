@@ -16,7 +16,7 @@ import Data.List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text.Extended as T
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -27,7 +27,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     dar <-
@@ -35,11 +35,11 @@ main = do
             (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "pkg-manager-test.dar")
     defaultMain (tests damlc dar)
 
-tests :: FilePath -> FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> FilePath -> TestTree
 tests damlc dar =
     testGroup "damlc package manager" $ map (\f -> f damlc dar) [testsForRemoteDataDependencies]
 
-testsForRemoteDataDependencies :: FilePath -> FilePath -> TestTree
+testsForRemoteDataDependencies :: SdkVersioned => FilePath -> FilePath -> TestTree
 testsForRemoteDataDependencies damlc dar =
     testGroup "Remote dependencies"
     [ withCantonSandbox defaultSandboxConf {dars = [dar]} $ \getSandboxPort -> do

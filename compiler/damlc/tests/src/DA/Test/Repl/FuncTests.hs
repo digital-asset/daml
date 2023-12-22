@@ -25,7 +25,7 @@ import Development.IDE.Types.Location
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import GHC.IO.Handle
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory
 import System.FilePath
 import System.IO.Extra
@@ -46,7 +46,7 @@ import Text.Regex.TDFA
 --    stderr.
 
 main :: IO ()
-main =
+main = withSdkVersions $
     hspec $
         describe "repl func tests" $
             [minBound @LF.MajorVersion .. maxBound] `forM_` \major ->
@@ -57,7 +57,7 @@ main =
 
 type InteractionTester = [Step] -> Expectation
 
-withInteractionTester :: LF.MajorVersion -> ActionWith InteractionTester -> IO ()
+withInteractionTester :: SdkVersioned => LF.MajorVersion -> ActionWith InteractionTester -> IO ()
 withInteractionTester major action = do
     let prettyMajor = LF.renderMajorVersion major
     let lfVersion = LF.defaultOrLatestStable major
@@ -126,7 +126,7 @@ withInteractionTester major action = do
                         -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
                         ReplClient.hTerminate replHandle
 
-initPackageConfig :: Options -> FilePath -> [FilePath] -> IO ()
+initPackageConfig :: SdkVersioned => Options -> FilePath -> [FilePath] -> IO ()
 initPackageConfig options scriptDar dars = do
     writeFileUTF8 "daml.yaml" $ unlines $
         [ "sdk-version: " <> sdkVersion
@@ -419,7 +419,8 @@ functionalTests =
         it testName $ \test -> (test steps :: Expectation)
 
 testInteraction
-    :: ReplClient.Handle
+    :: SdkVersioned
+    => ReplClient.Handle
     -> ReplLogger
     -> Chan String
     -> Options

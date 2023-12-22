@@ -88,6 +88,8 @@ import           Data.List.Extra
 import           Text.Regex.TDFA
 import           Text.Regex.TDFA.Text ()
 
+import SdkVersion.Class (SdkVersioned)
+
 -- | Short-circuiting errors that may occur during a test.
 data ShakeTestError
     = ExpectedRelativePath FilePath
@@ -137,11 +139,11 @@ pattern EventVirtualResourceNoteSet vr note <-
 
 
 -- | Run shake test on freshly initialised shake service.
-runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
+runShakeTest :: SdkVersioned => Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest = runShakeTestOpts id
 
 -- | Run shake test on freshly initialised shake service, with custom options.
-runShakeTestOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
+runShakeTestOpts :: SdkVersioned => (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
     let options = fOpts (defaultOptions Nothing)
             { optDlintUsage = DlintEnabled DlintOptions

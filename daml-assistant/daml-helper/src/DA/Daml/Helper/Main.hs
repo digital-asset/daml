@@ -30,6 +30,8 @@ import DA.Ledger.Types (ApplicationId(..))
 import Data.Text.Lazy (pack)
 import Data.Time.Calendar (Day(..))
 
+import SdkVersion (withSdkVersions)
+
 main :: IO ()
 main = do
     -- Save the runfiles environment to work around
@@ -527,7 +529,7 @@ runCommand = \case
     PackagesList {..} -> runLedgerListPackages0 flags
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
-    LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
+    LedgerFetchDar {..} -> withSdkVersions $ runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments

@@ -80,6 +80,8 @@ import System.IO.Extra
 import TcEvidence (idHsWrapper)
 import Type (splitTyConApp)
 
+import SdkVersion.Class (SdkVersioned)
+
 data Error
     = ParseError MsgDoc
     | UnsupportedStatement String -- ^ E.g., pattern on the LHS
@@ -364,8 +366,9 @@ newReplLogger = do
                 (const f)
     pure ReplLogger{replEventLogger = NotificationHandler replEventLogger,..}
 
-runRepl
-    :: [(LF.PackageName, Maybe LF.PackageVersion)]
+runRepl ::
+       SdkVersioned
+    => [(LF.PackageName, Maybe LF.PackageVersion)]
     -> Options
     -> ReplClient.Handle
     -> ReplLogger

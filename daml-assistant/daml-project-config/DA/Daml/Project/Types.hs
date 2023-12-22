@@ -17,7 +17,7 @@ import Control.Monad
 import Control.Exception.Safe
 import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
-import qualified SdkVersion
+import qualified SdkVersion.Class
 import qualified Control.Exception as Unsafe
 
 data ConfigError
@@ -189,8 +189,8 @@ releaseVersionFromCacheString src =
       [release, sdk] -> SplitReleaseVersion <$> parseVersionM release <*> parseVersionM sdk
       _ -> Nothing
 
-unresolvedBuiltinSdkVersion :: UnresolvedReleaseVersion
-unresolvedBuiltinSdkVersion = either Unsafe.throw id $ parseUnresolvedVersion (T.pack SdkVersion.sdkVersion)
+unresolvedBuiltinSdkVersion :: SdkVersion.Class.SdkVersioned => UnresolvedReleaseVersion
+unresolvedBuiltinSdkVersion = either Unsafe.throw id $ parseUnresolvedVersion (T.pack SdkVersion.Class.sdkVersion)
 
 unsafeResolveReleaseVersion :: UnresolvedReleaseVersion -> ReleaseVersion
 unsafeResolveReleaseVersion (UnresolvedReleaseVersion v) = OldReleaseVersion v
