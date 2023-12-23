@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.ledger.api.v2.TransactionOuterClass.Transaction as JavaTransactionV2
 import com.daml.ledger.javaapi.data.codegen.{
   Contract,
   ContractCompanion,
@@ -16,6 +15,8 @@ import com.daml.ledger.javaapi.data.{
   Event,
   Transaction as JavaTransaction,
   TransactionTree,
+  TransactionTreeV2,
+  TransactionV2 as JavaTransactionV2,
   TreeEvent,
 }
 
@@ -39,6 +40,9 @@ object JavaDecodeUtil {
   def flatToCreated(transaction: JavaTransaction): Seq[JavaCreatedEvent] =
     transaction.getEvents.iterator.asScala.collect { case e: JavaCreatedEvent => e }.toSeq
 
+  def flatToCreatedV2(transaction: JavaTransactionV2): Seq[JavaCreatedEvent] =
+    transaction.getEvents.iterator.asScala.collect { case e: JavaCreatedEvent => e }.toSeq
+
   def decodeAllCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(transaction: JavaTransaction): Seq[TC] =
@@ -48,7 +52,7 @@ object JavaDecodeUtil {
       companion: ContractCompanion[TC, ?, ?]
   )(transaction: JavaTransactionV2): Seq[TC] =
     decodeAllCreatedFromEvents(companion)(
-      transaction.getEventsList.asScala.toSeq.map(Event.fromProtoEvent)
+      transaction.getEvents.iterator.asScala.toSeq
     )
 
   def decodeAllCreatedFromEvents[TC](
@@ -88,11 +92,22 @@ object JavaDecodeUtil {
   private def treeToCreated(transaction: TransactionTree): Seq[JavaCreatedEvent] =
     transaction.getEventsById.asScala.valuesIterator.collect { case e: JavaCreatedEvent => e }.toSeq
 
+  private def treeToCreatedV2(transaction: TransactionTreeV2): Seq[JavaCreatedEvent] =
+    transaction.getEventsById.asScala.valuesIterator.collect { case e: JavaCreatedEvent => e }.toSeq
+
   def decodeAllCreatedTree[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(transaction: TransactionTree): Seq[TC] =
     for {
       created <- treeToCreated(transaction)
+      a <- decodeCreated(companion)(created).toList
+    } yield a
+
+  def decodeAllCreatedTreeV2[TC](
+      companion: ContractCompanion[TC, ?, ?]
+  )(transaction: TransactionTreeV2): Seq[TC] =
+    for {
+      created <- treeToCreatedV2(transaction)
       a <- decodeCreated(companion)(created).toList
     } yield a
 

@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.Value
+import com.daml.ledger.api.v2.transaction.TransactionTree as TransactionTreeV2
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{
   InstanceReference,
@@ -13,6 +14,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   LocalParticipantReferenceCommon,
 }
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.tracing.TraceContext
@@ -84,9 +86,9 @@ object IntegrationTestUtilities {
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
-  def grabCountsX(
+  def grabCountsX[ParticipantNodeT <: ParticipantNodeCommon](
       domain: DomainAlias,
-      pr: LocalParticipantReferenceCommon,
+      pr: LocalParticipantReferenceCommon[ParticipantNodeT],
       limit: Int = 100,
   ): GrabbedCounts = {
     val pcsCount = pr.testing.pcs_search(domain, limit = limit).length
@@ -102,7 +104,10 @@ object IntegrationTestUtilities {
     GrabbedCounts(contracts, events)
   }
 
-  def assertIncreasingRecordTime(domain: DomainAlias, pr: LocalParticipantReferenceCommon): Unit =
+  def assertIncreasingRecordTime[ParticipantNodeT <: ParticipantNodeCommon](
+      domain: DomainAlias,
+      pr: LocalParticipantReferenceCommon[ParticipantNodeT],
+  ): Unit =
     assertIncreasingRecordTime(domain, alias => pr.testing.event_search(alias))
 
   def assertIncreasingRecordTime(
@@ -124,6 +129,23 @@ object IntegrationTestUtilities {
   }
 
   def extractSubmissionResult(tree: TransactionTree): Value.Sum = {
+    require(
+      tree.rootEventIds.size == 1,
+      s"Received transaction with not exactly one root node: $tree",
+    )
+    tree.eventsById(tree.rootEventIds.head).kind match {
+      case Created(created) => Value.Sum.ContractId(created.contractId)
+      case Exercised(exercised) =>
+        val Value(result) = exercised.exerciseResult.getOrElse(
+          throw new RuntimeException("Unable to exercise choice.")
+        )
+        result
+      case TreeEvent.Kind.Empty =>
+        throw new IllegalArgumentException(s"Received transaction with empty event kind: $tree")
+    }
+  }
+
+  def extractSubmissionResultV2(tree: TransactionTreeV2): Value.Sum = {
     require(
       tree.rootEventIds.size == 1,
       s"Received transaction with not exactly one root node: $tree",

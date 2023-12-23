@@ -101,11 +101,19 @@ object LedgerApiV2Commands {
 
   object UpdateService {
 
-    sealed trait UpdateTreeWrapper
-    sealed trait UpdateWrapper
+    sealed trait UpdateTreeWrapper {
+      def updateId: String
+    }
+    sealed trait UpdateWrapper {
+      def updateId: String
+    }
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
-        extends UpdateTreeWrapper
-    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper
+        extends UpdateTreeWrapper {
+      override def updateId: String = transactionTree.updateId
+    }
+    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
+      override def updateId: String = transaction.updateId
+    }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
     }
@@ -125,9 +133,13 @@ object LedgerApiV2Commands {
       }
     }
     final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = UpdateServiceStub

@@ -1992,7 +1992,7 @@ class TopologyAdministrationGroupX(
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose_update(
-        domainId: DomainId, // TODO(#15803) check whether we can infer domainId
+        domainId: DomainId,
         update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
