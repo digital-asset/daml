@@ -13,6 +13,7 @@ import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   Output,
   OutputElement,
 }
+import com.digitalasset.canton.util.PekkoUtil.noOpKillSwitch
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.QueueOfferResult.Enqueued
@@ -30,8 +31,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
-  import PekkoUtilTest.*
-
   // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
   override val patience: PatienceConfig = defaultPatience
 

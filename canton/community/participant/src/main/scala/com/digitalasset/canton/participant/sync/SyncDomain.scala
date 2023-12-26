@@ -51,7 +51,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.protocol.transfer.*
 import com.digitalasset.canton.participant.pruning.{
   AcsCommitmentProcessor,
-  PruneObserver,
+  JournalGarbageCollector,
   SortedReconciliationIntervalsProvider,
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -233,7 +233,8 @@ class SyncDomain(
     futureSupervisor,
     loggerFactory,
   )
-  private val pruneObserver = new PruneObserver(
+
+  private val journalGarbageCollector = new JournalGarbageCollector(
     persistent.requestJournalStore,
     persistent.sequencerCounterTrackerStore,
     sortedReconciliationIntervalsProvider,
@@ -243,7 +244,6 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
-    clock,
     timeouts,
     loggerFactory,
   )
@@ -256,7 +256,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      pruneObserver.observer(_),
+      journalGarbageCollector.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       staticDomainParameters.catchUpParameters,
@@ -321,6 +321,14 @@ class SyncDomain(
       loggerFactory,
       metrics,
     )
+
+  def addJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = journalGarbageCollector.addOneLock()
+
+  def removeJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Unit = journalGarbageCollector.removeOneLock()
 
   def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
     trafficStateController.getState
@@ -890,7 +898,7 @@ class SyncDomain(
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
           domainHandle.sequencerClient,
-          pruneObserver,
+          journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,
           transferOutProcessor,
