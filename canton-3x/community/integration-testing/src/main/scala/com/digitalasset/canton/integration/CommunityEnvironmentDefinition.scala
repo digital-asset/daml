@@ -4,8 +4,15 @@
 package com.digitalasset.canton.integration
 
 import better.files.{File, Resource}
-import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
+import com.digitalasset.canton.config.{
+  CantonCommunityConfig,
+  CommunityCryptoConfig,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.console.TestConsoleOutput
+import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.environment.{
   CommunityConsoleEnvironment,
   CommunityEnvironment,
@@ -14,6 +21,7 @@ import com.digitalasset.canton.environment.{
 }
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.version.DomainProtocolVersion
 import com.typesafe.config.ConfigFactory
 import monocle.macros.syntax.lens.*
 
@@ -58,6 +66,17 @@ final case class CommunityEnvironmentDefinition(
     ) with TestEnvironment[CommunityEnvironment] {
       override val actualConfig: CantonCommunityConfig = this.environment.config
     }
+
+  lazy val defaultStaticDomainParametersX: StaticDomainParameters =
+    StaticDomainParameters.fromConfig(
+      DomainParametersConfig(
+        protocolVersion = DomainProtocolVersion(BaseTest.testedProtocolVersion),
+        devVersionSupport = true,
+        // TODO(#13235) Remove key uniqueness config
+        uniqueContractKeys = false,
+      ),
+      CommunityCryptoConfig(),
+    )
 }
 
 object CommunityEnvironmentDefinition {

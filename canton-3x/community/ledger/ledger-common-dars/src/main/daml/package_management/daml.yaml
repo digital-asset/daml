@@ -1,8 +1,8 @@
-sdk-version: 2.9.0-snapshot.20231215.12512.0.v5a0f0a18
+sdk-version: 2.9.0-snapshot.20231221.12524.0.vc998203f
 name: package-management-tests
 source: .
 version: 3.0.0
-dependencies:
+dependencies: 
 - daml-prim
 - daml-stdlib
 - daml3-script

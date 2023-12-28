@@ -11,20 +11,20 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import java.io.File
 
 abstract class SequencerNodeConfigCommon(
-    val init: SequencerNodeInitConfigCommon,
+    override val init: SequencerNodeInitConfigCommon,
     val publicApi: PublicServerConfig,
-    val adminApi: AdminServerConfig,
-    val storage: StorageConfig,
-    val crypto: CryptoConfig,
+    override val adminApi: AdminServerConfig,
+    override val storage: StorageConfig,
+    override val crypto: CryptoConfig,
     val sequencer: SequencerConfig,
     val auditLogging: Boolean,
     val serviceAgreement: Option[File],
     val timeTracker: DomainTimeTrackerConfig,
-    val sequencerClient: SequencerClientConfig,
-    val caching: CachingConfigs,
-    parameters: SequencerNodeParameterConfig,
+    override val sequencerClient: SequencerClientConfig,
+    override val caching: CachingConfigs,
+    override val parameters: SequencerNodeParameterConfig,
     val health: SequencerHealthConfig,
-    val monitoring: NodeMonitoringConfig,
+    override val monitoring: NodeMonitoringConfig,
 ) extends LocalNodeConfig {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig

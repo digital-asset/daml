@@ -6,12 +6,12 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
+import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v0
 import com.digitalasset.canton.domain.sequencing.sequencer.{LedgerIdentity, PruningError, Sequencer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member

@@ -36,27 +36,20 @@ object EitherTUtil {
     }
 
   def onErrorOrFailureUnlessShutdown[A, B](
-      errorHandler: () => Unit,
+      errorHandler: Either[Throwable, A] => Unit,
       shutdownHandler: () => Unit = () => (),
   )(
       fn: => EitherT[FutureUnlessShutdown, A, B]
   )(implicit executionContext: ExecutionContext): EitherT[FutureUnlessShutdown, A, B] =
     fn.thereafter {
-      case Failure(_) =>
-        errorHandler()
-      case Success(UnlessShutdown.Outcome(Left(_))) =>
-        errorHandler()
+      case Failure(t) =>
+        errorHandler(Left(t))
+      case Success(UnlessShutdown.Outcome(Left(left))) =>
+        errorHandler(Right(left))
       case Success(UnlessShutdown.AbortedDueToShutdown) =>
         shutdownHandler()
       case _ => ()
     }
-
-  def onErrorOrFailureOrShutdown[A, B](
-      errorAndShutdownHandler: () => Unit
-  )(
-      fn: => EitherT[FutureUnlessShutdown, A, B]
-  )(implicit executionContext: ExecutionContext): EitherT[FutureUnlessShutdown, A, B] =
-    onErrorOrFailureUnlessShutdown(errorAndShutdownHandler, errorAndShutdownHandler)(fn)
 
   /** Lifts an `if (cond) then ... else ()` into the `EitherT` a  pplicative */
   def ifThenET[F[_], L](cond: Boolean)(`then`: => EitherT[F, L, _])(implicit

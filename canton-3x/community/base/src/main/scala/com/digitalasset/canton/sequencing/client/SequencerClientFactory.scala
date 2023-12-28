@@ -59,7 +59,7 @@ trait SequencerClientFactory {
       materializer: Materializer,
       tracer: Tracer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SequencerClient]
+  ): EitherT[Future, String, RichSequencerClient]
 
 }
 
@@ -100,7 +100,7 @@ object SequencerClientFactory {
           materializer: Materializer,
           tracer: Tracer,
           traceContext: TraceContext,
-      ): EitherT[Future, String, SequencerClient] = {
+      ): EitherT[Future, String, RichSequencerClient] = {
         // initialize recorder if it's been configured for the member (should only be used for testing)
         val recorderO = recordingConfigForMember(member).map { recordingConfig =>
           new SequencerClientRecorder(
@@ -161,7 +161,7 @@ object SequencerClientFactory {
                 )
               }
           }
-        } yield new SequencerClientImpl(
+        } yield new RichSequencerClientImpl(
           domainId,
           member,
           sequencerTransports,
@@ -190,19 +190,21 @@ object SequencerClientFactory {
           connection: SequencerConnection,
           member: Member,
           requestSigner: RequestSigner,
+          allowReplay: Boolean = true,
       )(implicit
           executionContext: ExecutionContextExecutor,
           executionSequencerFactory: ExecutionSequencerFactory,
           materializer: Materializer,
           traceContext: TraceContext,
       ): EitherT[Future, String, SequencerClientTransport & SequencerClientTransportPekko] = {
+        // TODO(#13789) Use only `SequencerClientTransportPekko` as the return type
         def mkRealTransport(): SequencerClientTransport & SequencerClientTransportPekko =
           connection match {
             case grpc: GrpcSequencerConnection => grpcTransport(grpc, member)
           }
 
         val transport: SequencerClientTransport & SequencerClientTransportPekko =
-          replayConfigForMember(member) match {
+          replayConfigForMember(member).filter(_ => allowReplay) match {
             case None => mkRealTransport()
             case Some(ReplayConfig(recording, SequencerEvents)) =>
               new ReplayingEventsSequencerClientTransport(
