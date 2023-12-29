@@ -40,29 +40,32 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
     * @param limit batch size
     * @return the topology transactions that have been marked as pending.
     */
-  def dequeue(limit: Int): Seq[GenericSignedTopologyTransactionX] = blocking(synchronized {
-    logger.debug("dequeuing")(TraceContext.todo)
+  def dequeue(limit: Int)(implicit
+      traceContext: TraceContext
+  ): Seq[GenericSignedTopologyTransactionX] = blocking(synchronized {
+    val txs = unsentQueue.take(limit)
+    logger.debug(s"dequeuing: $txs")
     require(
       pendingQueue.isEmpty,
       s"tried to dequeue while pending wasn't empty: ${pendingQueue.toSeq}",
     )
-    pendingQueue.enqueueAll(unsentQueue.take(limit))
+    pendingQueue.enqueueAll(txs)
     unsentQueue.remove(0, limit)
     pendingQueue.toSeq
   })
 
   /** Marks the currently pending transactions as unsent and adds them to the front of the queue in the same order.
     */
-  def requeue(): Unit = blocking(synchronized {
-    logger.debug(s"requeuing $pendingQueue")(TraceContext.todo)
+  def requeue()(implicit traceContext: TraceContext): Unit = blocking(synchronized {
+    logger.debug(s"requeuing $pendingQueue")
     unsentQueue.prependAll(pendingQueue)
     pendingQueue.clear()
   })
 
   /** Clears the currently pending transactions.
     */
-  def completeCycle(): Unit = blocking(synchronized {
-    logger.debug("completeCycle")(TraceContext.todo)
+  def completeCycle()(implicit traceContext: TraceContext): Unit = blocking(synchronized {
+    logger.debug(s"completeCycle $pendingQueue")
     pendingQueue.clear()
   })
 

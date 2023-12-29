@@ -18,6 +18,11 @@ import com.digitalasset.canton.domain.mediator.{
   MediatorNodeParameters,
   MediatorNodeX,
 }
+import com.digitalasset.canton.domain.sequencing.config.{
+  SequencerNodeConfigCommon,
+  SequencerNodeParameters,
+}
+import com.digitalasset.canton.domain.sequencing.{SequencerNodeBootstrapX, SequencerNodeX}
 import com.digitalasset.canton.domain.{Domain, DomainNodeBootstrap, DomainNodeParameters}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -436,6 +441,24 @@ class DomainNodes[DC <: DomainConfig](
 )(implicit
     protected val executionContext: ExecutionContextIdlenessExecutorService
 ) extends ManagedNodes[Domain, DC, DomainNodeParameters, DomainNodeBootstrap](
+      create,
+      migrationsFactory,
+      timeouts,
+      configs,
+      parameters,
+      startUpGroup = 0,
+      loggerFactory,
+    )
+
+class SequencerNodesX[SC <: SequencerNodeConfigCommon](
+    create: (String, SC) => SequencerNodeBootstrapX,
+    migrationsFactory: DbMigrationsFactory,
+    timeouts: ProcessingTimeout,
+    configs: Map[String, SC],
+    parameters: String => SequencerNodeParameters,
+    loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext)
+    extends ManagedNodes[SequencerNodeX, SC, SequencerNodeParameters, SequencerNodeBootstrapX](
       create,
       migrationsFactory,
       timeouts,
