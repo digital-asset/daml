@@ -180,7 +180,7 @@ final case class ResultNeedUpgradeVerification[A](
 
 object Result {
 
-  private[lf] def done[A](x: A): Result[A] = ResultDone(x)
+  val unit: ResultDone[Unit] = ResultDone(())
 
   // fails with ResultError if the package is not found
   private[lf] def needPackage[A](
