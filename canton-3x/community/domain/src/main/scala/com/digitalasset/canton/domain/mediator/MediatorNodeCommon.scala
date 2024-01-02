@@ -253,6 +253,7 @@ trait MediatorNodeBootstrapCommon[
                   info.sequencerConnections.default,
                   mediatorId,
                   requestSigner,
+                  allowReplay = false,
                 )
                 .flatMap(
                   ResourceUtil.withResourceEitherT(_)(

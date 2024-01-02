@@ -292,6 +292,13 @@ trait PrettyInstances {
       param("transactionId", _.transactionId.singleQuoted, _.transactionId.nonEmpty),
     )
 
+  implicit def prettyCompletionV2: Pretty[com.daml.ledger.api.v2.completion.Completion] =
+    prettyOfClass(
+      unnamedParamIfDefined(_.status),
+      param("commandId", _.commandId.singleQuoted),
+      param("updateId", _.updateId.singleQuoted, _.updateId.nonEmpty),
+    )
+
   implicit def prettyRpcStatus: Pretty[com.google.rpc.status.Status] =
     prettyOfClass(
       customParam(rpcStatus => Status.fromCodeValue(rpcStatus.code).getCode.toString),

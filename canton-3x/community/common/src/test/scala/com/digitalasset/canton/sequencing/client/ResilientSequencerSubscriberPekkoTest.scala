@@ -214,7 +214,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
 
           val (killSwitch, doneF) = subscription.source.toMat(Sink.ignore)(Keep.left).run()
           // we retry until we become unhealthy
-          eventually() {
+          eventually(maxPollInterval = 10.milliseconds) {
             subscription.health.isFailed shouldBe true
           }
 

@@ -189,7 +189,7 @@ private[mediator] class ConfirmationResponseProcessor(
 
       logger
         .info(
-          s"Phase 6: Request ${requestId}: Timeout in state ${responseAggregation.state} at $timestamp"
+          s"Phase 6: Request ${requestId.unwrap}: Timeout in state ${responseAggregation.state} at $timestamp"
         )
 
       val timeout = responseAggregation.timeout(version = timestamp)
