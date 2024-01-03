@@ -307,9 +307,34 @@ proto_gen(
     ],
 )
 
+proto_library(
+    name = "community_admin-api_proto",
+    srcs = glob(["community/admin-api/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/admin-api/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_admin-api_proto_scala",
+    srcs = [":community_admin-api_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "flat_package",
+        "grpc",
+    ],
+)
+
 scala_library(
     name = "community_base",
-    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"],
+    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton-3x/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
@@ -683,6 +708,7 @@ proto_library(
     srcs = glob(["community/domain/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/domain/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -797,6 +823,7 @@ proto_library(
     srcs = glob(["community/participant/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
