@@ -837,7 +837,6 @@ genrule(
       cp -r $$project_dir/* $$tmpdir
       cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
       sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
-      sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
       sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
       $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
     """.format(sdk_version = sdk_version),
