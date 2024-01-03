@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.data
 
 import better.files.File
 import cats.syntax.either.*
-import com.digitalasset.canton.participant.admin.v1
+import com.digitalasset.canton.admin.participant.v1
 import com.digitalasset.canton.protocol.messages.HasDomainId
 import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult

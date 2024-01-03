@@ -5,9 +5,9 @@ package com.digitalasset.canton.scheduler
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
+import com.digitalasset.canton.admin.pruning.v0
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.pruning.admin.v0
 import com.digitalasset.canton.scheduler.Cron.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.PositiveSeconds

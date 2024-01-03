@@ -402,7 +402,7 @@ class ParticipantNodeX(
     val nodeParameters: ParticipantNodeParameters,
     storage: Storage,
     override protected val clock: Clock,
-    val cryptoPureApi: CryptoPureApi,
+    override val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcherCommon,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,

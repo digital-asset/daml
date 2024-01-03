@@ -953,7 +953,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
         logger.debug(s"Attempting to dispatch ${message}")
         FutureUtil.doNotAwait(
           send(batch, callback).thereafter {
-            case x @ Success(UnlessShutdown.Outcome(Right(_))) =>
+            case Success(UnlessShutdown.Outcome(Right(_))) =>
             // nice, the sequencer seems to be accepting our request
 
             case Success(UnlessShutdown.Outcome(Left(RequestRefused(error))))
@@ -966,9 +966,11 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
               clock
                 .scheduleAfter(_ => dispatch(), java.time.Duration.ofMillis(retryInterval.toMillis))
                 .discard
+
             case Success(UnlessShutdown.Outcome(Left(error))) =>
               TopologyDispatchingInternalError.AsyncResultError(error).discard
               stopDispatching("Stopping due to an unexpected async result error")
+
             case Success(UnlessShutdown.AbortedDueToShutdown) =>
               abortDueToShutdown()
             case Failure(ex) =>

@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsy
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonMutableHandlerRegistry, GrpcDynamicService}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, SingleUseCell}
+import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,16 +22,9 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
       : SingleUseCell[() => EitherT[Future, String, MediatorRuntime]] =
     new SingleUseCell
 
-  protected def getMediatorRuntimeFactory()(implicit
-      traceContext: TraceContext
-  ): () => EitherT[Future, String, MediatorRuntime] =
-    mediatorRuntimeFactoryRef.getOrElse {
-      ErrorUtil.internalError(
-        new IllegalStateException(
-          "Set active called before mediator runtime factory was initialized"
-        )
-      )
-    }
+  protected def getMediatorRuntimeFactory()
+      : Option[() => EitherT[Future, String, MediatorRuntime]] =
+    mediatorRuntimeFactoryRef.get
 
   protected val mediatorRuntimeRef = new AtomicReference[Option[MediatorRuntime]](None)
 
@@ -92,14 +85,14 @@ class CommunityMediatorReplicaManager(
 
     adminServiceRegistry.addServiceU(domainTimeService.serviceDescriptor)
 
-    for {
-      mediatorRuntime <- EitherTUtil.toFuture(
-        getMediatorRuntimeFactory().apply().leftMap(new MediatorReplicaManagerException(_))
-      )
+    val result = for {
+      mediatorRuntime <- factory()
     } yield {
       mediatorRuntimeRef.set(Some(mediatorRuntime))
       domainTimeService.setInstance(mediatorRuntime.timeService)
     }
+
+    EitherTUtil.toFuture(result.leftMap(new MediatorReplicaManagerException(_)))
   }
 
   override def isActive: Boolean = true

@@ -26,6 +26,9 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
+import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -48,11 +51,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.messages.{
@@ -1524,7 +1525,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ParticipantAdminCommands.Transfer
             .TransferIn(
               submittingParty,
-              transferId.toProtoV0,
+              transferId.toAdminProto,
               targetDomain,
               applicationId = applicationId,
               submissionId = submissionId,

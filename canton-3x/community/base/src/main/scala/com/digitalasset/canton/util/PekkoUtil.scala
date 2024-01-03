@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.util
 
-import cats.{Applicative, Eval, Functor, Id}
+import cats.Id
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.SingletonTraverse.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.TryUtil.*
 import com.typesafe.config.ConfigFactory
@@ -44,6 +45,7 @@ import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.implicitConversions
@@ -64,7 +66,7 @@ object PekkoUtil extends HasLoggerName {
       mat: Materializer
   ): T = {
     val tmp = graph
-      .addAttributes(ActorAttributes.withSupervisionStrategy { ex =>
+      .addAttributes(ActorAttributes.supervisionStrategy { ex =>
         reporter(ex)
         Supervision.Stop
       })
@@ -236,7 +238,7 @@ object PekkoUtil extends HasLoggerName {
       case (oldState @ Some(s), next) =>
         // Since the context contains at most one element, it is fine to use traverse with futures here
         @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
-        val resultF = Context.traverseSingleton(next)(f(s, _, _).unwrap)
+        val resultF = next.traverseSingleton(f(s, _, _).unwrap)
         resultF.map { contextualizedStateAndResult =>
           // Since the type class ensures that the context `next` contains at most one element,
           // we can look for the last element in the context `result`.
@@ -576,6 +578,20 @@ object PekkoUtil extends HasLoggerName {
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
   }
 
+  /** Drops the first `count` many elements from the `graph` that satisfy the `condition`.
+    * Keeps all elements that do not satisfy the `condition`.
+    */
+  def dropIf[A, Mat](graph: FlowOps[A, Mat], count: Int, condition: A => Boolean): graph.Repr[A] =
+    graph.statefulMapConcat(() => {
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      var remaining = count
+      elem =>
+        if (remaining > 0 && condition(elem)) {
+          remaining -= 1
+          Seq.empty
+        } else Seq(elem)
+    })
+
   private[util] def withMaterializedValueMat[M, A, Mat, Mat2](create: => M)(
       graph: FlowOpsMat[A, Mat]
   )(combine: (Mat, M) => Mat2): graph.ReprMat[(A, M), Mat2] =
@@ -663,35 +679,16 @@ object PekkoUtil extends HasLoggerName {
     * (Equality ignores the [[org.apache.pekko.stream.KillSwitch]]es because it is usually not very meaningful.
     * The [[org.apache.pekko.stream.KillSwitch]] is therefore in the second argument list.)
     */
-  final case class WithKillSwitch[+A](private val value: A)(val killSwitch: KillSwitch) {
-    def unwrap: A = value
-    def map[B](f: A => B): WithKillSwitch[B] = copy(f(value))
-    def traverse[F[_], B](f: A => F[B])(implicit F: Functor[F]): F[WithKillSwitch[B]] =
-      F.map(f(value))(copy)
-    def copy[B](value: B = this.value): WithKillSwitch[B] = WithKillSwitch(value)(killSwitch)
+  final case class WithKillSwitch[+A](private val value: A)(val killSwitch: KillSwitch)
+      extends WithGeneric[A, KillSwitch, WithKillSwitch] {
+    override def unwrap: A = value
+    override protected def added: KillSwitch = killSwitch
+    override protected def update[AA](newValue: AA): WithKillSwitch[AA] = copy(newValue)(killSwitch)
   }
-  object WithKillSwitch {
+  object WithKillSwitch extends WithGenericCompanion {
     implicit val singletonTraverseWithKillSwitch
         : SingletonTraverse.Aux[WithKillSwitch, KillSwitch] =
-      new SingletonTraverse[WithKillSwitch] {
-        override type Context = KillSwitch
-
-        override def traverseSingleton[G[_], A, B](x: WithKillSwitch[A])(
-            f: (KillSwitch, A) => G[B]
-        )(implicit G: Applicative[G]): G[WithKillSwitch[B]] =
-          x.traverse(f(x.killSwitch, _))
-
-        override def traverse[F[_], A, B](fa: WithKillSwitch[A])(f: A => F[B])(implicit
-            F: Applicative[F]
-        ): F[WithKillSwitch[B]] = fa.traverse(f)
-
-        override def foldLeft[A, B](fa: WithKillSwitch[A], b: B)(f: (B, A) => B): B =
-          f(b, fa.unwrap)
-
-        override def foldRight[A, B](fa: WithKillSwitch[A], lb: Eval[B])(
-            f: (A, Eval[B]) => Eval[B]
-        ): Eval[B] = f(fa.unwrap, lb)
-      }
+      singletonTraverseWithGeneric[KillSwitch, WithKillSwitch]
   }
 
   /** Passes through all elements of the source until and including the first element that satisfies the condition.
@@ -724,6 +721,25 @@ object PekkoUtil extends HasLoggerName {
       }
     })
 
+  val noOpKillSwitch = new KillSwitch {
+    override def shutdown(): Unit = ()
+    override def abort(ex: Throwable): Unit = ()
+  }
+
+  /** Delegates to a future [[org.apache.pekko.stream.KillSwitch]] once the kill switch becomes available.
+    * If both [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.shutdown]] and
+    * [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.abort]] are called or
+    * [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.abort]] is called multiple times before the delegate
+    * is available, then the winning call is non-deterministic.
+    */
+  class DelayedKillSwitch(delegate: Future[KillSwitch], logger: Logger) extends KillSwitch {
+    private implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(logger)
+
+    override def shutdown(): Unit = delegate.onComplete(_.foreach(_.shutdown()))
+
+    override def abort(ex: Throwable): Unit = delegate.onComplete(_.foreach(_.abort(ex)))
+  }
+
   object syntax {
 
     /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
@@ -751,6 +767,11 @@ object PekkoUtil extends HasLoggerName {
       )(implicit loggingContext: NamedLoggingContext): U#Repr[UnlessShutdown[T]] =
         PekkoUtil.statefulMapAsyncUS(graph, initial)(f)
 
+      def statefulMapAsyncUSAndDrain[S, T](initial: S)(f: (S, A) => FutureUnlessShutdown[(S, T)])(
+          implicit loggingContext: NamedLoggingContext
+      ): U#Repr[T] =
+        PekkoUtil.statefulMapAsyncUSAndDrain(graph, initial)(f)
+
       def mapAsyncUS[B](parallelism: Int)(f: A => FutureUnlessShutdown[B])(implicit
           loggingContext: NamedLoggingContext
       ): U#Repr[UnlessShutdown[B]] =
@@ -760,6 +781,12 @@ object PekkoUtil extends HasLoggerName {
           f: A => FutureUnlessShutdown[B]
       )(implicit loggingContext: NamedLoggingContext): U#Repr[B] =
         PekkoUtil.mapAsyncAndDrainUS(graph, parallelism)(f)
+
+      def batchN(maxBatchSize: Int, maxBatchCount: Int): U#Repr[immutable.Iterable[A]] =
+        graph.via(BatchN(maxBatchSize, maxBatchCount))
+
+      def dropIf(count: Int)(condition: A => Boolean): U#Repr[A] =
+        PekkoUtil.dropIf(graph, count, condition)
     }
     // Use separate implicit conversions for Sources and Flows to help IntelliJ
     // Otherwise IntelliJ gets very resource hungry.

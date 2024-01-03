@@ -403,7 +403,7 @@ trait HasSupportedProtoVersions[ValueClass] {
   }
 
   object VersionedProtoConverter {
-    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersion.Status](
+    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersionAnnotation.Status](
         fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[Status]
     )(
         protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status

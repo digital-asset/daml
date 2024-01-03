@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto
 import cats.Order
 import cats.data.EitherT
 import cats.instances.future.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.crypto.store.{
@@ -223,6 +224,13 @@ object EncryptionKeyScheme {
     override def toProtoEnum: v0.EncryptionKeyScheme =
       v0.EncryptionKeyScheme.Rsa2048OaepSha256
   }
+
+  val allSchemes: NonEmpty[Set[EncryptionKeyScheme]] = NonEmpty.mk(
+    Set,
+    EciesP256HkdfHmacSha256Aes128Gcm,
+    EciesP256HmacSha256Aes128Cbc,
+    Rsa2048OaepSha256,
+  )
 
   def fromProtoEnum(
       field: String,

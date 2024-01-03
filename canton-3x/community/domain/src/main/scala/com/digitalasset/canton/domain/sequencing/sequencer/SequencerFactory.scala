@@ -121,3 +121,33 @@ trait MkSequencerFactory {
   )(implicit executionContext: ExecutionContext): SequencerFactory
 
 }
+
+object CommunitySequencerFactory extends MkSequencerFactory {
+  override def apply(
+      protocolVersion: ProtocolVersion,
+      health: Option[SequencerHealthConfig],
+      clock: Clock,
+      scheduler: ScheduledExecutorService,
+      metrics: SequencerMetrics,
+      storage: Storage,
+      topologyClientMember: Member,
+      nodeParameters: CantonNodeParameters,
+      loggerFactory: NamedLoggerFactory,
+  )(sequencerConfig: SequencerConfig)(implicit
+      executionContext: ExecutionContext
+  ): SequencerFactory = sequencerConfig match {
+    case communityConfig: CommunitySequencerConfig.Database =>
+      new CommunityDatabaseSequencerFactory(
+        communityConfig,
+        metrics,
+        storage,
+        protocolVersion,
+        topologyClientMember,
+        nodeParameters,
+        loggerFactory,
+      )
+
+    case config: SequencerConfig =>
+      throw new UnsupportedOperationException(s"Invalid config type ${config.getClass}")
+  }
+}

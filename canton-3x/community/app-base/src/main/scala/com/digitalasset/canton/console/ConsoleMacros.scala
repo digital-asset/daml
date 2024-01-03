@@ -6,6 +6,7 @@ package com.digitalasset.canton.console
 import better.files.File
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{Level, Logger}
 import ch.qos.logback.core.spi.AppenderAttachable
@@ -22,8 +23,10 @@ import com.daml.ledger.api.v1.value.{
   Value,
 }
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.DomainAlias
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.ContractData
+import com.digitalasset.canton.admin.api.client.data
 import com.digitalasset.canton.admin.api.client.data.{ListPartiesResult, TemplateId}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
@@ -38,10 +41,24 @@ import com.digitalasset.canton.participant.config.{AuthServiceConfig, BasePartic
 import com.digitalasset.canton.participant.ledger.api.JwtTokenUtilities
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.{
+  GenericSignedTopologyTransactionX,
+  PositiveSignedTopologyTransactionX,
+}
+import com.digitalasset.canton.topology.transaction.{
+  DecentralizedNamespaceDefinitionX,
+  NamespaceDelegationX,
+  OwnerToKeyMappingX,
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.{BinaryFileUtil, EitherUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Encoder
@@ -748,6 +765,217 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     // this command is intentionally not documented as part of the help system
     def enable_features(flag: FeatureFlag)(implicit env: ConsoleEnvironment): Unit = {
       env.updateFeatureSet(flag, include = true)
+    }
+  }
+
+  @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full domains")
+  @Help.Group("Bootstrap")
+  object bootstrap extends Helpful {
+
+    @Help.Summary("Bootstraps a decentralized namespace for the provided owners")
+    @Help.Description(
+      """Returns the decentralized namespace, the fully authorized transaction of its definition, as well
+        |as all root certificates of the owners. This allows other nodes to import and
+        |fully validate the decentralized namespace definition.
+        |After this call has finished successfully, all of the owners have stored the co-owners' identity topology
+        |transactions as well as the fully authorized decentralized namespace definition in the specified topology store."""
+    )
+    def decentralized_namespace(
+        owners: Seq[InstanceReferenceX],
+        store: String = AuthorizedStore.filterName,
+    ): (Namespace, Seq[GenericSignedTopologyTransactionX]) = {
+      val decentralizedNamespaceDefinition = NonEmpty
+        .from(owners)
+        .getOrElse(
+          throw new IllegalArgumentException(
+            "There must be at least 1 owner for a decentralizedNamespace."
+          )
+        )
+        .map(
+          _.topology.decentralized_namespaces.propose(
+            owners.map(_.id.member.uid.namespace).toSet,
+            PositiveInt.tryCreate(1.max(owners.size - 1)),
+            store = store,
+          )
+        )
+        // merging the signatures here is an "optimization" so that later we only upload a single
+        // decentralizedNamespace transaction, instead of a transaction per owner.
+        .reduceLeft[SignedTopologyTransactionX[
+          TopologyChangeOpX,
+          DecentralizedNamespaceDefinitionX,
+        ]]((txA, txB) => txA.addSignatures(txB.signatures.forgetNE.toSeq))
+
+      val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
+      val foundingTransactions = ownerNSDs :+ decentralizedNamespaceDefinition
+
+      owners.foreach(_.topology.transactions.load(foundingTransactions, store = store))
+
+      (decentralizedNamespaceDefinition.transaction.mapping.namespace, foundingTransactions)
+    }
+
+    private def expected_namespace(
+        owners: NonEmpty[Set[InstanceReferenceX]]
+    ): Either[String, Option[Namespace]] = {
+      val expectedNamespace =
+        DecentralizedNamespaceDefinitionX.computeNamespace(
+          owners.forgetNE.map(_.id.member.uid.namespace)
+        )
+      val recordedNamespaces =
+        owners.map(
+          _.topology.decentralized_namespaces
+            .list(filterStore = AuthorizedStore.filterName)
+            .collectFirst {
+              case result if result.item.namespace == expectedNamespace => result.item.namespace
+            }
+        )
+      Either.cond(
+        recordedNamespaces.sizeIs == 1,
+        recordedNamespaces.head1,
+        "the domain owners do not agree on the decentralizedNamespace",
+      )
+    }
+
+    private def in_domain(
+        sequencers: NonEmpty[Set[SequencerNodeReferenceX]],
+        mediators: NonEmpty[Set[MediatorReferenceX]],
+    )(domainId: DomainId): Either[String, Unit] =
+      EitherUtil.condUnitE(
+        sequencers.forall(_.health.status.successOption.exists(_.domainId == domainId)) &&
+          mediators.forall(_.health.status.successOption.exists(_.domainId == domainId)),
+        "the domain has already been bootstrapped but not all the given sequencers and mediators are in it",
+      )
+
+    private def no_domain(nodes: NonEmpty[Set[InstanceReferenceX]]): Either[String, Unit] =
+      EitherUtil.condUnitE(
+        !nodes.exists(_.health.initialized()),
+        "the domain has not yet been bootstrapped but some sequencers or mediators are already part of one",
+      )
+
+    private def check_domain_bootstrap_status(
+        name: String,
+        owners: Seq[InstanceReferenceX],
+        sequencers: Seq[SequencerNodeReferenceX],
+        mediators: Seq[MediatorReferenceX],
+    ): Either[String, Option[DomainId]] =
+      for {
+        neOwners <- NonEmpty.from(owners.toSet).toRight("you need at least one domain owner")
+        neSequencers <- NonEmpty.from(sequencers.toSet).toRight("you need at least one sequencer")
+        neMediators <- NonEmpty.from(mediators.toSet).toRight("you need at least one mediator")
+        nodes = neOwners ++ neSequencers ++ neMediators
+        _ = EitherUtil.condUnitE(nodes.forall(_.health.running()), "all nodes must be running")
+        ns <- expected_namespace(neOwners)
+        id = ns.map(ns => DomainId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)))
+        _ <- id.fold(no_domain(neSequencers ++ neMediators))(in_domain(neSequencers, neMediators))
+      } yield id
+
+    private def run_bootstrap(
+        domainName: String,
+        staticDomainParameters: data.StaticDomainParameters,
+        domainOwners: Seq[InstanceReferenceX],
+        sequencers: Seq[SequencerNodeReferenceX],
+        mediators: Seq[MediatorReferenceX],
+    ): DomainId = {
+      val (decentralizedNamespace, foundingTxs) =
+        bootstrap.decentralized_namespace(domainOwners, store = AuthorizedStore.filterName)
+
+      val domainId = DomainId(
+        UniqueIdentifier.tryCreate(domainName, decentralizedNamespace.toProtoPrimitive)
+      )
+
+      val seqMedIdentityTxs =
+        (sequencers ++ mediators).flatMap(_.topology.transactions.identity_transactions())
+      domainOwners.foreach(
+        _.topology.transactions.load(seqMedIdentityTxs, store = AuthorizedStore.filterName)
+      )
+
+      val domainGenesisTxs = domainOwners.flatMap(
+        _.topology.domain_bootstrap.generate_genesis_topology(
+          domainId,
+          domainOwners.map(_.id.member),
+          sequencers.map(_.id),
+          mediators.map(_.id),
+        )
+      )
+
+      val initialTopologyState = (foundingTxs ++ seqMedIdentityTxs ++ domainGenesisTxs)
+        .mapFilter(_.selectOp[TopologyChangeOpX.Replace])
+
+      // TODO(#12390) replace this merge / active with proper tooling and checks that things are really fully authorized
+      val orderingMap =
+        Seq(
+          NamespaceDelegationX.code,
+          OwnerToKeyMappingX.code,
+          DecentralizedNamespaceDefinitionX.code,
+        ).zipWithIndex.toMap
+          .withDefaultValue(5)
+
+      val merged = initialTopologyState
+        .groupBy1(_.transaction.hash)
+        .values
+        .map(
+          // combine signatures of transactions with the same hash
+          _.reduceLeft[PositiveSignedTopologyTransactionX] { (a, b) =>
+            a.addSignatures(b.signatures.toSeq)
+          }.copy(isProposal = false)
+        )
+        .toSeq
+        .sortBy(tx => orderingMap(tx.transaction.mapping.code))
+
+      // TODO(#14075) resolve with raf on what to use here (right now we use internal case structure)
+      sequencers.foreach(_.setup.assign_from_beginning(merged, staticDomainParameters).discard)
+
+      mediators.foreach { mediator =>
+        mediator.setup
+          .assign(
+            domainId,
+            staticDomainParameters,
+            SequencerConnections.tryMany(
+              sequencers.map(s =>
+                s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))
+              ),
+              PositiveInt.tryCreate(1),
+            ),
+          )
+      }
+
+      domainId
+    }
+
+    @Help.Summary(
+      """Bootstraps a new domain with the given static domain parameters and members. Any participants as domain owners
+        |must still manually connect to the domain afterwards."""
+    )
+    def domain(
+        domainName: String,
+        sequencers: Seq[SequencerNodeReferenceX],
+        mediators: Seq[MediatorReferenceX],
+        domainOwners: Seq[InstanceReferenceX] = Seq.empty,
+        staticDomainParameters: data.StaticDomainParameters =
+          data.StaticDomainParameters.defaultsWithoutKMS,
+    ): DomainId = {
+      val domainOwnersOrDefault = if (domainOwners.isEmpty) sequencers else domainOwners
+      check_domain_bootstrap_status(
+        domainName,
+        domainOwnersOrDefault,
+        sequencers,
+        mediators,
+      ) match {
+        case Right(Some(domainId)) =>
+          logger.info(s"Domain $domainName has already been bootstrapped with ID $domainId")
+          domainId
+        case Right(None) =>
+          run_bootstrap(
+            domainName,
+            staticDomainParameters,
+            domainOwnersOrDefault,
+            sequencers,
+            mediators,
+          )
+        case Left(error) =>
+          val message = s"The domain cannot be bootstrapped: $error"
+          logger.error(message)
+          sys.error(message)
+      }
     }
   }
 

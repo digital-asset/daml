@@ -116,43 +116,44 @@ class SequencerRuntimeForSeparateNode(
       loggerFactory,
     )
 
-  private val client: SequencerClient = new SequencerClientImpl(
-    domainId,
-    sequencerId,
-    SequencerTransports.default(
+  private val client: SequencerClient =
+    new SequencerClientImplPekko[DirectSequencerClientTransport.SubscriptionError](
+      domainId,
       sequencerId,
-      new DirectSequencerClientTransport(
-        sequencer,
-        localNodeParameters.processingTimeouts,
-        loggerFactory,
+      SequencerTransports.default(
+        sequencerId,
+        new DirectSequencerClientTransport(
+          sequencer,
+          localNodeParameters.processingTimeouts,
+          loggerFactory,
+        ),
       ),
-    ),
-    localNodeParameters.sequencerClient,
-    testingConfig,
-    staticDomainParameters.protocolVersion,
-    sequencerDomainParamsLookup,
-    localNodeParameters.processingTimeouts,
-    // Since the sequencer runtime trusts itself, there is no point in validating the events.
-    SequencedEventValidatorFactory.noValidation(domainId, warn = false),
-    clock,
-    RequestSigner(syncCrypto, staticDomainParameters.protocolVersion),
-    sequencedEventStore,
-    new SendTracker(
-      Map(),
-      SendTrackerStore(storage),
+      localNodeParameters.sequencerClient,
+      testingConfig,
+      staticDomainParameters.protocolVersion,
+      sequencerDomainParamsLookup,
+      localNodeParameters.processingTimeouts,
+      // Since the sequencer runtime trusts itself, there is no point in validating the events.
+      SequencedEventValidatorFactory.noValidation(domainId, warn = false),
+      clock,
+      RequestSigner(syncCrypto, staticDomainParameters.protocolVersion),
+      sequencedEventStore,
+      new SendTracker(
+        Map(),
+        SendTrackerStore(storage),
+        metrics.sequencerClient,
+        loggerFactory,
+        timeouts,
+      ),
       metrics.sequencerClient,
+      None,
+      replayEnabled = false,
+      syncCrypto.pureCrypto,
+      localNodeParameters.loggingConfig,
       loggerFactory,
-      timeouts,
-    ),
-    metrics.sequencerClient,
-    None,
-    replayEnabled = false,
-    syncCrypto.pureCrypto,
-    localNodeParameters.loggingConfig,
-    loggerFactory,
-    futureSupervisor,
-    sequencer.firstSequencerCounterServeableForSequencer,
-  )
+      futureSupervisor,
+      sequencer.firstSequencerCounterServeableForSequencer,
+    )
   private val timeTracker = DomainTimeTracker(
     timeTrackerConfig,
     clock,

@@ -10,6 +10,6 @@ import "google/protobuf/timestamp.proto";
 // Messages sent by a participant as part of the transfer protocol
 
 message TransferId {
-  string origin_domain = 1;
+  string source_domain = 1;
   google.protobuf.Timestamp timestamp = 2;
 }

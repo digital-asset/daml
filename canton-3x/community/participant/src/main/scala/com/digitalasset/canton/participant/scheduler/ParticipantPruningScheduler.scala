@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.participant.scheduler
 
+import com.digitalasset.canton.admin.pruning.v0
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.pruning.PruningProcessor
-import com.digitalasset.canton.pruning.admin.v0
 import com.digitalasset.canton.scheduler.{PruningSchedule, PruningScheduler, Scheduler, Schedulers}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult

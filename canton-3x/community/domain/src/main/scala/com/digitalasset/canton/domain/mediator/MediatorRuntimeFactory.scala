@@ -20,7 +20,7 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
 import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService}
 import com.digitalasset.canton.topology.*
@@ -91,7 +91,7 @@ trait MediatorRuntimeFactory {
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
-      sequencerClient: SequencerClient,
+      sequencerClient: RichSequencerClient,
       syncCrypto: DomainSyncCryptoClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,
@@ -118,7 +118,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
-      sequencerClient: SequencerClient,
+      sequencerClient: RichSequencerClient,
       syncCrypto: DomainSyncCryptoClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,

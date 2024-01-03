@@ -6,6 +6,8 @@ package com.digitalasset.canton.lifecycle
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
+import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
@@ -341,5 +343,10 @@ object FutureUnlessShutdownImpl {
         errorLoggingContext: ErrorLoggingContext,
     ): EitherT[FutureUnlessShutdown, A, B] =
       EitherT(eitherT.value.tapOnShutdown(f))
+  }
+
+  implicit class TimerOnShutdownSyntax(private val timed: Timed.type) extends AnyVal {
+    def future[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
+      FutureUnlessShutdown(timed.future(timer, future.unwrap))
   }
 }

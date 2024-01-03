@@ -22,7 +22,7 @@ import com.digitalasset.canton.sequencing.client.transports.{
 }
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
-  SequencerClient,
+  RichSequencerClient,
   SequencerClientFactory,
   SequencerClientTransportFactory,
 }
@@ -68,7 +68,7 @@ class DomainNodeSequencerClientFactory(
       materializer: Materializer,
       tracer: Tracer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SequencerClient] =
+  ): EitherT[Future, String, RichSequencerClient] =
     factory(member).create(
       member,
       sequencedEventStore,
@@ -82,13 +82,14 @@ class DomainNodeSequencerClientFactory(
       connection: SequencerConnection,
       member: Member,
       requestSigner: RequestSigner,
+      allowReplay: Boolean = true,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
       traceContext: TraceContext,
   ): EitherT[Future, String, SequencerClientTransport & SequencerClientTransportPekko] =
-    factory(member).makeTransport(connection, member, requestSigner)
+    factory(member).makeTransport(connection, member, requestSigner, allowReplay)
 
   private def factory(member: Member)(implicit
       executionContext: ExecutionContextExecutor

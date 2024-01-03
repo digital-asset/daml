@@ -434,7 +434,7 @@ object DomainRegistryHelpers {
       domainId: DomainId,
       alias: DomainAlias,
       staticParameters: StaticDomainParameters,
-      sequencer: SequencerClient,
+      sequencer: RichSequencerClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyFactory: TopologyComponentFactory,
       domainPersistentState: SyncDomainPersistentState,

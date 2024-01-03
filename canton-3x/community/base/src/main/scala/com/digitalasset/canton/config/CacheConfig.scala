@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContext
   */
 final case class CacheConfig(
     maximumSize: PositiveNumeric[Long],
-    expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
+    expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
 ) {
 
   def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =

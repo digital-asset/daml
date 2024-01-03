@@ -4,11 +4,17 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.service.DirectSequencerSubscriptionFactory
-import com.digitalasset.canton.lifecycle.SyncCloseable
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.{OnShutdownRunner, SyncCloseable}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
@@ -27,10 +33,13 @@ import com.digitalasset.canton.sequencing.protocol.{
   TopologyStateForInitResponse,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
-import com.digitalasset.canton.{DiscardOps, Uninhabited}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, PekkoUtil}
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
@@ -48,6 +57,7 @@ class DirectSequencerClientTransport(
     extends SequencerClientTransport
     with SequencerClientTransportPekko
     with NamedLogging {
+  import DirectSequencerClientTransport.*
 
   private val subscriptionFactory =
     new DirectSequencerSubscriptionFactory(sequencer, timeouts, loggerFactory)
@@ -158,12 +168,43 @@ class DirectSequencerClientTransport(
     // unlikely there will be any errors with this direct transport implementation
     SubscriptionErrorRetryPolicy.never
 
-  override type SubscriptionError = Uninhabited
+  override type SubscriptionError = DirectSequencerClientTransport.SubscriptionError
 
   override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    ??? // TODO(#13789) implement this
+  ): SequencerSubscriptionPekko[SubscriptionError] = {
+    val sourceF = sequencer
+      .read(request.member, request.counter)
+      .value
+      .map {
+        case Left(creationError) =>
+          Source
+            .single(Left(SubscriptionCreationError(creationError)))
+            .mapMaterializedValue((_: NotUsed) =>
+              (PekkoUtil.noOpKillSwitch, Future.successful(Done))
+            )
+        case Right(source) => source.map(_.leftMap(SequencedEventError))
+      }
+    val health = new DirectSequencerClientTransportHealth(logger)
+    val source = Source
+      .futureSource(sourceF)
+      .watchTermination() { (matF, terminationF) =>
+        val directExecutionContext = DirectExecutionContext(noTracingLogger)
+        val killSwitchF = matF.map { case (killSwitch, _) => killSwitch }(directExecutionContext)
+        val killSwitch = new DelayedKillSwitch(killSwitchF, noTracingLogger)
+        val doneF = matF
+          .flatMap { case (_, doneF) => doneF }(directExecutionContext)
+          .flatMap(_ => terminationF)(directExecutionContext)
+          .thereafter { _ =>
+            logger.debug("Closing direct sequencer subscription transport")
+            health.associatedOnShutdownRunner.close()
+          }
+        (killSwitch, doneF)
+      }
+      .injectKillSwitch { case (killSwitch, _) => killSwitch }
+
+    SequencerSubscriptionPekko(source, health)
+  }
 
   override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
@@ -188,4 +229,25 @@ class DirectSequencerClientTransport(
     throw new UnsupportedOperationException(
       "downloadTopologyStateForInit is not implemented for DirectSequencerClientTransport"
     )
+}
+
+object DirectSequencerClientTransport {
+  sealed trait SubscriptionError extends Product with Serializable with PrettyPrinting {
+    override def pretty: Pretty[SubscriptionError.this.type] = adHocPrettyInstance
+  }
+  final case class SubscriptionCreationError(error: CreateSubscriptionError)
+      extends SubscriptionError
+  final case class SequencedEventError(error: SequencerSubscriptionError.SequencedEventError)
+      extends SubscriptionError
+
+  private class DirectSequencerClientTransportHealth(override protected val logger: TracedLogger)
+      extends AtomicHealthComponent {
+    override def name: String = "direct-sequencer-client-transport"
+
+    override protected def initialHealthState: ComponentHealthState =
+      ComponentHealthState.Ok()
+
+    override lazy val associatedOnShutdownRunner: AutoCloseable & OnShutdownRunner =
+      new OnShutdownRunner.PureOnShutdownRunner(logger)
+  }
 }

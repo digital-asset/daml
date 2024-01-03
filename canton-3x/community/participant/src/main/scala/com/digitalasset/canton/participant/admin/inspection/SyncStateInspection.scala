@@ -20,7 +20,6 @@ import com.digitalasset.canton.participant.admin.inspection.Error.{
   SerializationIssue,
 }
 import com.digitalasset.canton.participant.protocol.RequestJournal
-import com.digitalasset.canton.participant.pruning.PruningProcessor
 import com.digitalasset.canton.participant.store.ActiveContractStore.AcsError
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
@@ -29,7 +28,6 @@ import com.digitalasset.canton.participant.sync.{
   TimestampedEvent,
   UpstreamOffsetConvert,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, Pruning}
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -54,6 +52,7 @@ import com.digitalasset.canton.store.{
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
@@ -68,12 +67,26 @@ import java.io.OutputStream
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
+trait JournalGarbageCollectorControl {
+  def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit]
+  def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit
+
+}
+
+object JournalGarbageCollectorControl {
+  object NoOp extends JournalGarbageCollectorControl {
+    override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+      Future.unit
+    override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit = ()
+  }
+}
+
 /** Implements inspection functions for the sync state of a participant node */
 final class SyncStateInspection(
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
-    pruningProcessor: PruningProcessor,
     timeouts: ProcessingTimeout,
+    journalCleaningControl: JournalGarbageCollectorControl,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -145,6 +158,21 @@ final class SyncStateInspection(
       domain,
     )
 
+  private def disableJournalCleaningForFilter(
+      domains: Map[DomainId, SyncDomainPersistentState],
+      filterDomain: DomainId => Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, Unit] = {
+    val disabledCleaningF = Future
+      .sequence(domains.collect {
+        case (domainId, _) if filterDomain(domainId) =>
+          journalCleaningControl.disable(domainId)
+      })
+      .map(_ => ())
+    EitherT.right(disabledCleaningF)
+  }
+
   // TODO(i14441): Remove deprecated ACS download / upload functionality
   @deprecated("Use exportAcsDumpActiveContracts", since = "2.8.0")
   def dumpActiveContracts(
@@ -156,24 +184,34 @@ final class SyncStateInspection(
       contractDomainRenames: Map[DomainId, DomainId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] =
-    MonadUtil.sequentialTraverse_(syncDomainPersistentStateManager.getAll) {
-      case (domainId, state) if filterDomain(domainId) =>
-        val domainIdForExport = contractDomainRenames.getOrElse(domainId, domainId)
-        val useProtocolVersion = protocolVersion.getOrElse(state.protocolVersion)
-        for {
-          _ <- AcsInspection
-            .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-              case (contract, _) =>
-                val domainToContract = SerializableContractWithDomainId(domainIdForExport, contract)
-                val encodedContract = domainToContract.encode(useProtocolVersion)
-                outputStream.write(encodedContract.getBytes)
-                Right(outputStream.flush())
-            }
-        } yield ()
-      case _ =>
-        EitherTUtil.unit
+  ): EitherT[Future, Error, Unit] = {
+    val allDomains = syncDomainPersistentStateManager.getAll
+    // disable journal cleaning for the duration of the dump
+    disableJournalCleaningForFilter(allDomains, filterDomain).flatMap { _ =>
+      MonadUtil.sequentialTraverse_(allDomains) {
+        case (domainId, state) if filterDomain(domainId) =>
+          val domainIdForExport = contractDomainRenames.getOrElse(domainId, domainId)
+          val useProtocolVersion = protocolVersion.getOrElse(state.protocolVersion)
+          val ret = for {
+            _ <- AcsInspection
+              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
+                case (contract, _) =>
+                  val domainToContract =
+                    SerializableContractWithDomainId(domainIdForExport, contract)
+                  val encodedContract = domainToContract.encode(useProtocolVersion)
+                  outputStream.write(encodedContract.getBytes)
+                  Right(outputStream.flush())
+              }
+          } yield ()
+          // re-enable journal cleaning after the dump
+          ret.thereafter { _ =>
+            journalCleaningControl.enable(domainId)
+          }
+        case _ =>
+          EitherTUtil.unit
+      }
     }
+  }
 
   def allProtocolVersions: Map[DomainId, ProtocolVersion] =
     syncDomainPersistentStateManager.getAll.view.mapValues(_.protocolVersion).toMap
@@ -186,38 +224,48 @@ final class SyncStateInspection(
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] =
-    MonadUtil.sequentialTraverse_(syncDomainPersistentStateManager.getAll) {
-      case (domainId, state) if filterDomain(domainId) =>
-        val (domainIdForExport, protocolVersion) =
-          contractDomainRenames.getOrElse(domainId, (domainId, state.protocolVersion))
+  ): EitherT[Future, Error, Unit] = {
+    val allDomains = syncDomainPersistentStateManager.getAll
+    // disable journal cleaning for the duration of the dump
+    disableJournalCleaningForFilter(allDomains, filterDomain).flatMap { _ =>
+      MonadUtil.sequentialTraverse_(allDomains) {
+        case (domainId, state) if filterDomain(domainId) =>
+          val (domainIdForExport, protocolVersion) =
+            contractDomainRenames.getOrElse(domainId, (domainId, state.protocolVersion))
 
-        for {
-          _ <- AcsInspection
-            .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-              case (contract, transferCounter) =>
-                val activeContractE =
-                  ActiveContract.create(domainIdForExport, contract, transferCounter)(
-                    protocolVersion
-                  )
+          val ret = for {
+            _ <- AcsInspection
+              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
+                case (contract, transferCounter) =>
+                  val activeContractE =
+                    ActiveContract.create(domainIdForExport, contract, transferCounter)(
+                      protocolVersion
+                    )
 
-                activeContractE match {
-                  case Left(e) => Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
-                  case Right(bundle) =>
-                    bundle.writeDelimitedTo(outputStream) match {
-                      case Left(errorMessage) =>
-                        Left(SerializationIssue(domainId, contract.contractId, errorMessage))
-                      case Right(_) =>
-                        outputStream.flush()
-                        Right(())
-                    }
-                }
+                  activeContractE match {
+                    case Left(e) =>
+                      Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
+                    case Right(bundle) =>
+                      bundle.writeDelimitedTo(outputStream) match {
+                        case Left(errorMessage) =>
+                          Left(SerializationIssue(domainId, contract.contractId, errorMessage))
+                        case Right(_) =>
+                          outputStream.flush()
+                          Right(())
+                      }
+                  }
 
-            }
-        } yield ()
-      case _ =>
-        EitherTUtil.unit
+              }
+          } yield ()
+          // re-enable journal cleaning after the dump
+          ret.thereafter { _ =>
+            journalCleaningControl.enable(domainId)
+          }
+        case _ =>
+          EitherTUtil.unit
+      }
     }
+  }
 
   def contractCount(domain: DomainAlias)(implicit traceContext: TraceContext): Future[Int] = {
     val state = syncDomainPersistentStateManager
@@ -357,11 +405,6 @@ final class SyncStateInspection(
     )
     closed.map(opener.tryOpen)
   }
-
-  def safeToPrune(beforeOrAt: CantonTimestamp, ledgerEndOffset: GlobalOffset)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, Pruning.LedgerPruningError, Option[GlobalOffset]] = pruningProcessor
-    .safeToPrune(beforeOrAt, ledgerEndOffset)
 
   def findComputedCommitments(
       domain: DomainAlias,

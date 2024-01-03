@@ -146,7 +146,7 @@ object Thereafter {
 
   trait Ops[F[_], C[_], A] extends Serializable {
     protected def self: F[A]
-    val typeClassInstance: Thereafter.Aux[F, C]
+    protected val typeClassInstance: Thereafter.Aux[F, C]
     def thereafter(body: C[A] => Unit)(implicit ec: ExecutionContext): F[A] =
       typeClassInstance.thereafter(self)(body)
     def thereafterF(body: C[A] => Future[Unit])(implicit ec: ExecutionContext): F[A] =
@@ -160,7 +160,7 @@ object Thereafter {
         tc: Thereafter[F]
     ): Ops[F, tc.Content, A] = new Ops[F, tc.Content, A] {
       override val self: F[A] = target
-      override val typeClassInstance: Thereafter.Aux[F, tc.Content] = tc
+      override protected val typeClassInstance: Thereafter.Aux[F, tc.Content] = tc
     }
   }
 }

@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.participant.admin.{ResourceLimits, ResourceManagementService, v0}
+import com.digitalasset.canton.participant.admin.{ResourceLimits, ResourceManagementService}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.empty.Empty
 

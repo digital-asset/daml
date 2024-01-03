@@ -63,6 +63,8 @@ class PeriodicAcknowledgements(
           logger.debug("Acknowledging sequencer timestamp skipped due to shutdown")
         )
         addToFlushAndLogError("periodic acknowledgement")(updateF)
+      } else {
+        logger.debug("Skipping periodic acknowledgement because sequencer client is not healthy")
       }
     }
 
@@ -101,10 +103,7 @@ object PeriodicAcknowledgements {
       Traced.lift((ts, tc) =>
         client
           .acknowledgeSigned(ts)(tc)
-          .foldF(
-            e => if (client.isClosing) Future.unit else Future.failed(new RuntimeException(e)),
-            _ => Future.unit,
-          )
+          .valueOr(e => if (!client.isClosing) throw new RuntimeException(e))
       ),
       clock,
       timeouts,

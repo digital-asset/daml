@@ -7,6 +7,7 @@ import better.files.*
 import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
@@ -21,7 +22,6 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
 import com.digitalasset.canton.participant.admin.inspection
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}

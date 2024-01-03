@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/domain/api/v0/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/domain/v0/sequencer_connection.proto";
 import "google/protobuf/empty.proto";
 
 // service used by sequencer clients to manage connection to the sequencer
@@ -18,7 +18,7 @@ service EnterpriseSequencerConnectionService {
 message GetConnectionRequest {}
 
 message GetConnectionResponse {
-  repeated com.digitalasset.canton.domain.api.v0.SequencerConnection sequencer_connections = 1;
+  repeated com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencer_connections = 1;
   // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
   // is considered reliable and accepted by the system.
   // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value
@@ -26,7 +26,7 @@ message GetConnectionResponse {
   uint32 sequencerTrustThreshold = 2;
 }
 message SetConnectionRequest {
-  repeated com.digitalasset.canton.domain.api.v0.SequencerConnection sequencer_connections = 1;
+  repeated com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencer_connections = 1;
   // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
   // is considered reliable and accepted by the system.
   // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value

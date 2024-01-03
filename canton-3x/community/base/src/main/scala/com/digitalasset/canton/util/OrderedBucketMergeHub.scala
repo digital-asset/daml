@@ -1019,6 +1019,8 @@ object OrderedBucketMergeHub {
 
   /** Signals the new configuration that is active for all subsequent elements until the next [[NewConfiguration]]
     * and the materialized values for the newly created sources.
+    *
+    * @param startingOffset The exclusive offset where the subscription starts
     */
   final case class NewConfiguration[Name, +ConfigAndMat, +Offset](
       newConfig: OrderedBucketMergeConfig[Name, ConfigAndMat],

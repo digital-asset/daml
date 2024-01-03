@@ -27,7 +27,6 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -138,7 +137,6 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
   def removeObserver(observer: TopologyManagerObserver): Unit =
     observers.updateAndGet(_.filterNot(_ == observer)).discard
 
-  @VisibleForTesting
   def clearObservers(): Unit = observers.set(Seq.empty)
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
@@ -322,7 +320,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
           // TODO(#12945) get signing keys for transaction.
           EitherT.leftT(
             TopologyManagerError.InternalError.ImplementMe(
-              "Automatic signing key lookup not yet implemented. Please specify a signing explicitly."
+              "Automatic signing key lookup not yet implemented. Please specify a signing key explicitly."
             )
           )
       }): EitherT[Future, TopologyManagerError, NonEmpty[Set[Fingerprint]]]

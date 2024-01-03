@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.digitalasset.canton.pruning.admin.v0
+import com.digitalasset.canton.admin.pruning.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.{config, participant, scheduler}
 

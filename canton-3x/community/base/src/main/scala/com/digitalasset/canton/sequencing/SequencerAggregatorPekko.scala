@@ -182,10 +182,16 @@ class SequencerAggregatorPekko(
 
     override def offsetOfBucket(bucket: Bucket): SequencerCounter = bucket.sequencerCounter
 
-    /** The initial offset to start from */
-    override def exclusiveLowerBoundForBegin: SequencerCounter = initialCounterOrPriorEvent match {
-      case Left(initial) => initial - 1L
-      case Right(priorEvent) => priorEvent.counter
+    /** The predecessor of the counter to start from */
+    override def exclusiveLowerBoundForBegin: SequencerCounter = {
+      val counterToSubscribeFrom = initialCounterOrPriorEvent match {
+        case Left(initial) => initial
+        case Right(priorEvent) =>
+          // The client requests the prior event again to check against ledger forks
+          priorEvent.counter
+      }
+      // Subtract 1 to make it exclusive
+      counterToSubscribeFrom - 1L
     }
 
     override def traceContextOf(event: OrdinarySerializedEvent): TraceContext =
@@ -208,7 +214,7 @@ class SequencerAggregatorPekko(
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
       val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
       val subscription = eventValidator
-        .validatePekko(config.subscriptionFactory.create(exclusiveStart), prior, sequencerId)
+        .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
         .mapConcat(_.unwrap match {
@@ -286,7 +292,7 @@ object SequencerAggregatorPekko {
 
     def updateHealth(control: SubscriptionControlInternal[?]): Unit = {
       control match {
-        case NewConfiguration(newConfig, startingOffset) =>
+        case NewConfiguration(newConfig, _startingOffset) =>
           val currentlyRegisteredDependencies = getDependencies
           val toRemove = currentlyRegisteredDependencies.keySet diff newConfig.sources.keySet
           val toAdd = newConfig.sources.collect { case (id, (_config, Some(health))) =>

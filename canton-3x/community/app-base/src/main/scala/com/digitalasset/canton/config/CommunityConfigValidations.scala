@@ -154,10 +154,12 @@ object CommunityConfigValidations
       domains,
       participants,
       participantsX,
+      sequencersX,
       mediatorsX,
       remoteDomains,
       remoteParticipants,
       remoteParticipantsX,
+      remoteSequencersX,
       remoteMediatorsX,
       _,
       _,
@@ -174,6 +176,8 @@ object CommunityConfigValidations
         remoteParticipantsX,
         mediatorsX,
         remoteMediatorsX,
+        sequencersX,
+        remoteSequencersX,
       )
         .exists(_.nonEmpty),
       (),
@@ -181,9 +185,6 @@ object CommunityConfigValidations
     )
 
   }
-
-  private[config] val backwardsCompatibleLoggingConfigErr =
-    "Inconsistent configuration of canton.monitoring.log-message-payloads and canton.monitoring.logging.api.message-payloads. Please use the latter in your configuration"
 
   private def developmentProtocolSafetyCheckDomains(
       config: CantonConfig

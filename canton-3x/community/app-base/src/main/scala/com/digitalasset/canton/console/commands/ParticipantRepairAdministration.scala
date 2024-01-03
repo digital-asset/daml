@@ -8,6 +8,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
+import com.digitalasset.canton.admin.participant.v0.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
@@ -24,7 +25,6 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNodeCommon
-import com.digitalasset.canton.participant.admin.v0.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContractWithWitnesses}
 import com.digitalasset.canton.topology.{DomainId, PartyId}

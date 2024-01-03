@@ -4,7 +4,7 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import com.digitalasset.canton.DomainAlias
-import com.digitalasset.canton.participant.admin.{v0 as participantAdminV0}
+import com.digitalasset.canton.admin.participant.{v0 as participantAdminV0}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 

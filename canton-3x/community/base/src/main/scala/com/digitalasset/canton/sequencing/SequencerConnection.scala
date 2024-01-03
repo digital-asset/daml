@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.admin.domain.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -156,7 +156,6 @@ object GrpcSequencerConnection {
 }
 
 object SequencerConnection {
-
   def fromProtoV0(
       configP: v0.SequencerConnection
   ): ParsingResult[SequencerConnection] =

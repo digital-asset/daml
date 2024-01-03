@@ -6,10 +6,10 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.data.EitherT
 import cats.implicits.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.traffic.TrafficStateController.TrafficControlError
 import com.digitalasset.canton.participant.traffic.TrafficStateController.TrafficControlError.TrafficStateNotFound

@@ -238,6 +238,8 @@ object SigningKeyScheme {
   val EdDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519)
   val EcDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, EcDsaP256, EcDsaP384)
 
+  val allSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519, EcDsaP256, EcDsaP384)
+
   def fromProtoEnum(
       field: String,
       schemeP: v0.SigningKeyScheme,

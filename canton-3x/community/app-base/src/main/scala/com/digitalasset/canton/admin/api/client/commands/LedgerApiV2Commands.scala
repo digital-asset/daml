@@ -101,11 +101,19 @@ object LedgerApiV2Commands {
 
   object UpdateService {
 
-    sealed trait UpdateTreeWrapper
-    sealed trait UpdateWrapper
+    sealed trait UpdateTreeWrapper {
+      def updateId: String
+    }
+    sealed trait UpdateWrapper {
+      def updateId: String
+    }
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
-        extends UpdateTreeWrapper
-    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper
+        extends UpdateTreeWrapper {
+      override def updateId: String = transactionTree.updateId
+    }
+    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
+      override def updateId: String = transaction.updateId
+    }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
     }
@@ -125,9 +133,13 @@ object LedgerApiV2Commands {
       }
     }
     final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = UpdateServiceStub
@@ -279,7 +291,7 @@ object LedgerApiV2Commands {
     def submissionId: String
     def minLedgerTimeAbs: Option[Instant]
     def disclosedContracts: Seq[DisclosedContract]
-    def domainId: DomainId
+    def domainId: Option[DomainId]
     def applicationId: String
 
     protected def mkCommand: Commands = Commands(
@@ -304,7 +316,7 @@ object LedgerApiV2Commands {
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
-      domainId = domainId.toProtoPrimitive,
+      domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
     )
 
     override def pretty: Pretty[this.type] =
@@ -337,7 +349,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, SubmitResponse, Unit] {
@@ -457,7 +469,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[
@@ -494,7 +506,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
