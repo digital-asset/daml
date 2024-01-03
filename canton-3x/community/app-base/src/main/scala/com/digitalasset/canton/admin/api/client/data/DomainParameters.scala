@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.admin.api.client.data.crypto.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
+  CommunityCryptoConfig,
   CryptoConfig,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
@@ -86,6 +87,9 @@ object StaticDomainParameters {
 
     StaticDomainParameters(internal)
   }
+
+  lazy val defaultsWithoutKMS: StaticDomainParameters =
+    defaults(CommunityCryptoConfig())
 
   // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
   def defaults(

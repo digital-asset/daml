@@ -28,7 +28,7 @@ final case class CommunitySequencerNodeXConfig(
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
+    override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topologyX: TopologyXConfig = TopologyXConfig(),

@@ -27,6 +27,7 @@ import com.digitalasset.canton.protocol.messages.DomainTopologyTransactionMessag
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
+  RichSequencerClient,
   SendAsyncClientError,
   SendType,
   SequencerClient,
@@ -63,7 +64,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 final case class TopologyManagementComponents(
     domainTopologyServiceHandler: DomainTopologyManagerEventHandler,
     client: DomainTopologyClientWithInit,
-    sequencerClient: SequencerClient,
+    sequencerClient: RichSequencerClient,
     processor: TopologyTransactionProcessor,
     dispatcher: DomainTopologyDispatcher,
     timeouts: ProcessingTimeout,

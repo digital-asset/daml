@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncServiceError.DomainRegistryErrorGroup
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
@@ -395,7 +395,7 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
 trait DomainHandle extends AutoCloseable {
 
   /** Client to the domain's sequencer. */
-  def sequencerClient: SequencerClient
+  def sequencerClient: RichSequencerClient
 
   def staticParameters: StaticDomainParameters
 

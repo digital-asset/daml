@@ -1,0 +1,74 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v0;
+
+import "google/protobuf/timestamp.proto";
+
+// Supports transferring contracts from one domain to another
+service TransferService {
+  // transfer-out a contract
+  rpc TransferOut(AdminTransferOutRequest) returns (AdminTransferOutResponse);
+
+  // transfer-in a contract
+  rpc TransferIn(AdminTransferInRequest) returns (AdminTransferInResponse);
+
+  // return the in-flight transfers on a given participant for a given target domain
+  rpc TransferSearch(AdminTransferSearchQuery) returns (AdminTransferSearchResponse);
+}
+
+message TransferId {
+  string source_domain = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message AdminTransferOutRequest {
+  string submitting_party = 1;
+  string contract_id = 2;
+  string origin_domain = 3;
+  string target_domain = 4;
+  string application_id = 5;
+  string submission_id = 6; // optional
+  string workflow_id = 7; // optional
+  string command_id = 8; // optional
+}
+
+message AdminTransferOutResponse {
+  TransferId transfer_id = 1;
+}
+
+message AdminTransferInRequest {
+  string submitting_party_id = 1;
+  string target_domain = 2;
+  TransferId transfer_id = 3;
+  string application_id = 4;
+  string submission_id = 5; // optional
+  string workflow_id = 6; // optional
+  string command_id = 7; // optional
+}
+
+message AdminTransferInResponse {}
+
+message AdminTransferSearchQuery {
+  string search_domain = 1;
+  string filter_origin_domain = 2; // exact match if non-empty
+  google.protobuf.Timestamp filter_timestamp = 3; // optional; exact match if set
+  string filter_submitting_party = 4;
+  int64 limit = 5;
+}
+
+message AdminTransferSearchResponse {
+  repeated TransferSearchResult results = 1;
+
+  message TransferSearchResult {
+    string contract_id = 1;
+    TransferId transfer_id = 2;
+    string origin_domain = 3;
+    string target_domain = 4;
+    string submitting_party = 5;
+    bool ready_for_transfer_in = 6;
+    google.protobuf.Timestamp target_time_proof = 7;
+  }
+}
