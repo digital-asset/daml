@@ -24,6 +24,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.DomainNodeBootstrap
 import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrapX, MediatorNodeParameters}
 import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
+import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.environment.ParticipantNodes.{ParticipantNodesOld, ParticipantNodesX}
@@ -292,6 +293,16 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       config.participantNodeParametersByString,
       loggerFactory,
     )
+
+  val sequencersX = new SequencerNodesX(
+    createSequencerX,
+    migrationsFactory,
+    timeouts,
+    config.sequencersByStringX,
+    config.sequencerNodeParametersByStringX,
+    loggerFactory,
+  )
+
   val mediatorsX =
     new MediatorNodesX(
       createMediatorX,
@@ -305,7 +316,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
   protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(domains, participants, participantsX)
+    List(sequencersX, domains, mediatorsX, participants, participantsX)
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
   private def autoConnectLocalNodes(): Either[StartupError, Unit] = {
@@ -526,6 +537,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       )
       .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
   }
+
+  protected def createSequencerX(
+      name: String,
+      sequencerConfig: Config#SequencerNodeXConfigType,
+  ): SequencerNodeBootstrapX
 
   protected def createMediatorX(
       name: String,

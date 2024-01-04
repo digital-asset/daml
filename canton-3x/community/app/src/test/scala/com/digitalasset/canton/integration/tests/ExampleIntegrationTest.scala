@@ -12,8 +12,8 @@ import com.digitalasset.canton.integration.CommunityTests.{
   IsolatedCommunityEnvironments,
 }
 import com.digitalasset.canton.integration.tests.ExampleIntegrationTest.{
-  advancedConfiguration,
   ensureSystemProperties,
+  referenceConfiguration,
   repairConfiguration,
   simpleTopology,
 }
@@ -60,9 +60,8 @@ trait HasConsoleScriptRunner { this: NamedLogging =>
 object ExampleIntegrationTest {
   lazy val examplesPath: File = "community" / "app" / "src" / "pack" / "examples"
   lazy val simpleTopology: File = examplesPath / "01-simple-topology"
-  lazy val advancedConfiguration: File = examplesPath / "03-advanced-configuration"
+  lazy val referenceConfiguration: File = "community" / "app" / "src" / "pack" / "config"
   lazy val composabilityConfiguration: File = examplesPath / "05-composability"
-  lazy val messagingConfiguration: File = examplesPath / "06-messaging"
   lazy val repairConfiguration: File = examplesPath / "07-repair"
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
@@ -101,7 +100,7 @@ class SimplePingExampleIntegrationTest
 
 class RepairExampleIntegrationTest
     extends ExampleIntegrationTest(
-      advancedConfiguration / "storage" / "h2.conf",
+      referenceConfiguration / "storage" / "h2.conf",
       repairConfiguration / "domain-repair-lost.conf",
       repairConfiguration / "domain-repair-new.conf",
       repairConfiguration / "participant1.conf",

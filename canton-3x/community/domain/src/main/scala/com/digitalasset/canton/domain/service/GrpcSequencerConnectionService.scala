@@ -22,7 +22,7 @@ import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
-  SequencerClient,
+  RichSequencerClient,
   SequencerClientTransportFactory,
 }
 import com.digitalasset.canton.sequencing.{
@@ -123,7 +123,7 @@ class GrpcSequencerConnectionService(
 object GrpcSequencerConnectionService {
 
   trait UpdateSequencerClient {
-    def set(client: SequencerClient): Unit
+    def set(client: RichSequencerClient): Unit
   }
 
   def setup[C](member: Member)(
@@ -142,8 +142,8 @@ object GrpcSequencerConnectionService {
       traceContext: TraceContext,
       errorLoggingContext: ErrorLoggingContext,
       closeContext: CloseContext,
-  ) = {
-    val clientO = new AtomicReference[Option[SequencerClient]](None)
+  ): UpdateSequencerClient = {
+    val clientO = new AtomicReference[Option[RichSequencerClient]](None)
     registry.addServiceU(
       EnterpriseSequencerConnectionService.bindService(
         new GrpcSequencerConnectionService(
@@ -203,7 +203,7 @@ object GrpcSequencerConnectionService {
       )
     )
     new UpdateSequencerClient {
-      override def set(client: SequencerClient): Unit = clientO.set(Some(client))
+      override def set(client: RichSequencerClient): Unit = clientO.set(Some(client))
     }
   }
 

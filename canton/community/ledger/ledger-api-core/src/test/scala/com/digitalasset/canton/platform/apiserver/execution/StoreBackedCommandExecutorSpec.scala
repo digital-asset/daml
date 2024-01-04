@@ -93,6 +93,8 @@ class StoreBackedCommandExecutorSpec
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
         disclosures = any[ImmArray[LfDisclosedContract]],
+        packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
+        packagePreference = any[Set[Ref.PackageId]],
       )(any[LoggingContext])
     )
       .thenReturn(result)
@@ -295,6 +297,8 @@ class StoreBackedCommandExecutorSpec
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
           disclosures = any[ImmArray[LfDisclosedContract]],
+          packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
+          packagePreference = any[Set[Ref.PackageId]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
 

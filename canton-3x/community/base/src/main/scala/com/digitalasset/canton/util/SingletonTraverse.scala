@@ -33,8 +33,8 @@ trait SingletonTraverse[F[_]] extends Traverse[F] { self =>
     * The default [[org.apache.pekko.stream.scaladsl.Keep.both]] retains both contexts.
     */
   // Partial application to help with type inference:
-  // The implicit `G` defines one parameter type of the combination function.
-  def composeWith[G[_]](implicit
+  // The parameter `G` defines one parameter type of the combination function.
+  def composeWith[G[_]](
       G: SingletonTraverse[G]
   ): SingletonTraverse.ComposeSingletonTraversePartiallyApplied[F, G, Context, G.Context] =
     new SingletonTraverse.ComposeSingletonTraversePartiallyApplied[F, G, Context, G.Context](
@@ -178,4 +178,22 @@ object SingletonTraverse {
           G.traverseSingleton(ga)((gc, x) => f((fc, gc), x))
         })(Nested.apply)
     }
+
+  trait Ops[F[_], C, A] extends Serializable {
+    protected def self: F[A]
+    protected val typeClassInstance: SingletonTraverse.Aux[F, C]
+    def traverseSingleton[G[_], B](f: (C, A) => G[B])(implicit G: Applicative[G]): G[F[B]] =
+      typeClassInstance.traverseSingleton(self)(f)
+  }
+
+  /** Extension method for instances of [[SingletonTraverse]]. */
+  object syntax {
+    import scala.language.implicitConversions
+    implicit def SingletonTraverseOps[F[_], A](target: F[A])(implicit
+        st: SingletonTraverse[F]
+    ): Ops[F, st.Context, A] = new Ops[F, st.Context, A] {
+      override val self: F[A] = target
+      override protected val typeClassInstance: SingletonTraverse.Aux[F, st.Context] = st
+    }
+  }
 }
