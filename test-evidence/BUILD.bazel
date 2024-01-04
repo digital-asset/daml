@@ -26,8 +26,6 @@ write_scalatest_runpath(
         ],
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
-            "//ledger-test-tool/infrastructure",
-            "//ledger-test-tool/suites",
             "//libs-scala/test-evidence/generator",
             "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
@@ -62,8 +60,6 @@ write_scalatest_runpath(
         ],
         deps = [
             ":ledger-generator-lib",
-            "//ledger-test-tool/infrastructure",
-            "//ledger-test-tool/suites",
             "//libs-scala/test-evidence/generator",
             "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
