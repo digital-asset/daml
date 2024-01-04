@@ -277,7 +277,7 @@ jobs:
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add build.sh test-common/canton/BUILD.bazel
-                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version"
+                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
