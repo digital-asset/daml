@@ -36,7 +36,6 @@ trait LedgerClientBase {
       ledgerHost: String,
       ledgerPort: Int,
       clientChannelConfig: LedgerClientChannelConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder]
 
   private def buildLedgerClient(
@@ -44,7 +43,6 @@ trait LedgerClientBase {
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
       clientChannelConfig: LedgerClientChannelConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
@@ -53,7 +51,6 @@ trait LedgerClientBase {
       ledgerHost,
       ledgerPort,
       clientChannelConfig,
-      nonRepudiationConfig,
     ).map(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
 
   def fromRetried(
@@ -61,7 +58,6 @@ trait LedgerClientBase {
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
       clientChannelConfig: LedgerClientChannelConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
       maxInitialConnectRetryAttempts: Int,
   )(implicit
       ec: ExecutionContext,
@@ -78,7 +74,6 @@ trait LedgerClientBase {
           ledgerPort,
           clientConfig,
           clientChannelConfig,
-          nonRepudiationConfig,
         )
         client.onComplete {
           case Success(_) =>
@@ -104,7 +99,6 @@ trait LedgerClientBase {
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
       clientChannelConfig: LedgerClientChannelConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
@@ -114,7 +108,6 @@ trait LedgerClientBase {
       ledgerPort,
       clientConfig,
       clientChannelConfig,
-      nonRepudiationConfig,
     )
       .map(_.right)
       .recover { case NonFatal(e) =>

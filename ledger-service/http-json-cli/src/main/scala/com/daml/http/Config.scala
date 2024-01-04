@@ -41,7 +41,6 @@ private[http] final case class Config(
     authConfig: Option[AuthConfig] = None,
     allowNonHttps: Boolean = false,
     wsConfig: Option[WebsocketConfig] = None,
-    nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,

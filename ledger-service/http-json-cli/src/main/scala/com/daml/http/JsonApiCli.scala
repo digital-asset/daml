@@ -34,7 +34,6 @@ private[http] final case class JsonApiCli(
     authConfig: Option[AuthConfig] = None,
     allowNonHttps: Boolean = false,
     wsConfig: Option[WebsocketConfig] = None,
-    nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
@@ -63,7 +62,6 @@ private[http] final case class JsonApiCli(
       authConfig = authConfig,
       allowNonHttps = allowNonHttps,
       wsConfig = wsConfig,
-      nonRepudiation = nonRepudiation,
       logLevel = logLevel,
       logEncoder = logEncoder,
       metricsReporter = metricsReporter,
@@ -78,7 +76,6 @@ private[http] final case class JsonApiCli(
         case Right(fileBasedConfig) =>
           Some(
             fileBasedConfig.toConfig(
-              nonRepudiation,
               logLevel,
               logEncoder,
             )
