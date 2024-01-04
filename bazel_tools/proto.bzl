@@ -180,7 +180,7 @@ def _proto_scala_srcs(name, grpc):
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ] if grpc else [])
 
-def _proto_scala_deps(grpc, proto_deps):
+def _proto_scala_deps(grpc, proto_deps, java_conversions):
     return [
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -195,7 +195,9 @@ def _proto_scala_deps(grpc, proto_deps):
     ] if grpc else []) + [
         "%s_scala" % label
         for label in proto_deps
-    ]
+    ] + ([
+        "@maven//:io_grpc_grpc_services",
+    ] if java_conversions else [])
 
 def proto_jars(
         name,
@@ -293,7 +295,7 @@ def proto_jars(
         plugin_options = (["grpc"] if grpc else []) + (["java_conversions"] if java_conversions else []),
     )
 
-    all_scala_deps = _proto_scala_deps(grpc, proto_deps)
+    all_scala_deps = _proto_scala_deps(grpc, proto_deps, java_conversions)
 
     scala_library(
         name = "%s_scala" % name,
