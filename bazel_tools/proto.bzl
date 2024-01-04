@@ -289,7 +289,7 @@ def proto_jars(
     # JAR containing the generated Scala bindings.
     proto_gen(
         name = "%s_scala_sources" % name,
-        srcs = _proto_scala_srcs(name, grpc, java_conversions),
+        srcs = _proto_scala_srcs(name, grpc),
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
         plugin_options = (["grpc"] if grpc else []) + (["java_conversions"] if java_conversions else []),
