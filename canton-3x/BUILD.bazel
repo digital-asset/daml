@@ -760,6 +760,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_sequencer-driver",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -984,6 +985,30 @@ scala_library(
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+### community/sequencer-driver
+
+scala_library(
+    name = "community_sequencer-driver",
+    srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton-3x/community/sequencer-driver/src/main/resources",
+    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        ":community_util-external",
+        ":community_util-logging",
+        ":pekko-stream-minus-patched-classes",
+        "//daml-lf/data",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
