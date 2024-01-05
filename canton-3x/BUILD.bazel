@@ -280,6 +280,42 @@ scala_library(
     ],
 )
 
+### community/admin-api
+
+proto_library(
+    name = "community_admin-api_proto",
+    srcs = glob(["community/admin-api/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/admin-api/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_admin-api_proto_scala",
+    srcs = [":community_admin-api_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "flat_package",
+        "grpc",
+    ],
+)
+
+scala_library(
+    name = "community_admin-api",
+    srcs = glob(["community/admin-api/src/main/protobuf/com/digitalasset/canton/version/ProtocolVersionAnnotation.scala"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+)
+
 ### community/base ###
 
 proto_library(
@@ -309,7 +345,7 @@ proto_gen(
 
 scala_library(
     name = "community_base",
-    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"],
+    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton-3x/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
@@ -324,6 +360,7 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_buildinfo",
         ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
@@ -416,6 +453,7 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_buildinfo",
         ":community_ledger_ledger-common",
@@ -683,6 +721,7 @@ proto_library(
     srcs = glob(["community/domain/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/domain/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -715,6 +754,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
@@ -770,33 +810,12 @@ scala_library(
 
 ### community/participant/ ###
 
-# For now we include only the package service as the rest is not standalone
-proto_library(
-    name = "community_participant_admin_proto",
-    srcs = glob(["community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto"]),
-    strip_import_prefix = "community/participant/src/main/protobuf",
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
-
-proto_gen(
-    name = "community_participant_admin_proto_scala",
-    srcs = [":community_participant_admin_proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
-    plugin_name = "scalapb",
-    plugin_options = [
-        "grpc",
-        "flat_package",
-    ],
-    visibility = ["//daml-script:__subpackages__"],
-)
-
 proto_library(
     name = "community_participant_proto",
     srcs = glob(["community/participant/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -818,10 +837,25 @@ proto_gen(
     ],
 )
 
-copy_file(
+genrule(
     name = "community_participant_admin-workflows_dar",
-    src = "community/participant/src/main/resources/dar/AdminWorkflows.dar",
-    out = "AdminWorkflows.dar",
+    srcs = glob(["community/participant/src/main/daml/*"]) + [
+        "//daml-script/daml3:daml3-script-2.1.dar",
+    ],
+    outs = ["AdminWorkflows.dar"],
+    cmd = """
+            set -euo pipefail
+            project_dir=$$(dirname $(location community/participant/src/main/daml/daml.yaml))
+            tmpdir=$$(mktemp -d)
+            trap "rm -rf $$tmpdir" EXIT
+            cp -r $$project_dir/* $$tmpdir
+            cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
+            sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
+            sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
+            $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
+            """.format(sdk_version = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -882,6 +916,7 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-api-core",
@@ -966,6 +1001,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_buildinfo",
         ":community_common",

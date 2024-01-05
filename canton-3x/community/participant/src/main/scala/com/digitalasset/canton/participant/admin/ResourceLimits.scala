@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
+import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveNumeric}
 
 /** Encapsulated resource limits for a participant.

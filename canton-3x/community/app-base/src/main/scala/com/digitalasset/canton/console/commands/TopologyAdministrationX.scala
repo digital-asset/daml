@@ -14,8 +14,8 @@ import com.digitalasset.canton.admin.api.client.data.{
   TrafficControlParameters,
 }
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   CommandErrors,
@@ -692,7 +692,7 @@ class TopologyAdministrationGroupX(
         ),
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
-    ): Unit = propose(
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -734,7 +734,7 @@ class TopologyAdministrationGroupX(
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-    ): Unit = propose(
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -792,7 +792,7 @@ class TopologyAdministrationGroupX(
           // Authorize the new key
           // The owner will now have two keys, but by convention the first one added is always
           // used by everybody.
-          propose(
+          update(
             newKey.fingerprint,
             newKey.purpose,
             member,
@@ -803,7 +803,7 @@ class TopologyAdministrationGroupX(
           )
 
           // Remove the old key by sending the matching `Remove` transaction
-          propose(
+          update(
             currentKey.fingerprint,
             currentKey.purpose,
             member,
@@ -819,7 +819,7 @@ class TopologyAdministrationGroupX(
         )
     }
 
-    private def propose(
+    private def update(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member,
@@ -834,20 +834,18 @@ class TopologyAdministrationGroupX(
         nodeInstance: InstanceReferenceX,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
-      val publicKey =
-        nodeInstance.keys.secret
-          .list(
-            filterFingerprint = key.toProtoPrimitive,
-            purpose = Set(purpose),
-          ) match {
-          case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
-          case Nil =>
-            throw new IllegalArgumentException("The specified key is unknown to the key owner")
-          case multipleKeys =>
-            throw new IllegalArgumentException(
-              s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
-            )
-        }
+      val publicKey = nodeInstance.keys.secret.list(
+        filterFingerprint = key.toProtoPrimitive,
+        purpose = Set(purpose),
+      ) match {
+        case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
+        case Nil =>
+          throw new IllegalArgumentException("The specified key is unknown to the key owner")
+        case multipleKeys =>
+          throw new IllegalArgumentException(
+            s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
+          )
+      }
 
       // Look for an existing authorized OKM mapping.
       val maybePreviousState = expectAtMostOneResult(
@@ -906,21 +904,42 @@ class TopologyAdministrationGroupX(
         }
       }
 
-      synchronisation
-        .runAdminCommand(synchronize)(
-          TopologyAdminCommandsX.Write
-            .Propose(
-              mapping = proposedMapping,
-              signedBy = signedBy.toList,
-              change = ops,
-              serial = Some(serial),
-              mustFullyAuthorize = mustFullyAuthorize,
-              forceChange = force,
-              store = AuthorizedStore.filterName,
-            )
-        )
-        .discard
+      propose(
+        proposedMapping,
+        serial,
+        ops,
+        signedBy,
+        AuthorizedStore.filterName,
+        synchronize,
+        mustFullyAuthorize,
+        force,
+      ).discard
     }
+
+    def propose(
+        proposedMapping: OwnerToKeyMappingX,
+        serial: RequireTypes.PositiveNumeric[Int],
+        ops: TopologyChangeOpX = TopologyChangeOpX.Replace,
+        signedBy: Option[Fingerprint] = None,
+        store: String = AuthorizedStore.filterName,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+        force: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, OwnerToKeyMappingX] =
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommandsX.Write.Propose(
+          mapping = proposedMapping,
+          signedBy = signedBy.toList,
+          store = store,
+          change = ops,
+          serial = Some(serial),
+          mustFullyAuthorize = mustFullyAuthorize,
+          forceChange = force,
+        )
+      )
   }
 
   @Help.Summary("Manage party to participant mappings")
@@ -1992,7 +2011,7 @@ class TopologyAdministrationGroupX(
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose_update(
-        domainId: DomainId, // TODO(#15803) check whether we can infer domainId
+        domainId: DomainId,
         update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.

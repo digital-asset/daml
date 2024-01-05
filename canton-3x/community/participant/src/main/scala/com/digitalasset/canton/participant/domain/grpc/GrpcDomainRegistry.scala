@@ -29,7 +29,11 @@ import com.digitalasset.canton.participant.topology.{
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
+import com.digitalasset.canton.sequencing.client.{
+  RecordingConfig,
+  ReplayConfig,
+  RichSequencerClient,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -83,7 +87,7 @@ class GrpcDomainRegistry(
       override val domainId: DomainId,
       override val domainAlias: DomainAlias,
       override val staticParameters: StaticDomainParameters,
-      sequencer: SequencerClient,
+      sequencer: RichSequencerClient,
       override val topologyClient: DomainTopologyClientWithInit,
       override val topologyFactory: TopologyComponentFactory,
       override val domainPersistentState: SyncDomainPersistentState,
@@ -92,7 +96,7 @@ class GrpcDomainRegistry(
       with FlagCloseableAsync
       with NamedLogging {
 
-    override val sequencerClient: SequencerClient = sequencer
+    override val sequencerClient: RichSequencerClient = sequencer
     override def loggerFactory: NamedLoggerFactory = GrpcDomainRegistry.this.loggerFactory
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {

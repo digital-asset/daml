@@ -83,6 +83,7 @@ trait SequencerClientTransportFactory {
       connection: SequencerConnection,
       member: Member,
       requestSigner: RequestSigner,
+      allowReplay: Boolean = true,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,
