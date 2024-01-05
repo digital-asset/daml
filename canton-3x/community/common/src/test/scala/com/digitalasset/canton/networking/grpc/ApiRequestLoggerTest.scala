@@ -368,7 +368,10 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           when(service.hello(Request)).thenThrow(throwable)
 
-          assertClientFailure(client.hello(Request), Status.UNKNOWN)
+          assertClientFailure(
+            client.hello(Request),
+            Status.UNKNOWN.withDescription("Application error processing RPC"),
+          )
 
           assertRequestLogged
           capturingLogger.assertNextMessageIs(
@@ -623,7 +626,9 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         "log progress and the error" in withEnv() { implicit env =>
           setupStreamedService(_ => throw throwable)
 
-          callStreamedServiceAndCheckClientFailure(Status.UNKNOWN)
+          callStreamedServiceAndCheckClientFailure(
+            Status.UNKNOWN.withDescription("Application error processing RPC")
+          )
 
           assertRequestAndResponsesLogged
           capturingLogger.assertNextMessageIs(
