@@ -34,7 +34,6 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val participant5x: LocalParticipantReferenceX = lpx("participant5")
   lazy val da: CE#DomainLocalRef = d("da")
   lazy val acme: CE#DomainLocalRef = d("acme")
-  lazy val repairDomain: CE#DomainLocalRef = d("repair")
 
   lazy val sequencer1x: LocalSequencerNodeReferenceX = sx("sequencer1")
   lazy val sequencer2x: LocalSequencerNodeReferenceX = sx("sequencer2")
@@ -43,6 +42,8 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
 
   // Remote
   lazy val remoteSequencer1x: RemoteSequencerNodeReferenceX = rsx("sequencer1")
+  lazy val remoteSequencer2x: RemoteSequencerNodeReferenceX = rsx("sequencer2")
+  lazy val remoteSequencer3x: RemoteSequencerNodeReferenceX = rsx("sequencer3")
 
   lazy val mediator1x: LocalMediatorReferenceX = mx("mediator1")
   lazy val mediator2x: LocalMediatorReferenceX = mx("mediator2")
