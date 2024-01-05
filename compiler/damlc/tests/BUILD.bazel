@@ -488,13 +488,17 @@ da_haskell_test(
         "tasty-hunit",
         "text",
         "time",
+        "unordered-containers",
     ],
     main_function = "DA.Test.DamlcMultiPackage.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-dar-reader",
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
 )

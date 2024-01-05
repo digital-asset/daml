@@ -8,9 +8,14 @@ module DA.Test.DamlcMultiPackage (main) where
 import Control.Exception (try)
 import Control.Monad.Extra (forM, forM_, unless, void)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
-import Data.List (intercalate, intersect, isInfixOf, union, (\\))
+import qualified DA.Daml.Dar.Reader as Reader
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Version (version1_15)
+import qualified Data.HashMap.Strict as HashMap
+import Data.List (find, intercalate, intersect, isInfixOf, isPrefixOf, sort, union, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
+import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
@@ -18,11 +23,11 @@ import SdkVersion (sdkVersion)
 import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
-import System.FilePath (makeRelative, (</>))
-import System.IO.Extra (withTempDir)
+import System.FilePath (isExtensionOf, makeRelative, takeFileName, (</>))
+import System.IO.Extra (newTempDir, withTempDir)
 import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
-import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase)
+import Test.Tasty (TestTree, defaultMain, testGroup, withResource)
+import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, assertEqual, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
 
 -- Abstraction over the folder structure of a project, consisting of many packages.
@@ -447,15 +452,43 @@ tests damlAssistant =
         ]
     , testGroup
         "Composite Dar Artifact"
-        -- check the dar has all packages listed and no extras via inspect
-        -- check the dar has the correct name and version
         -- check the dar works with codegen
-        -- check the LF version of the generated dar
-        -- check the dar has no source code + empty package
-        --   ideally this whole test group runs with like a "with resource" of a composite dar we build
-        --   (withResource will do this, we can generate a tree, make the dar, pass down the dar path, then delete the tmp dir in cleanup)
-        [ 
+        [ withCompositeDar compositeDarProject "main-0.0.1" $ \getDarData -> testGroup "main-0.0.1"
+            [ testCase "Only has expected packages" $ do
+                darInfo <- snd <$> getDarData
+                let dalfInfos = fmap snd $ HashMap.toList $ Reader.packages darInfo
+                    notPrimOrStdlib dalfName = not $ "daml-prim" `isPrefixOf` dalfName || "daml-stdlib" `isPrefixOf` dalfName
+                    nonDamlDalfInfos = filter (notPrimOrStdlib . takeFileName . Reader.dalfFilePath) dalfInfos
+                    nonDamlPkgNames = maybe "unknown" LF.unPackageName . Reader.dalfPackageName <$> nonDamlDalfInfos
 
+                sort nonDamlPkgNames @?= ["main", "package-a", "package-b"]
+            , testCase "Main package has correct name and version" $ do
+                darInfo <- snd <$> getDarData
+                let ownDalfInfo = fromMaybe (error "Missing own package") $ HashMap.lookup (Reader.mainPackageId darInfo) $ Reader.packages darInfo
+
+                Reader.dalfPackageName ownDalfInfo @?= Just (LF.PackageName "main")
+                Reader.dalfPackageVersion ownDalfInfo @?= Just (LF.PackageVersion "0.0.1")
+            , testCase "All packages have correct LF version" $ do
+                darInfo <- snd <$> getDarData
+                let dalfInfos = fmap snd $ HashMap.toList $ Reader.packages darInfo
+                    isPrimOrStdlib dalfInfo = 
+                      let dalfName = takeFileName $ Reader.dalfFilePath dalfInfo
+                       in "daml-prim" `isPrefixOf` dalfName || "daml-stdlib" `isPrefixOf` dalfName
+                -- We do not check daml-prim/daml-stdlib, as they are in very old LF versions
+                forM_ (filter (not . isPrimOrStdlib) dalfInfos) $ \dalfInfo -> do
+                  let dalfLfVersion = LF.packageLfVersion $ Reader.dalfPackage dalfInfo
+                      dalfName = maybe "unknown" (T.unpack . LF.unPackageName) $ Reader.dalfPackageName dalfInfo
+                  
+                  assertEqual ("LF version for " <> dalfName <> " was incorrect") version1_15 dalfLfVersion
+            , testCase "Dar has no source code" $ do
+                darInfo <- snd <$> getDarData
+                let damlFiles = filter (isExtensionOf "daml") $ Reader.files darInfo
+                unless (null damlFiles) $ assertFailure $ "Expected no daml files but found " <> show damlFiles
+            , testCase "Main package is empty" $ do
+                darInfo <- snd <$> getDarData
+                let ownDalfInfo = fromMaybe (error "Missing own package") $ HashMap.lookup (Reader.mainPackageId darInfo) $ Reader.packages darInfo
+                assertBool "Main package has modules" $ NM.null $ LF.packageModules $ Reader.dalfPackage ownDalfInfo
+            ]
         ]
     ]
 
@@ -649,6 +682,25 @@ tests damlAssistant =
       genericFile@GenericFile {} -> do
         TIO.writeFile (path </> T.unpack (gfName genericFile)) $ gfContent genericFile
         pure Map.empty
+
+    withCompositeDar :: [ProjectStructure] -> String -> (IO (FilePath, Reader.InspectInfo) -> TestTree) -> TestTree
+    withCompositeDar projectStructure compositeDarFullName f =
+      let acquireResource = do
+            (dir, removeDir) <- newTempDir
+            darMapping <- buildProject dir projectStructure
+
+            let isCorrectPackage :: PackageIdentifier -> Bool
+                isCorrectPackage pkgId = compositeDarFullName == show pkgId
+            compositeDarPath <-
+              maybe (assertFailure "Failed to find given composite dar name. Use the full path (name-version)") (pure . snd)
+                $ find (isCorrectPackage . fst) $ Map.toList darMapping
+
+            let args = ["build", "--enable-multi-package=yes", "--composite-dar=" <> compositeDarFullName]
+                process = (proc damlAssistant args) {cwd = Just dir}
+            _ <- readCreateProcess process ""
+            darInfo <- Reader.getDarInfo compositeDarPath
+            pure (removeDir, (compositeDarPath, darInfo))
+       in withResource acquireResource fst $ f . fmap snd
 
 ----- Testing project fixtures
 
