@@ -8,11 +8,9 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.TransactionCoder
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId}
+import com.digitalasset.canton.protocol.LfContractId
 
 /** Wrapper class to make scalapb LedgerApi classes more convenient to access
   */
@@ -81,46 +79,6 @@ object LedgerApiTypeWrappers {
 
     def arguments: Map[String, Any] =
       event.createArguments.toList.flatMap(_.fields).flatMap(flatten(Seq(), _)).toMap
-
-    def toContractData: ContractData = {
-      val templateId = TemplateId.fromIdentifier(
-        event.templateId.getOrElse(throw new IllegalArgumentException("Template Id not specified"))
-      )
-      val createArguments =
-        event.createArguments.getOrElse(
-          throw new IllegalArgumentException("Create Arguments not specified")
-        )
-      val lfContractId =
-        LfContractId
-          .fromString(event.contractId)
-          .getOrElse(
-            throw new IllegalArgumentException(s"Illegal Contract Id: ${event.contractId}")
-          )
-
-      val contractSaltO = for {
-        fatInstance <- TransactionCoder.decodeFatContractInstance(event.createdEventBlob).toOption
-        parsed = DriverContractMetadata.fromByteString(fatInstance.cantonData.toByteString)
-      } yield parsed.fold[Salt](
-        err =>
-          throw new IllegalArgumentException(
-            s"Could not deserialize driver contract metadata: ${err.message}"
-          ),
-        _.salt,
-      )
-
-      val ledgerCreateTimeO =
-        event.createdAt.map(TimestampConversion.toLf(_, TimestampConversion.ConversionMode.Exact))
-
-      ContractData(
-        templateId = templateId,
-        createArguments = createArguments,
-        signatories = event.signatories.toSet,
-        observers = event.observers.toSet,
-        inheritedContractId = lfContractId,
-        contractSalt = contractSaltO,
-        ledgerCreateTime = ledgerCreateTimeO,
-      )
-    }
   }
 
   private def flatten(prefix: Seq[String], field: RecordField): Seq[(String, Any)] = {
