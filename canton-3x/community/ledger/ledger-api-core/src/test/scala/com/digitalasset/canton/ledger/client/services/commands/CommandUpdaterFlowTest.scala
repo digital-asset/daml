@@ -25,16 +25,6 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
   import CommandUpdaterFlowTest.*
 
   "apply" should {
-    "fail fast on an invalid ledger ID" in {
-      val aCommandSubmission =
-        CommandSubmission(defaultCommands.copy(ledgerId = "anotherLedgerId"))
-
-      runCommandUpdaterFlow(aCommandSubmission)
-        .transformWith {
-          case Failure(exception) => exception shouldBe an[IllegalArgumentException]
-          case _ => fail
-        }
-    }
 
     "fail fast on an invalid application ID" in {
       val aCommandSubmission =
@@ -77,7 +67,6 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
           CommandClientConfiguration.default,
           aSubmissionIdGenerator,
           anApplicationId,
-          aLedgerId,
         )
       )
       .runWith(Sink.head)

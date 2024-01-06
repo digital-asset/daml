@@ -323,89 +323,96 @@ class SequencerNodeBootstrapX(
     override def initialize(request: InitializeSequencerRequestX)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponseX] = {
-      completeWithExternalUS {
+      if (isInitialized) {
         logger.info(
-          s"Assigning sequencer to domain ${if (request.sequencerSnapshot.isEmpty) "from beginning"
-            else "with existing snapshot"}"
+          "Received a request to initialize an already initialized sequencer. Skipping initialization!"
         )
-        val sequencerFactory = mkFactory(request.domainParameters.protocolVersion)
-        val domainIds = request.topologySnapshot.result
-          .map(_.transaction.transaction.mapping)
-          .collect { case SequencerDomainStateX(domain, _, _, _) => domain }
-          .toSet
-        val trafficControlStore = mkTrafficLimitsStore(
-          request.domainParameters.protocolVersion
-        )
-        for {
-          // TODO(#12390) validate initalisation request, as from here on, it must succeed
-          //    - authorization validation etc is done during manager.add
-          //    - so we need:
-          //        - there must be a dynamic domain parameter
-          //        - there must have one mediator and one sequencer group
-          //        - each member must have the necessary keys
-          domainId <- EitherT.fromEither[FutureUnlessShutdown](
-            domainIds.headOption.toRight("No domain id within topology state defined!")
+        EitherT.pure(InitializeSequencerResponseX(replicated = config.sequencer.supportsReplicas))
+      } else {
+        completeWithExternalUS {
+          logger.info(
+            s"Assigning sequencer to domain ${if (request.sequencerSnapshot.isEmpty) "from beginning"
+              else "with existing snapshot"}"
           )
-          _ <- request.sequencerSnapshot
-            .map { snapshot =>
-              logger.debug("Uploading sequencer snapshot to sequencer driver")
-              val initialState = SequencerInitialState(
-                domainId,
-                snapshot,
-                request.topologySnapshot.result.view
-                  .map(tx => (tx.sequenced.value, tx.validFrom.value)),
-              )
-              // TODO(#14070) make initialize idempotent to support crash recovery during init
-              sequencerFactory
-                .initialize(initialState, sequencerId)
-                .flatMap { _ =>
-                  val topUps = extractTopUpEventsFromTopologySnapshot(
-                    request.topologySnapshot,
-                    initialState.latestTopologyClientTimestamp,
-                  )
-                  EitherT.liftF[Future, String, Unit](trafficControlStore.initialize(topUps))
-                }
-                .mapK(FutureUnlessShutdown.outcomeK)
-            }
-            .getOrElse {
-              logger.debug("Skipping sequencer snapshot")
-              EitherT.rightT[FutureUnlessShutdown, String](())
-            }
-          store = createDomainTopologyStore(domainId)
-          outboxQueue = new DomainOutboxQueue(loggerFactory)
-          topologyManager = new DomainTopologyManagerX(
-            clock,
-            crypto,
-            store,
-            outboxQueue,
-            config.topologyX.enableTopologyTransactionValidation,
-            timeouts,
-            futureSupervisor,
-            loggerFactory,
+          val sequencerFactory = mkFactory(request.domainParameters.protocolVersion)
+          val domainIds = request.topologySnapshot.result
+            .map(_.transaction.transaction.mapping)
+            .collect { case SequencerDomainStateX(domain, _, _, _) => domain }
+            .toSet
+          val trafficControlStore = mkTrafficLimitsStore(
+            request.domainParameters.protocolVersion
           )
-          _ = logger.debug(
-            s"Storing ${request.topologySnapshot.result.length} txs in the domain store"
-          )
-          _ <- EitherT
-            .right(store.bootstrap(request.topologySnapshot))
-            .mapK(FutureUnlessShutdown.outcomeK)
-          _ = if (logger.underlying.isDebugEnabled()) {
-            logger.debug(
-              s"Bootstrapped sequencer topology domain store with transactions ${request.topologySnapshot.result}"
+          for {
+            // TODO(#12390) validate initalisation request, as from here on, it must succeed
+            //    - authorization validation etc is done during manager.add
+            //    - so we need:
+            //        - there must be a dynamic domain parameter
+            //        - there must have one mediator and one sequencer group
+            //        - each member must have the necessary keys
+            domainId <- EitherT.fromEither[FutureUnlessShutdown](
+              domainIds.headOption.toRight("No domain id within topology state defined!")
             )
-          }
-          _ <- domainConfigurationStore
-            .saveConfiguration(
-              SequencerDomainConfiguration(
-                domainId,
-                request.domainParameters,
-              )
+            _ <- request.sequencerSnapshot
+              .map { snapshot =>
+                logger.debug("Uploading sequencer snapshot to sequencer driver")
+                val initialState = SequencerInitialState(
+                  domainId,
+                  snapshot,
+                  request.topologySnapshot.result.view
+                    .map(tx => (tx.sequenced.value, tx.validFrom.value)),
+                )
+                // TODO(#14070) make initialize idempotent to support crash recovery during init
+                sequencerFactory
+                  .initialize(initialState, sequencerId)
+                  .flatMap { _ =>
+                    val topUps = extractTopUpEventsFromTopologySnapshot(
+                      request.topologySnapshot,
+                      initialState.latestTopologyClientTimestamp,
+                    )
+                    EitherT.liftF[Future, String, Unit](trafficControlStore.initialize(topUps))
+                  }
+                  .mapK(FutureUnlessShutdown.outcomeK)
+              }
+              .getOrElse {
+                logger.debug("Skipping sequencer snapshot")
+                EitherT.rightT[FutureUnlessShutdown, String](())
+              }
+            store = createDomainTopologyStore(domainId)
+            outboxQueue = new DomainOutboxQueue(loggerFactory)
+            topologyManager = new DomainTopologyManagerX(
+              clock,
+              crypto,
+              store,
+              outboxQueue,
+              config.topologyX.enableTopologyTransactionValidation,
+              timeouts,
+              futureSupervisor,
+              loggerFactory,
             )
-            .leftMap(e => s"Unable to save parameters: ${e.toString}")
-            .mapK(FutureUnlessShutdown.outcomeK)
-        } yield (request.domainParameters, sequencerFactory, topologyManager, trafficControlStore)
-      }.map { _ =>
-        InitializeSequencerResponseX(replicated = config.sequencer.supportsReplicas)
+            _ = logger.debug(
+              s"Storing ${request.topologySnapshot.result.length} txs in the domain store"
+            )
+            _ <- EitherT
+              .right(store.bootstrap(request.topologySnapshot))
+              .mapK(FutureUnlessShutdown.outcomeK)
+            _ = if (logger.underlying.isDebugEnabled()) {
+              logger.debug(
+                s"Bootstrapped sequencer topology domain store with transactions ${request.topologySnapshot.result}"
+              )
+            }
+            _ <- domainConfigurationStore
+              .saveConfiguration(
+                SequencerDomainConfiguration(
+                  domainId,
+                  request.domainParameters,
+                )
+              )
+              .leftMap(e => s"Unable to save parameters: ${e.toString}")
+              .mapK(FutureUnlessShutdown.outcomeK)
+          } yield (request.domainParameters, sequencerFactory, topologyManager, trafficControlStore)
+        }.map { _ =>
+          InitializeSequencerResponseX(replicated = config.sequencer.supportsReplicas)
+        }
       }
     }
   }

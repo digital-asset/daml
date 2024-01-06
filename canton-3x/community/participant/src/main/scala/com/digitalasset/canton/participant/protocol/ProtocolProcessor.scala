@@ -101,6 +101,7 @@ abstract class ProtocolProcessor[
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    skipRecipientsCheck: Boolean,
 )(implicit
     ec: ExecutionContext,
     resultCast: SignedMessageContentCast[Result],
@@ -724,14 +725,17 @@ abstract class ProtocolProcessor[
           logger.warn(s"Request $rc: Found malformed payload: $incorrectRootHash")
         }
 
+        // TODO(i12643): Remove this flag when no longer needed
         checkRecipientsResult <- EitherT.right(
-          FutureUnlessShutdown.outcomeF(
-            recipientsValidator.retainInputsWithValidRecipients(
-              requestId,
-              viewsWithCorrectRootHash,
-              snapshot.ipsSnapshot,
+          if (skipRecipientsCheck) FutureUnlessShutdown.pure((Seq.empty, viewsWithCorrectRootHash))
+          else
+            FutureUnlessShutdown.outcomeF(
+              recipientsValidator.retainInputsWithValidRecipients(
+                requestId,
+                viewsWithCorrectRootHash,
+                snapshot.ipsSnapshot,
+              )
             )
-          )
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 

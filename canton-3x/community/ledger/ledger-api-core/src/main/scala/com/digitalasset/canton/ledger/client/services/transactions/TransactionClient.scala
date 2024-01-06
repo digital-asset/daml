@@ -9,16 +9,16 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
 import com.daml.ledger.api.v1.transaction_service.*
-import com.digitalasset.canton.ledger.api.domain.LedgerId
+import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.services.transactions.TransactionSource
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 
-final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStub)(implicit
+final class TransactionClient(service: TransactionServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
-  private val it = new withoutledgerid.TransactionClient(service)
 
   def getTransactionTrees(
       start: LedgerOffset,
@@ -27,7 +27,15 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[TransactionTree, NotUsed] =
-    it.getTransactionTrees(start, end, transactionFilter, ledgerId, verbose, token)
+    TransactionSource.trees(
+      LedgerClient.stub(service, token).getTransactionTrees,
+      GetTransactionsRequest(
+        begin = Some(start),
+        end = end,
+        filter = Some(transactionFilter),
+        verbose = verbose,
+      ),
+    )
 
   def getTransactions(
       start: LedgerOffset,
@@ -36,37 +44,77 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[Transaction, NotUsed] =
-    it.getTransactions(start, end, transactionFilter, ledgerId, verbose, token)
+    TransactionSource.flat(
+      LedgerClient.stub(service, token).getTransactions,
+      GetTransactionsRequest(
+        begin = Some(start),
+        end = end,
+        filter = Some(transactionFilter),
+        verbose = verbose,
+      ),
+    )
 
   def getTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    it.getTransactionById(transactionId, parties, ledgerId, token)
+    LedgerClient
+      .stub(service, token)
+      .getTransactionById(
+        GetTransactionByIdRequest(
+          transactionId = transactionId,
+          requestingParties = parties,
+        )
+      )
 
   def getTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    it.getTransactionByEventId(eventId, parties, ledgerId, token)
+    LedgerClient
+      .stub(service, token)
+      .getTransactionByEventId(
+        GetTransactionByEventIdRequest(
+          eventId = eventId,
+          requestingParties = parties,
+        )
+      )
 
   def getFlatTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    it.getFlatTransactionById(transactionId, parties, ledgerId, token)
+    LedgerClient
+      .stub(service, token)
+      .getFlatTransactionById(
+        GetTransactionByIdRequest(
+          transactionId = transactionId,
+          requestingParties = parties,
+        )
+      )
 
   def getFlatTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    it.getFlatTransactionByEventId(eventId, parties, ledgerId, token)
+    LedgerClient
+      .stub(service, token)
+      .getFlatTransactionByEventId(
+        GetTransactionByEventIdRequest(
+          eventId = eventId,
+          requestingParties = parties,
+        )
+      )
 
-  def getLedgerEnd(token: Option[String] = None): Future[GetLedgerEndResponse] =
-    it.getLedgerEnd(ledgerId, token)
+  def getLedgerEnd(
+      token: Option[String] = None
+  ): Future[GetLedgerEndResponse] =
+    LedgerClient
+      .stub(service, token)
+      .getLedgerEnd(GetLedgerEndRequest())
 
 }

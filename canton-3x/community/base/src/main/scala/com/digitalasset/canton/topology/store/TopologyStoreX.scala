@@ -110,7 +110,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
     ] {
   this: NamedLogging =>
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransactionX]]
 
