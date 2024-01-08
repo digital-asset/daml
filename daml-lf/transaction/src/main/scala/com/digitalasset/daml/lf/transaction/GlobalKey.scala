@@ -33,16 +33,6 @@ final class GlobalKey private (
 
 object GlobalKey {
 
-  // TODO https://github.com/digital-asset/daml/issues/17732
-  //   For temporary backward compatibility, will be deprecated
-  def build(templateId: Ref.TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
-    build(templateId, key, shared = false)
-
-  // TODO https://github.com/digital-asset/daml/issues/17732
-  //   For temporary backward compatibility, will be deprecated
-  def assertBuild(templateId: Ref.TypeConName, value: Value): GlobalKey =
-    assertBuild(templateId, value, shared = false)
-
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
     if (
       key.key != value &&
@@ -89,15 +79,6 @@ final case class GlobalKeyWithMaintainers(
 }
 
 object GlobalKeyWithMaintainers {
-
-  // TODO https://github.com/digital-asset/daml/issues/17732
-  //   For temporary backward compatibility, will be deprecated
-  def assertBuild(
-      templateId: Ref.TypeConName,
-      value: Value,
-      maintainers: Set[Ref.Party],
-  ): GlobalKeyWithMaintainers =
-    assertBuild(templateId, value, maintainers, shared = false)
 
   def assertBuild(
       templateId: Ref.TypeConName,
