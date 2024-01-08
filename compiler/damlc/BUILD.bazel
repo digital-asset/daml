@@ -250,6 +250,7 @@ da_haskell_library(
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-gcp-logger",
         "//libs-haskell/da-hs-base",
         "//sdk-version/hs:sdk-version-class-lib",
     ],

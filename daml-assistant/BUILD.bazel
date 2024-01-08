@@ -98,6 +98,7 @@ da_haskell_binary(
     deps = [
         ":daml-lib",
         ":daml-project-config",
+        "//libs-haskell/da-gcp-logger",
         "//libs-haskell/da-hs-base",
         "//sdk-version/hs:sdk-version-lib",
     ],

@@ -1,0 +1,55 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
+load("@os_info//:os_info.bzl", "is_windows")
+
+da_haskell_library(
+    name = "da-gcp-logger",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "async",
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "http-conduit",
+        "monad-loops",
+        "random",
+        "safe-exceptions",
+        "stm",
+        "time",
+        "uuid",
+    ] + ([] if is_windows else ["unix"]),
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "da-gcp-logger-telemetry-tests",
+    srcs = glob(["tests/Telemetry.hs"]),
+    hackage_deps = [
+        "aeson",
+        "extra",
+        "tasty",
+        "base",
+        "directory",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "Telemetry.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":da-gcp-logger",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
