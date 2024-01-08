@@ -475,6 +475,7 @@ da_haskell_test(
     data = [
         "//daml-assistant:daml",
         "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
     ],
     hackage_deps = [
         "base",

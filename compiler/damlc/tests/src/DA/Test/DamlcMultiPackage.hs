@@ -11,6 +11,7 @@ import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
 import qualified DA.Daml.Dar.Reader as Reader
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Version (version1_15)
+import DA.Test.Util (defaultJvmMemoryLimits, limitJvmMemory, withEnv)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (find, intercalate, intersect, isInfixOf, isPrefixOf, sort, union, (\\))
 import qualified Data.Map as Map
@@ -20,12 +21,13 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
 import SdkVersion (sdkVersion)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, listDirectory, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
-import System.FilePath (isExtensionOf, makeRelative, takeFileName, (</>))
+import System.FilePath (getSearchPath, isExtensionOf, makeRelative, replaceFileName, searchPathSeparator, takeFileName, (</>))
+import System.Info.Extra (isWindows)
 import System.IO.Extra (newTempDir, withTempDir)
-import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
+import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess, readProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup, withResource)
 import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, assertEqual, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
@@ -87,13 +89,21 @@ main :: IO ()
 main = do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
+  oldPath <- getSearchPath
+  javaPath <- locateRunfiles "local_jdk/bin"
+
   withTempDir $ \damlHome -> do
     setEnv "DAML_HOME" damlHome True
     -- Install sdk 0.0.0 into temp DAML_HOME
-    void $ readCreateProcess (proc damlAssistant ["install", release]) ""
+    void $ readProcess damlAssistant ["install", release] ""
     -- Install a copy under the release version 10.0.0
-    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
-    defaultMain $ tests damlAssistant
+    void $ readProcess damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"] ""
+
+    limitJvmMemory defaultJvmMemoryLimits
+    withEnv
+        [("PATH", Just $ intercalate [searchPathSeparator] $ javaPath : oldPath)] 
+        (defaultMain $ tests damlAssistant)
+
 
 tests :: FilePath -> TestTree
 tests damlAssistant =
@@ -447,13 +457,13 @@ tests damlAssistant =
             $ Right [ PackageIdentifier "same-name" "0.0.1", PackageIdentifier "same-name-package" "0.0.1" ]
         , test "Building a non-existent composite dar fails as expected" ["--composite-dar=some-composite-dar"] "./first" compositeDarShadowingProject
             $ Left "Couldn't find composite dar with the name some-composite-dar in"
-        -- Final test (don't currently have way to assert warning)
-        --   building a transitive shadowed dar gives warning
+        , testWithStdout "Building a shadowed transitive dar succeeds with warning" ["--composite-dar=shadowed-transitive"] "./first" compositeDarShadowingProject
+            (Right [ PackageIdentifier "shadowed-transitive" "0.0.1", PackageIdentifier "shadowed-transitive-package" "0.0.1" ])
+            (Just "Warning: Found definition for shadowed-transitive in the following sub-projects:")
         ]
     , testGroup
         "Composite Dar Artifact"
-        -- check the dar works with codegen
-        [ withCompositeDar compositeDarProject "main-0.0.1" $ \getDarData -> testGroup "main-0.0.1"
+        [ withCompositeDar compositeDarProject "main-0.0.1" $ \getDarData -> testGroup "main-0.0.1" $
             [ testCase "Only has expected packages" $ do
                 darInfo <- snd <$> getDarData
                 let dalfInfos = fmap snd $ HashMap.toList $ Reader.packages darInfo
@@ -488,6 +498,20 @@ tests damlAssistant =
                 darInfo <- snd <$> getDarData
                 let ownDalfInfo = fromMaybe (error "Missing own package") $ HashMap.lookup (Reader.mainPackageId darInfo) $ Reader.packages darInfo
                 assertBool "Main package has modules" $ NM.null $ LF.packageModules $ Reader.dalfPackage ownDalfInfo
+            , testCase "Works with java codegen" $ do
+                darPath <- fst <$> getDarData
+                let codegenPath = replaceFileName darPath "java-codegen"
+                void $ readProcess damlAssistant ["codegen", "java", darPath, "--output-directory", codegenPath] ""
+                listDirectory codegenPath >>= assertBool "Codegen directory is empty" . not . null
+            ] <> 
+            [ testCase "Works with js codegen" $ do
+                darPath <- fst <$> getDarData
+                let codegenPath = replaceFileName darPath "js-codegen"
+                void $ readProcess damlAssistant ["codegen", "js", darPath, "-o", codegenPath] ""
+                listDirectory codegenPath >>= assertBool "Codegen directory is empty" . not . null
+            -- The '@daml/types' NPM package is not available on Windows which
+            -- is required by 'daml2js'.
+            | not isWindows
             ]
         ]
     ]
@@ -503,10 +527,23 @@ tests damlAssistant =
       -> Either T.Text [PackageIdentifier]
       -> TestTree
     test name flags runPath projectStructure expectedResult =
+      testWithStdout name flags runPath projectStructure expectedResult Nothing
+
+    testWithStdout
+      :: String
+      -> [String]
+      -> FilePath
+      -> [ProjectStructure]
+      -- Left is error regex, right is success + expected packages to have build.
+      -- Any created dar files that aren't listed here throw an error.
+      -> Either T.Text [PackageIdentifier]
+      -> Maybe String
+      -> TestTree
+    testWithStdout name flags runPath projectStructure expectedResult expectedStdout =
       testCase name $
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
-        runBuildAndAssert dir flags runPath allPossibleDars expectedResult
+        runBuildAndAssert dir flags runPath allPossibleDars expectedResult expectedStdout
 
     testCache 
       :: String -- name
@@ -550,7 +587,7 @@ tests damlAssistant =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
         let runBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
-            runBuild (flags, runPath) pkgs =  runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
+            runBuild (flags, runPath) pkgs = runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs) Nothing
             getPkgsLastModified :: [PackageIdentifier] -> IO (Map.Map PackageIdentifier UTCTime)
             getPkgsLastModified pkgs =
               -- fromJust is safe as long as called after a runBuild, since that asserts all pkgs exists in allPossibleDars
@@ -588,8 +625,9 @@ tests damlAssistant =
       -> FilePath
       -> Map.Map PackageIdentifier FilePath
       -> Either T.Text [PackageIdentifier]
+      -> Maybe String
       -> IO ()
-    runBuildAndAssert dir flags runPath allPossibleDars expectedResult = do
+    runBuildAndAssert dir flags runPath allPossibleDars expectedResult expectedStdout = do
       -- Quick check to ensure all the package identifiers are possible
       case expectedResult of
         Left _ -> pure ()
@@ -602,7 +640,9 @@ tests damlAssistant =
       runPath <- canonicalizePath $ dir </> runPath
       let args = ["build", "--enable-multi-package=yes"] <> flags
           process = (proc damlAssistant args) {cwd = Just runPath}
-      (exitCode, _, err) <- readCreateProcessWithExitCode process ""
+      (exitCode, out, err) <- readCreateProcessWithExitCode process ""
+      forM_ expectedStdout $ \expectedOut -> assertBool "Stdout did not contained expected string" $ expectedOut `isInfixOf` out
+
       case expectedResult of
         Right expectedPackageIdentifiers -> do
           unless (exitCode == ExitSuccess) $ assertFailure $ "Expected success and got " <> show exitCode <> ".\n  StdErr: \n  " <> err
@@ -923,23 +963,27 @@ simpleTwoPackageProjectModulePrefixes =
   ]
 
 -- 5 Packages, A-E. 2 Composite dars, first depends on A,B, second on C,D
+-- Each package has a unique module name and defines a template, for codegen testing
+-- (java codegen won't generate any files if all modules are empty)
 compositeDarProject :: [ProjectStructure]
 compositeDarProject =
     [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d", "./package-e"] []
         [ CompositeDarDefinition "main" "0.0.1" ["./package-a", "./package-b"] [] "./main.dar"
         , CompositeDarDefinition "test" "0.0.1" ["./package-c", "./package-d"] [] "./test.dar"
         ]
-    , simplePackage "package-a"
-    , simplePackage "package-b"
-    , simplePackage "package-c"
-    , simplePackage "package-d"
-    , simplePackage "package-e"
+    , simplePackage "package-a" "Main1"
+    , simplePackage "package-b" "Main2"
+    , simplePackage "package-c" "Main3"
+    , simplePackage "package-d" "Main4"
+    , simplePackage "package-e" "Main5"
     ]
   where
-    simplePackage :: T.Text -> ProjectStructure
-    simplePackage name = Dir name
+    -- Simple package with one module that defines a template
+    -- Names need to be unique for java codegen
+    simplePackage :: T.Text -> T.Text -> ProjectStructure
+    simplePackage name moduleName = Dir name
       [ damlYaml name "0.0.1" []
-      , Dir "daml" [DamlSource "Main" []]
+      , Dir "daml" [GenericFile (moduleName <> ".daml") ("module " <> moduleName <> " where template T with p : Party where signatory p")]
       ]
 
 -- first multi-package

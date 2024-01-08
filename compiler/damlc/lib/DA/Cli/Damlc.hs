@@ -968,7 +968,7 @@ warnTransitiveCompositeDar handle mpc name = do
   let otherDefiners = findCompositeDarTransitiveDefiners mpc name
    in when (not $ null otherDefiners) $ do
         hPutStrLn handle $ "Warning: Found definition for " <> T.unpack (LF.unPackageName name)
-          <> " in the following sub-projects: "
+          <> " in the following sub-projects:"
         traverse_ (hPutStrLn handle . ("  - " <>)) otherDefiners
         hPutStrLn handle $ "Use `--multi-package-path` to specify the multi-package.yaml "
           <> "defining the composite-dar if you intended to build one of these composite dars."
