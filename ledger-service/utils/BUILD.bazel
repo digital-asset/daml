@@ -15,7 +15,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/api-type-signature",

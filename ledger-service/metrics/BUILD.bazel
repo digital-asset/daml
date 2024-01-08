@@ -10,7 +10,6 @@ da_scala_library(
     name = "metrics",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [],
-    tags = ["maven_coordinates=com.daml:http-json-metrics:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

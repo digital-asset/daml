@@ -75,10 +75,6 @@ commands:
 - name: ide
   path: damlc/damlc
   args: ["ide"]
-- name: json-api
-  path: daml-helper/daml-helper
-  desc: "Launch the HTTP JSON API"
-  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
 - name: trigger-service
   path: daml-helper/daml-helper
   desc: "Launch the trigger service"
