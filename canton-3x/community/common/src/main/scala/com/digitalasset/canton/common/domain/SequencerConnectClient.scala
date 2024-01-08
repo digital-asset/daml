@@ -27,9 +27,17 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, Error, DomainClientBootstrapInfo]
 
-  def getDomainParameters(domainAlias: DomainAlias)(implicit
+  /** @param domainIdentifier Used for logging purpose
+    */
+  def getDomainParameters(domainIdentifier: String)(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, StaticDomainParameters]
+
+  /** @param domainIdentifier Used for logging purpose
+    */
+  def getDomainId(domainIdentifier: String)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, DomainId]
 
   def handshake(
       domainAlias: DomainAlias,

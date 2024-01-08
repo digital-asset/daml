@@ -10,6 +10,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
+import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc
@@ -21,7 +22,6 @@ import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerResponseX,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{LedgerIdentity, SequencerSnapshot}
-import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
@@ -179,7 +179,9 @@ object EnterpriseSequencerAdminCommands {
         case v0.Snapshot.Response.Value.Success(v0.Snapshot.Success(Some(result))) =>
           SequencerSnapshot.fromProtoV1(result).leftMap(_.toString)
         case v0.Snapshot.Response.Value.VersionedSuccess(v0.Snapshot.VersionedSuccess(snapshot)) =>
-          SequencerSnapshot.fromByteString(snapshot).leftMap(_.toString)
+          SequencerSnapshot
+            .fromByteStringUnsafe(snapshot)
+            .leftMap(_.toString)
         case _ => Left("response is empty")
       }
 

@@ -152,7 +152,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   private[this] val txVersion = TransactionVersion.StableVersions.min
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
-  protected final val someContractInstance = ContractInstance(someTemplateId, someContractArgument)
+  protected final val someContractInstance =
+    ContractInstance(template = someTemplateId, arg = someContractArgument)
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
@@ -260,7 +261,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
-      None,
+      keyOpt = None,
       byKey = false,
       version = txVersion,
     )
@@ -418,7 +419,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
-        None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       ),
@@ -825,15 +826,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val txBuilder = newBuilder()
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
-        someTemplateId,
-        GlobalKeyWithMaintainers
+        templateId = someTemplateId,
+        key = GlobalKeyWithMaintainers
           .assertBuild(
             someTemplateId,
             someContractKey(party, key),
             Set(party),
             Util.sharedKey(testLanguageVersion),
           ),
-        result,
+        result = result,
         version = txVersion,
       )
     )
@@ -863,7 +864,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),
-        None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       )

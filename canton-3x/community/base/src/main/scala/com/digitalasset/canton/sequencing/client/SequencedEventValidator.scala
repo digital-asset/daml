@@ -625,7 +625,7 @@ class SequencedEventValidatorImpl(
               event.timestamp,
               lastTopologyClientTimestamp(priorEventO),
               protocolVersion,
-              warnIfApproximate = true,
+              warnIfApproximate = priorEventO.nonEmpty,
               optimistic,
             )
             .leftMap(InvalidTimestampOfSigningKey(event.timestamp, signingTs, _))

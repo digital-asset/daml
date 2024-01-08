@@ -312,10 +312,10 @@ class SequencerRuntime(
 
   override def onClosed(): Unit =
     Lifecycle.close(
-      topologyClient,
       sequencerService,
       authenticationServices.memberAuthenticationService,
       sequencer,
+      topologyClient,
     )(logger)
 
 }

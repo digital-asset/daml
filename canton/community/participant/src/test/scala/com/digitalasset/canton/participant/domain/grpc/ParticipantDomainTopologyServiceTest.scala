@@ -55,8 +55,6 @@ class ParticipantDomainTopologyServiceTest
       domainId,
       testedProtocolVersion,
     )
-    .headOption
-    .value
 
   private val response =
     RegisterTopologyTransactionResponse(

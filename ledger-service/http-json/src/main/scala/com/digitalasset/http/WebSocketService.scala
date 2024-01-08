@@ -659,7 +659,9 @@ object WebSocketService {
           (
             t,
             joinFragment(
-              keys map (k => keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))),
+              keys map (k =>
+                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k, shared = false))
+              ),
               sql" OR ",
             ),
           )

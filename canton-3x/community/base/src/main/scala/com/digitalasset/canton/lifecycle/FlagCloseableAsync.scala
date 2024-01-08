@@ -23,10 +23,10 @@ trait FlagCloseableAsync extends FlagCloseable {
 
 trait AsyncOrSyncCloseable extends AutoCloseable
 
-class AsyncCloseable[D <: RefinedNonNegativeDuration[D]] private (
+class AsyncCloseable private (
     name: String,
     closeFuture: () => Future[?],
-    timeout: D,
+    timeout: RefinedNonNegativeDuration[?],
     onTimeout: TimeoutException => Unit,
 )(implicit
     loggingContext: ErrorLoggingContext
@@ -38,14 +38,14 @@ class AsyncCloseable[D <: RefinedNonNegativeDuration[D]] private (
 }
 
 object AsyncCloseable {
-  def apply[D <: RefinedNonNegativeDuration[D]](
+  def apply(
       name: String,
       closeFuture: => Future[?],
-      timeout: D,
+      timeout: RefinedNonNegativeDuration[?],
       onTimeout: TimeoutException => Unit = _ => (),
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): AsyncCloseable[D] =
+  ): AsyncCloseable =
     new AsyncCloseable(name, () => closeFuture, timeout, onTimeout)
 }
 

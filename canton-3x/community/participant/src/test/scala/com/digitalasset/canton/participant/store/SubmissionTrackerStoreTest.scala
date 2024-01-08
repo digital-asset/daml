@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.store.PrunableByTimeTest
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, TestMetrics}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -70,6 +71,7 @@ trait SubmissionTrackerStoreTest
 
     "delete entries when pruning" in {
       val store = mkStore()
+      implicit val closeContext = HasTestCloseContext.makeTestCloseContext(logger)
 
       val pruningTs = maxSeqTimes(1)
       val expectedCountAfterPrune = maxSeqTimes.count(_ > pruningTs)

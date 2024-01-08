@@ -93,6 +93,8 @@ class StoreBackedCommandExecutorSpec
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
         disclosures = any[ImmArray[LfDisclosedContract]],
+        packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
+        packagePreference = any[Set[Ref.PackageId]],
       )(any[LoggingContext])
     )
       .thenReturn(result)
@@ -216,8 +218,10 @@ class StoreBackedCommandExecutorSpec
 
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
-      contractInstance =
-        Versioned(LfTransactionVersion.maxVersion, ContractInstance(identifier, Value.ValueTrue)),
+      contractInstance = Versioned(
+        LfTransactionVersion.maxVersion,
+        ContractInstance(template = identifier, arg = Value.ValueTrue),
+      ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -293,6 +297,8 @@ class StoreBackedCommandExecutorSpec
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
           disclosures = any[ImmArray[LfDisclosedContract]],
+          packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
+          packagePreference = any[Set[Ref.PackageId]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
 

@@ -105,7 +105,10 @@ abstract class TopologyAdministrationGroupCommon(
         timeout: Option[NonNegativeDuration]
     )(grpcCommand: => GrpcAdminCommand[_, _, T]): T = {
       val ret = consoleEnvironment.run(runner.adminCommand(grpcCommand))
-      ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
+      // Only wait for topology synchronization if a timeout is specified.
+      if (timeout.nonEmpty) {
+        ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
+      }
       ret
     }
   }

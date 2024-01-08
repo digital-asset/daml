@@ -18,16 +18,16 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
   private val unsuffixedId: LfContractId = ExampleTransactionFactory.unsuffixedId(10)
   private val suffixedId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
   private val seed: LfHash = ExampleTransactionFactory.lfHash(5)
+  private val testTxVersion: LfTransactionVersion = ExampleTransactionFactory.transactionVersion
   private val globalKey: LfGlobalKey =
     LfGlobalKey
       .build(
         templateId = LfTransactionBuilder.defaultTemplateId,
         key = Value.ValueInt64(10L),
-        shared = Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
+        shared = Util.sharedKey(testTxVersion),
       )
       .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")
-  private val dummyVersion: LfTransactionVersion = ExampleTransactionFactory.transactionVersion
 
   private val representativePV: RepresentativeProtocolVersion[ActionDescription.type] =
     ActionDescription.protocolVersionRepresentativeFor(testedProtocolVersion)
@@ -57,7 +57,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
         Set(ExampleTransactionFactory.submitter),
         byKey = false,
         seed,
-        dummyVersion,
+        testTxVersion,
         failed = true,
         ActionDescription.protocolVersionRepresentativeFor(protocolVersion),
       )
@@ -66,19 +66,19 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       unsuffixedId,
       Set(ExampleTransactionFactory.signatory, ExampleTransactionFactory.observer),
       byKey = true,
-      dummyVersion,
+      testTxVersion,
     )(representativePV)
 
     "deserialize to the same value (V0)" in {
       val tests = Seq(
-        CreateActionDescription(unsuffixedId, seed, dummyVersion)(representativePV),
+        CreateActionDescription(unsuffixedId, seed, testTxVersion)(representativePV),
         tryCreateExerciseActionDescription(
           interfaceId = None,
           templateId = None,
           ProtocolVersion.v3,
         ),
         fetchAction,
-        LookupByKeyActionDescription.tryCreate(globalKey, dummyVersion, representativePV),
+        LookupByKeyActionDescription.tryCreate(globalKey, testTxVersion, representativePV),
       )
 
       forEvery(tests) { actionDescription =>
@@ -88,14 +88,14 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
 
     "deserialize to the same value (V1)" in {
       val tests = Seq(
-        CreateActionDescription(unsuffixedId, seed, dummyVersion)(representativePV),
+        CreateActionDescription(unsuffixedId, seed, testTxVersion)(representativePV),
         tryCreateExerciseActionDescription(
           Some(LfTransactionBuilder.defaultInterfaceId),
           templateId = None,
           ProtocolVersion.v4,
         ),
         fetchAction,
-        LookupByKeyActionDescription.tryCreate(globalKey, dummyVersion, representativePV),
+        LookupByKeyActionDescription.tryCreate(globalKey, testTxVersion, representativePV),
       )
 
       forEvery(tests) { actionDescription =>
@@ -105,14 +105,14 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
 
     "deserialize to the same value (V2)" in {
       val tests = Seq(
-        CreateActionDescription(unsuffixedId, seed, dummyVersion)(representativePV),
+        CreateActionDescription(unsuffixedId, seed, testTxVersion)(representativePV),
         tryCreateExerciseActionDescription(
           Some(LfTransactionBuilder.defaultInterfaceId),
           Some(LfTransactionBuilder.defaultTemplateId),
           ProtocolVersion.v5,
         ),
         fetchAction,
-        LookupByKeyActionDescription.tryCreate(globalKey, dummyVersion, representativePV),
+        LookupByKeyActionDescription.tryCreate(globalKey, testTxVersion, representativePV),
       )
 
       forEvery(tests) { actionDescription =>
@@ -161,7 +161,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
           Set(ExampleTransactionFactory.submitter),
           byKey = true,
           seed,
-          dummyVersion,
+          testTxVersion,
           failed = false,
           representativePV,
         ) shouldBe Left(
@@ -180,7 +180,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
               Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
             )
             .value,
-          dummyVersion,
+          testTxVersion,
           representativePV,
         ) shouldBe Left(
           InvalidActionDescription(

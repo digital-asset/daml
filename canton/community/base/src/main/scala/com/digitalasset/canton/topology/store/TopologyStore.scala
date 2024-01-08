@@ -545,6 +545,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       .groupBy(x => (x.sequenced, x.validFrom))
       .toList
       .sortBy { case ((_, validFrom), _) => validFrom }
+    if (logger.underlying.isDebugEnabled) {
+      logger.debug(s"Bootstrapping ${storeId} with ${groupedBySequencedAndValidFrom}")
+    }
     MonadUtil
       .sequentialTraverse_(groupedBySequencedAndValidFrom) {
         case ((sequenced, effective), transactions) =>

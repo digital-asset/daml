@@ -331,7 +331,7 @@ private class ContractsFetch(
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
       keyHash = lfKey.map(
         Hash
-          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _)
+          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _, shared = false)
           .toHexString
       ),
       payload = lfValueToDbJsValue(lfArg),

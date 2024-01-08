@@ -28,6 +28,7 @@ message Transaction {
 
 // architecture-handbook-entry-begin: Contract
 message ContractInstance {
+   string package_name = 4; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
     string agreement = 3;
@@ -61,6 +62,7 @@ message KeyWithMaintainers {
 message NodeCreate {
     reserved 1; // was contract_id
     ContractInstance contract_instance = 2; // *must not be used*
+    string package_name = 10; // required *since dev*
     com.daml.lf.value.Identifier template_id = 7;
     bytes arg_unversioned = 8;
     string agreement = 9;
@@ -72,6 +74,7 @@ message NodeCreate {
 
 message NodeFetch {
     reserved 1; // was contract_id
+    string package_name = 10; // required *since dev*
     com.daml.lf.value.Identifier template_id = 2;
     repeated string actors = 7;
     repeated string stakeholders = 3;
@@ -84,6 +87,7 @@ message NodeFetch {
 
 message NodeExercise {
     reserved 1; // was contract_id
+    string package_name = 21; // required *since dev*
     com.daml.lf.value.Identifier template_id = 2;
     com.daml.lf.value.Identifier interface_id = 19; // optional *since version 15*
     repeated string actors = 3;
@@ -111,6 +115,7 @@ message NodeExercise {
 }
 
 message NodeLookupByKey {
+    string package_name = 5; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     KeyWithMaintainers key_with_maintainers = 2;
     reserved 3; // was contract_id
@@ -133,6 +138,7 @@ message Versioned {
 // A self contains representation of a committed contract.
 message FatContractInstance {
   bytes contract_id = 1;
+  string package_name = 9; // required *since dev*
   com.daml.lf.value.Identifier template_id = 2;
 
   bytes create_arg = 3;

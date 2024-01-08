@@ -34,6 +34,8 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
   this: TestEssentials & FixtureAnyWordSpecLike =>
 
   implicit class ProtocolCheckString(verb: String) {
+    def onlyRunWhen(condition: Boolean): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, condition)
     def onlyRunWithOrGreaterThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =

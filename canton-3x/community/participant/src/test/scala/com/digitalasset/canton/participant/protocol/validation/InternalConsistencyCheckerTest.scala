@@ -11,7 +11,6 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
   checkRollbackScopeOrder,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext
@@ -63,7 +62,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
     forEvery(relevantExamples) { example =>
       s"checking $example" must {
 
-        val sut = new InternalConsistencyChecker(true, ProtocolVersion.dev, loggerFactory)
+        val sut = new InternalConsistencyChecker(true, testedProtocolVersion, loggerFactory)
 
         "yield the correct result" in {
           check(sut, example.rootTransactionViewTrees).isRight shouldBe true

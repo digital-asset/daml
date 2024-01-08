@@ -43,7 +43,6 @@ class TopologyTransactionProcessorX(
     crypto: Crypto,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
-    terminateProcessing: TerminateProcessing,
     enableTopologyTransactionValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
@@ -140,10 +139,6 @@ class TopologyTransactionProcessorX(
               )
             )
           )
-
-          _ <- performUnlessClosingF("terminate-processing")(
-            terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
-          )
         } yield ()
 
       }
@@ -214,7 +209,6 @@ object TopologyTransactionProcessorX {
       crypto,
       topologyStore,
       _ => (),
-      TerminateProcessing.NoOpTerminateTopologyProcessing,
       enableTopologyTransactionValidation,
       futureSupervisor,
       parameters.processingTimeouts,

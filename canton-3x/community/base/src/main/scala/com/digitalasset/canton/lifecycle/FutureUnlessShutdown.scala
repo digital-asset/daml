@@ -6,12 +6,15 @@ package com.digitalasset.canton.lifecycle
 import cats.arrow.FunctionK
 import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
+import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter}
 import com.digitalasset.canton.{DoNotDiscardLikeFuture, DoNotTraverseLikeFuture}
 
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
+import scala.util.chaining.*
 import scala.util.{Failure, Success, Try}
 
 object FutureUnlessShutdown {
@@ -48,7 +51,7 @@ object FutureUnlessShutdown {
     * functor/applicative/monad such as [[cats.data.EitherT]] via `eitherT.mapK(outcomeK)`.
     */
   def outcomeK(implicit ec: ExecutionContext): Future ~> FutureUnlessShutdown =
-    // We can't use `FunktionK.lift` here because of the implicit execution context.
+    // We can't use `FunctionK.lift` here because of the implicit execution context.
     new FunctionK[Future, FutureUnlessShutdown] {
       override def apply[A](future: Future[A]): FutureUnlessShutdown[A] = outcomeF(future)
     }
@@ -330,11 +333,20 @@ object FutureUnlessShutdownImpl {
     ): EitherT[Future, C, D] =
       EitherT(eitherT.value.onShutdown(f))
 
+    def tapLeft(f: A => Unit)(implicit
+        ec: ExecutionContext
+    ): EitherT[FutureUnlessShutdown, A, B] = eitherT.leftMap(_.tap(f))
+
     /** Evaluates `f` on shutdown but retains the result of the future. */
     def tapOnShutdown(f: => Unit)(implicit
         ec: ExecutionContext,
         errorLoggingContext: ErrorLoggingContext,
     ): EitherT[FutureUnlessShutdown, A, B] =
       EitherT(eitherT.value.tapOnShutdown(f))
+  }
+
+  implicit class TimerOnShutdownSyntax(private val timed: Timed.type) extends AnyVal {
+    def future[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
+      FutureUnlessShutdown(timed.future(timer, future.unwrap))
   }
 }

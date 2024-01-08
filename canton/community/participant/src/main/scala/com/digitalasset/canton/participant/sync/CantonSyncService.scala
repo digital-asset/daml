@@ -54,7 +54,10 @@ import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.{
+  JournalGarbageCollectorControl,
+  SyncStateInspection,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -394,8 +397,19 @@ class CantonSyncService(
   lazy val stateInspection = new SyncStateInspection(
     syncDomainPersistentStateManager,
     participantNodePersistentState,
-    pruningProcessor,
     parameters.processingTimeouts,
+    new JournalGarbageCollectorControl {
+      override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+        connectedDomainsMap
+          .get(domainId)
+          .map(_.addJournalGarageCollectionLock())
+          .getOrElse(Future.unit)
+      override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit = {
+        connectedDomainsMap
+          .get(domainId)
+          .foreach(_.removeJournalGarageCollectionLock())
+      }
+    },
     loggerFactory,
   )
 
@@ -406,7 +420,6 @@ class CantonSyncService(
   ): CompletionStage[PruningResult] =
     (withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
-
       pruneInternally(pruneUpToInclusive)
         .fold(
           err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
@@ -1154,7 +1167,7 @@ class CantonSyncService(
                     loggerFactory,
                   ),
                 domainMetrics,
-                parameters.cachingConfigs.sessionKeyCache,
+                parameters.cachingConfigs.sessionKeyCacheConfig,
                 participantId,
               )
           )

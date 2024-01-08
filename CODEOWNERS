@@ -15,7 +15,6 @@ azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 /release/           @garyverhaegen-da
 /release.sh         @garyverhaegen-da
-/canton_dep.bzl     @garyverhaegen-da @remyhaemmerle-da @rgugliel-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @dasormeter

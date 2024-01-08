@@ -153,11 +153,17 @@ private[participant] class NaiveRequestTracker(
         taskScheduler.scheduleTask(checkActivenessAndLock)
         taskScheduler.scheduleTask(timeoutAction)
 
-        val f = conflictDetector.registerActivenessSet(rc, activenessSet).map { _ =>
-          // Tick the task scheduler only after all states have been prefetched into the conflict detector
-          taskScheduler.addTick(sc, requestTimestamp)
-          RequestFutures(data.activenessResult.futureUS, data.timeoutResult.futureUS)
-        }
+        val f = conflictDetector
+          .registerActivenessSet(rc, activenessSet)
+          .map { _ =>
+            // Tick the task scheduler only after all states have been prefetched into the conflict detector
+            taskScheduler.addTick(sc, requestTimestamp)
+            RequestFutures(data.activenessResult.futureUS, data.timeoutResult.futureUS)
+          }
+          .tapOnShutdown {
+            data.activenessResult.shutdown()
+            data.timeoutResult.shutdown()
+          }
         Right(f)
 
       case Some(oldData) =>

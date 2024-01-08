@@ -12,7 +12,7 @@
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, handle, throwIO)
+import Control.Exception (bracket, catch, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -87,10 +87,13 @@ import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import DA.Daml.Project.Types
     ( UnresolvedReleaseVersion(..),
       unresolvedBuiltinSdkVersion,
+      unresolvedReleaseVersionToString,
+      parseUnresolvedVersion,
       isHeadVersion,
       ConfigError(..),
       ProjectPath(..),
-      ProjectConfig )
+      ProjectConfig,
+      unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersion)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
@@ -108,6 +111,7 @@ import DA.Daml.LF.Reader (dalfPaths,
                           readDalfManifest,
                           readDalfs,
                           readManifest)
+import qualified DA.Daml.LF.Reader as Reader
 import DA.Daml.LanguageServer (runLanguageServer)
 import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
@@ -152,7 +156,8 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                projectConfigName,
                                sdkVersionEnvVar,
                                withExpectProjectRoot,
-                               withProjectRoot)
+                               withProjectRoot,
+                               damlAssistantIsSet)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
@@ -172,7 +177,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
@@ -910,9 +915,13 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
-              damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-              releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+              damlAssistantIsSet <- damlAssistantIsSet
+              releaseVersion <- if damlAssistantIsSet
+                  then do
+                    damlPath <- getDamlPath
+                    damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+                    resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+                  else pure (unsafeResolveReleaseVersion pSdkVersion)
               installDependencies
                   (toNormalizedFilePath' projRoot)
                   opts
@@ -985,13 +994,13 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
-          hPutStrLn stderr $ "No daml.yaml found, but a multi-package.yaml was found instead.\n"
+          hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
             <> "If you intended to build everything within this multi-package.yaml, use the --all flag"
           exitFailure
 
         -- We have nothing, we're lost
         (False, Nothing, Nothing) -> do
-          hPutStrLn stderr "No daml.yaml or multi-package.yaml could be found."
+          hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
           exitFailure
     else
       case mPkgConfig of
@@ -1020,6 +1029,9 @@ withMaybeConfig withConfig handler = do
   mConfig <-
     handle (\case
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
+        pure Nothing
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "contains only sdk-version" `isInfixOf` exc -> do
+        putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
     ) (withConfig $ pure . Just)
@@ -1107,7 +1119,7 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
   cDir <- getCurrentDirectory
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
     darPath <- darPathFromDamlYaml path
@@ -1179,7 +1191,6 @@ getDamlFilesBuildMulti log packagePath srcDir = do
       <> " to a directory to allow correct caching.\n"
     pure Map.empty
 
-
 -- Extract the name/version string and package ID of a given dalf in a dar.
 entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
 entryToDalfData entry = do
@@ -1204,6 +1215,9 @@ readDarStalenessData archive =
            in Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
         _ -> Nothing
 
+getDarSdkVersion :: ZipArchive.Archive -> Either String String
+getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
+
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
 getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
@@ -1220,14 +1234,17 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
       -- Get the real source files we expect to be included in the dar
       sourceFiles <- getDamlFilesBuildMulti logInfo path bmSourceDaml
 
-      -- Pull all information we need from the dar.
-      (archiveDalfPids, archiveSourceFiles) <-
-        readDarStalenessData . ZipArchive.toArchive <$> BSL.readFile darPath
+      dar <- ZipArchive.toArchive <$> BSL.readFile darPath
 
-      let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
+      -- Pull all information we need from the dar.
+      let (archiveDalfPids, archiveSourceFiles) = readDarStalenessData dar
+          archiveSdkVersion = getDarSdkVersion dar
+
+          getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
+          sdkVersionCorrect = archiveSdkVersion == Right (unresolvedReleaseVersionToString bmSdkVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1244,7 +1261,11 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
       logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
       logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
-      pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+      logDebug $ "Sdk version is " <> (if sdkVersionCorrect then "not " else "") <> "stale."
+      pure $ if sourceDepsCorrect && sourceFilesCorrect && sdkVersionCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+
+damlMultiBuildVersion :: UnresolvedReleaseVersion
+damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
   :: AssistantRunner
@@ -1300,7 +1321,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             -- Call build via daml assistant so it selects the correct SDK version.
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | isHeadVersion bmSdkVersion])
+              ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1582,9 +1603,13 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      damlPath <- getDamlPath
-      damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-      releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+      damlAssistantIsSet <- damlAssistantIsSet
+      releaseVersion <- if damlAssistantIsSet
+          then do
+            damlPath <- getDamlPath
+            damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+            resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+          else pure (unsafeResolveReleaseVersion unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty
 

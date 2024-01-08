@@ -13,6 +13,8 @@ import com.digitalasset.canton.config.{
   StorageConfig,
 }
 import com.digitalasset.canton.domain.config.CommunityDomainConfig
+import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
@@ -78,6 +80,30 @@ object CommunityConfigTransforms {
         .focus(_.participants)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
+  def updateAllSequencerXConfigs(
+      update: (String, CommunitySequencerNodeXConfig) => CommunitySequencerNodeXConfig
+  ): CommunityConfigTransform =
+    _.focus(_.sequencersX)
+      .modify(_.map { case (sName, sConfig) => (sName, update(sName.unwrap, sConfig)) })
+
+  def updateAllSequencerXConfigs_(
+      update: CommunitySequencerNodeXConfig => CommunitySequencerNodeXConfig
+  ): CommunityConfigTransform =
+    updateAllSequencerXConfigs((_, config) => update(config))
+
+  def updateAllMediatorXConfigs_(
+      update: CommunityMediatorNodeXConfig => CommunityMediatorNodeXConfig
+  ): CommunityConfigTransform =
+    updateAllMediatorXConfigs((_, config) => update(config))
+
+  def updateAllMediatorXConfigs(
+      update: (String, CommunityMediatorNodeXConfig) => CommunityMediatorNodeXConfig
+  ): CommunityConfigTransform =
+    cantonConfig =>
+      cantonConfig
+        .focus(_.mediatorsX)
+        .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
+
   def uniqueH2DatabaseNames: CommunityConfigTransform = {
     updateAllDomainConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
@@ -106,7 +132,23 @@ object CommunityConfigTransforms {
         .replace(nextPort.some)
     }
 
-    domainUpdate compose participantUpdate
+    val sequencerXUpdate = updateAllSequencerXConfigs_(
+      _.focus(_.publicApi.internalPort)
+        .replace(nextPort.some)
+        .focus(_.adminApi.internalPort)
+        .replace(nextPort.some)
+        .focus(_.monitoring.grpcHealthServer)
+        .modify(_.map(_.copy(internalPort = nextPort.some)))
+    )
+
+    val mediatorXUpdate = updateAllMediatorXConfigs_(
+      _.focus(_.adminApi.internalPort)
+        .replace(nextPort.some)
+        .focus(_.monitoring.grpcHealthServer)
+        .modify(_.map(_.copy(internalPort = nextPort.some)))
+    )
+
+    domainUpdate compose participantUpdate compose sequencerXUpdate compose mediatorXUpdate
 
   }
 }

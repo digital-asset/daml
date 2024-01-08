@@ -10,6 +10,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.Member
 
 /** Synchronous error returned by a sequencer. */
 sealed trait SendAsyncError extends PrettyPrinting {
@@ -80,13 +81,19 @@ object SendAsyncError {
 
   final case class UnknownRecipients(message: String) extends SendAsyncError {
     protected def toResponseReasonProto: v0.SendAsyncResponse.Error.Reason =
-      v0.SendAsyncResponse.Error.Reason.SenderUnknown(message)
+      v0.SendAsyncResponse.Error.Reason.UnknownRecipients(message)
     protected def toSignedResponseReasonProto: v0.SendAsyncSignedResponse.Error.Reason =
-      v0.SendAsyncSignedResponse.Error.Reason.SenderUnknown(message)
+      v0.SendAsyncSignedResponse.Error.Reason.UnknownRecipients(message)
     override def category: ErrorCategory = ErrorCategory.InvalidGivenCurrentSystemStateOther
   }
 
-  /** The Sequencer declined to process new requests as it is shutting down */
+  object UnknownRecipients {
+    def apply(unknownMembers: List[Member]): UnknownRecipients = UnknownRecipients(
+      s"The following recipients are invalid: ${unknownMembers.mkString(",")}"
+    )
+  }
+
+  /** The sequencer declined to process new requests as it is shutting down */
   final case class ShuttingDown(message: String = "Sequencer shutting down")
       extends SendAsyncError {
     protected def toResponseReasonProto: v0.SendAsyncResponse.Error.Reason =

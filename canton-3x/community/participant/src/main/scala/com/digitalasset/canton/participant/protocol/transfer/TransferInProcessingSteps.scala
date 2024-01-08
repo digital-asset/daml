@@ -580,14 +580,14 @@ private[transfer] class TransferInProcessingSteps(
     val contractInst = contract.contractInstance.unversioned
     val createNode: LfNodeCreate =
       LfNodeCreate(
-        contract.contractId,
-        contractInst.template,
-        contractInst.arg,
-        "", // TODO(i12451): get the right agreement text from `contractInst`
-        contract.metadata.signatories,
-        contract.metadata.stakeholders,
+        coid = contract.contractId,
+        templateId = contractInst.template,
+        arg = contractInst.arg,
+        agreementText = "", // TODO(i12451): get the right agreement text from `contractInst`
+        signatories = contract.metadata.signatories,
+        stakeholders = contract.metadata.stakeholders,
         keyOpt = contract.metadata.maybeKeyWithMaintainers,
-        contract.contractInstance.version,
+        version = contract.contractInstance.version,
       )
     val driverContractMetadata = contract.contractSalt
       .map { salt =>

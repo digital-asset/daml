@@ -19,6 +19,22 @@ import com.digitalasset.canton.{SequencerCounter, topology}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+class ParticipantTopologyTerminateProcessingTickerX(
+    recordOrderPublisher: RecordOrderPublisher,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends topology.processing.TerminateProcessing
+    with NamedLogging {
+
+  override def terminate(
+      sc: SequencerCounter,
+      sequencedTime: SequencedTime,
+      effectiveTime: EffectiveTime,
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    recordOrderPublisher.tick(sc, sequencedTime.value)
+    Future.unit
+  }
+}
+
 class ParticipantTopologyTerminateProcessingX(
     recordOrderPublisher: RecordOrderPublisher,
     store: TopologyStoreX[TopologyStoreId.DomainStore],

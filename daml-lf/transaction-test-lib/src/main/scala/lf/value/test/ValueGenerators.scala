@@ -71,6 +71,17 @@ object ValueGenerators {
     segments <- Gen.listOfN(n, dottedNameSegmentGen)
   } yield DottedName.assertFromSegments(segments)
 
+  def pkgNameGen(version: TransactionVersion): Gen[Option[PackageName]] =
+    if (version < TransactionVersion.minUpgrade)
+      None
+    else
+      for {
+        n <- Gen.choose(1, 64)
+        pkgName <- Gen
+          .listOfN(n, Gen.alphaNumChar)
+          .map(s => PackageName.assertFromString(s.mkString))
+      } yield Some(pkgName)
+
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
     n <- Gen.choose(1, 64)
@@ -258,18 +269,12 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val contractInstanceGen: Gen[ContractInstance] = {
-    for {
-      template <- idGen
-      arg <- valueGen()
-    } yield ContractInstance(template, arg)
-  }
-
   val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
-    } yield arg.map(Value.ContractInstance(template, _))
+      pkgName <- pkgNameGen(arg.version)
+    } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: Ref.TypeConName,
@@ -313,6 +318,7 @@ object ValueGenerators {
   ): Gen[Node.Create] =
     for {
       coid <- coidGen
+      packageName <- pkgNameGen(version)
       templateId <- idGen
       arg <- valueGen()
       agreement <- Arbitrary.arbitrary[String]
@@ -321,6 +327,7 @@ object ValueGenerators {
       key <- Gen.option(keyWithMaintainersGen(templateId, version))
     } yield Node.Create(
       coid = coid,
+      packageName = packageName,
       templateId = templateId,
       arg = arg,
       agreementText = agreement,
@@ -339,6 +346,7 @@ object ValueGenerators {
   def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
+      pkgName <- pkgNameGen(version)
       templateId <- idGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
@@ -347,6 +355,7 @@ object ValueGenerators {
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
+      packageName = pkgName,
       templateId = templateId,
       actingParties = actingParties,
       signatories = signatories,
@@ -379,6 +388,7 @@ object ValueGenerators {
   ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
+      pkgName <- pkgNameGen(version)
       templateId <- idGen
       interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
       choiceId <- nameGen
@@ -400,6 +410,7 @@ object ValueGenerators {
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
+      packageName = pkgName,
       templateId = templateId,
       interfaceId = interfaceId,
       choiceId = choiceId,
@@ -421,10 +432,12 @@ object ValueGenerators {
     for {
       version <- transactionVersionGen()
       targetCoid <- coidGen
+      pkgName <- pkgNameGen(version)
       templateId <- idGen
       key <- keyWithMaintainersGen(templateId, version)
       result <- Gen.option(targetCoid)
     } yield Node.LookupByKey(
+      packageName = pkgName,
       templateId,
       key,
       result,

@@ -56,6 +56,9 @@ package object canton {
   type LfPackageId = Ref.PackageId
   val LfPackageId: Ref.PackageId.type = Ref.PackageId
 
+  type LfPackageName = Ref.PackageName
+  val LfPackageName: Ref.PackageName.type = Ref.PackageName
+
   type LfInterfaceId = Ref.TypeConName
   val LfInterfaceId: Ref.TypeConName.type = Ref.TypeConName
 

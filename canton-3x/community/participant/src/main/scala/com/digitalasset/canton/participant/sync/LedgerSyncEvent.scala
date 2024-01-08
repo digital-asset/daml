@@ -73,7 +73,6 @@ sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinti
       case ev: LedgerSyncEvent.PartyAddedToParticipant => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAllocationRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ConfigurationChanged => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.ConfigurationChangeRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.TransferredOut => ev.updateRecordTime(newRecordTime = timestamp)
       case ev: LedgerSyncEvent.TransferredIn => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsAdded => ev.copy(recordTime = timestamp)
@@ -109,30 +108,6 @@ object LedgerSyncEvent {
       )
     override def toDamlUpdate: Option[Update] = Some(
       this.transformInto[Update.ConfigurationChanged]
-    )
-  }
-
-  final case class ConfigurationChangeRejected(
-      recordTime: LfTimestamp,
-      submissionId: LedgerSubmissionId,
-      participantId: LedgerParticipantId,
-      proposedConfiguration: LedgerConfiguration,
-      rejectionReason: String,
-  ) extends LedgerSyncEvent {
-    override def description: String = {
-      s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
-    }
-
-    override def pretty: Pretty[ConfigurationChangeRejected] =
-      prettyOfClass(
-        param("participantId", _.participantId),
-        param("recordTime", _.recordTime),
-        param("submissionId", _.submissionId),
-        param("rejectionReason", _.rejectionReason.doubleQuoted),
-        param("proposedConfiguration", _.proposedConfiguration),
-      )
-    override def toDamlUpdate: Option[Update] = Some(
-      this.transformInto[Update.ConfigurationChangeRejected]
     )
   }
 

@@ -23,7 +23,11 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
   private def eventsReader = ledgerDao.eventsReader
 
   private def globalKeyWithMaintainers(value: String) = GlobalKeyWithMaintainers(
-    GlobalKey.assertBuild(someTemplateId, someContractKey(alice, value)),
+    GlobalKey.assertBuild(
+      someTemplateId,
+      someContractKey(alice, value),
+      shared = true,
+    ),
     Set(alice),
   )
 

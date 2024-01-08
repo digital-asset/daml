@@ -244,8 +244,6 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val allocateParty: Timer = metricsFactory.timer(prefix :+ "allocate_party")
     @MetricDoc.FanInstanceTag
-    val submitConfiguration: Timer = metricsFactory.timer(prefix :+ "submit_configuration")
-    @MetricDoc.FanInstanceTag
     val prune: Timer = metricsFactory.timer(prefix :+ "prune")
   }
 

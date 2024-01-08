@@ -4,11 +4,12 @@
 package com.digitalasset.canton.protocol
 
 import com.daml.lf.data.Bytes
+import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue}
+import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, LfVersioned}
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {
@@ -16,6 +17,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
   val alice = LfPartyId.assertFromString("Alice")
   val bob = LfPartyId.assertFromString("Bob")
 
+  val languageVersion = ExampleTransactionFactory.languageVersion
   val templateId = ExampleTransactionFactory.templateId
 
   "SerializableContractInstance" should {
@@ -28,7 +30,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
         stakeholders = Set(alice, bob),
         maybeKeyWithMaintainers = Some(
           ExampleTransactionFactory.globalKeyWithMaintainers(
-            LfGlobalKey.build(templateId, Value.ValueUnit).value,
+            LfGlobalKey.build(templateId, Value.ValueUnit, Util.sharedKey(languageVersion)).value,
             Set(alice),
           )
         ),
@@ -88,7 +90,13 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           contractId = authenticatedContractId,
           rawContractInstance = SerializableRawContractInstance
             .create(
-              LfContractInst(transactionVersion, templateId, LfValue.ValueNil),
+              LfVersioned(
+                transactionVersion,
+                LfValue.ContractInstance(
+                  template = templateId,
+                  arg = LfValue.ValueNil,
+                ),
+              ),
               AgreementText(agreementText),
             )
             .value,

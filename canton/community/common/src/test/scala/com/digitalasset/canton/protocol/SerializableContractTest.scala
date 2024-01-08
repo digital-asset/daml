@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue}
+import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, LfVersioned}
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {
@@ -94,7 +94,13 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           contractId = authenticatedContractId,
           rawContractInstance = SerializableRawContractInstance
             .create(
-              LfContractInst(transactionVersion, templateId, LfValue.ValueNil),
+              LfVersioned(
+                transactionVersion,
+                LfValue.ContractInstance(
+                  template = templateId,
+                  arg = LfValue.ValueNil,
+                ),
+              ),
               AgreementText(agreementText),
             )
             .value,

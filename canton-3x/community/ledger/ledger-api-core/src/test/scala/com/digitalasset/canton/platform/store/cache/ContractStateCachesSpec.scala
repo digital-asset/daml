@@ -170,7 +170,11 @@ class ContractStateCachesSpec
     ContractId.V1(Hash.hashPrivateKey(id.toString))
 
   private def globalKey(id: Int): Key =
-    GlobalKey.assertBuild(Identifier.assertFromString(s"some:template:name"), ValueInt64(id.toLong))
+    GlobalKey.assertBuild(
+      Identifier.assertFromString(s"some:template:name"),
+      ValueInt64(id.toLong),
+      shared = true,
+    )
 
   private def contract(id: Int): Contract = {
     val templateId = Identifier.assertFromString(s"some:template:name")
@@ -178,7 +182,7 @@ class ContractStateCachesSpec
       Some(templateId),
       ImmArray(None -> ValueInt64(id.toLong)),
     )
-    val contractInstance = ContractInstance(templateId, contractArgument)
+    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

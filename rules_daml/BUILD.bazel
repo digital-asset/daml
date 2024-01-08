@@ -6,3 +6,9 @@ exports_files(
     ["daml.bzl"],
     visibility = ["//bazel_tools/docs:__pkg__"],
 )
+
+filegroup(
+    name = "generate-dar-hash",
+    srcs = glob(["generate-dar-hash.py"]),
+    visibility = ["//visibility:public"],
+)

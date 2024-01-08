@@ -28,6 +28,7 @@
     "typedoc": "^0.22.11"
   },
   "resolutions": {
-    "**/protobufjs": "^6.10.3"
+    "**/protobufjs": "^6.10.3",
+    "semver": "5.7.2"
   }
 }

@@ -146,7 +146,9 @@ object SequencedEvent
   def fromByteStringOpen(hashOps: HashOps, protocolVersion: ProtocolVersion)(
       bytes: ByteString
   ): ParsingResult[SequencedEvent[DefaultOpenEnvelope]] =
-    fromByteString(bytes).flatMap(_.traverse(_.openEnvelope(hashOps, protocolVersion)))
+    fromByteStringUnsafe(bytes).flatMap(
+      _.traverse(_.openEnvelope(hashOps, protocolVersion))
+    )
 
   implicit val sequencedEventEnvelopeBox: EnvelopeBox[SequencedEvent] =
     new EnvelopeBox[SequencedEvent] {

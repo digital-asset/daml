@@ -153,9 +153,9 @@ class AsyncExecutorWithMetrics(
                   f"count=$count%7d mean=${nanos / (Math.max(count, 1) * 1e6)}%7.2f ms total=${nanos / 1e9}%5.1f s $name%s"
                 }
                 .mkString("\n  ")
-              val total = updated.values.map(_._2).sum
+              val total = f"${updated.values.map(_._2).sum / 1e9}%5.1f"
               logger.info(
-                s"Here is our list of the 15 most expensive database queries for ${metrics.prefix} with total of ${total / 1e9}%5.1f s:\n  " + items
+                s"Here is our list of the 15 most expensive database queries for ${metrics.prefix} with total of $total s:\n  " + items
               )
             }
           }
@@ -337,7 +337,9 @@ class AsyncExecutorWithMetrics(
               ignore.forall(pack => !e.getClassName.startsWith(pack))
             }
             .map(_.toString)
-            .getOrElse("<unknown>")
+            .getOrElse(
+              "<unknown>"
+            ) // if we can't find the call-site, then it's usually some transactionally
         } else "query-tracking-disabled"
         // initialize statistics gathering
         stats.put(command, QueryInfo(tr)).discard

@@ -54,6 +54,7 @@ class GrpcSequencerClientTransportPekko(
       metrics,
       timeouts,
       loggerFactory,
+      protocolVersion,
     )
     with SequencerClientTransportPekko {
 
@@ -136,7 +137,7 @@ class GrpcSequencerClientTransportPekko(
       if (requiresAuthentication) sequencerServiceClient.subscribeVersioned _
       else sequencerServiceClient.subscribeUnauthenticatedVersioned _
 
-    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV0(_)(_))
+    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(_)(_))
   }
 
   private def stubWithFreshContext[Req, Resp](

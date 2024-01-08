@@ -45,7 +45,8 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val pkg1 = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1
 
-    p"""
+    p""" metadata ( 'pkg1' : '1.0.0' )
+
         module Mod {
           variant Either a b = Left : a | Right : b ;
           record MyUnit = { };
@@ -79,7 +80,8 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     implicit def parserParameters: ParserParameters[this.type] = parserParameters2
 
-    p"""
+    p""" metadata ( 'pkg2' : '1.0.0' )
+
          module A {
           enum A = ;
           enum B = ;

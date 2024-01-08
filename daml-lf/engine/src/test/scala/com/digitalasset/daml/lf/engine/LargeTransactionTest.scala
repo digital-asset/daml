@@ -289,10 +289,10 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
       .submit(
         submitters = Set(submitter),
         readAs = Set.empty,
-        ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
-        ImmArray.empty,
-        participant,
-        seed,
+        cmds = ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
+        disclosures = ImmArray.empty,
+        participantId = participant,
+        submissionSeed = seed,
       )
       .consume(
         ledger.get(submitter, effectiveAt),
@@ -320,7 +320,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
       (Some[Name]("step"), ValueInt64(step.toLong)),
       (Some[Name]("size"), ValueInt64(number.toLong)),
     )
-    ApiCommand.Create(templateId, ValueRecord(Some(templateId), fields))
+    ApiCommand.Create(templateId.toRef, ValueRecord(Some(templateId), fields))
   }
 
   private def toListContainerExerciseCmd(
@@ -329,7 +329,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
   ): ApiCommand.Exercise = {
     val choice = "ToListContainer"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(templateId.toRef, contractId, choice, (emptyArgs))
   }
 
   private def toListOfIntContainers(
@@ -338,12 +338,12 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
   ): ApiCommand.Exercise = {
     val choice = "ToListOfIntContainers"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(templateId.toRef, contractId, choice, (emptyArgs))
   }
 
   private def listUtilCreateCmd(templateId: Identifier): ApiCommand.Create = {
     val fields = ImmArray((Some[Name]("party"), ValueParty(party)))
-    ApiCommand.Create(templateId, ValueRecord(Some(templateId), fields))
+    ApiCommand.Create(templateId.toRef, ValueRecord(Some(templateId), fields))
   }
 
   private def sizeExerciseCmd(templateId: Identifier, contractId: ContractId)(
@@ -353,7 +353,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(List.range(0L, size.toLong).map(ValueInt64).to(FrontStack))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
-    ApiCommand.Exercise(templateId, contractId, choice, choiceArgs)
+    ApiCommand.Exercise(templateId.toRef, contractId, choice, choiceArgs)
   }
 
   private def assertSizeExerciseTransaction(

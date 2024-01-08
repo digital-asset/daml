@@ -5,14 +5,15 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, TypeConName, ChoiceName, Party}
+import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.data.Ref.{Party, Identifier, TypeConName, ChoiceName}
 import com.daml.lf.value.{Value => V}
-
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.HashMap
+import scala.math.Ordering.Implicits._
 
 class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
   // --[Tweaks]--
@@ -55,6 +56,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samBool2 = false
 
   private val samText1 = "some text"
+
+  private val somePkgName = PackageName.assertFromString("package-name")
 
   private val samContractId1 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid1"))
   private val samContractId2 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid2"))
@@ -108,6 +111,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       key <- Seq(None, Some(samKWM1(version)))
     } yield Node.Create(
       coid = samContractId1,
+      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       templateId = samTemplateId1,
       arg = samValue1,
       agreementText = samText1,
@@ -124,6 +128,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       actingParties <- Seq(Set[Party](), Set(samParty1))
     } yield Node.Fetch(
       coid = samContractId1,
+      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       templateId = samTemplateId1,
       actingParties = actingParties,
       signatories = samParties2,
@@ -139,6 +144,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       result <- Seq(None, Some(samContractId1))
     } yield Node.LookupByKey(
       templateId = samTemplateId1,
+      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       result = result,
       key = samKWM3(version),
       version = version,
@@ -151,6 +157,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       exerciseResult <- Seq(None, Some(samValue2))
     } yield Node.Exercise(
       targetCoid = samContractId2,
+      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       templateId = samTemplateId2,
       // TODO https://github.com/digital-asset/daml/issues/13653
       //   also vary interfaceId (but this requires an interface choice)

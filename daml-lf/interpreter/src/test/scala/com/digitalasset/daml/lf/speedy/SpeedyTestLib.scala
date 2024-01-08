@@ -245,6 +245,7 @@ private[speedy] object SpeedyTestLib {
           commitLocation = machine.commitLocation,
           limits = machine.limits,
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
+          packageResolution = Map.empty,
         )
 
       private[speedy] def withLocalContractKey(

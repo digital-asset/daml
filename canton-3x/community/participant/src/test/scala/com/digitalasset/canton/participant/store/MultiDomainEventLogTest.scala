@@ -528,7 +528,7 @@ trait MultiDomainEventLogTest
 
             // Participant event log
             eventLog
-              .lastLocalOffset(participantEventLogId, upToInclusiveO, None)
+              .lastLocalOffset(participantEventLogId, upToInclusiveO)
               .futureValue shouldBe None
 
             eventLog
@@ -538,7 +538,7 @@ trait MultiDomainEventLogTest
             // Domain event logs
             forEvery(domainEventLogIds) { domainId =>
               eventLog
-                .lastLocalOffset(domainId, upToInclusiveO, None)
+                .lastLocalOffset(domainId, upToInclusiveO)
                 .futureValue shouldBe None
 
               eventLog
@@ -695,20 +695,20 @@ trait MultiDomainEventLogTest
                 expectedDomainOffsets.get(domainId.domainId).value
 
               eventLog
-                .lastLocalOffset(domainId, upToInclusiveO, None)
+                .lastLocalOffset(domainId, upToInclusiveO)
                 .futureValue shouldBe expectedLocalOffset
 
               eventLog
-                .lastRequestOffset(domainId, upToInclusiveO, None)
+                .lastRequestOffset(domainId, upToInclusiveO)
                 .futureValue shouldBe expectedRequestOffset
             }
 
             eventLog
-              .lastLocalOffset(participantEventLogId, upToInclusiveO, None)
+              .lastLocalOffset(participantEventLogId, upToInclusiveO)
               .futureValue shouldBe expectedParticipantOffset
 
             eventLog
-              .lastRequestOffset(participantEventLogId, upToInclusiveO, None)
+              .lastRequestOffset(participantEventLogId, upToInclusiveO)
               .futureValue shouldBe expectedParticipantOffset
           }
         }

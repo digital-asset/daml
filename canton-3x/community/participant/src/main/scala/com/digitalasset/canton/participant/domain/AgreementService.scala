@@ -17,7 +17,6 @@ import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -34,12 +33,11 @@ class AgreementService(
   private[domain] def isRequiredAgreementAccepted(
       sequencerConnection: GrpcSequencerConnection,
       domainId: DomainId,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =
     for {
-      requiredAgreement <- getAgreement(domainId, sequencerConnection, protocolVersion)
+      requiredAgreement <- getAgreement(domainId, sequencerConnection)
       acceptedAgreement <- requiredAgreement match {
         case Some(agreement) =>
           for {
@@ -61,7 +59,6 @@ class AgreementService(
   def getAgreement(
       domainId: DomainId,
       sequencerConnection: GrpcSequencerConnection,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =

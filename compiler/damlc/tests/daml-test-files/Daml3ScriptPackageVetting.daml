@@ -15,6 +15,9 @@ packageA = PackageName "package-vetting-package-a" "1.0.0"
 packageB : PackageName
 packageB = PackageName "package-vetting-package-b" "1.0.0"
 
+currentPackage: PackageName
+currentPackage = PackageName "-dummy-package-name-" "0.0.0"
+
 canUseImportedPackage : Script ()
 canUseImportedPackage = script do
   alice <- allocateParty "Alice"
@@ -29,7 +32,7 @@ canUseReVettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=34:1-34:25; Failed to find package
+-- @ ERROR range=37:1-37:25; Failed to find package
 cannotUseUnvettedPackage : Script ()
 cannotUseUnvettedPackage = script do
   alice <- allocateParty "Alice"
@@ -37,7 +40,7 @@ cannotUseUnvettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=42:1-42:30; Failed to find package
+-- @ ERROR range=45:1-45:30; Failed to find package
 cannotExerciseUnvettedPackage : Script ()
 cannotExerciseUnvettedPackage = script do
   alice <- allocateParty "Alice"
@@ -62,7 +65,7 @@ assertVettedPackages : [PackageName] -> [PackageName] -> Script ()
 assertVettedPackages = assertPackages listVettedPackages
 
 assertAllPackages : Script ()
-assertAllPackages = assertPackages listAllPackages [packageA, packageB] []
+assertAllPackages = assertPackages listAllPackages [packageA, packageB, currentPackage] []
 
 listPackagesIsCorrect : Script ()
 listPackagesIsCorrect = script do
@@ -100,5 +103,6 @@ listPackagesIsCorrect = script do
   -- 14 packages in daml-stdlib (13 specific modules + stdlib itself)
   -- 2 packages in ghc-stdlib
   -- 1 package for daml3-script
+  -- the current package
   packages <- listVettedPackages
-  length packages === 29
+  length packages === 30

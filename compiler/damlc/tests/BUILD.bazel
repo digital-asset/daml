@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
@@ -463,6 +463,37 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Tests for multi-package
+da_haskell_test(
+    name = "multi-package",
+    srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
+    data = [
+        "//daml-assistant:daml",
+        "//release:sdk-release-tarball",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+    ],
+    main_function = "DA.Test.DamlcMultiPackage.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
@@ -1189,6 +1220,13 @@ daml_compile_with_dalf(
     # PlatformIndependence.daml.
     ghc_options = [],
 )
+
+# This ensures that changes to the contents of 'platform-independence.dar'
+# don't go unnoticed. This can happen after changes to daml-prim or daml-stdlib.
+# This is likely to happen if you work on the compiler , so it's a good idea to
+# add 'export RUN_PLATFORM_INDEPENDENCE_CHECK=yes' to your '.envrc.private'
+# at the root of the repo.
+generate_and_track_dar_hash_file("platform-independence")
 
 # Desugared daml golden tests
 da_haskell_test(

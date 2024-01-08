@@ -10,7 +10,9 @@ import com.daml.resources.ExecutorServiceResourceOwner._
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
 class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorService](
-    acquireExecutorService: () => T
+    acquireExecutorService: () => T,
+    gracefulAwaitTerminationMillis: Long,
+    forcefulAwaitTerminationMillis: Long,
 ) extends AbstractResourceOwner[Context, T] {
   override def acquire()(implicit context: Context): Resource[Context, T] =
     ReleasableResource(Future {
@@ -49,7 +51,13 @@ class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorSe
     })(executorService =>
       Future {
         executorService.shutdown()
-        val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        val gracefulShutdownSuccessful =
+          executorService.awaitTermination(gracefulAwaitTerminationMillis, TimeUnit.MILLISECONDS)
+        if (!gracefulShutdownSuccessful) {
+          executorService.shutdownNow()
+          val _ =
+            executorService.awaitTermination(forcefulAwaitTerminationMillis, TimeUnit.MILLISECONDS)
+        }
       }
     )
 }

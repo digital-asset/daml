@@ -316,12 +316,6 @@ object Hash {
   ): Either[HashingError, Hash] =
     handleError(assertHashContractKey(templateId, key, shared))
 
-  // TODO https://github.com/digital-asset/daml/issues/17732
-  //   For temporary backward compatibility, will be deprecated
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
-    assertHashContractKey(templateId, key, shared = false)
-  }
-
   // This function assumes that `arg` is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a contract argument of type τ
   // 2 - `arg` is a value of type τ

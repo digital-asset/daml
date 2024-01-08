@@ -59,7 +59,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
     )
 
   def fromByteString(bytes: ByteString): AcsCommitment = {
-    AcsCommitment.fromByteString(bytes) match {
+    AcsCommitment.fromByteString(testedProtocolVersion)(bytes) match {
       case Left(x) => fail(x.toString)
       case Right(x) => x
     }

@@ -167,11 +167,11 @@ object AcsChange extends HasLoggerName {
         )
     }
     loggingContext.debug(
-      show"Called fromCommitSet with inputs commitSet creations ${commitSet.creations}" +
-        show"transferIns ${commitSet.transferIns} archivals ${commitSet.archivals} transferOuts ${commitSet.transferOuts} and" +
+      show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
+        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts} and" +
         show"archival transfer counters from DB $transferCounterOfArchivalIncomplete" +
-        show"Completed fromCommitSet with results transient $transient" +
-        show"activations $activations archivalDeactivations $archivalDeactivations transferOutDeactivations $transferOutDeactivations"
+        show"Completed fromCommitSet with results transient=$transient;" +
+        show"activations=$activations; archivalDeactivations=$archivalDeactivations; transferOutDeactivations=$transferOutDeactivations"
     )
     AcsChange(
       activations = activations,

@@ -154,7 +154,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
   }
 
   private def getErrorMessage(errorO: Option[ByteString]): String =
-    DeliverErrorStoreEvent.fromByteString(errorO).toString
+    DeliverErrorStoreEvent.fromByteString(errorO, testedProtocolVersion).toString
 
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")

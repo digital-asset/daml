@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.ApiLoggingConfig
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
@@ -31,7 +30,6 @@ import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 @nowarn("msg=match may not be exhaustive")
-@UnstableTest
 class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
   val ChannelName: String = "testSender"
@@ -370,7 +368,10 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           when(service.hello(Request)).thenThrow(throwable)
 
-          assertClientFailure(client.hello(Request), Status.UNKNOWN)
+          assertClientFailure(
+            client.hello(Request),
+            Status.UNKNOWN.withDescription("Application error processing RPC"),
+          )
 
           assertRequestLogged
           capturingLogger.assertNextMessageIs(
@@ -383,11 +384,24 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             case NonFatal(_) =>
               capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
+              // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
+              // the client might log one additional "completed" message before or after the
+              // fatal error being logged by gRPC
+              val capturedCompletedMessages = new AtomicInteger(0)
+              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
+                capturedCompletedMessages.getAndIncrement()
+              }
               capturingLogger.assertNextMessageIs(
                 s"A fatal error has occurred in $executionContextName. Terminating thread.",
                 ERROR,
                 throwable,
               )
+              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
+                capturedCompletedMessages.getAndIncrement()
+              }
+              withClue("the 'completed' message should appear at most once:") {
+                capturedCompletedMessages.get() should be <= 1
+              }
           }
         }
       }
@@ -612,11 +626,13 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         "log progress and the error" in withEnv() { implicit env =>
           setupStreamedService(_ => throw throwable)
 
-          callStreamedServiceAndCheckClientFailure(Status.UNKNOWN)
+          callStreamedServiceAndCheckClientFailure(
+            Status.UNKNOWN.withDescription("Application error processing RPC")
+          )
 
           assertRequestAndResponsesLogged
           capturingLogger.assertNextMessageIs(
-            createExpectedLogMessage(s"failed with an unexpected throwable"),
+            createExpectedLogMessage("failed with an unexpected throwable"),
             ERROR,
             throwable,
           )
@@ -625,11 +641,24 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             case NonFatal(_) =>
               capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
+              // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
+              // the client might log one additional "completed" message before or after the
+              // fatal error being logged by gRPC
+              val capturedCompletedMessages = new AtomicInteger(0)
+              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
+                capturedCompletedMessages.getAndIncrement()
+              }
               capturingLogger.assertNextMessageIs(
                 s"A fatal error has occurred in $executionContextName. Terminating thread.",
                 ERROR,
                 throwable,
               )
+              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
+                capturedCompletedMessages.getAndIncrement()
+              }
+              withClue("the 'completed' message should appear at most once:") {
+                capturedCompletedMessages.get() should be <= 1
+              }
           }
         }
       }

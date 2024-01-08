@@ -370,9 +370,8 @@ class TestingIdentityFactory(
       )
     }
 
-  def newSigningPublicKey(owner: KeyOwner): SigningPublicKey = {
+  def newSigningPublicKey(owner: KeyOwner): SigningPublicKey =
     SymbolicCrypto.signingPublicKey(TestingIdentityFactory.keyFingerprintForOwner(owner))
-  }
 
 }
 

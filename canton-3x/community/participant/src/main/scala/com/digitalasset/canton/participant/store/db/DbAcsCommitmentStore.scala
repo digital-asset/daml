@@ -73,7 +73,7 @@ class DbAcsCommitmentStore(
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>
     SignedProtocolMessage
-      .fromByteString(ByteString.copyFrom(r.<<[Array[Byte]]))
+      .fromByteStringUnsafe(ByteString.copyFrom(r.<<[Array[Byte]]))
       .fold(
         err =>
           throw new DbDeserializationException(
@@ -253,7 +253,7 @@ class DbAcsCommitmentStore(
           .as[(CommitmentPeriod, ParticipantId)]
           .transactionally
           .withTransactionIsolation(TransactionIsolation.ReadCommitted),
-        operationName = "commitments: compute outstanding",
+        operationName = functionFullName,
       )
     }
 
@@ -405,16 +405,18 @@ class DbAcsCommitmentStore(
   override def doPrune(
       before: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Int] =
     processingTime.event {
       val query1 =
         sqlu"delete from received_acs_commitments where domain_id=$domainId and to_inclusive < $before"
       val query2 =
         sqlu"delete from computed_acs_commitments where domain_id=$domainId and to_inclusive < $before"
-      storage.update_(
-        query1.zip(query2),
-        operationName = "commitments: prune",
-      )
+      storage
+        .queryAndUpdate(
+          query1.zip(query2),
+          operationName = "commitments: prune",
+        )
+        .map(x => x._1 + x._2)
     }
 
   override def lastComputedAndSent(implicit

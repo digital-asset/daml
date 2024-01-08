@@ -7,9 +7,9 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.config.DomainTimeTrackerConfig
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.admin.v0
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
@@ -59,6 +59,7 @@ final case class DomainConnectionConfig(
     initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
     maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
     timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+    initializeFromTrustedDomain: Boolean = false,
 ) extends HasVersionedWrapper[DomainConnectionConfig]
     with PrettyPrinting {
 
@@ -102,6 +103,7 @@ final case class DomainConnectionConfig(
       paramIfDefined("initialRetryDelay", _.initialRetryDelay),
       paramIfDefined("maxRetryDelay", _.maxRetryDelay),
       paramIfNotDefault("timeTracker", _.timeTracker, DomainTimeTrackerConfig()),
+      paramIfNotDefault("initializeFromTrustedDomain", _.initializeFromTrustedDomain, false),
     )
 
   def toProtoV0: v0.DomainConnectionConfig =
@@ -115,6 +117,7 @@ final case class DomainConnectionConfig(
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
       timeTracker = timeTracker.toProtoV0.some,
       sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold.unwrap,
+      initializeFromTrustedDomain = initializeFromTrustedDomain,
     )
 }
 
@@ -141,6 +144,7 @@ object DomainConnectionConfig
       initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
       maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
       timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+      initializeFromTrustedDomain: Boolean = false,
   ): DomainConnectionConfig =
     DomainConnectionConfig(
       domainAlias,
@@ -153,6 +157,7 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
+      initializeFromTrustedDomain,
     )
 
   def fromProtoV0(
@@ -168,6 +173,7 @@ object DomainConnectionConfig
       maxRetryDelayP,
       timeTrackerP,
       sequencerTrustThreshold,
+      initializeFromTrustedDomain,
     ) =
       domainConnectionConfigP
     for {
@@ -201,6 +207,7 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
+      initializeFromTrustedDomain,
     )
   }
 }

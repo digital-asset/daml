@@ -35,7 +35,7 @@ object Context {
   }
 
   val DefDataType = new ReferenceBuilder(language.Reference.DataType)
-  val Template = new ReferenceBuilder(language.Reference.Template)
+  val Template = new ReferenceBuilder(language.Reference.Template(_))
   val DefException = new ReferenceBuilder(language.Reference.Exception)
   val DefInterface = new ReferenceBuilder(language.Reference.Interface)
   val DefValue = new ReferenceBuilder(language.Reference.Value)

@@ -52,20 +52,20 @@ message NamespaceDelegationX {
   bool is_root_delegation = 3;
 }
 
-// a unionspace definition that creates a new namespace supported by the
+// a decentralized namespace definition that creates a new namespace supported by the
 // the original owners
-// authorization: the unionspace definition with serial = 1 must be authorized by all the
-//   owners of the namespace that form the unionspace.
+// authorization: the decentralized namespace definition with serial = 1 must be authorized by all the
+//   owners of the namespace that form the decentralized namespace.
 //   for definitions with serial > 1, we need the authorization of #threshold owners plus
 //   all new owners
 //
-//   any further transaction within the unionspace other than unionspace definitions needs
+//   any further transaction within the decentralized namespace other than decentralized namespace definitions needs
 //   #threshold signatures of the owners
 //
-// UNIQUE(unionspace)
-message UnionspaceDefinitionX {
-  // name of the unionspace, computed from the hash of its initial owners
-  string unionspace = 1;
+// UNIQUE(decentralized_namespace)
+message DecentralizedNamespaceDefinitionX {
+  // name of the decentralized namespace, computed from the hash of its initial owners
+  string decentralized_namespace = 1;
   // the threshold required for any subsequent update signing
   int32 threshold = 2;
   // the namespaces of the owners
@@ -267,7 +267,7 @@ message TopologyMappingX {
   oneof mapping {
     NamespaceDelegationX namespace_delegation = 1;
     IdentifierDelegationX identifier_delegation = 2;
-    UnionspaceDefinitionX unionspace_definition = 3;
+    DecentralizedNamespaceDefinitionX decentralized_namespace_definition = 3;
 
     OwnerToKeyMappingX owner_to_key_mapping = 4;
 
