@@ -75,7 +75,7 @@ daml_compile(
 #
 # That last step causes 'build-and-lint/src/__tests__/test.ts' to be executed which:
 #  - Spins up a canton participant and domain running the 'build-and-lint-1.0.0.dar';
-#  - Spins up a http-json-api connected to the participant;
+#    - Configures a http-json-api endpoint built into the participant;
 #  - Evaluates assertions of http-json-api specified ledger operations
 #    involving contracts defined by the dar;
 #  - Gracefully tears down the processes it started when its work is done.
@@ -89,7 +89,6 @@ sh_test(
         "$(location //:yarn)",
         "$(location //:daml2js)",
         "$(location //canton:community_app_deploy.jar)",
-        "$(location //ledger-service/http-json:http-json-binary_distribute.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-types:npm_package)",
@@ -109,7 +108,6 @@ sh_test(
         "//canton:community_app_deploy.jar",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
-        "//ledger-service/http-json:http-json-binary_distribute.jar",
         "//test-common:model-tests-default.dar",
         "@grpcurl_nix//:bin",
     ] + glob(
