@@ -81,6 +81,8 @@ library
       safe,
       -- @stackage//:safe-exceptions
       safe-exceptions,
+      -- //sdk-version/hs:sdk-version-class-lib
+      sdk-version-class-lib,
       -- @stackage//:stm
       stm,
       -- @stackage//:tar-conduit
