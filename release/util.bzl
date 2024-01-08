@@ -9,7 +9,6 @@ inputs = {
     "install_sh": ":install.sh",
     "install_bat": ":install.bat",
     "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
-    "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
     "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
     "trigger_service_logback": "//triggers/service:release/trigger-service-logback.xml",
     "trigger_logback": "//triggers/runner:src/main/resources/logback.xml",
@@ -98,7 +97,6 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/daml-sdk
           cp $(location {sdk_deploy_jar}) $$OUT/daml-sdk/daml-sdk.jar
-          cp -L $(location {http_json_logback}) $$OUT/daml-sdk/json-api-logback.xml
           cp -L $(location {trigger_service_logback}) $$OUT/daml-sdk/
           cp -L $(location {oauth2_middleware_logback}) $$OUT/daml-sdk/
           cp -L $(location {navigator_logback}) $$OUT/daml-sdk/navigator-logback.xml
