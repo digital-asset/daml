@@ -95,6 +95,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     *
     * @param packageMap all the package known by the ledger with their name and version
     * @param packagePreference the set of package that should be use to resolve package name in command and interface exercise
+    *                          packageReference should not contain two package with the same name
     * @param submitters the parties authorizing the root actions (both read and write) of the resulting transaction
     *                   ("committers" according to the ledger model)
     * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
@@ -131,6 +132,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+          packageResolution = pkgResolution,
         )
       (tx, meta) = result
     } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
@@ -174,6 +176,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
+        packageResolution = Map.empty,
       )
     } yield result
 
@@ -196,6 +199,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+        packageResolution = Map.empty,
       )
     } yield result
 
@@ -282,6 +286,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       sexpr <- runCompilerSafely(
@@ -296,6 +301,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime,
         submissionTime,
         seeding,
+        packageResolution,
       )
     } yield result
 
@@ -315,6 +321,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId],
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
     val machine = UpdateMachine(
@@ -327,6 +334,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       authorizationChecker = config.authorizationChecker,
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
+      packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
     )

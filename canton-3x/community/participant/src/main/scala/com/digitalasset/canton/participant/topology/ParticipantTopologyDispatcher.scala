@@ -143,12 +143,17 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
       domain: DomainAlias
   )(implicit traceContext: TraceContext): Unit = {
     domains.remove(domain) match {
-      case Some(outbox) =>
-        outbox.foreach(_.close())
+      case Some(outboxes) =>
+        state.domainIdForAlias(domain).foreach(disconnectOutboxXes)
+        outboxes.foreach(_.close())
       case None =>
         logger.debug(s"Topology pusher already disconnected from $domain")
     }
   }
+
+  protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit
 
   override def awaitIdle(domain: DomainAlias, timeout: Duration)(implicit
       traceContext: TraceContext
@@ -308,6 +313,10 @@ class ParticipantTopologyDispatcher(
       )).run()
     }
   }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = ()
 }
 
 class ParticipantTopologyDispatcherX(
@@ -516,6 +525,13 @@ class ParticipantTopologyDispatcherX(
       override def processor: EnvelopeHandler = handle.processor
 
     }
+  }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    logger.debug("Clearing domain topology manager observers")
+    state.get(domainId).foreach(_.topologyManager.clearObservers())
   }
 
 }

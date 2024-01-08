@@ -6,20 +6,6 @@ locals {
   vsts_account = "digitalasset"
   vsts_pool    = "windows-pool"
   windows = {
-    gcp = [
-      {
-        name       = "ci-w1",
-        size       = 0,
-        assignment = "default",
-        disk_size  = 400,
-      },
-      {
-        name       = "ci-w2"
-        size       = 0,
-        assignment = "default",
-        disk_size  = 400,
-      },
-    ],
     azure = [
       {
         name       = "dw1",
