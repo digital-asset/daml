@@ -274,39 +274,3 @@ template UnchangedKeyHelper
         k : UnchangedKeyKey
       controller party
       do exerciseByKey @UnchangedKey k UnchangedKeyCall
-
-data ChangedKeyKey = ChangedKeyKey with
-    p : Party
-    n : Int
-    newField : Optional Text
-  deriving (Eq, Show)
-
-template ChangedKey
-  with
-    party : Party
-    n : Int
-    newField : Optional Text
-  where
-    signatory party
-    key (ChangedKeyKey party n newField) : ChangedKeyKey
-    maintainer key.p
-
-    choice ChangedKeyCall : Text
-      controller party
-      do pure "V2"
-
-template ChangedKeyHelper
-  with
-    party : Party
-  where
-    signatory party
-    choice ChangedKeyFetch : (ContractId ChangedKey, ChangedKey) with
-        k : ChangedKeyKey
-      controller party
-      do fetchByKey k
-    
-    choice ChangedKeyExercise : Text with
-        k : ChangedKeyKey
-      controller party
-      do exerciseByKey @ChangedKey k ChangedKeyCall
-
