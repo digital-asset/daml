@@ -1219,9 +1219,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
-    visibility = [
-        "//ledger-service/http-json:__subpackages__",
-    ],
     deps = [
         ":bindings-java",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
