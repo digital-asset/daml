@@ -146,13 +146,9 @@ CRON
 chmod +x /root/daily-reset.sh
 
 cat <<CRONTAB >> /etc/crontab
-30 5 * 1-11 1-5 root /root/daily-reset.sh '{"du1":10,"du2":0,"dw1":5,"dw2":0}' >> /root/log 2>&1
-30 18 * 1-11 1-5 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
-30 5 * 1-11 6,7 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
-30 5 1-22 12 1-5 root /root/daily-reset.sh '{"du1":10,"du2":0,"dw1":5,"dw2":0}' >> /root/log 2>&1
-30 18 1-22 12 1-5 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
-30 5 1-22 12 6,7 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
-30 5 23-31 12 * root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
+30 5 * * 1-5 root /root/daily-reset.sh '{"du1":10,"du2":0,"dw1":5,"dw2":0}' >> /root/log 2>&1
+30 18 * * 1-5 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
+30 5 * * 6,7 root /root/daily-reset.sh '{"du1":2,"du2":0,"dw1":1,"dw2":0}' >> /root/log 2>&1
 CRONTAB
 
 tail -f /root/log

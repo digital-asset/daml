@@ -5,8 +5,8 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.admin.domain.{v0, v1}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.domain.api.{v0, v1}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}

@@ -7,18 +7,15 @@ import cats.syntax.either.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.api.client.commands.{
-  TopologyAdminCommands,
-  TopologyAdminCommandsX,
-}
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommandsX
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.admin.api.client.data.{
   DynamicDomainParameters as ConsoleDynamicDomainParameters,
   TrafficControlParameters,
 }
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   CommandErrors,
@@ -138,19 +135,24 @@ class TopologyAdministrationGroupX(
         .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
     }
 
-    @Help.Summary("Upload signed topology transaction")
+    @Help.Summary("Serializes node's topology identity transactions to a file")
     @Help.Description(
-      """Topology transactions can be issued with any topology manager. In some cases, such
-      |transactions need to be copied manually between nodes. This function allows for
-      |uploading previously exported topology transaction into the authorized store (which is
-      |the name of the topology managers transaction store."""
+      "Transactions serialized this way should be loaded into another node with load_from_file"
     )
-    def load_serialized(bytes: ByteString): Unit =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommands.Write.AddSignedTopologyTransaction(bytes)
-        )
-      }
+    def export_identity_transactions(file: String): Unit = {
+      instance.topology.transactions
+        .list()
+        .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
+        .filter(_.mapping.namespace == instance.id.uid.namespace)
+        .writeToFile(file)
+    }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by TopologyTransactionsX.")
+    def load_from_file(file: String, store: String): Unit = {
+      val txs = StoredTopologyTransactionsX.tryReadFromFile(file)
+      load(txs.signedTransactions.result, store)
+    }
 
     def load(transactions: Seq[GenericSignedTopologyTransactionX], store: String): Unit =
       consoleEnvironment.run {
@@ -690,7 +692,7 @@ class TopologyAdministrationGroupX(
         ),
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
-    ): Unit = propose(
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -732,7 +734,7 @@ class TopologyAdministrationGroupX(
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-    ): Unit = propose(
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -790,7 +792,7 @@ class TopologyAdministrationGroupX(
           // Authorize the new key
           // The owner will now have two keys, but by convention the first one added is always
           // used by everybody.
-          propose(
+          update(
             newKey.fingerprint,
             newKey.purpose,
             member,
@@ -801,7 +803,7 @@ class TopologyAdministrationGroupX(
           )
 
           // Remove the old key by sending the matching `Remove` transaction
-          propose(
+          update(
             currentKey.fingerprint,
             currentKey.purpose,
             member,
@@ -817,7 +819,7 @@ class TopologyAdministrationGroupX(
         )
     }
 
-    private def propose(
+    private def update(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member,
@@ -832,20 +834,18 @@ class TopologyAdministrationGroupX(
         nodeInstance: InstanceReferenceX,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
-      val publicKey =
-        nodeInstance.keys.secret
-          .list(
-            filterFingerprint = key.toProtoPrimitive,
-            purpose = Set(purpose),
-          ) match {
-          case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
-          case Nil =>
-            throw new IllegalArgumentException("The specified key is unknown to the key owner")
-          case multipleKeys =>
-            throw new IllegalArgumentException(
-              s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
-            )
-        }
+      val publicKey = nodeInstance.keys.secret.list(
+        filterFingerprint = key.toProtoPrimitive,
+        purpose = Set(purpose),
+      ) match {
+        case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
+        case Nil =>
+          throw new IllegalArgumentException("The specified key is unknown to the key owner")
+        case multipleKeys =>
+          throw new IllegalArgumentException(
+            s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
+          )
+      }
 
       // Look for an existing authorized OKM mapping.
       val maybePreviousState = expectAtMostOneResult(
@@ -904,21 +904,42 @@ class TopologyAdministrationGroupX(
         }
       }
 
-      synchronisation
-        .runAdminCommand(synchronize)(
-          TopologyAdminCommandsX.Write
-            .Propose(
-              mapping = proposedMapping,
-              signedBy = signedBy.toList,
-              change = ops,
-              serial = Some(serial),
-              mustFullyAuthorize = mustFullyAuthorize,
-              forceChange = force,
-              store = AuthorizedStore.filterName,
-            )
-        )
-        .discard
+      propose(
+        proposedMapping,
+        serial,
+        ops,
+        signedBy,
+        AuthorizedStore.filterName,
+        synchronize,
+        mustFullyAuthorize,
+        force,
+      ).discard
     }
+
+    def propose(
+        proposedMapping: OwnerToKeyMappingX,
+        serial: RequireTypes.PositiveNumeric[Int],
+        ops: TopologyChangeOpX = TopologyChangeOpX.Replace,
+        signedBy: Option[Fingerprint] = None,
+        store: String = AuthorizedStore.filterName,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+        force: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, OwnerToKeyMappingX] =
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommandsX.Write.Propose(
+          mapping = proposedMapping,
+          signedBy = signedBy.toList,
+          store = store,
+          change = ops,
+          serial = Some(serial),
+          mustFullyAuthorize = mustFullyAuthorize,
+          forceChange = force,
+        )
+      )
   }
 
   @Help.Summary("Manage party to participant mappings")
@@ -1990,7 +2011,7 @@ class TopologyAdministrationGroupX(
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose_update(
-        domainId: DomainId, // TODO(#15803) check whether we can infer domainId
+        domainId: DomainId,
         update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.

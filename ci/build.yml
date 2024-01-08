@@ -27,12 +27,9 @@ jobs:
         fi
       name: out
 
-- template: build-local-canton.yml
-
 - job: Linux
   dependsOn:
     - check_for_release
-    - build_canton
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -55,7 +52,6 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: get-local-canton.yml
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
@@ -94,7 +90,6 @@ jobs:
 - job: Windows
   dependsOn:
     - check_for_release
-    - build_canton
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -133,7 +128,6 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: get-local-canton.yml
     - template: build-windows.yml
       parameters:
         release_tag: $(release_tag)
@@ -154,8 +148,6 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
-  dependsOn:
-  - build_canton
   timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
@@ -163,7 +155,6 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
-    - template: get-local-canton.yml
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - template: clean-up.yml
@@ -316,7 +307,6 @@ jobs:
   dependsOn:
     - check_for_release
     - compatibility_ts_libs
-    - build_canton
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
@@ -324,7 +314,6 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
-    - template: get-local-canton.yml
     - template: clean-up.yml
     - template: compatibility.yml
       parameters:

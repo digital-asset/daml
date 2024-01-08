@@ -83,6 +83,8 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "@maven//:com_google_guava_guava",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:io_opentelemetry_opentelemetry_api",
+            "@maven//:org_bouncycastle_bcpkix_jdk15on",
+            "@maven//:org_bouncycastle_bcprov_jdk15on",
         ],
     )
     for edition in [

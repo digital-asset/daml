@@ -11,7 +11,11 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.util.PekkoUtil.{ContextualizedFlowOps, WithKillSwitch}
+import com.digitalasset.canton.util.PekkoUtil.{
+  ContextualizedFlowOps,
+  WithKillSwitch,
+  noOpKillSwitch,
+}
 import com.digitalasset.canton.{BaseTestWordSpec, DiscardOps}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.testkit.StreamSpec
@@ -834,6 +838,18 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
     }
   }
 
+  "dropIf" should {
+    "drop only elements that satisfy the condition" in assertAllStagesStopped {
+      val elemF = Source(1 to 10).dropIf(3)(_ % 2 == 0).toMat(Sink.seq)(Keep.right).run()
+      elemF.futureValue shouldBe Seq(1, 3, 5, 7, 8, 9, 10)
+    }
+
+    "ignore negative counts" in assertAllStagesStopped {
+      val elemF = Source(1 to 10).dropIf(-1)(_ => false).toMat(Sink.seq)(Keep.right).run()
+      elemF.futureValue shouldBe (1 to 10)
+    }
+  }
+
   "statefulMapAsyncContextualizedUS" should {
     "work with singleton contexts" in assertAllStagesStopped {
       val sinkF = Source(Seq(None, Some(2), Some(4))).contextualize
@@ -912,11 +928,6 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
 }
 
 object PekkoUtilTest {
-  val noOpKillSwitch = new KillSwitch {
-    override def shutdown(): Unit = ()
-    override def abort(ex: Throwable): Unit = ()
-  }
-
   def withNoOpKillSwitch[A](value: A): WithKillSwitch[A] = WithKillSwitch(value)(noOpKillSwitch)
 
   implicit val eqKillSwitch: Eq[KillSwitch] = Eq.fromUniversalEquals[KillSwitch]

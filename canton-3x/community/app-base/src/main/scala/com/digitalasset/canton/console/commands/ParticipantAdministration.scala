@@ -26,6 +26,9 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
+import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -48,11 +51,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.messages.{
@@ -1151,6 +1152,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       connectFromConfig(config, None)
     }
 
+    @Help.Summary("Macro to connect a participant to a domain given by instance")
+    @Help.Description("""This variant of connect expects an instance with a sequencer connection.
+        |Otherwise the behaviour is equivalent to the connect command with explicit
+        |arguments. If the domain is already configured, the domain connection
+        |will be attempted. If however the domain is offline, the command will fail.
+        |Generally, this macro should only be used to setup a new domain. However, for
+        |convenience, we support idempotent invocations where subsequent calls just ensure
+        |that the participant reconnects to the domain.
+        |""")
+    def connect(
+        instance: InstanceReferenceWithSequencerConnection,
+        domainAlias: DomainAlias,
+    ): Unit =
+      connect(
+        DomainConnectionConfig(
+          domainAlias,
+          SequencerConnections.single(instance.sequencerConnection),
+        )
+      )
+
     private def connectFromConfig(
         config: DomainConnectionConfig,
         synchronize: Option[NonNegativeDuration],
@@ -1305,12 +1326,25 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
-        ref: InstanceReferenceWithSequencerConnection,
+        ref: InstanceReferenceWithSequencerConnection
+    ): Boolean = reconnect(ref.name)
+
+    @Help.Summary("Reconnect this participant to the given local domain")
+    @Help.Description("""Idempotent attempts to re-establish a connection to the given local domain.
+        |Same behaviour as generic reconnect.
+
+        The arguments are:
+          domainAlias - The domain alias to connect to
+          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisly if the connection attempt fails.
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def reconnect_local(
+        domainAlias: DomainAlias,
         retry: Boolean = true,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): Boolean = reconnect(ref.name, retry, synchronize)
+    ): Boolean = reconnect(domainAlias, retry, synchronize)
 
     @Help.Summary("Reconnect this participant to all domains which are not marked as manual start")
     @Help.Description("""
@@ -1491,7 +1525,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ParticipantAdminCommands.Transfer
             .TransferIn(
               submittingParty,
-              transferId.toProtoV0,
+              transferId.toAdminProto,
               targetDomain,
               applicationId = applicationId,
               submissionId = submissionId,

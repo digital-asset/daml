@@ -46,7 +46,7 @@ steps:
       git -c user.name="Azure Pipelines Daml Build" \
           -c user.email="support@digitalasset.com" \
           commit \
-          -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+          -m "$(printf "$title\n\n$body\n")"
       git push origin $branch:$branch
       jq -n --arg title "$title" \
             --arg branch "$branch" \

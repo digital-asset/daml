@@ -94,8 +94,11 @@ main = do
 
   withTempDir $ \damlHome -> do
     setEnv "DAML_HOME" damlHome True
-    -- Install sdk 0.0.0 into temp DAML_HOME
-    void $ readProcess damlAssistant ["install", release] ""
+    -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
+    -- corresponds to:
+    --   - `0.0.0` on PR builds
+    --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
+    void $ readProcess damlAssistant ["install", release, "--install-with-custom-version", sdkVersion] ""
     -- Install a copy under the release version 10.0.0
     void $ readProcess damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"] ""
 
