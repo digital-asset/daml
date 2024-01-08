@@ -305,11 +305,18 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
+    visibility = ["//daml-script:__subpackages__"],
+)
+
+filegroup(
+    name = "community_admin-api-src",
+    srcs = ["community/admin-api/src/main/protobuf/com/digitalasset/canton/version/ProtocolVersionAnnotation.scala"],
+    visibility = ["//daml-script:__subpackages__"],
 )
 
 scala_library(
     name = "community_admin-api",
-    srcs = glob(["community/admin-api/src/main/protobuf/com/digitalasset/canton/version/ProtocolVersionAnnotation.scala"]),
+    srcs = [":community_admin-api-src"],
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",

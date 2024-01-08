@@ -29,7 +29,8 @@ da_scala_library(
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
-            "//canton:community_participant_admin_proto_scala",
+            "//canton:community_admin-api_proto_scala",
+            "//canton:community_admin-api-src",
         ],
     override_scalacopts = [
         copt
@@ -39,6 +40,8 @@ da_scala_library(
             "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
             "-P:wartremover:traverser:org.wartremover.warts.Product",
             "-P:wartremover:traverser:org.wartremover.warts.Serializable",
+            # ProtocolVersionAnnotation.scala violates this warning
+            "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
         ]
     ],
     scala_deps = [
