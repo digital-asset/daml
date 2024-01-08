@@ -41,6 +41,11 @@ object LookupError {
         case _ => None
       }
 
+    def apply(pkgId: PackageId): NotFound = {
+      val ref = Reference.Package(pkgId)
+      LookupError.NotFound(ref, ref)
+    }
+
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }

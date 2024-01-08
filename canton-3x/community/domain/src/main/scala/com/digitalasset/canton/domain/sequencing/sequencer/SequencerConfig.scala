@@ -8,7 +8,9 @@ import com.digitalasset.canton.time.Clock
 
 import scala.concurrent.ExecutionContext
 
-trait SequencerConfig
+trait SequencerConfig {
+  def supportsReplicas: Boolean
+}
 
 /** Unsealed trait so the database sequencer config can be reused between community and enterprise */
 trait DatabaseSequencerConfig {
@@ -18,6 +20,8 @@ trait DatabaseSequencerConfig {
   val reader: SequencerReaderConfig
   val testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor]
   def highAvailabilityEnabled: Boolean
+
+  override def supportsReplicas: Boolean = highAvailabilityEnabled
 }
 
 object DatabaseSequencerConfig {

@@ -287,12 +287,14 @@ private[platform] object InMemoryStateUpdater {
           .collect({
             case create: TransactionLogUpdate.CreatedEvent =>
               create.contractKey.map { ck =>
-                val globalKey = Key.assertBuild(create.templateId, ck.unversioned)
+                val globalKey =
+                  Key.assertBuild(create.templateId, ck.unversioned, Util.sharedKey(ck.version))
                 globalKey -> create
               }
             case exercise: TransactionLogUpdate.ExercisedEvent if exercise.consuming =>
               exercise.contractKey.map { ck =>
-                val globalKey = Key.assertBuild(exercise.templateId, ck.unversioned)
+                val globalKey =
+                  Key.assertBuild(exercise.templateId, ck.unversioned, Util.sharedKey(ck.version))
                 globalKey -> exercise
               }
             case _ => None

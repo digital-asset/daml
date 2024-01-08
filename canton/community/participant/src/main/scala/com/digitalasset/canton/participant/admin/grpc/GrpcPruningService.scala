@@ -87,7 +87,7 @@ class GrpcPruningService(
 
         (beforeOrAt, ledgerEndOffset) = validatedRequest
 
-        safeOffsetO <- sync.stateInspection
+        safeOffsetO <- sync.pruningProcessor
           .safeToPrune(beforeOrAt, ledgerEndOffset)
           .leftFlatMap[Option[GlobalOffset], StatusRuntimeException] {
             case Pruning.LedgerPruningOnlySupportedInEnterpriseEdition =>

@@ -57,17 +57,27 @@ private[auth] final class OngoingAuthorizationObserver[A](
         " This can result in detached/rogue server side stream processing, and a resulting memory leak!"
     )
 
-  private val cancelUserRightsChecksO =
+  private val cancelUserRightsChecksO: Option[() => Unit] =
     userRightsCheckerO.map(
-      _.schedule(() => abortGRPCStreamAndCancelUpstream(staleStreamAuthError))
+      _.schedule { () =>
+        if (!isCancelled) {
+          // Downstream cancellation could race with emittion of errors, therefore we only emit error if the stream is
+          // not cancelled.
+          abortGRPCStreamAndCancelUpstream(staleStreamAuthError)
+        }
+      }
     )
 
   override def isCancelled: Boolean = blocking(synchronized(observer.isCancelled))
 
   override def setOnCancelHandler(runnable: Runnable): Unit = blocking(
     synchronized {
-      observer.setOnCancelHandler(runnable)
-      onCancelHandler = runnable
+      val newCancelHandler: Runnable = { () =>
+        cancelUserRightsChecksO.foreach(_.apply())
+        runnable.run()
+      }
+      observer.setOnCancelHandler(newCancelHandler)
+      onCancelHandler = newCancelHandler
     }
   )
 

@@ -34,9 +34,8 @@ import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends PrettyPrinting {
-  this: {
-    def update(newDuration: Duration): D
-  } =>
+
+  protected[this] def update(newDuration: Duration): D
 
   override def pretty: Pretty[RefinedNonNegativeDuration[D]] = prettyOfParam(_.duration)
 
@@ -89,9 +88,7 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 }
 
 trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
-  this: {
-    def apply(newDuration: Duration): D
-  } =>
+  protected[this] def apply(newDuration: Duration): D
 
   implicit val timeoutDurationEncoder: Encoder[D] =
     Encoder[String].contramap(_.unwrap.toString)
@@ -279,7 +276,8 @@ final case class NonNegativeDuration(duration: Duration)
     extends RefinedNonNegativeDuration[NonNegativeDuration] {
   require(duration >= Duration.Zero, s"Expecting non-negative duration, found: $duration")
 
-  def update(newDuration: Duration): NonNegativeDuration = NonNegativeDuration(newDuration)
+  override protected[this] def update(newDuration: Duration): NonNegativeDuration =
+    NonNegativeDuration(newDuration)
 
   def asFiniteApproximation: FiniteDuration = duration match {
     case fd: FiniteDuration => fd
@@ -311,11 +309,12 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): NonNegativeFiniteDuration = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => NonNegativeFiniteDuration(duration)
-  }
+  override protected[this] def update(newDuration: Duration): NonNegativeFiniteDuration =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
+      case duration: FiniteDuration => NonNegativeFiniteDuration(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
 }
@@ -324,9 +323,10 @@ object NonNegativeFiniteDuration
     extends RefinedNonNegativeDurationCompanion[NonNegativeFiniteDuration] {
   val Zero: NonNegativeFiniteDuration = NonNegativeFiniteDuration(Duration.Zero)
 
-  def apply(duration: Duration): NonNegativeFiniteDuration = NonNegativeFiniteDuration
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def apply(duration: JDuration): NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryFromJavaDuration(duration)
@@ -373,19 +373,21 @@ final case class PositiveFiniteDuration(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): PositiveFiniteDuration = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => PositiveFiniteDuration(duration)
-  }
+  override protected[this] def update(newDuration: Duration): PositiveFiniteDuration =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
+      case duration: FiniteDuration => PositiveFiniteDuration(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
 }
 
 object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[PositiveFiniteDuration] {
-  def apply(duration: Duration): PositiveFiniteDuration = PositiveFiniteDuration
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): PositiveFiniteDuration =
+    PositiveFiniteDuration
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def fromDuration(duration: Duration): Either[String, PositiveFiniteDuration] = duration match {
     case x: FiniteDuration =>
@@ -428,11 +430,12 @@ final case class PositiveDurationSeconds(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): PositiveDurationSeconds = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => PositiveDurationSeconds(duration)
-  }
+  override protected[this] def update(newDuration: Duration): PositiveDurationSeconds =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Infinite")
+      case duration: FiniteDuration => PositiveDurationSeconds(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
 }
@@ -442,9 +445,10 @@ object PositiveDurationSeconds
   private def isRoundedToTheSecond(duration: FiniteDuration): Boolean =
     duration == Duration(duration.toSeconds, SECONDS)
 
-  def apply(duration: Duration): PositiveDurationSeconds = PositiveDurationSeconds
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): PositiveDurationSeconds =
+    PositiveDurationSeconds
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def apply(duration: JDuration): PositiveDurationSeconds =
     PositiveDurationSeconds.tryFromJavaDuration(duration)

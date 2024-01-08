@@ -1165,6 +1165,17 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBSoftFetchInterface extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      val coid = getSContractId(args, 0)
+      val keyOpt = args.get(1)
+      softFetchInterface(machine, coid, keyOpt)(Control.Value)
+    }
+  }
+
   final case class SBApplyChoiceGuard(
       choiceName: ChoiceName,
       byInterface: Option[TypeConName],
@@ -2242,6 +2253,64 @@ private[lf] object SBuiltin {
                 }
               }
             }
+        }
+    }
+  }
+
+  // TODO https://github.com/digital-asset/daml/issues/17995
+  //  redesing contract fetching to improve factotrizstion
+  private def softFetchInterface(
+      machine: UpdateMachine,
+      coid: V.ContractId,
+      keyOpt: SValue,
+  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
+    machine.getIfLocalContract(coid) match {
+      case Some((templateId, templateArg)) =>
+        ensureContractActive(machine, coid, templateId) {
+          f(SValue.SAnyContract(templateId, templateArg))
+        }
+      case None =>
+        machine.lookupContract(coid) { case V.ContractInstance(packageName, srcTmplId, coinstArg) =>
+          packageName match {
+            case Some(pkgName) =>
+              machine.packageResolution.get(pkgName) match {
+                case Some(pkgId) =>
+                  val dstTmplId = srcTmplId.copy(packageId = pkgId)
+                  machine.ensurePackageIsLoaded(
+                    dstTmplId.packageId,
+                    language.Reference.Template(dstTmplId),
+                  ) { () =>
+                    importValue(machine, dstTmplId, coinstArg) { templateArg =>
+                      getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                        ensureContractActive(machine, coid, contract.templateId) {
+
+                          machine.checkContractVisibility(coid, contract)
+                          machine.enforceLimitAddInputContract()
+                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
+
+                          // In Validation mode, we always call validateContractInfo
+                          // In Submission mode, we only call validateContractInfo when src != dest
+                          if (
+                            (machine.validating) || (srcTmplId.packageId != dstTmplId.packageId)
+                          ) {
+                            validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                              f(contract.any)
+                            }
+                          } else {
+                            f(contract.any)
+                          }
+                        }
+                      }
+                    }
+                  }
+                case None =>
+                  // TODO https://github.com/digital-asset/daml/issues/17995
+                  //  We need a proper interpretation error here
+                  crash(s"cannot resolve package $packageName")
+              }
+            case None =>
+              crash(s"unexpected contract instance without packageName")
+          }
         }
     }
   }

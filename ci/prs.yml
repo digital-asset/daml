@@ -115,8 +115,7 @@ jobs:
 
 - job: notify_user
   # No Slack tokens on forks
-  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
-                 not(canceled()),
+  condition: and(not(canceled()),
                  eq(variables['System.PullRequest.IsFork'], 'False'))
   dependsOn:
     - git_sha
@@ -141,6 +140,10 @@ jobs:
         if [ "$user" != "" ]; then
             tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status)." \
                        "$(Slack.team-daml-ci)"
+        fi
+        if [ "$(git log -n1 --format="%(trailers:key=tell-slack,valueonly)" HEAD)" = "canton" ]; then
+            tell_slack "<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|canton update PR $(pr.num)> has completed with status $(build_status)." \
+                       "$(Slack.team-canton-notifications)"
         fi
 
 - job: self_service_compat_test

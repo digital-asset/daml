@@ -41,6 +41,7 @@ import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
+import scala.util.Using
 
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
@@ -296,7 +297,6 @@ object HttpService {
 
   def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
     import java.security.cert.CertificateFactory
-    import scala.util.Using
 
     val alias = "key" // This can be anything as long as it's consistent.
 
@@ -314,27 +314,15 @@ object HttpService {
   }
 
   def loadPrivateKey(pkRsaPemFile: Path): Key = {
-    // TODO: Use a library to support other private key formats?
-    assert(
-      pkRsaPemFile.toString.endsWith(".pem"),
-      "Private key file must contain RSA key in pem format",
-    )
-    import java.security.spec.PKCS8EncodedKeySpec
-    import java.security.KeyFactory
-    import java.util.stream.Collectors
+    import org.bouncycastle.openssl.PEMParser
+    import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
+    import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 
-    val pkHeader = "-----BEGIN PRIVATE KEY-----"
-    val pkFooter = "-----END PRIVATE KEY-----"
-
-    val pkBase64: String = Files
-      .lines(pkRsaPemFile)
-      .dropWhile(line => line != pkHeader)
-      .skip(1) // Drop the header line itself
-      .takeWhile(line => line != pkFooter)
-      .collect(Collectors.joining())
-    val pkBytes = java.util.Base64.getDecoder().decode(pkBase64)
-
-    KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(pkBytes))
+    Using.resource(Files.newBufferedReader(pkRsaPemFile)) { reader =>
+      val pemParser = new PEMParser(reader)
+      val pkInfo = PrivateKeyInfo.getInstance(pemParser.readObject())
+      new JcaPEMKeyConverter().getPrivateKey(pkInfo)
+    }
   }
 
   private[http] def doLoad(

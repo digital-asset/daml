@@ -321,6 +321,7 @@ object Update {
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceDomain),
         param("target", _.reassignmentInfo.targetDomain),
+        unnamedParam(_.reassignment.kind.unquoted),
         indicateOmittedFields,
       )
 

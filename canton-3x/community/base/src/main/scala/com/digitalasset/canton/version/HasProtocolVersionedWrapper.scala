@@ -403,7 +403,7 @@ trait HasSupportedProtoVersions[ValueClass] {
   }
 
   object VersionedProtoConverter {
-    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersion.Status](
+    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersionAnnotation.Status](
         fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[Status]
     )(
         protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status
@@ -871,7 +871,7 @@ trait HasProtocolVersionedCompanion2[
       valueClass <- fromProtoVersioned(VersionedMessage(proto))
     } yield valueClass
 
-  private def fromProtoVersioned(
+  def fromProtoVersioned(
       proto: VersionedMessage[DeserializedValueClass]
   ): ParsingResult[DeserializedValueClass] =
     proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data")).flatMap {

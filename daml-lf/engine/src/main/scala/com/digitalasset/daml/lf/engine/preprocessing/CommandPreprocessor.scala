@@ -251,14 +251,17 @@ private[lf] final class CommandPreprocessor(
   }
 
   private[preprocessing] def unsafeResolveTyConName(
-      pkgPriority: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       tyConRef: Ref.TypeConRef,
       context: => language.Reference,
   ): Ref.TypeConName = {
     val pkgId = tyConRef.pkgRef match {
       case PackageRef.Id(id) => id
       case PackageRef.Name(name) =>
-        pkgPriority.getOrElse(name, throw Error.Preprocessing.UnresolvedPackageName(name, context))
+        pkgResolution.getOrElse(
+          name,
+          throw Error.Preprocessing.UnresolvedPackageName(name, context),
+        )
     }
     Ref.TypeConName(pkgId, tyConRef.qName)
   }
@@ -266,24 +269,32 @@ private[lf] final class CommandPreprocessor(
   // returns the speedy translation of an API command.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessApiCommand(
-      pkgPriority: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmd: command.ApiCommand,
   ): speedy.Command =
     cmd match {
       case command.ApiCommand.Create(templateRef, argument) =>
         val templateId =
-          unsafeResolveTyConName(pkgPriority, templateRef, language.Reference.Template(templateRef))
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessCreate(templateId, argument, strict = false)
       case command.ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
         val typeId = unsafeResolveTyConName(
-          pkgPriority,
+          pkgResolution,
           typeRef,
           language.Reference.TemplateOrInterface(typeRef),
         )
         unsafePreprocessExercise(typeId, contractId, choiceId, argument, strict = false)
       case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
         val templateId =
-          unsafeResolveTyConName(pkgPriority, templateRef, language.Reference.Template(templateRef))
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument, strict = false)
       case command.ApiCommand.CreateAndExercise(
             templateRef,
@@ -292,7 +303,11 @@ private[lf] final class CommandPreprocessor(
             choiceArgument,
           ) =>
         val templateId =
-          unsafeResolveTyConName(pkgPriority, templateRef, language.Reference.Template(templateRef))
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessCreateAndExercise(
           templateId,
           createArgument,
@@ -352,10 +367,10 @@ private[lf] final class CommandPreprocessor(
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessApiCommands(
-      pkgPriority: Map[Ref.PackageName, Ref.PackageId],
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: ImmArray[command.ApiCommand],
   ): ImmArray[speedy.Command] =
-    cmds.map(unsafePreprocessApiCommand(pkgPriority, _))
+    cmds.map(unsafePreprocessApiCommand(pkgResolution, _))
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
