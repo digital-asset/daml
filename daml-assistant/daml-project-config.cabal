@@ -33,6 +33,8 @@ library
       lens,
       -- @stackage//:safe-exceptions
       safe-exceptions,
+      -- //sdk-version/hs:sdk-version-class-lib
+      sdk-version-class-lib,
       -- @stackage//:semver
       semver,
       -- @stackage//:text
