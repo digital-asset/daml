@@ -83,7 +83,6 @@ const JSON_API_PORT_FILE = "json-api.port";
 const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
-let jsonApiProcess: ChildProcess | undefined = undefined;
 
 const getEnv = (variable: string): string => {
   const result = process.env[variable];
@@ -107,14 +106,22 @@ const spawnJvm = (
 
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
-  sandboxProcess = spawnJvm(getEnv("CANTON"), [
-    "daemon",
-    "-c",
-    "./src/__tests__/canton.conf",
-    "-C",
-    "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
-    "--auto-connect-local",
-  ]);
+  sandboxProcess = spawnJvm(
+    getEnv("CANTON"),
+    [
+      "daemon",
+      "-c",
+      "./src/__tests__/canton.conf",
+      "-C",
+      "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
+      "-C",
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port=0",
+      "-C",
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" + JSON_API_PORT_FILE,
+      "--auto-connect-local",
+    ],
+    ["-Dpekko.http.server.request-timeout=60s"],
+  );
   await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
     encoding: "utf8",
@@ -125,23 +132,6 @@ beforeAll(async () => {
   if (!sandboxPort) throw "Invalid port file";
   console.log("Sandbox listening on port " + sandboxPort.toString());
 
-  jsonApiProcess = spawnJvm(
-    getEnv("JSON_API"),
-    [
-      "--ledger-host",
-      "localhost",
-      "--ledger-port",
-      `${sandboxPort}`,
-      "--port-file",
-      JSON_API_PORT_FILE,
-      "--http-port",
-      "0",
-      "--allow-insecure-tokens",
-      "--websocket-config=maxDuration=1,heartBeatPer=1",
-      "--log-level=INFO",
-    ],
-    ["-Dpekko.http.server.request-timeout=60s"],
-  );
   await waitOn({ resources: [`file:${JSON_API_PORT_FILE}`] });
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, {
     encoding: "utf8",
@@ -188,10 +178,6 @@ afterAll(() => {
     sandboxProcess.kill("SIGTERM");
   }
   console.log("Killed sandbox");
-  if (jsonApiProcess) {
-    jsonApiProcess.kill("SIGTERM");
-  }
-  console.log("Killed JSON API");
 });
 
 interface PromisifiedStream<T extends object, K, I extends string, State> {
@@ -237,7 +223,8 @@ describe("decoders for recursive types do not loop", () => {
   });
 });
 
-test("create + fetch & exercise", async () => {
+//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+test.skip("create + fetch & exercise", async () => {
   const aliceLedger = new Ledger({
     token: ALICE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
@@ -819,7 +806,8 @@ describe("interfaces", () => {
     expect(acs).toContainEqual(expectedAc);
   });
 
-  test("sync query with predicate", async () => {
+  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+  test.skip("sync query with predicate", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     function isCt(ev: CreateEvent<Token>) {
@@ -843,7 +831,8 @@ describe("interfaces", () => {
     expect(noCt).toEqual([]);
   });
 
-  test("fetch", async () => {
+  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+  test.skip("fetch", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     const fetched = await aliceLedger.fetch(
@@ -857,7 +846,8 @@ describe("interfaces", () => {
     });
   });
 
-  test("WS query", async () => {
+  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+  test.skip("WS query", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     const tokenCid = Asset.toInterface(Token, contract.contractId);
@@ -1009,7 +999,8 @@ test("createAndExercise", async () => {
   );
 });
 
-test("multi-{key,query} stream", async () => {
+//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+test.skip("multi-{key,query} stream", async () => {
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
 
   function collect<T extends object, K, I extends string, State>(
@@ -1351,7 +1342,8 @@ test("package API", async () => {
   expect(downSuc.byteLength > 0).toBe(true);
 });
 
-test("reconnect on timeout, when multiplexing is enabled", async () => {
+//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+test.skip("reconnect on timeout, when multiplexing is enabled", async () => {
   const charlieLedger = new Ledger({
     token: CHARLIE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
