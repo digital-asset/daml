@@ -447,7 +447,7 @@ object ScriptF {
       for {
         keyTy <- env.lookupKeyTy(id)
         translatorConfig =
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Castable
           else preprocessing.ValueTranslator.Config.Strict
         translated <- env.valueTranslator
           .translateValue(keyTy, v, translatorConfig)

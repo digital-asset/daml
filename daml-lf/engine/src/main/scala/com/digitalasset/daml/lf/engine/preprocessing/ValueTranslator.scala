@@ -384,6 +384,10 @@ object ValueTranslator {
 
     val Upgradeable =
       Config(allowFieldReordering = false, ignorePackageId = true, enableUpgrade = true)
+
+    // Akin to Strict but allows package-id casting. Used for contract keys.
+    val Castable =
+      Config(allowFieldReordering = false, ignorePackageId = true, enableUpgrade = false)
   }
 
 }
