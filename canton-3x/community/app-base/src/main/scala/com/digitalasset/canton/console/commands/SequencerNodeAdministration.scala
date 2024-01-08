@@ -94,64 +94,69 @@ trait SequencerNodeAdministration {
   }
 }
 
-trait SequencerNodeAdministrationGroupXWithInit extends SequencerAdministrationGroupX {
+class SequencerXSetupGroup(parent: ConsoleCommandGroup)
+    extends ConsoleCommandGroup.Impl(parent)
+    with InitNodeId {
 
-  @Help.Summary("Methods used for node initialization")
-  object setup extends ConsoleCommandGroup.Impl(this) with InitNodeId {
+  @Help.Summary(
+    "Download sequencer snapshot at given point in time to bootstrap another sequencer"
+  )
+  def snapshot(timestamp: CantonTimestamp): SequencerSnapshot = {
+    // TODO(#14074) add something like "snapshot for sequencer-id", rather than timestamp based
+    //      we still need to keep the timestamp based such that we can provide recovery for corrupted sequencers
+    consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerAdminCommands.Snapshot(timestamp))
+    }
+  }
 
-    @Help.Summary(
-      "Download sequencer snapshot at given point in time to bootstrap another sequencer"
-    )
-    def snapshot(timestamp: CantonTimestamp): SequencerSnapshot = {
-      // TODO(#14074) add something like "snapshot for sequencer-id", rather than timestamp based
-      //      we still need to keep the timestamp based such that we can provide recovery for corrupted sequencers
-      consoleEnvironment.run {
-        runner.adminCommand(EnterpriseSequencerAdminCommands.Snapshot(timestamp))
-      }
+  @Help.Summary(
+    "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
+      "sequencer nodes being initialized at the same time as the corresponding domain node. " +
+      "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
+  )
+  def assign_from_beginning(
+      genesisState: Seq[PositiveSignedTopologyTransactionX],
+      domainParameters: StaticDomainParameters,
+  ): InitializeSequencerResponseX =
+    consoleEnvironment.run {
+      runner.adminCommand(
+        InitializeX(
+          StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX](
+            genesisState.map(signed =>
+              StoredTopologyTransactionX(
+                SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
+                EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+                None,
+                signed,
+              )
+            )
+          ),
+          domainParameters.toInternal,
+          None,
+        )
+      )
     }
 
-    @Help.Summary(
-      "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
-        "sequencer nodes being initialized at the same time as the corresponding domain node. " +
-        "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
-    )
-    def assign_from_beginning(
-        genesisState: Seq[PositiveSignedTopologyTransactionX],
-        domainParameters: StaticDomainParameters,
-    ): InitializeSequencerResponseX =
-      consoleEnvironment.run {
-        runner.adminCommand(
-          InitializeX(
-            StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX](
-              genesisState.map(signed =>
-                StoredTopologyTransactionX(
-                  SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
-                  EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
-                  None,
-                  signed,
-                )
-              )
-            ),
-            domainParameters.toInternal,
-            None,
-          )
-        )
-      }
+  @Help.Summary(
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
+      "This is called as part of the domain.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
+  )
+  def assign_from_snapshot(
+      topologySnapshot: GenericStoredTopologyTransactionsX,
+      sequencerSnapshot: SequencerSnapshot,
+      domainParameters: StaticDomainParameters,
+  ): InitializeSequencerResponseX =
+    consoleEnvironment.run {
+      runner.adminCommand(
+        InitializeX(topologySnapshot, domainParameters.toInternal, sequencerSnapshot.some)
+      )
+    }
 
-    @Help.Summary(
-      "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-        "This is called as part of the domain.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
-    )
-    def assign_from_snapshot(
-        topologySnapshot: GenericStoredTopologyTransactionsX,
-        sequencerSnapshot: SequencerSnapshot,
-        domainParameters: StaticDomainParameters,
-    ): InitializeSequencerResponseX =
-      consoleEnvironment.run {
-        runner.adminCommand(
-          InitializeX(topologySnapshot, domainParameters.toInternal, sequencerSnapshot.some)
-        )
-      }
+}
 
-  }
+trait SequencerNodeAdministrationGroupXWithInit extends SequencerAdministrationGroupX {
+
+  private lazy val setup_ = new SequencerXSetupGroup(this)
+  @Help.Summary("Methods used for node initialization")
+  def setup: SequencerXSetupGroup = setup_
 }

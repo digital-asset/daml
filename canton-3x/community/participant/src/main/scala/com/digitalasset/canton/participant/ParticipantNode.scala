@@ -93,6 +93,7 @@ class ParticipantNodeBootstrap(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
+    skipRecipientsCheck: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -333,6 +334,7 @@ class ParticipantNodeBootstrap(
         topologyManager,
         packageDependencyResolver,
         componentFactory,
+        skipRecipientsCheck,
       ).map {
         case (
               partyNotifier,
@@ -544,6 +546,7 @@ object ParticipantNodeBootstrap {
         createResourceService(arguments),
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
+        skipRecipientsCheck = false,
         ledgerApiServerFactory = ledgerApiServerFactory,
       )
 

@@ -83,6 +83,7 @@ class ParticipantNodeBootstrapX(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
+    skipRecipientsCheck: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -293,6 +294,7 @@ class ParticipantNodeBootstrapX(
         participantOps,
         packageDependencyResolver,
         componentFactory,
+        skipRecipientsCheck,
         overrideKeyUniqueness = Some(false),
       ).map {
         case (
@@ -388,6 +390,7 @@ object ParticipantNodeBootstrapX {
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
+        skipRecipientsCheck = true,
       )
     }
 

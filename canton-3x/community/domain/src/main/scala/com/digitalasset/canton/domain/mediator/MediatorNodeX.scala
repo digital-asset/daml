@@ -221,23 +221,31 @@ class MediatorNodeBootstrapX(
 
     override def initialize(request: InitializeMediatorRequestX)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX] =
-      completeWithExternal {
+    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponseX] = {
+      if (isInitialized) {
         logger.info(
-          s"Assigning mediator to ${request.domainId} via sequencers ${request.sequencerConnections}"
+          "Received a request to initialize an already initialized mediator. Skipping initialization!"
         )
-        domainConfigurationStore
-          .saveConfiguration(
-            MediatorDomainConfiguration(
-              Fingerprint.tryCreate("unused"), // x-nodes do not need to return the initial key
-              request.domainId,
-              request.domainParameters,
-              request.sequencerConnections,
-            )
+        EitherT.pure(InitializeMediatorResponseX())
+      } else {
+        completeWithExternal {
+          logger.info(
+            s"Assigning mediator to ${request.domainId} via sequencers ${request.sequencerConnections}"
           )
-          .leftMap(_.toString)
-          .map(_ => request.domainId)
-      }.map(_ => InitializeMediatorResponseX())
+          domainConfigurationStore
+            .saveConfiguration(
+              MediatorDomainConfiguration(
+                Fingerprint.tryCreate("unused"), // x-nodes do not need to return the initial key
+                request.domainId,
+                request.domainParameters,
+                request.sequencerConnections,
+              )
+            )
+            .leftMap(_.toString)
+            .map(_ => request.domainId)
+        }.map(_ => InitializeMediatorResponseX())
+      }
+    }
 
   }
 

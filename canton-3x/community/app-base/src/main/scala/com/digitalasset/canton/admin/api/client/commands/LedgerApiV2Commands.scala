@@ -70,7 +70,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
   UpdateServiceGrpc,
 }
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -86,6 +85,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.{LfPartyId, config}
 import com.google.protobuf.empty.Empty
 import io.grpc.*
 import io.grpc.stub.StreamObserver
@@ -709,6 +709,58 @@ object LedgerApiV2Commands {
       override def handleResponse(
           response: Seq[CompletionWrapper]
       ): Either[String, Seq[CompletionWrapper]] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
+    }
+
+    final case class CompletionCheckpointRequest(
+        partyId: LfPartyId,
+        beginExclusive: ParticipantOffset,
+        expectedCompletions: Int,
+        timeout: config.NonNegativeDuration,
+        applicationId: String,
+    )(filter: Completion => Boolean, scheduler: ScheduledExecutorService)
+        extends BaseCommand[CompletionStreamRequest, Seq[(Completion, Option[Checkpoint])], Seq[
+          (Completion, Option[Checkpoint])
+        ]] {
+
+      override def createRequest(): Either[String, CompletionStreamRequest] =
+        Right(
+          CompletionStreamRequest(
+            applicationId = applicationId,
+            parties = Seq(partyId),
+            beginExclusive = Some(beginExclusive),
+          )
+        )
+
+      override def submitRequest(
+          service: CommandCompletionServiceStub,
+          request: CompletionStreamRequest,
+      ): Future[Seq[(Completion, Option[Checkpoint])]] = {
+        def extract(response: CompletionStreamResponse): Seq[(Completion, Option[Checkpoint])] = {
+          val checkpoint = response.checkpoint
+
+          response.completion.filter(filter).map(_ -> checkpoint).toList
+        }
+
+        GrpcAdminCommand.streamedResponse[
+          CompletionStreamRequest,
+          CompletionStreamResponse,
+          (Completion, Option[Checkpoint]),
+        ](
+          service.completionStream,
+          extract,
+          request,
+          expectedCompletions,
+          timeout.asFiniteApproximation,
+          scheduler,
+        )
+      }
+
+      override def handleResponse(
+          response: Seq[(Completion, Option[Checkpoint])]
+      ): Either[String, Seq[(Completion, Option[Checkpoint])]] =
         Right(response)
 
       override def timeoutType: TimeoutType = ServerEnforcedTimeout

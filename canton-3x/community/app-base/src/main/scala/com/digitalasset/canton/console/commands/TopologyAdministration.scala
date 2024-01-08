@@ -5,7 +5,6 @@ package com.digitalasset.canton.console.commands
 
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
@@ -29,6 +28,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TimeQuery}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{DiscardOps, config}
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
@@ -125,6 +125,7 @@ abstract class OwnerToKeyMappingsGroup(
       owner: Member,
       currentKey: PublicKey,
       newKey: PublicKey,
+      synchronize: Option[config.NonNegativeDuration] = Some(commandTimeouts.bounded),
   ): Unit
 }
 
@@ -488,6 +489,7 @@ class TopologyAdministrationGroup(
         owner: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
+        synchronize: Option[config.NonNegativeDuration],
     ): Unit = {
 
       val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
@@ -506,6 +508,7 @@ class TopologyAdministrationGroup(
         owner,
         newKey.fingerprint,
         newKey.purpose,
+        synchronize = synchronize,
       ).discard
 
       // Remove the old key by sending the matching `Remove` transaction
@@ -514,6 +517,7 @@ class TopologyAdministrationGroup(
         owner,
         currentKey.fingerprint,
         currentKey.purpose,
+        synchronize = synchronize,
       ).discard
     }
   }

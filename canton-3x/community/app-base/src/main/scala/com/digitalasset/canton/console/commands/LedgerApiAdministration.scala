@@ -24,6 +24,7 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v1.{EventQueryServiceOuterClass, ValueOuterClass}
+import com.daml.ledger.api.v2.completion.Completion as CompletionV2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.Reassignment
@@ -59,8 +60,8 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.*
+import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -432,7 +433,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           commandId: String = "",
           // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
@@ -481,7 +482,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           commandId: String = "",
           // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
@@ -1048,7 +1049,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           beginOffset: ParticipantOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: CompletionWrapper => Boolean = _ => true,
       ): Seq[CompletionWrapper] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -1058,6 +1059,34 @@ trait BaseLedgerApiAdministration extends NoTracing {
               beginOffset,
               atLeastNumCompletions,
               timeout.asJavaApproximation,
+              applicationId,
+            )(filter, consoleEnvironment.environment.scheduler)
+          )
+        })
+
+      @Help.Summary(
+        "Lists command completions following the specified offset along with the checkpoints included in the completions",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """If the participant has been pruned via `pruning.prune` and if `offset` is lower than
+          |the pruning offset, this command fails with a `NOT_FOUND` error."""
+      )
+      def list_with_checkpoint(
+          partyId: PartyId,
+          atLeastNumCompletions: Int,
+          beginExclusive: ParticipantOffset,
+          applicationId: String = applicationId,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          filter: CompletionV2 => Boolean = _ => true,
+      ): Seq[(CompletionV2, Option[Checkpoint])] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiV2Commands.CommandCompletionService.CompletionCheckpointRequest(
+              partyId.toLf,
+              beginExclusive,
+              atLeastNumCompletions,
+              timeout,
               applicationId,
             )(filter, consoleEnvironment.environment.scheduler)
           )
@@ -1549,7 +1578,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             workflowId: String = "",
             commandId: String = "",
             // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
-            optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
@@ -2283,7 +2312,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           commands: Seq[Command],
           workflowId: String = "",
           commandId: String = "",
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
@@ -2696,7 +2725,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           offset: LedgerOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
       ): Seq[Completion] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -2724,7 +2753,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           offset: LedgerOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
       ): Seq[(Completion, Option[Checkpoint])] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -3266,7 +3295,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             commands: Seq[javab.data.Command],
             workflowId: String = "",
             commandId: String = "",
-            optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
