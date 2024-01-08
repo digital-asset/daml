@@ -73,11 +73,11 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         _ <- client.packageManagementClient.uploadDarFile(testPackageV2BS)
         _ <- loadTestPackageDar(1)
         _ <- loadTestPackageDar(2)
-        _ <- Future { Thread.sleep(10 * 1000) }
-        _ <- client.packageManagementClient.listKnownPackages()
+        // _ <- Future { Thread.sleep(10 * 1000) }
+        // _ <- client.packageManagementClient.listKnownPackages()
       } yield {
         client.ledgerId shouldBe LedgerId
-        0 shouldBe 0
+        0 shouldBe 1
       }
     }
   }

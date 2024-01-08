@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.upgrades.Typecheck
+import com.daml.lf.upgrades.{Typecheck, UpgradeError}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
@@ -145,18 +145,37 @@ private[apiserver] final class ApiPackageManagementService private (
             upgradedArchiveMb.traverse(Decode.decodeArchive(_))
               .handleError(Validation.handleLfArchiveError)
           }
-        } yield {
-          upgradedPackageMb match {
-            case Some(upgradedPackage) =>
-              Typecheck.checkPackage(upgradingPackage.main, upgradedPackage) match {
-                case Success(()) => true
-                case Failure(_) => false
-              }
-            case None => false // No available package means upgrade is not valid
+          _ <- Future {
+            logger.info(s"Package ${upgradingPackage.main._1} upgrades package id $upgradedPackageId")
           }
-        }
-      case None =>
+          b <- upgradedPackageMb match {
+            case Some(upgradedPackage) => {
+              logger.info(s"Upgraded package id $upgradedPackageId has resolved")
+              Typecheck.checkPackage(upgradingPackage.main, upgradedPackage) match {
+                case Success(()) => {
+                  logger.info(s"Typechecking upgrades succeeded.")
+                  Future(true)
+                }
+                case Failure(err: UpgradeError) => {
+                  logger.info(s"Typechecking upgrades failed with following message: ${err.message}")
+                  Future(false)
+                }
+                case Failure(err: Throwable) => {
+                  logger.info(s"Typechecking upgrades failed with unknown error.")
+                  Future.failed(err)
+                }
+              }
+            }
+            case None => {
+              logger.info(s"Upgraded package id $upgradedPackageId does not resolve to any known package.")
+              Future(false) // No available package means upgrade is not valid
+            }
+          }
+        } yield b
+      case None => {
+        logger.info(s"Package ${upgradingPackage.main._1} has no upgraded package")
         Future(false)
+      }
     }
   }
 
