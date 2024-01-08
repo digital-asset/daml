@@ -80,9 +80,8 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
 import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
 import qualified Data.Aeson as Aeson
-import DA.Daml.Project.Types (unresolvedBuiltinSdkVersion)
 
-import SdkVersion.Class (SdkVersioned)
+import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
 
 data LedgerApi
   = Grpc

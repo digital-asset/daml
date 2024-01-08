@@ -13,8 +13,6 @@ import Data.Text (Text, pack)
 import Control.Exception.Safe (Exception (..))
 import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
-import qualified SdkVersion.Class
-import qualified Control.Exception as Unsafe
 
 newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
     { unwrapUnresolvedReleaseVersion :: V.Version
@@ -152,9 +150,6 @@ releaseVersionFromCacheString src =
       [both] -> OldReleaseVersion <$> parseVersionM both
       [release, sdk] -> SplitReleaseVersion <$> parseVersionM release <*> parseVersionM sdk
       _ -> Nothing
-
-unresolvedBuiltinSdkVersion :: SdkVersion.Class.SdkVersioned => UnresolvedReleaseVersion
-unresolvedBuiltinSdkVersion = either Unsafe.throw id $ parseUnresolvedVersion (pack SdkVersion.Class.sdkVersion)
 
 unsafeResolveReleaseVersion :: UnresolvedReleaseVersion -> ReleaseVersion
 unsafeResolveReleaseVersion (UnresolvedReleaseVersion v) = OldReleaseVersion v

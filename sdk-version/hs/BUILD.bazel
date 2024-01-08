@@ -9,9 +9,13 @@ da_haskell_library(
     srcs = [":src/SdkVersion/Class.hs"],
     hackage_deps = [
         "base",
+        "text",
         "ghc-lib-parser",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-version-types",
+    ],
 )
 
 genrule(

@@ -86,7 +86,6 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import DA.Daml.Project.Types
     ( UnresolvedReleaseVersion(..),
-      unresolvedBuiltinSdkVersion,
       unresolvedReleaseVersionToString,
       parseUnresolvedVersion,
       isHeadVersion,
@@ -1478,7 +1477,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = unresolvedBuiltinSdkVersion
+                              , pSdkVersion = SdkVersion.Class.unresolvedBuiltinSdkVersion
                               , pModulePrefixes = Map.empty
                               , pUpgradedPackagePath = Nothing
                               , pTypecheckUpgrades = False
@@ -1614,8 +1613,8 @@ execDocTest opts scriptDar (ImportSource importSource) files =
           then do
             damlPath <- getDamlPath
             damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-            resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
-          else pure (unsafeResolveReleaseVersion unresolvedBuiltinSdkVersion)
+            resolveReleaseVersion (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
+          else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty
 

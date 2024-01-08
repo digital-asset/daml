@@ -12,10 +12,15 @@ module SdkVersion.Class
   , damlStdlib
   , SdkVersions (..)
   , withSdkVersions'
+  , unresolvedBuiltinSdkVersion
   ) where
 
+import Control.Exception (throw)
+import DA.Daml.Version.Types (UnresolvedReleaseVersion, parseUnresolvedVersion)
 import Module (UnitId, stringToUnitId)
 import Unsafe.Coerce (unsafeCoerce)
+
+import qualified Data.Text as T (pack)
 
 data SdkVersions = SdkVersions
   { _sdkVersion :: String
@@ -58,3 +63,6 @@ sdkPackageVersion = _sdkPackageVersion sdkVersions
 
 damlStdlib :: SdkVersioned => UnitId
 damlStdlib = stringToUnitId ("daml-stdlib-" ++ sdkPackageVersion)
+
+unresolvedBuiltinSdkVersion :: SdkVersioned => UnresolvedReleaseVersion
+unresolvedBuiltinSdkVersion = either throw id $ parseUnresolvedVersion (T.pack sdkVersion)
