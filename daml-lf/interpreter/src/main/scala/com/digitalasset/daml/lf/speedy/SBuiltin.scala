@@ -1102,13 +1102,12 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
-      // val coid = getSContractId(args, 0)
+      val coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
       if (actualTemplateId == templateId)
         Control.Value(record)
       else
-        Control.Error(IE.NonComparableValues)
-      // Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
+        Control.Error(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
     }
   }
 
@@ -1629,15 +1628,19 @@ private[lf] object SBuiltin {
     *   :: { key: key, maintainers: List Party }
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName, optTargetTemplateId: Option[TypeConName])
-      extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId), optTargetTemplateId)
+  final case class SBUFetchKey(
+      templateId: TypeConName,
+      optTargetTemplateId: Option[TypeConName] = None,
+  ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId), optTargetTemplateId)
 
   /** $lookupKey[T]
     *   :: { key: key, maintainers: List Party }
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName, optTargetTemplateId: Option[TypeConName])
-      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId), optTargetTemplateId)
+  final case class SBULookupKey(
+      templateId: TypeConName,
+      optTargetTemplateId: Option[TypeConName] = None,
+  ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId), optTargetTemplateId)
 
   /** $getTime :: Token -> Timestamp */
   final case object SBUGetTime extends UpdateBuiltin(1) {
