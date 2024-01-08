@@ -39,12 +39,12 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   private val party = Party.assertFromString("Party")
 
-  private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
+  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
-    (packages.main._1, packages.all.toMap)
+    (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
-  private val (miniTestsPkgId, allPackages) = loadPackage(
+  private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
     s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
   )
 
@@ -53,6 +53,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       toContractId("ReinterpretTests:MySimple:1") ->
         assertAsVersionedContract(
           ContractInstance(
+            miniTestsPkg.name,
             TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(
               Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),

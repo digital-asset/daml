@@ -39,12 +39,11 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     tests <- forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
-        let lfVersion =
-             case major of
-                 LF.V1 -> LF.versionDefault
-                 -- TODO(#17366): test with the latest stable version of LF2 once there is one
-                 LF.V2 -> LF.version2_dev
+        let lfVersion = LF.defaultOrLatestStable major
         let prettyMajor = LF.renderMajorVersion major
+        -- TODO(#17366): replace with LF.isDevVersion lfVersion once the engine supports running
+        --  LF 2.x dars.
+        let runCantonInDevMode = major == LF.V2
         scriptDar <- locateRunfiles $ case major of
             LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
             LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
@@ -54,7 +53,7 @@ main = do
             defaultSandboxConf
                 { dars = [testDar]
                 , timeMode = Static
-                , devVersionSupport = LF.isDevVersion lfVersion
+                , devVersionSupport = runCantonInDevMode
                 }
             $ \getSandboxPort ->
                 testGroup ("LF v" <> prettyMajor)
@@ -62,7 +61,7 @@ main = do
                         defaultSandboxConf
                             { mbSharedSecret = Just testSecret
                             , mbLedgerId = Just testLedgerId
-                            , devVersionSupport = LF.isDevVersion lfVersion
+                            , devVersionSupport = runCantonInDevMode
                             }
                         $ \getSandboxPort ->
                             withTokenFile $ \getTokenFile ->
@@ -71,7 +70,7 @@ main = do
                         defaultSandboxConf
                             { enableTls = True
                             , mbClientAuth = Just None
-                            , devVersionSupport = LF.isDevVersion lfVersion
+                            , devVersionSupport = runCantonInDevMode
                             }
                         $ \getSandboxPort ->
                             tlsTests lfVersion damlc scriptDar getSandboxPort certDir

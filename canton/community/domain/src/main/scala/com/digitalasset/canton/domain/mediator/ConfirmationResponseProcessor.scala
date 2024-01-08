@@ -16,6 +16,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, ViewType}
 import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{v0, *}
@@ -38,6 +39,34 @@ import org.slf4j.event.Level
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
+/** small helper class to extract appropriate data for logging
+  *
+  * please once we rewrite the mediator event stage stuff, we should
+  * clean this up again.
+  */
+// TODO(#15627) remove me
+private[mediator] final case class MediatorResultLog(
+    sender: ParticipantId,
+    ts: CantonTimestamp,
+    approved: Int = 0,
+    rejected: Seq[LocalReject] = Seq.empty,
+)(val traceContext: TraceContext)
+    extends PrettyPrinting {
+  override def pretty: Pretty[MediatorResultLog] = prettyNode(
+    "ParticipantResponse",
+    param("sender", _.sender),
+    param("ts", _.ts),
+    param("approved", _.approved, _.approved > 0),
+    paramIfNonEmpty("rejected", _.rejected),
+  )
+
+  def extend(result: LocalVerdict): MediatorResultLog = result match {
+    case _: LocalApprove => copy(approved = approved + 1)(traceContext)
+    case reject: LocalReject => copy(rejected = rejected :+ reject)(traceContext)
+  }
+
+}
+
 /** Scalable service to check the received Stakeholder Trees and Confirmation Responses, derive a verdict and post
   * result messages to stakeholders.
   */
@@ -57,6 +86,22 @@ private[mediator] class ConfirmationResponseProcessor(
     with FlagCloseable
     with HasCloseContext {
 
+  private def extractEventsForLogging(
+      events: Seq[Traced[MediatorEvent]]
+  ): Seq[MediatorResultLog] =
+    events
+      .collect { case tr @ Traced(MediatorEvent.Response(_, timestamp, response, _)) =>
+        (response.message.sender, timestamp, tr.traceContext, response.message.localVerdict)
+      }
+      .groupBy { case (sender, ts, traceContext, _) => (sender, ts, traceContext) }
+      .map { case ((sender, ts, traceContext), results) =>
+        results.foldLeft(MediatorResultLog(sender, ts)(traceContext)) {
+          case (acc, (_, _, _, result)) =>
+            acc.extend(result)
+        }
+      }
+      .toSeq
+
   /** Handle events for a single request-id.
     * Callers should ensure all events are for the same request and ordered by sequencer time.
     */
@@ -67,6 +112,14 @@ private[mediator] class ConfirmationResponseProcessor(
   ): HandlerResult = {
 
     val requestTs = requestId.unwrap
+    // // TODO(#15627) clean me up after removing the MediatorStageEvent stuff
+    if (logger.underlying.isInfoEnabled()) {
+      extractEventsForLogging(events).foreach { result =>
+        logger.info(
+          show"Phase 5: Received responses for request=${requestId}: $result"
+        )(result.traceContext)
+      }
+    }
 
     val future = for {
       // FIXME(i12903): do not block if requestId is far in the future
@@ -135,7 +188,9 @@ private[mediator] class ConfirmationResponseProcessor(
       implicit val traceContext: TraceContext = responseAggregation.requestTraceContext
 
       logger
-        .debug(s"Request ${requestId}: Timeout in state ${responseAggregation.state} at $timestamp")
+        .info(
+          s"Phase 6: Request ${requestId.unwrap}: Timeout in state ${responseAggregation.state} at $timestamp"
+        )
 
       val timeout = responseAggregation.timeout(version = timestamp)
       mediatorState
@@ -192,9 +247,8 @@ private[mediator] class ConfirmationResponseProcessor(
               _ <- mediatorState.add(aggregation)
             } yield {
               timeTracker.requestTick(participantResponseDeadline)
-
-              logger.debug(
-                show"$requestId: registered mediator request. Initial state: ${aggregation.showMergedState}"
+              logger.info(
+                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewHash.size} view(s). Initial state: ${aggregation.showMergedState}"
               )
             }
 
@@ -621,7 +675,6 @@ private[mediator] class ConfirmationResponseProcessor(
             OptionT.none[Future, Unit]
           }
         }
-
         nextResponseAggregation <- OptionT(
           responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
         )
@@ -658,6 +711,9 @@ private[mediator] class ConfirmationResponseProcessor(
   )(implicit traceContext: TraceContext): Future[Unit] =
     responseAggregation.asFinalized(protocolVersion) match {
       case Some(finalizedResponse) =>
+        logger.info(
+          s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"
+        )
         verdictSender.sendResult(
           finalizedResponse.requestId,
           finalizedResponse.request,

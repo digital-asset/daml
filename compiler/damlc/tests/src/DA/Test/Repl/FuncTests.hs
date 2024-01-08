@@ -60,11 +60,7 @@ type InteractionTester = [Step] -> Expectation
 withInteractionTester :: LF.MajorVersion -> ActionWith InteractionTester -> IO ()
 withInteractionTester major action = do
     let prettyMajor = LF.renderMajorVersion major
-    let lfVersion =
-            case major of
-                LF.V1 -> LF.versionDefault
-                -- TODO(#17366): test with the latest stable version of LF2 once there is one
-                LF.V2 -> LF.version2_dev
+    let lfVersion = LF.defaultOrLatestStable major
     let options =
             (defaultOptions Nothing)
                 { optScenarioService = EnableScenarioService False
@@ -94,7 +90,12 @@ withInteractionTester major action = do
             ( createCantonSandbox
                 tmpDir
                 devNull
-                defaultSandboxConf{dars = testDars, devVersionSupport = LF.isDevVersion lfVersion}
+                defaultSandboxConf
+                    { dars = testDars
+                    -- TODO(#17366): replace with LF.isDevVersion lfVersion once
+                    --  the engine supports running
+                    , devVersionSupport = major == LF.V2
+                    }
             )
             destroySandbox
             $ \SandboxResource{sandboxPort} ->
@@ -143,7 +144,7 @@ initPackageConfig options scriptDar dars = do
         installDependencies
             (toNormalizedFilePath' dir)
             options
-            pSdkVersion
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb (toNormalizedFilePath' dir) options pModulePrefixes

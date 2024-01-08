@@ -13,7 +13,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Util}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
@@ -213,6 +213,11 @@ private[platform] object InMemoryStateUpdater {
           if (contractStateEventsBatch.nonEmpty) {
             inMemoryState.contractStateCaches.push(contractStateEventsBatch)
           }
+
+          inMemoryState.eventsByContractKeyCache.foreach { cache =>
+            val keyEventsBatch = convertToKeyEvents(transaction)
+            if (keyEventsBatch.nonEmpty) cache.push(keyEventsBatch)
+          }
         }
       )
     }
@@ -247,7 +252,7 @@ private[platform] object InMemoryStateUpdater {
                 arg = createdEvent.createArgument,
               ),
               globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.unversioned)
+                Key.assertBuild(createdEvent.templateId, k.unversioned, Util.sharedKey(k.version))
               ),
               ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
@@ -262,7 +267,7 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Archived(
               contractId = exercisedEvent.contractId,
               globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(exercisedEvent.templateId, k.unversioned)
+                Key.assertBuild(exercisedEvent.templateId, k.unversioned, Util.sharedKey(k.version))
               ),
               stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = exercisedEvent.eventOffset,
@@ -271,6 +276,35 @@ private[platform] object InMemoryStateUpdater {
         }.toVector
       case _ => Vector.empty
     }
+
+  private def convertToKeyEvents(
+      tx: TransactionLogUpdate
+  ): Vector[(GlobalKey, TransactionLogUpdate.Event)] = {
+    // TODO(i15443) if we want to keep this caching, we should re-visit it to support re-assignments
+    tx match {
+      case tx: TransactionLogUpdate.TransactionAccepted =>
+        tx.events.iterator
+          .collect({
+            case create: TransactionLogUpdate.CreatedEvent =>
+              create.contractKey.map { ck =>
+                val globalKey =
+                  Key.assertBuild(create.templateId, ck.unversioned, Util.sharedKey(ck.version))
+                globalKey -> create
+              }
+            case exercise: TransactionLogUpdate.ExercisedEvent if exercise.consuming =>
+              exercise.contractKey.map { ck =>
+                val globalKey =
+                  Key.assertBuild(exercise.templateId, ck.unversioned, Util.sharedKey(ck.version))
+                globalKey -> exercise
+              }
+            case _ => None
+
+          })
+          .flatten
+          .toVector
+      case _ => Vector.empty
+    }
+  }
 
   private def convertTransactionAccepted(
       offset: Offset,

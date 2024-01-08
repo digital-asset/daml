@@ -120,14 +120,16 @@ installParser = InstallOptions
     <*> fmap SetPath (flagYesNoAuto' "set-path" "Adjust PATH automatically" idm)
     <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
     <*> fmap ZshCompletions (flagYesNoAuto' "zsh-completions" "Install Zsh completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
+    <*> fmap InstallWithInternalVersion (flagYesNoAuto "install-with-internal-version" False "Allow installing from a tarball that has no associated release by using the tarball's SDK version as its release version." internal)
+    <*> fmap InstallWithCustomVersion (optionOnce (Just <$> str) (long "install-with-custom-version" <> value Nothing))
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
-uninstallParser :: Parser SdkVersion
+uninstallParser :: Parser UnresolvedReleaseVersion
 uninstallParser =
     argument readSdkVersion (metavar "VERSION" <> help "The SDK version to uninstall.")
 
-readSdkVersion :: ReadM SdkVersion
+readSdkVersion :: ReadM UnresolvedReleaseVersion
 readSdkVersion =
     eitherReader (mapLeft displayException . parseVersion . pack)
 

@@ -298,11 +298,12 @@ private[data] final class IdStringImpl extends IdString {
     }
   }
 
-  /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore.
+  /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore
+    * limited to 255 chars
     */
   override type PackageName = String
   override val PackageName: ConcatenableStringModule[PackageName, HexString] =
-    new ConcatenableMatchingStringModule("Daml-LF Package Name", "-_")
+    new ConcatenableMatchingStringModule("Daml-LF Package Name", "-_", 255)
 
   /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
     *      separated by dots.

@@ -25,8 +25,10 @@ bazel build \
   --tool_java_runtime_version=nixpkgs_java_11 \
   --tool_java_language_version=11 \
   //release:sdk-release-tarball \
-  //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar
+  //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar \
+  //daml-assistant:daml
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
 cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_distribute.jar "$HEAD_TARGET_DIR"
+cp -f bazel-bin/daml-assistant/daml "$HEAD_TARGET_DIR"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

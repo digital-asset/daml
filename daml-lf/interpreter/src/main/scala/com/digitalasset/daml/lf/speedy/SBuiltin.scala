@@ -1020,6 +1020,7 @@ private[lf] object SBuiltin {
 
       getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
+        val pkgName = machine.tmplId2PackageName(templateId, templateVersion)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1045,6 +1046,7 @@ private[lf] object SBuiltin {
         def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
           machine.ptx
             .beginExercises(
+              packageName = pkgName,
               templateId = templateId,
               targetId = coid,
               contract = contract,
@@ -1160,6 +1162,17 @@ private[lf] object SBuiltin {
       fetchAny(machine, optTargetTemplateId, coid, keyOpt) { sv =>
         Control.Value(sv)
       }
+    }
+  }
+
+  final case object SBSoftFetchInterface extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      val coid = getSContractId(args, 0)
+      val keyOpt = args.get(1)
+      softFetchInterface(machine, coid, keyOpt)(Control.Value)
     }
   }
 
@@ -1459,8 +1472,9 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId, keyVersion)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, templateId, args.get(0))
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1537,8 +1551,9 @@ private[lf] object SBuiltin {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId, version)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, keyValue)
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
@@ -1969,7 +1984,11 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val contractInfoStruct = args.get(0)
-      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
+      val contract = extractContractInfo(
+        machine.tmplId2TxVersion,
+        machine.tmplId2PackageName,
+        contractInfoStruct,
+      )
       (keyHash, contract.keyOpt) match {
         case (Some(hash), Some(key)) if hash != key.globalKey.hash =>
           Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
@@ -2051,6 +2070,7 @@ private[lf] object SBuiltin {
   private[this] def extractKey(
       location: String,
       packageTxVersion: TransactionVersion,
+      pkgName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedKey =
@@ -2065,12 +2085,13 @@ private[lf] object SBuiltin {
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
         CachedKey(
-          GlobalKeyWithMaintainers(
+          packageName = pkgName,
+          globalKeyWithMaintainers = GlobalKeyWithMaintainers(
             gkey,
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
           ),
-          keyValue,
-          shared,
+          key = keyValue,
+          shared = shared,
         )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
@@ -2099,6 +2120,7 @@ private[lf] object SBuiltin {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
+      tmplId2PackageName: (TypeConName, TransactionVersion) => Option[PackageName],
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2112,9 +2134,12 @@ private[lf] object SBuiltin {
             )
         }
         val version = tmplId2TxVersion(templateId)
+        val pkgName = tmplId2PackageName(templateId, version)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
-            mbKey.map(extractKey(NameOf.qualifiedNameOfCurrentFunc, version, templateId, _))
+            mbKey.map(
+              extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
+            )
           case v =>
             throw SErrorCrash(
               NameOf.qualifiedNameOfCurrentFunc,
@@ -2123,6 +2148,7 @@ private[lf] object SBuiltin {
         }
         ContractInfo(
           version = version,
+          packageName = pkgName,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           agreementText = extractText(
@@ -2182,7 +2208,7 @@ private[lf] object SBuiltin {
           f(SValue.SAnyContract(templateId, templateArg))
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(srcTmplId, coinstArg) =>
+        machine.lookupContract(coid) { case V.ContractInstance(_, srcTmplId, coinstArg) =>
           val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
             case Some(tycon) =>
               (true, tycon)
@@ -2227,6 +2253,64 @@ private[lf] object SBuiltin {
                 }
               }
             }
+        }
+    }
+  }
+
+  // TODO https://github.com/digital-asset/daml/issues/17995
+  //  redesing contract fetching to improve factotrizstion
+  private def softFetchInterface(
+      machine: UpdateMachine,
+      coid: V.ContractId,
+      keyOpt: SValue,
+  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
+    machine.getIfLocalContract(coid) match {
+      case Some((templateId, templateArg)) =>
+        ensureContractActive(machine, coid, templateId) {
+          f(SValue.SAnyContract(templateId, templateArg))
+        }
+      case None =>
+        machine.lookupContract(coid) { case V.ContractInstance(packageName, srcTmplId, coinstArg) =>
+          packageName match {
+            case Some(pkgName) =>
+              machine.packageResolution.get(pkgName) match {
+                case Some(pkgId) =>
+                  val dstTmplId = srcTmplId.copy(packageId = pkgId)
+                  machine.ensurePackageIsLoaded(
+                    dstTmplId.packageId,
+                    language.Reference.Template(dstTmplId),
+                  ) { () =>
+                    importValue(machine, dstTmplId, coinstArg) { templateArg =>
+                      getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                        ensureContractActive(machine, coid, contract.templateId) {
+
+                          machine.checkContractVisibility(coid, contract)
+                          machine.enforceLimitAddInputContract()
+                          machine.enforceLimitSignatoriesAndObservers(coid, contract)
+
+                          // In Validation mode, we always call validateContractInfo
+                          // In Submission mode, we only call validateContractInfo when src != dest
+                          if (
+                            (machine.validating) || (srcTmplId.packageId != dstTmplId.packageId)
+                          ) {
+                            validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                              f(contract.any)
+                            }
+                          } else {
+                            f(contract.any)
+                          }
+                        }
+                      }
+                    }
+                  }
+                case None =>
+                  // TODO https://github.com/digital-asset/daml/issues/17995
+                  //  We need a proper interpretation error here
+                  crash(s"cannot resolve package $packageName")
+              }
+            case None =>
+              crash(s"unexpected contract instance without packageName")
+          }
         }
     }
   }
@@ -2317,7 +2401,11 @@ private[lf] object SBuiltin {
       ),
     )
     executeExpression(machine, e) { contractInfoStruct =>
-      val contract = extractContractInfo(machine.tmplId2TxVersion, contractInfoStruct)
+      val contract = extractContractInfo(
+        machine.tmplId2TxVersion,
+        machine.tmplId2PackageName,
+        contractInfoStruct,
+      )
       f(contract)
     }
   }

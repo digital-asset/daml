@@ -3,6 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -122,7 +123,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
         "return jsonDecoder($L).decode(new $T(json))",
-        CodeBlock.join(typeParams.map(t => CodeBlock.of(decodeTypeParamName(t))).asJava, ", "),
+        CodeBlock
+          .join(typeParams.map(t => CodeBlock.of("$L", decodeTypeParamName(t))).asJava, ", "),
         classOf[JsonLfReader],
       )
       .build()
@@ -149,7 +151,10 @@ private[inner] object FromJsonGenerator extends StrictLogging {
           "case $S: return $L($L)",
           f.damlName,
           decoderForTagName(f.damlName),
-          CodeBlock.join(typeParams.map(t => CodeBlock.of(decodeTypeParamName(t))).asJava, ", "),
+          CodeBlock.join(
+            typeParams.map(t => CodeBlock.of("$L", decodeTypeParamName(t))).asJava,
+            ", ",
+          ),
         )
       }
       block
@@ -227,7 +232,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
 
     damlType match {
       case TypeCon(TypeConName(ident), typeParams) =>
-        CodeBlock.of("$T.jsonDecoder($L)", guessClass(ident), typeReaders(typeParams))
+        CodeBlock.of("$L.jsonDecoder($L)", guessClass(ident).simpleName, typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T.int64", decodeClass)
       case TypeNumeric(scale) => CodeBlock.of("$T.numeric($L)", decodeClass, scale)
@@ -258,7 +263,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       case TypePrim(PrimTypeGenMap, typeParams) =>
         CodeBlock.of("$T.genMap($L)", decodeClass, typeReaders(typeParams))
       case TypePrim(PrimTypeUnit, _) => CodeBlock.of("$T.unit", decodeClass)
-      case TypeVar(name) => CodeBlock.of(decodeTypeParamName(name))
+      case TypeVar(name) => CodeBlock.of("$L", decodeTypeParamName(escapeString(name)))
       case _ => throw new IllegalArgumentException(s"Invalid Daml datatype: $damlType")
     }
   }

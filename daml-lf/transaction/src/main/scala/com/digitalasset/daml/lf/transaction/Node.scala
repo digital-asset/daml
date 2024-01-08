@@ -36,6 +36,10 @@ object Node {
 
     private[lf] def updateVersion(version: TransactionVersion): Node
 
+    // TODO: https://github.com/digital-asset/daml/issues/17965
+    //  make it mandatory in daml 3
+    def packageName: Option[PackageName]
+
     def templateId: TypeConName
 
     /** The package ids used by this action node.
@@ -81,6 +85,9 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String,
@@ -107,7 +114,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(templateId, arg)
+      Value.ContractInstance(packageName, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
@@ -120,6 +127,9 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
       coid: ContractId,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       actingParties: Set[Party],
       signatories: Set[Party],
@@ -151,6 +161,9 @@ object Node {
     */
   final case class Exercise(
       targetCoid: ContractId,
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
@@ -204,6 +217,9 @@ object Node {
   }
 
   final case class LookupByKey(
+      // TODO: https://github.com/digital-asset/daml/issues/17995
+      //  remove default value once canton handle it.
+      override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],

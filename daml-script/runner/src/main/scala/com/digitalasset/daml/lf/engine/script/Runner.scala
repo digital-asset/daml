@@ -10,7 +10,6 @@ import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -20,6 +19,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
@@ -71,7 +71,7 @@ case class ApiParameters(
     host: String,
     port: Int,
     access_token: Option[String],
-    application_id: Option[ApplicationId],
+    application_id: Option[Option[Ref.ApplicationId]],
     adminPort: Option[Int] = None,
 )
 case class Participants[+T](
@@ -168,12 +168,12 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("ContractId must be a string")
       }
     }
-  implicit object ApplicationIdFormat extends JsonFormat[ApplicationId] {
+  implicit object ApplicationIdFormat extends JsonFormat[Option[Ref.ApplicationId]] {
     def read(value: JsValue) = value match {
-      case JsString(s) => ApplicationId(s)
+      case JsString(s) => Some(s).filter(_.nonEmpty).map(Ref.ApplicationId.assertFromString)
       case _ => deserializationError("Expected ApplicationId string")
     }
-    def write(id: ApplicationId) = JsString(ApplicationId.unwrap(id))
+    def write(id: Option[Ref.ApplicationId]) = JsString(id.getOrElse(""))
   }
   implicit val apiParametersFormat: RootJsonFormat[ApiParameters] = jsonFormat5(ApiParameters)
   implicit val participantsFormat: RootJsonFormat[Participants[ApiParameters]] = jsonFormat3(
@@ -250,8 +250,10 @@ object Runner {
     )
   }
 
-  val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
-  val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
+  val BLANK_APPLICATION_ID: Option[Ref.ApplicationId] = None
+  val DEFAULT_APPLICATION_ID: Option[Ref.ApplicationId] = Some(
+    Ref.ApplicationId.assertFromString("daml-script")
+  )
   private[script] def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
@@ -264,7 +266,7 @@ object Runner {
       if (params.access_token.nonEmpty) BLANK_APPLICATION_ID else DEFAULT_APPLICATION_ID
     )
     val clientConfig = LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = applicationId.getOrElse(""),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = params.access_token,
@@ -315,10 +317,15 @@ object Runner {
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
           val client = new JsonLedgerClient(uri, Jwt(token), envSig, system)
-          if (params.application_id.isDefined && params.application_id != client.applicationId) {
+          if (
+            params.application_id.isDefined && params.application_id.map(
+              _.getOrElse("")
+            ) != client.applicationId
+          ) {
             Future.failed(
               new RuntimeException(
-                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id}"
+                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id
+                    .map(_.getOrElse(""))}"
               )
             )
           } else {

@@ -1,0 +1,18 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v1;
+
+import "com/digitalasset/canton/protocol/v1/merkle.proto";
+import "scalapb/scalapb.proto";
+
+// Messages related to the transaction or transfer protocol sent by a mediator
+// sbt protobufContinuityCheck will pass even if fields are added, because the mediator is trusted.
+
+message InformeeTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  GenTransactionTree tree = 1;
+}

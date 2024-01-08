@@ -7,4 +7,4 @@ module KindChecking where
 
 -- @ERROR range=10:1-10:4; Nat kind on the right-hand side of kind arrow
 foo : forall (f: * -> GHC.Types.Nat). Numeric (f ()) -> Numeric (f ()) -> Numeric (f ())
-foo = (+)
+foo = error "not implemeted"

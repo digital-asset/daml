@@ -49,6 +49,7 @@ object TransactionVersion {
   private[lf] val minInterfaces = V15
   private[lf] val minExplicitDisclosure = VDev
   private[lf] val minChoiceAuthorizers = VDev
+  private[lf] val minUpgrade = VDev
   private[lf] val minSharedKeys = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
@@ -63,6 +64,8 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
+      // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
+      v2_1 -> VDev,
       // TODO(#17366): Map to TransactionVersion 2.dev once it exists.
       v2_dev -> VDev,
     )

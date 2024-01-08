@@ -21,6 +21,10 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
@@ -294,6 +298,8 @@ class DamlLedgerClientTest
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       List(genGetTimeResponse),
       Seq(GetLedgerConfigurationResponse.defaultInstance),
+      Future.successful(GetEventsByContractIdResponse.defaultInstance),
+      Future.successful(GetEventsByContractKeyResponse.defaultInstance),
       Future.successful(ListPackagesResponse(Seq("id1"))),
       Future.successful(GetPackageResponse(HashFunction.SHA256, ByteString.EMPTY)),
       Future.successful(GetPackageStatusResponse(PackageStatus.values.head)),

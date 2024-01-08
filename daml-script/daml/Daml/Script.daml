@@ -135,7 +135,7 @@ data Disclosure = Disclosure with
    contractId : ContractId ()
    blob: Text
  deriving (Eq, Ord)
-  
+
 data ScriptF a
   = Submit (SubmitCmd a)
   | SubmitMustFail (SubmitMustFailCmd a)
@@ -541,8 +541,13 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 
 -- This will error if the submission fails.
 
+#ifdef DAML_SCENARIOS
 instance HasSubmit Script Commands where
   submit p cmds =
+#else
+submit : HasCallStack => Party -> Commands a -> Script a
+submit p cmds =
+#endif
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
       readAs = []
@@ -551,7 +556,12 @@ instance HasSubmit Script Commands where
       locations = getCallStack callStack
       disclosures = []
 
+#ifdef DAML_SCENARIOS
   submitMustFail p cmds =
+#else
+submitMustFail : HasCallStack => Party -> Commands a -> Script ()
+submitMustFail p cmds =
+#endif
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
       actAs = NonEmpty p []
       readAs = []
@@ -635,8 +645,8 @@ submitMultiMustFail actAs readAs cmds =
       disclosures = []
 
 -- | `submitMultiWithDisclosures actAs readAs disc cmds` submits `cmds` as a single
--- transaction authorized by `actAs` with explicit disclosures `disc` . Fetched 
--- contracts, except explicit disclosed ones, must be visible to at least one party in 
+-- transaction authorized by `actAs` with explicit disclosures `disc` . Fetched
+-- contracts, except explicit disclosed ones, must be visible to at least one party in
 -- the union of actAs and readAs.
 submitMultiWithDisclosures : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script a
 submitMultiWithDisclosures actAs readAs disc cmds =
@@ -648,8 +658,8 @@ submitMultiWithDisclosures actAs readAs disc cmds =
       locations = getCallStack callStack
       disclosures = disc
 
--- | `submitMultiWithDisclosuresMustFail actAs readAs disc cmds` behaves like 
--- `submitMultiWithDisclosures actAs readAs disc cmds` but fails when `submitMulti` 
+-- | `submitMultiWithDisclosuresMustFail actAs readAs disc cmds` behaves like
+-- `submitMultiWithDisclosures actAs readAs disc cmds` but fails when `submitMulti`
 -- succeeds and the other way around.
 submitMultiWithDisclosuresMustFail : HasCallStack => [Party] -> [Party] -> [Disclosure] -> Commands a -> Script ()
 submitMultiWithDisclosuresMustFail actAs readAs disc cmds =

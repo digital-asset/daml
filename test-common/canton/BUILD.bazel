@@ -6,14 +6,15 @@ load(
     "da_scala_library",
     "lf_scalacopts_stricter",
 )
-load("//:canton_dep.bzl", "canton")
 load("@build_environment//:configuration.bzl", "artif_pass", "artif_user")
 load("@os_info//:os_info.bzl", "is_windows")
+
+local_ee_canton = False
 
 genrule(
     name = "canton-lib-ee",
     # We don't use the else branch but we need a resolvable value
-    srcs = [":lib/canton-ee.jar"] if canton["local"] else ["@canton//:jar"],
+    srcs = [":lib/canton-ee.jar"] if local_ee_canton else ["//canton:community_app_deploy.jar"],
     outs = ["canton-lib-ee.jar"],
     cmd = """
 set -euo pipefail
@@ -23,9 +24,9 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.8.0-snapshot.20231117.11560.0.v57ba6d0f
-CANTON_ENTERPRISE_SHA=9f8aa7cddcff1537639d4210b24b9eb081617fa1cdb1e081db3c6bae0f5c1ae9
-CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.8.0-snapshot.20231117.11560.0.v57ba6d0f/9f8aa7cddcff1537639d4210b24b9eb081617fa1cdb1e081db3c6bae0f5c1ae9/canton-enterprise-2.8.0-snapshot.20231117.11560.0.v57ba6d0f.tar.gz
+CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240103.11675.0.v9eeafb4b
+CANTON_ENTERPRISE_SHA=3a0f5cf7088ae963408c0bf17b09ae123b490a542067d942a0819e91c88ebea8
+CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240103.11675.0.v9eeafb4b/3a0f5cf7088ae963408c0bf17b09ae123b490a542067d942a0819e91c88ebea8/canton-enterprise-2.9.0-snapshot.20240103.11675.0.v9eeafb4b.tar.gz
 
 url=$$CANTON_ENTERPRISE_URL
 
@@ -54,11 +55,11 @@ tar xzf $$tmp
 
 cp canton-*/lib/*.jar $@
 """.format(
-        src = ":lib/canton-ee.jar" if canton["local"] else "@canton//:jar",  # not used in else case but still must resolve
+        src = ":lib/canton-ee.jar" if local_ee_canton else "//canton:community_app_deploy.jar",  # not used in else case but still must resolve
         artif_pass = artif_pass,
         artif_user = artif_user,
         curl = "@curl_dev_env//:bin/curl" if not is_windows else "@curl_dev_env//:bin/curl.exe",
-        local = "true" if canton["local"] else "",
+        local = "true" if local_ee_canton else "",
     ),
     tags = ["canton-ee"],
     tools = [

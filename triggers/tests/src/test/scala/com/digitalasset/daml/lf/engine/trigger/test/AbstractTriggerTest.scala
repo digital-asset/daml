@@ -12,7 +12,6 @@ import java.util.UUID
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -25,7 +24,8 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{ApplicationId => _, Party => _, _}
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
@@ -49,7 +49,7 @@ trait AbstractTriggerTest extends CantonFixture {
   // TODO(#17366): remove once 2.0 is introduced
   override protected lazy val devMode: Boolean = (majorLanguageVersion == LanguageMajorVersion.V2)
 
-  implicit override protected lazy val applicationId: ApplicationId =
+  implicit override protected lazy val applicationId: Option[Ref.ApplicationId] =
     RunnerConfig.DefaultApplicationId
 
   protected def toHighLevelResult(s: SValue) = s match {
@@ -67,7 +67,7 @@ trait AbstractTriggerTest extends CantonFixture {
 
   protected def ledgerClientConfiguration: LedgerClientConfiguration =
     LedgerClientConfiguration(
-      applicationId = applicationId.unwrap,
+      applicationId = applicationId.getOrElse(""),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = None,
@@ -85,8 +85,8 @@ trait AbstractTriggerTest extends CantonFixture {
   protected def getRunner(
       client: LedgerClient,
       name: QualifiedName,
-      party: Party,
-      readAs: Set[Party] = Set.empty,
+      party: Ref.Party,
+      readAs: Set[Ref.Party] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
 
@@ -129,16 +129,14 @@ object AbstractTriggerTest {
       client: LedgerClient,
       hint: Option[String] = None,
       displayName: Option[String] = None,
-  )(implicit ec: ExecutionContext): Future[Party] =
-    client.partyManagementClient
-      .allocateParty(hint, displayName)
-      .map(details => Party(details.party: String))
+  )(implicit ec: ExecutionContext): Future[Ref.Party] =
+    client.partyManagementClient.allocateParty(hint, displayName).map(_.party)
 
-  def queryACS(client: LedgerClient, party: Party)(implicit
+  def queryACS(client: LedgerClient, party: Ref.Party)(implicit
       ec: ExecutionContext,
       materializer: Materializer,
   ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
-    val filter = TransactionFilter(List((party.unwrap, Filters.defaultInstance)).toMap)
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
     val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
       .getActiveContracts(filter, verbose = true)
       .runWith(Sink.seq)
@@ -153,18 +151,18 @@ object AbstractTriggerTest {
     )
   }
 
-  def create(client: LedgerClient, party: Party, cmd: CreateCommand)(implicit
+  def create(client: LedgerClient, party: Ref.Party, cmd: CreateCommand)(implicit
       ec: ExecutionContext,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party.unwrap,
+          party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = applicationId.unwrap,
+          applicationId = applicationId.getOrElse(""),
           commandId = UUID.randomUUID.toString,
         )
       )
@@ -176,14 +174,14 @@ object AbstractTriggerTest {
 
   def create(
       client: LedgerClient,
-      party: Party,
+      party: Ref.Party,
       commands: Seq[CreateCommand],
       elements: Int = 50,
       per: FiniteDuration = 1.second,
   )(implicit
       ec: ExecutionContext,
       materializer: Materializer,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
   ): Future[Unit] = {
     Source(commands)
       .mapAsync(8) { cmd =>
@@ -196,12 +194,12 @@ object AbstractTriggerTest {
 
   def exercise(
       client: LedgerClient,
-      party: Party,
+      party: Ref.Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
       choice: String,
       choiceArgument: LedgerApi.Value,
-  )(implicit ec: ExecutionContext, applicationId: ApplicationId): Future[Unit] = {
+  )(implicit ec: ExecutionContext, applicationId: Option[Ref.ApplicationId]): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
         ExerciseCommand(
@@ -215,10 +213,10 @@ object AbstractTriggerTest {
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party.unwrap,
+          party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = applicationId.unwrap,
+          applicationId = applicationId.getOrElse(""),
           commandId = UUID.randomUUID.toString,
         )
       )
@@ -230,10 +228,10 @@ object AbstractTriggerTest {
 
   def archive(
       client: LedgerClient,
-      party: Party,
+      party: Ref.Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
-  )(implicit ec: ExecutionContext, applicationId: ApplicationId): Future[Unit] = {
+  )(implicit ec: ExecutionContext, applicationId: Option[Ref.ApplicationId]): Future[Unit] = {
     exercise(
       client,
       party,

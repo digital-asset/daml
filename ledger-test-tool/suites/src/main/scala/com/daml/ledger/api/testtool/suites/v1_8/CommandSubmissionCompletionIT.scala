@@ -9,19 +9,19 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerTestSuite, TimeoutException, WithTimeout}
-import com.daml.ledger.test.model.Test.Dummy
-import com.daml.ledger.test.model.Test.Dummy._
+import com.daml.ledger.test.java.model.test.Dummy
 
 import scala.concurrent.duration.DurationInt
 
 final class CommandSubmissionCompletionIT extends LedgerTestSuite {
+  import CompanionImplicits._
 
   test(
     "CSCCompletions",
     "Read completions correctly with a correct application identifier and reading party",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submit(request)
       completions <- ledger.firstCompletions(party)
@@ -40,7 +40,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     "Read no completions without the correct application identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submit(request)
       invalidRequest = ledger
@@ -58,7 +58,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     "An OUT_OF_RANGE error should be returned when subscribing to completions past the ledger end",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submit(request)
       futureOffset <- ledger.offsetBeyondLedgerEnd()
@@ -82,7 +82,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     "Read no completions without the correct party",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
+    val request = ledger.submitRequest(party, new Dummy(party).create.commands)
     for {
       _ <- ledger.submit(request)
       failure <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty))
@@ -99,9 +99,9 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
     for {
-      dummy <- ledger.create(party, Dummy(party))
-      exercise = dummy.exerciseDummyChoice1().command
-      wrongExercise = exercise.update(_.exercise.choice := badChoice)
+      dummy <- ledger.create(party, new Dummy(party))
+      exercise = dummy.exerciseDummyChoice1().commands
+      wrongExercise = updateCommands(exercise, _.update(_.exercise.choice := badChoice))
       wrongRequest = ledger.submitRequest(party, wrongExercise)
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
@@ -125,7 +125,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
     val request = ledger
-      .submitRequest(party, Dummy(party).create.command)
+      .submitRequest(party, new Dummy(party).create.commands)
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger.submit(request).mustFail("submitting with an invalid ledger ID")
@@ -160,8 +160,8 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     "Listening for completions should support multi-party subscriptions",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
-    val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
-    val bobRequest = ledger.submitRequest(bob, Dummy(bob).create.command)
+    val aliceRequest = ledger.submitRequest(alice, new Dummy(alice).create.commands)
+    val bobRequest = ledger.submitRequest(bob, new Dummy(bob).create.commands)
     val aliceCommandId = aliceRequest.getCommands.commandId
     val bobCommandId = bobRequest.getCommands.commandId
     for {

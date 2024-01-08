@@ -32,8 +32,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(
-    p"""
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
   module M {
 
     record @serializable Goal = { goal: Party } ;
@@ -68,8 +67,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       cid : ContractId M:T <- create @M:T (M:T {theSig = theSig, theCon = theCon, theAut = theAut, theGoal = theGoal})
       in exercise @M:T ChoiceWithExplicitAuthority cid ();
    }
-  """
-  )
+  """)
 
   type Success = (SubmittedTransaction, List[AuthRequest])
 

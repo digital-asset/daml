@@ -20,6 +20,10 @@ class HashSpec extends AnyWordSpec with Matchers {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
+    Hash.assertHashContractKey(templateId, key, shared = false)
+  }
+
   private val complexRecordT =
     VA.record(
       defRef(name = "ComplexRecord"),
@@ -89,7 +93,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      Hash.assertHashContractKey(name, value).toHexString shouldBe hash
+      assertHashContractKey(name, value).toHexString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -97,7 +101,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       // Note: intentionally does not reuse value instances
       val hashes = Vector
         .fill(1000)(defRef("module", "name") -> complexRecordT.inj(complexRecordV))
-        .map(Function.tupled(Hash.assertHashContractKey))
+        .map(Function.tupled(assertHashContractKey))
 
       hashes.toSet.size shouldBe 1
     }
@@ -106,8 +110,8 @@ class HashSpec extends AnyWordSpec with Matchers {
       // Same value but different template ID should produce a different hash
       val value = VA.text.inj("A")
 
-      val hash1 = Hash.assertHashContractKey(defRef("AA", "A"), value)
-      val hash2 = Hash.assertHashContractKey(defRef("A", "AA"), value)
+      val hash1 = assertHashContractKey(defRef("AA", "A"), value)
+      val hash2 = assertHashContractKey(defRef("A", "AA"), value)
 
       hash1 should !==(hash2)
     }
@@ -120,8 +124,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -135,8 +139,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -149,8 +153,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -166,8 +170,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -179,8 +183,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -193,8 +197,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -207,8 +211,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -221,8 +225,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -235,8 +239,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -247,8 +251,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -259,8 +263,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -271,8 +275,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -283,8 +287,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -295,8 +299,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -307,8 +311,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -324,8 +328,8 @@ class HashSpec extends AnyWordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.assertHashContractKey(tid, value1)
-      val hash2 = Hash.assertHashContractKey(tid, value2)
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -662,7 +666,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       Hash.assertFromString("efab35fcbc9e2336fcc63259ba65e6601903be0a373c0b0f4d761872ffb23ded")
 
     "produce backwardly compatible non-shared contract keys" in {
-      Hash.assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
+      assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
     }
 
     "produce backwardly compatible keys when called with shared=false" in {

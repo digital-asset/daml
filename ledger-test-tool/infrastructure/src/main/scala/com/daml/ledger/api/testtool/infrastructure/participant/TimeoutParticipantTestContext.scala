@@ -4,10 +4,9 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
+
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
-import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
 import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
@@ -50,7 +49,6 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
@@ -70,14 +68,15 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.client.binding.{Primitive, Template}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Party, Template, Value, Unit => UnitData}
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.lf.data.Ref.HexString
 import com.daml.timer.Delayed
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
+import java.util.{List => JList}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -138,7 +137,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Get package status $packageId",
     delegate.getPackageStatus(packageId),
   )
-  override def allocateParty(): Future[Primitive.Party] =
+  override def allocateParty(): Future[Party] =
     withTimeout("Allocate party", delegate.allocateParty())
 
   def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse] =
@@ -162,7 +161,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
       identityProviderId: Option[String] = None,
-  ): Future[Primitive.Party] = withTimeout(
+  ): Future[Party] = withTimeout(
     s"Allocate party with hint $partyIdHint and display name $displayName",
     delegate.allocateParty(partyIdHint, displayName, localMetadata, identityProviderId),
   )
@@ -172,15 +171,15 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.getParties(req),
   )
 
-  override def allocateParties(n: Int): Future[Vector[Primitive.Party]] = withTimeout(
+  override def allocateParties(n: Int): Future[Vector[Party]] = withTimeout(
     s"Allocate $n parties",
     delegate.allocateParties(n),
   )
-  override def getParties(parties: Seq[Primitive.Party]): Future[Seq[PartyDetails]] = withTimeout(
+  override def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] = withTimeout(
     s"Get parties $parties",
     delegate.getParties(parties),
   )
-  override def listKnownParties(): Future[Set[Primitive.Party]] = withTimeout(
+  override def listKnownParties(): Future[Set[Party]] = withTimeout(
     "List known parties",
     delegate.listKnownParties(),
   )
@@ -191,7 +190,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
 
   override def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
-      expectedParties: Set[Primitive.Party],
+      expectedParties: Set[Party],
   ): Future[Unit] = withTimeout(
     s"Wait for parties $expectedParties on participants ${otherParticipants.map(_.ledgerEndpoint)}",
     delegate.waitForParties(otherParticipants, expectedParties),
@@ -203,9 +202,9 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.activeContracts(request),
   )
   override def activeContractsRequest(
-      parties: Seq[Primitive.Party],
-      templateIds: Seq[TemplateId],
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      parties: Seq[Party],
+      templateIds: Seq[Identifier],
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)] = Seq.empty,
       activeAtOffset: String = "",
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): GetActiveContractsRequest =
@@ -216,20 +215,20 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       activeAtOffset,
       useTemplateIdBasedLegacyFormat,
     )
-  override def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]] =
+  override def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
     withTimeout(s"Active contracts for parties $parties", delegate.activeContracts(parties: _*))
   override def activeContractsByTemplateId(
-      templateIds: Seq[TemplateId],
-      parties: Primitive.Party*
+      templateIds: Seq[Identifier],
+      parties: Party*
   ): Future[Vector[CreatedEvent]] = withTimeout(
     s"Active contracts by template ids $templateIds for parties $parties",
     delegate.activeContractsByTemplateId(templateIds, parties: _*),
   )
 
   def transactionFilter(
-      parties: Seq[Primitive.Party],
-      templateIds: Seq[TemplateId] = Seq.empty,
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      parties: Seq[Party],
+      templateIds: Seq[Identifier] = Seq.empty,
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)] = Seq.empty,
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): TransactionFilter =
     delegate.transactionFilter(
@@ -239,8 +238,8 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       useTemplateIdBasedLegacyFormat,
     )
   override def filters(
-      templateIds: Seq[TemplateId],
-      interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
+      templateIds: Seq[Identifier],
+      interfaceFilters: Seq[(Identifier, IncludeInterfaceView)],
       useTemplateIdBasedLegacyFormat: Boolean = true,
   ): Filters = delegate.filters(templateIds, interfaceFilters, useTemplateIdBasedLegacyFormat)
   override def getTransactionsRequest(
@@ -252,15 +251,15 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       responseObserver: StreamObserver[GetTransactionsResponse],
   ): Unit = delegate.transactionStream(request, responseObserver)
   override def flatTransactionsByTemplateId(
-      templateId: TemplateId,
-      parties: Primitive.Party*
+      templateId: Identifier,
+      parties: Party*
   ): Future[Vector[Transaction]] = withTimeout(
     s"Flat transaction by template id $templateId for parties $parties",
     delegate.flatTransactionsByTemplateId(templateId, parties: _*),
   )
   override def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     withTimeout(s"Flat transactions for request $request", delegate.flatTransactions(request))
-  override def flatTransactions(parties: Primitive.Party*): Future[Vector[Transaction]] =
+  override def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     withTimeout(s"Flat transactions for parties $parties", delegate.flatTransactions(parties: _*))
   override def flatTransactions(
       take: Int,
@@ -269,21 +268,21 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"$take flat transactions for request $request",
     delegate.flatTransactions(take, request),
   )
-  override def flatTransactions(take: Int, parties: Primitive.Party*): Future[Vector[Transaction]] =
+  override def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]] =
     withTimeout(
       s"$take flat transactions for parties $parties",
       delegate.flatTransactions(take, parties: _*),
     )
   override def transactionTreesByTemplateId(
-      templateId: TemplateId,
-      parties: Primitive.Party*
+      templateId: Identifier,
+      parties: Party*
   ): Future[Vector[TransactionTree]] = withTimeout(
     s"Transaction trees by template id $templateId for parties $parties",
     delegate.transactionTreesByTemplateId(templateId, parties: _*),
   )
   override def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
     withTimeout(s"Transaction trees for request $request", delegate.transactionTrees(request))
-  override def transactionTrees(parties: Primitive.Party*): Future[Vector[TransactionTree]] =
+  override def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
     withTimeout(s"Transaction trees for parties $parties", delegate.transactionTrees(parties: _*))
   override def transactionTrees(
       take: Int,
@@ -294,14 +293,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def transactionTrees(
       take: Int,
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Vector[TransactionTree]] = withTimeout(
     s"$take transaction trees for parties $parties",
     delegate.transactionTrees(take, parties: _*),
   )
   override def getTransactionByIdRequest(
       transactionId: String,
-      parties: Seq[Primitive.Party],
+      parties: Seq[Party],
   ): GetTransactionByIdRequest =
     delegate.getTransactionByIdRequest(transactionId, parties)
   override def transactionTreeById(request: GetTransactionByIdRequest): Future[TransactionTree] =
@@ -311,7 +310,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     )
   override def transactionTreeById(
       transactionId: String,
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[TransactionTree] = withTimeout(
     s"Get transaction tree by id for transaction id $transactionId and parties $parties",
     delegate.transactionTreeById(transactionId, parties: _*),
@@ -323,14 +322,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     )
   override def flatTransactionById(
       transactionId: String,
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Transaction] = withTimeout(
     s"Flat transaction by id for transaction id $transactionId and parties $parties",
     delegate.flatTransactionById(transactionId, parties: _*),
   )
   override def getTransactionByEventIdRequest(
       eventId: String,
-      parties: Seq[Primitive.Party],
+      parties: Seq[Party],
   ): GetTransactionByEventIdRequest =
     delegate.getTransactionByEventIdRequest(eventId, parties)
   override def transactionTreeByEventId(
@@ -341,7 +340,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def transactionTreeByEventId(
       eventId: String,
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[TransactionTree] = withTimeout(
     s"Transaction tree by event id for event id $eventId and parties $parties",
     delegate.transactionTreeByEventId(eventId, parties: _*),
@@ -354,7 +353,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def flatTransactionByEventId(
       eventId: String,
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Transaction] = withTimeout(
     s"Flat transaction by event id for event id $eventId and parties $parties",
     delegate.flatTransactionByEventId(eventId, parties: _*),
@@ -374,56 +373,68 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.getEventsByContractKey(request),
   )
 
-  override def create[T](
-      party: Primitive.Party,
-      template: Template[T],
-  ): Future[Primitive.ContractId[T]] =
+  override def create[
+      TCid <: ContractId[T],
+      T <: Template,
+  ](
+      party: Party,
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid] =
     withTimeout(s"Create template for party $party", delegate.create(party, template))
-  override def create[T](
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      template: Template[T],
-  ): Future[Primitive.ContractId[T]] = withTimeout(
+  override def create[TCid <: ContractId[T], T <: Template](
+      actAs: List[Party],
+      readAs: List[Party],
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid] = withTimeout(
     s"Create template for actAs $actAs and readAs $readAs",
     delegate.create(actAs, readAs, template),
   )
-  override def createAndGetTransactionId[T](
-      party: Primitive.Party,
-      template: Template[T],
-  ): Future[(String, Primitive.ContractId[T])] = withTimeout(
+  override def createAndGetTransactionId[TCid <: ContractId[
+    T
+  ], T <: Template](
+      party: Party,
+      template: T,
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)] = withTimeout(
     s"Create and get transaction id for party $party",
     delegate.createAndGetTransactionId(party, template),
   )
   override def exercise[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[T],
+      party: Party,
+      exercise: Update[T],
   ): Future[TransactionTree] =
     withTimeout(s"Exercise for party $party", delegate.exercise(party, exercise))
   override def exercise[T](
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      exercise: Primitive.Update[T],
+      actAs: List[Party],
+      readAs: List[Party],
+      exercise: Update[T],
   ): Future[TransactionTree] = withTimeout(
     s"Exercise for actAs $actAs and readAs $readAs",
     delegate.exercise(actAs, readAs, exercise),
   )
   override def exerciseForFlatTransaction[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[T],
+      party: Party,
+      exercise: Update[T],
   ): Future[Transaction] = withTimeout(
     s"Exercise for flat transaction for party $party",
     delegate.exerciseForFlatTransaction(party, exercise),
   )
-  override def exerciseAndGetContract[T](
-      party: Primitive.Party,
-      exercise: Primitive.Update[Any],
-  ): Future[Primitive.ContractId[T]] = withTimeout(
+  override def exerciseAndGetContract[TCid <: ContractId[T], T](
+      party: Party,
+      exercise: Update[Exercised[TCid]],
+  )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid] = withTimeout(
     s"Exercise and get contract for party $party",
-    delegate.exerciseAndGetContract(party, exercise),
+    delegate.exerciseAndGetContract[TCid, T](party, exercise),
   )
-  override def exerciseByKey[T](
-      party: Primitive.Party,
-      template: Primitive.TemplateId[T],
+  override def exerciseAndGetContractNoDisclose[TCid <: ContractId[?]](
+      party: Party,
+      exercise: Update[Exercised[UnitData]],
+  )(implicit companion: ContractCompanion[?, TCid, ?]): Future[TCid] = withTimeout(
+    s"Exercise and get non disclosed contract for party $party",
+    delegate.exerciseAndGetContractNoDisclose[TCid](party, exercise),
+  )
+  override def exerciseByKey(
+      party: Party,
+      template: Identifier,
       key: Value,
       choice: String,
       argument: Value,
@@ -432,21 +443,21 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.exerciseByKey(party, template, key, choice, argument),
   )
   override def submitRequest(
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      commands: Command*
-  ): SubmitRequest = delegate.submitRequest(actAs, readAs, commands: _*)
-  override def submitRequest(party: Primitive.Party, commands: Command*): SubmitRequest =
-    delegate.submitRequest(party, commands: _*)
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: JList[Command],
+  ): SubmitRequest = delegate.submitRequest(actAs, readAs, commands)
+  override def submitRequest(party: Party, commands: JList[Command] = JList.of()): SubmitRequest =
+    delegate.submitRequest(party, commands)
   override def submitAndWaitRequest(
-      actAs: List[Primitive.Party],
-      readAs: List[Primitive.Party],
-      commands: Command*
-  ): SubmitAndWaitRequest = delegate.submitAndWaitRequest(actAs, readAs, commands: _*)
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: JList[Command],
+  ): SubmitAndWaitRequest = delegate.submitAndWaitRequest(actAs, readAs, commands)
   override def submitAndWaitRequest(
-      party: Primitive.Party,
-      commands: Command*
-  ): SubmitAndWaitRequest = delegate.submitAndWaitRequest(party, commands: _*)
+      party: Party,
+      commands: JList[Command],
+  ): SubmitAndWaitRequest = delegate.submitAndWaitRequest(party, commands)
   override def submit(request: SubmitRequest): Future[Unit] =
     withTimeout(s"Submit for request $request", delegate.submit(request))
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] = withTimeout(
@@ -477,7 +488,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   ): Future[T] = // timeout enforced by submitAndWaitGeneric
     delegate.submitRequestAndTolerateGrpcError(errorToTolerate, submitAndWaitGeneric)
   override def completionStreamRequest(from: LedgerOffset)(
-      parties: Primitive.Party*
+      parties: Party*
   ): CompletionStreamRequest = delegate.completionStreamRequest(from)(parties: _*)
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     withTimeout(
@@ -493,13 +504,13 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       s"First completions for request $request",
       delegate.firstCompletions(request),
     )
-  override def firstCompletions(parties: Primitive.Party*): Future[Vector[Completion]] =
+  override def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     withTimeout(
       s"First completions for parties $parties",
       delegate.firstCompletions(parties: _*),
     )
   override def findCompletionAtOffset(offset: HexString, p: Completion => Boolean)(
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Option[ParticipantTestContext.CompletionResponse]] = withTimeout(
     s"Find completion at offset $offset for parties $parties",
     delegate.findCompletionAtOffset(offset, p)(parties: _*),
@@ -510,14 +521,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Find completion for request $request",
     delegate.findCompletion(request)(p),
   )
-  override def findCompletion(parties: Primitive.Party*)(
+  override def findCompletion(parties: Party*)(
       p: Completion => Boolean
   ): Future[Option[ParticipantTestContext.CompletionResponse]] =
     withTimeout(s"Find completion for parties $parties", delegate.findCompletion(parties: _*)(p))
   override def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
     withTimeout(s"$n checkpoints for request $request", delegate.checkpoints(n, request))
   override def checkpoints(n: Int, from: LedgerOffset)(
-      parties: Primitive.Party*
+      parties: Party*
   ): Future[Vector[Checkpoint]] = withTimeout(
     s"$n checkpoints from offset $from for parties $parties",
     delegate.checkpoints(n, from)(parties: _*),
@@ -526,7 +537,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"First checkpoint for request $request",
     delegate.firstCheckpoint(request),
   )
-  override def firstCheckpoint(parties: Primitive.Party*): Future[Checkpoint] = withTimeout(
+  override def firstCheckpoint(parties: Party*): Future[Checkpoint] = withTimeout(
     s"First checkpoint for parties $parties",
     delegate.firstCheckpoint(parties: _*),
   )
@@ -534,7 +545,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Next checkpoint for request $request",
     delegate.nextCheckpoint(request),
   )
-  override def nextCheckpoint(from: LedgerOffset, parties: Primitive.Party*): Future[Checkpoint] =
+  override def nextCheckpoint(from: LedgerOffset, parties: Party*): Future[Checkpoint] =
     withTimeout(
       s"Next checkpoint from offset $from for parties $parties",
       delegate.nextCheckpoint(from, parties: _*),
@@ -586,8 +597,8 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
 
   override def pruneCantonSafe(
       pruneUpTo: LedgerOffset,
-      party: Primitive.Party,
-      dummyCommand: Primitive.Party => Command,
+      party: Party,
+      dummyCommand: Party => JList[Command],
       pruneAllDivulgedContracts: Boolean = false,
   )(implicit ec: ExecutionContext): Future[Unit] =
     delegate.pruneCantonSafe(pruneUpTo, party, dummyCommand, pruneAllDivulgedContracts)

@@ -44,6 +44,7 @@ import scala.util.control.NonFatal
 class Endpoints(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
+    parseJwt: EndpointsCompanion.ParseJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     partiesService: PartiesService,
@@ -61,6 +62,7 @@ class Endpoints(
   private[this] val routeSetup: endpoints.RouteSetup = new endpoints.RouteSetup(
     allowNonHttps = allowNonHttps,
     decodeJwt = decodeJwt,
+    parseJwt = parseJwt,
     encoder = encoder,
     userManagementClient,
     ledgerIdentityClient,
@@ -73,6 +75,7 @@ class Endpoints(
 
   private[this] val userManagement: endpoints.UserManagement = new endpoints.UserManagement(
     decodeJwt = decodeJwt,
+    parseJwt = parseJwt,
     userManagementClient,
   )
   import userManagement._

@@ -779,8 +779,8 @@
     fetch = {
       type = "git";
       url = "https://gopkg.in/yaml.v2";
-      rev = "v2.2.2";
-      sha256 = "01wj12jzsdqlnidpyjssmj0r4yavlqy7dwrg7adqd8dicjc4ncsa";
+      rev = "v2.2.8";
+      sha256 = "sha256-/KoaoUbFCm3r8nZyPaWZshMVTM2iSebS5kz/5rc+zsY=";
     };
   }
   {

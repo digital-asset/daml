@@ -60,9 +60,9 @@ data UseCache
 
 cacheAvailableSdkVersions
     :: UseCache
-    -> IO [SdkVersion]
-    -> IO ([SdkVersion], CacheAge)
-cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions
+    -> (Maybe [ReleaseVersion] -> IO [ReleaseVersion])
+    -> IO ([ReleaseVersion], CacheAge)
+cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions Nothing
 cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
@@ -82,13 +82,13 @@ cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getV
         neverRefresh
     pure (fromMaybe ([], Stale) mVal)
 
-serializeVersions :: Serialize [SdkVersion]
+serializeVersions :: Serialize [ReleaseVersion]
 serializeVersions =
-    unlines . map versionToString
+    unlines . map releaseVersionToCacheString
 
-deserializeVersions :: Deserialize [SdkVersion]
+deserializeVersions :: Deserialize [ReleaseVersion]
 deserializeVersions =
-    Just . mapMaybe (eitherToMaybe . parseVersion . pack) . lines
+    Just . mapMaybe releaseVersionFromCacheString . lines
 
 cacheFilePath :: CachePath -> CacheKey -> FilePath
 cacheFilePath cachePath (CacheKey key) = unwrapCachePath cachePath </> key
@@ -99,7 +99,7 @@ cacheWith
     -> CacheTimeout
     -> Serialize t
     -> Deserialize t
-    -> IO t
+    -> (Maybe t -> IO t)
     -> Bool
     -> IO (Maybe (t, CacheAge))
 cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
@@ -109,14 +109,16 @@ cacheWith cachePath key timeout serialize deserialize getFresh neverRefresh = do
        else Just <$> case valueAgeM of
                 Just (value, Fresh) -> pure (value, Fresh)
                 Just (value, Stale) -> do
-                    valueE <- tryAny getFresh
+                    valueE <- tryAny (getFresh (Just value))
                     case valueE of
-                        Left _ -> pure (value, Stale)
+                        Left e -> do
+                            putStrLn $ "WARNING Couldn't update cache:\n" <> displayException e
+                            pure (value, Stale)
                         Right value' -> do
                             saveToCacheWith cachePath key serialize value'
                             pure (value', Fresh)
                 Nothing -> do
-                    value <- getFresh
+                    value <- getFresh Nothing
                     saveToCacheWith cachePath key serialize value
                     pure (value, Fresh)
 

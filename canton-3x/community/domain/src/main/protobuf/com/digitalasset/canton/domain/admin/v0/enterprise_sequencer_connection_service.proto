@@ -1,0 +1,35 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.admin.v0;
+
+import "com/digitalasset/canton/admin/domain/v0/sequencer_connection.proto";
+import "google/protobuf/empty.proto";
+
+// service used by sequencer clients to manage connection to the sequencer
+// used by the mediator and domain manager nodes
+service EnterpriseSequencerConnectionService {
+  rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
+  rpc SetConnection(SetConnectionRequest) returns (google.protobuf.Empty);
+}
+
+message GetConnectionRequest {}
+
+message GetConnectionResponse {
+  repeated com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencer_connections = 1;
+  // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
+  // is considered reliable and accepted by the system.
+  // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value
+  // is interpreted as equivalent to the size of sequencer_connections.
+  uint32 sequencerTrustThreshold = 2;
+}
+message SetConnectionRequest {
+  repeated com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencer_connections = 1;
+  // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
+  // is considered reliable and accepted by the system.
+  // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value
+  // is interpreted as equivalent to the size of sequencer_connections.
+  uint32 sequencerTrustThreshold = 2;
+}

@@ -24,7 +24,6 @@ import com.digitalasset.canton.domain.config.store.{
   DomainNodeSettingsStore,
   StoredDomainNodeSettings,
 }
-import com.digitalasset.canton.domain.governance.ParticipantAuditor
 import com.digitalasset.canton.domain.initialization.*
 import com.digitalasset.canton.domain.mediator.{
   CommunityMediatorRuntimeFactory,
@@ -471,19 +470,6 @@ class DomainNodeBootstrap(
             loggerFactory,
           )
 
-        auditLogger = ParticipantAuditor.factory(loggerFactory, config.auditLogging)
-        // add audit logging to the domain manager
-        _ = if (config.auditLogging) {
-          manager.addObserver(new DomainIdentityStateObserver {
-            override def willChangeTheParticipantState(
-                participant: ParticipantId,
-                attributes: ParticipantAttributes,
-            ): Unit = {
-              auditLogger.info(s"Updating participant $participant to $attributes")
-            }
-          })
-        }
-
         syncCrypto: DomainSyncCryptoClient = {
           ips.add(topologyClient).discard
           new SyncCryptoApiProvider(
@@ -536,7 +522,6 @@ class DomainNodeBootstrap(
             staticDomainParameters,
             arguments.testingConfig,
             parameters.processingTimeouts,
-            auditLogger,
             agreementManager,
             memberAuthFactory,
             parameters,

@@ -3,6 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfEncoder, JsonLfEncoders, JsonLfWriter}
 import com.daml.lf.typesig.Type
 import com.squareup.javapoet.{
@@ -136,7 +137,7 @@ private[inner] object ToJsonGenerator {
 
   // Argument names, used when calling method.
   private def jsonEncoderArgsForTypeParams(typeParams: IndexedSeq[String]) =
-    CodeBlock.join(typeParams.map(t => CodeBlock.of(makeEncoderParamName(t))).asJava, ",$W")
+    CodeBlock.join(typeParams.map(t => CodeBlock.of("$L", makeEncoderParamName(t))).asJava, ",$W")
 
   // ParameterSpec's, used when defining method.
   private def jsonEncoderParamsForTypeParams(
@@ -275,7 +276,7 @@ private[inner] object ToJsonGenerator {
           encoderOf(keyType, nesting + 1),
           encoderOf(valType, nesting + 1),
         )
-      case TypeVar(t) => CodeBlock.of(makeEncoderParamName(t))
+      case TypeVar(t) => CodeBlock.of("$L", makeEncoderParamName(escapeString(t)))
       case _ => throw new IllegalArgumentException(s"Invalid Daml datatype: $damlType")
     }
   }

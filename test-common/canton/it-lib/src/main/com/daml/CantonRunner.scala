@@ -9,7 +9,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
@@ -20,7 +20,8 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
 import scala.sys.process.{Process, ProcessLogger}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Path, Paths, Files}
+import java.nio.file.{Files, Path, Paths}
+
 import scala.concurrent.ExecutionContext
 
 object CantonRunner {
@@ -251,6 +252,7 @@ object CantonRunner {
   def getToken(
       userId: String,
       authSecret: Option[String] = None,
+      targetScope: Option[String] = None,
   ): Option[String] = authSecret.map { secret =>
     val payload = auth.StandardJWTPayload(
       issuer = None,
@@ -259,7 +261,7 @@ object CantonRunner {
       exp = None,
       format = auth.StandardJWTTokenFormat.Scope,
       audiences = List.empty,
-      scope = Some("daml_ledger_api"),
+      scope = Some(targetScope.getOrElse("daml_ledger_api")),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))

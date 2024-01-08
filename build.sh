@@ -7,13 +7,48 @@ set -euo pipefail
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
 execution_log_postfix=${1:-}${2:-}
+test_mode=${3:-main}
 
 export LC_ALL=en_US.UTF-8
 
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
-tag_filter=""
+has_run_all_tests_trailer() {
+  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+    ref="HEAD^2"
+  else
+    ref="HEAD"
+  fi
+  commit=$(git rev-parse $ref)
+  run_all_tests=$(git log -n1 --format="%(trailers:key=run-all-tests,valueonly)" $commit)
+  [[ $run_all_tests == "true" ]]
+}
+
+ALL_TESTS_FILTER="-pr-only"
+FEWER_TESTS_FILTER="-main-only"
+
+case $test_mode in
+  # When running against main, exclude "pr-only" tests
+  main)
+    tag_filter=$FEWER_TESTS_FILTER
+    ;;
+  # When running against a PR, exclude "main-only" tests, unless the commit message features a
+  # 'run-all-tests: true' trailer
+  pr)
+    if has_run_all_tests_trailer; then
+      echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
+      tag_filter=$ALL_TESTS_FILTER
+    else
+      tag_filter=$FEWER_TESTS_FILTER
+    fi
+    ;;
+  *)
+    echo "unknown test mode: $test_mode"
+    exit 1
+    ;;
+esac
+
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
@@ -41,7 +76,7 @@ fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
-  --build_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
@@ -79,9 +114,12 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
+
+echo "Running bazel test with the following tag filters: ${tag_filter}"
+
 $bazel test //... \
-  --build_tag_filters "${tag_filter:1}" \
-  --test_tag_filters "${tag_filter:1}" \
+  --build_tag_filters "${tag_filter}" \
+  --test_tag_filters "${tag_filter}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \

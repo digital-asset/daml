@@ -4,15 +4,12 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "da_scala_library",
-    "da_scala_library_suite",
-    "da_scala_test_suite",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEFAULT_DEV_VERSION",
     "LF_DEV_VERSIONS",
     "lf_version_configuration",
-    "lf_version_configuration_versions",
 )
 load("//ledger-test-tool:conformance.bzl", "conformance_test", "testtool_lf_versions")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -206,6 +203,7 @@ conformance_test(
             "_shared.participant_ledger-api_tls.minimum-server-protocol-version=TLSv1.3",
         ]),
     ],
+    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + [
         "--exclude=" + ",".join(conformance_test_excluded_test),
         "--additional=TLSOnePointThreeIT",
@@ -227,37 +225,51 @@ conformance_test(
             "dev-mode=no",
         ]),
     ],
+    tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + ["--include=TLSAtLeastOnePointTwoIT"],
 ) if not is_windows else None
 
 # conformance tests for preview and dev
 #  those test the conformance test it-self for preview/dev features
-conformance_test(
-    name = "conformance-test-dev",
-    dev_mod_flag = "",
-    extra_data =
-        conformance_test_extra_data_base + [
-            "//canton:community_app_deploy.jar",
+[
+    conformance_test(
+        name = "conformance-test-dev",
+        dev_mod_flag = "",
+        extra_data =
+            conformance_test_extra_data_base + [
+                "//canton:community_app_deploy.jar",
+            ],
+        extra_runner_args = ["7000"],
+        lf_versions = lf_versions,
+        ports = conformance_test_ports,
+        preview_mod_flag = "",
+        runner = "@//bazel_tools/client_server/runner_with_health_check",
+        server = ":canton-test-runner-with-dependencies",
+        server_args = conformance_server_args_base + [
+            "-C",
+            ",".join([
+                "dev-mode=yes",
+                "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
+            ]),
         ],
-    extra_runner_args = ["7000"],
-    lf_versions = ["preview"] + LF_DEV_VERSIONS,
-    ports = conformance_test_ports,
-    preview_mod_flag = "",
-    runner = "@//bazel_tools/client_server/runner_with_health_check",
-    server = ":canton-test-runner-with-dependencies",
-    server_args = conformance_server_args_base + [
-        "-C",
-        ",".join([
-            "dev-mode=yes",
-            "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
-        ]),
-    ],
-    tags = ["dev-canton-test"],
-    test_tool_args = conformance_test_tool_args_base + [
-        "--exclude=" + ",".join(conformance_test_excluded_test + [
-            # we skip those tests for preview/dev
-            "TLSOnePointThreeIT",
-            "TLSAtLeastOnePointTwoIT",
-        ]),
-    ],
-) if not is_windows else None
+        tags = ["dev-canton-test"] + extra_tags,
+        test_tool_args = conformance_test_tool_args_base + [
+            "--exclude=" + ",".join(conformance_test_excluded_test + [
+                # we skip those tests for preview/dev
+                "TLSOnePointThreeIT",
+                "TLSAtLeastOnePointTwoIT",
+            ]),
+        ],
+    )
+    for (lf_versions, extra_tags) in [
+        (
+            [LF_DEFAULT_DEV_VERSION],
+            [],
+        ),
+        (
+            ["preview"] + [v for v in LF_DEV_VERSIONS if v != LF_DEFAULT_DEV_VERSION],
+            ["main-only"],
+        ),
+    ]
+    if not is_windows
+]

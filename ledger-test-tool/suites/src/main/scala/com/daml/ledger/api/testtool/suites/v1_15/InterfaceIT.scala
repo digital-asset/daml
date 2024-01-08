@@ -13,36 +13,39 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.v1.value.{Identifier, Value}
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.Interface._
-import com.daml.ledger.test.semantic.{Interface1, Interface2, Interface3}
-import scalaz.Tag
+import com.daml.ledger.javaapi.data.{Command, DamlRecord, ExerciseCommand, Identifier}
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, Update}
+import com.daml.ledger.test.java.semantic.interface$._
+import com.daml.ledger.test.java.semantic.{interface1, interface2, interface3}
+
+import java.util.{List => JList}
+import scala.jdk.CollectionConverters._
 
 class InterfaceIT extends LedgerTestSuite {
+  implicit val tCompanion: ContractCompanion.WithKey[T.Contract, T.ContractId, T, String] =
+    T.COMPANION
 
-  private[this] val TId = Tag.unwrap(T.id)
-  private[this] val I1Id = Tag.unwrap(Interface1.I.id)
-  private[this] val I2Id = Tag.unwrap(Interface2.I.id)
-  private[this] val I3Id = Tag.unwrap(Interface3.I.id)
+  private[this] val TId = T.TEMPLATE_ID
+  private[this] val I1Id = interface1.I.TEMPLATE_ID.toV1
+  private[this] val I2Id = interface2.I.TEMPLATE_ID
+  private[this] val I3Id = interface3.I.TEMPLATE_ID.toV1
 
   // replace identifier with the wrong identifier for some of these tests
   private[this] def useWrongId[X](
-      command: Primitive.Update[X],
+      update: Update[X],
       id: Identifier,
-  ): Primitive.Update[X] = {
-    val exe = command.command.getExercise
-    val arg = exe.getChoiceArgument.getRecord
-    command
-      .copy(
-        command = command.command.withExercise(
-          exe.copy(
-            templateId = Some(id),
-            choiceArgument = Some(Value.of(Value.Sum.Record(arg.copy(recordId = None)))),
-          )
-        )
+  ): JList[Command] = {
+    val command = update.commands.asScala.head
+    val exe = command.asExerciseCommand.get
+    val arg = exe.getChoiceArgument.asRecord.get
+    JList.of(
+      new ExerciseCommand(
+        id,
+        exe.getContractId,
+        exe.getChoice,
+        new DamlRecord(arg.getFields),
       )
-      .asInstanceOf[Primitive.Update[X]]
+    )
   }
 
   test(
@@ -51,7 +54,7 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T(party))
+      t <- ledger.create(party, new T(party))
       tree <- ledger.exercise(party, t.exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
@@ -67,8 +70,8 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T(party))
-      tree <- ledger.exercise(party, t.toInterface[Interface1.I].exerciseMyArchive())
+      t <- ledger.create(party, new T(party))
+      tree <- ledger.exercise(party, t.toInterface(interface1.I.INTERFACE).exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
@@ -83,10 +86,10 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T(party))
+      t <- ledger.create(party, new T(party))
       tree <-
         ledger
-          .exercise(party, t.asInstanceOf[Primitive.ContractId[Interface3.I]].exerciseMyArchive())
+          .exercise(party, (new interface3.I.ContractId(t.contractId)).exerciseMyArchive())
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
@@ -101,9 +104,14 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T(party))
+      t <- ledger.create(party, new T(party))
       failure <- ledger
-        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), TId))
+        .submitAndWaitForTransactionTree(
+          ledger.submitAndWaitRequest(
+            party,
+            useWrongId(t.toInterface(interface1.I.INTERFACE).exerciseChoiceI1(), TId),
+          )
+        )
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(
@@ -121,9 +129,14 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T(party))
+      t <- ledger.create(party, new T(party))
       failure <- ledger
-        .exercise(party, useWrongId(t.toInterface[Interface1.I].exerciseChoiceI1(), I2Id))
+        .submitAndWaitForTransactionTree(
+          ledger.submitAndWaitRequest(
+            party,
+            useWrongId(t.toInterface(interface1.I.INTERFACE).exerciseChoiceI1(), I2Id),
+          )
+        )
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(

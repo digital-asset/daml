@@ -8,17 +8,18 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
-import com.daml.ledger.test.model.Test.Dummy._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.java.model.test._
 
 class TransactionServiceQueryIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "TXTransactionTreeByIdBasic",
     "Expose a visible transaction tree by identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       byId <- ledger.transactionTreeById(tree.transactionId, party)
     } yield {
@@ -32,7 +33,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
-      dummy <- alpha.create(party, Dummy(party))
+      dummy <- alpha.create(party, new Dummy(party))
       tree <- alpha.exercise(party, dummy.exerciseDummyChoice1())
       _ <- synchronize(alpha, beta)
       failure <- beta
@@ -71,7 +72,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1())
       byId <- ledger.flatTransactionById(transaction.transactionId, party)
     } yield {
@@ -85,7 +86,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, party, intruder)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       failure <- ledger
         .flatTransactionById(tree.transactionId, intruder)
@@ -123,7 +124,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       byId <- ledger.transactionTreeByEventId(tree.rootEventIds.head, party)
     } yield {
@@ -138,7 +139,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     timeoutScale = 2.0,
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
-      dummy <- alpha.create(party, Dummy(party))
+      dummy <- alpha.create(party, new Dummy(party))
       tree <- alpha.exercise(party, dummy.exerciseDummyChoice1())
       _ <- synchronize(alpha, beta)
       failure <- beta
@@ -177,7 +178,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1())
       event = transaction.events.head.event
       eventId = event.archived.map(_.eventId).get
@@ -193,7 +194,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, party, intruder)) =>
     for {
-      dummy <- ledger.create(party, Dummy(party))
+      dummy <- ledger.create(party, new Dummy(party))
       tree <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       failure <- ledger
         .flatTransactionByEventId(tree.rootEventIds.head, intruder)

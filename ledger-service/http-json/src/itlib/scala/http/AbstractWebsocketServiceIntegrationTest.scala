@@ -5,12 +5,7 @@ package com.daml.http
 
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.model.ws.{
-  Message,
-  PeerClosedConnectionException,
-  TextMessage,
-  WebSocketRequest,
-}
+import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import org.apache.pekko.stream.{KillSwitches, UniqueKillSwitch}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -40,6 +35,7 @@ import spray.json.{
   DeserializationException,
   JsArray,
   JsNull,
+  JsNumber,
   JsObject,
   JsString,
   JsValue,
@@ -1181,18 +1177,14 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         // now query again with a pruned offset
         jwt <- jwtForParties(uri)(List(alice), List(), "participant0")
         query = s"""[{"templateIds": ["Iou:Iou"]}]"""
-        streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
+        results <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
+          .via(parseResp)
           .runWith(Sink.seq)
-          .failed
-      } yield inside(streamError) { case t: PeerClosedConnectionException =>
-        // TODO #13506 descriptive/structured error.  The logs when running this
-        // test include
-        //     Websocket handler failed with FAILED_PRECONDITION: PARTICIPANT_PRUNED_DATA_ACCESSED(9,0):
-        //     Transactions request from 0000000000000006 to 0000000000000008
-        //     precedes pruned offset 0000000000000007
-        // but this doesn't propagate to the client
-        t.closeCode should ===(1011) // see RFC 6455
-        t.closeReason should ===("internal error")
+      } yield inside(results) { case Vector(obj) =>
+        obj shouldBe JsObject(
+          "errors" -> JsArray(JsString("Query offset has been pruned")),
+          "status" -> JsNumber(StatusCodes.Gone.intValue),
+        )
       }
     }
   }

@@ -41,12 +41,15 @@ import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
+import scala.util.Using
 
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
+
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.api.tls.TlsConfiguration
 
@@ -90,6 +93,9 @@ object HttpService {
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
+
+    val parseJwt: EndpointsCompanion.ParseJwt =
+      startSettings.authConfig.flatMap(_.targetScope).fold(parseAnyJwt)(parseScopeJwt)
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(DummyApplicationId),
@@ -198,6 +204,7 @@ object HttpService {
       jsonEndpoints = new Endpoints(
         allowNonHttps,
         validateJwt,
+        parseJwt,
         commandService,
         contractsService,
         partiesService,
@@ -221,6 +228,7 @@ object HttpService {
 
       websocketEndpoints = new WebsocketEndpoints(
         validateJwt,
+        parseJwt,
         websocketService,
         client.userManagementClient,
         client.identityClient,
@@ -289,7 +297,6 @@ object HttpService {
 
   def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
     import java.security.cert.CertificateFactory
-    import scala.util.Using
 
     val alias = "key" // This can be anything as long as it's consistent.
 
@@ -307,27 +314,15 @@ object HttpService {
   }
 
   def loadPrivateKey(pkRsaPemFile: Path): Key = {
-    // TODO: Use a library to support other private key formats?
-    assert(
-      pkRsaPemFile.toString.endsWith(".pem"),
-      "Private key file must contain RSA key in pem format",
-    )
-    import java.security.spec.PKCS8EncodedKeySpec
-    import java.security.KeyFactory
-    import java.util.stream.Collectors
+    import org.bouncycastle.openssl.PEMParser
+    import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
+    import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 
-    val pkHeader = "-----BEGIN PRIVATE KEY-----"
-    val pkFooter = "-----END PRIVATE KEY-----"
-
-    val pkBase64: String = Files
-      .lines(pkRsaPemFile)
-      .dropWhile(line => line != pkHeader)
-      .skip(1) // Drop the header line itself
-      .takeWhile(line => line != pkFooter)
-      .collect(Collectors.joining())
-    val pkBytes = java.util.Base64.getDecoder().decode(pkBase64)
-
-    KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(pkBytes))
+    Using.resource(Files.newBufferedReader(pkRsaPemFile)) { reader =>
+      val pemParser = new PEMParser(reader)
+      val pkInfo = PrivateKeyInfo.getInstance(pemParser.readObject())
+      new JcaPEMKeyConverter().getPrivateKey(pkInfo)
+    }
   }
 
   private[http] def doLoad(
@@ -362,6 +357,22 @@ object HttpService {
   // Decode JWT without any validation
   private[http] val decodeJwt: EndpointsCompanion.ValidateJwt =
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
+
+  private[http] val parseAnyJwt: EndpointsCompanion.ParseJwt =
+    jwt =>
+      AuthServiceJWTCodec
+        .readFromString(jwt.payload)
+        .toEither
+        .disjunction
+        .leftMap(EndpointsCompanion.Error.fromThrowable)
+
+  private[http] def parseScopeJwt(targetScope: String): EndpointsCompanion.ParseJwt =
+    jwt =>
+      AuthServiceJWTCodec
+        .readScopeBasedTokenFromString(targetScope)(jwt.payload)
+        .toEither
+        .disjunction
+        .leftMap(EndpointsCompanion.Error.fromThrowable)
 
   private[http] def buildJsonCodecs(
       packageService: PackageService

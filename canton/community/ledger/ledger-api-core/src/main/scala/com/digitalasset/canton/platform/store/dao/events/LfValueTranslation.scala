@@ -16,7 +16,15 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.*
+import com.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  TransactionCoder,
+  Util,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.engine as LfEngine
@@ -278,7 +286,12 @@ final class LfValueTranslation(
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
           globalKey <- createKey
-            .traverse(key => GlobalKey.build(templateId, key.unversioned).left.map(_.msg))
+            .traverse(key =>
+              GlobalKey
+                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .left
+                .map(_.msg)
+            )
           apiCreatedAt <- raw.partial.createdAt
             .fold[Either[String, ApiTimestamp]](Left("missing createdAt"))(Right(_))
           instant <- InstantConverter.fromProtoPrimitive(apiCreatedAt).left.map(_.message)
@@ -397,7 +410,12 @@ final class LfValueTranslation(
             .traverse(Party.fromString)
             .map(_.toSet)
           globalKey <- createKey
-            .traverse(key => GlobalKey.build(templateId, key.unversioned).left.map(_.msg))
+            .traverse(key =>
+              GlobalKey
+                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .left
+                .map(_.msg)
+            )
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
@@ -431,6 +449,30 @@ final class LfValueTranslation(
       )
     } yield apiContractData
   }
+
+  def deserializeEvent(
+      createArgument: VersionedValue,
+      createKey: Option[VersionedValue],
+      templateId: LfIdentifier,
+      witnesses: Set[String],
+      eventProjectionProperties: EventProjectionProperties,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[ApiContractData] =
+    for {
+      apiContractData <- toApiContractData(
+        value = createArgument,
+        key = createKey,
+        templateId = templateId,
+        witnesses = witnesses,
+        eventProjectionProperties = eventProjectionProperties,
+        // This method is used exclusively for API conversion
+        // of data served from the EventsByContractKeyCache
+        // which doesn't have created_event_blob serving enabled.
+        fatContractInstance = None,
+      )
+    } yield apiContractData
 
   def toApiContractData(
       value: LfValue,

@@ -31,10 +31,10 @@ import com.daml.ledger.api.auth.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -126,8 +126,8 @@ trait AbstractAuthFixture extends SuiteMixin {
   protected def authService: Option[auth.AuthService]
   protected[this] def authToken(
       admin: Boolean,
-      actAs: List[ApiTypes.Party],
-      readAs: List[ApiTypes.Party],
+      actAs: List[Ref.Party],
+      readAs: List[Ref.Party],
   ): Option[String]
   protected def authConfig: AuthConfig
 }
@@ -138,8 +138,8 @@ trait NoAuthFixture extends AbstractAuthFixture {
   protected override def authService: Option[auth.AuthService] = None
   protected[this] override final def authToken(
       admin: Boolean,
-      actAs: List[ApiTypes.Party],
-      readAs: List[ApiTypes.Party],
+      actAs: List[Ref.Party],
+      readAs: List[Ref.Party],
   ) = None
   protected override def authConfig: AuthConfig = NoAuth
 }
@@ -157,8 +157,8 @@ trait AuthMiddlewareFixture
 
   protected[this] override final def authToken(
       admin: Boolean,
-      actAs: List[ApiTypes.Party],
-      readAs: List[ApiTypes.Party],
+      actAs: List[Ref.Party],
+      readAs: List[Ref.Party],
   ) = Some {
     val payload =
       if (sandboxClientTakesUserToken)
@@ -178,8 +178,8 @@ trait AuthMiddlewareFixture
           participantId = None,
           exp = None,
           admin = admin,
-          actAs = ApiTypes.Party unsubst actAs,
-          readAs = ApiTypes.Party unsubst readAs,
+          actAs = actAs,
+          readAs = readAs,
         )
 
     val header = """{"alg": "HS256", "typ": "JWT"}"""

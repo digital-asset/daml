@@ -12,7 +12,13 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_latest", "mangle_for_damlc")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "LF_MAJOR_VERSIONS",
+    "lf_version_default_or_latest",
+    "mangle_for_damlc",
+)
 
 [
     genrule(
@@ -66,7 +72,7 @@ EOF
         visibility = ["//visibility:public"],
     )
     for major in LF_MAJOR_VERSIONS
-    for target in [lf_version_latest.get(major)]
+    for target in [lf_version_default_or_latest(major)]
 ]
 
 [
@@ -144,6 +150,8 @@ da_scala_library(
     name = "test-utils",
     srcs = glob(["src/test-utils/**/*.scala"]),
     scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
@@ -168,8 +176,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
@@ -178,6 +185,9 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -346,10 +356,12 @@ da_scala_test_suite(
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_http",
+        "@maven//:org_apache_pekko_pekko_http_core",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [
@@ -366,8 +378,6 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-service/cli-opts",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
@@ -375,7 +385,9 @@ da_scala_test_suite(
         "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
@@ -383,10 +395,13 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//observability/metrics",
         "//test-common/canton/it-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_netty_netty_handler",
     ],
 )
 
@@ -419,6 +434,8 @@ da_scala_test_suite(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     tags = [
         "cpu:4",
@@ -436,8 +453,6 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger-service/cli-opts",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
@@ -445,7 +460,9 @@ da_scala_test_suite(
         "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
@@ -458,6 +475,7 @@ da_scala_test_suite(
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//observability/metrics",

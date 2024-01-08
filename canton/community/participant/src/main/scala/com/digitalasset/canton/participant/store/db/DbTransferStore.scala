@@ -71,7 +71,7 @@ class DbTransferStore(
   private val processingTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("transfer-store")
 
-  implicit val getResultFullTransferOutTree: GetResult[FullTransferOutTree] = GetResult(r =>
+  val getResultFullTransferOutTree: GetResult[FullTransferOutTree] = GetResult(r =>
     FullTransferOutTree
       .fromByteString(cryptoApi)(ByteString.copyFrom(r.<<[Array[Byte]]))
       .fold[FullTransferOutTree](
@@ -666,7 +666,7 @@ object DbTransferStore {
   ) = {
     val res: ParsingResult[DeliveredTransferOutResult] = for {
       signedContent <- SignedContent
-        .fromByteArray(bytes)
+        .fromByteArrayUnsafe(bytes)
         .flatMap(
           _.deserializeContent(
             SequencedEvent.fromByteStringOpen(cryptoApi, sourceProtocolVersion.v)

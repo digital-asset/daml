@@ -17,7 +17,13 @@ import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Util}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+  Util,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -28,6 +34,7 @@ import org.scalatest.Inside
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
+import scala.Ordering.Implicits._
 
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
@@ -1775,12 +1782,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
         val contractInfo = ContractInfo(
           version = txVersion,
-          templateId,
-          disclosedContract.argument,
-          "",
-          Set(alice),
-          Set.empty,
-          None,
+          packageName = pkg.name,
+          templateId = templateId,
+          value = disclosedContract.argument,
+          agreementText = "",
+          signatories = Set(alice),
+          observers = Set.empty,
+          keyOpt = None,
         )
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
@@ -1798,10 +1806,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
             ),
             getContract = Map(
-              contractId -> Value.VersionedContractInstance(
-                version,
-                templateId,
-                disclosedContract.argument.toUnnormalizedValue,
+              contractId -> Versioned(
+                version = version,
+                Value.ContractInstance(
+                  packageName = pkg.name,
+                  template = templateId,
+                  arg = disclosedContract.argument.toUnnormalizedValue,
+                ),
               )
             ),
           )
@@ -1824,6 +1835,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             sharedKey = sharedKey,
           )
         val cachedKey = CachedKey(
+          pkgName,
           GlobalKeyWithMaintainers
             .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), sharedKey),
           key,
@@ -1831,12 +1843,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
         val contractInfo = ContractInfo(
           version = txVersion,
-          templateId,
-          disclosedContract.argument,
-          "agreement",
-          Set(alice),
-          Set.empty,
-          Some(cachedKey),
+          packageName = pkg.name,
+          templateId = templateId,
+          value = disclosedContract.argument,
+          agreementText = "agreement",
+          signatories = Set(alice),
+          observers = Set.empty,
+          keyOpt = Some(cachedKey),
         )
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
@@ -1857,10 +1870,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> Value.VersionedContractInstance(
-                version,
-                templateId,
-                disclosedContract.argument.toUnnormalizedValue,
+              contractId -> Versioned(
+                version = version,
+                Value.ContractInstance(
+                  template = templateId,
+                  arg = disclosedContract.argument.toUnnormalizedValue,
+                  packageName = pkg.name,
+                ),
               )
             ),
           )
@@ -1881,7 +1897,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     ParserParameters.defaultFor(majorLanguageVersion)
 
   lazy val pkg =
-    p"""
+    p"""  metadata ( '-sbuiltin-test-' : '1.0.0' )
         module Mod {
           variant Either a b = Left : a | Right : b ;
           record @serializable MyUnit = { };
@@ -1952,6 +1968,11 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     """
 
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+  val pkgName =
+    if (txVersion < TransactionVersion.minUpgrade)
+      None
+    else
+      Some(Ref.PackageName.assertFromString("-sbuiltin-test-"))
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
@@ -2103,4 +2124,5 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   }
 
   val witness = Numeric.Scale.values.map(n => SNumeric(Numeric.assertFromBigDecimal(n, 1)))
+
 }

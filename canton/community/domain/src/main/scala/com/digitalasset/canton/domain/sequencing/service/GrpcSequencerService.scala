@@ -21,14 +21,14 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{DomainParametersLookup, v0 as protocolV0}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.{Clock, TimeProof}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
@@ -104,7 +104,6 @@ object GrpcSequencerService {
   def apply(
       sequencer: Sequencer,
       metrics: SequencerMetrics,
-      auditLogger: TracedLogger,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
       domainParamsLookup: DomainParametersLookup[SequencerDomainParameters],
@@ -118,7 +117,6 @@ object GrpcSequencerService {
       sequencer,
       metrics,
       loggerFactory,
-      auditLogger,
       authenticationCheck,
       new SubscriptionPool[GrpcManagedSubscription[_]](
         clock,
@@ -147,7 +145,11 @@ object GrpcSequencerService {
     type ValueClass
 
     /** Tries to parse the proto class to the value class, erroring if the request exceeds the given limit. */
-    def parse(requestP: ProtoClass, maxRequestSize: MaxRequestSize): ParsingResult[ValueClass]
+    def parse(
+        requestP: ProtoClass,
+        maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
+    ): ParsingResult[ValueClass]
 
     /** Extract the [[SubmissionRequest]] from the value class */
     def unwrap(request: ValueClass): SubmissionRequest
@@ -165,6 +167,7 @@ object GrpcSequencerService {
     override def parse(
         requestP: protocolV0.SubmissionRequest,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion, // unused; because this parse implementation uses proto version 0 always
     ): ParsingResult[SubmissionRequest] =
       SubmissionRequest.fromProtoV0(
         requestP,
@@ -186,13 +189,16 @@ object GrpcSequencerService {
     override def parse(
         requestP: protocolV0.SignedContent,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
     ): ParsingResult[SignedContent[SubmissionRequest]] =
       SignedContent
         .fromProtoV0(requestP)
         .flatMap(
           _.deserializeContent(
             SubmissionRequest
-              .fromByteString(MaxRequestSizeToDeserialize.Limit(maxRequestSize.value))
+              .fromByteString(protocolVersion)(
+                MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+              )
           )
         )
 
@@ -211,12 +217,17 @@ object GrpcSequencerService {
     override def parse(
         requestP: v0.SendAsyncVersionedRequest,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
     ): ParsingResult[SignedContent[SubmissionRequest]] = {
       for {
-        signedContent <- SignedContent.fromByteString(requestP.signedSubmissionRequest)
+        signedContent <- SignedContent.fromByteString(protocolVersion)(
+          requestP.signedSubmissionRequest
+        )
         signedSubmissionRequest <- signedContent.deserializeContent(
           SubmissionRequest
-            .fromByteString(MaxRequestSizeToDeserialize.Limit(maxRequestSize.value))
+            .fromByteString(protocolVersion)(
+              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+            )
         )
       } yield signedSubmissionRequest
     }
@@ -236,8 +247,11 @@ object GrpcSequencerService {
     override def parse(
         requestP: v0.SendAsyncUnauthenticatedVersionedRequest,
         maxRequestSize: MaxRequestSize,
+        protocolVersion: ProtocolVersion,
     ): ParsingResult[SubmissionRequest] =
-      SubmissionRequest.fromByteString(MaxRequestSizeToDeserialize.Limit(maxRequestSize.value))(
+      SubmissionRequest.fromByteString(protocolVersion)(
+        MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+      )(
         requestP.submissionRequest
       )
 
@@ -271,7 +285,6 @@ class GrpcSequencerService(
     sequencer: Sequencer,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
-    auditLogger: TracedLogger,
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
@@ -400,7 +413,7 @@ class GrpcSequencerService(
         maxRequestSize: MaxRequestSize
     ): Either[SendAsyncError, processing.ValueClass] = for {
       request <- processing
-        .parse(proto, maxRequestSize)
+        .parse(proto, maxRequestSize, protocolVersion)
         .leftMap(requestDeserializationError(_, maxRequestSize))
       _ <- validateSubmissionRequest(
         proto.serializedSize,
@@ -419,8 +432,14 @@ class GrpcSequencerService(
       _ <- processing.send(request, sequencer)
     } yield ()
 
-    performUnlessClosingF(functionFullName)(sendET.value.map(toSendAsyncResponse))
+    performUnlessClosingF(functionFullName)(sendET.value.map { res =>
+      res.left.foreach { err =>
+        logger.info(s"Rejecting submission request by $senderFromMetadata with ${err}")
+      }
+      toSendAsyncResponse(res)
+    })
       .onShutdown(SendAsyncResponse(error = Some(SendAsyncError.ShuttingDown())))
+
   }
 
   private def toSendAsyncResponse(result: Either[SendAsyncError, Unit]): SendAsyncResponse =
@@ -495,7 +514,7 @@ class GrpcSequencerService(
 
       _ = {
         val envelopesCount = request.batch.envelopesCount
-        auditLogger.info(
+        logger.info(
           s"'$sender' sends request with id '$messageId' of size $requestSize bytes with $envelopesCount envelopes."
         )
       }
@@ -875,7 +894,9 @@ class GrpcSequencerService(
     } else {
       val acknowledgeRequestE = SignedContent
         .fromProtoV0(request)
-        .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString))
+        .flatMap(
+          _.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion))
+        )
       performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
     }
   }
@@ -920,11 +941,8 @@ class GrpcSequencerService(
       observer: ServerCallStreamObserver[T],
       toSubscriptionResponse: OrdinarySerializedEvent => T,
   )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
-    member match {
-      case ParticipantId(uid) =>
-        auditLogger.info(s"$uid creates subscription from $counter")
-      case _ => ()
-    }
+
+    logger.info(s"$member subscribes from counter=$counter")
     new GrpcManagedSubscription(
       handler => directSequencerSubscriptionFactory.create(counter, "direct", member, handler),
       observer,

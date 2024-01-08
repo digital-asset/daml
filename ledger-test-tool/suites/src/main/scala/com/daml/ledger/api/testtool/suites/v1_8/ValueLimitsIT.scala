@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test.model.Test.DummyWithAnnotation
+import com.daml.ledger.test.java.model.test.DummyWithAnnotation
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -31,7 +31,8 @@ final class ValueLimitsIT extends LedgerTestSuite {
         .submitAndWaitRequest(
           actAs = parties.toList,
           readAs = parties.toList,
-          commands = DummyWithAnnotation(parties.head, "First submission").create.command,
+          commands =
+            new DummyWithAnnotation(parties.head.getValue, "First submission").create.commands,
         )
       _ <- ledger.submitAndWait(request)
       contracts <- ledger.activeContracts(parties.head)

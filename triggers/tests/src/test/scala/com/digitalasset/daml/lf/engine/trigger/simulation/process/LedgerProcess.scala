@@ -7,8 +7,8 @@ package ledger
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.Materializer
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 
@@ -28,7 +28,7 @@ object LedgerProcess {
   def create(client: LedgerClient)(implicit
       materializer: Materializer,
       config: TriggerSimulationConfig,
-      applicationId: ApplicationId,
+      applicationId: Option[Ref.ApplicationId],
   ): Behavior[Message] = {
     Behaviors.setup { context =>
       val report = context.spawn(ReportingProcess.create(context.self), "reporting")

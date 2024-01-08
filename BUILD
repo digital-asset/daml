@@ -203,7 +203,7 @@ alias(
 
 alias(
     name = "bindings-java",
-    actual = "//language-support/java/bindings:bindings-java",
+    actual = "//canton:bindings-java",
 )
 
 alias(

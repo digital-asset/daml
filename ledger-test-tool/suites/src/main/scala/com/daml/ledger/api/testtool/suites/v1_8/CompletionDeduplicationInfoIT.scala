@@ -11,16 +11,15 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.suites.v1_8.CompletionDeduplicationInfoIT._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.binding
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.javaapi.data.{Command, Party}
+import com.daml.ledger.test.java.model.test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.SubmissionId
 import io.grpc.Status
 
+import java.util.{List => JList}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -61,13 +60,13 @@ private[testtool] object CompletionDeduplicationInfoIT {
   private[testtool] sealed trait Service[ProtoRequestType] extends Serializable with Product {
     def buildRequest(
         ledger: ParticipantTestContext,
-        party: Primitive.Party,
+        party: Party,
         optSubmissionId: Option[Ref.SubmissionId] = None,
     ): ProtoRequestType
 
     def submitRequest(
         ledger: ParticipantTestContext,
-        party: Primitive.Party,
+        party: Party,
         request: ProtoRequestType,
     )(implicit ec: ExecutionContext): Future[Option[Completion]]
 
@@ -77,7 +76,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
   case object CommandService extends Service[SubmitAndWaitRequest] {
     override def buildRequest(
         ledger: ParticipantTestContext,
-        party: binding.Primitive.Party,
+        party: Party,
         optSubmissionId: Option[SubmissionId],
     ): SubmitAndWaitRequest = {
       val request = ledger.submitAndWaitRequest(party, simpleCreate(party))
@@ -90,7 +89,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
     override def submitRequest(
         ledger: ParticipantTestContext,
-        party: binding.Primitive.Party,
+        party: Party,
         request: SubmitAndWaitRequest,
     )(implicit ec: ExecutionContext): Future[Option[Completion]] =
       for {
@@ -112,7 +111,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
   case object CommandSubmissionService extends Service[SubmitRequest] {
     override def buildRequest(
         ledger: ParticipantTestContext,
-        party: binding.Primitive.Party,
+        party: Party,
         optSubmissionId: Option[SubmissionId],
     ): SubmitRequest = {
       val request = ledger.submitRequest(party, simpleCreate(party))
@@ -125,7 +124,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
     override def submitRequest(
         ledger: ParticipantTestContext,
-        party: binding.Primitive.Party,
+        party: Party,
         request: SubmitRequest,
     )(implicit ec: ExecutionContext): Future[Option[Completion]] =
       for {
@@ -142,7 +141,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
   private def singleCompletionAfterOffset(
       ledger: ParticipantTestContext,
-      party: binding.Primitive.Party,
+      party: Party,
       offset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Option[Completion]] =
     WithTimeout(5.seconds)(
@@ -189,7 +188,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
     )
   }
 
-  private def simpleCreate(party: Primitive.Party): Command = Dummy(party).create.command
+  private def simpleCreate(party: Party): JList[Command] = new Dummy(party.getValue).create.commands
 
   private val RandomSubmissionId =
     Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())

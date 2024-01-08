@@ -176,10 +176,9 @@ In this version, these fields are included:
 
 ``version`` is required, and must be a version of this specification.
 For backward compatibility reasons:
-- the version `10` is encoded as the string "6";
-- string "10" is reserved and will be never used to encoded any future version;
-- versions 11 or latter will be encoded as string, for instance
-  version 11 of this specification, ``version`` must be ``"11"``.
+- string "6", "10", "11", "12", "13" are reserved and will be never used to encoded any future version;
+- versions 14 or latter will be encoded as string, for instance
+  version 14 of this specification, ``version`` must be ``"11"``.
   
 Consumers can expect this field to be present and to have the
 semantics defined here without knowing the version of this value in
@@ -370,7 +369,7 @@ we restrict each component as follows:
 message Variant
 ^^^^^^^^^^^^^^^
 
-(*since version 10*)
+(*since version 14*)
 
 The core primitive for injecting `message Value`_ of different type into
 a single type at runtime.
@@ -516,7 +515,7 @@ message GenMap.Entry
 
 A map entry (key-value pair) used to build `message GenMap`_.
 
-As of version 11, these fields are included:
+As of version 14, these fields are included:
 
 * `message Value`_  key
 

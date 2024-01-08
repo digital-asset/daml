@@ -12,6 +12,7 @@ import com.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.google.rpc.status.Status as RpcStatus
 
@@ -25,10 +26,7 @@ import java.time.Duration
   * We describe the possible updates in the comments of
   * each of the case classes implementing [[Update]].
   */
-sealed trait Update extends Product with Serializable {
-
-  /** Short human-readable one-line description summarizing the state updates content. */
-  def description: String
+sealed trait Update extends Product with Serializable with PrettyPrinting {
 
   /** The record time at which the state change was committed. */
   def recordTime: Timestamp
@@ -43,8 +41,14 @@ object Update {
       participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
-    override def description: String =
-      s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
+
+    override def pretty: Pretty[ConfigurationChanged] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("configuration", _.newConfiguration),
+        indicateOmittedFields,
+      )
+
   }
 
   object ConfigurationChanged {
@@ -68,9 +72,14 @@ object Update {
       proposedConfiguration: Configuration,
       rejectionReason: String,
   ) extends Update {
-    override def description: String = {
-      s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
-    }
+
+    override def pretty: Pretty[ConfigurationChangeRejected] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("configuration", _.proposedConfiguration),
+        param("rejectionReason", _.rejectionReason.singleQuoted),
+        indicateOmittedFields,
+      )
   }
 
   object ConfigurationChangeRejected {
@@ -114,8 +123,14 @@ object Update {
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],
   ) extends Update {
-    override def description: String =
-      s"Add party '$party' to participant"
+    override def pretty: Pretty[PartyAddedToParticipant] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("party", _.party),
+        param("displayName", _.displayName.singleQuoted),
+        param("participantId", _.participantId),
+        indicateOmittedFields,
+      )
   }
 
   object PartyAddedToParticipant {
@@ -146,8 +161,12 @@ object Update {
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
-    override val description: String =
-      s"Request to add party to participant with submissionId '$submissionId' failed"
+    override def pretty: Pretty[PartyAllocationRejected] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("participantId", _.participantId),
+        param("rejectionReason", _.rejectionReason.singleQuoted),
+      )
   }
 
   object PartyAllocationRejected {
@@ -178,8 +197,13 @@ object Update {
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],
   ) extends Update {
-    override def description: String =
-      s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
+    override def pretty: Pretty[PublicPackageUpload] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("archives", _.archives.map(_.getHash.readableHash)),
+        paramIfDefined("sourceDescription", _.sourceDescription.map(_.singleQuoted)),
+      )
+
   }
 
   object PublicPackageUpload {
@@ -205,8 +229,11 @@ object Update {
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
-    override def description: String =
-      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
+    override def pretty: Pretty[PublicPackageUploadRejected] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("rejectionReason", _.rejectionReason.singleQuoted),
+      )
   }
 
   object PublicPackageUploadRejected {
@@ -265,7 +292,17 @@ object Update {
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
   ) extends Update {
-    override def description: String = s"Accept transaction $transactionId"
+
+    override def pretty: Pretty[TransactionAccepted] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("transactionId", _.transactionId),
+        param("transactionMeta", _.transactionMeta),
+        paramIfDefined("completion", _.completionInfoO),
+        param("nodes", _.transaction.nodes.size),
+        param("roots", _.transaction.roots.length),
+        indicateOmittedFields,
+      )
   }
 
   object TransactionAccepted {
@@ -312,7 +349,16 @@ object Update {
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
   ) extends Update {
-    override def description: String = s"Accept reassignment $updateId"
+    override def pretty: Pretty[ReassignmentAccepted] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("updateId", _.updateId),
+        paramIfDefined("completion", _.optCompletionInfo),
+        param("source", _.reassignmentInfo.sourceDomain),
+        param("target", _.reassignmentInfo.targetDomain),
+        indicateOmittedFields,
+      )
+
   }
 
   object ReassignmentAccepted {
@@ -349,9 +395,14 @@ object Update {
         DomainId
       ], // TODO(#13173) None for backwards compatibility, expected to be set for X nodes
   ) extends Update {
-    override def description: String =
-      s"Reject command ${completionInfo.commandId}${if (definiteAnswer)
-          " (definite answer)"}: ${reasonTemplate.message}"
+    override def pretty: Pretty[CommandRejected] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("completion", _.completionInfo),
+        paramIfTrue("definiteAnswer", _.definiteAnswer),
+        param("reason", _.reasonTemplate.message.singleQuoted),
+        paramIfDefined("domainId", _.domainId),
+      )
 
     /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
       * The participant state implementations should strive to set this flag to true as often as

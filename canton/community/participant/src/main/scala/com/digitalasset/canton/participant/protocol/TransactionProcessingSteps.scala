@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -154,8 +154,9 @@ class TransactionProcessingSteps(
 
   override def requestKind: String = "Transaction"
 
-  override def submissionDescription(param: SubmissionParam): String =
-    s"Submitters ${param.submitterInfo.actAs.mkString(", ")}, command ${param.submitterInfo.commandId}"
+  override def submissionDescription(param: SubmissionParam): String = {
+    show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
+  }
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -1165,7 +1166,7 @@ class TransactionProcessingSteps(
             requestType,
             Some(domainId),
           ),
-          RequestOffset(ts, rc),
+          LocalOffset(rc),
           Some(sc),
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1225,7 +1226,7 @@ class TransactionProcessingSteps(
       TimestampedEvent(
         LedgerSyncEvent
           .CommandRejected(requestTime.toLf, info, rejection, requestType, Some(domainId)),
-        RequestOffset(requestTime, requestCounter),
+        LocalOffset(requestCounter),
         Some(requestSequencerCounter),
       )
     )
@@ -1405,7 +1406,7 @@ class TransactionProcessingSteps(
 
       timestampedEvent = TimestampedEvent(
         acceptedEvent,
-        RequestOffset(requestTime, requestCounter),
+        LocalOffset(requestCounter),
         Some(requestSequencerCounter),
       )
     } yield CommitAndStoreContractsAndPublishEvent(

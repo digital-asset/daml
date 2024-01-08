@@ -22,6 +22,8 @@ public interface LedgerClient {
   @Deprecated
   LedgerIdentityClient getLedgerIdentityClient();
 
+  EventQueryClient getEventQueryClient();
+
   PackageClient getPackageClient();
 
   LedgerConfigurationClient getLedgerConfigurationClient();

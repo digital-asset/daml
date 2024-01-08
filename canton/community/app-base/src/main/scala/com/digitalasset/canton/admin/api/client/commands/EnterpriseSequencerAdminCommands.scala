@@ -217,7 +217,9 @@ object EnterpriseSequencerAdminCommands {
         case v0.Snapshot.Response.Value.Success(v0.Snapshot.Success(Some(result))) =>
           SequencerSnapshot.fromProtoV0(result).leftMap(_.toString)
         case v0.Snapshot.Response.Value.VersionedSuccess(v0.Snapshot.VersionedSuccess(snapshot)) =>
-          SequencerSnapshot.fromByteString(snapshot).leftMap(_.toString)
+          SequencerSnapshot
+            .fromByteStringUnsafe(snapshot)
+            .leftMap(_.toString)
         case _ => Left("response is empty")
       }
 

@@ -626,3 +626,11 @@ class HttpServiceIntegrationTestUserManagement
     }
   }
 }
+
+class HttpServiceIntegrationTestUserManagementWithCustomScope
+    extends HttpServiceIntegrationTestUserManagement {
+  override def getExpectedTargetScope: Option[String] = targetScope
+  override lazy val targetScope: Option[String] = Some(
+    "ExpectedTargetScope/With-Dash/And_Underscore"
+  )
+}

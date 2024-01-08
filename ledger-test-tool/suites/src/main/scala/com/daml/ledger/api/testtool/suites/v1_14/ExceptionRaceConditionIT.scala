@@ -10,8 +10,9 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.infrastructure.RaceConditionTests._
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.RecordField
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.semantic.ExceptionRaceTests._
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.exceptionracetests._
 
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,16 +20,17 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ExceptionRaceConditionIT extends LedgerTestSuite {
 
   import ExceptionRaceConditionIT.ExceptionRaceTests
+  import ExceptionRaceConditionIT.CompanionImplicits._
 
   raceConditionTest(
     "RWRollbackCreateVsNonTransientCreate",
     "Cannot create a contract in a rollback and a non-transient contract with the same key",
   ) { implicit ec => ledger => alice =>
     for {
-      wrapper <- ledger.create(alice, CreateWrapper(alice))
+      wrapper <- ledger.create(alice, new CreateWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
-        once = ledger.create(alice, ContractWithKey(alice)).map(_ => ()),
+        once = ledger.create(alice, new ContractWithKey(alice)).map(_ => ()),
         repeated =
           ledger.exercise(alice, wrapper.exerciseCreateWrapper_CreateRollback()).map(_ => ()),
       )
@@ -52,8 +54,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     "Cannot exercise a non-consuming choice in a rollback after a contract archival",
   ) { implicit ec => ledger => alice =>
     for {
-      wrapper <- ledger.create(alice, ExerciseWrapper(alice))
-      contract <- ledger.create(alice, ContractWithKey(alice))
+      wrapper: ExerciseWrapper.ContractId <- ledger.create(alice, new ExerciseWrapper(alice))
+      contract: ContractWithKey.ContractId <- ledger.create(alice, new ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -77,8 +79,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     "Cannot exercise a consuming choice in a rollback after a contract archival",
   ) { implicit ec => ledger => alice =>
     for {
-      wrapper <- ledger.create(alice, ExerciseWrapper(alice))
-      contract <- ledger.create(alice, ContractWithKey(alice))
+      wrapper: ExerciseWrapper.ContractId <- ledger.create(alice, new ExerciseWrapper(alice))
+      contract: ContractWithKey.ContractId <- ledger.create(alice, new ContractWithKey(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -102,8 +104,11 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     "Cannot fetch in a rollback after a contract archival",
   ) { implicit ec => ledger => alice =>
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
-      fetchConract <- ledger.create(alice, FetchWrapper(alice, contract))
+      contract: ContractWithKey.ContractId <- ledger.create(alice, new ContractWithKey(alice))
+      fetchConract: FetchWrapper.ContractId <- ledger.create(
+        alice,
+        new FetchWrapper(alice, contract),
+      )
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 10,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -124,8 +129,8 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     "Cannot successfully lookup by key in a rollback after a contract archival",
   ) { implicit ec => ledger => alice =>
     for {
-      contract <- ledger.create(alice, ContractWithKey(alice))
-      looker <- ledger.create(alice, LookupWrapper(alice))
+      contract: ContractWithKey.ContractId <- ledger.create(alice, new ContractWithKey(alice))
+      looker: LookupWrapper.ContractId <- ledger.create(alice, new LookupWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 20,
         once = ledger.exercise(alice, contract.exerciseContractWithKey_Archive()),
@@ -146,10 +151,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     "Lookup by key in a rollback cannot fail after a contract creation",
   ) { implicit ec => ledger => alice =>
     for {
-      looker <- ledger.create(alice, LookupWrapper(alice))
+      looker: LookupWrapper.ContractId <- ledger.create(alice, new LookupWrapper(alice))
       _ <- executeRepeatedlyWithRandomDelay(
         numberOfAttempts = 5,
-        once = ledger.create(alice, ContractWithKey(alice)),
+        once = ledger.create(alice, new ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
       ): @nowarn("cat=lint-infer-any")
       transactions <- transactions(ledger, alice)
@@ -170,7 +175,7 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       description: String,
       repeated: Int = DefaultRepetitionsNumber,
       runConcurrently: Boolean = false,
-  )(testCase: ExecutionContext => ParticipantTestContext => Primitive.Party => Future[Unit]): Unit =
+  )(testCase: ExecutionContext => ParticipantTestContext => Party => Future[Unit]): Unit =
     test(
       shortIdentifier = shortIdentifier,
       description = description,
@@ -245,4 +250,34 @@ object ExceptionRaceConditionIT {
       val ChoiceConsumingRollback = "ExerciseWrapper_ExerciseConsumingRollback"
     }
   }
+
+  private object CompanionImplicits {
+    implicit val createWrapperCompanion: ContractCompanion.WithoutKey[
+      CreateWrapper.Contract,
+      CreateWrapper.ContractId,
+      CreateWrapper,
+    ] = CreateWrapper.COMPANION
+    implicit val contractWithKeyCompanion: ContractCompanion.WithKey[
+      ContractWithKey.Contract,
+      ContractWithKey.ContractId,
+      ContractWithKey,
+      String,
+    ] = ContractWithKey.COMPANION
+    implicit val lookupWrapperCompanion: ContractCompanion.WithoutKey[
+      LookupWrapper.Contract,
+      LookupWrapper.ContractId,
+      LookupWrapper,
+    ] = LookupWrapper.COMPANION
+    implicit val fetchWrapperCompanion: ContractCompanion.WithoutKey[
+      FetchWrapper.Contract,
+      FetchWrapper.ContractId,
+      FetchWrapper,
+    ] = FetchWrapper.COMPANION
+    implicit val exerciseWrapperCompanion: ContractCompanion.WithoutKey[
+      ExerciseWrapper.Contract,
+      ExerciseWrapper.ContractId,
+      ExerciseWrapper,
+    ] = ExerciseWrapper.COMPANION
+  }
+
 }

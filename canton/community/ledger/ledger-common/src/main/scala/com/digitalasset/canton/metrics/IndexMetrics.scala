@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
@@ -71,6 +72,9 @@ class IndexMetrics(
   @nowarn("cat=deprecation")
   val completionsBufferSize: Counter =
     factory.counter(prefix :+ "completions_buffer_size")
+
+  val packageLanguageVersionCache =
+    new CacheMetrics(prefix :+ "package_language_version_cache", labeledMetricsFactory)
 
   @nowarn("cat=deprecation")
   object db extends IndexDBMetrics(prefix :+ "db", factory, labeledMetricsFactory)

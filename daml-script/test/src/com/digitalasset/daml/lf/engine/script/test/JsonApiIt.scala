@@ -20,7 +20,6 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   PekkoBeforeAndAfterAll,
   OwnedResource,
@@ -30,6 +29,7 @@ import com.daml.ledger.api.testing.utils.{
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarDecoder}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
@@ -45,7 +45,6 @@ import com.daml.ports.Port
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
@@ -82,7 +81,7 @@ trait JsonApiFixture
 
   val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
 
-  val applicationId = ApplicationId(getClass.getName)
+  val applicationId = Some(Ref.ApplicationId.assertFromString(getClass.getName))
   val darFiles = List(darFile)
 
   val config = CantonConfig(authSecret = Some(secret))
@@ -107,7 +106,7 @@ trait JsonApiFixture
       ledgerId = Some(ledgerId),
       participantId = None,
       exp = None,
-      applicationId = Some(applicationId.unwrap),
+      applicationId = Some(applicationId.getOrElse("")),
       actAs = actAs,
       readAs = readAs,
       admin = admin,
@@ -140,6 +139,7 @@ trait JsonApiFixture
                 override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
                 override val wsConfig = None
                 override val allowNonHttps = true
+                override val authConfig = None
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
                 override val logEncoder = LogEncoder.Plain
@@ -185,7 +185,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
       parties: List[String],
       defaultParty: Option[Party] = None,
       admin: Boolean = false,
-      applicationId: Option[ApplicationId] = None,
+      applicationId: Option[Option[Ref.ApplicationId]] = None,
       envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
@@ -218,7 +218,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
   private def getMultiPartyClients(
       parties: List[String],
       readAs: List[String] = List.empty,
-      applicationId: Option[ApplicationId] = None,
+      applicationId: Option[Option[Ref.ApplicationId]] = None,
       envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
@@ -343,10 +343,13 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
       for {
         alice <- allocateParty
         exception <- recoverToExceptionIf[RuntimeException](
-          getClients(List(alice), applicationId = Some(ApplicationId("wrong")))
+          getClients(
+            List(alice),
+            applicationId = Some(Some(Ref.ApplicationId.assertFromString("wrong"))),
+          )
         )
       } yield assert(
-        exception.getMessage === s"ApplicationId specified in token Some(${applicationId.unwrap}) must match Some(wrong)"
+        exception.getMessage === s"ApplicationId specified in token Some(${applicationId.getOrElse("")}) must match Some(wrong)"
       )
     }
     "application id correct" in {

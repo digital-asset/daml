@@ -8,8 +8,8 @@ import java.util.UUID
 
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.RunningTrigger
 
@@ -26,7 +26,7 @@ trait RunningTriggerDao extends Closeable {
       refreshToken: Option[RefreshToken],
   )(implicit ec: ExecutionContext): Future[Unit]
   def removeRunningTrigger(triggerInstance: UUID)(implicit ec: ExecutionContext): Future[Boolean]
-  def listRunningTriggers(party: Party)(implicit ec: ExecutionContext): Future[Vector[UUID]]
+  def listRunningTriggers(party: Ref.Party)(implicit ec: ExecutionContext): Future[Vector[UUID]]
   def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(implicit
       ec: ExecutionContext
   ): Future[Unit]

@@ -3,7 +3,6 @@
 
 -- Test numeric literals.
 --
--- @SUPPORTS-LF-FEATURE DAML_NAT_TYPE_ERASURE
 
 
 
@@ -29,8 +28,8 @@ pi37 : Numeric 37
 pi37 = 3.14159_26535_89793_23846_26433_83279_50288_41
 
 piTest = script $ do
-    pi 0.0 === pi0
-    pi 0.0 === pi5
-    pi 0.0 === pi10
-    pi 0.0 === pi15
-    pi 0.0 === pi37
+    pi === pi0
+    pi === pi5
+    pi === pi10
+    pi === pi15
+    pi === pi37

@@ -20,7 +20,6 @@ import Control.Monad.Reader
 import Data.Int
 import Text.Read
 import           Data.List
-import    DA.Daml.StablePackagesList
 import           DA.Daml.LF.Mangling
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
@@ -170,32 +169,13 @@ decodePackageRef (LF1.PackageRef pref) =
 -- Decodings of everything else
 ------------------------------------------------------------------------
 
-decodeVersion :: Maybe LF.PackageId -> T.Text -> Either Error Version
-decodeVersion mbPkgId minorText = do
-  let unsupported :: Either Error a
-      unsupported = throwError (UnsupportedMinorVersion minorText)
-  -- we translate "no version" to minor version 0, since we introduced
-  -- minor versions once Daml-LF v1 was already out, and we want to be
-  -- able to parse packages that were compiled before minor versions
-  -- were a thing. DO NOT replicate this code bejond major version 1!
-  minor <- if
-    | T.null minorText -> pure $ LF.PointStable 0
-    | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
-    | otherwise -> unsupported
-  let version = Version V1 minor
-  if  isStablePackage || version `elem` LF.supportedInputVersions then pure version else unsupported
-  where
-    isStablePackage = maybe False (`elem` stablePackages) mbPkgId
-
 decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF1.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
--- The package id is optional since we also call this function from decodeScenarioModule
-decodePackage :: Maybe LF.PackageId -> TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage mbPkgId minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
-  version <- decodeVersion mbPkgId (decodeString minorText)
+decodePackage :: LF.Version -> LF.PackageRef -> LF1.Package -> Either Error Package
+decodePackage version selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
   let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
   let internedTypes = V.empty
@@ -219,9 +199,9 @@ decodePackageMetadata LF1.PackageMetadata{..} = do
     upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
     pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
-decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
-decodeScenarioModule minorText protoPkg = do
-    Package { packageModules = modules } <- decodePackage Nothing minorText PRSelf protoPkg
+decodeScenarioModule :: LF.Version -> LF1.Package -> Either Error Module
+decodeScenarioModule version protoPkg = do
+    Package { packageModules = modules } <- decodePackage version PRSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module

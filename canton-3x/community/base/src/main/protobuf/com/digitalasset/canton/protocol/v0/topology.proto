@@ -1,0 +1,155 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v0;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "scalapb/scalapb.proto";
+
+enum TopologyChangeOp {
+  Add = 0;
+  Remove = 1;
+  Replace = 2;
+}
+
+enum TrustLevel {
+  MissingTrustLevel = 0;
+  Ordinary = 1;
+  Vip = 2;
+}
+
+message ParticipantState {
+  RequestSide side = 1;
+  string domain = 2;
+  string participant = 3;
+  ParticipantPermission permission = 4;
+  TrustLevel trust_level = 5;
+}
+
+// enum indicating the participant permission level
+enum ParticipantPermission {
+  MissingParticipantPermission = 0;
+  // participant is active, can submit transactions
+  Submission = 1;
+  // participant is passive, can only confirm transactions
+  Confirmation = 2;
+  // participant is passive, can only observe transactions
+  Observation = 3;
+  // participant is disabled and can not be addressed
+  Disabled = 4;
+}
+
+/**
+ * Side of the party to participant mapping request
+ *
+ * Party to participant mapping request need to be approved by both namespaces if the namespaces are different.
+ * We support this by allowing to split the signatures into two transactions (so both namespace controller sign the
+ * same transaction, just with different "RequestSide"
+ *
+ * {Both, From_Party -> To_Participant} is split into {From, From_Party -> To_Participant} + {To, From_Party -> To_Participant}
+ */
+enum RequestSide {
+  MissingRequestSide = 0;
+  Both = 1;
+  From = 2;
+  To = 3;
+}
+
+// mapping that maps a party to a participant
+message PartyToParticipant {
+  // the side of this request (if namespace of party = participant, it must be "Both", otherwise it should map to the request side)
+  RequestSide side = 1;
+  // the party that should be mapped (from)
+  string party = 2;
+  // the target participant that the party should be mapped to
+  string participant = 3;
+  // permission of the participant (what he can do)
+  ParticipantPermission permission = 4;
+}
+
+// mapping a mediator to a domain
+message MediatorDomainState {
+  RequestSide side = 1;
+  string domain = 2;
+  string mediator = 3;
+}
+
+// namespace delegation message (equivalent to X509v3 CA root or intermediate CAs)
+message NamespaceDelegation {
+  // fingerprint of the root key defining the namespace
+  string namespace = 1;
+  // target key of getting full rights on the namespace (if target == namespace, it's a root CA)
+  com.digitalasset.canton.crypto.v0.SigningPublicKey target_key = 2;
+  // flag indicating whether the given delegation is a root delegation or not
+  // a root delegation is also allowed to issue other NamespaceDelegations.
+  bool is_root_delegation = 3;
+}
+
+// identifier delegation giving right to issue topology transaction on that particular identifier
+message IdentifierDelegation {
+  // identifier
+  string unique_identifier = 1;
+  // target key getting the right
+  com.digitalasset.canton.crypto.v0.SigningPublicKey target_key = 2;
+}
+
+// mapping of key-owner (participant, mediator, sequencer, domain topology manager) to a key
+message OwnerToKeyMapping {
+  // the key owner
+  string key_owner = 1;
+  // the designated key
+  com.digitalasset.canton.crypto.v0.PublicKey public_key = 2;
+}
+
+// Proves that the claimer possess the private key mentioned in the evidence
+message SignedLegalIdentityClaim {
+  // Protobuf serialized LegalIdentityClaim
+  bytes claim = 1;
+  // Signature of the legal identity claim signed with the private key from the evidence.
+  com.digitalasset.canton.crypto.v0.Signature signature = 2;
+}
+
+// A claim of a legal identity of a Canton unique identifier.
+message LegalIdentityClaim {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string unique_identifier = 1;
+  // Evidence of the legal identity, must contain a public key fingerprint.
+  oneof evidence {
+    // PEM serialized x509 cert
+    bytes x509_cert = 2;
+  }
+}
+
+message VettedPackages {
+  // the participant vetting the packages
+  string participant = 1;
+  // the hash of the vetted packages
+  repeated string package_ids = 2;
+}
+
+message SignedTopologyTransaction {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // serialized topology transaction (protobuf bytestring)
+  bytes transaction = 1;
+  // public key used to sign the serialized topology transaction
+  com.digitalasset.canton.crypto.v0.SigningPublicKey key = 2;
+  // signature of serialized topology transaction, signed with above key
+  com.digitalasset.canton.crypto.v0.Signature signature = 3;
+}
+
+message RegisterTopologyTransactionRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // the member requesting the approval of the transactions on behalf of the participant.
+  // typically this will be either an unauthenticated member (before the participant is active)
+  // or the participant itself (after it has become active)
+  string requested_by = 1;
+  string participant = 2;
+  string request_id = 3;
+  repeated bytes signed_topology_transactions = 4;
+  string domain_id = 5;
+}

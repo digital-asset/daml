@@ -144,8 +144,13 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
 
   val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
     case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_dev)
-    // TODO(#17366): use 2.0 once it is introduced
-    case V2 => (LanguageVersion.v2_dev, LanguageVersion.v2_dev, LanguageVersion.v2_dev)
+    case V2 =>
+      (
+        // TODO(#17366): Use something like languageVersion.default(V2) once available
+        LanguageVersion.v2_1,
+        LanguageVersion.v2_1,
+        LanguageVersion.v2_dev,
+      )
   }
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
@@ -155,8 +160,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     )
 
   val (templatePkgId, templatePkg) =
-    PackageId.assertFromString("template-pkg") ->
-      p"""
+    PackageId.assertFromString("template-pkg") -> p""" metadata ( 'template-pkg' : '1.0.0' )
         module TemplateMod {
           record @serializable Template1 = { person: Party, label: Text };
           template (this: Template1) = {
@@ -173,8 +177,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
         }
        """
   val (interfacesPkgId, interfacesPkg) =
-    PackageId.assertFromString("interfaces-pkg") ->
-      p"""
+    PackageId.assertFromString("interfaces-pkg") -> p"""  metadata ( 'interfaces-pkg' : '1.0.0' )
          module InterfacesMod {
            record @serializable EmptyInterfaceView = {};
 
@@ -199,8 +202,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
          }
        """
   val (implementsPkgId, implementsPkg) =
-    PackageId.assertFromString("implements-pkg") ->
-      p"""
+    PackageId.assertFromString("implements-pkg") -> p""" metadata ( 'implements-pkg' : '1.0.0' )
         module ImplementsMod {
           record @serializable TemplateImplements1 = { person: Party, label: Text } ;
           template (this: TemplateImplements1) = {
@@ -246,8 +248,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
         }
       """
   val (coImplementsPkgId, coImplementsPkg) =
-    PackageId.assertFromString("coimplements-pkg") ->
-      p"""
+    PackageId.assertFromString("coimplements-pkg") -> p""" metadata ( 'coimplements-pkg' : '1.0.0' )
         module CoImplementsMod {
           record @serializable EmptyInterfaceView = {};
 
@@ -283,6 +284,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
     TransactionVersion.assignNodeVersion(newVersion),
     Value.ContractInstance(
+      implementsPkg.name,
       implementsTemplateId,
       Value.ValueRecord(
         None,
@@ -296,6 +298,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val coimplementsContract: Versioned[Value.ContractInstance] = Versioned(
     TransactionVersion.assignNodeVersion(newVersion),
     Value.ContractInstance(
+      coImplementsPkg.name,
       coimplementsTemplateId,
       Value.ValueRecord(
         None,

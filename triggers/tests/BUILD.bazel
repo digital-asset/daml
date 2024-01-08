@@ -3,17 +3,14 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "lf_scalacopts_stricter",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_DEV_VERSIONS",
     "LF_MAJOR_VERSIONS",
-    "lf_version_latest",
+    "lf_version_default_or_latest",
 )
 
 da_scala_library(
@@ -24,6 +21,7 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/CompiledDar.scala",
     ],
     scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -35,14 +33,15 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -50,6 +49,7 @@ da_scala_library(
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -59,8 +59,8 @@ da_scala_library(
         name = "acs-%s" % major,
         srcs =
             glob(["**/*.daml"]) + [
-                "//triggers/daml:daml-trigger-%s.dar" % lf_version_latest.get(major),
-                "//daml-script/daml:daml-script-%s.dar" % lf_version_latest.get(major),
+                "//triggers/daml:daml-trigger-%s.dar" % lf_version_default_or_latest(major),
+                "//daml-script/daml:daml-script-%s.dar" % lf_version_default_or_latest(major),
             ] + [
                 "//templates:copy-trigger/src/CopyTrigger.daml",
             ],
@@ -105,7 +105,7 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs-{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            lf_version = lf_version_latest.get(major),
+            lf_version = lf_version_default_or_latest(major),
             major = major,
             sdk = sdk_version,
         ),
@@ -136,6 +136,7 @@ da_scala_test_suite(
     ],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
@@ -145,15 +146,16 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
@@ -166,6 +168,11 @@ da_scala_test_suite(
         "//observability/tracing",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
     ],
 )
 
@@ -181,6 +188,7 @@ da_scala_test_suite(
     ],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
@@ -190,15 +198,16 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
@@ -211,6 +220,11 @@ da_scala_test_suite(
         "//observability/tracing",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
     ],
 )
 
@@ -222,8 +236,9 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerRuleSimulationLib.scala",
     ] + glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_actor_typed",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -233,14 +248,14 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":test-utils",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
@@ -253,6 +268,7 @@ da_scala_library(
         "//observability/tracing",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -267,8 +283,9 @@ da_scala_test_suite(
     ],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:io_spray_spray_json",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -277,6 +294,8 @@ da_scala_test_suite(
         ":test-utils",
         ":trigger-simulation-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_java",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -284,10 +303,11 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
+        "//language-support/java/bindings-rxjava",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
@@ -301,6 +321,11 @@ da_scala_test_suite(
         "//observability/tracing",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
     ],
 )
 
@@ -314,9 +339,10 @@ da_scala_test_suite(
     ],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_actor_typed",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:io_spray_spray_json",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -325,6 +351,7 @@ da_scala_test_suite(
         ":test-utils",
         ":trigger-simulation-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -332,10 +359,10 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
@@ -349,5 +376,10 @@ da_scala_test_suite(
         "//observability/tracing",
         "//test-common/canton/it-lib",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
     ],
 )

@@ -8,8 +8,8 @@ load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 javadoc_library(
     name = "javadoc",
     srcs = [
-        "//language-support/java/bindings:ledger-api-java-lib-for-javadocs",
-        "//language-support/java/bindings:sources",
+        "//canton:bindings-java-sources",
+        "//canton:ledger-api-java-lib-for-javadocs",
         "//language-support/java/bindings-rxjava:sources",
     ],
     root_packages = [
@@ -24,7 +24,7 @@ javadoc_library(
         "//visibility:public",
     ],
     deps = [
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
         "//language-support/java/bindings-rxjava",
         "//libs-scala/rs-grpc-bridge",
         "@maven//:com_google_code_findbugs_jsr305",

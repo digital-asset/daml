@@ -83,6 +83,8 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "@maven//:com_google_guava_guava",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:io_opentelemetry_opentelemetry_api",
+            "@maven//:org_bouncycastle_bcpkix_jdk15on",
+            "@maven//:org_bouncycastle_bcprov_jdk15on",
         ],
     )
     for edition in [
@@ -491,7 +493,10 @@ alias(
             "@maven//:org_typelevel_cats_kernel",
         ],
         scalacopts = hj_scalacopts,
-        tags = ["cpu:6"] + (["canton-ee"] if edition == "ee" else []),
+        tags = [
+            "cpu:6",
+            "main-only",
+        ] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
@@ -636,7 +641,10 @@ test_suite(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
-        tags = ["cpu:6"] + (["canton-ee"] if edition == "ee" else []),
+        tags = [
+            "cpu:6",
+            "main-only",
+        ] + (["canton-ee"] if edition == "ee" else []),
         visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),

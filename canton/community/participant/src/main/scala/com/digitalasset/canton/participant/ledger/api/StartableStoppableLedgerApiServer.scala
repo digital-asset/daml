@@ -204,6 +204,9 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
           multiDomainEnabled = multiDomainEnabled,
+          maxEventsByContractKeyCacheSize = Option.when(
+            config.serverConfig.unsafeEnableEventsByContractKeyCache.enabled
+          )(config.serverConfig.unsafeEnableEventsByContractKeyCache.cacheSize.unwrap),
         )
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(

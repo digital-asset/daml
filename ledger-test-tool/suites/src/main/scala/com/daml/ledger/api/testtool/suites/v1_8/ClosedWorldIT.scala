@@ -9,12 +9,14 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.client.binding
-import com.daml.ledger.test.semantic.SemanticTests.{Amount, Iou}
+import com.daml.ledger.test.java.semantic.semantictests.{Amount, Iou}
+
+import java.math.BigDecimal
 
 class ClosedWorldIT extends LedgerTestSuite {
+  import CompanionImplicits._
 
-  private[this] val onePound = Amount(BigDecimal(1), "GBP")
+  private[this] val onePound = new Amount(BigDecimal.valueOf(1), "GBP")
 
   /*
    * All informees in a transaction must be allocated.
@@ -27,7 +29,7 @@ class ClosedWorldIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, payer)) =>
     for {
       failure <- alpha
-        .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
+        .create(payer, new Iou(payer, "unallocated", onePound))
         .mustFail("referencing an unallocated party")
     } yield {
       assertGrpcErrorRegex(

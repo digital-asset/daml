@@ -189,9 +189,9 @@ message Transaction
 A list of `message Node`_, implicitly forming a forest starting at
 ``roots``.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * ``string`` `field version`_
 * repeated ``string`` roots
@@ -246,15 +246,16 @@ An action on the ledger.
 
 (*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * ``string`` `version`
 * ``string`` `node_id`
 
-``version``  is optional. If unset it should be interpreted as version 10.
-otherwise it should be constraint as described in `field version`_
+Field ``version`` is required and must be a valid version as described under `field
+version`_, not newer that the version of the enclosing Transaction
+message.
 
-``node_id`` is required. it is csontraint as described under `field
+``node_id`` is required. it is constrained as described under `field
 node_id`_.
 
 Additionally, one of the following node types *must* be included:
@@ -264,11 +265,6 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
 * ``string`` ``version``
-
-
-Field ``version`` must be a valid version as described under `field
-version`_, not newer that the version of the enclosing Transaction
-message.
 
 Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
 be consumed according to version `version`.
@@ -300,6 +296,16 @@ once, as either
 A node ID that occurs zero, two, or more times in those contexts yields
 an invalid transaction.
 
+field package_name
+~~~~~~~~~~~~~~~~~
+
+The name of a LF package.
+
+(*since version dev*)
+
+Package names are non-empty US-ASCII strings built from letters, digits,
+minus and underscore limited to 255 chars
+
 message KeyWithMaintainers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -313,9 +319,7 @@ As of version 14, these fields are included:
 * repeated ``string`` maintainers
 * `message Value`_ key_unversioned
 
-``key_versioned`` must not be set.
-
-``key_unversioned`` is required while ``key_versioned``
+``key_unversioned`` is required while ``key_versioned`` must not be set.
 
 ``maintainers`` must be non-empty, whose elements are party
 identifiers.
@@ -339,8 +343,6 @@ As of version 14, these fields are included:
 * `message VersionedValue`_ arg_unversioned
 * ``string`` agreement
 
-
-
 Field ``contract_id_struct`` is required. Its structure is defined by `the value
 specification`_.
 
@@ -361,6 +363,16 @@ identifier.
   agreed for that contract to be created.
 
 ``key_with_maintainers`` is optional. 
+
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string`` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
@@ -400,6 +412,16 @@ party identifier.
   contract itself.
 
 ``key_with_maintainers`` is optional.
+
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
@@ -456,7 +478,7 @@ Every element of ``actors``, ``stakeholders``, ``signatories``, and
 
   The ``actors`` field contains the parties that exercised the choice.
 
-(* since version 15*)
+(*since version 15*)
 
 As of version 15, this field is included.
 
@@ -464,20 +486,27 @@ As of version 15, this field is included.
 
 ``interface_id``'s structure is defined by `the value specification`_
 
-
 (*since version dev*)
+
+As of version dev, this field is required.
 
 .. TODO: https://github.com/digital-asset/daml/issues/15882
 .. -- update for choice authorizers
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The lookup of a contract by contract key.
 
-(*since version 10*)
+(*since version 14*)
 
-As of version 10, these fields are included:
+As of version 14, these fields are included:
 
 * `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
@@ -495,6 +524,15 @@ required. ``contract_id_struct`` is optional:
 
 .. _`the value specification`: value.rst
 
+(*since version dev*)
+
+As of version dev, this field is required.
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 message NodeRollBack
 ^^^^^^^^^^^^^^^^^^^^
@@ -584,6 +622,18 @@ there exists a party identifiers repeated in the concatenation of
 ``contract_key_with_maintainers.maintainers`` if
 ``contract_key_with_maintainers`` is present.
 
+(*since version dev*)
+
+As of version dev, this field is required.
+
+.. TODO: https://github.com/digital-asset/daml/issues/15882
+.. -- update for choice authorizers
+
+* ``string` package_name
+
+``package_name`` is a Daml-LF package name, indicating the name of the LF
+package in which the template is defined. It is constrained as described
+under `field package_name`_.
 
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message Value`: value.rst#message-value

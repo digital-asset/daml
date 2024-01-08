@@ -1,6 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module DA.Date
@@ -18,7 +19,9 @@ module DA.Date
   , monthDayCount
   , datetime
   , toDateUTC
+#ifdef DAML_SCENARIOS
   , passToDate
+#endif
   , daysSinceEpochToDate
   , dateToDaysSinceEpoch
   ) where
@@ -155,6 +158,7 @@ toDateUTC : Time -> Date
 toDateUTC t =
   daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
 
+#ifdef DAML_SCENARIOS
 -- | Within a `scenario`, pass the simulated scenario to given date.
 passToDate : Date -> Scenario Time
 passToDate d = do
@@ -162,3 +166,4 @@ passToDate d = do
   let t = microsecondsPerDay * dateToDaysSinceEpoch d
 --  assert (now <= t) -- for now we are going to allow moving time backwards because of how tests are currently structured.
   internal_pass $ t - now
+#endif

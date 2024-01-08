@@ -1,0 +1,76 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+module SafePaint where
+
+import Daml.Script
+import LockIou
+import Iou (Amount(..))
+
+data SafePaintIds = SafePaintIds {iouId: ContractId LockIou.LockableIou; paintId: ContractId PaintHouse}
+
+template PaintHouse
+  with
+    painter: Party
+    beneficiary: Party
+  where
+    signatory painter, beneficiary
+    agreement
+      show painter <> " will paint the house of " <> show beneficiary
+
+template SafeOfferToPaintHouse
+  with
+    beneficiary: Party
+    painter: Party
+  where
+    signatory painter
+    observer beneficiary
+
+    choice SafeAccept : SafePaintIds
+      with
+        iouId : ContractId LockIou.LockedIou
+      controller beneficiary
+        do
+          iouId2 <- exercise iouId LockIou.Transfer
+          paint <- create $ PaintHouse with painter; beneficiary
+          return $ SafePaintIds {iouId = iouId2; paintId = paint}
+
+safePainterOffersAndAliceAccepts =
+  script do
+    bank <- allocateParty "Bank"
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    iouId <- submit bank $ do
+        -- Creating an IOU also for Bob such that this transaction lands on the domain where Bob is hosted too
+        createCmd $ LockIou.LockableIou with payer = bank; owner = bob; amount = Amount {value = 1.0; currency = "USD"}
+        iouId <- createCmd $ LockIou.LockableIou with payer = bank; owner = alice; amount = Amount {value = 100.0; currency = "USD"}
+        pure iouId
+    offerId <- submit bob do
+        createCmd $ SafeOfferToPaintHouse with painter = bob; beneficiary = alice
+    lockedIouId <- submit alice do
+        exerciseCmd iouId LockIou.Assign with beneficiary = bob
+    inp <- submit alice do exerciseCmd offerId SafeAccept with iouId = lockedIouId
+    submit bob do exerciseCmd inp.iouId LockIou.Call
+
+safePainterOffersAndAliceAcceptsWithCarol =
+  script do
+    bank <- allocateParty "Bank"
+    alice <- allocateParty "Alice"
+    carol <- allocateParty "Carol"
+    iouId <- submit bank do
+        -- Creating an IOU also for Carol such that this transaction lands on the domain where Carol is hosted too
+        createCmd $ LockIou.LockableIou with payer = bank; owner = carol; amount = Amount {value = 1.0; currency = "USD"}
+        iouId <- createCmd $ LockIou.LockableIou with payer = bank; owner = alice; amount = Amount {value = 100.0; currency = "USD"}
+        pure iouId
+    offerId <- submit carol do
+        createCmd $ SafeOfferToPaintHouse with painter = carol; beneficiary = alice
+    lockedIouId <- submit alice do
+        exerciseCmd iouId LockIou.Assign with beneficiary = carol
+    inp <- submit alice do exerciseCmd offerId SafeAccept with iouId = lockedIouId
+    submit carol do exerciseCmd inp.iouId LockIou.Call
+
+safeTwoPainterOffers =
+  script do
+    safePainterOffersAndAliceAccepts
+    safePainterOffersAndAliceAcceptsWithCarol

@@ -111,6 +111,7 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
+      packageName: Option[PackageName],
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
       shared: Boolean,
@@ -128,6 +129,7 @@ private[lf] object Speedy {
 
   final case class ContractInfo(
       version: TxVersion,
+      packageName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       value: SValue,
       agreementText: String,
@@ -143,6 +145,7 @@ private[lf] object Speedy {
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
         coid = coid,
+        packageName = packageName,
         templateId = templateId,
         arg = arg,
         agreementText = agreementText,
@@ -171,6 +174,7 @@ private[lf] object Speedy {
       override var compiledPackages: CompiledPackages,
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
+      val packageResolution: Map[Ref.PackageName, Ref.PackageId],
       val validating: Boolean, // TODO: Better: Mode = SubmissionMode | ValidationMode
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -352,6 +356,7 @@ private[lf] object Speedy {
           markDisclosedcontractAsUsed(coid)
           f(
             V.ContractInstance(
+              contractInfo.packageName,
               contractInfo.templateId,
               contractInfo.value.toUnnormalizedValue,
             )
@@ -719,6 +724,7 @@ private[lf] object Speedy {
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         iterationsBetweenInterruptions: Long = UpdateMachine.iterationsBetweenInterruptions,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -728,6 +734,7 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
         sexpr = expr,
+        packageResolution = packageResolution,
         validating = validating,
         submissionTime = submissionTime,
         ptx = PartialTransaction
@@ -911,6 +918,22 @@ private[lf] object Speedy {
       TxVersion.assignNodeVersion(
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
+
+    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
+      import Ordering.Implicits._
+      if (version < TxVersion.minUpgrade)
+        None
+      else
+        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
+          case Some(value) => Some(value.name)
+          case None =>
+            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${version.pretty} package without metadata",
+            )
+        }
+    }
 
     /* kont manipulation... */
 
@@ -1496,16 +1519,18 @@ private[lf] object Speedy {
         updateE: Expr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
       fromUpdateSExpr(
-        compiledPackages,
-        transactionSeed,
-        updateSE,
-        committers,
-        authorizationChecker,
-        limits,
+        compiledPackages = compiledPackages,
+        transactionSeed = transactionSeed,
+        updateSE = updateSE,
+        committers = committers,
+        authorizationChecker = authorizationChecker,
+        packageResolution = packageResolution,
+        limits = limits,
       )
     }
 
@@ -1518,6 +1543,7 @@ private[lf] object Speedy {
         updateSE: SExpr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
@@ -1528,6 +1554,7 @@ private[lf] object Speedy {
         expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
         readAs = Set.empty,
+        packageResolution = packageResolution,
         limits = limits,
         traceLog = traceLog,
         authorizationChecker = authorizationChecker,

@@ -6,19 +6,26 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.{synchronize, waitForContract}
-import com.daml.ledger.test.model.Test
-import scalaz.Tag
+import com.daml.ledger.test.java.model.test.{
+  Asset,
+  Divulgence1,
+  Divulgence2,
+  Proposal,
+  WithKey,
+  WithKeyDivulgenceHelper,
+}
 
 final class DivulgenceIT extends LedgerTestSuite {
+  import CompanionImplicits._
+
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
-    import Test.{Divulgence1, Divulgence2}
     for {
-      divulgence1 <- ledger.create(alice, Divulgence1(alice))
-      divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+      divulgence1 <- ledger.create(alice, new Divulgence1(alice))
+      divulgence2 <- ledger.create(bob, new Divulgence2(bob, alice))
       _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Archive(divulgence1))
       bobTransactions <- ledger.flatTransactions(bob)
       bobTrees <- ledger.transactionTrees(bob)
@@ -33,7 +40,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       assert(
         bobTransactions.size == 1,
-        s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead",
+        s"${bob.getValue} should see exactly one transaction but sees ${bobTransactions.size} instead",
       )
 
       val events = bobTransactions.head.events
@@ -50,7 +57,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       val contractId = event.created.get.contractId
       assert(
-        contractId == divulgence2,
+        contractId == divulgence2.contractId,
         s"The only visible event should be the creation of the second contract (expected $divulgence2, got $contractId instead)",
       )
 
@@ -82,7 +89,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       val createDivulgence2ContractId = createDivulgence2.getCreated.contractId
       assert(
-        createDivulgence2ContractId == divulgence2,
+        createDivulgence2ContractId == divulgence2.contractId,
         s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected $divulgence2, got $createDivulgence2ContractId instead)",
       )
 
@@ -100,7 +107,7 @@ final class DivulgenceIT extends LedgerTestSuite {
         s"Expected event to be an exercise",
       )
 
-      assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2)
+      assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2.contractId)
 
       assert(exerciseOnDivulgence2.getExercised.childEventIds.size == 1)
 
@@ -111,7 +118,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       assert(exerciseOnDivulgence1.kind.isExercised)
 
-      assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1)
+      assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1.contractId)
 
       assert(exerciseOnDivulgence1.getExercised.childEventIds.isEmpty)
 
@@ -140,12 +147,12 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       val firstCreationForBoth = firstEventForBoth.created.get
       assert(
-        firstCreationForBoth.contractId == divulgence1,
+        firstCreationForBoth.contractId == divulgence1.contractId,
         s"The creation seen by filtering for both $alice and $bob was expected to be $divulgence1 but is ${firstCreationForBoth.contractId} instead",
       )
 
       assert(
-        firstCreationForBoth.witnessParties == Seq(alice),
+        firstCreationForBoth.witnessParties == Seq(alice.getValue),
         s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}",
       )
     }
@@ -156,10 +163,9 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulged contracts should not be exposed by the active contract service",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
-    import Test.{Divulgence1, Divulgence2}
     for {
-      divulgence1 <- ledger.create(alice, Divulgence1(alice))
-      divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+      divulgence1 <- ledger.create(alice, new Divulgence1(alice))
+      divulgence2 <- ledger.create(bob, new Divulgence2(bob, alice))
       _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(divulgence1))
       activeForBobOnly <- ledger.activeContracts(bob)
       activeForBoth <- ledger.activeContracts(alice, bob)
@@ -171,13 +177,13 @@ final class DivulgenceIT extends LedgerTestSuite {
         s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead",
       )
       assert(
-        activeForBobOnly.head.contractId == divulgence2,
+        activeForBobOnly.head.contractId == divulgence2.contractId,
         s"$bob should see $divulgence2 but sees ${activeForBobOnly.head.contractId} instead",
       )
 
       // Since we're filtering for Bob only Bob will be the only reported witness even if Alice sees the contract
       assert(
-        activeForBobOnly.head.witnessParties == Seq(bob),
+        activeForBobOnly.head.witnessParties == Seq(bob.getValue),
         s"The witness parties as seen by $bob should only include him but it is instead ${activeForBobOnly.head.witnessParties}",
       )
 
@@ -186,8 +192,8 @@ final class DivulgenceIT extends LedgerTestSuite {
         activeForBoth.size == 2,
         s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead",
       )
-      val divulgence1ContractId = Tag.unwrap(divulgence1)
-      val divulgence2ContractId = Tag.unwrap(divulgence2)
+      val divulgence1ContractId = divulgence1.contractId
+      val divulgence2ContractId = divulgence2.contractId
       val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
       val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
       assert(
@@ -199,11 +205,11 @@ final class DivulgenceIT extends LedgerTestSuite {
       val divulgence2Witnesses =
         activeForBoth.find(_.contractId == divulgence2ContractId).get.witnessParties.sorted
       assert(
-        divulgence1Witnesses == Seq(alice),
+        divulgence1Witnesses == Seq(alice.getValue),
         s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)",
       )
       assert(
-        divulgence2Witnesses == Tag.unsubst(Seq(alice, bob)).sorted,
+        divulgence2Witnesses == Seq(alice, bob).map(_.getValue).sorted,
         s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses",
       )
     }
@@ -214,10 +220,9 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulgence should behave as expected in a workflow involving keys",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, proposer), Participant(beta, owner)) =>
-    import Test.{Asset, Proposal}
     for {
-      offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
-      asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
+      offer <- alpha.create(proposer, new Proposal(proposer, owner))(Proposal.COMPANION)
+      asset <- beta.create(owner, new Asset(owner, owner))(Asset.COMPANION)
       _ <- waitForContract(beta, owner, offer)
       _ <- beta.exercise(owner, offer.exerciseProposalAccept(asset))
     } yield {
@@ -230,18 +235,17 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulging, archiving and divulging again a contract with key should be possible",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, partyA), Participant(beta, partyB)) =>
-    import Test.{WithKey, WithKeyDivulgenceHelper}
     for {
       // Create a helper contract where partyB is a signatory
       helper <- beta.create(
         partyB,
-        WithKeyDivulgenceHelper(divulgedTo = partyB, withKeyOwner = partyA),
-      )
+        new WithKeyDivulgenceHelper(partyB, partyA),
+      )(WithKeyDivulgenceHelper.COMPANION)
 
       _ <- synchronize(alpha, beta)
 
       // Create a WithKey contract owned by the partyA
-      withKey1 <- alpha.create(partyA, WithKey(partyA))
+      withKey1 <- alpha.create(partyA, new WithKey(partyA))
 
       // Divulge the withKey1 contract
       _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(withKey1))
@@ -254,7 +258,7 @@ final class DivulgenceIT extends LedgerTestSuite {
       _ <- synchronize(alpha, beta)
 
       // Create another WithKey contract with the same key as previously
-      withKey2 <- alpha.create(partyA, WithKey(partyA))
+      withKey2 <- alpha.create(partyA, new WithKey(partyA))
 
       // Divulge the withKey2 contract
       _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(withKey2))

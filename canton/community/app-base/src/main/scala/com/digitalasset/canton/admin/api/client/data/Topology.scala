@@ -176,7 +176,9 @@ object ListSignedLegalIdentityClaimResult {
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
       item <- SignedLegalIdentityClaim.fromProtoV0(itemProto)
-      claim <- LegalIdentityClaim.fromByteString(item.claim)
+      claim <- LegalIdentityClaim.fromByteStringUnsafe(
+        item.claim
+      )
     } yield ListSignedLegalIdentityClaimResult(context, claim)
   }
 }

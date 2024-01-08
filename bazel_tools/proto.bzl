@@ -51,7 +51,8 @@ def _proto_gen_impl(ctx):
     descriptors = [depset for src in ctx.attr.srcs for depset in src[ProtoInfo].transitive_descriptor_sets.to_list()]
     args = [
         "--descriptor_set_in=" + descriptor_set_delim.join([depset.path for depset in descriptors]),
-        "--{}_out={}:{}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options), sources_out.path),
+        "--{}_out={}".format(ctx.attr.plugin_name, sources_out.path),
+        "--{}_opt={}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options)),
     ]
     plugins = []
     plugin_runfiles = []
@@ -179,7 +180,7 @@ def _proto_scala_srcs(name, grpc):
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ] if grpc else [])
 
-def _proto_scala_deps(grpc, proto_deps):
+def _proto_scala_deps(grpc, proto_deps, java_conversions):
     return [
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -194,7 +195,9 @@ def _proto_scala_deps(grpc, proto_deps):
     ] if grpc else []) + [
         "%s_scala" % label
         for label in proto_deps
-    ]
+    ] + ([
+        "@maven//:io_grpc_grpc_services",
+    ] if java_conversions else [])
 
 def proto_jars(
         name,
@@ -289,10 +292,10 @@ def proto_jars(
         srcs = _proto_scala_srcs(name, grpc),
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
-        plugin_options = ["grpc"] if grpc else [],
+        plugin_options = (["grpc"] if grpc else []) + (["java_conversions"] if java_conversions else []),
     )
 
-    all_scala_deps = _proto_scala_deps(grpc, proto_deps)
+    all_scala_deps = _proto_scala_deps(grpc, proto_deps, java_conversions)
 
     scala_library(
         name = "%s_scala" % name,

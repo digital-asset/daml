@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, _}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
@@ -17,20 +16,35 @@ import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractKeyRequest,
 }
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Primitive.Party
-import com.daml.ledger.test.model.Test.{Dummy, TextKey}
-import com.daml.ledger.test.semantic.DivulgenceTests._
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.model
+import com.daml.ledger.test.java.model.test.TextKey
+import com.daml.ledger.test.java.semantic.divulgencetests.{
+  Contract,
+  DivulgeNotDiscloseTemplate,
+  Divulgence,
+  DivulgenceProposal,
+  Dummy,
+}
+import com.daml.ledger.test.java.semantic.divulgencetests
 import com.daml.logging.LoggingContext
-import scalaz.Tag
-import scalaz.syntax.tag.ToTagOps
 
-import scala.collection.immutable
+import java.util.{List => JList}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
+  import CompanionImplicits._
+  implicit val contractCompanion
+      : ContractCompanion.WithoutKey[Contract.Contract$, Contract.ContractId, Contract] =
+    Contract.COMPANION
+  implicit val semanticTestsDummyCompanion: ContractCompanion.WithoutKey[
+    divulgencetests.Dummy.Contract,
+    divulgencetests.Dummy.ContractId,
+    divulgencetests.Dummy,
+  ] = divulgencetests.Dummy.COMPANION
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -71,23 +85,23 @@ class ParticipantPruningIT extends LedgerTestSuite {
         ledger.latestPrunedOffsets()
 
       // Move the ledger end forward
-      _ <- ledger.create(alice, Dummy(alice))
+      _ <- ledger.create(alice, new Dummy(alice))
       firstPruningOffset <- ledger.currentEnd()
 
       // Add one more element to bypass pruning to ledger end restriction
       // and allow pruning at the first pruning offset
-      _ <- ledger.create(alice, Dummy(alice))
+      _ <- ledger.create(alice, new Dummy(alice))
       secondPruningOffset <- ledger.currentEnd()
 
       // Add one element to bypass pruning to ledger end restriction
       // and allow pruning at the second pruning offset
-      _ <- ledger.create(alice, Dummy(alice))
+      _ <- ledger.create(alice, new Dummy(alice))
 
       // Prune the ledger without divulgence at firstPruningOffset
       _ <- ledger.pruneCantonSafe(
         firstPruningOffset,
         alice,
-        Dummy(_).create.command,
+        p => new Dummy(p).create.commands,
         pruneAllDivulgedContracts = false,
       )
       (
@@ -99,7 +113,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- ledger.pruneCantonSafe(
         firstPruningOffset,
         alice,
-        Dummy(_).create.command,
+        p => new Dummy(p).create.commands,
         pruneAllDivulgedContracts = true,
       )
       (
@@ -111,7 +125,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- ledger.pruneCantonSafe(
         secondPruningOffset,
         alice,
-        Dummy(_).create.command,
+        p => new Dummy(p).create.commands,
         pruneAllDivulgedContracts = true,
       )
       (
@@ -631,7 +645,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, submitter)) =>
     for {
-      createdBeforePrune <- participant.create(submitter, Dummy(submitter))
+      createdBeforePrune <- participant.create(submitter, new model.test.Dummy(submitter))
 
       offsets <- populateLedgerAndGetOffsets(participant, submitter)
       offsetToPruneUpTo = offsets(lastItemToPruneIndex)
@@ -691,16 +705,17 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant, alice, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, participant, participant)
-      contract <- participant.create(alice, Contract(alice))
+      contract <- participant.create(alice, new Contract(alice))
 
       // Retroactively divulge Alice's contract to bob
       _ <- participant.exercise(alice, divulgence.exerciseDivulge(contract))
 
       // Bob can see the divulged contract
-      _ <- participant.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(contract),
-      )
+      _ <- participant
+        .exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
+          bob,
+          divulgence.exerciseCanFetch(contract),
+        )
 
       _ <- pruneAtCurrentOffset(
         participant,
@@ -709,10 +724,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
 
       // Bob can still see the divulged contract
-      _ <- participant.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(contract),
-      )
+      _ <- participant
+        .exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
+          bob,
+          divulgence.exerciseCanFetch(contract),
+        )
 
       // Archive the divulged contract
       _ <- participant.exercise(alice, contract.exerciseArchive())
@@ -724,7 +740,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
 
       _ <- participant
-        .exerciseAndGetContract[Dummy](
+        .exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
           bob,
           divulgence.exerciseCanFetch(contract),
         )
@@ -733,7 +749,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             val errorMessage = exception.getMessage
             errorMessage.contains(
               "Contract could not be found with id"
-            ) && errorMessage.contains(contract.toString)
+            ) && errorMessage.contains(contract.contractId)
         }
     } yield ()
   })
@@ -748,7 +764,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
-      contract <- alpha.create(alice, Contract(alice))
+      contract <- alpha.create(alice, new Contract(alice))
 
       _ <- synchronize(alpha, beta) // because of exercise on beta inside createDivulgence
 
@@ -773,10 +789,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
 
-      divulgeNotDiscloseTemplate <- alpha.create(alice, DivulgeNotDiscloseTemplate(alice, bob))
+      divulgeNotDiscloseTemplate <- alpha.create(alice, new DivulgeNotDiscloseTemplate(alice, bob))(
+        DivulgeNotDiscloseTemplate.COMPANION
+      )
 
       // Alice creates contract in a context not visible to Bob and follows with a divulgence to Bob in the same transaction
-      contract <- alpha.exerciseAndGetContract[Contract](
+      contract <- alpha.exerciseAndGetContractNoDisclose[Contract.ContractId](
         alice,
         divulgeNotDiscloseTemplate.exerciseDivulgeNoDisclose(divulgence),
       )
@@ -801,7 +819,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // synchronize to wait until alice has observed contract divulged by bob
       _ <- synchronize(alpha, beta)
       // Alice's contract creation is disclosed to Bob
-      contract <- alpha.exerciseAndGetContract[Contract](
+      contract <- alpha.exerciseAndGetContract[Contract.ContractId, Contract](
         alice,
         divulgence.exerciseCreateAndDisclose(),
       )
@@ -816,18 +834,21 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, party)) =>
-    def getEvents(dummyCid: Primitive.ContractId[Dummy]): Future[Int] = {
-      val request = GetEventsByContractIdRequest(dummyCid.unwrap, immutable.Seq(party.unwrap))
+    def getEvents(dummyCid: model.test.Dummy.ContractId): Future[Int] = {
+      val request = GetEventsByContractIdRequest(dummyCid.contractId, Seq(party))
       participant
         .getEventsByContractId(request)
         .map(r => r.createEvent.fold(0)(_ => 1) + r.archiveEvent.fold(0)(_ => 1))
     }
 
     for {
-      dummyCid <- participant.create(party, Dummy(party))
+      dummyCid <- participant.create(party, new model.test.Dummy(party))
       end1 <- pruneToCurrentEnd(participant, party)
       events1 <- getEvents(dummyCid)
-      exerciseCmd = participant.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().command)
+      exerciseCmd = participant.submitAndWaitRequest(
+        party,
+        dummyCid.exerciseDummyChoice1().commands,
+      )
       _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
       events2 <- getEvents(dummyCid)
       _ <- participant.prune(end1)
@@ -859,19 +880,22 @@ class ParticipantPruningIT extends LedgerTestSuite {
       .getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.id.unwrap),
-          requestingParties = Tag.unsubst(immutable.Seq(party)),
+          templateId = Some(Identifier.fromJavaProto(TextKey.TEMPLATE_ID.toProto)),
+          requestingParties = Seq(party),
         )
       )
       .map(r => r.createEvent.fold(0)(_ => 1) + r.archiveEvent.fold(0)(_ => 1))
 
     for {
-      textKeyCid1 <- participant.create(party, TextKey(party, exercisedKey, Nil))
+      textKeyCid1: TextKey.ContractId <- participant.create(
+        party,
+        new TextKey(party, exercisedKey, JList.of()),
+      )
       _ <- pruneToCurrentEnd(participant, party).map(_.getAbsolute)
       events1 <- getEvents
       exerciseCmd = participant.submitAndWaitRequest(
         party,
-        textKeyCid1.exerciseTextKeyChoice().command,
+        textKeyCid1.exerciseTextKeyChoice().commands,
       )
       _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
       events2 <- getEvents
@@ -891,9 +915,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
       beta: ParticipantTestContext,
   )(implicit ec: ExecutionContext) =
     for {
-      divulgenceHelper <- alpha.create(alice, DivulgenceProposal(alice, bob))
+      divulgenceHelper <- alpha.create(alice, new DivulgenceProposal(alice, bob))(
+        DivulgenceProposal.COMPANION
+      )
       _ <- synchronize(alpha, beta)
-      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept())
+      divulgence <- beta.exerciseAndGetContract[Divulgence.ContractId, Divulgence](
+        bob,
+        divulgenceHelper.exerciseAccept(),
+      )(Divulgence.COMPANION)
     } yield divulgence
 
   private def divulgencePruneAndCheck(
@@ -901,14 +930,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
       bob: Party,
       alpha: ParticipantTestContext,
       beta: ParticipantTestContext,
-      contract: Primitive.ContractId[Contract],
-      divulgence: Primitive.ContractId[Divulgence],
+      contract: Contract.ContractId,
+      divulgence: Divulgence.ContractId,
   )(implicit ec: ExecutionContext) =
     for {
       _ <- synchronize(alpha, beta)
 
       // Check that Bob can fetch the contract
-      _ <- beta.exerciseAndGetContract[Dummy](
+      _ <- beta.exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
         bob,
         divulgence.exerciseCanFetch(contract),
       )
@@ -916,7 +945,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       offsetAfterDivulgence_1 <- beta.currentEnd()
 
       // Alice re-divulges the contract to Bob
-      _ <- alpha.exerciseAndGetContract[Contract](
+      _ <- alpha.exerciseAndGetContractNoDisclose[divulgencetests.Contract.ContractId](
         alice,
         divulgence.exerciseDivulge(contract),
       )
@@ -924,7 +953,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- synchronize(alpha, beta)
 
       // Check that Bob can fetch the contract
-      _ <- beta.exerciseAndGetContract[Dummy](
+      _ <- beta.exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
         bob,
         divulgence.exerciseCanFetch(contract),
       )
@@ -938,7 +967,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         pruneAllDivulgedContracts = true,
       )
       // Check that Bob can still fetch the contract after pruning the first transaction
-      _ <- beta.exerciseAndGetContract[Dummy](
+      _ <- beta.exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
         bob,
         divulgence.exerciseCanFetch(contract),
       )
@@ -949,7 +978,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
 
       _ <- beta
-        .exerciseAndGetContract[Dummy](
+        .exerciseAndGetContract[divulgencetests.Dummy.ContractId, divulgencetests.Dummy](
           bob,
           divulgence.exerciseCanFetch(contract),
         )
@@ -992,9 +1021,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future
         .sequence(Vector.fill(batchesToPopulate) {
           for {
-            dummy <- participant.create(submitter, Dummy(submitter))
+            dummy <- participant.create(submitter, new model.test.Dummy(submitter))
             _ <- participant.exercise(submitter, dummy.exerciseDummyChoice1())
-            _ <- participant.create(submitter, Dummy(submitter))
+            _ <- participant.create(submitter, new Dummy(submitter))
           } yield ()
         })
       trees <- participant.transactionTrees(
@@ -1016,7 +1045,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- populateLedgerAndGetOffsets(participant, localParty)
 
       // Dummy needed to prune at this offset
-      _ <- participant.create(localParty, Dummy(localParty))
+      _ <- participant.create(localParty, new Dummy(localParty))
 
       acsBeforePruning <- participant.activeContracts(localParty)
       _ <- participant.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
@@ -1032,12 +1061,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
   // Note that the Daml template must be inspected to establish the key type and fields
   // For the TextKey template the key is: (tkParty, tkKey) : (Party, Text)
   // When populating the Record identifiers are not required.
-  private def makeTextKeyKey(party: ApiTypes.Party, keyText: String) = {
+  private def makeTextKeyKey(party: Party, keyText: String) = {
     Value(
       Value.Sum.Record(
         Record(fields =
           Vector(
-            RecordField(value = Some(Value(Value.Sum.Party(party.unwrap)))),
+            RecordField(value = Some(Value(Value.Sum.Party(party)))),
             RecordField(value = Some(Value(Value.Sum.Text(keyText)))),
           )
         )
@@ -1074,7 +1103,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
       "Pruning",
     ) {
       for {
-        _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+        _ <- ledger.submitAndWait(
+          ledger.submitAndWaitRequest(party, new Dummy(party).create.commands)
+        )
         _ <- ledger.prune(pruneUpTo = pruneUpTo, attempts = 1)
       } yield ()
     }

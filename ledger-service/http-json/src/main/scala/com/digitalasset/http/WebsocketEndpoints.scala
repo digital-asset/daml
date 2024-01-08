@@ -43,6 +43,7 @@ object WebsocketEndpoints {
 
   private def preconnect(
       decodeJwt: ValidateJwt,
+      parseJwt: ParseJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
       userManagementClient: UserManagementClient,
@@ -58,6 +59,7 @@ object WebsocketEndpoints {
       payload <- decodeAndParsePayload[JwtPayload](
         jwt0,
         decodeJwt,
+        parseJwt,
         userManagementClient,
         ledgerIdentityClient,
       ).leftMap(it => it: Error)
@@ -66,6 +68,7 @@ object WebsocketEndpoints {
 
 class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
+    parseJwt: ParseJwt,
     webSocketService: WebSocketService,
     userManagementClient: UserManagementClient,
     ledgerIdentityClient: LedgerIdentityClient,
@@ -95,6 +98,7 @@ class WebsocketEndpoints(
 
                 payload <- preconnect(
                   decodeJwt,
+                  parseJwt,
                   upgradeReq,
                   wsProtocol,
                   userManagementClient,
@@ -126,6 +130,7 @@ class WebsocketEndpoints(
                 )
                 payload <- preconnect(
                   decodeJwt,
+                  parseJwt,
                   upgradeReq,
                   wsProtocol,
                   userManagementClient,

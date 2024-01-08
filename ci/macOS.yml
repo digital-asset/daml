@@ -5,12 +5,12 @@ parameters:
 - name: name
 - name: assignment
 - name: job_name
+- name: test_mode
 
 jobs:
 - job: ${{parameters.job_name}}
   dependsOn:
     - check_for_release
-    - build_canton
   timeoutInMinutes: 240
   pool:
     name: macOS-pool
@@ -38,13 +38,13 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: get-local-canton.yml
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
         name: ${{parameters.name}}
         is_release: variables.is_release
+        test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: upload-bazel-metrics.yml

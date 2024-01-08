@@ -21,7 +21,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDurat
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
@@ -281,7 +280,7 @@ class ProtocolProcessorTest
         startingPoints,
         _ => timeTracker,
         ParticipantTestMetrics.domain,
-        CachingConfigs.defaultSessionKeyCache,
+        CachingConfigs.defaultSessionKeyCacheConfig,
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,
@@ -507,12 +506,12 @@ class ProtocolProcessorTest
               CantonTimestamp.Epoch.minusSeconds(20),
             ),
             processing = MessageProcessingStartingPoint(
-              Some(RequestOffset(CantonTimestamp.now(), rc)),
+              Some(rc),
               rc + 1,
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
             ),
-            lastPublishedRequestOffset = None,
+            lastPublishedLocalOffset = None,
             rewoundSequencerCounterPrehead = None,
           ),
         )
@@ -947,7 +946,7 @@ class ProtocolProcessorTest
         startingPoints = ProcessingStartingPoints.tryCreate(
           MessageCleanReplayStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(1)),
           MessageProcessingStartingPoint(
-            Some(RequestOffset(requestId.unwrap, rc + 4)),
+            Some(rc + 4),
             rc + 5,
             requestSc + 10,
             CantonTimestamp.Epoch.plusSeconds(30),
@@ -1021,7 +1020,7 @@ class ProtocolProcessorTest
             requestSc - 1L,
             CantonTimestamp.Epoch.minusSeconds(11),
           ),
-          lastPublishedRequestOffset = None,
+          lastPublishedLocalOffset = None,
           rewoundSequencerCounterPrehead = Some(CursorPrehead(requestSc, requestTimestamp)),
         )
       )

@@ -165,6 +165,7 @@ object TopologyManagementInitialization {
       loggingContext: ErrorLoggingContext,
   ): EitherT[Future, String, TopologyManagementComponents] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
+
     val managerId: DomainTopologyManagerId = domainTopologyManager.id
     val timeouts = parameters.processingTimeouts
     val protocolVersion = domainTopologyManager.protocolVersion

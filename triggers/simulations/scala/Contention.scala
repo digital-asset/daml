@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.wrapper.TriggerTimer
@@ -33,7 +33,7 @@ class GenericContention(delay: FiniteDuration) extends TriggerMultiProcessSimula
   override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit val applicationId: ApiTypes.ApplicationId = this.applicationId
+    implicit val applicationId: Option[Ref.ApplicationId] = this.applicationId
 
     withLedger { (client, ledger, actAs, controllerContext) =>
       val breedingTriggerFactory =

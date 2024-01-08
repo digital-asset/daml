@@ -9,14 +9,14 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_MAJOR_VERSIONS",
-    "lf_version_latest",
+    "lf_version_default_or_latest",
 )
 
 [
     daml_compile(
         name = "Exceptions-v{}".format(major),
         srcs = ["Exceptions.daml"],
-        target = lf_version_latest.get(major),
+        target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS
@@ -26,7 +26,7 @@ load(
     daml_compile(
         name = "Interfaces-v{}".format(major),
         srcs = ["Interfaces.daml"],
-        target = lf_version_latest.get(major),
+        target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS
@@ -48,7 +48,7 @@ load(
     daml_compile(
         name = "InterfaceViews-v{}".format(major),
         srcs = ["InterfaceViews.daml"],
-        target = lf_version_latest.get(major),
+        target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS
@@ -88,7 +88,7 @@ daml_compile(
     daml_compile(
         name = "MultiKeys-v{}".format(major),
         srcs = ["MultiKeys.daml"],
-        target = lf_version_latest.get(major),
+        target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS

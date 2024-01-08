@@ -62,7 +62,6 @@ import Development.IDE.GHC.Util
 import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
-import DA.Daml.LF.Ast.Version (version2_dev, Version (versionMajor))
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -89,7 +88,7 @@ toCompileOpts Options{..} =
             then generatedPreprocessor
             else
                 damlPreprocessor
-                    (versionMajor optDamlLfVersion)
+                    (LF.versionMajor optDamlLfVersion)
                     dataDependableExtensions
                     optMbPackageName
 
@@ -556,13 +555,13 @@ expandSdkPackages logger lfVersion dars = do
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     isInvalidDaml3Script = \case
-      "daml3-script" | lfVersion /= version2_dev -> True
+      "daml3-script" | LF.versionMajor lfVersion /= LF.V2 -> True
       _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used in LF 2.dev, and is unstable."
+            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used with LF v2, and is unstable."
             Just sdkPath -> do
               when (fp == "daml3-script")
                 $ Logger.logWarning logger

@@ -6,7 +6,8 @@
   "version": "0.0.0",
   "resolutions": {
     "@bazel/typescript/**/protobufjs": "^6.10.3",
-    "**/glob-parent": "^5.1.2"
+    "**/glob-parent": "^5.1.2",
+    "semver": "5.7.2"
   },
   "dependencies": {
     "@mixer/parallel-prettier": "^2.0.1",

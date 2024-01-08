@@ -7,7 +7,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.transaction.Versioned
+import com.daml.lf.transaction.{Util, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ValueContractId,
@@ -69,11 +69,12 @@ import scala.util.Random
 object ExampleTransactionFactory {
   val hkdfOps: HkdfOps = new SymbolicPureCrypto()
   // Helper methods for Daml-LF types
+  val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
   val templateId = LfTransactionBuilder.defaultTemplateId
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val transactionVersion = protocol.DummyTransactionVersion
+  val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
 
   private def valueCapturing(coid: List[LfContractId]): Value = {
     val captives = coid.map(c => (None, ValueContractId(c)))
@@ -87,7 +88,7 @@ object ExampleTransactionFactory {
       capturedIds: Seq[LfContractId] = Seq.empty,
       templateId: LfTemplateId = templateId,
   ): LfContractInst =
-    LfContractInst(templateId, versionedValueCapturing(capturedIds.toList))
+    LfContractInst(template = templateId, arg = versionedValueCapturing(capturedIds.toList))
 
   val veryDeepValue: Value = {
     def deepValue(depth: Int): Value =
@@ -99,7 +100,16 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(templateId, veryDeepVersionedValue)
+    LfContractInst(template = templateId, arg = veryDeepVersionedValue)
+
+  def globalKey(
+      templateId: LfTemplateId,
+      value: LfValue,
+  ): Versioned[LfGlobalKey] =
+    LfVersioned(
+      transactionVersion,
+      LfGlobalKey.assertBuild(templateId, value, Util.sharedKey(transactionVersion)),
+    )
 
   def globalKeyWithMaintainers(
       key: LfGlobalKey = defaultGlobalKey,
@@ -137,13 +147,13 @@ object ExampleTransactionFactory {
   ): LfNodeCreate = {
     val unversionedContractInst = contractInstance.unversioned
     LfNodeCreate(
-      cid,
-      unversionedContractInst.template,
-      unversionedContractInst.arg,
-      agreementText,
+      coid = cid,
+      templateId = unversionedContractInst.template,
+      arg = unversionedContractInst.arg,
+      agreementText = agreementText,
       signatories = signatories,
       stakeholders = signatories ++ observers,
-      key,
+      keyOpt = key,
       version = transactionVersion,
     )
   }
@@ -207,10 +217,10 @@ object ExampleTransactionFactory {
       resolution: Option[LfContractId] = None,
   ): LfNodeLookupByKey =
     LfNodeLookupByKey(
-      key.templateId,
-      LfGlobalKeyWithMaintainers(key, maintainers),
-      resolution,
-      transactionVersion,
+      templateId = key.templateId,
+      key = LfGlobalKeyWithMaintainers(key, maintainers),
+      result = resolution,
+      version = transactionVersion,
     )
 
   def nodeId(index: Int): LfNodeId = LfNodeId(index)

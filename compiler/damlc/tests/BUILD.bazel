@@ -4,9 +4,9 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_configuration", "lf_version_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser + damlc CLI parser
@@ -347,7 +347,8 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml3:daml3-script-2.1.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -370,6 +371,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -380,6 +382,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
@@ -397,6 +400,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
@@ -464,6 +468,37 @@ da_haskell_test(
     ],
 )
 
+# Tests for multi-package
+da_haskell_test(
+    name = "multi-package",
+    srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
+    data = [
+        "//daml-assistant:daml",
+        "//release:sdk-release-tarball",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+    ],
+    main_function = "DA.Test.DamlcMultiPackage.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
 # Tests for packaging
 da_haskell_test(
     name = "packaging",
@@ -503,52 +538,86 @@ da_haskell_test(
     ],
 )
 
-# Tests for data-dependencies
-da_haskell_test(
-    name = "data-dependencies",
-    timeout = "long",
-    srcs = ["src/DA/Test/DataDependencies.hs"],
-    data = [
-        "//compiler/damlc",
-        "@damlc_legacy",
-        "//compiler/damlc/tests:generate-simple-dalf",
-        "//daml-script/daml:daml-script-1.dev.dar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
-        # Feel free to update this to 0.13.55 once that is frozen.
-        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
-        # TODO(#17366) replace with a dar targetting 2.0 once it exists
-        ":dars/old-proj-d2244d1a9a-2.dev.dar",
-    ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "extra",
-        "ghc-lib-parser",
-        "filepath",
-        "process",
-        "safe",
-        "safe-exceptions",
-        "tasty",
-        "tasty-hunit",
-        "zip-archive",
-    ],
-    main_function = "DA.Test.DataDependencies.main",
-    src_strip_prefix = "src",
-    tags = [
-        "cpu:3",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//:sdk-version-hs-lib",
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//compiler/daml-lf-reader",
-        "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
-    ],
+daml_compile(
+    name = "old-proj-2.1",
+    srcs = [":daml/old-proj/Old.daml"],
+    project_name = "old-proj",
+    target = "2.1",
+    version = "0.0.1",
 )
+
+# Tests for data-dependencies
+[
+    da_haskell_test(
+        name = "data-dependencies-{}".format(suffix),
+        timeout = "long",
+        srcs = ["src/DA/Test/DataDependencies.hs"],
+        args = test_args,
+        data = [
+            "//compiler/damlc",
+            "@damlc_legacy",
+            "//compiler/damlc/tests:generate-simple-dalf",
+            "//daml-script/daml:daml-script-1.dev.dar",
+            "//daml-script/daml3:daml3-script-2.dev.dar",
+            # Feel free to update this to 0.13.55 once that is frozen.
+            ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+
+            # TODO(https://github.com/digital-asset/daml/issues/17366)
+            # During development of LF 2.x this is generated using the HEAD compiler.
+            # Once we release LF 2.1, we should replace this with a dar file
+            # produced by the compiler corresponding to that release.
+            ":old-proj-2.1.dar",
+        ],
+        hackage_deps = [
+            "base",
+            "bytestring",
+            "extra",
+            "ghc-lib-parser",
+            "filepath",
+            "process",
+            "safe",
+            "safe-exceptions",
+            "tasty",
+            "tasty-hunit",
+            "zip-archive",
+        ],
+        main_function = "DA.Test.DataDependencies.main",
+        src_strip_prefix = "src",
+        tags = [
+            "cpu:3",
+        ] + extra_tags,
+        visibility = ["//visibility:public"],
+        deps = [
+            "//:sdk-version-hs-lib",
+            "//compiler/daml-lf-ast",
+            "//compiler/daml-lf-proto",
+            "//compiler/daml-lf-reader",
+            "//compiler/damlc/stable-packages:stable-packages-lib",
+            "//libs-haskell/bazel-runfiles",
+            "//libs-haskell/da-hs-base",
+            "//libs-haskell/test-utils",
+        ],
+    )
+    for (suffix, extra_tags, test_args) in [
+        # Test all LF versions on the main branch, after merging
+        (
+            "all",
+            ["main-only"],
+            [],
+        ),
+        # Don't test LF v2 when running the CI on a PR
+        (
+            "no-v2",
+            ["pr-only"],
+            [
+                "-p",
+                # Test paths for these tests are of the form "foo.{lf-version}.bar"
+                # This pattern excludes tests whose lf-version starts with "2."
+                "'$$2 !~ /2./'",
+            ],
+        ),
+    ]
+]
 
 [
     [
@@ -690,7 +759,7 @@ EOF
         ),
     ]
     for major in LF_MAJOR_VERSIONS
-    for lf_version in [lf_version_latest.get(major)]
+    for lf_version in [lf_version_default_or_latest(major)]
 ]
 
 da_haskell_test(
@@ -984,6 +1053,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1015,6 +1085,7 @@ da_haskell_test(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -1149,6 +1220,13 @@ daml_compile_with_dalf(
     # PlatformIndependence.daml.
     ghc_options = [],
 )
+
+# This ensures that changes to the contents of 'platform-independence.dar'
+# don't go unnoticed. This can happen after changes to daml-prim or daml-stdlib.
+# This is likely to happen if you work on the compiler , so it's a good idea to
+# add 'export RUN_PLATFORM_INDEPENDENCE_CHECK=yes' to your '.envrc.private'
+# at the root of the repo.
+generate_and_track_dar_hash_file("platform-independence")
 
 # Desugared daml golden tests
 da_haskell_test(

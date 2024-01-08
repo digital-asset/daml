@@ -55,12 +55,12 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private val (packageId, _, allPackages) = loadPackage(
+  private val (pkgId, pkg, allPackages) = loadPackage(
     s"daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =
-    Identifier(packageId, QualifiedName.assertFromString(s"AuthTests:$s"))
+    Identifier(pkgId, QualifiedName.assertFromString(s"AuthTests:$s"))
 
   private def toContractId(s: String): ContractId = {
     val dummySuffix: Bytes = Bytes.assertFromString("00")
@@ -71,6 +71,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     Versioned(
       TransactionVersion.VDev,
       ContractInstance(
+        pkg.name,
         "T1",
         ValueRecord(
           Some("T1"),
@@ -83,6 +84,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     Versioned(
       TransactionVersion.VDev,
       ContractInstance(
+        pkg.name,
         "X1",
         ValueRecord(
           Some("X1"),
@@ -115,12 +117,12 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     val interpretResult =
       testEngine
         .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "commands-tag"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
+          submitters = submitters,
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = submissionSeed,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)
 

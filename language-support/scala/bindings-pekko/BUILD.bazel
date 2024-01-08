@@ -36,7 +36,7 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
@@ -51,7 +51,7 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
     deps = [
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",

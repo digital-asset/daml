@@ -10,6 +10,7 @@
 module DA.Test.DamlcIntegration
   ( main
   , withDamlScriptDep
+  , withDamlScriptV2Dep
   , ScriptPackageData
   ) where
 
@@ -80,6 +81,7 @@ import qualified GHC
 import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
+import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
@@ -89,7 +91,6 @@ import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
 
-import DA.Daml.Package.Config (PackageSdkVersion (..))
 import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
@@ -130,15 +131,19 @@ withDamlScriptDep mLfVer =
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
-withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep =
+withDamlScriptV2Dep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep mLfVer = withDamlScriptV2Dep' mLfVer []
+
+withDamlScriptV2Dep' :: Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep' mLfVer extraPackages =
   let
-    darPath = "daml-script" </> "daml3" </> "daml3-script-2.dev.dar"
+    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+    darPath = "daml-script" </> "daml3" </> "daml3-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep
        ("daml3-script-" <> sdkPackageVersion)
        darPath
-       (Just version2_dev) -- daml-script only supports 2.dev for now
-       scriptV2ExternalPackages
+       mLfVer
+       extraPackages
 
 -- External dars for scriptv2 when testing upgrades.
 -- package name and version
@@ -168,7 +173,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
       installDependencies
         projDir
         (defaultOptions mLfVer)
-        (PackageSdkVersion sdkVersion)
+        (unsafeResolveReleaseVersion (either throw id (parseUnresolvedVersion (T.pack sdkVersion))))
         ["daml-prim", "daml-stdlib", scriptDar]
         extraDars
       createProjectPackageDb
@@ -192,7 +197,11 @@ main = do
 
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  let withDep = if isV2 then withDamlScriptV2Dep else withDamlScriptDep $ Just lfVer
+  let withDep =
+       (if isV2
+            then flip withDamlScriptV2Dep' scriptV2ExternalPackages
+            else withDamlScriptDep)
+       (Just lfVer)
   let scenarioConf = SS.defaultScenarioServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3

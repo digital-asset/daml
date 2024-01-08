@@ -14,6 +14,10 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
@@ -36,6 +40,7 @@ case class LedgerServicesImpls(
     commandServiceImpl: CommandServiceImpl,
     ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl,
     timeServiceImpl: TimeServiceImpl,
+    eventQueryServiceImpl: EventQueryServiceImpl,
     packageServiceImpl: PackageServiceImpl,
 )
 
@@ -54,6 +59,8 @@ object LedgerServicesImpls {
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
+      getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
+      getEventsByContractKeyResponse: Future[GetEventsByContractKeyResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
@@ -80,6 +87,12 @@ object LedgerServicesImpls {
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses, authorizer)(ec)
     val (timeServiceDef, timeService) =
       TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
+    val (eventQueryServiceDef, eventQueryService) =
+      EventQueryServiceImpl.createWithRef(
+        getEventsByContractIdResponse,
+        getEventsByContractKeyResponse,
+        authorizer,
+      )(ec)
     val (packageServiceDef, packageService) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
@@ -97,6 +110,7 @@ object LedgerServicesImpls {
       cServiceDef,
       lcServiceDef,
       timeServiceDef,
+      eventQueryServiceDef,
       packageServiceDef,
     )
     val impls = new LedgerServicesImpls(
@@ -108,6 +122,7 @@ object LedgerServicesImpls {
       cService,
       lcService,
       timeService,
+      eventQueryService,
       packageService,
     )
     (services, impls)

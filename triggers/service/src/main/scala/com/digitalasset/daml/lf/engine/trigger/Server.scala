@@ -29,9 +29,9 @@ import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.dbutils.JdbcConfig
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
@@ -53,7 +53,6 @@ import com.daml.metrics.api.reporters.{MetricsReporter, MetricsReporting}
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.Tag
 import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -140,19 +139,20 @@ class Server(
   case class TriggerConfig(
       instance: UUID,
       name: Identifier,
-      party: Party,
-      applicationId: ApplicationId,
-      readAs: Set[Party],
+      party: Ref.Party,
+      applicationId: Option[Ref.ApplicationId],
+      readAs: Set[Ref.Party],
   )
 
   private def newTrigger(
-      party: Party,
+      party: Ref.Party,
       triggerName: Identifier,
-      optApplicationId: Option[ApplicationId],
-      readAs: Set[Party],
+      optApplicationId: Option[Ref.ApplicationId],
+      readAs: Set[Ref.Party],
   ): TriggerConfig = {
     val newInstance = UUID.randomUUID()
-    val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
+    val applicationId =
+      optApplicationId.orElse(Some(Ref.ApplicationId.assertFromString(newInstance.toString)))
     TriggerConfig(newInstance, triggerName, party, applicationId, readAs)
   }
 
@@ -216,8 +216,8 @@ class Server(
       uuid: UUID
   )(implicit ec: ExecutionContext, sys: ActorSystem): Future[Option[JsValue]] = {
     import Request.IdentifierFormat
-    final case class Result(status: TriggerStatus, triggerId: Identifier, party: Party)
-    implicit val partyFormat: JsonFormat[Party] = Tag.subst(implicitly[JsonFormat[String]])
+    final case class Result(status: TriggerStatus, triggerId: Identifier, party: Ref.Party)
+    implicit val partyFormat: JsonFormat[Ref.Party] = Request.PartyFormat
     implicit val resultFormat: RootJsonFormat[Result] = jsonFormat3(Result)
     triggerDao.getRunningTrigger(uuid).flatMap {
       case None => Future.successful(None)
@@ -235,7 +235,7 @@ class Server(
     }
   }
 
-  private def listTriggers(party: Party)(implicit ec: ExecutionContext): Future[JsValue] = {
+  private def listTriggers(party: Ref.Party)(implicit ec: ExecutionContext): Future[JsValue] = {
     triggerDao.listRunningTriggers(party) map { triggerInstances =>
       JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
     }
@@ -298,7 +298,8 @@ class Server(
         }
     }
 
-  private implicit val unmarshalParty: Unmarshaller[String, Party] = Unmarshaller.strict(Party(_))
+  private implicit val unmarshalParty: Unmarshaller[String, Ref.Party] =
+    Unmarshaller.strict(Ref.Party.assertFromString(_))
 
   private val route = concat(
     pathPrefix("v1" / "triggers") {
@@ -320,7 +321,7 @@ class Server(
                 val claims =
                   AuthRequest.Claims(
                     actAs = List(params.party),
-                    applicationId = Some(config.applicationId),
+                    applicationId = config.applicationId,
                     readAs = config.readAs.toList,
                   )
                 authorize(claims) { auth =>
@@ -350,7 +351,7 @@ class Server(
             },
             // List triggers currently running for the given party.
             get {
-              parameters(Symbol("party").as[Party]) { party =>
+              parameters(Symbol("party").as[Ref.Party]) { party =>
                 val claims = Claims(readAs = List(party))
                 authorize(claims) { _ =>
                   extractExecutionContext { implicit ec =>

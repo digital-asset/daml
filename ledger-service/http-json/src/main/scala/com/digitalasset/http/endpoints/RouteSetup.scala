@@ -43,6 +43,7 @@ import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
+    parseJwt: EndpointsCompanion.ParseJwt,
     encoder: DomainJsonEncoder,
     userManagementClient: UserManagementClient,
     ledgerIdentityClient: LedgerIdentityClient,
@@ -88,9 +89,8 @@ private[http] final class RouteSetup(
       createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
   ): EitherT[Future, Error, (Jwt, P, A)] =
-    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
-      (t2._1, t2._2, fa._2)
-    )
+    decodeAndParsePayload[P](fa._1, decodeJwt, parseJwt, userManagementClient, ledgerIdentityClient)
+      .map(t2 => (t2._1, t2._2, fa._2))
 
   def inputAndJwtPayload[P](
       req: HttpRequest

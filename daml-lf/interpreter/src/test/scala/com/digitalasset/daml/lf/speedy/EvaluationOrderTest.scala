@@ -62,8 +62,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(Ref.PackageId.assertFromString("-pkg-"), languageVersion = languageVersion)
 
-  private val pkgs: PureCompiledPackages =
-    SpeedyTestLib.typeAndCompile(p"""
+  val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {
 
       record @serializable MyUnit = {};
@@ -288,7 +287,9 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       };
 
     }
-  """)
+  """
+
+  private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
 
   private[this] val List(alice, bob, charlie) =
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
@@ -335,12 +336,14 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion = TransactionVersion.StableVersions.max
+  private val testTxVersion: TransactionVersion =
+    TransactionVersion.assignNodeVersion(languageVersion)
 
   private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
     Versioned(
       testTxVersion,
       Value.ContractInstance(
+        pkg.name,
         T,
         Value.ValueRecord(
           None,
@@ -361,6 +364,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     cId ->
       Speedy.ContractInfo(
         version = TransactionVersion.minExplicitDisclosure,
+        packageName = pkg.name,
         templateId = Dummy,
         value = SRecord(
           Dummy,
@@ -380,6 +384,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helper = Versioned(
     testTxVersion,
     Value.ContractInstance(
+      pkg.name,
       Helper,
       ValueRecord(
         None,
@@ -391,6 +396,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val iface_contract = Versioned(
     testTxVersion,
     Value.ContractInstance(
+      pkg.name,
       Human,
       Value.ValueRecord(
         None,
@@ -416,13 +422,13 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       T,
       keyValue,
       Set(alice),
-      Util.sharedKey(testTxVersion),
+      Util.sharedKey(languageVersion),
     ) -> cId
   )
 
   private[this] val dummyContract = Versioned(
     testTxVersion,
-    Value.ContractInstance(Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
+    Value.ContractInstance(pkg.name, Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 

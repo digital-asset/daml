@@ -11,6 +11,9 @@ def _to_major_minor_str(v):
     (major_str, _, minor_str) = v.partition(".")
     return (major_str, minor_str)
 
+def _major_str(v):
+    return _to_major_minor_str(v)[0]
+
 def _cmp_int(a, b):
     if a == b:
         return 0
@@ -52,43 +55,37 @@ def version_in(
     else:
         return False
 
-# The following dictionary alias LF versions to keywords:
-# - "legacy" is the keyword for last LF version that supports legacy
-#    contract ID scheme,
+# The lastest stable version for each major LF version.
+lf_version_latest = {
+    "1": "1.15",
+    "2": "2.1",
+}
+
+# The following dictionary aliases LF versions to keywords:
 # - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
-# The following dictionary is always defined for "legacy", "stable",
-# and "latest". It contains "preview" iff a preview version is
-# available.  If it exists, "preview"'s value is guaranteed to be different
-# from all other values. If we make a new LF release, we bump latest
-# and once we make it the compiler default we bump stable.
-
+# The following dictionary is always defined for "default" and "latest". It
+# contains "preview" iff a preview version is available. If it exists,
+# "preview"'s value is guaranteed to be different from all other values. If we
+# make a new LF release, we bump latest and once we make it the compiler default
+# we bump default.
 lf_version_configuration = {
-    "legacy": "1.8",
     "default": "1.15",
-    "latest": "1.15",
-    #    "preview": "",
-
-    # "dev" is now ambiguous, use either 1.dev or 2.dev explicitly
+    "latest": lf_version_latest.get("1"),
+    # "preview": "",
+    # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
 }
 
-# TODO(#17366): rework lf_version_configuration to be indexed by major version
-#  and delete this dictionary
-lf_version_default = {
-    "1": lf_version_configuration.get("default"),
-    "2": "2.dev",
-}
-
-# TODO(#17366): rework lf_version_configuration to be indexed by major version
-#  and delete this dictionary
-lf_version_latest = {
-    "1": lf_version_configuration.get("latest"),
-    "2": "2.dev",
-}
-
-lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
+# The Daml-LF version used by default by the compiler if it matches the
+# provided major version, the latest non-dev version with that major version
+# otherwise. Can be used as a future-proof approximation of "default" version
+# across major versions.
+def lf_version_default_or_latest(major):
+    default_version = lf_version_configuration.get("default")
+    (default_major, _) = _to_major_minor_str(default_version)
+    return default_version if default_major == major else lf_version_latest.get(major)
 
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version
@@ -120,19 +117,19 @@ LF_VERSIONS = [
     "1.13",
     "1.14",
     "1.15",
+    "2.1",
 ] + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
-# TODO(#17366): add 2.0 once created
+# TODO(#17366): add 2.1 once it is released
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-# TODO(#17366): add 2.0 once created
-COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["1.14", "1.15", "2.1"] + LF_DEV_VERSIONS
 
 # The subset of COMPILER_LF_VERSIONS with major version 2.
 COMPILER_LF2_VERSIONS = [
@@ -141,4 +138,15 @@ COMPILER_LF2_VERSIONS = [
     if version_in(v, v2_minor_version_range = ("0", "dev"))
 ]
 
-LF_MAJOR_VERSIONS = ["1", "2"]
+# All LF major versions
+LF_MAJOR_VERSIONS = depset([_major_str(v) for v in LF_VERSIONS]).to_list()
+
+# The major version of the default LF version
+LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
+
+# The dev LF version with the same major version number as the default LF version.
+LF_DEFAULT_DEV_VERSION = [
+    v
+    for v in LF_DEV_VERSIONS
+    if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
+][0]

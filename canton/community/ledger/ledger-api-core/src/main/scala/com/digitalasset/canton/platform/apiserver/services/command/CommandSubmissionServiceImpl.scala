@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.ErrorCode.LoggedApiException
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
@@ -45,6 +46,7 @@ import com.digitalasset.canton.platform.apiserver.services.{
 }
 import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
 import java.time.{Duration, Instant}
@@ -118,9 +120,23 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   ): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info(
-        s"Submitting commands for interpretation, ${loggingContext.serializeFiltered("commands")}."
+        show"Phase 1 started: Submitting commands for interpretation: ${request.commands}."
       )
-      logger.trace(s"Commands: ${request.commands.commands.commands}.")
+      val cmds = request.commands.commands.commands
+      logger.debug(show"Submitted commands are: ${if (cmds.length > 1) "\n  " else ""}${cmds
+          .map {
+            case ApiCommand.Create(templateRef, _) =>
+              s"create ${templateRef.qName}"
+            case ApiCommand.Exercise(templateRef, _, choiceId, _) =>
+              s"exercise @${templateRef.qName} ${choiceId}"
+            case ApiCommand.ExerciseByKey(templateRef, _, choiceId, _) =>
+              s"exerciseByKey @${templateRef.qName} $choiceId"
+            case ApiCommand.CreateAndExercise(templateRef, _, choiceId, _) =>
+              s"createAndExercise ${templateRef.qName} ... $choiceId ..."
+          }
+          .map(_.singleQuoted)
+          .toSeq
+          .mkString("\n  ")}")
 
       implicit val errorLoggingContext: ContextualizedErrorLogger =
         ErrorLoggingContext.fromOption(
@@ -150,7 +166,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     import state.SubmissionResult.*
     result match {
       case Success(Acknowledged) =>
-        logger.debug("Success")
+        logger.debug("Submission acknowledged by sync-service.")
         Success(())
 
       case Success(result: SynchronousError) =>
@@ -233,7 +249,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       loggingContext: LoggingContextWithTrace
   ): Future[state.SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
-    logger.debug("Submitting transaction to ledger.")
+    logger.trace("Submitting transaction to ledger.")
     writeService
       .submitTransaction(
         result.submitterInfo,

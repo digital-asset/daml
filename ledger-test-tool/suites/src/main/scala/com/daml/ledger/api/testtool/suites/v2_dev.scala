@@ -8,8 +8,8 @@ import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v2_dev {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
-    v1_dev.default(timeoutScaleFactor)
+    v2_1.default(timeoutScaleFactor)
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
-    v1_dev.optional(tlsConfig)
+    v2_1.optional(tlsConfig)
 }

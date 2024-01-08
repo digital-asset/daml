@@ -324,13 +324,13 @@ class JsonLedgerClient(
         case cmd :: Nil =>
           cmd match {
             case command.CreateCommand(tplId, argument) =>
-              create(tplId, argument, partySets)
+              create(tplId.assertToTypeConName, argument, partySets)
             case command.ExerciseCommand(typeId, cid, choice, argument) =>
-              exercise(typeId, cid, choice, argument, partySets)
+              exercise(typeId.assertToTypeConName, cid, choice, argument, partySets)
             case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
-              exerciseByKey(tplId, key, choice, argument, partySets)
+              exerciseByKey(tplId.assertToTypeConName, key, choice, argument, partySets)
             case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
-              createAndExercise(tplId, template, choice, argument, partySets)
+              createAndExercise(tplId.assertToTypeConName, template, choice, argument, partySets)
           }
         case _ =>
           Future.failed(

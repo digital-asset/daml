@@ -4,8 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure.assertions
 
 import java.time.Duration
-
-import com.daml.api.util.DurationConversion
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertDefined, fail}
 import com.daml.ledger.api.testtool.infrastructure.WithTimeout
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
@@ -15,7 +13,7 @@ import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSu
   OffsetSupport,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.binding.Primitive.Party
+import com.daml.ledger.javaapi.data.Party
 import com.daml.lf.data.Ref
 import com.google.protobuf.duration.{Duration => DurationProto}
 import io.grpc.Status.Code
@@ -164,4 +162,14 @@ object CommandDeduplicationAssertions {
       case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
         fail("Deduplication offsets are not supported")
     }
+
+  object DurationConversion {
+
+    def toProto(jDuration: Duration): DurationProto =
+      DurationProto(jDuration.getSeconds, jDuration.getNano)
+
+    def fromProto(pDuration: DurationProto): Duration =
+      Duration.ofSeconds(pDuration.seconds, pDuration.nanos.toLong)
+  }
+
 }

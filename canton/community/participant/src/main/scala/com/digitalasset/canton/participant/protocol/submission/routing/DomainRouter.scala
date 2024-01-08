@@ -170,7 +170,7 @@ class DomainRouter(
         domainRankTarget,
         submitterInfo,
       )
-      _ = logger.info(s"submitting the transaction to the ${domainRankTarget.domainId}")
+      _ = logger.debug(s"Routing the transaction to the ${domainRankTarget.domainId}")
       transactionSubmittedF <- submit(domainRankTarget.domainId)(
         submitterInfo,
         transactionMeta,
@@ -395,7 +395,7 @@ object DomainRouter {
       tx: LfVersionedTransaction
   ): Map[LfContractId, Set[Ref.Party]] = {
 
-    val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, key, Some(cid), _) =>
+    val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, _, key, Some(cid), _) =>
       cid -> key.maintainers
     }.toMap
 

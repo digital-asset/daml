@@ -83,6 +83,7 @@ object Main {
         s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
+        s", authConfig=${config.authConfig.shows}" +
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", wsConfig=${config.wsConfig.shows}" +
         s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +

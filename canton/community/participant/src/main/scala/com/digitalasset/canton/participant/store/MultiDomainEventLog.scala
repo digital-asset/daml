@@ -35,12 +35,7 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{
-  GlobalOffset,
-  LocalOffset,
-  RequestOffset,
-  TopologyOffset,
-}
+import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
@@ -157,32 +152,15 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       participantEventLogId: ParticipantEventLogId,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Map[DomainId, (Option[LocalOffset], Option[RequestOffset])], Option[LocalOffset])] = {
+  ): Future[(Map[DomainId, Option[LocalOffset]], Option[LocalOffset])] = {
     for {
       domainLogIds <- domainIds.parTraverse(IndexedDomain.indexed(indexedStringStore))
 
       domainOffsets <- domainLogIds.parTraverse { domainId =>
-        for {
-          localOffset <- lastLocalOffset(
-            DomainEventLogId(domainId),
-            Option(upToInclusive),
-            None,
-          )
-
-          requestOffset <- localOffset match {
-            // Last local offset is a request offset -> no need to query again
-            case Some(requestOffset: RequestOffset) => Future.successful(Some(requestOffset))
-
-            // No known offset -> no need to query again
-            case None => Future.successful(None)
-
-            case Some(_: TopologyOffset) =>
-              lastRequestOffset(
-                DomainEventLogId(domainId),
-                Option(upToInclusive),
-              )
-          }
-        } yield domainId.domainId -> (localOffset, requestOffset)
+        lastLocalOffset(
+          DomainEventLogId(domainId),
+          Option(upToInclusive),
+        ).map(domainId.domainId -> _)
       }
 
       participantOffset <- lastLocalOffset(
@@ -202,21 +180,20 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
   def lastLocalOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
 
-  /** Returns the greatest request offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
+  /** Returns the greatest local offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
     * such that the following holds:
     * <ol>
-    * <li>The assigned global offset is below or at `upToInclusive` (if defined).</li>
+    * <li>The assigned global offset is below or at `upToInclusive`.</li>
     * <li>The record time of the event is below or at `timestampInclusive` (if defined)</li>
     * </ol>
     */
-  def lastRequestOffset(
+  def lastLocalOffsetBeforeOrAt(
       eventLogId: EventLogId,
-      upToInclusive: Option[GlobalOffset] = None,
-      timestampInclusive: Option[CantonTimestamp] = None,
-  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]]
+      upToInclusive: GlobalOffset,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
 
   /** Yields the `deltaFromBeginning`-lowest global offset (if it exists).
     * I.e., `locateOffset(0)` yields the smallest offset, `localOffset(1)` the second smallest offset, and so on.

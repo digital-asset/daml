@@ -6,6 +6,7 @@ parameters:
   is_release: ''
   is_split_release: 'false'
   skip_tests: ''
+  test_mode: ''
 
 steps:
   - bash: ci/configure-bazel.sh
@@ -41,6 +42,7 @@ steps:
       #   part of the release PR that triggered the build (with correct version
       #   number).
       SKIP_TESTS: ${{parameters.skip_tests}}
+      TEST_MODE: ${{parameters.test_mode}}
 
   - template: publish-platform-independence-dar.yml
     parameters:

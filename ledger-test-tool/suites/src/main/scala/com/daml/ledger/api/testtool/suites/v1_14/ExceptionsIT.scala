@@ -9,17 +9,24 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.test.semantic.Exceptions._
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.da.types
+import com.daml.ledger.test.java.semantic.exceptions._
+
+import java.lang
 import java.util.regex.Pattern
+import scala.jdk.CollectionConverters._
 
 final class ExceptionsIT extends LedgerTestSuite {
+  import ExceptionsIT.CompanionImplicits._
+
   test(
     "ExUncaught",
     "Uncaught exception returns INVALID_ARGUMENT",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseThrowUncaught()).mustFail("Unhandled exception")
     } yield {
       assertGrpcErrorRegex(
@@ -37,7 +44,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       tree <- ledger.exercise(party, t.exerciseThrowCaught())
     } yield {
       assertLength(s"1 successful exercise", 1, exercisedEvents(tree))
@@ -51,7 +58,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       tree <- ledger.exercise(party, t.exerciseNestedCatch())
     } yield {
       assertLength(s"1 successful exercise", 1, exercisedEvents(tree))
@@ -65,8 +72,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      tFetch <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      tFetch <- ledger.create(party, new ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackFetch(tFetch))
       _ <- ledger.exercise(party, tFetch.exerciseArchive())
       failure <- ledger
@@ -88,8 +95,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      tExercise <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      tExercise <- ledger.create(party, new ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackConsuming(tExercise))
       _ <- ledger.exercise(party, tExercise.exerciseArchive())
       failure <- ledger
@@ -111,8 +118,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      tExercise <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      tExercise <- ledger.create(party, new ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackNonConsuming(tExercise))
       _ <- ledger.exercise(party, tExercise.exerciseArchive())
       failure <- ledger
@@ -134,8 +141,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      withKey <- ledger.create(party, WithSimpleKey(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      withKey <- ledger.create(party, new WithSimpleKey(party))
       _ <- ledger.exercise(party, t.exerciseRolledbackArchiveConsuming(withKey))
     } yield ()
   })
@@ -146,8 +153,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      withKey <- ledger.create(party, WithSimpleKey(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      withKey <- ledger.create(party, new WithSimpleKey(party))
       _ <- ledger.exercise(party, t.exerciseRolledbackArchiveNonConsuming(withKey))
     } yield ()
   })
@@ -158,7 +165,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRolledbackDuplicateKey())
     } yield ()
   })
@@ -169,9 +176,9 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseDuplicateKey())
-      _ <- ledger.create(party, WithSimpleKey(party))
+      _ <- ledger.create(party, new WithSimpleKey(party))
       failure <- ledger.exercise(party, t.exerciseDuplicateKey()).mustFail("duplicate key")
     } yield {
       assertGrpcError(
@@ -189,8 +196,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      withKey <- ledger.create(party, WithSimpleKey(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      withKey <- ledger.create(party, new WithSimpleKey(party))
       failure <- ledger.exercise(party, t.exerciseDuplicateKey()).mustFail("duplicate key")
       _ = assertGrpcError(
         failure,
@@ -209,8 +216,8 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
-      withKey <- ledger.create(party, WithSimpleKey(party))
+      t <- ledger.create(party, new ExceptionTester(party))
+      withKey <- ledger.create(party, new WithSimpleKey(party))
       _ <- ledger.exercise(party, t.exerciseFetchKey())
       _ <- ledger.exercise(party, withKey.exerciseArchive())
       failure <- ledger.exercise(party, t.exerciseFetchKey()).mustFail("couldn't find key")
@@ -231,7 +238,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseFetchKey()).mustFail("contract not found")
       _ = assertGrpcError(
         failure,
@@ -239,7 +246,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
-      _ <- ledger.create(party, WithSimpleKey(party))
+      _ <- ledger.create(party, new WithSimpleKey(party))
       _ <- ledger.exercise(party, t.exerciseFetchKey())
     } yield ()
   })
@@ -250,7 +257,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       tree <- ledger.exercise(party, t.exerciseRollbackCreate())
     } yield {
       // Create node should not be included
@@ -269,9 +276,9 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(aLedger, aParty), Participant(bLedger, bParty)) =>
       for {
-        divulger <- aLedger.create(aParty, Divulger(aParty, bParty))
-        fetcher <- bLedger.create(bParty, Fetcher(bParty, aParty))
-        t <- bLedger.create(bParty, WithSimpleKey(bParty))
+        divulger <- aLedger.create(aParty, new Divulger(aParty, bParty))
+        fetcher <- bLedger.create(bParty, new Fetcher(bParty, aParty))
+        t <- bLedger.create(bParty, new WithSimpleKey(bParty))
         _ <- synchronize(aLedger, bLedger)
         fetchFailure <- aLedger
           .exercise(aParty, fetcher.exerciseFetch(t))
@@ -296,9 +303,9 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(aLedger, aParty), Participant(bLedger, bParty)) =>
       for {
-        fetcher <- aLedger.create(aParty, Fetcher(aParty, bParty))
-        withKey0 <- aLedger.create(aParty, WithKey(aParty, 0, List.empty))
-        withKey1 <- aLedger.create(aParty, WithKey(aParty, 1, List.empty))
+        fetcher <- aLedger.create(aParty, new Fetcher(aParty, bParty))
+        withKey0 <- aLedger.create(aParty, new WithKey(aParty, 0, List.empty.asJava))
+        withKey1 <- aLedger.create(aParty, new WithKey(aParty, 1, List.empty.asJava))
         _ <- synchronize(aLedger, bLedger)
         fetchFailure <- bLedger
           .exercise(bParty, fetcher.exerciseFetch_(withKey0))
@@ -318,7 +325,7 @@ final class ExceptionsIT extends LedgerTestSuite {
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
-        tester <- aLedger.create(aParty, ExceptionTester(aParty))
+        tester <- aLedger.create(aParty, new ExceptionTester(aParty))
         _ <- aLedger.exercise(aParty, tester.exerciseProjectionDivulgence(bParty, withKey0))
         _ <- synchronize(aLedger, bLedger)
         _ <- bLedger
@@ -343,13 +350,16 @@ final class ExceptionsIT extends LedgerTestSuite {
           Participant(cLedger, cParty),
         ) =>
       for {
-        abInformer <- aLedger.create(aParty, Informer(aParty, List(bParty)))
-        acInformer <- aLedger.create(aParty, Informer(aParty, List(cParty)))
-        abcInformer <- aLedger.create(aParty, Informer(aParty, List(bParty, cParty)))
-        keyDelegate <- bLedger.create(bParty, WithKeyDelegate(aParty, bParty))
+        abInformer <- aLedger.create(aParty, new Informer(aParty, List(bParty.getValue).asJava))
+        acInformer <- aLedger.create(aParty, new Informer(aParty, List(cParty.getValue).asJava))
+        abcInformer <- aLedger.create(
+          aParty,
+          new Informer(aParty, List(bParty, cParty).map(_.getValue).asJava),
+        )
+        keyDelegate <- bLedger.create(bParty, new WithKeyDelegate(aParty, bParty))
         _ <- synchronize(aLedger, bLedger)
         _ <- synchronize(aLedger, cLedger)
-        tester <- aLedger.create(aParty, ExceptionTester(aParty))
+        tester <- aLedger.create(aParty, new ExceptionTester(aParty))
         _ <- aLedger.exercise(
           aParty,
           tester.exerciseProjectionNormalization(
@@ -378,11 +388,11 @@ final class ExceptionsIT extends LedgerTestSuite {
           Participant(cLedger, cParty),
         ) =>
       for {
-        keyDelegate <- bLedger.create(bParty, WithKeyDelegate(aParty, bParty))
-        nestingHelper <- cLedger.create(cParty, RollbackNestingHelper(aParty, bParty, cParty))
+        keyDelegate <- bLedger.create(bParty, new WithKeyDelegate(aParty, bParty))
+        nestingHelper <- cLedger.create(cParty, new RollbackNestingHelper(aParty, bParty, cParty))
         _ <- synchronize(aLedger, bLedger)
         _ <- synchronize(aLedger, cLedger)
-        tester <- aLedger.create(aParty, ExceptionTester(aParty))
+        tester <- aLedger.create(aParty, new ExceptionTester(aParty))
         _ <- aLedger.exercise(
           aParty,
           tester.exerciseProjectionNesting(bParty, keyDelegate, nestingHelper),
@@ -399,8 +409,8 @@ final class ExceptionsIT extends LedgerTestSuite {
           Participant(ledger, party)
         ) =>
       for {
-        t <- ledger.create(party, ExceptionTester(party))
-        withKey <- ledger.create(party, WithSimpleKey(party))
+        t <- ledger.create(party, new ExceptionTester(party))
+        withKey <- ledger.create(party, new WithSimpleKey(party))
         _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedLookup(withKey))
       } yield ()
   })
@@ -414,8 +424,8 @@ final class ExceptionsIT extends LedgerTestSuite {
           Participant(ledger, party)
         ) =>
       for {
-        t <- ledger.create(party, ExceptionTester(party))
-        withKey <- ledger.create(party, WithSimpleKey(party))
+        t <- ledger.create(party, new ExceptionTester(party))
+        withKey <- ledger.create(party, new WithSimpleKey(party))
         _ <- ledger.exercise(party, t.exerciseRollbackGlobalArchivedCreate(withKey))
       } yield ()
   })
@@ -426,7 +436,7 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, ExceptionTester(party))
+      t <- ledger.create(party, new ExceptionTester(party))
       failure <- ledger
         .exercise(party, t.exerciseRollbackCreateBecomesInactive())
         .mustFail("contract is inactive")
@@ -446,10 +456,51 @@ final class ExceptionsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      helper <- ledger.create(party, ExceptionTester(party))
-      withKey <- ledger.create(party, WithSimpleKey(party))
+      helper <- ledger.create(party, new ExceptionTester(party))
+      withKey <- ledger.create(party, new WithSimpleKey(party))
       _ <- ledger.exercise(party, helper.exerciseRollbackExerciseCreateLookup(withKey))
     } yield ()
   })
 
+}
+
+object ExceptionsIT {
+  private object CompanionImplicits {
+    implicit val exceptionTesterCompanion: ContractCompanion.WithoutKey[
+      ExceptionTester.Contract,
+      ExceptionTester.ContractId,
+      ExceptionTester,
+    ] = ExceptionTester.COMPANION
+    implicit val withSimpleKeyCompanion: ContractCompanion.WithKey[
+      WithSimpleKey.Contract,
+      WithSimpleKey.ContractId,
+      WithSimpleKey,
+      String,
+    ] = WithSimpleKey.COMPANION
+    implicit val withKeyCompanion: ContractCompanion.WithKey[
+      WithKey.Contract,
+      WithKey.ContractId,
+      WithKey,
+      types.Tuple2[String, lang.Long],
+    ] = WithKey.COMPANION
+    implicit val informerCompanion
+        : ContractCompanion.WithoutKey[Informer.Contract, Informer.ContractId, Informer] =
+      Informer.COMPANION
+    implicit val withKeyDelegateCompanion: ContractCompanion.WithoutKey[
+      WithKeyDelegate.Contract,
+      WithKeyDelegate.ContractId,
+      WithKeyDelegate,
+    ] = WithKeyDelegate.COMPANION
+    implicit val divulgerCompanion
+        : ContractCompanion.WithoutKey[Divulger.Contract, Divulger.ContractId, Divulger] =
+      Divulger.COMPANION
+    implicit val fetcherCompanion
+        : ContractCompanion.WithoutKey[Fetcher.Contract, Fetcher.ContractId, Fetcher] =
+      Fetcher.COMPANION
+    implicit val rollbackNestingHelperCompanion: ContractCompanion.WithoutKey[
+      RollbackNestingHelper.Contract,
+      RollbackNestingHelper.ContractId,
+      RollbackNestingHelper,
+    ] = RollbackNestingHelper.COMPANION
+  }
 }

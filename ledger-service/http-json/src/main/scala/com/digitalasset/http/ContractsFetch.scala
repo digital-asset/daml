@@ -9,6 +9,7 @@ import org.apache.pekko.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
+import com.daml.http.EndpointsCompanion.PrunedOffset
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
@@ -207,11 +208,6 @@ private class ContractsFetch(
 
     import doobie.implicits._, cats.syntax.apply._
     import java.sql.SQLException
-    import io.grpc.StatusRuntimeException
-
-    def failedDueToPrune(s: io.grpc.Status) =
-      s.getCode == io.grpc.Status.Code.FAILED_PRECONDITION &&
-        s.getDescription.contains("PARTICIPANT_PRUNED_DATA_ACCESSED")
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
@@ -221,7 +217,7 @@ private class ContractsFetch(
           case e: SQLException if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
             logger.error(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
             fconn.rollback flatMap (_ => loop(maxAttempts - 1))
-          case e: StatusRuntimeException if maxAttempts > 0 && failedDueToPrune(e.getStatus) =>
+          case e if maxAttempts > 0 && PrunedOffset.wasCause(e) =>
             logger.error(
               "contractsIo, exception: Failed as the ledger has been pruned since the last cached offset. " +
                 s"Clearing local cache for template $templateId and re-attempting. $e"
@@ -335,7 +331,7 @@ private class ContractsFetch(
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
       keyHash = lfKey.map(
         Hash
-          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _)
+          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _, shared = false)
           .toHexString
       ),
       payload = lfValueToDbJsValue(lfArg),

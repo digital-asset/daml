@@ -59,7 +59,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   "interfaces" should {
-    val (interfacesPkgId, _, _) =
+    val (interfacesPkgId, interfacesPkg, _) =
       loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
       loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
@@ -75,16 +75,24 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
-        ContractInstance(idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+        ContractInstance(
+          interfacesPkg.name,
+          idT1,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        )
       ),
       cid2 -> assertAsVersionedContract(
-        ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+        ContractInstance(
+          interfacesPkg.name,
+          idT2,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        )
       ),
     )
     def consume[X](x: Result[X]) =
       x.consume(contracts, allInterfacesPkgs)
 
-    def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(cmd))
+    def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(Map.empty, cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
       for {
         speedyCmd <- preprocess(cmd)
@@ -101,12 +109,12 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
           )
       } yield result
     def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
-      consume(run(cmd)(preprocessor.preprocessApiCommand))
+      consume(run(cmd)(preprocessor.preprocessApiCommand(Map.empty, _)))
 
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
       val command = ApiCommand.Exercise(
-        idI1,
+        idI1.toRef,
         cid1,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -115,7 +123,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be able to exercise interface I1 on a T2 contract" in {
       val command = ApiCommand.Exercise(
-        idI1,
+        idI1.toRef,
         cid2,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -124,7 +132,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be able to exercise interface I2 on a T2 contract" in {
       val command = ApiCommand.Exercise(
-        idI2,
+        idI2.toRef,
         cid2,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -133,7 +141,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be unable to exercise interface I2 on a T1 contract" in {
       val command = ApiCommand.Exercise(
-        idI2,
+        idI2.toRef,
         cid1,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -146,7 +154,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be able to exercise T1 by interface I1" in {
       val command = ApiCommand.Exercise(
-        idI1,
+        idI1.toRef,
         cid1,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -155,7 +163,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be able to exercise T2 by interface I1" in {
       val command = ApiCommand.Exercise(
-        idI1,
+        idI1.toRef,
         cid2,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -164,7 +172,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be able to exercise T2 by interface I2" in {
       val command = ApiCommand.Exercise(
-        idI2,
+        idI2.toRef,
         cid2,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -173,7 +181,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     }
     "be unable to exercise T1 by interface I2 (stopped in preprocessor)" in {
       val command = ApiCommand.Exercise(
-        idT1,
+        idT1.toRef,
         cid1,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -183,7 +191,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
       val command = ApiCommand.Exercise(
-        idI5,
+        idI5.toRef,
         cid2,
         "C5",
         ValueRecord(None, ImmArray.empty),

@@ -3,19 +3,20 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import java.time.Instant
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.client.binding.{Primitive => P}
-import com.daml.ledger.test.semantic.TimeTests._
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
+import com.daml.ledger.test.java.semantic.timetests._
 
 import scala.concurrent.Future
 
 final class TimeServiceIT extends LedgerTestSuite {
+  implicit val timecheckerCompanion
+      : ContractCompanion.WithoutKey[TimeChecker.Contract, TimeChecker.ContractId, TimeChecker] =
+    TimeChecker.COMPANION
 
   test(
     "TSTimeIsStatic",
@@ -83,8 +84,8 @@ final class TimeServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
-      thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
-      checker <- ledger.create(party, TimeChecker(party, thirtySecLater))
+      thirtySecLater = initialTime.plusSeconds(30)
+      checker <- ledger.create(party, new TimeChecker(party, thirtySecLater))
       failure <- ledger
         .exercise(party, checker.exerciseTimeChecker_CheckTime())
         .mustFail("submitting choice prematurely")
@@ -108,18 +109,11 @@ final class TimeServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
-      thirtySecLater <- createTimestamp(initialTime.plusSeconds(30))
-      checker <- ledger.create(party, TimeChecker(party, thirtySecLater))
+      thirtySecLater = initialTime.plusSeconds(30)
+      checker <- ledger.create(party, new TimeChecker(party, thirtySecLater))
       _ <- ledger.setTime(initialTime, initialTime.plusSeconds(30))
       _ <- ledger.exercise(party, checker.exerciseTimeChecker_CheckTime())
     } yield ()
   })
-
-  def createTimestamp(seconds: Instant): Future[P.Timestamp] =
-    P.Timestamp
-      .discardNanos(seconds)
-      .fold(Future.failed[P.Timestamp](new IllegalStateException(s"Empty option")))(
-        Future.successful[P.Timestamp]
-      )
 
 }

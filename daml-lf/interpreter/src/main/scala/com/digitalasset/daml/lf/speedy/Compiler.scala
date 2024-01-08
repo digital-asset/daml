@@ -432,9 +432,9 @@ private[lf] final class Compiler(
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      addDef(compileFetchInterface(ifaceId))
+      addDef(compileFetchInterface(ifaceId, soft = enableContractUpgrading))
       iface.choices.values.foreach { choice =>
-        addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
+        addDef(compileInterfaceChoice(ifaceId, iface.param, choice, soft = enableContractUpgrading))
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
       }
@@ -581,6 +581,7 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
+      soft: Boolean,
   )(
       guardPos: Position,
       cidPos: Position,
@@ -589,9 +590,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBFetchAny(
-        optTargetTemplateId = None
-      )(
+      (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
         env.toSEVar(cidPos),
         s.SEValue.None,
       ),
@@ -660,10 +659,11 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
+      soft: Boolean,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction4(t.InterfaceChoiceDefRef(ifaceId, choice.name)) {
       (guardPos, cidPos, choiceArgPos, tokenPos, env) =>
-        translateInterfaceChoiceBody(env, ifaceId, param, choice)(
+        translateInterfaceChoiceBody(env, ifaceId, param, choice, soft)(
           guardPos,
           cidPos,
           choiceArgPos,
@@ -788,13 +788,14 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
+  private[this] def compileFetchInterface(
+      ifaceId: Identifier,
+      soft: Boolean,
+  ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        SBFetchAny(
-          optTargetTemplateId = None
-        )(
+        (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
           env.toSEVar(cidPos),
           s.SEValue.None,
         ),

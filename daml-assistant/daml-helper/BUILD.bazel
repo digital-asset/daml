@@ -50,13 +50,13 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//canton:ledger-api-haskellpb",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
-        "//ledger-api/grpc-definitions:ledger-api-haskellpb",
         "//libs-haskell/da-hs-base",
     ],
 )

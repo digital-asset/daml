@@ -165,14 +165,14 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   implicit val scheduler: ScheduledExecutorService =
     Threading.singleThreadScheduledExecutor(
-      loggerFactory.threadName + "-env-scheduler",
+      loggerFactory.threadName + "-env-sched",
       noTracingLogger,
     )
 
   private val numThreads = Threading.detectNumberOfThreads(noTracingLogger)
   implicit val executionContext: ExecutionContextIdlenessExecutorService =
     Threading.newExecutionContext(
-      loggerFactory.threadName + "-env-execution-context",
+      loggerFactory.threadName + "-env-ec",
       noTracingLogger,
       Option.when(config.monitoring.metrics.reportExecutionContextMetrics)(
         metricsFactory.executionServiceMetrics

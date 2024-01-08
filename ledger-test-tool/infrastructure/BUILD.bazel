@@ -5,7 +5,6 @@ load("//bazel_tools:scala.bzl", "da_scala_library")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
-    "lf_version_configuration_versions",
 )
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 
@@ -21,9 +20,9 @@ load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
         tags = ["maven_coordinates=com.daml:ledger-api-tests-infrastructure-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         deps = [
+            "//canton:bindings-java",
+            "//canton:ledger_api_proto_scala",
             "//daml-lf/data",
-            "//language-support/scala/bindings",
-            "//ledger-api/grpc-definitions:ledger_api_proto_scala",
             "//ledger/error",
             "//ledger/ledger-api-errors",
             "//libs-scala/test-evidence/tag:test-evidence-tag",

@@ -79,17 +79,39 @@ versionDefault = version1_15
 version1_dev :: Version
 version1_dev = Version V1 PointDev
 
+-- | Daml-LF version 2.1
+version2_1 :: Version
+version2_1 = Version V2 (PointStable 1)
+
 -- | The Daml-LF 2.x development version.
 version2_dev :: Version
 version2_dev = Version V2 PointDev
 
 -- Must be kept in sync with COMPILER_LF_VERSION in daml-lf.bzl.
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_dev]
+supportedOutputVersions = [version1_14, version1_15, version1_dev, version2_1, version2_dev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions =
   [version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
+
+-- | The Daml-LF version used by default by the compiler if it matches the
+-- provided major version, the latest non-dev version with that major version
+-- otherwise. This function is meant to be used in tests who want to test the
+-- closest thing to the default user experience given a major version.
+--
+-- >>> map (renderVersion . defaultOrLatestStable) [minBound .. maxBound]
+-- ["1.15","2.1"]
+defaultOrLatestStable :: MajorVersion -> Version
+defaultOrLatestStable major
+    | versionMajor versionDefault == major = versionDefault
+    | otherwise =
+        Version major $
+            maximum
+                [ minv
+                | Version majv minv@(PointStable _) <- supportedOutputVersions
+                , majv == major
+                ]
 
 isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
@@ -114,17 +136,15 @@ satisfies (Version major minor) (VersionReq req) = minor `R.elem` req major
 devOnly :: VersionReq
 devOnly = VersionReq (\_ -> R.Inclusive PointDev PointDev)
 
--- | The minor version range [0 .. dev]. Shorthand used in the definition of
--- features below.
-allV2MinorVersions :: R.Range MinorVersion
--- TODO(#17366): Change for (R.inclusive (PointStable 0) PointDev) once 2.0 is
--- introduced.
-allV2MinorVersions = R.Inclusive PointDev PointDev
-
 -- | The minor version range [v .. dev]. Shorthand used in the definition of
 -- features below.
 allMinorVersionsAfter :: MinorVersion -> R.Range MinorVersion
 allMinorVersionsAfter v = R.Inclusive v PointDev
+
+-- | The minor version range [1 .. dev]. Shorthand used in the definition of
+-- features below.
+allMinorVersions :: R.Range MinorVersion
+allMinorVersions = allMinorVersionsAfter (PointStable 1)
 
 -- | The empty minor version range. Shorthand used in the definition of features
 -- below.
@@ -149,7 +169,7 @@ featureStringInterning = Feature
     { featureName = "String interning"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 7)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Nothing
     }
 
@@ -159,7 +179,7 @@ featureTypeInterning = Feature
     { featureName = "Type interning"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 11)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Nothing
     }
 
@@ -178,7 +198,7 @@ featureBigNumeric = Feature
     { featureName = "BigNumeric type"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 13)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
 
@@ -187,7 +207,7 @@ featureExceptions = Feature
     { featureName = "Daml Exceptions"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 14)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
@@ -196,7 +216,7 @@ featureNatSynonyms = Feature
     { featureName = "Nat type synonyms"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 14)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_NAT_SYN"
     }
 
@@ -205,7 +225,7 @@ featureSimpleInterfaces = Feature
     { featureName = "Daml Interfaces"
     , featureVersionReq = VersionReq \case
           V1 -> allMinorVersionsAfter (PointStable 15)
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_INTERFACE"
     }
 
@@ -226,7 +246,9 @@ featureChoiceFuncs = Feature
 featureTemplateTypeRepToText :: Feature
 featureTemplateTypeRepToText = Feature
     { featureName = "templateTypeRepToText function"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq \case
+          V1 -> noMinorVersion
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
     }
 
@@ -248,8 +270,8 @@ featureNatTypeErasure :: Feature
 featureNatTypeErasure = Feature
     { featureName = "Erasing types of kind Nat"
     , featureVersionReq = VersionReq \case
-          V1 -> allMinorVersionsAfter PointDev
-          V2 -> allV2MinorVersions
+          V1 -> noMinorVersion
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
     }
 
@@ -260,17 +282,24 @@ featureRightToLeftEvaluation = Feature
     { featureName = "Right-to-left evaluation order"
     , featureVersionReq = VersionReq \case
           V1 -> noMinorVersion
-          V2 -> allV2MinorVersions
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_RIGHT_TO_LEFT_EVALUATION"
     }
 
+-- This is used to remove references to Scenarios in LFv2
+featureScenarios :: Feature
+featureScenarios = Feature
+    { featureName = "Scenarios"
+    , featureVersionReq = VersionReq \case
+          V1 -> allMinorVersions
+          V2 -> noMinorVersion
+    , featureCppFlag = Just "DAML_SCENARIOS"
+    }
 
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
-    , featureVersionReq = VersionReq \case
-          V1 -> allMinorVersionsAfter PointDev
-          V2 -> allV2MinorVersions
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
@@ -288,6 +317,7 @@ allFeatures =
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
+    , featureScenarios
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise

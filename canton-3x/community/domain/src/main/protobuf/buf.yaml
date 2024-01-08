@@ -1,0 +1,5 @@
+version: v1
+build:
+  excludes:
+    - com/digitalasset/canton/domain/scalapb
+    - com/digitalasset/canton/domain/admin/

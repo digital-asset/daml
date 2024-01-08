@@ -120,10 +120,9 @@ in rec {
     chromedriver = pkgs.chromedriver;
 
     # Python development
-    pip3        = pkgs.python37Packages.pip;
-    python      = pkgs.python37Packages.python;
+    pip3        = pkgs.python38Packages.pip;
+    python      = pkgs.python38Packages.python;
     python3     = python;
-    python37 = python;
 
     yapf = pkgs.python38Packages.yapf;
 
@@ -131,11 +130,6 @@ in rec {
     pipenv = pkgs.pipenv;
 
     pre-commit = pkgs.pre-commit;
- 
-    sphinx-build      = sphinx;
-    sphinx-quickstart = sphinx;
-
-    sphinx = bazel_dependencies.sphinx-exts;
 
     convert = bazel_dependencies.imagemagick;
 

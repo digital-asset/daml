@@ -9,7 +9,6 @@ import org.apache.pekko.stream._
 import ch.qos.logback.classic.Level
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.PekkoExecutionSequencerPool
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -89,7 +88,7 @@ object RunnerMain {
         // to an expired token tear the trigger down and have some external monitoring process (e.g. systemd)
         // restart it.
         val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(config.applicationId),
+          applicationId = config.applicationId.getOrElse(""),
           ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),

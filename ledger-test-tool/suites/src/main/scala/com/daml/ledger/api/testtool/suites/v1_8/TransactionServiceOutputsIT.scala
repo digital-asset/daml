@@ -9,20 +9,24 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.daml.ledger.api.v1.value.RecordField
-import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.api.v1.value.{Record, RecordField}
+import com.daml.ledger.javaapi.data.Party
+import com.daml.ledger.test.java.model.test._
 
 import scala.collection.immutable.Seq
+import scala.jdk.OptionConverters._
 
 class TransactionServiceOutputsIT extends LedgerTestSuite {
+  import ClearIdsImplicits._
+  import CompanionImplicits._
+
   test(
     "TXUnitAsArgumentToNothing",
     "Daml engine returns Unit as argument to Nothing",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val template = NothingArgument(party, Primitive.Optional.empty)
-    val create = ledger.submitAndWaitRequest(party, template.create.command)
+    val template = new NothingArgument(party, None.toJava)
+    val create = ledger.submitAndWaitRequest(party, template.create.commands)
     for {
       transactionResponse <- ledger.submitAndWaitForTransaction(create)
     } yield {
@@ -30,7 +34,11 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
         "UnitAsArgumentToNothing",
         createdEvents(transactionResponse.getTransaction),
       )
-      assertEquals("UnitAsArgumentToNothing", contract.getCreateArguments, template.arguments)
+      assertEquals(
+        "UnitAsArgumentToNothing",
+        contract.getCreateArguments.clearValueIds,
+        Record.fromJavaProto(template.toValue.toProtoRecord),
+      )
     }
   })
 
@@ -40,11 +48,15 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
-      transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
+      _ <- ledger.create(party, new Dummy(party))
+      transactions <- ledger.flatTransactionsByTemplateId(Dummy.TEMPLATE_ID, party)
     } yield {
       val contract = assertSingleton("AgreementText", transactions.flatMap(createdEvents))
-      assertEquals("AgreementText", contract.getAgreementText, s"'$party' operates a dummy.")
+      assertEquals(
+        "AgreementText",
+        contract.getAgreementText,
+        s"'${party.getValue}' operates a dummy.",
+      )
     }
   })
 
@@ -54,7 +66,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, DummyWithParam(party))
+      _ <- ledger.create(party, new DummyWithParam(party))
       transactions <- ledger.flatTransactions(party)
     } yield {
       val contract = assertSingleton("AgreementTextDefault", transactions.flatMap(createdEvents))
@@ -68,7 +80,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.create(party, new Dummy(party))
       request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       verboseTransactions <- ledger.flatTransactions(request.update(_.verbose := true))
       verboseTransactionTrees <- ledger.transactionTrees(request.update(_.verbose := true))
@@ -91,7 +103,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
   })
 
   private def assertLabelsAreExposedCorrectly(
-      party: Primitive.Party,
+      party: Party,
       transactions: Seq[Transaction],
       transactionTrees: Seq[TransactionTree],
       labelIsNonEmpty: Boolean,

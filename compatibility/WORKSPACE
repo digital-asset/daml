@@ -1,5 +1,7 @@
 workspace(name = "compatibility")
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+
 # We import the main workspace for nix stuff and some shared Bazel rules.
 # This is mainly so we don’t have to symlink a bunch of files.
 # Note that you should never depend on targets from @daml.
@@ -345,7 +347,8 @@ load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "sc
 maven_install(
     name = "maven",
     artifacts = [
-        "com.daml:bindings-akka_2.13:{}".format(latest_stable_version),
+        "com.daml:bindings-akka_2.13:{}".format("2.7.6"),
+        "com.daml:bindings-pekko_2.13:{}".format(latest_stable_version),
         "com.daml:daml-lf-archive-reader_2.13:{}".format(latest_stable_version),
         "com.daml:daml-lf-transaction_2.13:{}".format(latest_stable_version),
         "com.daml:ledger-api-common_2.13:{}".format(latest_stable_version),
@@ -388,3 +391,65 @@ scala_repositories(
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
 register_toolchains("@daml//bazel_tools/scala:toolchain")
+
+# Copies of SDKs at correct versions for daml testing
+
+http_file(
+    name = "daml-sdk-2.7.5-tarball",
+    sha256 = "ea2730b1b50075686c82369a20da5a6b93c899e792d0db756218702427884148",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.5/daml-sdk-2.7.5-linux.tar.gz"],
+) if is_linux else None
+
+http_file(
+    name = "daml-sdk-2.7.5-tarball",
+    sha256 = "b8e8bdff694a075431686048311d3a2ad9b62a2c88bf8ef927123c1b5b2addfa",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.5/daml-sdk-2.7.5-windows.tar.gz"],
+) if is_windows else None
+
+http_file(
+    name = "daml-sdk-2.7.4-tarball",
+    sha256 = "c8625a752006821998b49b48d4c734b41dcedfda5ae72d6d5d6ce3eab443f625",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.4/daml-sdk-2.7.4-linux.tar.gz"],
+) if is_linux else None
+
+http_file(
+    name = "daml-sdk-2.7.4-tarball",
+    sha256 = "8040d524d487cfe260b0f94bdcfee1556548875b33666200e9d599f22c31e51c",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.4/daml-sdk-2.7.4-windows.tar.gz"],
+) if is_windows else None
+
+http_file(
+    name = "daml-sdk-2.7.1-tarball",
+    sha256 = "72b6151168b8229e040cf4ed033c9838c1f0d986e63f18186091280dc82f4ea9",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.1/daml-sdk-2.7.1-linux.tar.gz"],
+) if is_linux else None
+
+http_file(
+    name = "daml-sdk-2.7.1-tarball",
+    sha256 = "200d358103daaf3cd58910966f4a5059bf4bbd3a98964bf65c3414fb3ec6cd92",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.7.1/daml-sdk-2.7.1-windows.tar.gz"],
+) if is_windows else None
+
+#http_file(
+#    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
+#    sha256 = "80fffb3698d99d22a93387e0b3a4b85077159cca52470745d70ed4ffb5a6bdcb",
+#    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-linux.tar.gz"],
+#) if is_linux else None
+#
+#http_file(
+#    name = "daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-tarball",
+#    sha256 = "98af3f68ebe65880610ff95f1b5fcf104a3bcad15779913d3b040f0ac09f42b1",
+#    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231101.0/daml-sdk-2.8.0-snapshot.20231026.12262.0.vb12eb2ad-windows.tar.gz"],
+#) if is_windows else None
+
+http_file(
+    name = "daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball",
+    sha256 = "cf7b706076fa874b2913547bd6b064890155e656523ad94417300ead72ee19f4",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-linux.tar.gz"],
+) if is_linux else None
+
+http_file(
+    name = "daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball",
+    sha256 = "d2260542d3d63178dc879f96dfd72fcbe703366ce02b3520c28b29ac3817b70f",
+    urls = ["https://github.com/digital-asset/daml/releases/download/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-windows.tar.gz"],
+) if is_windows else None

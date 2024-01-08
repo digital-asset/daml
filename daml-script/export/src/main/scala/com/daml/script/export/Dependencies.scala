@@ -137,7 +137,7 @@ object Dependencies {
     // TODO(#17366): make this code more elegant once we refactor LanguageVersion
     val stablePackages =
       (StablePackages.ids(VersionRange(LanguageVersion.v1_dev, LanguageVersion.v1_dev))
-        | StablePackages.ids(VersionRange(LanguageVersion.v2_dev, LanguageVersion.v2_dev)))
+        | StablePackages.ids(VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_dev)))
     pkg.metadata.exists(m => providedLibraries.contains(m.name)) || stablePackages.contains(pkgId)
   }
 

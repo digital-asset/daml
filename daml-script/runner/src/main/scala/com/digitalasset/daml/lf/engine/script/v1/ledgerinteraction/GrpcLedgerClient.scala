@@ -5,13 +5,13 @@ package com.daml.lf.engine.script
 package v1.ledgerinteraction
 
 import java.util.UUID
+import java.time.Instant
+
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
-import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -40,6 +40,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier,
+  toTimestamp,
 }
 import com.daml.script.converter.ConverterException
 import io.grpc.{Status, StatusRuntimeException}
@@ -53,7 +54,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
+class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[Ref.ApplicationId])
     extends ScriptLedgerClient {
   override val transport = "gRPC API"
 
@@ -275,7 +276,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       disclosedContracts = ledgerDisclosures,
       commands = ledgerCommands,
       ledgerId = grpcClient.ledgerId.unwrap,
-      applicationId = applicationId.unwrap,
+      applicationId = applicationId.getOrElse(""),
       commandId = UUID.randomUUID.toString,
     )
     val request = SubmitAndWaitRequest(Some(apiCommands))
@@ -332,7 +333,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         readAs = readAs.toList,
         commands = ledgerCommands,
         ledgerId = grpcClient.ledgerId.unwrap,
-        applicationId = applicationId.unwrap,
+        applicationId = applicationId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
       )
       request = SubmitAndWaitRequest(Some(apiCommands))
@@ -366,7 +367,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       resp <- ClientAdapter
         .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
         .runWith(Sink.head)
-    } yield TimestampConversion.toLf(resp.getCurrentTime, TimestampConversion.ConversionMode.HalfUp)
+      instant = Instant.ofEpochSecond(resp.getCurrentTime.seconds, resp.getCurrentTime.nanos.toLong)
+    } yield Time.Timestamp.assertFromInstant(instant, java.math.RoundingMode.HALF_UP)
   }
 
   override def setStaticTime(time: Time.Timestamp)(implicit
@@ -383,7 +385,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         SetTimeRequest(
           grpcClient.ledgerId.unwrap,
           oldTime.currentTime,
-          Some(TimestampConversion.fromInstant(time.toInstant)),
+          Some(toTimestamp(time.toInstant)),
         )
       )
     } yield ()

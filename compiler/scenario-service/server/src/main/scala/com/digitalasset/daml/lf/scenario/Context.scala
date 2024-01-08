@@ -8,7 +8,14 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
-import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{
+  Identifier,
+  ModuleName,
+  PackageId,
+  PackageName,
+  PackageVersion,
+  QualifiedName,
+}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -16,6 +23,7 @@ import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
+import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
@@ -136,11 +144,23 @@ class Context(
     modDefns.values.foreach(defns ++= _)
   }
 
+  // TODO: https://github.com/digital-asset/daml/issues/17995
+  //  Get the package name and package version from the daml.yaml
+  private[this] val dummyMetadata = Some(
+    Ast.PackageMetadata(
+      name = PackageName.assertFromString("-dummy-package-name-"),
+      version = PackageVersion.assertFromString("0.0.0"),
+      upgradedPackageId = None,
+    )
+  )
+
   def allSignatures: Map[PackageId, Ast.PackageSignature] = {
     val extSignatures = this.extSignatures
     extSignatures.updated(
       homePackageId,
-      AstUtil.toSignature(Ast.Package(modules, extSignatures.keySet, languageVersion, None)),
+      AstUtil.toSignature(
+        Ast.Package(modules, extSignatures.keySet, languageVersion, dummyMetadata)
+      ),
     )
   }
 
@@ -254,6 +274,10 @@ class Context(
             logger.debug(e.getStackTrace.mkString("\n"))
             handleFailure(Error.Internal("Script.FailedCmd unexpected cause: " + e.getMessage))
         }
+      case Failure(e: converter.ConverterException) =>
+        handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
+      case Failure(e: com.daml.lf.engine.free.ConversionError) =>
+        handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
       case Failure(e) =>
         // something bad happened, we log and fail
         logger.error("Unexpected error type from script runner: " + e.getMessage)

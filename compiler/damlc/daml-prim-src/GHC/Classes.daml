@@ -51,7 +51,12 @@ module GHC.Classes(
     -- * Functions over Bool
     (&&), (||), not,
 
-    NumericScale (numericScale),
+    NumericScale (
+      numericScale
+#ifdef DAML_NAT_TYPE_ERASURE
+    , numericOne
+#endif
+    ),
     #ifdef DAML_BIGNUMERIC
     IsNumeric (..),
     #endif
@@ -399,6 +404,7 @@ not False               =  True
 -- by adding a type signature to the definition, or annotating the numeric
 -- literal directly (for example, instead of writing `3.14159` you can write
 -- `(3.14159 : Numeric 5)`).
+#ifndef DAML_NAT_TYPE_ERASURE
 class NumericScale (n : Nat) where
     -- | Get the scale of a `Numeric` as an integer. For example,
     -- `numericScale (3.14159 : Numeric 5)` equals `5`.
@@ -445,6 +451,58 @@ instance NumericScale 34 where numericScale _ = 34; numericScalePrivate _ = ()
 instance NumericScale 35 where numericScale _ = 35; numericScalePrivate _ = ()
 instance NumericScale 36 where numericScale _ = 36; numericScalePrivate _ = ()
 instance NumericScale 37 where numericScale _ = 37; numericScalePrivate _ = ()
+#else
+class NumericScale (n : Nat) where
+    -- | Get the scale of a `Numeric` as an integer. For example,
+    -- `numericScale (3.14159 : Numeric 5)` equals `5`.
+    numericScale : Int
+
+    -- | 1 with scale n
+    numericOne: Numeric n
+
+    -- | Hide
+    -- this prevents definition of orphan instances
+    privateUnit: ()
+
+instance NumericScale 0 where numericScale = 0; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 1 where numericScale = 1; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 2 where numericScale = 2; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 3 where numericScale = 3; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 4 where numericScale = 4; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 5 where numericScale = 5; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 6 where numericScale = 6; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 7 where numericScale = 7; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 8 where numericScale = 8; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 9 where numericScale = 9; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 10 where numericScale = 10; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 11 where numericScale = 11; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 12 where numericScale = 12; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 13 where numericScale = 13; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 14 where numericScale = 14; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 15 where numericScale = 15; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 16 where numericScale = 16; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 17 where numericScale = 17; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 18 where numericScale = 18; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 19 where numericScale = 19; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 20 where numericScale = 20; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 21 where numericScale = 21; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 22 where numericScale = 22; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 23 where numericScale = 23; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 24 where numericScale = 24; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 25 where numericScale = 25; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 26 where numericScale = 26; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 27 where numericScale = 27; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 28 where numericScale = 28; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 29 where numericScale = 29; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 30 where numericScale = 30; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 31 where numericScale = 31; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 32 where numericScale = 32; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 33 where numericScale = 33; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 34 where numericScale = 34; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 35 where numericScale = 35; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 36 where numericScale = 36; numericOne = primitive @"BENumericOne"; privateUnit = ();
+instance NumericScale 37 where numericScale = 37; numericOne = primitive @"BENumericOne"; privateUnit = ();
+#endif
 
 #ifdef DAML_BIGNUMERIC
 
@@ -458,9 +516,15 @@ class IsNumeric t where
     -- represented exactly in the target type.
     fromBigNumeric : BigNumeric -> t
 
+#ifndef DAML_NAT_TYPE_ERASURE
 instance NumericScale n => IsNumeric (Numeric n) where
     fromNumeric = primitive @"BECastNumericLegacy"
     fromBigNumeric = primitive @"BEBigNumericToNumericLegacy"
+#else
+instance NumericScale n => IsNumeric (Numeric n) where
+    fromNumeric = primitive @"BECastNumeric" (numericOne @n)
+    fromBigNumeric = primitive @"BEBigNumericToNumeric" (numericOne @n)
+#endif
 
 instance IsNumeric BigNumeric where
     fromNumeric = primitive @"BENumericToBigNumeric"

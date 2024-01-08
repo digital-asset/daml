@@ -22,6 +22,7 @@ da_haskell_library(
         "filelock",
         "filepath",
         "jwt",
+        "lens",
         "network",
         "process",
         "QuickCheck",

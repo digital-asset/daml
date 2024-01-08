@@ -9,6 +9,7 @@ da_haskell_library(
         "src/DA/Daml/LF/Proto3/Archive/Decode.hs",
         "src/DA/Daml/LF/Proto3/Decode.hs",
         "src/DA/Daml/LF/Proto3/DecodeV1.hs",
+        "src/DA/Daml/LF/Proto3/DecodeV2.hs",
     ],
     hackage_deps = [
         "base",

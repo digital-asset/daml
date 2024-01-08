@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
@@ -255,4 +256,6 @@ class ServicesMetrics(
 
   object pruning extends PruningMetrics(prefix :+ "pruning", labeledMetricsFactory)
 
+  val eventsByContractKeyCache: CacheMetrics =
+    new CacheMetrics(prefix :+ "events_by_contract_key_cache", labeledMetricsFactory)
 }

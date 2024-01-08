@@ -53,13 +53,13 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:bindings-java",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
-        "//language-support/java/bindings:bindings-java",
         "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -96,14 +96,14 @@ da_scala_test(
     ],
     deps = [
         ":lib",
-        ":test-daml-java.jar",
+        ":test-daml-java",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
-        "//language-support/java/bindings:bindings-java",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
@@ -211,8 +211,8 @@ scala_source_jar(
             ]),
             test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
-                ":test-model-%s.jar" % target,
-                "//language-support/java/bindings:bindings-java",
+                ":test-model-%s" % target,
+                "//canton:bindings-java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -310,7 +310,7 @@ java_library(
     name = "pkg-root.jar",
     srcs = [":pkg-root.srcjar"],
     deps = [
-        "//language-support/java/bindings:bindings-java",
+        "//canton:bindings-java",
     ],
 )
 
@@ -354,8 +354,8 @@ java_test(
             ),
             test_class = "com.daml.AllTests",
             deps = [
-                ":integration-tests-model-%s.jar" % target,
-                "//language-support/java/bindings:bindings-java",
+                ":integration-tests-model-%s" % target,
+                "//canton:bindings-java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -403,14 +403,13 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["cpu:4"],
     deps = [
-        ":ledger-tests-model.jar",
+        ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",
         "//daml-lf/data",
-        "//language-support/java/bindings:bindings-java",
         "//language-support/scala/bindings-pekko",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
@@ -434,8 +433,8 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/FromJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev.jar",
-        "//language-support/java/bindings:bindings-java",
+        ":test-model-2.dev",
+        "//canton:bindings-java",
     ],
 )
 
@@ -444,8 +443,8 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/ToJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev.jar",
-        "//language-support/java/bindings:bindings-java",
+        ":test-model-2.dev",
+        "//canton:bindings-java",
     ],
 )
 

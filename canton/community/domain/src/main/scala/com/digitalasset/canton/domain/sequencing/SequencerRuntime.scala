@@ -37,7 +37,7 @@ import com.digitalasset.canton.domain.service.grpc.GrpcDomainService
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
@@ -86,7 +86,6 @@ class SequencerRuntime(
     topologyManagerStatusO: Option[TopologyManagerStatus],
     storage: Storage,
     clock: Clock,
-    auditLogger: TracedLogger,
     authenticationConfig: SequencerAuthenticationConfig,
     additionalAdminServiceFactory: Sequencer => Option[ServerServiceDefinition],
     staticMembersToRegister: Seq[Member],
@@ -169,7 +168,6 @@ class SequencerRuntime(
   private val sequencerService = GrpcSequencerService(
     sequencer,
     metrics,
-    auditLogger,
     authenticationConfig.check,
     clock,
     sequencerDomainParamsLookup,
@@ -222,7 +220,6 @@ class SequencerRuntime(
       // can still re-subscribe with the token just before we removed it
       Traced.lift(sequencerService.disconnectMember(_)(_)),
       isTopologyInitializedPromise.future,
-      auditLogger,
     )
 
     val sequencerAuthenticationService =

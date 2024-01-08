@@ -7,6 +7,7 @@ module DA.Test.IncrementalBuilds (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast.Version as LF
 import Data.Foldable
 import qualified Data.Set as Set
 import Data.Traversable
@@ -22,11 +23,26 @@ main :: IO ()
 main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
-    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    defaultMain $ tests damlc damlScript scriptDar
+    v1TestArgs <- do
+      scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+      let lfVersion = LF.defaultOrLatestStable LF.V1
+      pure TestArgs{..}
+    v2TestArgs <- do
+      scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
+      let lfVersion = LF.defaultOrLatestStable LF.V2
+      pure TestArgs{..}
+    let testTrees = map tests [v1TestArgs, v2TestArgs]
+    defaultMain (testGroup "Incremental builds" testTrees)
 
-tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlc damlScript scriptDar = testGroup "Incremental builds"
+data TestArgs = TestArgs
+  { damlc :: FilePath
+  , damlScript :: FilePath
+  , scriptDar :: FilePath
+  , lfVersion :: LF.Version
+  }
+
+tests :: TestArgs -> TestTree
+tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
     [ test "No changes"
         [ ("daml/A.daml", unlines
            [ "module A where"
@@ -165,11 +181,13 @@ tests damlc damlScript scriptDar = testGroup "Incremental builds"
             , dir
             , "-o"
             , dar
+            , "--target=" <> LF.renderVersion lfVersion
             , "--incremental=yes" ]
-          callProcessSilent damlc 
+          callProcessSilent damlc
             [ "test"
             , "--project-root"
             , dir
+            , "--target=" <> LF.renderVersion lfVersion
             ]
           dalfFiles <- getDalfFiles $ dir </> ".daml/build"
           dalfModTimes <- for dalfFiles $ \f -> do
@@ -184,6 +202,7 @@ tests damlc damlScript scriptDar = testGroup "Incremental builds"
             , dir
             , "-o"
             , dar
+            , "--target=" <> LF.renderVersion lfVersion
             , "--incremental=yes" ]
           rebuilds <- forMaybeM dalfModTimes $ \(f, oldModTime) -> do
               newModTime <- getModificationTime f

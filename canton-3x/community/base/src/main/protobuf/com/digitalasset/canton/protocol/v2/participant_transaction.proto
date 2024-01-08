@@ -1,0 +1,84 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/common.proto";
+import "scalapb/scalapb.proto";
+
+// Messages sent by a participant as part of the transaction protocol
+
+// SessionKeyLookup
+
+message SessionKeyLookup {
+  // An asymmetrically encrypted randomness to generate the session key. This session key decrypts the
+  // randomness field in `EncryptedViewMessage`
+  bytes session_key_randomness = 1;
+
+  // The fingerprint of the public key that was used to encrypt the session key randomness
+  string fingerprint = 2;
+}
+
+// EncryptedViewMessage
+
+message EncryptedViewMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  bytes view_tree = 1;
+
+  // The symmetric encryption scheme used to encrypt the view tree and the session key
+  com.digitalasset.canton.crypto.v0.SymmetricKeyScheme encryption_scheme = 2;
+
+  com.digitalasset.canton.crypto.v0.Signature submitter_participant_signature = 3; // optional
+  bytes view_hash = 4;
+  // Randomness that is symmetrically encrypted with a session key. Used in the HKDF to derive the encryption keys for the view and its subviews
+  bytes randomness = 5;
+  repeated SessionKeyLookup session_key_randomness = 6;
+  string domain_id = 7;
+  v0.ViewType view_type = 8;
+}
+
+// Compared to v1: templateId added to ExerciseActionDescription
+message ActionDescription {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof description {
+    ActionDescription.CreateActionDescription create = 1;
+    ExerciseActionDescription exercise = 2;
+    ActionDescription.FetchActionDescription fetch = 3;
+    ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+  }
+
+  message CreateActionDescription {
+    string contract_id = 1;
+    bytes node_seed = 2;
+    string version = 3;
+  }
+
+  message ExerciseActionDescription {
+    string input_contract_id = 1;
+    string choice = 2;
+    bytes chosen_value = 3;
+    repeated string actors = 4;
+    bool by_key = 5;
+    bytes node_seed = 6;
+    string version = 7;
+    bool failed = 8;
+    optional string interface_id = 9;
+    optional string template_id = 10;
+  }
+
+  message FetchActionDescription {
+    string input_contract_id = 1;
+    repeated string actors = 2;
+    bool by_key = 3;
+    string version = 4;
+  }
+
+  message LookupByKeyActionDescription {
+    v0.GlobalKey key = 1;
+  }
+}

@@ -19,6 +19,7 @@ import DA.Daml.Project.Types
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
+import DA.Test.Util (withResourceCps)
 import qualified Data.HashSet as HashSet
 import Data.List
 import qualified Data.Set as S
@@ -43,17 +44,25 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
-lfVersion :: LF.Version
-lfVersion = LF.versionDefault
-
 main :: IO ()
-main =
+main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
+    defaultMain $
+        testGroup
+            "Script Service"
+            [ withResourceCps (withScriptService lfVersion) (testScriptService lfVersion)
+            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+            ]
+
+withScriptService :: LF.Version -> (SS.Handle -> IO ()) -> IO ()
+withScriptService lfVersion action =
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
-      setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script.dar"
+      scriptDar <- locateRunfiles $ case LF.versionMajor lfVersion of
+          LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
+          LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,
@@ -69,26 +78,32 @@ main =
         let projDir = toNormalizedFilePath' dir
         installDependencies
             projDir
-            options
-            pSdkVersion
+            (options lfVersion)
+            (unsafeResolveReleaseVersion pSdkVersion)
             pDependencies
             pDataDependencies
         createProjectPackageDb
           projDir
-          options
+          (options lfVersion)
           pModulePrefixes
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService ->
-        defaultMain $
+      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService -> do
+        action scriptService
+  where
+    scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+
+testScriptService :: LF.Version -> IO SS.Handle -> TestTree
+testScriptService lfVersion getScriptService =
           testGroup
-            "Script Service"
+            ("LF " <> LF.renderVersion lfVersion)
             [ testCase "createCmd + exerciseCmd + createAndExerciseCmd" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import Daml.Script",
                       "template T",
@@ -139,7 +154,8 @@ main =
               testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import DA.Assert",
                       "import Daml.Script",
@@ -164,7 +180,8 @@ main =
               testCase "fetch and exercising by key shows key in log" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import Daml.Script",
                       "",
@@ -237,7 +254,8 @@ main =
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import Daml.Script",
                       "template MultiSignatory",
@@ -341,7 +359,8 @@ main =
                 do
                   rs <-
                     runScripts
-                      scriptService
+                      getScriptService
+                      lfVersion
                       [ "module Test where",
                         "import Daml.Script",
                         "import DA.Assert",
@@ -420,7 +439,8 @@ main =
               testCase "submitMustFail" $ do
                   rs <-
                     runScripts
-                      scriptService
+                      getScriptService
+                      lfVersion
                       [ "module Test where",
                         "import Daml.Script",
                         "template T",
@@ -445,7 +465,8 @@ main =
               testCase "contract keys" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import Daml.Script",
                       "import DA.Assert",
@@ -478,7 +499,8 @@ main =
               testCase "time" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import Daml.Script",
                       "import DA.Date",
@@ -534,7 +556,8 @@ main =
               testCase "partyManagement" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where",
                       "import DA.Assert",
                       "import DA.Optional",
@@ -581,7 +604,8 @@ main =
             , testCase "queryContractId/Key" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import Daml.Script"
@@ -640,7 +664,8 @@ main =
               testCase "trace" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import Daml.Script"
                     , "template T"
@@ -673,7 +698,8 @@ main =
               testCase "divulgence warning" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import Daml.Script"
                     , "template T"
@@ -774,7 +800,8 @@ main =
               testCase "multi-party query" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.List"
@@ -811,7 +838,8 @@ main =
               testCase "multi-party submissions" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.List"
@@ -845,7 +873,8 @@ main =
               testCase "submitTree" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.Foldable"
@@ -879,7 +908,8 @@ main =
               testCase "local key visibility" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.Foldable"
@@ -934,7 +964,8 @@ main =
               testCase "exceptions" $ do
                 rs <-
                   runScripts
-                    scriptService
+                    getScriptService
+                    lfVersion
                     [ "module Test where"
                     , "import DA.Exception"
                     , "import DA.Assert"
@@ -1000,7 +1031,7 @@ main =
                 expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
                 expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception",
               testCase "user management" $ do
-                rs <- runScripts scriptService
+                rs <- runScripts getScriptService lfVersion
                   [ "module Test where"
                   , "import DA.Assert"
                   , "import Daml.Script"
@@ -1083,7 +1114,7 @@ main =
                 expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
                     matchRegex r "Active contracts: \n",
               testCase "implicit party allocation" $ do
-                rs <- runScripts scriptService
+                rs <- runScripts getScriptService lfVersion
                   [ "module Test where"
                   , "import DA.Assert"
                   , "import DA.Optional"
@@ -1114,7 +1145,7 @@ main =
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
               -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
               testCase "rollback archive" $ do
-                rs <- runScripts scriptService
+                rs <- runScripts getScriptService lfVersion
                   [ "module Test where"
                   , "import Daml.Script"
                   , "import DA.Exception"
@@ -1150,7 +1181,6 @@ main =
                    matchRegex r "Active contracts:  #0:0\n"
             ]
   where
-    scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
     vr n = VRScenario (toNormalizedFilePath' "Test.daml") n
 
 matchRegex :: T.Text -> T.Text -> Bool
@@ -1196,11 +1226,11 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
     unless (pred err) $
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show err
 
-options :: Options
-options = defaultOptions (Just lfVersion)
+options :: LF.Version -> Options
+options lfVersion = defaultOptions (Just lfVersion)
 
-runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
-runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
+runScripts :: IO SS.Handle -> LF.Version -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \ideState -> do
   setBufferModified ideState file $ Just $ T.unlines fileContent
   setFilesOfInterest ideState (HashSet.singleton file)
   mbResult <- runActionSync ideState $ use RunScripts file
@@ -1226,8 +1256,9 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
     getIdeState = do
       vfs <- makeVFSHandle
       logger <- Logger.newStderrLogger Logger.Error "script-service"
+      service <- getService
       getDamlIdeState
-        options
+        (options lfVersion)
         (StudioAutorunAllScenarios True)
         (Just service)
         logger

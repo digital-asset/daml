@@ -10,6 +10,7 @@ module DA.Test.Util (
     withTempFileResource,
     withTempDirResource,
     withEnv,
+    withResourceCps,
     nullDevice,
     withDevNull,
     assertFileExists,
@@ -19,6 +20,8 @@ module DA.Test.Util (
     JvmMemoryLimits(..),
 ) where
 
+import Control.Concurrent (putMVar, newEmptyMVar, takeMVar, forkIO)
+import Control.Lens (view, _1)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift (MonadUnliftIO)
@@ -63,6 +66,34 @@ withTempFileResource f = withResource newTempFile snd (f . fmap fst)
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
 withTempDirResource f = withResource newTempDir delete (f . fmap fst)
   where delete (d, _delete) = removePathForcibly d
+
+-- | Like Tasty's @withResource@, but instead of accepting setup and teardown
+-- functions, it accepts a continuation-passing style function that encapsulates
+-- both. Such functions are pervasive in our codebase (e.g. @withDevNull@).
+--
+-- >>> :t withResourceCps withDevNull
+-- withResourceCps withDevNull :: (IO Handle -> TestTree) -> TestTree
+withResourceCps :: ((a -> IO ()) -> IO ()) -> ((IO a -> TestTree) -> TestTree)
+withResourceCps withResourceIO f = withResource acquire release action
+  where
+    acquire = do
+        resourceMVar <- newEmptyMVar
+        doneRunningActionMVar <- newEmptyMVar
+        doneCleaningUpMVar <- newEmptyMVar
+        _ <-
+            forkIO $ do
+                withResourceIO
+                    ( \resource -> do
+                        putMVar resourceMVar resource
+                        takeMVar doneRunningActionMVar
+                    )
+                putMVar doneCleaningUpMVar ()
+        resource <- takeMVar resourceMVar
+        return (resource, doneRunningActionMVar, doneCleaningUpMVar)
+    release (_, doneMVar, doneCleaningUpMVar) = do
+      putMVar doneMVar ()
+      takeMVar doneCleaningUpMVar
+    action = f . fmap (view _1)
 
 nullDevice :: FilePath
 nullDevice

@@ -1,11 +1,14 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module DA.Time
   ( RelTime
+#ifdef DAML_SCENARIOS
   , pass
+#endif
   , addRelTime
   , subTime
   , wholeDays
@@ -23,9 +26,11 @@ module DA.Time
 import DA.Time.Types hiding (microseconds)
 import DA.Internal.Time
 
+#ifdef DAML_SCENARIOS
 -- | Pass simulated scenario time by argument
 pass : RelTime -> Scenario Time
 pass rt = internal_pass (convertRelTimeToMicroseconds rt) -- passes simulated scenario time by specified time offset
+#endif
 
 -- | Adjusts `Time` with given time offset.
 addRelTime : Time -> RelTime -> Time

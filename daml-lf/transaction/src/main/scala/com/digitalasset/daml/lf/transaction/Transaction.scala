@@ -430,11 +430,11 @@ sealed abstract class HasTxNodes {
     */
   final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.LookupByKey(_, _, Some(coid), _))) =>
+      case (acc, (_, Node.LookupByKey(_, _, _, Some(coid), _))) =>
         acc + coid
       case (acc, _) => acc
     } -- localContracts.keySet

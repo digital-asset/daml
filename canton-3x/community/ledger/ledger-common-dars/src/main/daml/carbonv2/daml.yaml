@@ -1,0 +1,10 @@
+sdk-version: 2.9.0-snapshot.20231231.12528.0.vca9bd5e6
+name: carbonv2-tests
+data-dependencies: 
+- ../../../../scala-2.13/resource_managed/main/carbonv1-tests.dar
+source: .
+version: 3.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib
+- daml3-script
