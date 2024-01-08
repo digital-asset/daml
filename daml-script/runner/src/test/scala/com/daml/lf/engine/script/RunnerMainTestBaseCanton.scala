@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.script
 
-import com.daml.http.HttpServiceTestFixture
 import com.daml.integrationtest.{CantonFixture, CantonFixtureWithResource}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
@@ -12,49 +11,17 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Files}
 import org.scalatest.{Suite, Succeeded}
 import org.scalatest.compatible.Assertion
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
-trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with RunnerMainTestBase {
+trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Unit] with RunnerMainTestBase {
   self: Suite =>
-  protected def jsonApiPort: Port = additional
 
   override protected def makeAdditionalResource(
       ports: Vector[CantonFixture.LedgerPorts]
-  ): ResourceOwner[Port] =
-    new ResourceOwner[Port] {
-      override def acquire()(implicit
-          context: ResourceContext
-      ): Resource[Port] = {
-        def start(): Future[(Port, Promise[Unit])] = {
-          // Used to wait until http service is started, resolved at start of withHttpService callback, gives back port
-          val startingPromise = Promise[Port]()
-          // Used to stop the http service, by having withhttpService wait on it, resolved in stop()
-          val stoppingPromise = Promise[Unit]()
-
-          val useTls =
-            if (tlsEnable) HttpServiceTestFixture.UseTls.Tls
-            else HttpServiceTestFixture.UseTls.NoTls
-
-          val _ =
-            HttpServiceTestFixture.withHttpService(
-              "NonTlsRunnerMainTest",
-              ports.head.ledgerPort,
-              None,
-              None,
-              useTls = useTls,
-            ) { case (uri, _, _, _) =>
-              startingPromise.success(Port(uri.effectivePort))
-              stoppingPromise.future
-            }
-
-          startingPromise.future.map { port => (port, stoppingPromise) }
-        }
-        def stop(r: (Port, Promise[Unit])) = Future {
-          r._2.success(())
-          ()
-        }
-        Resource(start())(stop).map(_._1)
-      }
+  ): ResourceOwner[Unit] =
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+        Resource(Future.successful(()))(Future.successful)
     }
 
   private def didUpload(dar: Path): Future[Boolean] = {
@@ -92,9 +59,6 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Port] with Runn
 
   def withGrpcParticipantConfig[A](f: Path => Future[A]): Future[A] =
     withParticipantConfig(ports.head, f)
-
-  def withJsonParticipantConfig[A](f: Path => Future[A]): Future[A] =
-    withParticipantConfig(jsonApiPort, f)
 
   def withParticipantConfig[A](port: Port, f: Path => Future[A]): Future[A] = {
     implicit val ec: ExecutionContext = ExecutionContext.global
