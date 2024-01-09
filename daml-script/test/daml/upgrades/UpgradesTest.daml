@@ -624,15 +624,6 @@ templateVariantDowngradeFromNew = do
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
-queryKeyTest : forall t1 t2 k. (Template t1, HasAgreement t1, TemplateKey t2 k, Eq t2, Show t2) => (Party -> t1) -> (Party -> k) -> (Party -> t2) -> Script ()
-queryKeyTest makeV1Contract makeV2Key makeExpectedV2Contract = do
-  a <- allocateParty "alice"
-  cid <- withExplicitPackageIds $ a `submit` createCmd (makeV1Contract a)
-  keyRes <- queryContractKey a $ makeV2Key a
-  case keyRes of
-    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == makeExpectedV2Contract a -> pure ()
-    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, makeExpectedV2Contract a) <> ", got " <> show keyRes
-
 queryKeyUnchanged : Script ()
 queryKeyUnchanged = do
   a <- allocateParty "alice"
@@ -656,20 +647,6 @@ fetchKeyUnchanged = do
   (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyFetch $ V2.UnchangedKeyKey a 1)
   foundContract === V2.UnchangedKey a 1 None
   show foundCid === show cid
-
-exerciseUpdateKeyTest
-  : forall t1 t2 c
-  . (Template t1, HasAgreement t1, HasAgreement t2, Choice t2 c Text)
-  => (Party -> t1)
-  -> (Party -> t2)
-  -> (Party -> c)
-  -> Text
-  -> Script ()
-exerciseUpdateKeyTest makeV1Contract makeV2HelperContract makeV2HelperChoice expectedResult = withExplicitPackageIds do
-  a <- allocateParty "alice"
-  _ <- a `submit` createCmd (makeV1Contract a)
-  res <- a `submit` createAndExerciseCmd (makeV2HelperContract a) (makeV2HelperChoice a)
-  expectedResult === res
 
 exerciseUpdateKeyUnchanged : Script ()
 exerciseUpdateKeyUnchanged = do
