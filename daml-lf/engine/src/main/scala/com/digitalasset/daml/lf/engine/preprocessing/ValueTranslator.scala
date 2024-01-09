@@ -199,107 +199,77 @@ private[lf] final class ValueTranslator(
                 val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
 
+                def addMissingField(lbl: Name, ty: Type): (Option[Name], Value) =
+                  ty match {
+                    // If missing field is optional, fill it with None
+                    case TApp(TBuiltin(BTOptional), _) => (Some(lbl), Value.ValueOptional(None))
+                    // Else, throw error
+                    case _ =>
+                      typeError(
+                        s"Missing non-optional field $lbl, cannot upgrade non-optional fields."
+                      )
+                  }
+
                 if (config.enableUpgrade) {
                   val oLabeledFlds = 
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
                       .filter(Function.const(config.allowFieldReordering))
 
-                  // correctFields: (correct only by label/position) gives the value and type, length <= targetFieldsAndTypes
-                  // incorrectFields: Left = missing fields, type given. Right = additional fields, value given, name optional.
-                  // In the case of labelled fields, the user can provide extra and missing fields at the same time
-                  //   but we disallow this. Quoting that the presence of extra fields implies an upgraded contract, and as such
-                  //   there cannot be missing fields - error
-                  val (correctFields, incorrectFields): (
-                      ImmArray[(Name, Value, Type)],
-                      Option[Either[ImmArray[(Name, Type)], ImmArray[(Option[Name], Value)]]],
+                  // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
+                  //   filled with Nones when type is Optional
+                  // extraFields: Unknown additional fields with name and value
+                  val (correctFields, extraFields): (
+                      Seq[(Name, Value, Type)],
+                      ImmArray[(Option[Name], Value)],
                   ) =
                     oLabeledFlds match {
                       // Not fully labelled (or reordering disabled), so order dependent
                       // Additional fields should downgrade, missing fields should upgrade
                       case None => {
-                        val correctFields = (targetFieldsAndTypes zip sourceElements).map { case ((lbl, typ), (mbLbl, v)) =>
+                        val correctFields = targetFieldsAndTypes.toSeq.zipWithIndex.map { case ((lbl, ty), i) =>
+                          val (mbLbl, v) = sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
                           mbLbl.foreach(lbl_ =>
                             if (lbl_ != lbl)
                               typeError(
                                 s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
                               )
                           )
-                          (lbl, v, typ)
+                          (lbl, v, ty)
                         }
                         val numS = sourceElements.length
                         val numT = targetFieldsAndTypes.length
-                        val incorrectFields =
-                          if (numT > numS) // Missing fields on source
-                            Some(Left(targetFieldsAndTypes.strictSlice(numS, numT)))
-                          else if (numS > numT) // Extra fields on source
-                            Some(Right(sourceElements.strictSlice(numT, numS)))
+                        // We have extra fields
+                        val extraFields = 
+                          if (numS > numT)
+                            sourceElements.strictSlice(numT, numS)
                           else
-                            None
-                        (correctFields, incorrectFields)
+                            ImmArray.empty
+
+                        (correctFields, extraFields)
                       }
                       // Fully labelled and allowed to re-order
                       case Some(labeledFlds) => {
-                        // State is (correctFields (backwards), remainingSourceFieldsMap, missingFields (backwards))
-                        val initialState: (Seq[(Name, Value, Type)], Map[Name, Value], Seq[(Name, Type)]) =
-                          (Seq(), labeledFlds, Seq())
+                        // new logic
+                        // iterate the expected fields, replace any missing with none
+                        //   while iterating, remove from remaining
 
-                        val (backwardsCorrectFlds, remainingLabeledFlds, backwardsMissingFlds) =
-                          targetFieldsAndTypes.foldLeft(initialState) {
-                            // Taking known labels from the type, order retained but backwards, since we need to carry information forwards
-                            // Missing fields seq is empty, since we haven't seen any yet, we're still consuming known fields.
-                            case ((fs, labeledFlds, Seq()), (lbl, ty)) =>
-                              labeledFlds.get(lbl) match {
-                                // Missing field, set the missing fields seq
-                                case None => (fs, labeledFlds, Seq(lbl -> ty))
-                                // Field exists, add the value to correct fields, remove from remainingLabeledFlds
-                                case Some(fld) => ((lbl, fld, ty) +: fs, labeledFlds - lbl, Seq())
-                              }
+                        val initialState: (Seq[(Name, Value, Type)], Map[Name, Value]) = (Seq(), labeledFlds)
 
-                            // Taking unknown labels from the type, note that all unknown labels must be together at the end, so finding
-                            // a known label at this point means the record is malformed.
-                            // TODO[SW]: Following discussion with Simon Maxen, we may not want this. Given:
-                            // V1 has fields 1-3
-                            // V2 has fields 1-5
-                            // Providing fields 1-3 and 5 to V1 will fail with this implementation, but may not be desirable
-                            // Note that an _explicit None_ value for field 4 here would still pass.
-                            case ((fs, labeledFlds, missingFlds), (lbl, ty)) =>
-                              labeledFlds
-                                .get(lbl)
-                                .fold(
-                                  (fs, labeledFlds, (lbl -> ty) +: missingFlds)
-                                ) { _ =>
-                                  typeError(
-                                    s"Missing non-upgradeable fields (due to existence of $lbl): ${missingFlds.map(_._1).mkString(",")}"
-                                  )
-                                }
+                        val (backwardsCorrectFields, remaining) =
+                          targetFieldsAndTypes.foldLeft(initialState) { case ((correctFields, remaining), (lbl, ty)) =>
+                            val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
+                            ((lbl, v, ty) +: correctFields, remaining - lbl)
                           }
-
+                        
                         // Put our fields the correct way around.
-                        val correctFields = ImmArray.from(backwardsCorrectFlds.reverse)
-                        val missingFields = ImmArray.from(backwardsMissingFlds.reverse)
+                        val correctFields = backwardsCorrectFields.reverse
                         // Wrap additional field names in Some to match with ordered case.
-                        val extraFields = ImmArray.from(remainingLabeledFlds.toSeq.map { case (lbl, v) =>
+                        val extraFields = ImmArray.from(remaining.toSeq.map { case (lbl, v) =>
                           (Some(lbl), v)
                         })
 
-                        val incorrectFields =
-                          if (extraFields.nonEmpty)
-                            if (missingFields.nonEmpty)
-                              typeError(
-                                s"""Both additional and missing fields provided, upgrade/downgrade cannot be performed.
-                                  |Additional fields: ${remainingLabeledFlds.keys.mkString(",")}
-                                  |Missing fields: ${missingFields.map(_._1).iterator.mkString(",")}
-                                  """.stripMargin
-                              )
-                            else
-                              Some(Right(extraFields))
-                          else if (missingFields.nonEmpty)
-                            Some(Left(missingFields))
-                          else
-                            None
-
-                        (correctFields, incorrectFields)
+                        (correctFields, extraFields)
                       }
                     }
 
@@ -309,40 +279,24 @@ private[lf] final class ValueTranslator(
                     lbl -> go(replacedTyp, v, newNesting)
                   }
 
-                  val translatedFields = incorrectFields match {
-                    case None => translatedCorrectFields
-                    case Some(Left(missingFields)) =>
-                      translatedCorrectFields slowAppend missingFields.map {
-                        // If missing field is optional, fill it with None
-                        case (lbl, TApp(TBuiltin(BTOptional), _)) => lbl -> SValue.SOptional(None)
-                        // Else, throw error
-                        case (lbl, _) =>
-                          typeError(
-                            s"Missing non-optional field $lbl, cannot upgrade non-optional fields."
-                          )
-                      }
-                    case Some(Right(extraFields)) => {
-                      extraFields.foreach {
-                        // If additional field is None, do nothing
-                        case (_, ValueOptional(None)) =>
-                        // Else, error depending on type
-                        case (oLbl, ValueOptional(Some(_))) =>
-                          typeError(
-                            s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
-                          )
-                        case (oLbl, _) =>
-                          typeError(
-                            s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
-                          )
-                      }
-                      translatedCorrectFields
-                    }
+                  extraFields.foreach {
+                    // If additional field is None, do nothing
+                    case (_, ValueOptional(None)) =>
+                    // Else, error depending on type
+                    case (oLbl, ValueOptional(Some(_))) =>
+                      typeError(
+                        s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
+                      )
+                    case (oLbl, _) =>
+                      typeError(
+                        s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
+                      )
                   }
 
                   SValue.SRecord(
                     tyCon,
-                    translatedFields.map(_._1),
-                    translatedFields.iterator.map(_._2).to(ArrayList),
+                    ImmArray.from(translatedCorrectFields.map(_._1)),
+                    translatedCorrectFields.map(_._2).to(ArrayList),
                   )
                 } else {
 
