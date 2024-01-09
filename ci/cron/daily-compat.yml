@@ -166,6 +166,134 @@ jobs:
                                        --project daml
           fi
 
+  - job: update_canton_2x
+    timeoutInMinutes: 60
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+        persistCredentials: true
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          
+          eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
+          
+          git fetch
+          git checkout origin/main-2.x
+          
+          get_canton_version_for_major_version() {
+            major=$1
+            curl -u $AUTH \
+                 --fail \
+                 --location \
+                 --silent \
+                 https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
+            | jq -r '.children[].uri' \
+            | sed -e 's/^\///' \
+            | grep -P "^${major}\.\d+\.\d+" \
+            | sort -V \
+            | tail -1
+          }
+          
+          canton_version_to_commitish() {
+            canton_version=$1
+            STABLE_REGEX="\d+\.\d+\.\d+"
+            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+            if (echo "$1" | grep -q -P "${SNAPSHOT_REGEX}"); then
+              # Extracting commit (short) sha from snapshot version
+              echo "${canton_version: -8}"
+            else
+              # relying on stable version tag
+              echo "v$canton_version"
+            fi
+          }
+          
+          canton2_version=$(get_canton_version_for_major_version 2)
+          canton3_version=$(get_canton_version_for_major_version 3)
+          
+          ### update binaries ###
+          
+          ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton2_version/canton-enterprise-$canton2_version.tar.gz"
+          ee_tmp=$(mktemp)
+          curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
+          ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
+          ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton2_version/$ee_sha/canton-enterprise-$canton2_version.tar.gz
+          if ! curl -u $AUTH -f -I $ee_target_url; then
+              curl -u $AUTH \
+                   -f \
+                   -X PUT \
+                   -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
+                   -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
+                   -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
+                   -T $ee_tmp \
+                   $ee_target_url
+          fi
+          
+          sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
+          sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton2_version|" test-common/canton/BUILD.bazel
+          sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
+          sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
+          
+          ### code drop ###
+          
+          copy_canton_code() {
+            canton_version=$1
+            canton_dir=$2
+          
+            commitish=$(canton_version_to_commitish $canton_version)
+            tmp=$(mktemp -d)
+            trap "rm -rf ${tmp}" EXIT
+          
+            git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
+            git -C $tmp checkout $commitish
+            for path in community daml-common-staging README.md; do
+              src=$tmp/$path
+              dst=$canton_dir/$path
+              rm -rf $dst
+              mkdir -p $(dirname $dst)
+              cp -rf $src $dst
+              git add $dst
+            done
+          }
+          
+          copy_canton_code $canton2_version canton
+          copy_canton_code $canton3_version canton-3x
+          
+          ### create PR ###
+          
+          commit_date=$(git -C $tmp log -n1 --format=%cd --date=format:%Y%m%d HEAD)
+          number_of_commits=$(git -C $tmp rev-list --count HEAD)
+          commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
+          canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
+          branch="canton-update-$canton_tag-$canton2_version-$canton3_version"
+          
+          if git diff --exit-code origin/main -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
+              echo "Already up-to-date with latest Canton source & snapshot."
+          else
+              if [ "main" = "$(Build.SourceBranchName)" ]; then
+                  git add build.sh test-common/canton/BUILD.bazel
+                  open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton" "main-2.x"
+                  az extension add --name azure-devops
+                  trap "az devops logout" EXIT
+                  echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+                  az pipelines build queue --branch "$branch" \
+                                           --definition-name "PRs" \
+                                           --org "https://dev.azure.com/digitalasset" \
+                                           --project daml
+              else
+                  echo "Would open PR if this were running on main."
+              fi
+          fi
+        env:
+          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
   - job: update_canton
     timeoutInMinutes: 60
     pool:
@@ -277,7 +405,7 @@ jobs:
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add build.sh test-common/canton/BUILD.bazel
-                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton"
+                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton" "main"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
@@ -337,7 +465,8 @@ jobs:
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
                 perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, update_canton, compat_versions_pr]
+                blackduck_scan, run_notices_pr_build, update_canton, update_canton_2x,
+                compat_versions_pr]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
@@ -353,6 +482,7 @@ jobs:
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
       update_canton: $[ dependencies.update_canton.result ]
+      update_canton_2x: $[ dependencies.update_canton_2x.result ]
       compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
     - template: ../bash-lib.yml
@@ -373,6 +503,7 @@ jobs:
            && "$(perf_speedy)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
            && "$(update_canton)" == "Succeeded"
+           && "$(update_canton_2x)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
