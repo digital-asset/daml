@@ -39,11 +39,11 @@ cat << EOF > $@
 package com.digitalasset.canton.buildinfo
 
 case object BuildInfo {{
-  val version: String = "2.7.0-SNAPSHOT"
+  val version: String = "3.0.0-SNAPSHOT"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val protocolVersions = List("3", "4", "5")
+  val protocolVersions = Seq()
   override val toString: String = {{
     "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
       version, scalaVersion, sbtVersion, damlLibrariesVersion, protocolVersions
