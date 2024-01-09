@@ -14,7 +14,8 @@ import com.daml.lf.data._
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
   def fold[B](f: (A, A) => B): B = f(past, present)
-  def zip[B, C](that: Upgrading[B], f: (A, B) => C) = Upgrading(f(this.past, that.past), f(this.present, that.present))
+  def zip[B, C](that: Upgrading[B], f: (A, B) => C) =
+    Upgrading(f(this.past, that.past), f(this.present, that.present))
 }
 
 case class UpgradeError(message: String) extends Throwable(message)
@@ -22,7 +23,8 @@ case class UpgradeError(message: String) extends Throwable(message)
 sealed abstract class UpgradedRecordOrigin
 
 final case class TemplateBody(template: Ref.DottedName) extends UpgradedRecordOrigin
-final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName) extends UpgradedRecordOrigin
+final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName)
+    extends UpgradedRecordOrigin
 final case object TopLevel extends UpgradedRecordOrigin
 
 object Typecheck {
@@ -70,12 +72,15 @@ object Typecheck {
 
   def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
     def datatypes(module: Ast.Module): Map[Ref.DottedName, Ast.DDataType] =
-          module.definitions.flatMap(_ match {
-            case (k, v: Ast.DDataType) => Some((k, v));
-            case _ => None;
-          })
+      module.definitions.flatMap(_ match {
+        case (k, v: Ast.DDataType) => Some((k, v));
+        case _ => None;
+      })
 
-    def dataTypeOriginAndShouldCheck(module: Ast.Module, name: Ref.DottedName): (UpgradedRecordOrigin, Boolean) = {
+    def dataTypeOriginAndShouldCheck(
+        module: Ast.Module,
+        name: Ref.DottedName,
+    ): (UpgradedRecordOrigin, Boolean) = {
       module.templates.get(name) match {
         case Some(template) => (TemplateBody(name), true);
         case _ => {
@@ -89,7 +94,8 @@ object Typecheck {
           }
 
           choices.get(name) match {
-            case Some((templateName, choiceName)) => (TemplateChoiceInput(templateName, choiceName), true);
+            case Some((templateName, choiceName)) =>
+              (TemplateChoiceInput(templateName, choiceName), true);
             case _ => (TopLevel, true)
           }
         }
@@ -108,18 +114,22 @@ object Typecheck {
         (_: Ast.DDataType) => UpgradeError(s"MissingDataCon(t)"),
       )
       _ <- Try {
-        existingDatatypes.map({ case (dtName, dt) => {
-          val originAndShouldCheck = module.map(dataTypeOriginAndShouldCheck(_, dtName))
-          if (originAndShouldCheck.present._1 != originAndShouldCheck.past._1) {
-            Failure(UpgradeError("RecordChangedOrigin"))
-          } else {
-            if (originAndShouldCheck.present._2) {
-              checkDatatype(originAndShouldCheck.present._1, dt)
-            } else {
-              Success(())
+        existingDatatypes
+          .map({
+            case (dtName, dt) => {
+              val originAndShouldCheck = module.map(dataTypeOriginAndShouldCheck(_, dtName))
+              if (originAndShouldCheck.present._1 != originAndShouldCheck.past._1) {
+                Failure(UpgradeError("RecordChangedOrigin"))
+              } else {
+                if (originAndShouldCheck.present._2) {
+                  checkDatatype(originAndShouldCheck.present._1, dt)
+                } else {
+                  Success(())
+                }
+              }
             }
-          }
-        } }).map(_.get)
+          })
+          .map(_.get)
       }
     } yield ()
   }
@@ -147,7 +157,8 @@ object Typecheck {
 
   def checkDatatype(origin: UpgradedRecordOrigin, datatype: Upgrading[Ast.DDataType]): Try[Unit] = {
     datatype.map(_.cons) match {
-      case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) => checkFields(origin, Upgrading(past, present))
+      case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
+        checkFields(origin, Upgrading(past, present))
       case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) => Try(())
       case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) => Try(())
       case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
@@ -157,19 +168,19 @@ object Typecheck {
 
   def checkFields(origin: UpgradedRecordOrigin, records: Upgrading[Ast.DataRecord]): Try[Unit] = {
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
-          records.map(rec => Map.from(rec.fields.iterator))
+      records.map(rec => Map.from(rec.fields.iterator))
     def fieldTypeUnchanged(typ: Upgrading[Ast.Type]): Boolean =
-          AlphaEquiv.alphaEquiv(typ.past, typ.present)
+      AlphaEquiv.alphaEquiv(typ.past, typ.present)
     def fieldTypeOptional(typ: Ast.Type): Boolean =
-          typ match {
-            case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => false
-            case _ => true
-          }
+      typ match {
+        case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => false
+        case _ => true
+      }
 
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
     if (_deleted.nonEmpty) {
       Failure(UpgradeError("RecordFieldsMissing"))
-    } else if (! _existing.forall({ case (_field, typ) => fieldTypeUnchanged(typ) })) {
+    } else if (!_existing.forall({ case (_field, typ) => fieldTypeUnchanged(typ) })) {
       Failure(UpgradeError("RecordFieldsExistingChanged"))
     } else if (_new_.find({ case (field, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
       Failure(UpgradeError("RecordFieldsNewNonOptional"))
@@ -178,4 +189,3 @@ object Typecheck {
     }
   }
 }
-
