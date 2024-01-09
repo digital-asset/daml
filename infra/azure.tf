@@ -145,7 +145,7 @@ CRON
 
 chmod +x /root/daily-reset.sh
 
-cat <<GET_TARGETS > /root/get-targets.sh
+cat <<'GET_TARGETS' > /root/get-targets.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
