@@ -995,6 +995,77 @@ scala_library(
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
 )
+
+### community/drivers/reference
+
+scala_library(
+    name = "community_reference-driver",
+    srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
+    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
+    resources = glob(["community/drivers/reference/src/main/resources/**"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        ":community_base",
+        ":community_common",
+        ":community_lib_slick_slick-fork",
+        ":community_sequencer-driver",
+        ":community_util-external",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
+        ":pekko-stream-minus-patched-classes",
+        "//daml-lf/data",
+        "//observability/metrics",
+        "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:com_typesafe_slick_slick_2_13",
+        "@maven//:dev_optics_monocle_core_2_13",
+        "@maven//:dev_optics_monocle_macro_2_13",
+        "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_postgresql_postgresql",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
+proto_library(
+    name = "community_reference-driver_proto",
+    srcs = glob(["community/drivers/reference/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/drivers/reference/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_reference-driver_proto_scala",
+    srcs = [":community_reference-driver_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "flat_package",
+    ],
+)
+
 ### community/sequencer-driver
 
 scala_library(
@@ -1032,6 +1103,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
         ":community_admin-api",
