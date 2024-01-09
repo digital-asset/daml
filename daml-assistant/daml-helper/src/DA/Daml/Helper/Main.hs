@@ -66,7 +66,7 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | Deploy { flags :: LedgerFlags }
-    | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
+    | LedgerListParties { flags :: LedgerFlags }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
@@ -91,8 +91,6 @@ data AppTemplate
   = AppTemplateDefault
   | AppTemplateViaOption String
   | AppTemplateViaArgument String
-
-newtype ShowJsonApi = ShowJsonApi {_showJsonApi :: Bool}
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -163,12 +161,10 @@ commandParser = subparser $ fold
         shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
         shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
         navigatorPort <- navigatorPortOption
-        jsonApiConfig <- jsonApiCfg
         onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
         navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
-        jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
@@ -208,21 +204,7 @@ commandParser = subparser $ fold
     deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
-        <$> ledgerFlags (ShowJsonApi False)
-
-    jsonApiCfg = JsonApiConfig <$> option
-        readJsonApiPort
-        ( long "json-api-port"
-       <> value (Just $ JsonApiPort 7575)
-       <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
-        )
-
-    readJsonApiPort = eitherReader $ \case
-        "none" -> Right Nothing
-        s -> maybe
-            (Left $ "Failed to parse port " <> show s)
-            (Right . Just . JsonApiPort)
-            (readMaybe s)
+        <$> ledgerFlags
 
     codegenCmd = asum
         [ subparser $ fold
@@ -302,53 +284,51 @@ commandParser = subparser $ fold
             ]
 
     ledgerListPartiesCmd = LedgerListParties
-        <$> ledgerFlags (ShowJsonApi True)
-        <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
+        <$> ledgerFlags
 
     packagesListCmd = PackagesList
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger if it doesn't exist"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerFetchDarCmd = LedgerFetchDar
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
     ledgerResetCmd = LedgerReset
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
 
     ledgerExportCmd = subparser $
         command "script" (info scriptOptions (progDesc "Export ledger state in Daml script format" <> forwardOptions))
       where
         scriptOptions = LedgerExport
-          <$> ledgerFlags (ShowJsonApi False)
+          <$> ledgerFlags
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
 
     app :: ReadM ApplicationId
     app = fmap (ApplicationId . pack) str
 
     ledgerMeteringReportCmd = LedgerMeteringReport
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
         <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
         <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
         <*> switch (long "compact-output" <> help "Generate compact report.")
 
-    ledgerFlags showJsonApi = LedgerFlags
-        <$> httpJsonFlag showJsonApi
-        <*> sslConfig
+    ledgerFlags = LedgerFlags
+        <$> sslConfig
         <*> timeoutOption
         <*> hostFlag
         <*> portFlag
@@ -383,13 +363,6 @@ commandParser = subparser $ fold
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
                 }
-
-    httpJsonFlag :: ShowJsonApi -> Parser LedgerApi
-    httpJsonFlag (ShowJsonApi showJsonApi)
-      | showJsonApi =
-        flag Grpc HttpJson $
-        long "json-api" <> help "Use the HTTP JSON API instead of gRPC"
-      | otherwise = pure Grpc
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -523,7 +496,7 @@ runCommand = \case
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runStart startOptions
     Deploy {..} -> runDeploy flags
-    LedgerListParties {..} -> runLedgerListParties flags json
+    LedgerListParties {..} -> runLedgerListParties flags
     PackagesList {..} -> runLedgerListPackages0 flags
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM

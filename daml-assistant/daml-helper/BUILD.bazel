@@ -165,7 +165,6 @@ da_haskell_test(
     data = [
         "daml-helper",
         ":test.dar",
-        "//ledger-service/http-json:http-json-binary",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
@@ -180,7 +179,7 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Ledger.main",
-    # Starts Sandbox & JSON-API so needs more resources.
+    # Starts Sandbox so needs more resources.
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
@@ -199,7 +198,6 @@ da_haskell_test(
     data = [
         "daml-helper",
         ":test.dar",
-        "//ledger-service/http-json:http-json-binary",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
@@ -213,7 +211,7 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Packages.main",
-    # Starts Sandbox & JSON-API so needs more resources.
+    # Starts Sandbox so needs more resources.
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [

@@ -5,7 +5,6 @@ def deps(edition):
     return [
         "//daml-script/runner:script-runner-lib",
         "//language-support/codegen-main:codegen-main-lib",
-        "//ledger-service/http-json:http-json-{}".format(edition),
         "//navigator/backend:navigator-library",
         "//daml-script/export",
         "//triggers/runner:trigger-runner-lib",
