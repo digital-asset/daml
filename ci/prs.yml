@@ -142,8 +142,10 @@ jobs:
                        "$(Slack.team-daml-ci)"
         fi
         if [ "$(git log -n1 --format="%(trailers:key=tell-slack,valueonly)" HEAD)" = "canton" ]; then
+          if [ "$(build_status)" = "Failed" ]; then
             tell_slack "<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|canton update PR $(pr.num)> has completed with status $(build_status)." \
                        "$(Slack.team-canton-notifications)"
+          fi
         fi
 
 - job: self_service_compat_test
