@@ -353,6 +353,13 @@ private[lf] object Pretty {
           text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
           prettyLoc(amf.optLocation)
+      case amf: ScenarioLedger.SubmissionFailed =>
+        text("submissionFailed") &
+          text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
+            .tightBracketBy(char('{'), char('}')) &
+          text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
+            .tightBracketBy(char('{'), char('}')) &
+          prettyLoc(amf.optLocation)
     }
 
   def prettyKeyWithMaintainers(key: GlobalKeyWithMaintainers): Doc =

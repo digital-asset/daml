@@ -42,6 +42,8 @@ private[lf] class Runner(
       unversionedRunner.extendedCompiledPackages,
     )
 
+  private val knownPackages = ScriptF.KnownPackages(unversionedRunner.knownPackages)
+
   private val ideLedgerContext: Option[IdeLedgerContext] =
     initialClientsV2.default_participant.collect {
       case ledgerClient: ledgerinteraction.IdeLedgerClient =>
@@ -54,7 +56,7 @@ private[lf] class Runner(
 
   def remapQ[X](result: Result[X, Free.Question, SExpr]): Result[X, ScriptF.Cmd, SExpr] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
-      ScriptF.parse(name, version, payload, stackTrace) match {
+      ScriptF.parse(name, version, payload, knownPackages) match {
         case Right(cmd) =>
           Result.Ask(
             cmd,

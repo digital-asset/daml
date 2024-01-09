@@ -557,6 +557,20 @@ final class Conversions(
               .setTxId(txId.index)
               .build
           )
+      case ScenarioLedger.SubmissionFailed(actAs, readAs, optLocation, time, txId) =>
+        val submissionFailedBuilder = proto.ScenarioStep.SubmissionFailed.newBuilder
+        optLocation.map { loc =>
+          submissionFailedBuilder.setLocation(convertLocation(loc))
+        }
+        builder
+          .setSubmissionFailed(
+            submissionFailedBuilder
+              .addAllActAs(actAs.map(convertParty(_)).asJava)
+              .addAllReadAs(readAs.map(convertParty(_)).asJava)
+              .setTime(time.micros)
+              .setTxId(txId.index)
+              .build
+          )
     }
     builder.build
   }
