@@ -211,7 +211,7 @@ private[lf] final class ValueTranslator(
                   }
 
                 if (config.enableUpgrade) {
-                  val oLabeledFlds = 
+                  val oLabeledFlds =
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
                       .filter(Function.const(config.allowFieldReordering))
@@ -227,20 +227,22 @@ private[lf] final class ValueTranslator(
                       // Not fully labelled (or reordering disabled), so order dependent
                       // Additional fields should downgrade, missing fields should upgrade
                       case None => {
-                        val correctFields = targetFieldsAndTypes.toSeq.zipWithIndex.map { case ((lbl, ty), i) =>
-                          val (mbLbl, v) = sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
-                          mbLbl.foreach(lbl_ =>
-                            if (lbl_ != lbl)
-                              typeError(
-                                s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
-                              )
-                          )
-                          (lbl, v, ty)
+                        val correctFields = targetFieldsAndTypes.toSeq.zipWithIndex.map {
+                          case ((lbl, ty), i) =>
+                            val (mbLbl, v) =
+                              sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
+                            mbLbl.foreach(lbl_ =>
+                              if (lbl_ != lbl)
+                                typeError(
+                                  s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
+                                )
+                            )
+                            (lbl, v, ty)
                         }
                         val numS = sourceElements.length
                         val numT = targetFieldsAndTypes.length
                         // We have extra fields
-                        val extraFields = 
+                        val extraFields =
                           if (numS > numT)
                             sourceElements.strictSlice(numT, numS)
                           else
@@ -254,14 +256,16 @@ private[lf] final class ValueTranslator(
                         // iterate the expected fields, replace any missing with none
                         //   while iterating, remove from remaining
 
-                        val initialState: (Seq[(Name, Value, Type)], Map[Name, Value]) = (Seq(), labeledFlds)
+                        val initialState: (Seq[(Name, Value, Type)], Map[Name, Value]) =
+                          (Seq(), labeledFlds)
 
                         val (backwardsCorrectFields, remaining) =
-                          targetFieldsAndTypes.foldLeft(initialState) { case ((correctFields, remaining), (lbl, ty)) =>
-                            val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
-                            ((lbl, v, ty) +: correctFields, remaining - lbl)
+                          targetFieldsAndTypes.foldLeft(initialState) {
+                            case ((correctFields, remaining), (lbl, ty)) =>
+                              val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
+                              ((lbl, v, ty) +: correctFields, remaining - lbl)
                           }
-                        
+
                         // Put our fields the correct way around.
                         val correctFields = backwardsCorrectFields.reverse
                         // Wrap additional field names in Some to match with ordered case.
@@ -311,29 +315,31 @@ private[lf] final class ValueTranslator(
                     )
                   }
 
-                  val fields = labeledRecordToMap(sourceElements).fold(typeError, identity _) match {
-                    case Some(labeledRecords) if config.allowFieldReordering =>
-                      targetFieldsAndTypes.map { case (lbl, typ) =>
-                        labeledRecords
-                          .get(lbl)
-                          .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
+                  val fields =
+                    labeledRecordToMap(sourceElements).fold(typeError, identity _) match {
+                      case Some(labeledRecords) if config.allowFieldReordering =>
+                        targetFieldsAndTypes.map { case (lbl, typ) =>
+                          labeledRecords
+                            .get(lbl)
+                            .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) {
+                              v =>
+                                val replacedTyp = AstUtil.substitute(typ, subst)
+                                lbl -> go(replacedTyp, v, newNesting)
+                            }
+                        }
+                      case _ =>
+                        (targetFieldsAndTypes zip sourceElements).map {
+                          case ((targetField, typ), (mbLbl, v)) =>
+                            mbLbl.foreach(sourceField =>
+                              if (sourceField != targetField)
+                                typeError(
+                                  s"Mismatching record field label '$sourceField' (expecting '$targetField') for record $tyCon"
+                                )
+                            )
                             val replacedTyp = AstUtil.substitute(typ, subst)
-                            lbl -> go(replacedTyp, v, newNesting)
-                          }
-                      }
-                    case _ =>
-                      (targetFieldsAndTypes zip sourceElements).map {
-                        case ((targetField, typ), (mbLbl, v)) =>
-                          mbLbl.foreach(sourceField =>
-                            if (sourceField != targetField)
-                              typeError(
-                                s"Mismatching record field label '$sourceField' (expecting '$targetField') for record $tyCon"
-                              )
-                          )
-                          val replacedTyp = AstUtil.substitute(typ, subst)
-                          targetField -> go(replacedTyp, v, newNesting)
-                      }
-                  }
+                            targetField -> go(replacedTyp, v, newNesting)
+                        }
+                    }
                   SValue.SRecord(
                     tyCon,
                     fields.map(_._1),
