@@ -61,7 +61,7 @@ import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
 import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
-import SdkVersion (damlStdlib)
+import SdkVersion.Class (SdkVersioned, damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -582,7 +582,7 @@ expandSdkPackages logger lfVersion dars = do
 mkPackageFlag :: UnitId -> PackageFlag
 mkPackageFlag unitId = ExposePackage ("--package " <> unitIdString unitId) (UnitIdArg unitId) (ModRenaming True [])
 
-mkBaseUnits :: Maybe UnitId -> [UnitId]
+mkBaseUnits :: SdkVersioned => Maybe UnitId -> [UnitId]
 mkBaseUnits optMbPackageName
   | optMbPackageName == Just (stringToUnitId "daml-prim") =
       []

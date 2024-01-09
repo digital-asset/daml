@@ -17,10 +17,10 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v1TestArgs <- do
@@ -41,7 +41,7 @@ data TestArgs = TestArgs
   , lfVersion :: LF.Version
   }
 
-tests :: TestArgs -> TestTree
+tests :: SdkVersioned => TestArgs -> TestTree
 tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
     [ test "No changes"
         [ ("daml/A.daml", unlines

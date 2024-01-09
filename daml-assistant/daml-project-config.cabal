@@ -23,6 +23,8 @@ library
       aeson,
       -- @stackage//:base
       base,
+      -- //libs-haskell/da-version-types:da-version-types
+      da-version-types,
       -- @stackage//:directory
       directory,
       -- @stackage//:extra

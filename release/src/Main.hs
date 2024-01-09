@@ -93,7 +93,8 @@ main = do
       releaseDir <- parseAbsDir =<< liftIO (Dir.makeAbsolute optsReleaseDir)
       liftIO $ createDirIfMissing True releaseDir
 
-      Right mvnVersion <- pure $ SemVer.fromText $ T.pack SdkVersion.mvnVersion
+      Right mvnVersion <- pure $ SemVer.fromText $ T.pack $
+        SdkVersion.withSdkVersions SdkVersion.mvnVersion
       bazelLocations <- liftIO getBazelLocations
 
       mvnArtifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow "release/artifacts.yaml"

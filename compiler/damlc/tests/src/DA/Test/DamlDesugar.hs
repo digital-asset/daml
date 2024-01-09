@@ -12,13 +12,15 @@ import System.FilePath ((</>))
 
 import qualified Test.Tasty.Extended as Tasty
 
+import SdkVersion (SdkVersioned, withSdkVersions)
+
 main :: IO ()
-main = do
+main = withSdkVersions $ do
   setEnv "TASTY_NUM_THREADS" "1" True
   testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
   Tasty.deterministicMain =<< allTests testDir
 
-allTests :: FilePath -> IO Tasty.TestTree
+allTests :: SdkVersioned => FilePath -> IO Tasty.TestTree
 allTests testDir = Tasty.testGroup "All Daml GHC tests using Tasty" <$> sequence
   [ mkTestTree testDir
   ]

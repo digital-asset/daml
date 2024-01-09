@@ -52,7 +52,7 @@ import System.Random
 import System.IO.Extra
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DA.Daml.Project.Consts
+import DA.Daml.Project.Consts (sdkVersionEnvVar)
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
@@ -65,7 +65,7 @@ import Control.Concurrent.Extra
 import Control.Concurrent.STM
 import Control.Exception.Safe
 import Network.HTTP.Simple
-import SdkVersion
+import SdkVersion.Class (SdkVersioned, sdkVersion)
 
 -- Type definitions
 
@@ -249,12 +249,12 @@ data MetaData = MetaData
     } deriving Generic
 instance ToJSON MetaData
 
-logMetaData :: GCPState -> IO ()
+logMetaData :: SdkVersioned => GCPState -> IO ()
 logMetaData gcpState = do
     metadata <- getMetaData gcpState
     logGCP gcpState Lgr.Info metadata (pure ())
 
-getMetaData :: GCPState -> IO MetaData
+getMetaData :: SdkVersioned => GCPState -> IO MetaData
 getMetaData gcp = do
     machineID <- fetchMachineID gcp
     v <- lookupEnv sdkVersionEnvVar
@@ -391,7 +391,7 @@ isOptedOut :: FilePath -> IO Bool
 isOptedOut cache = doesPathExist $ cache </> ".opted_out"
 
 -- | If it hasn't already been done log that the user has opted out of telemetry.
-logOptOut :: GCPState -> IO ()
+logOptOut :: SdkVersioned => GCPState -> IO ()
 logOptOut gcp = do
     let fpOut = optedOutFile gcp
         fpIn = optedInFile gcp
@@ -411,7 +411,7 @@ disabledMessage metadata msg =
     toJSON $ Aeson.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
 
 -- Log that the user clicked away the telemetry popup without making a choice.
-logIgnored :: GCPState -> IO ()
+logIgnored :: SdkVersioned => GCPState -> IO ()
 logIgnored gcp = do
     metadata <- getMetaData gcp
     let val = disabledMessage metadata "No telemetry choice"
