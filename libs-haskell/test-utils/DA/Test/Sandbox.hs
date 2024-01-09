@@ -200,7 +200,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                      ]
                     )
                  ]
-        , "sequencers-x" Aeson..= Aeson.object
+            , "sequencers-x" Aeson..= Aeson.object
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
