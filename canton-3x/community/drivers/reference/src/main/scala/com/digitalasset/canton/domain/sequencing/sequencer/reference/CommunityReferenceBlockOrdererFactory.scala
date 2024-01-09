@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.digitalasset.canton.domain.sequencing.sequencer.reference
@@ -139,7 +139,9 @@ object CommunityReferenceBlockOrdererFactory {
                 case Right(_) => ()
               }
               .discard
-          case _ => ()
+          case _ =>
+            // Not a DB storage (currently, only memory) => no need for migrations.
+            ()
         }
         new CommunityStorageFactory(communityStorageConfig)
           .tryCreate(

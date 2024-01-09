@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20240104.12532.0.v0b5c4b2a
+sdk-version: 2.9.0-snapshot.20240105.12535.0.v730d377f
 build-options: 
 - --target=2.1
 name: bank
