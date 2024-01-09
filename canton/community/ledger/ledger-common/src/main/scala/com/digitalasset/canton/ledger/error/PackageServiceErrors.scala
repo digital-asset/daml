@@ -12,6 +12,7 @@ import com.daml.lf.{VersionRange, language, validation}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
+import com.daml.lf.upgrades.{UpgradeError}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
@@ -207,6 +208,13 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         SelfConsistency.Error(packageIds, missingDependencies)
     }
 
+    def handleUpgradeError(upgrading: Ref.PackageId, upgraded: Ref.PackageId, err: UpgradeError)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ): DamlError = err match {
+      case UpgradeError(msg) =>
+        Upgradeability.Error(upgrading, upgraded, msg)
+    }
+
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")
     object ValidationError
@@ -261,6 +269,32 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             extraContext = Map(
               "packageIds" -> packageIds,
               "missingDependencies" -> missingDependencies,
+            ),
+          )
+    }
+
+    @Explanation(
+      """This error indicates that the uploaded Dar is invalid because it doesn't upgrade the packages it claims to upgrade."""
+    )
+    @Resolution("Contact the supplier of the Dar.")
+    object Upgradeability
+        extends ErrorCode(
+          id = "DAR_NOT_VALID_UPGRADE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          upgradingPackage: Ref.PackageId,
+          upgradedPackage: Ref.PackageId,
+          upgradeErrorMessage: String,
+      )(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
+            cause =
+              "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade",
+            extraContext = Map(
+              "upgradingPackage" -> upgradingPackage,
+              "upgradedPackage" -> upgradedPackage,
+              "additionalInfo" -> upgradeErrorMessage,
             ),
           )
     }

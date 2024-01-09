@@ -135,8 +135,9 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private def validateUpgrade(upgradingPackage: Dar[(Ref.PackageId, Ast.Package)])(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Boolean] = {
-    logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
+  ): Future[Unit] = {
+    val upgradingPackageId = upgradingPackage.main._1
+    logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
     upgradingPackage.main._2.metadata.flatMap(_.upgradedPackageId) match {
       case Some(upgradedPackageId) =>
         for {
@@ -145,36 +146,28 @@ private[apiserver] final class ApiPackageManagementService private (
             upgradedArchiveMb.traverse(Decode.decodeArchive(_))
               .handleError(Validation.handleLfArchiveError)
           }
-          _ <- Future {
-            logger.info(s"Package ${upgradingPackage.main._1} upgrades package id $upgradedPackageId")
-          }
-          b <- upgradedPackageMb match {
-            case Some(upgradedPackage) => {
-              logger.info(s"Upgraded package id $upgradedPackageId has resolved")
-              Typecheck.checkPackage(upgradingPackage.main, upgradedPackage) match {
-                case Success(()) => {
-                  logger.info(s"Typechecking upgrades succeeded.")
-                  Future(true)
-                }
-                case Failure(err: UpgradeError) => {
-                  logger.info(s"Typechecking upgrades for ${upgradingPackage.main._1} failed with following message: ${err.message}")
-                  Future(false)
-                }
-                case Failure(err: Throwable) => {
-                  logger.info(s"Typechecking upgrades failed with unknown error.")
-                  Future.failed(err)
-                }
+          _ <- {
+            logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
+            val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradedPackageMb)
+            upgradeCheckResult match {
+              case Success(()) => {
+                logger.info(s"Typechecking upgrades succeeded.")
+                Future(())
+              }
+              case Failure(err: UpgradeError) => {
+                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+                Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
+              }
+              case Failure(err: Throwable) => {
+                logger.info(s"Typechecking upgrades failed with unknown error.")
+                Future.failed(err)
               }
             }
-            case None => {
-              logger.info(s"Upgraded package id $upgradedPackageId does not resolve to any known package.")
-              Future(false) // No available package means upgrade is not valid
-            }
           }
-        } yield b
+        } yield ()
       case None => {
-        logger.info(s"Package ${upgradingPackage.main._1} has no upgraded package")
-        Future(false)
+        logger.info(s"Package $upgradingPackageId does not upgrade anything.")
+        Future(())
       }
     }
   }

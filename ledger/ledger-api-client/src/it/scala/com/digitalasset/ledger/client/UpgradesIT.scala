@@ -19,6 +19,7 @@ import scala.io.Source
 import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
+import scala.util.{Success, Failure}
 
 final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   self: Suite =>
@@ -50,15 +51,38 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         client <- defaultLedgerClient()
         testPackageV1BS <- loadTestPackageBS(1)
         testPackageV2BS <- loadTestPackageBS(2)
-        _ <- client.packageManagementClient.uploadDarFile(testPackageV1BS)
-        _ <- client.packageManagementClient.uploadDarFile(testPackageV2BS)
+        uploadV1Result <- client.packageManagementClient
+          .uploadDarFile(testPackageV1BS)
+          .transform({
+            case Failure(err) => Success(Some(err));
+            case Success(_) => Success(None);
+          })
+        uploadV2Result <- client.packageManagementClient
+          .uploadDarFile(testPackageV2BS)
+          .transform({
+            case Failure(err) => Success(Some(err));
+            case Success(_) => Success(None);
+          })
       } yield {
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
         val testPackageV1Id = loadTestPackageId(1)
         val testPackageV2Id = loadTestPackageId(2)
-        cantonLog should include regex s"Package $testPackageV1Id has no upgraded package"
+        cantonLog should include regex s"Package $testPackageV1Id does not upgrade anything"
         cantonLog should include regex s"Package $testPackageV2Id upgrades package id $testPackageV1Id"
         cantonLog should include regex s"Typechecking upgrades for $testPackageV2Id failed with following message: RecordFieldsExistingChanged"
+        uploadV1Result match {
+          case Some(err) =>
+            fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+          case _ => {}
+        }
+        uploadV2Result match {
+          case None => fail(s"Uploading second package $testPackageV2Id did not fail");
+          case Some(err) => {
+            val msg = err.toString
+            msg should include regex "INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE"
+            msg should include regex "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+          }
+        }
       }
     }
   }

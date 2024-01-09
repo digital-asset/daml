@@ -54,6 +54,16 @@ object Typecheck {
   def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try { t.map(f(_).get).toSeq }
 
+  def typecheckUpgrades(
+      present: (Ref.PackageId, Ast.Package),
+      mbPast: Option[(Ref.PackageId, Ast.Package)],
+  ): Try[Unit] = {
+    mbPast match {
+      case None => Failure(UpgradeError("CouldNotResolveUpgradedPackageId"));
+      case Some(past) => checkPackage(present, past);
+    }
+  }
+
   def checkPackage(
       present: (Ref.PackageId, Ast.Package),
       past: (Ref.PackageId, Ast.Package),
@@ -108,7 +118,8 @@ object Typecheck {
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) =>
-        if (!AlphaEquiv.alphaEquiv(pastKey.typ, presentKey.typ)) Failure(UpgradeError(s"TemplateChangedKeyType"))
+        if (!AlphaEquiv.alphaEquiv(pastKey.typ, presentKey.typ))
+          Failure(UpgradeError(s"TemplateChangedKeyType"))
         else Success(())
       case Upgrading(Some(_pastKey), None) =>
         Failure(UpgradeError(s"TemplateRemovedKey"))
@@ -152,7 +163,11 @@ object Typecheck {
     }
   }
 
-  def checkDatatype(module: Upgrading[Ast.Module], name: Ref.DottedName, datatype: Upgrading[Ast.DDataType]): Try[Unit] = {
+  def checkDatatype(
+      module: Upgrading[Ast.Module],
+      name: Ref.DottedName,
+      datatype: Upgrading[Ast.DDataType],
+  ): Try[Unit] = {
     val origin = module.map(dataTypeOrigin(_, name))
     if (origin.present != origin.past) {
       Failure(UpgradeError("RecordChangedOrigin"))
@@ -191,4 +206,3 @@ object Typecheck {
     }
   }
 }
-
