@@ -68,9 +68,11 @@ trait AbstractSequencerPruningStatus {
 
 private[canton] final case class InternalSequencerPruningStatus(
     override val lowerBound: CantonTimestamp,
-    override val members: Seq[SequencerMemberStatus],
+    membersMap: Map[Member, SequencerMemberStatus],
 ) extends AbstractSequencerPruningStatus
     with PrettyPrinting {
+
+  override val members: Seq[SequencerMemberStatus] = membersMap.values.toSeq
   def toSequencerPruningStatus(now: CantonTimestamp): SequencerPruningStatus =
     SequencerPruningStatus(lowerBound, now, members)
 
@@ -84,8 +86,14 @@ private[canton] object InternalSequencerPruningStatus {
 
   /** Sentinel value to use for Sequencers that don't yet support the status endpoint */
   val Unimplemented =
-    InternalSequencerPruningStatus(CantonTimestamp.MinValue, members = Seq.empty)
+    InternalSequencerPruningStatus(CantonTimestamp.MinValue, membersMap = Map.empty)
 
+  def apply(
+      lowerBound: CantonTimestamp,
+      members: Seq[SequencerMemberStatus],
+  ): InternalSequencerPruningStatus = {
+    InternalSequencerPruningStatus(lowerBound, members.map(m => m.member -> m).toMap)
+  }
 }
 
 /** Pruning status of a Sequencer.
@@ -100,7 +108,7 @@ final case class SequencerPruningStatus(
     with PrettyPrinting {
 
   def toInternal: InternalSequencerPruningStatus =
-    InternalSequencerPruningStatus(lowerBound, members)
+    InternalSequencerPruningStatus(lowerBound, members.map(m => m.member -> m).toMap)
 
   /** Using the member details, calculate based on their acknowledgements when is the latest point we can
     * safely prune without losing any data that may still be read.

@@ -12,14 +12,14 @@ sealed abstract class LookupError {
 
 object LookupError {
 
-  private def contextDetails(context: Reference): String =
+  private[lf] def contextDetails(context: Reference): String =
     context match {
       case Reference.Package(_) => ""
       case otherwise => " while looking for " + otherwise.pretty
     }
 
   final case class NotFound(notFound: Reference, context: Reference) extends LookupError {
-    def pretty: String = "unknown " + notFound.pretty + (
+    override def pretty: String = "unknown " + notFound.pretty + (
       if (context == notFound) "" else LookupError.contextDetails(context)
     )
   }
@@ -41,6 +41,11 @@ object LookupError {
         case _ => None
       }
 
+    def apply(pkgId: PackageId): NotFound = {
+      val ref = Reference.Package(pkgId)
+      LookupError.NotFound(ref, ref)
+    }
+
     def pretty(pkgId: PackageId, context: Reference): String =
       s"Couldn't find package $pkgId" + contextDetails(context)
   }
@@ -52,6 +57,10 @@ sealed abstract class Reference extends Product with Serializable {
 }
 
 object Reference {
+
+  final case class PackageWithName(packageName: PackageName) extends Reference {
+    override def pretty: String = s"package $packageName"
+  }
 
   final case class Package(packageId: PackageId) extends Reference {
     override def pretty: String = s"package $packageId"
@@ -105,8 +114,13 @@ object Reference {
     override def pretty: String = s"value $identifier"
   }
 
-  final case class Template(tyCon: TypeConName) extends Reference {
+  final case class Template(tyCon: TypeConRef) extends Reference {
     override def pretty: String = s"template $tyCon"
+  }
+
+  object Template {
+    def apply(tyCon: TypeConName): Template =
+      Template(tyCon.toRef)
   }
 
   final case class Interface(tyCon: TypeConName) extends Reference {
@@ -165,8 +179,13 @@ object Reference {
       s"choice $choiceName in template $templateName by interface $ifaceName"
   }
 
-  final case class TemplateOrInterface(tyCon: TypeConName) extends Reference {
+  final case class TemplateOrInterface(tyCon: TypeConRef) extends Reference {
     override def pretty: String = s"template or interface $tyCon"
+  }
+
+  object TemplateOrInterface {
+    def apply(tyCon: TypeConName): TemplateOrInterface =
+      TemplateOrInterface(tyCon.toRef)
   }
 
   final case class Choice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {

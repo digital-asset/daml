@@ -6,8 +6,10 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsDataTime}
+import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
+import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
 import com.digitalasset.canton.{Generators, SequencerCounter}
@@ -15,25 +17,32 @@ import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-object GeneratorsProtocol {
+final class GeneratorsProtocol(
+    protocolVersion: ProtocolVersion,
+    generatorsDataTime: GeneratorsDataTime,
+    generatorsMessages: GeneratorsMessages,
+) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.data.GeneratorsData.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
+  import generatorsDataTime.*
+  import generatorsMessages.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
-    protocolVersion <- representativeProtocolVersionGen(AcknowledgeRequest)
     ts <- Arbitrary.arbitrary[CantonTimestamp]
     member <- Arbitrary.arbitrary[Member]
-  } yield AcknowledgeRequest(member, ts, protocolVersion.representative))
+  } yield AcknowledgeRequest(member, ts, protocolVersion))
 
-  implicit val aggregationRuleArb: Arbitrary[AggregationRule] = Arbitrary(for {
-    rpv <- GeneratorsVersion.representativeProtocolVersionGen[AggregationRule](AggregationRule)
-    threshold <- Arbitrary.arbitrary[PositiveInt]
-    eligibleMembers <- Generators.nonEmptyListGen[Member]
-  } yield AggregationRule(eligibleMembers, threshold)(rpv))
+  implicit val aggregationRuleArb: Arbitrary[AggregationRule] =
+    Arbitrary(
+      for {
+        threshold <- Arbitrary.arbitrary[PositiveInt]
+        eligibleMembers <- Generators.nonEmptyListGen[Member]
+      } yield AggregationRule(eligibleMembers, threshold)(
+        AggregationRule.protocolVersionRepresentativeFor(protocolVersion)
+      )
+    )
 
   implicit val groupRecipientArb: Arbitrary[GroupRecipient] = genArbitrary
   implicit val recipientArb: Arbitrary[Recipient] = genArbitrary
@@ -55,7 +64,7 @@ object GeneratorsProtocol {
     }
   }
 
-  def recipientsArb(protocolVersion: ProtocolVersion): Arbitrary[Recipients] = {
+  implicit val recipientsArb: Arbitrary[Recipients] = {
 
     val protocolVersionDependentRecipientGen = Arbitrary.arbitrary[Recipient]
 
@@ -67,18 +76,12 @@ object GeneratorsProtocol {
     } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
   }
 
-  private def closedEnvelopeGenFor(protocolVersion: ProtocolVersion): Gen[ClosedEnvelope] =
-    for {
-      bytes <- Arbitrary.arbitrary[ByteString]
-      signatures <- Gen.listOfN(5, signatureArb.arbitrary)
-
-      recipients <- recipientsArb(protocolVersion).arbitrary
-    } yield ClosedEnvelope.create(bytes, recipients, signatures, protocolVersion)
-
   implicit val closedEnvelopeArb: Arbitrary[ClosedEnvelope] = Arbitrary(for {
-    protocolVersion <- Arbitrary.arbitrary[ProtocolVersion]
-    res <- closedEnvelopeGenFor(protocolVersion)
-  } yield res)
+    bytes <- Arbitrary.arbitrary[ByteString]
+    signatures <- Gen.listOfN(5, signatureArb.arbitrary)
+
+    recipients <- recipientsArb.arbitrary
+  } yield ClosedEnvelope.create(bytes, recipients, signatures, protocolVersion))
 
   implicit val mediatorsOfDomainArb: Arbitrary[MediatorsOfDomain] = Arbitrary(
     Arbitrary.arbitrary[NonNegativeInt].map(MediatorsOfDomain(_))
@@ -88,20 +91,19 @@ object GeneratorsProtocol {
     Generators.lengthLimitedStringGen(String73).map(s => MessageId.tryCreate(s.str))
   )
 
-  private def openEnvelopGen(protocolVersion: ProtocolVersion): Gen[OpenEnvelope[ProtocolMessage]] =
+  implicit val openEnvelopArb: Arbitrary[OpenEnvelope[ProtocolMessage]] = Arbitrary(
     for {
-      protocolMessage <- GeneratorsMessages.protocolMessageGen(protocolVersion)
-      recipients <- recipientsArb(protocolVersion).arbitrary
-
+      protocolMessage <- protocolMessageArb.arbitrary
+      recipients <- recipientsArb.arbitrary
     } yield OpenEnvelope(protocolMessage, recipients)(protocolVersion)
+  )
 
-  private def envelopeGenFor(pv: ProtocolVersion): Arbitrary[Envelope[?]] =
-    Arbitrary(Gen.oneOf[Envelope[?]](closedEnvelopeGenFor(pv), openEnvelopGen(pv)))
+  implicit val envelopeArb: Arbitrary[Envelope[?]] =
+    Arbitrary(Gen.oneOf[Envelope[?]](closedEnvelopeArb.arbitrary, openEnvelopArb.arbitrary))
 
   def deliverGen[Env <: Envelope[?]](
       domainId: DomainId,
       batch: Batch[Env],
-      protocolVersion: ProtocolVersion,
   ): Gen[Deliver[Env]] = for {
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
     counter <- Arbitrary.arbitrary[SequencerCounter]
@@ -117,22 +119,16 @@ object GeneratorsProtocol {
 
   implicit val batchArb: Arbitrary[Batch[Envelope[?]]] =
     Arbitrary(for {
-      protocolVersion <- Arbitrary.arbitrary[ProtocolVersion]
-      envelopes <- Generators.nonEmptyListGen[Envelope[?]](
-        envelopeGenFor(protocolVersion)
-      )
+      envelopes <- Generators.nonEmptyListGen[Envelope[?]](envelopeArb)
     } yield Batch(envelopes.map(_.closeEnvelope), protocolVersion))
 
   implicit val submissionRequestArb: Arbitrary[SubmissionRequest] =
     Arbitrary(
       for {
-        protocolVersion <- Arbitrary.arbitrary[ProtocolVersion]
         sender <- Arbitrary.arbitrary[Member]
         messageId <- Arbitrary.arbitrary[MessageId]
         isRequest <- Arbitrary.arbitrary[Boolean]
-        envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](
-          Arbitrary(closedEnvelopeGenFor(protocolVersion))
-        )
+        envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](closedEnvelopeArb)
         batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
         maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
         aggregationRule <- GeneratorsVersion.defaultValueGen(
@@ -156,4 +152,9 @@ object GeneratorsProtocol {
       )
     )
 
+  implicit val timeProofArb: Arbitrary[TimeProof] = Arbitrary(for {
+    timestamp <- Arbitrary.arbitrary[CantonTimestamp]
+    counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
+    targetDomain <- Arbitrary.arbitrary[TargetDomainId]
+  } yield TimeProofTestUtil.mkTimeProof(timestamp, counter, targetDomain, protocolVersion))
 }

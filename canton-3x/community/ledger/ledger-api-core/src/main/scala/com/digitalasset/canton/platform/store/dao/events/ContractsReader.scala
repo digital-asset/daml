@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{GlobalKey, Util}
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
@@ -83,7 +83,11 @@ private[dao] sealed class ContractsReader(
                 deserializationTimer,
                 s"Failed to deserialize create key for contract ${contractId.coid}",
               )
-              GlobalKey.assertBuild(contract.unversioned.template, value.unversioned)
+              GlobalKey.assertBuild(
+                contract.unversioned.template,
+                value.unversioned,
+                Util.sharedKey(value.version),
+              )
             }
 
             ActiveContract(

@@ -26,10 +26,10 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import SdkVersion
+import SdkVersion (SdkVersioned, damlStdlib, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
@@ -113,7 +113,7 @@ lfVersionTestPairsV2 =
   where
     hasMajorVersion major v = LF.versionMajor v == major
 
-tests :: TestArgs -> TestTree
+tests :: SdkVersioned => TestArgs -> TestTree
 tests TestArgs{..} =
     testGroup (LF.renderVersion targetDevVersion) $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do

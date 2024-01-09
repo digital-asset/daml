@@ -34,7 +34,6 @@ import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.Tra
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
@@ -54,7 +53,10 @@ import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.{
+  JournalGarbageCollectorControl,
+  SyncStateInspection,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -109,8 +111,8 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.event.Level
 
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -396,8 +398,19 @@ class CantonSyncService(
   lazy val stateInspection = new SyncStateInspection(
     syncDomainPersistentStateManager,
     participantNodePersistentState,
-    pruningProcessor,
     parameters.processingTimeouts,
+    new JournalGarbageCollectorControl {
+      override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+        connectedDomainsMap
+          .get(domainId)
+          .map(_.addJournalGarageCollectionLock())
+          .getOrElse(Future.unit)
+      override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit = {
+        connectedDomainsMap
+          .get(domainId)
+          .foreach(_.removeJournalGarageCollectionLock())
+      }
+    },
     loggerFactory,
   )
 
@@ -408,7 +421,6 @@ class CantonSyncService(
   ): CompletionStage[PruningResult] =
     (withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
-
       pruneInternally(pruneUpToInclusive)
         .fold(
           err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
@@ -556,17 +568,6 @@ class CantonSyncService(
     }
   }
 
-  override def submitConfiguration(
-      _maxRecordTimeToBeRemovedUpstream: participant.LedgerSyncRecordTime,
-      submissionId: LedgerSubmissionId,
-      config: Configuration,
-  )(implicit
-      traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] = {
-    logger.info("Canton does not support dynamic reconfiguration of time model")
-    CompletableFuture.completedFuture(TransactionError.NotSupported)
-  }
-
   /** Build source for subscription (for ledger api server indexer).
     *
     * @param beginAfterOffset offset after which to emit events
@@ -588,7 +589,9 @@ class CantonSyncService(
                 event
                   .traverse(eventTranslationStrategy.translate)
                   .map { e =>
-                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")
+                    logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
+                      e.traceContext
+                    )
                     (UpstreamOffsetConvert.fromGlobalOffset(offset), e)
                   }
               },

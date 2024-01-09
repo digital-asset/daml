@@ -23,7 +23,6 @@ schedules:
   always: true
 
 jobs:
-  - template: ../build-local-canton.yml
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
@@ -35,9 +34,7 @@ jobs:
       - template: ../compatibility_ts_libs.yml
 
   - job: compatibility
-    dependsOn:
-    - compatibility_ts_libs
-    - build_canton
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     strategy:
       matrix:
@@ -50,23 +47,19 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
-      - template: ../get-local-canton.yml
       - ${{ if eq(variables['pool'], 'macos-pool') }}:
         - template: ../clear-shared-segments-macos.yml
       - template: ../clean-up.yml
       - template: ../compatibility.yml
 
   - job: compatibility_windows
-    dependsOn:
-    - compatibility_ts_libs
-    - build_canton
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
       name: windows-pool
       demands: assignment -equals default
     steps:
       - checkout: self
-      - template: ../get-local-canton.yml
       - template: ../compatibility-windows.yml
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
@@ -246,8 +239,6 @@ jobs:
         sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
         sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
 
-        rm -f arbitrary_canton_sha
-
         ### code drop ###
 
         copy_canton_code() {
@@ -286,8 +277,7 @@ jobs:
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add build.sh test-common/canton/BUILD.bazel
-                git ls-files | grep arbitrary_canton_sha >&2 && git rm -f arbitrary_canton_sha
-                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version"
+                open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
                 echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"

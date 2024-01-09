@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 
@@ -138,9 +139,14 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReferenceComm
 
 }
 
-class LocalParticipantReferencesExtensions(participants: Seq[LocalParticipantReference])(implicit
+class LocalParticipantReferencesExtensions[
+    ParticipantNodeT <: ParticipantNodeCommon,
+    LocalParticipantRef <: LocalParticipantReferenceCommon[ParticipantNodeT],
+](
+    participants: Seq[LocalParticipantRef]
+)(implicit
     override val consoleEnvironment: ConsoleEnvironment
 ) extends ParticipantReferencesExtensions(participants)
-    with LocalInstancesExtensions {
-  override def instances: Seq[LocalInstanceReferenceCommon] = participants
+    with LocalInstancesExtensions[LocalParticipantRef] {
+  override def instances: Seq[LocalParticipantRef] = participants
 }

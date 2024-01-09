@@ -87,8 +87,8 @@ class GrpcTopologyManagerWriteServiceX(
           signingKeys <-
             request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
           validatedMapping <- mapping.mapping match {
-            case Mapping.UnionspaceDefinition(mapping) =>
-              UnionspaceDefinitionX.fromProtoV2(mapping)
+            case Mapping.DecentralizedNamespaceDefinition(mapping) =>
+              DecentralizedNamespaceDefinitionX.fromProtoV2(mapping)
             case Mapping.NamespaceDelegation(mapping) =>
               NamespaceDelegationX.fromProtoV2(mapping)
             case Mapping.IdentifierDelegation(mapping) =>

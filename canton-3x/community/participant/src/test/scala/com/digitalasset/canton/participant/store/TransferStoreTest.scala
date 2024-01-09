@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{CantonTimestamp, TransferInView, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -1152,20 +1152,12 @@ object TransferStoreTest extends EitherValues with NoTracing {
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
     val submittingParticipant: LedgerParticipantId =
-      TransferInView.submittingParticipantDefaultValue.orValue(
-        LedgerParticipantId.assertFromString("participant1"),
-        BaseTest.testedProtocolVersion,
-      )
+      LedgerParticipantId.assertFromString("participant1")
 
-    val applicationId: LedgerApplicationId = TransferInView.applicationIdDefaultValue.orValue(
-      LedgerApplicationId.assertFromString("application-tests"),
-      BaseTest.testedProtocolVersion,
-    )
+    val applicationId: LedgerApplicationId =
+      LedgerApplicationId.assertFromString("application-tests")
 
-    val commandId: LedgerCommandId = TransferInView.commandIdDefaultValue.orValue(
-      LedgerCommandId.assertFromString("transfer-store-command-id"),
-      BaseTest.testedProtocolVersion,
-    )
+    val commandId: LedgerCommandId = LedgerCommandId.assertFromString("transfer-store-command-id")
 
     TransferSubmitterMetadata(
       submitter,

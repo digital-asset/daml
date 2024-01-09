@@ -55,6 +55,20 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
       result.mapFilter(_.selectMapping[T])
     )
 
+  def collectOfMapping(
+      codes: TopologyMappingX.Code*
+  ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
+    val codeSet = codes.toSet
+    StoredTopologyTransactionsX(
+      result.filter(tx => codeSet(tx.transaction.mapping.code))
+    )
+  }
+
+  def filter(
+      pred: SignedTopologyTransactionX[Op, M] => Boolean
+  ): StoredTopologyTransactionsX[Op, M] =
+    StoredTopologyTransactionsX(result.filter(stored => pred(stored.transaction)))
+
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(
       result
@@ -73,7 +87,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
     val certTypes = Set(
       TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.UnionspaceDefinitionX,
+      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
       TopologyMappingX.Code.IdentifierDelegationX,
     )
     val empty = Seq.empty[GenericStoredTopologyTransactionX]
@@ -146,7 +160,9 @@ object StoredTopologyTransactionsX
           item.validFrom,
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransactionX.fromByteString(item.transaction)
+        transaction <- SignedTopologyTransactionX.fromByteStringUnsafe(
+          item.transaction
+        ) // TODO(#12626) – try with context – use an optional protocol version for cases when the protocol version is known
       } yield StoredTopologyTransactionX(
         sequenced,
         validFrom,

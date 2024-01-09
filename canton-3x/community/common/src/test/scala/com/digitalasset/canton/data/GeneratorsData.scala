@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Salt, TestHash}
@@ -33,31 +34,20 @@ import com.digitalasset.canton.{LfInterfaceId, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-import java.time.Duration
-
-object GeneratorsData {
+final class GeneratorsData(
+    protocolVersion: ProtocolVersion,
+    generatorsDataTime: GeneratorsDataTime,
+    generatorsProtocol: GeneratorsProtocol,
+) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
-  import com.digitalasset.canton.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
   import org.scalatest.OptionValues.*
-
-  private val tenYears: Duration = Duration.ofDays(365 * 10)
-
-  implicit val cantonTimestampArb: Arbitrary[CantonTimestamp] = Arbitrary(
-    Gen.choose(0, tenYears.getSeconds * 1000 * 1000).map(CantonTimestamp.ofEpochMicro)
-  )
-  implicit val cantonTimestampSecondArb: Arbitrary[CantonTimestampSecond] = Arbitrary(
-    Gen.choose(0, tenYears.getSeconds).map(CantonTimestampSecond.ofEpochSecond)
-  )
-
-  implicit val viewPositionArb: Arbitrary[ViewPosition] = Arbitrary(
-    Gen.listOf(merklePathElementArg.arbitrary).map(ViewPosition(_))
-  )
+  import generatorsProtocol.*
+  import generatorsDataTime.*
 
   // If this pattern match is not exhaustive anymore, update the generator below
   {
@@ -73,6 +63,10 @@ object GeneratorsData {
     Arbitrary.arbitrary[MerkleSeqIndex]
   )
 
+  implicit val viewPositionArb: Arbitrary[ViewPosition] = Arbitrary(
+    Gen.listOf(merklePathElementArg.arbitrary).map(ViewPosition(_))
+  )
+
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
       confirmationPolicy <- Arbitrary.arbitrary[ConfirmationPolicy]
@@ -82,7 +76,6 @@ object GeneratorsData {
 
       salt <- Arbitrary.arbitrary[Salt]
       uuid <- Gen.uuid
-      protocolVersion <- representativeProtocolVersionGen(CommonMetadata)
 
       hashOps = TestHash // Not used for serialization
     } yield CommonMetadata
@@ -102,15 +95,13 @@ object GeneratorsData {
       workflowIdO <- Gen.option(workflowIdArb.arbitrary)
       salt <- Arbitrary.arbitrary[Salt]
 
-      protocolVersion <- representativeProtocolVersionGen(ParticipantMetadata)
-
       hashOps = TestHash // Not used for serialization
     } yield ParticipantMetadata(hashOps)(
       ledgerTime,
       submissionTime,
       workflowIdO,
       salt,
-      protocolVersion.representative,
+      protocolVersion,
     )
   )
 
@@ -125,7 +116,6 @@ object GeneratorsData {
       dedupPeriod <- Arbitrary.arbitrary[DeduplicationPeriod]
       maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
       hashOps = TestHash // Not used for serialization
-      protocolVersion <- representativeProtocolVersionGen(SubmitterMetadata)
     } yield SubmitterMetadata(
       actAs,
       applicationId,
@@ -136,7 +126,7 @@ object GeneratorsData {
       dedupPeriod,
       maxSequencingTime,
       hashOps,
-      protocolVersion.representative,
+      protocolVersion,
     )
   )
 
@@ -144,29 +134,20 @@ object GeneratorsData {
     informees <- Gen.containerOf[Set, Informee](Arbitrary.arbitrary[Informee])
     threshold <- Arbitrary.arbitrary[NonNegativeInt]
     salt <- Arbitrary.arbitrary[Salt]
-
-    /*
-      In v0 (used for pv=3,4) the confirmation policy is passed as part of the context rather than
-      being read from the proto. This break the identify test in SerializationDeserializationTest.
-      Fixing the test tooling currently requires too much energy compared to the benefit so filtering
-      out the old protocol versions.
-     */
-    pv <- Gen.oneOf(ProtocolVersion.supported.forgetNE.filterNot(_.v < 5))
-
     hashOps = TestHash // Not used for serialization
-  } yield ViewCommonData.create(hashOps)(informees, threshold, salt, pv))
+  } yield ViewCommonData.create(hashOps)(informees, threshold, salt, protocolVersion))
 
   private def createActionDescriptionGenFor(
-      pv: RepresentativeProtocolVersion[ActionDescription.type]
+      rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[CreateActionDescription] =
     for {
       contractId <- Arbitrary.arbitrary[LfContractId]
       seed <- Arbitrary.arbitrary[LfHash]
       version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield CreateActionDescription(contractId, seed, version)(pv)
+    } yield CreateActionDescription(contractId, seed, version)(rpv)
 
   private def exerciseActionDescriptionGenFor(
-      pv: RepresentativeProtocolVersion[ActionDescription.type]
+      rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[ExerciseActionDescription] =
     for {
       inputContractId <- Arbitrary.arbitrary[LfContractId]
@@ -197,26 +178,25 @@ object GeneratorsData {
       seed,
       version,
       failed,
-      pv,
+      rpv,
     )
 
   private def fetchActionDescriptionGenFor(
-      pv: RepresentativeProtocolVersion[ActionDescription.type]
+      rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[FetchActionDescription] =
     for {
       inputContractId <- Arbitrary.arbitrary[LfContractId]
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       byKey <- Gen.oneOf(true, false)
       version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield FetchActionDescription(inputContractId, actors, byKey, version)(pv)
+    } yield FetchActionDescription(inputContractId, actors, byKey, version)(rpv)
 
   private def lookupByKeyActionDescriptionGenFor(
-      pv: RepresentativeProtocolVersion[ActionDescription.type]
+      rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[LookupByKeyActionDescription] =
     for {
-      key <- Arbitrary.arbitrary[LfGlobalKey]
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
-    } yield LookupByKeyActionDescription.tryCreate(key, version, pv)
+      vk <- Arbitrary.arbitrary[Versioned[LfGlobalKey]]
+    } yield LookupByKeyActionDescription.tryCreate(vk.unversioned, vk.version, rpv)
 
   // If this pattern match is not exhaustive anymore, update the method below
   {
@@ -227,8 +207,9 @@ object GeneratorsData {
       case _: LookupByKeyActionDescription => ()
     }).discard
   }
-  def actionDescriptionGenFor(pv: ProtocolVersion): Gen[ActionDescription] = {
-    val rpv = ActionDescription.protocolVersionRepresentativeFor(pv)
+
+  implicit val actionDescriptionArb: Arbitrary[ActionDescription] = Arbitrary {
+    val rpv = ActionDescription.protocolVersionRepresentativeFor(protocolVersion)
 
     Gen.oneOf(
       createActionDescriptionGenFor(rpv),
@@ -237,11 +218,6 @@ object GeneratorsData {
       lookupByKeyActionDescriptionGenFor(rpv),
     )
   }
-
-  implicit val actionDescriptionArb: Arbitrary[ActionDescription] = Arbitrary(for {
-    pv <- representativeProtocolVersionGen(ActionDescription)
-    actionDescription <- actionDescriptionGenFor(pv.representative)
-  } yield actionDescription)
 
   private def assignedKeyGen(cid: LfContractId): Gen[AssignedKey] =
     Arbitrary.arbitrary[LfTransactionVersion].map(AssignedKey(cid)(_))
@@ -253,12 +229,11 @@ object GeneratorsData {
 
   implicit val viewParticipantDataArb: Arbitrary[ViewParticipantData] = Arbitrary(
     for {
-      pv <- Arbitrary.arbitrary[ProtocolVersion]
 
       coreInputs <- Gen
         .listOf(
           Gen.zip(
-            GeneratorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
             Gen.oneOf(true, false),
           )
         )
@@ -267,7 +242,7 @@ object GeneratorsData {
       createdCore <- Gen
         .listOf(
           Gen.zip(
-            GeneratorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
             Gen.oneOf(true, false),
             Gen.oneOf(true, false),
           )
@@ -296,16 +271,19 @@ object GeneratorsData {
         (LfGlobalKey, SerializableKeyResolution)
       ], (LfGlobalKey, SerializableKeyResolution)](coreInputWithResolvedKeys.map { contract =>
         // Unsafe .value is fine because we force the key to be defined with the generator above
-        val key = contract.contract.metadata.maybeKey.value
-
-        Gen.zip(key, assignedKeyGen(contract.contractId))
+        val key = contract.contract.metadata.maybeKeyWithMaintainersVersioned.value
+        Gen
+          .zip(key, assignedKeyGen(contract.contractId))
+          .map({ case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) })
       })
       freeResolvedKeys <- Gen.listOf(
-        Gen.zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[FreeKey])
+        Gen
+          .zip(Arbitrary.arbitrary[Versioned[LfGlobalKey]], Arbitrary.arbitrary[FreeKey])
+          .map({ case (k, r) => (k.unversioned, r.copy()(k.version)) })
       )
 
       resolvedKeys = assignedResolvedKeys ++ freeResolvedKeys
-      actionDescription <- actionDescriptionGenFor(pv)
+      actionDescription <- actionDescriptionArb.arbitrary
       rollbackContext <- Arbitrary.arbitrary[RollbackContext]
       salt <- Arbitrary.arbitrary[Salt]
 
@@ -318,7 +296,7 @@ object GeneratorsData {
       actionDescription,
       rollbackContext,
       salt,
-      pv,
+      protocolVersion,
     )
   )
 

@@ -7,14 +7,16 @@ import cats.syntax.either.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.api.client.commands.{
-  TopologyAdminCommands,
-  TopologyAdminCommandsX,
-}
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommandsX
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
+import com.digitalasset.canton.admin.api.client.data.{
+  DynamicDomainParameters as ConsoleDynamicDomainParameters,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
+import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   CommandErrors,
   ConsoleCommandResult,
@@ -28,19 +30,31 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.BaseQueryX
+import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.{StoredTopologyTransactionsX, TimeQueryX}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+  TimeQueryX,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
+import java.time.Duration
+import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
 trait InitNodeIdX extends ConsoleCommandGroup {
@@ -83,6 +97,29 @@ class TopologyAdministrationGroupX(
   override protected def getIdCommand(): ConsoleCommandResult[UniqueIdentifier] =
     runner.adminCommand(TopologyAdminCommandsX.Init.GetId())
 
+  /** If `filterStore` is not `Authorized` and if `filterDomain` is non-empty, they should correspond to the same domain.
+    */
+  private def areFilterStoreFilterDomainCompatible(
+      filterStore: String,
+      filterDomain: String,
+  ): Either[String, Unit] = {
+    val storeO: Option[TopologyStore] =
+      OptionUtil.emptyStringAsNone(filterStore).map(TopologyStore.tryFromString)
+    val domainO: Option[DomainId] =
+      OptionUtil.emptyStringAsNone(filterDomain).map(DomainId.tryFromString)
+
+    (storeO, domainO) match {
+      case (Some(TopologyStore.Domain(domainStore)), Some(domain)) =>
+        Either.cond(
+          domainStore == domain,
+          (),
+          s"Expecting filterDomain and filterStore to relate to the same domain but found `$domain` and `$domainStore`",
+        )
+
+      case _ => Right(())
+    }
+  }
+
   @Help.Summary("Inspect all topology transactions at once")
   @Help.Group("All Transactions")
   object transactions {
@@ -103,19 +140,24 @@ class TopologyAdministrationGroupX(
         .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
     }
 
-    @Help.Summary("Upload signed topology transaction")
+    @Help.Summary("Serializes node's topology identity transactions to a file")
     @Help.Description(
-      """Topology transactions can be issued with any topology manager. In some cases, such
-      |transactions need to be copied manually between nodes. This function allows for
-      |uploading previously exported topology transaction into the authorized store (which is
-      |the name of the topology managers transaction store."""
+      "Transactions serialized this way should be loaded into another node with load_from_file"
     )
-    def load_serialized(bytes: ByteString): Unit =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommands.Write.AddSignedTopologyTransaction(bytes)
-        )
-      }
+    def export_identity_transactions(file: String): Unit = {
+      instance.topology.transactions
+        .list()
+        .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
+        .filter(_.mapping.namespace == instance.id.uid.namespace)
+        .writeToFile(file)
+    }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by TopologyTransactionsX.")
+    def load_from_file(file: String, store: String): Unit = {
+      val txs = StoredTopologyTransactionsX.tryReadFromFile(file)
+      load(txs.signedTransactions.result, store)
+    }
 
     def load(transactions: Seq[GenericSignedTopologyTransactionX], store: String): Unit =
       consoleEnvironment.run {
@@ -175,6 +217,33 @@ class TopologyAdministrationGroupX(
         }
     }
 
+    @Help.Summary("Find the latest transaction for a given mapping hash")
+    @Help.Description(
+      """
+        mappingHash: the unique key of the topology mapping to find
+        store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
+               - "<domain-id>": the topology transaction will be looked up in the specified domain store.
+        includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
+    )
+    def findLatestByMappingHash[M <: TopologyMappingX: ClassTag](
+        mappingHash: MappingHash,
+        filterStore: String,
+        includeProposals: Boolean = false,
+    ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
+      val latestAuthorized = list(filterStore = filterStore)
+        .collectOfMapping[M]
+        .filter(_.mapping.uniqueKey == mappingHash)
+        .result
+      val latestProposal =
+        if (includeProposals)
+          list(filterStore = filterStore, proposals = true)
+            .collectOfMapping[M]
+            .filter(_.mapping.uniqueKey == mappingHash)
+            .result
+        else Seq.empty
+      (latestAuthorized ++ latestProposal).maxByOption(_.transaction.transaction.serial)
+    }
+
     @Help.Summary("Manage topology transaction purging", FeatureFlag.Preview)
     @Help.Group("Purge Topology Transactions")
     object purge extends Helpful {
@@ -223,45 +292,66 @@ class TopologyAdministrationGroupX(
 
       val thisNodeRootKey = Some(instance.id.uid.namespace.fingerprint)
 
+      def latest[M <: TopologyMappingX: ClassTag](hash: MappingHash) = {
+        instance.topology.transactions
+          .findLatestByMappingHash[M](
+            hash,
+            filterStore = AuthorizedStore.filterName,
+            includeProposals = true,
+          )
+          .map(_.transaction)
+      }
+
       // create and sign the initial domain parameters
       val domainParameterState =
-        instance.topology.domain_parameters.propose(
-          domainId,
-          DynamicDomainParameters
-            .initialValues(
-              consoleEnvironment.environment.clock,
-              ProtocolVersion.latest,
-            ),
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+        latest[DomainParametersStateX](DomainParametersStateX.uniqueKey(domainId))
+          .getOrElse(
+            instance.topology.domain_parameters.propose(
+              domainId,
+              ConsoleDynamicDomainParameters
+                .initialValues(
+                  consoleEnvironment.environment.clock,
+                  ProtocolVersion.latest,
+                ),
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
 
-      val mediatorState =
-        instance.topology.mediators.propose(
-          domainId,
-          threshold = PositiveInt.one,
-          group = NonNegativeInt.zero,
-          active = mediators,
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+      val mediatorState = {
+        latest[MediatorDomainStateX](MediatorDomainStateX.uniqueKey(domainId, NonNegativeInt.zero))
+          .getOrElse(
+            instance.topology.mediators.propose(
+              domainId,
+              threshold = PositiveInt.one,
+              group = NonNegativeInt.zero,
+              active = mediators,
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
+      }
 
-      val sequencerState =
-        instance.topology.sequencers.propose(
-          domainId,
-          threshold = PositiveInt.one,
-          active = sequencers,
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+      val sequencerState = {
+        latest[SequencerDomainStateX](SequencerDomainStateX.uniqueKey(domainId))
+          .getOrElse(
+            instance.topology.sequencers.propose(
+              domainId,
+              threshold = PositiveInt.one,
+              active = sequencers,
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
+      }
 
       Seq(domainParameterState, sequencerState, mediatorState)
     }
   }
 
-  @Help.Summary("Manage unionspaces")
-  @Help.Group("Unionspaces")
-  object unionspaces extends Helpful {
+  @Help.Summary("Manage decentralized namespaces")
+  @Help.Group("Decentralized namespaces")
+  object decentralized_namespaces extends Helpful {
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
@@ -270,9 +360,9 @@ class TopologyAdministrationGroupX(
         filterNamespace: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListUnionspaceDefinitionResult] = consoleEnvironment.run {
+    ): Seq[ListDecentralizedNamespaceDefinitionResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommandsX.Read.ListUnionspaceDefinition(
+        TopologyAdminCommandsX.Read.ListDecentralizedNamespaceDefinition(
           BaseQueryX(
             filterStore,
             proposals,
@@ -286,11 +376,11 @@ class TopologyAdministrationGroupX(
       )
     }
 
-    @Help.Summary("Propose the creation of a new unionspace")
+    @Help.Summary("Propose the creation of a new decentralized namespace")
     @Help.Description("""
-        owners: the namespaces of the founding members of the unionspace, which are used to compute the name of the unionspace.
-        threshold: this threshold specifies the minimum number of signatures of unionspace members that are required to
-                   satisfy authorization requirements on topology transactions for the namespace of the unionspace.
+        owners: the namespaces of the founding members of the decentralized namespace, which are used to compute the name of the decentralized namespace.
+        threshold: this threshold specifies the minimum number of signatures of decentralized namespace members that are required to
+                   satisfy authorization requirements on topology transactions for the namespace of the decentralized namespace.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                propagated to connected domains, if applicable.
@@ -315,43 +405,55 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, UnionspaceDefinitionX] =
-      consoleEnvironment.run {
-        NonEmpty
-          .from(owners) match {
-          case Some(ownersNE) =>
-            adminCommand(
-              {
-                TopologyAdminCommandsX.Write.Propose(
-                  UnionspaceDefinitionX
-                    .create(
-                      UnionspaceDefinitionX.computeNamespace(owners),
-                      threshold,
-                      ownersNE,
-                    ),
-                  signedBy = signedBy.toList,
-                  serial = serial,
-                  change = TopologyChangeOpX.Replace,
-                  mustFullyAuthorize = mustFullyAuthorize,
-                  forceChange = false,
-                  store = store,
-                )
-              }
-            )
-          case None =>
-            CommandErrors.GenericCommandError("Proposed unionspace needs at least one owner")
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
+      val ownersNE = NonEmpty
+        .from(owners)
+        .getOrElse(
+          consoleEnvironment.run(
+            CommandErrors
+              .GenericCommandError("Proposed decentralized namespace needs at least one owner")
+          )
+        )
+      val decentralizedNamespace = DecentralizedNamespaceDefinitionX
+        .create(
+          DecentralizedNamespaceDefinitionX.computeNamespace(owners),
+          threshold,
+          ownersNE,
+        )
+        .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
+      authorize(decentralizedNamespace, store, mustFullyAuthorize, signedBy.toList, serial)
+    }
+
+    def authorize(
+        decentralizedNamespace: DecentralizedNamespaceDefinitionX,
+        store: String,
+        mustFullyAuthorize: Boolean = false,
+        signedBy: Seq[Fingerprint],
+        serial: Option[PositiveInt] = None,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] =
+      consoleEnvironment.run(
+        adminCommand {
+          TopologyAdminCommandsX.Write.Propose(
+            decentralizedNamespace,
+            signedBy = signedBy.toList,
+            serial = serial,
+            change = TopologyChangeOpX.Replace,
+            mustFullyAuthorize = mustFullyAuthorize,
+            forceChange = false,
+            store = store,
+          )
         }
-      }
+      )
 
     def join(
-        unionspace: Fingerprint,
+        decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
     ): GenericSignedTopologyTransactionX = {
       ???
     }
 
     def leave(
-        unionspace: Fingerprint,
+        decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
     ): ByteString = {
       ByteString.EMPTY
@@ -641,8 +743,9 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        mustFullyAuthorize: Boolean = true, // configurable in case of a key under a unionspace
-    ): Unit = propose(
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -681,9 +784,10 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        mustFullyAuthorize: Boolean = true, // configurable in case of a key under a unionspace
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-    ): Unit = propose(
+    ): Unit = update(
       key,
       purpose,
       keyOwner,
@@ -713,6 +817,7 @@ class TopologyAdministrationGroupX(
         member: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
+        synchronize: Option[config.NonNegativeDuration],
     ): Unit = nodeInstance match {
       case nodeInstanceX: InstanceReferenceX =>
         val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
@@ -741,7 +846,7 @@ class TopologyAdministrationGroupX(
           // Authorize the new key
           // The owner will now have two keys, but by convention the first one added is always
           // used by everybody.
-          propose(
+          update(
             newKey.fingerprint,
             newKey.purpose,
             member,
@@ -749,10 +854,11 @@ class TopologyAdministrationGroupX(
             signedBy = signingKeyForNow,
             add = true,
             nodeInstance = nodeInstanceX,
+            synchronize = synchronize,
           )
 
           // Remove the old key by sending the matching `Remove` transaction
-          propose(
+          update(
             currentKey.fingerprint,
             currentKey.purpose,
             member,
@@ -760,6 +866,7 @@ class TopologyAdministrationGroupX(
             signedBy = signingKeyForNow,
             add = false,
             nodeInstance = nodeInstanceX,
+            synchronize = synchronize,
           )
         }
       case _ =>
@@ -768,7 +875,7 @@ class TopologyAdministrationGroupX(
         )
     }
 
-    private def propose(
+    private def update(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member,
@@ -783,20 +890,18 @@ class TopologyAdministrationGroupX(
         nodeInstance: InstanceReferenceX,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
-      val publicKey =
-        nodeInstance.keys.secret
-          .list(
-            filterFingerprint = key.toProtoPrimitive,
-            purpose = Set(purpose),
-          ) match {
-          case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
-          case Nil =>
-            throw new IllegalArgumentException("The specified key is unknown to the key owner")
-          case multipleKeys =>
-            throw new IllegalArgumentException(
-              s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
-            )
-        }
+      val publicKey = nodeInstance.keys.secret.list(
+        filterFingerprint = key.toProtoPrimitive,
+        purpose = Set(purpose),
+      ) match {
+        case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
+        case Nil =>
+          throw new IllegalArgumentException("The specified key is unknown to the key owner")
+        case multipleKeys =>
+          throw new IllegalArgumentException(
+            s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
+          )
+      }
 
       // Look for an existing authorized OKM mapping.
       val maybePreviousState = expectAtMostOneResult(
@@ -855,21 +960,42 @@ class TopologyAdministrationGroupX(
         }
       }
 
-      synchronisation
-        .runAdminCommand(synchronize)(
-          TopologyAdminCommandsX.Write
-            .Propose(
-              mapping = proposedMapping,
-              signedBy = signedBy.toList,
-              change = ops,
-              serial = Some(serial),
-              mustFullyAuthorize = mustFullyAuthorize,
-              forceChange = force,
-              store = AuthorizedStore.filterName,
-            )
-        )
-        .discard
+      propose(
+        proposedMapping,
+        serial,
+        ops,
+        signedBy,
+        AuthorizedStore.filterName,
+        synchronize,
+        mustFullyAuthorize,
+        force,
+      ).discard
     }
+
+    def propose(
+        proposedMapping: OwnerToKeyMappingX,
+        serial: RequireTypes.PositiveNumeric[Int],
+        ops: TopologyChangeOpX = TopologyChangeOpX.Replace,
+        signedBy: Option[Fingerprint] = None,
+        store: String = AuthorizedStore.filterName,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+        force: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, OwnerToKeyMappingX] =
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommandsX.Write.Propose(
+          mapping = proposedMapping,
+          signedBy = signedBy.toList,
+          store = store,
+          change = ops,
+          serial = Some(serial),
+          mustFullyAuthorize = mustFullyAuthorize,
+          forceChange = force,
+        )
+      )
   }
 
   @Help.Summary("Manage party to participant mappings")
@@ -1133,6 +1259,7 @@ class TopologyAdministrationGroupX(
         store: Option[String] = Some(AuthorizedStore.filterName),
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
+        change: TopologyChangeOpX = TopologyChangeOpX.Replace,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX] = {
       val cmd = TopologyAdminCommandsX.Write.Propose(
         mapping = DomainTrustCertificateX(
@@ -1145,6 +1272,7 @@ class TopologyAdministrationGroupX(
         store = store.getOrElse(domainId.filterString),
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
+        change = change,
       )
       synchronisation.runAdminCommand(synchronize)(cmd)
     }
@@ -1484,9 +1612,7 @@ class TopologyAdministrationGroupX(
                     This transaction will be rejected if another fully authorized transaction with the same serial already
                     exists, or if there is a gap between this serial and the most recently used serial.
                     If None, the serial will be automatically selected by the node.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        ops: Either Replace or Remove the vetting. Default to Replace.
-        |""")
+        signedBy: the fingerprint of the key to be used to sign this proposal""")
     def propose(
         participant: ParticipantId,
         packageIds: Seq[PackageId],
@@ -1635,20 +1761,31 @@ class TopologyAdministrationGroupX(
         filterDomain: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): Seq[ListMediatorDomainStateResult] = consoleEnvironment.run {
-      adminCommand(
-        TopologyAdminCommandsX.Read.MediatorDomainState(
-          BaseQueryX(
-            filterStore,
-            proposals,
-            timeQuery,
-            operation,
-            filterSigningKey,
-            protocolVersion.map(ProtocolVersion.tryCreate),
-          ),
-          filterDomain,
-        )
+        group: Option[NonNegativeInt] = None,
+    ): Seq[ListMediatorDomainStateResult] = {
+      def predicate(res: ListMediatorDomainStateResult): Boolean = group.forall(_ == res.item.group)
+
+      areFilterStoreFilterDomainCompatible(filterStore, filterDomain).valueOr(err =>
+        throw new IllegalArgumentException(err)
       )
+
+      consoleEnvironment
+        .run {
+          adminCommand(
+            TopologyAdminCommandsX.Read.MediatorDomainState(
+              BaseQueryX(
+                filterStore,
+                proposals,
+                timeQuery,
+                operation,
+                filterSigningKey,
+                protocolVersion.map(ProtocolVersion.tryCreate),
+              ),
+              filterDomain,
+            )
+          )
+        }
+        .filter(predicate)
     }
 
     @Help.Summary("Propose changes to the mediator topology")
@@ -1678,29 +1815,72 @@ class TopologyAdministrationGroupX(
         domainId: DomainId,
         threshold: PositiveInt,
         active: Seq[MediatorId],
-        passive: Seq[MediatorId] = Seq.empty,
+        observers: Seq[MediatorId] = Seq.empty,
         group: NonNegativeInt,
         store: Option[String] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            mapping = MediatorDomainStateX
-              .create(domainId, group, threshold, active, passive),
-            signedBy = signedBy.toList,
-            serial = serial,
-            change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = mustFullyAuthorize,
-            forceChange = false,
-            store = store.getOrElse(domainId.filterString),
-          )
-        )
-      }
+    ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] = {
+      val command = TopologyAdminCommandsX.Write.Propose(
+        mapping = MediatorDomainStateX
+          .create(domainId, group, threshold, active, observers),
+        signedBy = signedBy.toList,
+        serial = serial,
+        change = TopologyChangeOpX.Replace,
+        mustFullyAuthorize = mustFullyAuthorize,
+        forceChange = false,
+        store = store.getOrElse(domainId.filterString),
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
+
+    @Help.Summary("Propose to remove a mediator group")
+    @Help.Description("""
+         domainId: the target domain
+         group: the mediator group identifier
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected domains, if applicable.
+                - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                 storing it locally first. This also means it will _not_ be synchronized to other domains
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.""")
+    def remove_group(
+        domainId: DomainId,
+        group: NonNegativeInt,
+        store: Option[String] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        mustFullyAuthorize: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, MediatorDomainStateX] = {
+
+      val mediatorStateResult = list(filterStore = domainId.filterString, group = Some(group))
+        .maxByOption(_.context.serial)
+        .getOrElse(throw new IllegalArgumentException(s"Unknown mediator group $group"))
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        mapping = mediatorStateResult.item,
+        signedBy = mediatorStateResult.context.signedBy,
+        serial = Some(mediatorStateResult.context.serial.increment),
+        change = TopologyChangeOpX.Remove,
+        mustFullyAuthorize = mustFullyAuthorize,
+        forceChange = false,
+        store = store.getOrElse(domainId.filterString),
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
   }
 
   @Help.Summary("Inspect sequencer domain state")
@@ -1782,6 +1962,7 @@ class TopologyAdministrationGroupX(
   @Help.Summary("Manage domain parameters state", FeatureFlag.Preview)
   @Help.Group("Domain Parameters State")
   object domain_parameters extends Helpful {
+    @Help.Summary("List dynamic domain parameters")
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
@@ -1806,9 +1987,24 @@ class TopologyAdministrationGroupX(
       )
     }
 
+    @Help.Summary("Get the configured dynamic domain parameters")
+    def get_dynamic_domain_parameters(domainId: DomainId): ConsoleDynamicDomainParameters =
+      ConsoleDynamicDomainParameters(
+        expectExactlyOneResult(
+          list(
+            filterStore = domainId.filterString,
+            proposals = false,
+            timeQuery = TimeQueryX.HeadState,
+            operation = Some(TopologyChangeOpX.Replace),
+            filterDomain = domainId.filterString,
+          )
+        ).item
+      )
+
     @Help.Summary("Propose changes to dynamic domain parameters")
-    @Help.Description("""
-       domain: the target domain
+    @Help.Description(
+      """
+       domainId: the target domain
        parameters: the new dynamic domain parameters to be used on the domain
 
        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
@@ -1824,32 +2020,326 @@ class TopologyAdministrationGroupX(
        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
                This transaction will be rejected if another fully authorized transaction with the same serial already
                exists, or if there is a gap between this serial and the most recently used serial.
-               If None, the serial will be automatically selected by the node.""")
+               If None, the serial will be automatically selected by the node.
+       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+    )
     def propose(
-        domain: DomainId,
-        parameters: DynamicDomainParameters,
+        domainId: DomainId,
+        parameters: ConsoleDynamicDomainParameters,
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            // TODO(#14058) maybe don't just take default values for dynamic parameters
-            DomainParametersStateX(
-              domain,
-              parameters,
-            ),
-            signedBy.toList,
-            serial = serial,
-            mustFullyAuthorize = mustFullyAuthorize,
-            store = store.getOrElse(domain.filterString),
-          )
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        force: Boolean = false,
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommandsX.Write.Propose(
+          DomainParametersStateX(
+            domainId,
+            parameters.toInternal,
+          ),
+          signedBy.toList,
+          serial = serial,
+          mustFullyAuthorize = mustFullyAuthorize,
+          store = store.getOrElse(domainId.filterString),
+          forceChange = force,
         )
+      )
+    }
+
+    @Help.Summary("Propose an update to dynamic domain parameters")
+    @Help.Description(
+      """
+       domainId: the target domain
+       update: the new dynamic domain parameters to be used on the domain
+       mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                           satisfy the mapping's authorization requirements.
+       signedBy: the fingerprint of the key to be used to sign this proposal
+       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+    )
+    def propose_update(
+        domainId: DomainId,
+        update: ConsoleDynamicDomainParameters => ConsoleDynamicDomainParameters,
+        mustFullyAuthorize: Boolean = false,
+        // TODO(#14056) don't use the instance's root namespace key by default.
+        signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        force: Boolean = false,
+    ): Unit = {
+      val domainStore = domainId.filterString
+
+      val previousParameters = expectExactlyOneResult(
+        list(
+          filterDomain = domainId.filterString,
+          filterStore = domainStore,
+          operation = Some(TopologyChangeOpX.Replace),
+        )
+      )
+      val newParameters = update(ConsoleDynamicDomainParameters(previousParameters.item))
+
+      // Avoid topology manager ALREADY_EXISTS error by not submitting a no-op proposal.
+      // TODO(#15817): Move such ux-resilience avoiding error to write_service
+      if (ConsoleDynamicDomainParameters(previousParameters.item) != newParameters) {
+        propose(
+          domainId,
+          newParameters,
+          Some(domainStore),
+          mustFullyAuthorize,
+          signedBy,
+          Some(previousParameters.context.serial.increment),
+          synchronize,
+          force,
+        ).discard
       }
+    }
+
+    @Help.Summary("Update the participant response timeout in the dynamic domain parameters")
+    def set_participant_response_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(participantResponseTimeout = timeout))
+
+    @Help.Summary("Update the mediator reaction timeout in the dynamic domain parameters")
+    def set_mediator_reaction_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(mediatorReactionTimeout = timeout))
+
+    @Help.Summary("Update the transfer exclusivity timeout in the dynamic domain parameters")
+    def set_transfer_exclusivity_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(transferExclusivityTimeout = timeout))
+
+    @Help.Summary("Update the topology change delay in the dynamic domain parameters")
+    def set_topology_change_delay(
+        domainId: DomainId,
+        delay: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(topologyChangeDelay = delay))
+
+    @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
+    @Help.Description(
+      """If it would be insecure to perform the change immediately,
+        |the command will block and wait until it is secure to perform the change.
+        |The command will block for at most twice of ``newLedgerTimeRecordTimeTolerance``.
+        |
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newLedgerTimeRecordTimeTolerance``.
+        |
+        |Do not modify domain parameters concurrently while running this command,
+        |because the command may override concurrent changes.
+        |
+        |force: update ``ledgerTimeRecordTimeTolerance`` immediately without blocking.
+        |This is safe to do during domain bootstrapping and in test environments, but should not be done in operational production systems."""
+    )
+    def set_ledger_time_record_time_tolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        force: Boolean = false,
+    ): Unit = {
+      TraceContext.withNewTraceContext { implicit tc =>
+        if (!force) {
+          securely_set_ledger_time_record_time_tolerance(
+            domainId,
+            newLedgerTimeRecordTimeTolerance,
+          )
+        } else {
+          logger.info(
+            s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+          )
+          propose_update(
+            domainId,
+            _.update(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
+            force = true,
+          )
+        }
+      }
+    }
+
+    private def securely_set_ledger_time_record_time_tolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+    )(implicit traceContext: TraceContext): Unit = {
+      implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+
+      // See i9028 for a detailed design.
+      // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
+      // We wait until the antecedent of Lemma 2 Item 2 is falsified for all changes that violate the conclusion.
+
+      // Compute new parameters
+      val oldDomainParameters = get_dynamic_domain_parameters(domainId)
+      val oldLedgerTimeRecordTimeTolerance = oldDomainParameters.ledgerTimeRecordTimeTolerance
+
+      val minMediatorDeduplicationTimeout = newLedgerTimeRecordTimeTolerance * 2
+
+      if (oldDomainParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout) {
+        val err = TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
+          .PermanentlyInsecure(
+            newLedgerTimeRecordTimeTolerance.toInternal,
+            oldDomainParameters.mediatorDeduplicationTimeout.toInternal,
+          )
+        val msg = CantonError.stringFromContext(err)
+        consoleEnvironment.run(GenericCommandError(msg))
+      }
+
+      logger.info(
+        s"Securely updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+      )
+
+      // Poll until it is safe to increase ledgerTimeRecordTimeTolerance
+      def checkPreconditions(): Future[Unit] = {
+        val startTs = consoleEnvironment.environment.clock.now
+
+        // Update mediatorDeduplicationTimeout for several reasons:
+        // 1. Make sure it is big enough.
+        // 2. The resulting topology transaction gives us a meaningful lower bound on the sequencer clock.
+        logger.info(
+          s"Do a no-op update of ledgerTimeRecordTimeTolerance to $oldLedgerTimeRecordTimeTolerance..."
+        )
+        propose_update(
+          domainId,
+          _.copy(ledgerTimeRecordTimeTolerance = oldLedgerTimeRecordTimeTolerance),
+        )
+
+        logger.debug("Check for incompatible past domain parameters...")
+
+        val allTransactions = list(
+          domainId.filterString,
+          // We can't specify a lower bound in range because that would be compared against validFrom.
+          // (But we need to compare to validUntil).
+          timeQuery = TimeQueryX.Range(None, None),
+        )
+
+        // This serves as a lower bound of validFrom for the next topology transaction.
+        val lastSequencerTs =
+          allTransactions
+            .map(_.context.validFrom)
+            .maxOption
+            .getOrElse(throw new NoSuchElementException("Missing domain parameters!"))
+
+        logger.debug(s"Last sequencer timestamp is $lastSequencerTs.")
+
+        // Determine how long we need to wait until all incompatible domainParameters have become
+        // invalid for at least minMediatorDeduplicationTimeout.
+        val waitDuration = allTransactions
+          .filterNot(tx =>
+            ConsoleDynamicDomainParameters(tx.item).compatibleWithNewLedgerTimeRecordTimeTolerance(
+              newLedgerTimeRecordTimeTolerance
+            )
+          )
+          .map { tx =>
+            val elapsedForAtLeast = tx.context.validUntil match {
+              case Some(validUntil) => Duration.between(validUntil, lastSequencerTs)
+              case None => Duration.ZERO
+            }
+            minMediatorDeduplicationTimeout.asJava minus elapsedForAtLeast
+          }
+          .maxOption
+          .getOrElse(Duration.ZERO)
+
+        if (waitDuration > Duration.ZERO) {
+          logger.info(
+            show"Found incompatible past domain parameters. Waiting for $waitDuration..."
+          )
+
+          // Use the clock instead of Threading.sleep to support sim clock based tests.
+          val delayF = consoleEnvironment.environment.clock
+            .scheduleAt(
+              _ => (),
+              startTs.plus(waitDuration),
+            ) // avoid scheduleAfter, because that causes a race condition in integration tests
+            .onShutdown(
+              throw new IllegalStateException(
+                "Update of ledgerTimeRecordTimeTolerance interrupted due to shutdown."
+              )
+            )
+          // Do not submit checkPreconditions() to the clock because it is blocking and would therefore block the clock.
+          delayF.flatMap(_ => checkPreconditions())
+        } else {
+          Future.unit
+        }
+      }
+
+      consoleEnvironment.commandTimeouts.unbounded.await(
+        "Wait until ledgerTimeRecordTimeTolerance can be increased."
+      )(
+        checkPreconditions()
+      )
+
+      // Now that past values of mediatorDeduplicationTimeout have been large enough,
+      // we can change ledgerTimeRecordTimeTolerance.
+      logger.info(
+        s"Now changing ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+      )
+      propose_update(
+        domainId,
+        _.copy(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
+        force = true,
+      )
+    }
+
+    @Help.Summary("Update the mediator deduplication timeout in the dynamic domain parameters")
+    def set_mediator_deduplication_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit = propose_update(domainId, _.update(mediatorDeduplicationTimeout = timeout))
+
+    @Help.Summary("Update the reconciliation interval in the dynamic domain parameters")
+    def set_reconciliation_interval(
+        domainId: DomainId,
+        interval: config.PositiveDurationSeconds,
+    ): Unit = propose_update(domainId, _.update(reconciliationInterval = interval))
+
+    @Help.Summary("Update the maximum rate per participant in the dynamic domain parameters")
+    def set_max_rate_per_participant(
+        domainId: DomainId,
+        rate: NonNegativeInt,
+    ): Unit = propose_update(domainId, _.update(maxRatePerParticipant = rate))
+
+    @Help.Summary("Update the maximum request size in the dynamic domain parameters")
+    @Help.Description(
+      """The update won't have any effect until the sequencers are restarted."""
+    )
+    def set_max_request_size(
+        domainId: DomainId,
+        size: NonNegativeInt,
+    ): Unit = propose_update(domainId, _.update(maxRequestSize = size))
+
+    @Help.Summary(
+      "Update the sequencer aggregate submission timeout in the dynamic domain parameters"
+    )
+    def set_sequencer_aggregate_submission_timeout(
+        domainId: DomainId,
+        timeout: config.NonNegativeFiniteDuration,
+    ): Unit =
+      propose_update(domainId, _.update(sequencerAggregateSubmissionTimeout = timeout))
+
+    @Help.Summary(
+      "Update the `trafficControlParameters` in the dynamic domain parameters"
+    )
+    def set_traffic_control_parameters(
+        domainId: DomainId,
+        trafficControlParameters: TrafficControlParameters,
+    ): Unit = propose_update(
+      domainId,
+      _.update(trafficControlParameters = Some(trafficControlParameters)),
+    )
+
+    @Help.Summary(
+      "Clear the traffic control parameters in the dynamic domain parameters"
+    )
+    def clear_traffic_control_parameters(domainId: DomainId): Unit =
+      propose_update(domainId, _.update(trafficControlParameters = None))
   }
 
   @Help.Summary("Inspect topology stores")
@@ -1872,4 +2362,8 @@ class TopologyAdministrationGroupX(
         s"Found ${multipleResults.size} results, but expect at most one."
       )
   }
+
+  private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
+    throw new IllegalStateException(s"Expected exactly one result, but found none")
+  )
 }

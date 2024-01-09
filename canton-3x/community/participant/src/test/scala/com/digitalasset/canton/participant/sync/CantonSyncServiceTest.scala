@@ -274,9 +274,5 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       stats(f.sync, PackageID.PingPong) shouldBe Some(0)
     }
 
-    "not include dar-distribution packages in metering" in { f =>
-      stats(f.sync, PackageID.DarDistribution) shouldBe Some(0)
-    }
-
   }
 }

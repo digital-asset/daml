@@ -12,7 +12,7 @@
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, handle, throwIO)
+import Control.Exception (bracket, catch, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -86,11 +86,13 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import DA.Daml.Project.Types
     ( UnresolvedReleaseVersion(..),
-      unresolvedBuiltinSdkVersion,
+      unresolvedReleaseVersionToString,
+      parseUnresolvedVersion,
       isHeadVersion,
       ConfigError(..),
       ProjectPath(..),
-      ProjectConfig )
+      ProjectConfig,
+      unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersion)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
@@ -108,6 +110,7 @@ import DA.Daml.LF.Reader (dalfPaths,
                           readDalfManifest,
                           readDalfs,
                           readManifest)
+import qualified DA.Daml.LF.Reader as Reader
 import DA.Daml.LanguageServer (runLanguageServer)
 import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
@@ -152,7 +155,8 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                projectConfigName,
                                sdkVersionEnvVar,
                                withExpectProjectRoot,
-                               withProjectRoot)
+                               withProjectRoot,
+                               damlAssistantIsSet)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
@@ -172,7 +176,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Either (fromRight, partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
@@ -271,7 +275,7 @@ import "ghc-lib-parser" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
-import qualified SdkVersion
+import qualified SdkVersion.Class
 import "ghc-lib-parser" Util (looksLikePackageName)
 import Text.Regex.TDFA
 
@@ -310,7 +314,7 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
-cmdIde :: Int -> Mod CommandFields Command
+cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
     command "ide" $ info (helper <*> cmd) $
        progDesc
@@ -335,7 +339,7 @@ cmdLicense =
         "License information for open-source projects included in Daml."
     <> fullDesc
 
-cmdCompile :: Int -> Mod CommandFields Command
+cmdCompile :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdCompile numProcessors =
     command "compile" $ info (helper <*> cmd) $
         progDesc "Compile the Daml program into a Core/Daml-LF archive."
@@ -358,7 +362,7 @@ cmdCompile numProcessors =
         help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
         long "write-iface"
 
-cmdDesugar :: Int -> Mod CommandFields Command
+cmdDesugar :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdDesugar numProcessors =
   command "desugar" $ info (helper <*> cmd) $
       progDesc "Show the desugared Daml program"
@@ -373,7 +377,7 @@ cmdDesugar numProcessors =
             optPackageName
             disabledDlintUsageParser
 
-cmdDebugIdeSpanInfo :: Int -> Mod CommandFields Command
+cmdDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdDebugIdeSpanInfo numProcessors =
   command "debug-ide-span-info" $ info (helper <*> cmd) $
       progDesc "Show the IDE span infos for the Daml program"
@@ -388,7 +392,7 @@ cmdDebugIdeSpanInfo numProcessors =
             optPackageName
             disabledDlintUsageParser
 
-cmdLint :: Int -> Mod CommandFields Command
+cmdLint :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdLint numProcessors =
     command "lint" $ info (helper <*> cmd) $
         progDesc "Lint the Daml program."
@@ -402,7 +406,7 @@ cmdLint numProcessors =
               optPackageName
               enabledDlintUsageParser
 
-cmdTest :: Int -> Mod CommandFields Command
+cmdTest :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
        progDesc progDoc
@@ -449,7 +453,8 @@ cmdTest numProcessors =
         long "coverage-ignore-choice" <> help "Remove choices matching a regex from the coverage report. The full name of a local choice takes the format '<module>:<template name>:<choice name>', preceded by '<package id>:' for nonlocal packages."
 
 runTestsInProjectOrFiles ::
-       ProjectOpts
+       SdkVersion.Class.SdkVersioned
+    => ProjectOpts
     -> Maybe [FilePath]
     -> RunAllTests
     -> LoadCoverageOnly
@@ -501,13 +506,13 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> cliOptDetailLevel
 
-cmdBuild :: Int -> Mod CommandFields Command
+cmdBuild :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
     info (helper <*> cmdBuildParser numProcessors) $
     progDesc "Initialize, build and package the Daml project" <> fullDesc
-    
-cmdBuildParser :: Int -> Parser Command
+
+cmdBuildParser :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
 cmdBuildParser numProcessors =
     execBuild
         <$> projectOpts "daml build"
@@ -524,7 +529,7 @@ cmdBuildParser numProcessors =
         <*> multiPackageNoCacheOpt
         <*> multiPackageLocationOpt
 
-cmdRepl :: Int -> Mod CommandFields Command
+cmdRepl :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdRepl numProcessors =
     command "repl" $ info (helper <*> cmd) $
     progDesc "Launch the Daml REPL." <>
@@ -634,7 +639,7 @@ cmdClean =
             <*> multiPackageLocationOpt
             <*> multiPackageCleanAllOpt
 
-cmdInit :: Int -> Mod CommandFields Command
+cmdInit :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdInit numProcessors =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a Daml project" <> fullDesc
@@ -647,7 +652,7 @@ cmdInit numProcessors =
                   disabledDlintUsageParser
             <*> projectOpts "daml damlc init"
 
-cmdPackage :: Int -> Mod CommandFields Command
+cmdPackage :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
        progDesc "Compile the Daml program into a DAR (deprecated)"
@@ -697,7 +702,7 @@ cmdMergeDars =
   where
     cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
 
-cmdDocTest :: Int -> Mod CommandFields Command
+cmdDocTest :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
     info (helper <*> cmd) $
@@ -729,7 +734,8 @@ execLicense =
     licenseData :: B.ByteString
     licenseData = $(embedFile "NOTICES")
 
-execIde :: Telemetry
+execIde :: SdkVersion.Class.SdkVersioned
+        => Telemetry
         -> Debug
         -> EnableScenarioService
         -> StudioAutorunAllScenarios
@@ -794,7 +800,7 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
 -- | Whether we should write interface files during `damlc compile`.
 newtype WriteInterface = WriteInterface Bool
 
-execCompile :: FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
+execCompile :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
 execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
   Command Compile (Just projectOpts) effect
   where
@@ -828,7 +834,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
-execDesugar :: FilePath -> FilePath -> Options -> Command
+execDesugar :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
 execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effect
   where
     projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
@@ -840,7 +846,7 @@ execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effec
         createDirectoryIfMissing True $ takeDirectory outputFile
         T.writeFile outputFile s
 
-execDebugIdeSpanInfo :: FilePath -> FilePath -> Options -> Command
+execDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
 execDebugIdeSpanInfo inputFile outputFile opts =
   Command DebugIdeSpanInfo (Just projectOpts) effect
   where
@@ -861,7 +867,7 @@ execDebugIdeSpanInfo inputFile outputFile opts =
         createDirectoryIfMissing True $ takeDirectory outputFile
         TL.writeFile outputFile s
 
-execLint :: [FilePath] -> Options -> Command
+execLint :: SdkVersion.Class.SdkVersioned => [FilePath] -> Options -> Command
 execLint inputFiles opts =
   Command Lint (Just projectOpts) effect
   where
@@ -891,7 +897,7 @@ defaultProjectPath = ProjectPath "."
 
 -- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
 -- project local package database. Otherwise do nothing.
-execInit :: Options -> ProjectOpts -> Command
+execInit :: SdkVersion.Class.SdkVersioned => Options -> ProjectOpts -> Command
 execInit opts projectOpts =
   Command Init (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \_relativize ->
@@ -899,7 +905,7 @@ execInit opts projectOpts =
             opts
             (InitPkgDb True)
 
-installDepsAndInitPackageDb :: Options -> InitPkgDb -> IO ()
+installDepsAndInitPackageDb :: SdkVersion.Class.SdkVersioned => Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
@@ -910,9 +916,13 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
-              damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-              releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+              damlAssistantIsSet <- damlAssistantIsSet
+              releaseVersion <- if damlAssistantIsSet
+                  then do
+                    damlPath <- getDamlPath
+                    damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+                    resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+                  else pure (unsafeResolveReleaseVersion pSdkVersion)
               installDependencies
                   (toNormalizedFilePath' projRoot)
                   opts
@@ -933,7 +943,8 @@ getMultiPackagePath multiPackageLocation =
       pure $ Just $ ProjectPath path
 
 execBuild
-  :: ProjectOpts
+  :: SdkVersion.Class.SdkVersioned
+  => ProjectOpts
   -> Options
   -> Maybe FilePath
   -> IncrementalBuild
@@ -985,13 +996,13 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
-          hPutStrLn stderr $ "No daml.yaml found, but a multi-package.yaml was found instead.\n"
+          hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
             <> "If you intended to build everything within this multi-package.yaml, use the --all flag"
           exitFailure
 
         -- We have nothing, we're lost
         (False, Nothing, Nothing) -> do
-          hPutStrLn stderr "No daml.yaml or multi-package.yaml could be found."
+          hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
           exitFailure
     else
       case mPkgConfig of
@@ -1021,11 +1032,14 @@ withMaybeConfig withConfig handler = do
     handle (\case
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
         pure Nothing
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "contains only sdk-version" `isInfixOf` exc -> do
+        putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
+        pure Nothing
       e -> throwIO e
     ) (withConfig $ pure . Just)
   handler mConfig
 
-buildEffect :: (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
+buildEffect :: SdkVersion.Class.SdkVersioned => (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
 buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incrementalBuild initPkgDb = do
   installDepsAndInitPackageDb opts initPkgDb
   loggerH <- getLogger opts "build"
@@ -1091,7 +1105,8 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
   We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
 -}
 multiPackageBuildEffect
-  :: (FilePath -> IO FilePath)
+  :: SdkVersion.Class.SdkVersioned
+  => (FilePath -> IO FilePath)
   -> Maybe PackageConfigFields -- Nothing signifies build all
   -> MultiPackageConfigFields
   -> ProjectOpts
@@ -1107,7 +1122,7 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
   cDir <- getCurrentDirectory
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  assistantEnv <- filter ((/="DAML_PROJECT") . fst) <$> getEnvironment
+  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
     darPath <- darPathFromDamlYaml path
@@ -1179,7 +1194,6 @@ getDamlFilesBuildMulti log packagePath srcDir = do
       <> " to a directory to allow correct caching.\n"
     pure Map.empty
 
-
 -- Extract the name/version string and package ID of a given dalf in a dar.
 entryToDalfData :: ZipArchive.Entry -> Maybe (String, LF.PackageId)
 entryToDalfData entry = do
@@ -1204,6 +1218,9 @@ readDarStalenessData archive =
            in Just $ Right (relPackagePath, ZipArchive.fromEntry entry)
         _ -> Nothing
 
+getDarSdkVersion :: ZipArchive.Archive -> Either String String
+getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
+
 -- | Gets the package id of a Dar in the given project ONLY if it is not stale.
 getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
@@ -1220,14 +1237,17 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
       -- Get the real source files we expect to be included in the dar
       sourceFiles <- getDamlFilesBuildMulti logInfo path bmSourceDaml
 
-      -- Pull all information we need from the dar.
-      (archiveDalfPids, archiveSourceFiles) <-
-        readDarStalenessData . ZipArchive.toArchive <$> BSL.readFile darPath
+      dar <- ZipArchive.toArchive <$> BSL.readFile darPath
 
-      let getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
+      -- Pull all information we need from the dar.
+      let (archiveDalfPids, archiveSourceFiles) = readDarStalenessData dar
+          archiveSdkVersion = getDarSdkVersion dar
+
+          getArchiveDalfPid :: LF.PackageName -> LF.PackageVersion -> Maybe LF.PackageId
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
+          sdkVersionCorrect = archiveSdkVersion == Right (unresolvedReleaseVersionToString bmSdkVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1244,7 +1264,11 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
       logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
       logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
-      pure $ if sourceDepsCorrect && sourceFilesCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+      logDebug $ "Sdk version is " <> (if sdkVersionCorrect then "not " else "") <> "stale."
+      pure $ if sourceDepsCorrect && sourceFilesCorrect && sdkVersionCorrect then getArchiveDalfPid bmName bmVersion else Nothing
+
+damlMultiBuildVersion :: UnresolvedReleaseVersion
+damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
   :: AssistantRunner
@@ -1300,7 +1324,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             -- Call build via daml assistant so it selects the correct SDK version.
             -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | isHeadVersion bmSdkVersion])
+              ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1312,7 +1336,8 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             pure $ makeReturn ownPid True
 
 execRepl
-    :: [FilePath]
+    :: SdkVersion.Class.SdkVersioned
+    => [FilePath]
     -> [(LF.PackageName, Maybe LF.PackageVersion)]
     -> Maybe (String, String)
     -> Maybe FilePath
@@ -1361,7 +1386,7 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
             ReplClient.withReplClient replClientOptions $ \replHandle ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
-                sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
+                sdkVer <- fromMaybe SdkVersion.Class.sdkVersion <$> lookupEnv sdkVersionEnvVar
                 writeFileUTF8 "daml.yaml" $ unlines $
                     [ "sdk-version: " <> sdkVer
                     , "name: repl"
@@ -1416,7 +1441,8 @@ singleCleanEffect projectOpts =
         putStrLn "Removed build artifacts."
 
 
-execPackage :: ProjectOpts
+execPackage :: SdkVersion.Class.SdkVersioned
+            => ProjectOpts
             -> FilePath -- ^ input file
             -> Options
             -> Maybe FilePath
@@ -1451,7 +1477,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = unresolvedBuiltinSdkVersion
+                              , pSdkVersion = SdkVersion.Class.unresolvedBuiltinSdkVersion
                               , pModulePrefixes = Map.empty
                               , pUpgradedPackagePath = Nothing
                               , pTypecheckUpgrades = False
@@ -1563,7 +1589,7 @@ execMergeDars darFp1 darFp2 mbOutFp =
 -- | Should source files for doc test be imported into the test project (default yes)
 newtype ImportSource = ImportSource Bool
 
-execDocTest :: Options -> FilePath -> ImportSource -> [FilePath] -> Command
+execDocTest :: SdkVersion.Class.SdkVersioned => Options -> FilePath -> ImportSource -> [FilePath] -> Command
 execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
@@ -1571,8 +1597,8 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       let files' = map toNormalizedFilePath' files
           packageFlag =
             ExposePackage
-              ("--package daml-script-" <> SdkVersion.sdkPackageVersion)
-              (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.sdkPackageVersion)
+              ("--package daml-script-" <> SdkVersion.Class.sdkPackageVersion)
+              (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.Class.sdkPackageVersion)
               (ModRenaming True [])
 
       logger <- getLogger opts "doctest"
@@ -1582,9 +1608,13 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      damlPath <- getDamlPath
-      damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-      releaseVersion <- resolveReleaseVersion (envUseCache damlEnv) unresolvedBuiltinSdkVersion
+      damlAssistantIsSet <- damlAssistantIsSet
+      releaseVersion <- if damlAssistantIsSet
+          then do
+            damlPath <- getDamlPath
+            damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+            resolveReleaseVersion (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
+          else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty
 
@@ -1618,7 +1648,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
 -- main
 --------------------------------------------------------------------------------
 
-options :: Int -> Parser Command
+options :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
 options numProcessors =
     subparser
       (  cmdIde numProcessors
@@ -1645,7 +1675,7 @@ options numProcessors =
         <> cmdClean
       )
 
-parserInfo :: Int -> Bool -> ParserInfo Command
+parserInfo :: SdkVersion.Class.SdkVersioned => Int -> Bool -> ParserInfo Command
 parserInfo numProcessors addBuildArgsBackupParser =
   info (backupParserWithBuildArgs addBuildArgsBackupParser $ helper <*> options numProcessors)
     (  fullDesc
@@ -1658,7 +1688,7 @@ parserInfo numProcessors addBuildArgsBackupParser =
 
 -- | Add the build parser as a backup for when we're adding the CLI args from daml.yaml, incase whatever command
 -- we're running doesn't recognise all of the `build-options:` e.g. `daml test` cannot use `--output`
-backupParserWithBuildArgs :: Bool -> Parser Command -> Parser Command
+backupParserWithBuildArgs :: SdkVersion.Class.SdkVersioned => Bool -> Parser Command -> Parser Command
 backupParserWithBuildArgs shouldBackup parser = if shouldBackup then parser <* cmdBuildParser 1 else parser
 
 -- | Attempts to find the --output flag in the given build-options for a package
@@ -1748,7 +1778,7 @@ cliArgsFromDamlYaml =
     Left _ -> []
     Right xs -> xs
 
-fullParseArgs :: Int -> [String] -> IO Command
+fullParseArgs :: SdkVersion.Class.SdkVersioned => Int -> [String] -> IO Command
 fullParseArgs numProcessors cliArgs = do
     let parse :: [String] -> Maybe [String] -> ([String], ParserResult Command)
         parse args mBuildOptions =
@@ -1773,7 +1803,7 @@ fullParseArgs numProcessors cliArgs = do
 
     pure cmd
 
-main :: IO ()
+main :: SdkVersion.Class.SdkVersioned => IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers

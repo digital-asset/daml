@@ -166,7 +166,11 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
     for {
       parsed <- mapErrNew(
         EitherT
-          .fromEither[Future](SignedTopologyTransaction.fromByteString(request.serialized))
+          .fromEither[Future](
+            SignedTopologyTransaction.fromByteString(protocolVersion)(
+              request.serialized
+            )
+          )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
       _ <- mapErrNewEUS(

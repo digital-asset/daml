@@ -12,9 +12,11 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v1
 import com.digitalasset.canton.topology.transaction.{
   AuthorityOfX,
+  DecentralizedNamespaceDefinitionX,
   DomainTrustCertificateX,
   IdentifierDelegationX,
   MediatorDomainStateX,
@@ -27,7 +29,6 @@ import com.digitalasset.canton.topology.transaction.{
   SequencerDomainStateX,
   TopologyChangeOpX,
   TrafficControlStateX,
-  UnionspaceDefinitionX,
   VettedPackagesX,
 }
 import com.google.protobuf.ByteString
@@ -35,7 +36,7 @@ import com.google.protobuf.ByteString
 import java.time.Instant
 
 final case class BaseResult(
-    domain: String,
+    store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
     operation: TopologyChangeOpX,
@@ -60,8 +61,14 @@ object BaseResult {
           "signed_by_fingerprints",
           value.signedByFingerprints,
         )
+
+      store <- ProtoConverter.parseRequired(
+        TopologyStore.fromProto(_, "store"),
+        "store",
+        value.store,
+      )
     } yield BaseResult(
-      value.store,
+      store,
       validFrom,
       validUntil,
       operation,
@@ -88,21 +95,21 @@ object ListNamespaceDelegationResult {
     } yield ListNamespaceDelegationResult(context, item)
 }
 
-final case class ListUnionspaceDefinitionResult(
+final case class ListDecentralizedNamespaceDefinitionResult(
     context: BaseResult,
-    item: UnionspaceDefinitionX,
+    item: DecentralizedNamespaceDefinitionX,
 )
 
-object ListUnionspaceDefinitionResult {
+object ListDecentralizedNamespaceDefinitionResult {
   def fromProtoV1(
-      value: v1.ListUnionspaceDefinitionResult.Result
-  ): ParsingResult[ListUnionspaceDefinitionResult] =
+      value: v1.ListDecentralizedNamespaceDefinitionResult.Result
+  ): ParsingResult[ListDecentralizedNamespaceDefinitionResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- UnionspaceDefinitionX.fromProtoV2(itemProto)
-    } yield ListUnionspaceDefinitionResult(context, item)
+      item <- DecentralizedNamespaceDefinitionX.fromProtoV2(itemProto)
+    } yield ListDecentralizedNamespaceDefinitionResult(context, item)
 }
 
 final case class ListIdentifierDelegationResult(

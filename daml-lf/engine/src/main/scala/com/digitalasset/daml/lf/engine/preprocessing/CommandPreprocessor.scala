@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.data.Ref.PackageRef
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
@@ -249,24 +250,64 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.LookupByKey(templateId, key)
   }
 
+  private[preprocessing] def unsafeResolveTyConName(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      tyConRef: Ref.TypeConRef,
+      context: => language.Reference,
+  ): Ref.TypeConName = {
+    val pkgId = tyConRef.pkgRef match {
+      case PackageRef.Id(id) => id
+      case PackageRef.Name(name) =>
+        pkgResolution.getOrElse(
+          name,
+          throw Error.Preprocessing.UnresolvedPackageName(name, context),
+        )
+    }
+    Ref.TypeConName(pkgId, tyConRef.qName)
+  }
+
   // returns the speedy translation of an API command.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessApiCommand(
-      cmd: command.ApiCommand
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      cmd: command.ApiCommand,
   ): speedy.Command =
     cmd match {
-      case command.ApiCommand.Create(templateId, argument) =>
+      case command.ApiCommand.Create(templateRef, argument) =>
+        val templateId =
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessCreate(templateId, argument, strict = false)
-      case command.ApiCommand.Exercise(typeId, contractId, choiceId, argument) =>
+      case command.ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
+        val typeId = unsafeResolveTyConName(
+          pkgResolution,
+          typeRef,
+          language.Reference.TemplateOrInterface(typeRef),
+        )
         unsafePreprocessExercise(typeId, contractId, choiceId, argument, strict = false)
-      case command.ApiCommand.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
+      case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
+        val templateId =
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument, strict = false)
       case command.ApiCommand.CreateAndExercise(
-            templateId,
+            templateRef,
             createArgument,
             choiceId,
             choiceArgument,
           ) =>
+        val templateId =
+          unsafeResolveTyConName(
+            pkgResolution,
+            templateRef,
+            language.Reference.Template(templateRef),
+          )
         unsafePreprocessCreateAndExercise(
           templateId,
           createArgument,
@@ -325,8 +366,11 @@ private[lf] final class CommandPreprocessor(
     }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] =
-    cmds.map(unsafePreprocessApiCommand)
+  def unsafePreprocessApiCommands(
+      pkgResolution: Map[Ref.PackageName, Ref.PackageId],
+      cmds: ImmArray[command.ApiCommand],
+  ): ImmArray[speedy.Command] =
+    cmds.map(unsafePreprocessApiCommand(pkgResolution, _))
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(

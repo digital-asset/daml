@@ -51,7 +51,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-proto-decode",
@@ -67,6 +66,7 @@ da_haskell_library(
         "//compiler/scenario-service/client",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -108,5 +108,6 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )

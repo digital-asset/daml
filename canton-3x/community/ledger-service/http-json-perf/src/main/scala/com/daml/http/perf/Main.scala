@@ -13,7 +13,7 @@ import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
 import com.daml.integrationtest.CantonRunner
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging

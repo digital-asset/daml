@@ -10,7 +10,7 @@ import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Util}
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.index.index.StatusDetails
@@ -81,29 +81,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           typ = JdbcLedgerDao.acceptType,
           configuration = Configuration.encode(update.newConfiguration).toByteArray,
           rejection_reason = None,
-        )
-      )
-    }
-
-    "handle ConfigurationChangeRejected" in {
-      val rejectionReason = "Test rejection reason"
-      val update = state.Update.ConfigurationChangeRejected(
-        someRecordTime,
-        someSubmissionId,
-        someParticipantId,
-        someConfiguration,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.ConfigurationEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = someSubmissionId,
-          typ = JdbcLedgerDao.rejectType,
-          configuration = Configuration.encode(someConfiguration).toByteArray,
-          rejection_reason = Some(rejectionReason),
         )
       )
     }
@@ -365,7 +342,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue)
+            .assertBuild(contractTemplate, keyValue, shared = Util.sharedKey(createNode.version))
             .hash
             .bytes
             .toHexString
@@ -465,7 +442,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue)
+            .assertBuild(contractTemplate, keyValue, shared = Util.sharedKey(createNode.version))
             .hash
             .bytes
             .toHexString

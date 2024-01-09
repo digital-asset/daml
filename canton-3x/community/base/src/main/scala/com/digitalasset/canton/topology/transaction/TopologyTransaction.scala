@@ -343,7 +343,9 @@ object TopologyStateUpdate {
 
   def fromByteString(bytes: ByteString): ParsingResult[TopologyStateUpdate[AddRemoveChangeOp]] =
     for {
-      converted <- TopologyTransaction.fromByteString(bytes)
+      converted <- TopologyTransaction.fromByteStringUnsafe(
+        bytes
+      ) // TODO(#12626) – use fromByteString
       result <- converted match {
         case topologyStateUpdate: TopologyStateUpdate[_] =>
           Right(topologyStateUpdate)
@@ -496,19 +498,4 @@ object DomainGovernanceTransaction {
     )
   }
 
-  def fromByteString(bytes: ByteString): ParsingResult[DomainGovernanceTransaction] =
-    for {
-      converted <- TopologyTransaction.fromByteString(bytes)
-      result <- converted match {
-        case _: TopologyStateUpdate[_] =>
-          Left(
-            ProtoDeserializationError.TransactionDeserialization(
-              "Expecting DomainGovernanceTransaction, found TopologyStateUpdate"
-            )
-          )
-        case domainGovernanceTransaction: DomainGovernanceTransaction =>
-          Right(domainGovernanceTransaction)
-
-      }
-    } yield result
 }

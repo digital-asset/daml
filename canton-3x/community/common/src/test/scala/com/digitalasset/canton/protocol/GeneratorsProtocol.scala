@@ -8,27 +8,28 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.ViewPosition
+import com.digitalasset.canton.data.{GeneratorsDataTime, ViewPosition}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
-import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-object GeneratorsProtocol {
-
+final class GeneratorsProtocol(
+    protocolVersion: ProtocolVersion,
+    generatorsDataTime: GeneratorsDataTime,
+) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.{nonNegativeFiniteDurationArb as _, *}
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.data.GeneratorsData.*
   import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import org.scalatest.EitherValues.*
+  import generatorsDataTime.*
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
     Arbitrary(for {
@@ -39,8 +40,6 @@ object GeneratorsProtocol {
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
-
-      protocolVersion <- protocolVersionArb.arbitrary
 
       parameters = StaticDomainParameters.create(
         uniqueContractKeys,
@@ -55,7 +54,7 @@ object GeneratorsProtocol {
     } yield parameters)
   }
 
-  def dynamicDomainParametersGenFor(pv: ProtocolVersion): Gen[DynamicDomainParameters] =
+  implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(
     for {
       participantResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
@@ -68,7 +67,7 @@ object GeneratorsProtocol {
         .choose(0L, 10000L)
         .map(NonNegativeFiniteDuration.tryOfMicros)
 
-      representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(pv)
+      representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
 
       reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
       maxRatePerParticipant <- Arbitrary.arbitrary[NonNegativeInt]
@@ -96,11 +95,7 @@ object GeneratorsProtocol {
       )(representativePV)
 
     } yield dynamicDomainParameters
-
-  implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(for {
-    representativePV <- GeneratorsVersion.representativeProtocolVersionGen(DynamicDomainParameters)
-    dynamicDomainParameters <- dynamicDomainParametersGenFor(representativePV.representative)
-  } yield dynamicDomainParameters)
+  )
 
   implicit val rootHashArb: Arbitrary[RootHash] = Arbitrary(
     Arbitrary.arbitrary[Hash].map(RootHash(_))

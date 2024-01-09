@@ -12,7 +12,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, U
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinaryApplicationHandler
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.sequencing.protocol.Envelope
+import com.digitalasset.canton.sequencing.protocol.{Envelope, TimeProof}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.time.DomainTimeTracker.*
 import com.digitalasset.canton.tracing.TraceContext

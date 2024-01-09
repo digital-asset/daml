@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -47,6 +48,8 @@ import scala.concurrent.{ExecutionContext, Future}
 @nowarn("msg=match may not be exhaustive")
 trait ActiveContractStoreTest extends PrunableByTimeTest {
   this: AsyncWordSpecLike & BaseTest & TestMetrics =>
+
+  protected implicit def closeContext: CloseContext
 
   lazy val acsDomainStr: String300 = String300.tryCreate("active-contract-store::default")
   lazy val acsDomainId: DomainId = DomainId.tryFromString(acsDomainStr.unwrap)

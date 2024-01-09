@@ -439,7 +439,11 @@ class ContractsService(
                   ContractDao.fetchByKey(
                     parties,
                     resolved,
-                    Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
+                    Hash.assertHashContractKey(
+                      toLedgerApiValue(resolved),
+                      contractKey,
+                      shared = false,
+                    ),
                   ),
                 )
             }

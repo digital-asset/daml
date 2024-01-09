@@ -20,6 +20,7 @@ da_haskell_library(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -49,5 +50,6 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )

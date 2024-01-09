@@ -108,12 +108,14 @@ class GenTransactionTreeTest
 
       "be serialized and deserialized" in {
         val fullInformeeTree = example.fullInformeeTree
-        FullInformeeTree.fromByteString(factory.cryptoOps)(
+        FullInformeeTree.fromByteStringUnsafe(factory.cryptoOps)(
           fullInformeeTree.toByteString
         ) shouldEqual Right(fullInformeeTree)
 
         val (_, informeeTree) = example.informeeTreeBlindedFor
-        InformeeTree.fromByteString(factory.cryptoOps)(informeeTree.toByteString) shouldEqual Right(
+        InformeeTree.fromByteStringUnsafe(factory.cryptoOps)(
+          informeeTree.toByteString
+        ) shouldEqual Right(
           informeeTree
         )
 

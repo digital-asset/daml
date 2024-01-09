@@ -367,7 +367,7 @@ class SequencerAggregatorPekkoTest
       source.offer(config1) shouldBe QueueOfferResult.Enqueued
 
       sink.request(10)
-      sink.expectNext() shouldBe Left(NewConfiguration(config1, initialCounter))
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, initialCounter - 1L))
       normalize(sink.expectNext().value) shouldBe normalize(
         Event(
           initialCounter + 1,

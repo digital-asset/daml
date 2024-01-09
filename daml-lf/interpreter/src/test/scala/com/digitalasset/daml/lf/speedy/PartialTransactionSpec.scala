@@ -14,7 +14,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
+  private[this] val txVersion = TransactionVersion.maxVersion
+
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("PartialTransactionSpec")
+  private[this] val pkgName = Some(data.Ref.PackageName.assertFromString("-package-name-"))
   private[this] val templateId = data.Ref.Identifier.assertFromString("pkg:Mod:Template")
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))
@@ -39,7 +42,8 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
     val contract = ContractInfo(
-      version = TransactionVersion.maxVersion,
+      version = txVersion,
+      packageName = pkgName,
       templateId = templateId,
       value = SValue.SRecord(templateId, ImmArray(), ArrayList()),
       agreementText = "agreement",
@@ -62,6 +66,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def beginExercises_ : PartialTransaction =
       ptx
         .beginExercises(
+          packageName = pkgName,
           templateId = contract.templateId,
           targetId = cid,
           contract = contract,
@@ -74,7 +79,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           choiceAuthorizers = None,
           byKey = false,
           chosenValue = Value.ValueUnit,
-          version = TransactionVersion.maxVersion,
+          version = txVersion,
         )
         .toOption
         .get

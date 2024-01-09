@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
@@ -29,6 +29,7 @@ da_haskell_test(
     deps = [
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -74,12 +75,12 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -104,10 +105,10 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -150,7 +151,6 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode",
         "//compiler/damlc:damlc-lib",
@@ -167,6 +167,7 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -273,6 +274,7 @@ da_haskell_test(
         "//compiler/damlc/daml-doc:daml-doc-testing",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -309,6 +311,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -372,6 +375,7 @@ da_haskell_test(
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -399,10 +403,10 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -428,10 +432,10 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -460,11 +464,42 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+# Tests for multi-package
+da_haskell_test(
+    name = "multi-package",
+    srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
+    data = [
+        "//daml-assistant:daml",
+        "//release:sdk-release-tarball",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+    ],
+    main_function = "DA.Test.DamlcMultiPackage.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -496,7 +531,6 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
@@ -504,6 +538,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -557,7 +592,6 @@ daml_compile(
         ] + extra_tags,
         visibility = ["//visibility:public"],
         deps = [
-            "//:sdk-version-hs-lib",
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
             "//compiler/daml-lf-reader",
@@ -565,6 +599,7 @@ daml_compile(
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",
+            "//sdk-version/hs:sdk-version-lib",
         ],
     )
     for (suffix, extra_tags, test_args) in [
@@ -810,7 +845,6 @@ da_haskell_test(
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
@@ -822,6 +856,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -1043,7 +1078,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.ScriptService.main",
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-ide-core",
@@ -1055,6 +1089,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -1086,7 +1121,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.ScriptService.main",
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-ide-core",
@@ -1097,6 +1131,7 @@ da_haskell_test(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -1126,13 +1161,13 @@ da_haskell_test(
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -1190,6 +1225,13 @@ daml_compile_with_dalf(
     ghc_options = [],
 )
 
+# This ensures that changes to the contents of 'platform-independence.dar'
+# don't go unnoticed. This can happen after changes to daml-prim or daml-stdlib.
+# This is likely to happen if you work on the compiler , so it's a good idea to
+# add 'export RUN_PLATFORM_INDEPENDENCE_CHECK=yes' to your '.envrc.private'
+# at the root of the repo.
+generate_and_track_dar_hash_file("platform-independence")
+
 # Desugared daml golden tests
 da_haskell_test(
     name = "daml-desugar",
@@ -1212,6 +1254,7 @@ da_haskell_test(
         "//compiler/damlc/daml-desugar:daml-desugar-testing",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 

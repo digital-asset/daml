@@ -1,0 +1,61 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+
+da_haskell_library(
+    name = "sdk-version-class-lib",
+    srcs = [":src/SdkVersion/Class.hs"],
+    hackage_deps = [
+        "base",
+        "text",
+        "ghc-lib-parser",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-version-types",
+    ],
+)
+
+genrule(
+    name = "sdk-version-lib-file",
+    srcs = [],
+    outs = ["SdkVersion.hs"],
+    cmd = """
+        cat > $@ <<EOF
+{{-# LANGUAGE RankNTypes #-}}
+
+module SdkVersion
+  ( module SdkVersion.Class
+  , withSdkVersions
+  ) where
+
+import SdkVersion.Class
+
+withSdkVersions :: (SdkVersioned => r) -> r
+withSdkVersions = withSdkVersions' SdkVersions
+  {{ _sdkVersion = "{sdk}"
+  ,  _mvnVersion = "{mvn}"
+  ,  _sdkPackageVersion = "{ghc}"
+  }}
+EOF
+""".format(
+        ghc = ghc_version,
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
+)
+
+da_haskell_library(
+    name = "sdk-version-lib",
+    srcs = [":sdk-version-lib-file"],
+    hackage_deps = [
+        "base",
+        "ghc-lib-parser",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sdk-version-class-lib",
+    ],
+)

@@ -281,11 +281,13 @@ final case class DynamicDomainParameters private (
       transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
       maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      maxRequestSize: MaxRequestSize = maxRequestSize,
   ): DynamicDomainParameters =
     this.copy(
       transferExclusivityTimeout = transferExclusivityTimeout,
       reconciliationInterval = reconciliationInterval,
       maxRatePerParticipant = maxRatePerParticipant,
+      maxRequestSize = maxRequestSize,
     )(representativeProtocolVersion)
 
   def tryUpdate(
@@ -297,6 +299,7 @@ final case class DynamicDomainParameters private (
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
       maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      maxRequestSize: MaxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,

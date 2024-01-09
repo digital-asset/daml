@@ -65,45 +65,6 @@ object Update {
     }
   }
 
-  /** Signal that a configuration change submitted by this participant was rejected. */
-  final case class ConfigurationChangeRejected(
-      recordTime: Timestamp,
-      submissionId: Ref.SubmissionId,
-      participantId: Ref.ParticipantId,
-      proposedConfiguration: Configuration,
-      rejectionReason: String,
-  ) extends Update {
-
-    override def pretty: Pretty[ConfigurationChangeRejected] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("configuration", _.proposedConfiguration),
-        param("rejectionReason", _.rejectionReason.singleQuoted),
-        indicateOmittedFields,
-      )
-  }
-
-  object ConfigurationChangeRejected {
-    implicit val `ConfigurationChangeRejected to LoggingValue`
-        : ToLoggingValue[ConfigurationChangeRejected] = {
-      case ConfigurationChangeRejected(
-            recordTime,
-            submissionId,
-            participantId,
-            proposedConfiguration,
-            rejectionReason,
-          ) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(proposedConfiguration.generation),
-          Logging.maxDeduplicationDuration(proposedConfiguration.maxDeduplicationDuration),
-          Logging.rejectionReason(rejectionReason),
-        )
-    }
-  }
-
   /** Signal that a party is hosted at a participant.
     *
     * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as follows:
@@ -360,6 +321,7 @@ object Update {
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceDomain),
         param("target", _.reassignmentInfo.targetDomain),
+        unnamedParam(_.reassignment.kind.unquoted),
         indicateOmittedFields,
       )
 
@@ -471,10 +433,6 @@ object Update {
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: ConfigurationChanged =>
       ConfigurationChanged.`ConfigurationChanged to LoggingValue`.toLoggingValue(update)
-    case update: ConfigurationChangeRejected =>
-      ConfigurationChangeRejected.`ConfigurationChangeRejected to LoggingValue`.toLoggingValue(
-        update
-      )
     case update: PartyAddedToParticipant =>
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>

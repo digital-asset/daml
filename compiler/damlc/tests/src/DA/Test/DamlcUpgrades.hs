@@ -14,18 +14,18 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain $ tests damlc
 
-tests :: FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> TestTree
 tests damlc =
     testGroup
         "Upgrade"

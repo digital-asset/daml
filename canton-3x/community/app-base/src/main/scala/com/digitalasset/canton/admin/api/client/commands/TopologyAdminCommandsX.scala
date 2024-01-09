@@ -118,18 +118,18 @@ object TopologyAdminCommandsX {
         response.results.traverse(ListNamespaceDelegationResult.fromProtoV1).leftMap(_.toString)
     }
 
-    final case class ListUnionspaceDefinition(
+    final case class ListDecentralizedNamespaceDefinition(
         query: BaseQueryX,
         filterNamespace: String,
     ) extends BaseCommand[
-          v1.ListUnionspaceDefinitionRequest,
-          v1.ListUnionspaceDefinitionResult,
-          Seq[ListUnionspaceDefinitionResult],
+          v1.ListDecentralizedNamespaceDefinitionRequest,
+          v1.ListDecentralizedNamespaceDefinitionResult,
+          Seq[ListDecentralizedNamespaceDefinitionResult],
         ] {
 
-      override def createRequest(): Either[String, v1.ListUnionspaceDefinitionRequest] =
+      override def createRequest(): Either[String, v1.ListDecentralizedNamespaceDefinitionRequest] =
         Right(
-          new v1.ListUnionspaceDefinitionRequest(
+          new v1.ListDecentralizedNamespaceDefinitionRequest(
             baseQuery = Some(query.toProtoV1),
             filterNamespace = filterNamespace,
           )
@@ -137,14 +137,16 @@ object TopologyAdminCommandsX {
 
       override def submitRequest(
           service: TopologyManagerReadServiceXStub,
-          request: v1.ListUnionspaceDefinitionRequest,
-      ): Future[v1.ListUnionspaceDefinitionResult] =
-        service.listUnionspaceDefinition(request)
+          request: v1.ListDecentralizedNamespaceDefinitionRequest,
+      ): Future[v1.ListDecentralizedNamespaceDefinitionResult] =
+        service.listDecentralizedNamespaceDefinition(request)
 
       override def handleResponse(
-          response: v1.ListUnionspaceDefinitionResult
-      ): Either[String, Seq[ListUnionspaceDefinitionResult]] =
-        response.results.traverse(ListUnionspaceDefinitionResult.fromProtoV1).leftMap(_.toString)
+          response: v1.ListDecentralizedNamespaceDefinitionResult
+      ): Either[String, Seq[ListDecentralizedNamespaceDefinitionResult]] =
+        response.results
+          .traverse(ListDecentralizedNamespaceDefinitionResult.fromProtoV1)
+          .leftMap(_.toString)
     }
 
     final case class ListIdentifierDelegation(
@@ -435,7 +437,7 @@ object TopologyAdminCommandsX {
 
       override def createRequest(): Either[String, v1.ListMediatorDomainStateRequest] =
         Right(
-          new v1.ListMediatorDomainStateRequest(
+          v1.ListMediatorDomainStateRequest(
             baseQuery = Some(query.toProtoV1),
             filterDomain = filterDomain,
           )
@@ -636,7 +638,7 @@ object TopologyAdminCommandsX {
             )
           ),
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChange = false,
+          forceChange = forceChange,
           signedBy = signedBy.map(_.toProtoPrimitive),
           store,
         )

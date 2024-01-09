@@ -202,12 +202,12 @@ object SignedProtocolMessage
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )
 
-  private def fromProtoV1(
+  private def fromProtoV1( // TODO(#12626) – try with context
       signedMessageP: v1.SignedProtocolMessage
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(typedMessageBytes)
+      typedMessage <- TypedSignedProtocolMessageContent.fromByteStringUnsafe(typedMessageBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "signatures",

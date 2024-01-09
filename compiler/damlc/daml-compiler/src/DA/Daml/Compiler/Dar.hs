@@ -71,6 +71,8 @@ import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
+import SdkVersion.Class (SdkVersioned)
+
 -- | Create a DAR file by running a ZipArchive action.
 createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()
 createDarFile loggerH fp dar = do
@@ -109,7 +111,8 @@ newtype FromDalf = FromDalf
     }
 
 buildDar ::
-       IdeState
+       SdkVersioned
+    => IdeState
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf

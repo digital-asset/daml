@@ -211,19 +211,3 @@ jobs:
       - template: ci/tell-slack-failed.yml
 
   - template: ci/refresh-get-daml-com.yml
-
-  - job: build_canton_3x_with_bazel
-    timeoutInMinutes: 120
-    pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-          git fetch
-          git checkout origin/main
-          ci/build-canton-3x.sh
-        env:
-          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-      - template: ci/tell-slack-failed.yml

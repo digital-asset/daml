@@ -19,8 +19,10 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import System.Environment.Blank (setEnv)
 
+import SdkVersion (SdkVersioned, withSdkVersions)
+
 main :: IO ()
-main =
+main = withSdkVersions $ do
   -- Install Daml.Script once at the start of the suite, rather than for each case
   withDamlScriptDep Nothing $ \scriptPackageData -> do
     -- Must run serially
@@ -31,7 +33,7 @@ main =
 
 -- These test names are converted to module names by removing spaces
 -- Do not use any characters that wouldn't be accepted as a haskell module name (e.g. '-', '.', etc.)
-generateTests :: ScriptPackageData -> TestTree
+generateTests :: SdkVersioned => ScriptPackageData -> TestTree
 generateTests scriptPackageData = testGroup "generate doctest module"
     [ shouldGenerateCase "empty module" [] []
     , shouldGenerateCase "example in doc comment"

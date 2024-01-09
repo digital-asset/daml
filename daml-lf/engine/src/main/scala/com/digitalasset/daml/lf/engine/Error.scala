@@ -155,6 +155,12 @@ object Error {
       override def message: String =
         s"Duplicate disclosed contract key hash ${keyHash.toHexString}"
     }
+
+    final case class UnresolvedPackageName(pkgName: Ref.PackageName, context: language.Reference)
+        extends Error {
+      override def message: String =
+        s"unresolved package name $pkgName " + LookupError.contextDetails(context)
+    }
   }
 
   // Error happening during interpretation

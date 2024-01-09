@@ -431,7 +431,7 @@ object MutableCacheBackedContractStoreSpec {
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance = ContractInstance(templateId, contractArgument)
+    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

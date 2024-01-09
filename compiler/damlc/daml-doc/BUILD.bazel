@@ -48,6 +48,7 @@ da_haskell_library(
         "//compiler/damlc/daml-rule-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -79,7 +80,6 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-doc",
@@ -89,6 +89,7 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 

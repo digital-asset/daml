@@ -43,6 +43,8 @@ import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
 
+import SdkVersion.Class (SdkVersioned)
+
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
     , do_compileOptions :: Options
@@ -81,13 +83,13 @@ data ExternalAnchorPath
   deriving (Eq, Show, Read)
 
 -- | Run damldocs!
-runDamlDoc :: DamldocOptions -> IO ()
+runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
 runDamlDoc options@DamldocOptions{..} = do
     docData <- inputDocData options
     renderDocData options (applyTransform do_transformOptions docData)
 
 -- | Load doc data, either via the Daml typechecker or via JSON files.
-inputDocData :: DamldocOptions -> IO [ModuleDoc]
+inputDocData :: SdkVersioned => DamldocOptions -> IO [ModuleDoc]
 inputDocData DamldocOptions{..} = do
 
     let printAndExit errMsg = do

@@ -49,6 +49,7 @@ object TransactionVersion {
   private[lf] val minInterfaces = V15
   private[lf] val minExplicitDisclosure = VDev
   private[lf] val minChoiceAuthorizers = VDev
+  private[lf] val minUpgrade = VDev
   private[lf] val minSharedKeys = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {

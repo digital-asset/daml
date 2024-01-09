@@ -7,17 +7,32 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.admin.api.client.data.crypto.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, PositiveDurationSeconds}
-import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
+import com.digitalasset.canton.config.{
+  CommunityCryptoConfig,
+  CryptoConfig,
+  NonNegativeFiniteDuration,
+  PositiveDurationSeconds,
+}
+import com.digitalasset.canton.domain.config.DomainParametersConfig
+import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
+import com.digitalasset.canton.protocol.DynamicDomainParameters.{
+  InvalidDynamicDomainParameters,
+  protocolVersionRepresentativeFor,
+}
 import com.digitalasset.canton.protocol.{
   DynamicDomainParameters as DynamicDomainParametersInternal,
   StaticDomainParameters as StaticDomainParametersInternal,
   v2 as protocolV2,
 }
+import com.digitalasset.canton.time.{
+  Clock,
+  NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
+  PositiveSeconds,
+}
 import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{crypto as DomainCrypto}
+import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
+import com.digitalasset.canton.crypto as DomainCrypto
 import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
@@ -59,6 +74,36 @@ final case class StaticDomainParameters(
 
 object StaticDomainParameters {
 
+  // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
+  def fromConfig(
+      config: DomainParametersConfig,
+      cryptoConfig: CryptoConfig,
+  ): StaticDomainParameters = {
+    val internal = config
+      .toStaticDomainParameters(cryptoConfig)
+      .valueOr(err =>
+        throw new IllegalArgumentException(s"Cannot instantiate static domain parameters: $err")
+      )
+
+    StaticDomainParameters(internal)
+  }
+
+  lazy val defaultsWithoutKMS: StaticDomainParameters =
+    defaults(CommunityCryptoConfig())
+
+  // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
+  def defaults(
+      cryptoConfig: CryptoConfig
+  ): StaticDomainParameters = {
+    val internal = DomainParametersConfig()
+      .toStaticDomainParameters(cryptoConfig)
+      .valueOr(err =>
+        throw new IllegalArgumentException(s"Cannot instantiate static domain parameters: $err")
+      )
+
+    StaticDomainParameters(internal)
+  }
+
   def apply(
       domain: StaticDomainParametersInternal
   ): StaticDomainParameters =
@@ -79,7 +124,7 @@ object StaticDomainParameters {
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
     val staticDomainParametersInternal = StaticDomainParametersInternal
-      .readFromFile(inputFile)
+      .readFromFileUnsafe(inputFile)
       .valueOr(err =>
         throw new IllegalArgumentException(
           s"Reading static domain parameters from file $inputFile failed: $err"
@@ -102,6 +147,7 @@ final case class DynamicDomainParameters(
     maxRatePerParticipant: NonNegativeInt,
     maxRequestSize: NonNegativeInt,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
+    trafficControlParameters: Option[TrafficControlParameters],
 ) {
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
@@ -127,12 +173,25 @@ final case class DynamicDomainParameters(
       transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
+      mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
+      reconciliationInterval: PositiveDurationSeconds = reconciliationInterval,
+      maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      maxRequestSize: NonNegativeInt = maxRequestSize,
+      sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
+        sequencerAggregateSubmissionTimeout,
+      trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
   ): DynamicDomainParameters = this.copy(
     participantResponseTimeout = participantResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
     transferExclusivityTimeout = transferExclusivityTimeout,
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
+    mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
+    reconciliationInterval = reconciliationInterval,
+    maxRatePerParticipant = maxRatePerParticipant,
+    maxRequestSize = maxRequestSize,
+    sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
+    trafficControlParameters = trafficControlParameters,
   )
 
   def toProto: DomainParametersChangeAuthorization.Parameters =
@@ -162,6 +221,27 @@ final case class DynamicDomainParameters(
         trafficControlParameters = None,
       )
     )
+
+  private[canton] def toInternal: DynamicDomainParametersInternal =
+    DynamicDomainParametersInternal.tryCreate(
+      participantResponseTimeout =
+        InternalNonNegativeFiniteDuration.fromConfig(participantResponseTimeout),
+      mediatorReactionTimeout =
+        InternalNonNegativeFiniteDuration.fromConfig(mediatorReactionTimeout),
+      transferExclusivityTimeout =
+        InternalNonNegativeFiniteDuration.fromConfig(transferExclusivityTimeout),
+      topologyChangeDelay = InternalNonNegativeFiniteDuration.fromConfig(topologyChangeDelay),
+      ledgerTimeRecordTimeTolerance =
+        InternalNonNegativeFiniteDuration.fromConfig(ledgerTimeRecordTimeTolerance),
+      mediatorDeduplicationTimeout =
+        InternalNonNegativeFiniteDuration.fromConfig(mediatorDeduplicationTimeout),
+      reconciliationInterval = PositiveSeconds.fromConfig(reconciliationInterval),
+      maxRatePerParticipant = maxRatePerParticipant,
+      maxRequestSize = MaxRequestSize(maxRequestSize),
+      sequencerAggregateSubmissionTimeout =
+        InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
+      trafficControlParameters = trafficControlParameters.map(_.toInternal),
+    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
 }
 
 object DynamicDomainParameters {
@@ -171,6 +251,11 @@ object DynamicDomainParameters {
   def defaultValues(protocolVersion: ProtocolVersion): DynamicDomainParameters =
     DynamicDomainParameters(
       DynamicDomainParametersInternal.defaultValues(protocolVersion)
+    )
+
+  private[canton] def initialValues(clock: Clock, protocolVersion: ProtocolVersion) =
+    DynamicDomainParameters(
+      DynamicDomainParametersInternal.initialValues(clock, protocolVersion)
     )
 
   def apply(

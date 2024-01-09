@@ -23,7 +23,6 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
@@ -52,7 +51,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.protocol.transfer.*
 import com.digitalasset.canton.participant.pruning.{
   AcsCommitmentProcessor,
-  PruneObserver,
+  JournalGarbageCollector,
   SortedReconciliationIntervalsProvider,
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -69,6 +68,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatche
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
+import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
@@ -78,7 +78,6 @@ import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.AuthorityOfResponse
@@ -235,7 +234,7 @@ class SyncDomain(
     loggerFactory,
   )
 
-  private val pruneObserver = new PruneObserver(
+  private val journalGarbageCollector = new JournalGarbageCollector(
     persistent.requestJournalStore,
     persistent.sequencerCounterTrackerStore,
     sortedReconciliationIntervalsProvider,
@@ -245,8 +244,6 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
-    parameters.stores.acsPruningInterval.toInternal,
-    clock,
     timeouts,
     loggerFactory,
   )
@@ -259,7 +256,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      pruneObserver.observer(_, _),
+      journalGarbageCollector.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       staticDomainParameters.catchUpParameters,
@@ -324,6 +321,14 @@ class SyncDomain(
       loggerFactory,
       metrics,
     )
+
+  def addJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = journalGarbageCollector.addOneLock()
+
+  def removeJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Unit = journalGarbageCollector.removeOneLock()
 
   def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
     trafficStateController.getState
@@ -514,12 +519,12 @@ class SyncDomain(
       // the multi-domain event log before the crash
       pending <- cleanPreHeadO.fold(
         EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
-      ) { lastProcessedOffset =>
+      ) { lastProcessedCounter =>
         EitherT.right(
           participantNodePersistentState.value.multiDomainEventLog
             .fetchUnpublished(
               id = persistent.eventLog.id,
-              upToInclusiveO = Some(lastProcessedOffset),
+              upToInclusiveO = Some(LocalOffset(lastProcessedCounter)),
             )
         )
       }
@@ -893,7 +898,7 @@ class SyncDomain(
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
           domainHandle.sequencerClient,
-          pruneObserver,
+          journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,
           transferOutProcessor,

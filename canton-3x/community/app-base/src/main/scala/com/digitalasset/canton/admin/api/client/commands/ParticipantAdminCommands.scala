@@ -16,29 +16,30 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
+import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v0.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
+import com.digitalasset.canton.admin.participant.v0.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
+import com.digitalasset.canton.admin.participant.v0.InspectionServiceGrpc.InspectionServiceStub
+import com.digitalasset.canton.admin.participant.v0.PackageServiceGrpc.PackageServiceStub
+import com.digitalasset.canton.admin.participant.v0.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
+import com.digitalasset.canton.admin.participant.v0.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
+import com.digitalasset.canton.admin.participant.v0.PingServiceGrpc.PingServiceStub
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
+import com.digitalasset.canton.admin.participant.v0.ResourceManagementServiceGrpc.ResourceManagementServiceStub
+import com.digitalasset.canton.admin.participant.v0.TransferServiceGrpc.TransferServiceStub
+import com.digitalasset.canton.admin.participant.v0.{ResourceLimits as _, *}
+import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.{
   GrpcParticipantRepairService,
   TransferSearchResult,
 }
-import com.digitalasset.canton.participant.admin.v0.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
-import com.digitalasset.canton.participant.admin.v0.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
-import com.digitalasset.canton.participant.admin.v0.InspectionServiceGrpc.InspectionServiceStub
-import com.digitalasset.canton.participant.admin.v0.PackageServiceGrpc.PackageServiceStub
-import com.digitalasset.canton.participant.admin.v0.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
-import com.digitalasset.canton.participant.admin.v0.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
-import com.digitalasset.canton.participant.admin.v0.PingServiceGrpc.PingServiceStub
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.participant.admin.v0.ResourceManagementServiceGrpc.ResourceManagementServiceStub
-import com.digitalasset.canton.participant.admin.v0.TransferServiceGrpc.TransferServiceStub
-import com.digitalasset.canton.participant.admin.v0.{ResourceLimits as _, *}
-import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
-import com.digitalasset.canton.protocol.{LfContractId, TransferId, v0 as v0proto}
-import com.digitalasset.canton.pruning.admin
+import com.digitalasset.canton.protocol.{LfContractId, TransferId}
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -716,9 +717,8 @@ object ParticipantAdminCommands {
       ): Future[RegisterDomainResponse] =
         service.registerDomain(request)
 
-      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] = Right(
-        ()
-      )
+      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] =
+        Right(())
 
       // can take long if we need to wait to become active
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -821,14 +821,14 @@ object ParticipantAdminCommands {
       override def handleResponse(response: AdminTransferOutResponse): Either[String, TransferId] =
         response match {
           case AdminTransferOutResponse(Some(transferIdP)) =>
-            TransferId.fromProtoV0(transferIdP).leftMap(_.toString)
+            TransferId.fromAdminProtoV0(transferIdP).leftMap(_.toString)
           case AdminTransferOutResponse(None) => Left("Empty TransferOutResponse")
         }
     }
 
     final case class TransferIn(
         submittingParty: PartyId,
-        transferId: v0proto.TransferId,
+        transferId: v0.TransferId,
         targetDomain: DomainAlias,
         applicationId: LedgerApplicationId,
         submissionId: String,
@@ -1095,17 +1095,17 @@ object ParticipantAdminCommands {
         retention: config.PositiveDurationSeconds,
         pruneInternallyOnly: Boolean,
     ) extends Base[
-          admin.v0.SetParticipantSchedule.Request,
-          admin.v0.SetParticipantSchedule.Response,
+          pruning.v0.SetParticipantSchedule.Request,
+          pruning.v0.SetParticipantSchedule.Response,
           Unit,
         ] {
-      override def createRequest(): Right[String, admin.v0.SetParticipantSchedule.Request] =
+      override def createRequest(): Right[String, pruning.v0.SetParticipantSchedule.Request] =
         Right(
-          admin.v0.SetParticipantSchedule.Request(
+          pruning.v0.SetParticipantSchedule.Request(
             Some(
-              admin.v0.ParticipantPruningSchedule(
+              pruning.v0.ParticipantPruningSchedule(
                 Some(
-                  admin.v0.PruningSchedule(
+                  pruning.v0.PruningSchedule(
                     cron,
                     Some(maxDuration.toProtoPrimitive),
                     Some(retention.toProtoPrimitive),
@@ -1119,35 +1119,37 @@ object ParticipantAdminCommands {
 
       override def submitRequest(
           service: Svc,
-          request: admin.v0.SetParticipantSchedule.Request,
-      ): Future[admin.v0.SetParticipantSchedule.Response] = service.setParticipantSchedule(request)
+          request: pruning.v0.SetParticipantSchedule.Request,
+      ): Future[pruning.v0.SetParticipantSchedule.Response] =
+        service.setParticipantSchedule(request)
 
       override def handleResponse(
-          response: admin.v0.SetParticipantSchedule.Response
+          response: pruning.v0.SetParticipantSchedule.Response
       ): Either[String, Unit] =
         response match {
-          case admin.v0.SetParticipantSchedule.Response() => Right(())
+          case pruning.v0.SetParticipantSchedule.Response() => Right(())
         }
     }
 
     final case class GetParticipantScheduleCommand()
         extends Base[
-          admin.v0.GetParticipantSchedule.Request,
-          admin.v0.GetParticipantSchedule.Response,
+          pruning.v0.GetParticipantSchedule.Request,
+          pruning.v0.GetParticipantSchedule.Response,
           Option[ParticipantPruningSchedule],
         ] {
-      override def createRequest(): Right[String, admin.v0.GetParticipantSchedule.Request] =
+      override def createRequest(): Right[String, pruning.v0.GetParticipantSchedule.Request] =
         Right(
-          admin.v0.GetParticipantSchedule.Request()
+          pruning.v0.GetParticipantSchedule.Request()
         )
 
       override def submitRequest(
           service: Svc,
-          request: admin.v0.GetParticipantSchedule.Request,
-      ): Future[admin.v0.GetParticipantSchedule.Response] = service.getParticipantSchedule(request)
+          request: pruning.v0.GetParticipantSchedule.Request,
+      ): Future[pruning.v0.GetParticipantSchedule.Response] =
+        service.getParticipantSchedule(request)
 
       override def handleResponse(
-          response: admin.v0.GetParticipantSchedule.Response
+          response: pruning.v0.GetParticipantSchedule.Response
       ): Either[String, Option[ParticipantPruningSchedule]] =
         response.schedule.fold(
           Right(None): Either[String, Option[ParticipantPruningSchedule]]

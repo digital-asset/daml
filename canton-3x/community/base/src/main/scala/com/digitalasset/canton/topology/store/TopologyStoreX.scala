@@ -110,7 +110,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
     ] {
   this: NamedLogging =>
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransactionX]]
 
@@ -276,7 +276,7 @@ object TopologyStoreX {
     // TODO(#14060) - potentially revisit this once we implement TopologyStoreX.filterInitialParticipantDispatchingTransactions
     TopologyMappingX.Code.NamespaceDelegationX,
     TopologyMappingX.Code.IdentifierDelegationX,
-    TopologyMappingX.Code.UnionspaceDefinitionX,
+    TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
   )
 
   def filterInitialParticipantDispatchingTransactions(
@@ -312,7 +312,7 @@ object TopologyStoreX {
           ) if uid == participantId.uid =>
         tx
       case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, _: UnionspaceDefinitionX),
+            TopologyTransactionX(_, _, _: DecentralizedNamespaceDefinitionX),
             _,
             _,
           ) =>

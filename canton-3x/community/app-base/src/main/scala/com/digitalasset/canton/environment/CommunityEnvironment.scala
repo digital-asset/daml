@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.environment
 
+import cats.syntax.either.*
+import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.{
@@ -22,14 +24,30 @@ import com.digitalasset.canton.console.{
   Help,
   LocalDomainReference,
   LocalInstanceReferenceCommon,
+  LocalMediatorReferenceX,
   LocalParticipantReference,
+  LocalSequencerNodeReferenceX,
   NodeReferences,
   StandardConsoleOutput,
 }
+import com.digitalasset.canton.crypto.CommunityCryptoFactory
+import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.domain.DomainNodeBootstrap
+import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc
+import com.digitalasset.canton.domain.mediator.*
+import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
+import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
+import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.participant.{ParticipantNodeBootstrap, ParticipantNodeBootstrapX}
-import com.digitalasset.canton.resource.{CommunityDbMigrationsFactory, DbMigrationsFactory}
+import com.digitalasset.canton.resource.{
+  CommunityDbMigrationsFactory,
+  CommunityStorageFactory,
+  DbMigrationsFactory,
+}
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,
@@ -66,6 +84,75 @@ class CommunityEnvironment(
   ): HealthDumpGenerator[CommunityCantonStatus] = {
     new CommunityHealthDumpGenerator(this, commandRunner)
   }
+
+  override protected def createSequencerX(
+      name: String,
+      sequencerConfig: CommunitySequencerNodeXConfig,
+  ): SequencerNodeBootstrapX = {
+    val nodeFactoryArguments = NodeFactoryArguments(
+      name,
+      sequencerConfig,
+      config.sequencerNodeParametersByStringX(name),
+      createClock(Some(SequencerNodeBootstrapX.LoggerFactoryKeyName -> name)),
+      metricsFactory.forSequencer(name),
+      testingConfig,
+      futureSupervisor,
+      loggerFactory.append(SequencerNodeBootstrapX.LoggerFactoryKeyName, name),
+      writeHealthDumpToFile,
+      configuredOpenTelemetry,
+    )
+
+    val boostrapCommonArguments = nodeFactoryArguments
+      .toCantonNodeBootstrapCommonArguments(
+        new CommunityStorageFactory(sequencerConfig.storage),
+        new CommunityCryptoFactory(),
+        new CommunityCryptoPrivateStoreFactory(),
+        new CommunityGrpcVaultServiceFactory,
+      )
+      .valueOr(err =>
+        throw new RuntimeException(s"Failed to create sequencer-x node $name: $err")
+      ) // TODO(i3168): Handle node startup errors gracefully
+
+    new SequencerNodeBootstrapX(
+      boostrapCommonArguments,
+      CommunitySequencerFactory,
+      (_, _) =>
+        StaticGrpcServices
+          .notSupportedByCommunity(EnterpriseSequencerAdministrationServiceGrpc.SERVICE, logger)
+          .some,
+    )
+  }
+
+  override protected def createMediatorX(
+      name: String,
+      mediatorConfig: CommunityMediatorNodeXConfig,
+  ): MediatorNodeBootstrapX = {
+
+    val factoryArguments = mediatorNodeFactoryArguments(name, mediatorConfig)
+    val arguments = factoryArguments
+      .toCantonNodeBootstrapCommonArguments(
+        new CommunityStorageFactory(mediatorConfig.storage),
+        new CommunityCryptoFactory(),
+        new CommunityCryptoPrivateStoreFactory(),
+        new CommunityGrpcVaultServiceFactory(),
+      )
+      .valueOr(err =>
+        throw new RuntimeException(s"Failed to create mediator bootstrap: $err")
+      ): CantonNodeBootstrapCommonArguments[
+      MediatorNodeConfigCommon,
+      MediatorNodeParameters,
+      MediatorNodeMetrics,
+    ]
+
+    new MediatorNodeBootstrapX(
+      arguments,
+      new CommunityMediatorReplicaManager(
+        config.parameters.timeouts.processing,
+        loggerFactory,
+      ),
+      CommunityMediatorRuntimeFactory,
+    )
+  }
 }
 
 object CommunityEnvironmentFactory extends EnvironmentFactory[CommunityEnvironment] {
@@ -98,9 +185,11 @@ class CommunityConsoleEnvironment(
 
   override def startupOrderPrecedence(instance: LocalInstanceReferenceCommon): Int =
     instance match {
-      case _: LocalDomainReference => 1
-      case _: LocalParticipantReference => 2
-      case _ => 3
+      case _: LocalSequencerNodeReferenceX => 1
+      case _: LocalDomainReference => 2
+      case _: LocalMediatorReferenceX => 3
+      case _: LocalParticipantReference => 4
+      case _ => 5
     }
 
   override protected def createDomainReference(name: String): DomainLocalRef =

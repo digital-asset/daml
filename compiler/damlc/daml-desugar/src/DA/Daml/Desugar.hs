@@ -22,7 +22,9 @@ import "ghc-lib-parser" HscTypes (hsc_dflags)
 
 import qualified "ghc-lib-parser" Outputable as GHC
 
-desugar :: Options -> FilePath -> IO Text
+import SdkVersion.Class (SdkVersioned)
+
+desugar :: SdkVersioned => Options -> FilePath -> IO Text
 desugar opts inputFile = do
   loggerH <- getLogger opts "daml-desugar"
   inputFile <- pure $ toNormalizedFilePath' inputFile

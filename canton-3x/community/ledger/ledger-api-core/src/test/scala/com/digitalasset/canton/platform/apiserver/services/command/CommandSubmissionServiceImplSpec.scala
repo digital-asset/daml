@@ -107,6 +107,7 @@ class CommandSubmissionServiceImplSpec
     loggerFactory.assertLogs(
       within = {
         val tmplId = toIdentifier("M:T")
+        val sharedKeys = true
 
         val errorsToExpectedStatuses: Seq[(ErrorCause, Status)] = List(
           ErrorCause.DamlLf(
@@ -121,7 +122,7 @@ class CommandSubmissionServiceImplSpec
             LfError.Interpretation(
               LfError.Interpretation.DamlException(
                 LfInterpretationError.DuplicateContractKey(
-                  GlobalKey.assertBuild(tmplId, Value.ValueUnit)
+                  GlobalKey.assertBuild(tmplId, Value.ValueUnit, sharedKeys)
                 )
               ),
               None,

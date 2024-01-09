@@ -49,7 +49,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//canton:ledger-api-haskellpb",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -58,6 +57,7 @@ da_haskell_library(
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -84,6 +84,7 @@ da_haskell_binary(
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -150,12 +151,12 @@ da_haskell_test(
     tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 

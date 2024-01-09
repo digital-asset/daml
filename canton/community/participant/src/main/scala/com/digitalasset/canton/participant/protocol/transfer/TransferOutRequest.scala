@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.time.TimeProof
+import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext

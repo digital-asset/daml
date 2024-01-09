@@ -10,7 +10,6 @@ import com.digitalasset.canton.participant.domain.AgreementService.AgreementServ
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -25,13 +24,13 @@ class AgreementClient(
     val ec: ExecutionContextExecutor
 ) extends NamedLogging {
 
-  def isRequiredAgreementAccepted(domainId: DomainId, protocolVersion: ProtocolVersion)(implicit
+  def isRequiredAgreementAccepted(domainId: DomainId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =
     if (sequencerConnections.nonBftSetup)
       sequencerConnections.default match {
         case grpcSequencerConnection: GrpcSequencerConnection =>
-          service.isRequiredAgreementAccepted(grpcSequencerConnection, domainId, protocolVersion)
+          service.isRequiredAgreementAccepted(grpcSequencerConnection, domainId)
       }
     else
       EitherT.rightT[Future, AgreementServiceError](None)

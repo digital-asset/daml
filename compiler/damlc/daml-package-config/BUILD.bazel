@@ -28,9 +28,9 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//daml-assistant:daml-project-config",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 

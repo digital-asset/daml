@@ -16,7 +16,7 @@ To set up this scenario, run
 ```
     ../../bin/canton -Dcanton-examples.dar-path=../../dars/CantonExamples.dar \
       -c participant1.conf,participant2.conf,domain-repair-lost.conf,domain-repair-new.conf \
-      -c ../03-advanced-configuration/storage/h2.conf,enable-preview-commands.conf \
+      -c ../../config/storage/h2.conf,enable-preview-commands.conf \
       --bootstrap domain-repair-init.canton
 ```
 
@@ -33,6 +33,6 @@ To set up this scenario, run
 ```
     ../../bin/canton -Dcanton-examples.dar-path=../../dars/CantonExamples.dar \
       -c participant1.conf,participant2.conf,participant3.conf,participant4.conf,domain-export-ledger.conf,domain-import-ledger.conf \
-      -c ../03-advanced-configuration/storage/h2.conf,enable-preview-commands.conf \
+      -c ../../config/storage/h2.conf,enable-preview-commands.conf \
       --bootstrap import-ledger-init.canton
 ```

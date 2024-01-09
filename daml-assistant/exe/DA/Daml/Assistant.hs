@@ -38,6 +38,8 @@ import qualified Data.Text as T
 import Control.Monad.Extra
 import Safe
 
+import SdkVersion (SdkVersioned, withSdkVersions)
+
 -- | Run the assistant and exit.
 main :: IO ()
 -- Note that we do not close on stdin here.
@@ -51,7 +53,7 @@ main :: IO ()
 -- but as Ben Gamari noticed, this is horribly unreliable
 -- https://gitlab.haskell.org/ghc/ghc/issues/17777
 -- so we are likely to make things worse rather than better.
-main = do
+main = withSdkVersions $ do
     damlPath <- handleErrors L.makeNopHandle getDamlPath
     withLogger damlPath $ \logger -> handleErrors logger $ do
         installSignalHandlers
@@ -313,7 +315,7 @@ handleErrors logger m = m `catches`
             ]
         exitFailure
 
-withLogger :: DamlPath -> (L.Handle IO -> IO ()) -> IO ()
+withLogger :: SdkVersioned => DamlPath -> (L.Handle IO -> IO ()) -> IO ()
 withLogger (DamlPath damlPath) k = do
     cache <- getCachePath
     let cachePath = unwrapCachePath cache

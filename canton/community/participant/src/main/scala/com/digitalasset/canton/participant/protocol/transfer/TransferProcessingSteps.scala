@@ -22,7 +22,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -253,7 +253,7 @@ trait TransferProcessingSteps[
       TimestampedEvent(
         LedgerSyncEvent
           .CommandRejected(ts.toLf, completionInfo, rejection, requestType, Some(domainId.unwrap)),
-        RequestOffset(ts, rc),
+        LocalOffset(rc),
         Some(sc),
       )
     )
@@ -293,7 +293,7 @@ trait TransferProcessingSteps[
             requestType,
             Some(domainId.unwrap),
           ),
-        RequestOffset(pendingTransfer.requestId.unwrap, pendingTransfer.requestCounter),
+        LocalOffset(pendingTransfer.requestCounter),
         Some(pendingTransfer.requestSequencerCounter),
       )
     )

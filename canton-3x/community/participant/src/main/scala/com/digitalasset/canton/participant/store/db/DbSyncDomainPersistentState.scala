@@ -87,6 +87,7 @@ abstract class DbSyncDomainPersistentStateCommon(
       domainId,
       enableAdditionalConsistencyChecks,
       batching.maxItemsInSqlClause,
+      parameters.journalPruning.toInternal,
       indexedStringStore,
       protocolVersion,
       timeouts,
@@ -96,6 +97,7 @@ abstract class DbSyncDomainPersistentStateCommon(
     storage,
     domainId,
     batching.maxItemsInSqlClause,
+    parameters.journalPruning.toInternal,
     timeouts,
     loggerFactory,
   )
@@ -134,7 +136,13 @@ abstract class DbSyncDomainPersistentStateCommon(
   val sendTrackerStore = new InMemorySendTrackerStore()
 
   val submissionTrackerStore =
-    new DbSubmissionTrackerStore(storage, domainId, timeouts, loggerFactory)
+    new DbSubmissionTrackerStore(
+      storage,
+      domainId,
+      parameters.journalPruning.toInternal,
+      timeouts,
+      loggerFactory,
+    )
 
   override def isMemory(): Boolean = false
 

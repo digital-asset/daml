@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.common.domain.ServiceAgreementId
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
@@ -168,7 +169,6 @@ class DomainConnectivityService(
               agreementService.getAgreement(
                 sequencerAggregatedInfo.domainId,
                 grpc,
-                staticDomainParameters.protocolVersion,
               )
           }
         } else EitherT.pure[Future, AgreementServiceError](None)

@@ -3,22 +3,6 @@
 
 locals {
   ubuntu = {
-    gcp = [
-      {
-        name       = "ci-u1",
-        disk_size  = 400,
-        size       = 0,
-        assignment = "default",
-        nix        = "su --command \"sh <(curl -sSfL https://nixos.org/nix/install) --daemon\" --login vsts"
-      },
-      {
-        name       = "ci-u2",
-        disk_size  = 400,
-        size       = 0,
-        assignment = "default",
-        nix        = "su --command \"sh <(curl -sSfL https://nixos.org/nix/install) --daemon\" --login vsts"
-      },
-    ],
     azure = [
       {
         name       = "du1",

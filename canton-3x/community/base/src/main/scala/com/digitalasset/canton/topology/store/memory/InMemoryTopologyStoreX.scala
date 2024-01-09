@@ -54,12 +54,15 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] = findFilter(
-    asOfExclusive,
-    entry => hashes.contains(entry.transaction.transaction.hash),
-  )
+  ): Future[Seq[GenericSignedTopologyTransactionX]] =
+    if (hashes.isEmpty) Future.successful(Seq.empty)
+    else
+      findFilter(
+        asOfExclusive,
+        entry => hashes.contains(entry.transaction.transaction.hash),
+      )
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,

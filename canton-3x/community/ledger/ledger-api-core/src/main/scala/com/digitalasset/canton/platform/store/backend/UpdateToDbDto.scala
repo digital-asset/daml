@@ -88,23 +88,6 @@ object UpdateToDbDto {
             )
           )
 
-        case u: ConfigurationChangeRejected =>
-          incrementCounterForEvent(
-            metrics.daml.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.configurationChange,
-            IndexedUpdatesMetrics.Labels.status.rejected,
-          )
-          Iterator(
-            DbDto.ConfigurationEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = u.submissionId,
-              typ = JdbcLedgerDao.rejectType,
-              configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
-              rejection_reason = Some(u.rejectionReason),
-            )
-          )
-
         case u: PartyAddedToParticipant =>
           incrementCounterForEvent(
             metrics.daml.indexerEvents,

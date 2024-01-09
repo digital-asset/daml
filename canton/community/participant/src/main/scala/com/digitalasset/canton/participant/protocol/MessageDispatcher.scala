@@ -308,13 +308,10 @@ trait MessageDispatcher { this: NamedLogging =>
         }
         alarmIfNonEmptySigned(MalformedMediatorRequestMessage, malformedMediatorRequestResults)
 
-        val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
-
         val isReceipt = eventE.fold(_.content, _.content).messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
           encryptedViews = encryptedViews,
           rootHashMessages = rootHashMessages,
-          containsTopologyTransactionsX = containsTopologyTransactionsX,
           sc = sc,
           ts = ts,
           isReceipt = isReceipt,
@@ -325,7 +322,6 @@ trait MessageDispatcher { this: NamedLogging =>
   private def processEncryptedViewsAndRootHashMessages(
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      containsTopologyTransactionsX: Boolean,
       sc: SequencerCounter,
       ts: CantonTimestamp,
       isReceipt: Boolean,
@@ -374,34 +370,9 @@ trait MessageDispatcher { this: NamedLogging =>
       }
       result <- checkedRootHashMessagesC.toEither match {
         case Right(goodRequest) =>
-          if (!containsTopologyTransactionsX)
-            processRequest(goodRequest)
-          else {
-            /*A batch should not contain a request and a topology transaction.
-             * Handling of such a batch is done consistently with the case [[ExpectMalformedMediatorRequestResult]] below.
-             */
-            alarm(sc, ts, "Invalid batch containing both a request and topology transaction")
-
-            withNewRequestCounter { rc =>
-              doProcess(
-                UnspecifiedMessageKind,
-                badRootHashMessagesRequestProcessor
-                  .handleBadRequestWithExpectedMalformedMediatorRequest(
-                    rc,
-                    sc,
-                    ts,
-                    goodRequest.mediator,
-                  ),
-              )
-            }
-          }
-
+          processRequest(goodRequest)
         case Left(DoNotExpectMediatorResult) =>
-          if (containsTopologyTransactionsX) {
-            // The topology processor will tick the record order publisher at the end of the processing
-            doProcess(UnspecifiedMessageKind, FutureUnlessShutdown.pure(()))
-          } else
-            tickRecordOrderPublisher(sc, ts)
+          tickRecordOrderPublisher(sc, ts)
         case Left(ExpectMalformedMediatorRequestResult(mediator)) =>
           // The request is malformed from this participant's and the mediator's point of view if the sequencer is honest.
           // An honest mediator will therefore try to send a `MalformedMediatorRequestResult`.

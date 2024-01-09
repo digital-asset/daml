@@ -84,11 +84,11 @@ class GrpcSequencerConnectClient(
     } yield DomainClientBootstrapInfo(domainId, sequencerId)
 
   override def getDomainParameters(
-      domainAlias: DomainAlias
+      domainIdentifier: String
   )(implicit traceContext: TraceContext): EitherT[Future, Error, StaticDomainParameters] = for {
     responseP <- CantonGrpcUtil
       .sendSingleGrpcRequest(
-        serverName = domainAlias.unwrap,
+        serverName = domainIdentifier,
         requestDescription = "get domain parameters",
         channel = builder.build(),
         stubFactory = v0.SequencerConnectServiceGrpc.stub,
@@ -106,6 +106,29 @@ class GrpcSequencerConnectClient(
     domainParameters <- EitherT.fromEither[Future](domainParametersE)
 
   } yield domainParameters
+
+  override def getDomainId(
+      domainIdentifier: String
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainId] = for {
+    responseP <- CantonGrpcUtil
+      .sendSingleGrpcRequest(
+        serverName = domainIdentifier,
+        requestDescription = "get domain id",
+        channel = builder.build(),
+        stubFactory = v0.SequencerConnectServiceGrpc.stub,
+        timeout = timeouts.network.unwrap,
+        logger = logger,
+        logPolicy = CantonGrpcUtil.silentLogPolicy,
+        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+      )(_.getDomainId(v0.SequencerConnect.GetDomainId.Request()))
+      .leftMap(err => Error.Transport(err.toString))
+
+    domainId <- EitherT
+      .fromEither[Future](
+        DomainId.fromProtoPrimitive(responseP.domainId, "domain_id")
+      )
+      .leftMap[Error](err => Error.DeserializationFailure(err.toString))
+  } yield domainId
 
   override def handshake(
       domainAlias: DomainAlias,

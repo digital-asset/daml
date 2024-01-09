@@ -223,13 +223,14 @@ object DeliverErrorStoreEvent {
   }
 
   def fromByteString(
-      serializedErrorO: Option[ByteString]
+      serializedErrorO: Option[ByteString],
+      protocolVersion: ProtocolVersion,
   ): ParsingResult[Status] =
     serializedErrorO.fold[ParsingResult[Status]](
       Left(ProtoDeserializationError.FieldNotSet("error"))
     )(serializedError =>
       VersionedStatus
-        .fromByteString(serializedError)
+        .fromByteString(protocolVersion)(serializedError)
         .map(_.status)
     )
 }
@@ -672,8 +673,18 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
         UnsafePruningPoint(requestedTimestamp, safeTimestamp),
       )
       adjustedTimestamp <- EitherT.right(adjustTimestamp())
+      additionalCheckpointInfo =
+        if (adjustedTimestamp < requestedTimestamp && logger.underlying.isInfoEnabled()) {
+          status.members
+            .filter(_.enabled)
+            .minByOption(_.safePruningTimestamp)
+            .map(_.member)
+            .fold("No enabled member")(memberMostBehind =>
+              s"The sequencer client member most behind is ${memberMostBehind}"
+            )
+        } else ""
       _ = logger.info(
-        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints"
+        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. ${additionalCheckpointInfo}"
       )
       _ <- EitherT.right(updateLowerBound(adjustedTimestamp))
       description <- EitherT.right(performPruning(adjustedTimestamp))

@@ -31,7 +31,8 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   val testKeyName: String = "test-key"
-  val pkg: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  private val pkg =
+    p""" metadata ( '-package-' : '1.0.0' )
        module TestMod {
 
          record @serializable Key = { label: Text, maintainers: List Party };
@@ -84,7 +85,8 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
                  None -> Nil @t
                | Some x -> Cons @t [x] (Nil @t);
        }
-       """)
+       """
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
   val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
@@ -97,6 +99,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val altDisclosureContractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-alternative-disclosure-contract-id"))
   val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
+  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
@@ -116,7 +119,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val ledgerHouseContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
-    buildContract(ledgerParty, maintainerParty, caveTemplateId)
+    buildContract(ledgerParty, maintainerParty, templateId = caveTemplateId)
   val disclosedCaveContractNoHash: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
   val disclosedHouseContract: (Value.ContractId, Speedy.ContractInfo) =
@@ -127,6 +130,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildDisclosedHouseContract(
       owner: Party,
       maintainer: Party,
+      packageName: Option[Ref.PackageName] = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -135,6 +139,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       if (withKey)
         Some(
           Speedy.CachedKey(
+            packageName,
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
@@ -145,6 +150,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         None
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
+      packageName = packageName,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -160,10 +166,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
   def buildDisclosedCaveContract(
       owner: Party,
+      packageName: Option[Ref.PackageName] = pkg.name,
       templateId: Ref.Identifier = caveTemplateId,
   ): Speedy.ContractInfo = {
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
+      packageName = packageName,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -206,6 +214,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildContract(
       owner: Party,
       maintainer: Party,
+      packageName: Option[Ref.PackageName] = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
   ): Versioned[ContractInstance] = {
     val contractFields = templateId match {
@@ -229,8 +238,9 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     Versioned(
       TransactionVersion.minExplicitDisclosure,
       Value.ContractInstance(
-        templateId,
-        Value.ValueRecord(None, contractFields),
+        packageName = packageName,
+        template = templateId,
+        arg = Value.ValueRecord(None, contractFields),
       ),
     )
   }
@@ -238,6 +248,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
+      packageName: Option[Ref.PackageName] = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -255,6 +266,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       if (withKey)
         Some(
           CachedKey(
+            packageName = packageName,
             GlobalKeyWithMaintainers
               .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
             contract,
@@ -264,9 +276,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       else None
 
     ContractInfo(
-      TransactionVersion.minExplicitDisclosure,
-      templateId,
-      contract,
+      version = TransactionVersion.minExplicitDisclosure,
+      packageName = packageName,
+      templateId = templateId,
+      value = contract,
       agreementText = "Agreement3",
       signatories = Set(signatory),
       observers = Set.empty,
@@ -311,10 +324,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     import SpeedyTestLib.loggingContext
 
     // A token function closure is added as part of compiling the Expr
-    val contextSExpr = pkg.compiler.unsafeCompile(setupExpr)
+    val contextSExpr = pkgs.compiler.unsafeCompile(setupExpr)
     val machine =
       Speedy.Machine.fromUpdateSExpr(
-        pkg,
+        pkgs,
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
         updateSE =
           if (setupArgs.isEmpty) contextSExpr
@@ -358,7 +371,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
     val machine =
       Speedy.Machine.fromUpdateSExpr(
-        pkg,
+        pkgs,
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,

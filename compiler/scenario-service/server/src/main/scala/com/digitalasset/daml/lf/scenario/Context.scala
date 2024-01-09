@@ -8,7 +8,14 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.data.{ImmArray, assertRight}
-import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{
+  Identifier,
+  ModuleName,
+  PackageId,
+  PackageName,
+  PackageVersion,
+  QualifiedName,
+}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -137,11 +144,23 @@ class Context(
     modDefns.values.foreach(defns ++= _)
   }
 
+  // TODO: https://github.com/digital-asset/daml/issues/17995
+  //  Get the package name and package version from the daml.yaml
+  private[this] val dummyMetadata = Some(
+    Ast.PackageMetadata(
+      name = PackageName.assertFromString("-dummy-package-name-"),
+      version = PackageVersion.assertFromString("0.0.0"),
+      upgradedPackageId = None,
+    )
+  )
+
   def allSignatures: Map[PackageId, Ast.PackageSignature] = {
     val extSignatures = this.extSignatures
     extSignatures.updated(
       homePackageId,
-      AstUtil.toSignature(Ast.Package(modules, extSignatures.keySet, languageVersion, None)),
+      AstUtil.toSignature(
+        Ast.Package(modules, extSignatures.keySet, languageVersion, dummyMetadata)
+      ),
     )
   }
 

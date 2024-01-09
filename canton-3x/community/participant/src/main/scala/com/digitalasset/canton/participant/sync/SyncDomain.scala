@@ -52,7 +52,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.protocol.transfer.*
 import com.digitalasset.canton.participant.pruning.{
   AcsCommitmentProcessor,
-  PruneObserver,
+  JournalGarbageCollector,
   SortedReconciliationIntervalsProvider,
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -73,12 +73,11 @@ import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements
+import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.AuthorityOfResponse
@@ -151,7 +150,7 @@ class SyncDomain(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from domain")
 
-  private[canton] val sequencerClient = domainHandle.sequencerClient
+  private[canton] val sequencerClient: RichSequencerClient = domainHandle.sequencerClient
   val timeTracker: DomainTimeTracker = ephemeral.timeTracker
   val staticDomainParameters: StaticDomainParameters = domainHandle.staticParameters
 
@@ -234,7 +233,7 @@ class SyncDomain(
     loggerFactory,
   )
 
-  private val pruneObserver = new PruneObserver(
+  private val journalGarbageCollector = new JournalGarbageCollector(
     persistent.requestJournalStore,
     persistent.sequencerCounterTrackerStore,
     sortedReconciliationIntervalsProvider,
@@ -244,8 +243,6 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
-    parameters.stores.acsPruningInterval.toInternal,
-    clock,
     timeouts,
     loggerFactory,
   )
@@ -258,7 +255,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      pruneObserver.observer(_, _),
+      journalGarbageCollector.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       timeouts,
@@ -298,7 +295,7 @@ class SyncDomain(
     domainId,
     staticDomainParameters.protocolVersion,
     domainHandle.topologyClient,
-    domainHandle.sequencerClient,
+    sequencerClient,
   )
 
   private val messageDispatcher: MessageDispatcher =
@@ -322,6 +319,14 @@ class SyncDomain(
       loggerFactory,
       metrics,
     )
+
+  def addJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = journalGarbageCollector.addOneLock()
+
+  def removeJournalGarageCollectionLock()(implicit
+      traceContext: TraceContext
+  ): Unit = journalGarbageCollector.removeOneLock()
 
   def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
     trafficStateController.getState
@@ -700,7 +705,7 @@ class SyncDomain(
     }).value
   }
 
-  def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
+  private def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val fetchLimit = 1000
 
@@ -890,8 +895,8 @@ class SyncDomain(
           domainCrypto,
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
-          domainHandle.sequencerClient,
-          pruneObserver,
+          sequencerClient,
+          journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,
           transferOutProcessor,
