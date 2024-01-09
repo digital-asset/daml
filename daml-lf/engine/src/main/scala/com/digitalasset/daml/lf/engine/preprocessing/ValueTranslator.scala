@@ -389,11 +389,7 @@ object ValueTranslator {
       allowFieldReordering: Boolean,
       ignorePackageId: Boolean,
       enableUpgrade: Boolean,
-  ) {
-    if (enableUpgrade) {
-      assert(!allowFieldReordering, "record fields reordering is possible only if upgrade is off")
-    }
-  }
+  )
   object Config {
     val Strict =
       Config(allowFieldReordering = false, ignorePackageId = false, enableUpgrade = false)
@@ -403,7 +399,7 @@ object ValueTranslator {
       Config(allowFieldReordering = true, ignorePackageId = false, enableUpgrade = false)
 
     val Upgradeable =
-      Config(allowFieldReordering = false, ignorePackageId = true, enableUpgrade = true)
+      Config(allowFieldReordering = true, ignorePackageId = true, enableUpgrade = true)
   }
 
 }
