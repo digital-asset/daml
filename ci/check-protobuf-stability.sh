@@ -9,9 +9,9 @@ eval "$(dev-env/bin/dade assist)"
 # Azure Pipelines; in order to run this script locally, define it beforehand
 # as the branch being targeted. For example:
 #
-#   SYSTEM_PULLREQUEST_TARGETBRANCH=main bash -x ci/check-protobuf-stability.sh
+#   SYSTEM_PULLREQUEST_TARGETBRANCH=main-2.x bash -x ci/check-protobuf-stability.sh
 #
-TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
+TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main-2.x}"
 echo "The target branch is '${TARGET}'."
 
 readonly BREAKING_PROTOBUF_CHANGE_TRAILER_KEY="Breaks-protobuf"
@@ -99,7 +99,7 @@ USAGE
           echo "$TAG";
         fi;
       done | tail -1)"
-  elif [[ "${TARGET}" == "main" ]]; then
+  elif [[ "${TARGET}" == "main-2.x" ]]; then
     LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   else
     echo "unsupported target branch $TARGET" >&2
