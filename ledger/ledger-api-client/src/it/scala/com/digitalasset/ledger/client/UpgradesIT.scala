@@ -7,22 +7,18 @@ import com.daml.integrationtest.CantonFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import com.daml.ledger.api.domain
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 
 import scala.concurrent.{Future}
 import com.google.protobuf.ByteString
 import com.daml.bazeltools.BazelRunfiles._
 import java.io.File
 import java.io.FileInputStream
-import com.daml.lf.language.Ast
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.archive.{DarDecoder, Dar}
 import org.scalatest.Suite
+
+import scala.io.Source
+import com.daml.lf.data.Ref.PackageId
+
+import com.daml.lf.archive.{DarReader}
 
 final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   self: Suite =>
@@ -41,43 +37,28 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
     bytes
   }
 
-  private def loadTestPackageDar(version: Int): Future[Dar[(PackageId, Ast.Package)]] = {
+  private def loadTestPackageId(version: Int): PackageId = {
     val path = s"test-common/upgrades-example-v$version.dar"
-    Future {
-      val in = DarDecoder.assertReadArchiveFromFile(new File(rlocation(path)))
-      assert(in != null, s"Unable to load test package resource '$path'")
-      in
-    }
+    val dar = DarReader.assertReadArchiveFromFile(new File(rlocation(path)))
+    assert(dar != null, s"Unable to load test package resource '$path'")
+    dar.main.pkgId
   }
 
-  private val LedgerId = domain.LedgerId(config.ledgerIds.head)
-
-  lazy val channel = config.channel(ports.head)
-
-  private val ClientConfiguration = LedgerClientConfiguration(
-    applicationId = applicationId.get,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    token = None,
-  )
-
-  "this test" should {
-    "run a simple check" in {
-      1 shouldEqual 1
-
+  "Upload-time Upgradeability Checks" should {
+    "report error when record fields change" in {
       for {
-        client <- LedgerClient(channel, ClientConfiguration)
+        client <- defaultLedgerClient()
         testPackageV1BS <- loadTestPackageBS(1)
         testPackageV2BS <- loadTestPackageBS(2)
         _ <- client.packageManagementClient.uploadDarFile(testPackageV1BS)
         _ <- client.packageManagementClient.uploadDarFile(testPackageV2BS)
-        _ <- loadTestPackageDar(1)
-        _ <- loadTestPackageDar(2)
-        // _ <- Future { Thread.sleep(10 * 1000) }
-        // _ <- client.packageManagementClient.listKnownPackages()
       } yield {
-        client.ledgerId shouldBe LedgerId
-        0 shouldBe 1
+        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
+        val testPackageV1Id = loadTestPackageId(1)
+        val testPackageV2Id = loadTestPackageId(2)
+        cantonLog should include regex s"Package $testPackageV1Id has no upgraded package"
+        cantonLog should include regex s"Package $testPackageV2Id upgrades package id $testPackageV1Id"
+        cantonLog should include regex s"Typechecking upgrades for $testPackageV2Id failed with following message: RecordFieldsExistingChanged"
       }
     }
   }
