@@ -37,9 +37,7 @@ import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson ((.=), encode)
-import qualified Data.Aeson as A
-import Data.Aeson.Text
+import Data.Aeson (encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -48,17 +46,12 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Maybe
-import Data.String (IsString, fromString)
+import Data.String (fromString)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.IO as TL
 import qualified Data.UUID as UUID
 import qualified Data.UUID.V4 as UUID
-import GHC.Generics
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
-import Network.HTTP.Simple
-import Network.HTTP.Types (statusCode)
 import Numeric.Natural
 import System.Exit
 import System.FilePath
@@ -78,7 +71,7 @@ import qualified DA.Service.Logger.Impl.IO as Logger
 import DA.Ledger.Types (ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
-import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
+import DA.Ledger.Services.MeteringReportService()
 import qualified Data.Aeson as Aeson
 
 import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
@@ -89,8 +82,7 @@ data LedgerApi
   deriving (Show, Eq)
 
 data LedgerFlags = LedgerFlags
-  { fApi :: LedgerApi
-  , fSslConfigM :: Maybe L.ClientSSLConfig
+  { fSslConfigM :: Maybe L.ClientSSLConfig
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
   -- The following values get defaults from the project config by
@@ -101,10 +93,9 @@ data LedgerFlags = LedgerFlags
   , fMaxReceiveLengthM :: Maybe Natural
   }
 
-defaultLedgerFlags :: LedgerApi -> LedgerFlags
-defaultLedgerFlags api = LedgerFlags
-  { fApi = api
-  , fSslConfigM = Nothing
+defaultLedgerFlags :: LedgerFlags
+defaultLedgerFlags = LedgerFlags
+  { fSslConfigM = Nothing
   , fTimeout = 60
   , fHostM = Nothing
   , fPortM = Nothing
@@ -113,15 +104,14 @@ defaultLedgerFlags api = LedgerFlags
   }
 
 sandboxLedgerFlags :: Int -> LedgerFlags
-sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
+sandboxLedgerFlags port = defaultLedgerFlags
   { fHostM = Just "localhost"
   , fPortM = Just port
   }
 
-defaultLedgerArgs :: LedgerApi -> LedgerArgs
-defaultLedgerArgs api = LedgerArgs
-  { api = api
-  , sslConfigM = Nothing
+defaultLedgerArgs :: LedgerArgs
+defaultLedgerArgs = LedgerArgs
+  { sslConfigM = Nothing
   , timeout = 10
   , port = 6865
   , host = "localhost"
@@ -130,8 +120,7 @@ defaultLedgerArgs api = LedgerArgs
   }
 
 data LedgerArgs = LedgerArgs
-  { api :: LedgerApi
-  , sslConfigM :: Maybe L.ClientSSLConfig
+  { sslConfigM :: Maybe L.ClientSSLConfig
   , timeout :: L.TimeoutSeconds
   -----------------------------------------
   , host :: String
@@ -147,8 +136,7 @@ showHostAndPort LedgerArgs{host,port} = host <> ":" <> show port
 -- Get default values from project config
 -----------------------------------------
 getDefaultArgs :: LedgerFlags -> IO LedgerArgs
-getDefaultArgs LedgerFlags { fApi
-                           , fSslConfigM
+getDefaultArgs LedgerFlags { fSslConfigM
                            , fTimeout
                            , fHostM
                            , fPortM
@@ -161,8 +149,7 @@ getDefaultArgs LedgerFlags { fApi
   tokM <- getTokFromFile (fTokFileM <|> pTokFileM)
   return $
     LedgerArgs
-      { api = fApi
-      , port = port
+      { port = port
       , host = host
       , tokM = tokM
       , timeout = fTimeout
@@ -248,33 +235,17 @@ runLedgerUploadDar' args darPathM  = do
 
 uploadDarFile :: LedgerArgs -> BS.ByteString -> IO (Either String ())
 uploadDarFile args bytes =
-  case api args of
-    Grpc -> runWithLedgerArgs args $ do L.uploadDarFile bytes
-    HttpJson -> do
-      (i :: Int) <- httpJsonRequest args "POST" "/v1/packages" $ setRequestBodyLBS (BSL.fromStrict bytes)
-      return $
-        if i == 1
-          then Right ()
-          else Left "An error occured. Please check the returned status."
+  runWithLedgerArgs args $ do L.uploadDarFile bytes
 
 newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
 
 -- | Fetch list of parties from ledger.
-runLedgerListParties :: LedgerFlags -> JsonFlag -> IO ()
-runLedgerListParties flags (JsonFlag json) = do
+runLedgerListParties :: LedgerFlags -> IO ()
+runLedgerListParties flags = do
     args <- getDefaultArgs flags
-    unless json . putStrLn $ "Listing parties at " <> showHostAndPort args
+    putStrLn $ "Listing parties at " <> showHostAndPort args
     xs <- listParties args
-    if json then do
-        TL.putStrLn . encodeToLazyText . A.toJSON $
-            [ A.object
-                [ "party" .= TL.toStrict (L.unParty party)
-                , "display_name" .= TL.toStrict displayName
-                , "is_local" .= isLocal
-                ]
-            | L.PartyDetails {..} <- xs
-            ]
-    else if null xs then
+    if null xs then
         putStrLn "no parties are known"
     else
         mapM_ print xs
@@ -366,20 +337,12 @@ downloadAllReachablePackages downloadPkg pids exclPids =
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package
 downloadPackage args pid = do
   bs <-
-    case api args of
-      Grpc -> do
-        runWithLedgerArgs args $ do
-          lid <- L.getLedgerIdentity
-          mbPkg <- L.getPackage lid $ convPid pid
-          case mbPkg of
-            Nothing -> fail $ "Unable to download package with identity: " <> show pid
-            Just (L.Package bs) -> pure bs
-      HttpJson ->
-        httpBsRequest
-          args
-          "GET"
-          (Path $ unPath "/v1/packages/" <> (T.encodeUtf8 $ LF.unPackageId pid))
-          id
+    runWithLedgerArgs args $ do
+      lid <- L.getLedgerIdentity
+      mbPkg <- L.getPackage lid $ convPid pid
+      case mbPkg of
+        Nothing -> fail $ "Unable to download package with identity: " <> show pid
+        Just (L.Package bs) -> pure bs
   let mode = LFArchive.DecodeAsMain
   case LFArchive.decodePackage mode pid bs of
     Left err -> fail $ show err
@@ -424,13 +387,10 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
 runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
 runLedgerListPackages lflags = do
     args <- getDefaultArgs lflags
-    case api args of
-      Grpc ->
-        runWithLedgerArgs args $ do
-            lid <- L.getLedgerIdentity
-            pkgIds <- L.listPackages lid
-            pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
-      HttpJson -> httpJsonRequest args "GET" "/v1/packages" id
+    runWithLedgerArgs args $ do
+        lid <- L.getLedgerIdentity
+        pkgIds <- L.listPackages lid
+        pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
 
 -- | Same as runLedgerListPackages, but print output.
 runLedgerListPackages0 :: LedgerFlags -> IO ()
@@ -455,9 +415,7 @@ runLedgerListPackages0 flags = do
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
-  case api args of
-    Grpc -> runWithLedgerArgs args L.listKnownParties
-    HttpJson -> httpJsonRequest args "GET" "/v1/parties" id
+  runWithLedgerArgs args L.listKnownParties
 
 lookupParty :: LedgerArgs -> String -> IO (Maybe L.Party)
 lookupParty args name = do
@@ -470,13 +428,8 @@ allocateParty :: LedgerArgs -> String -> IO L.Party
 allocateParty args name = do
   let text = TL.pack name
   L.PartyDetails {party} <-
-    case api args of
-      Grpc ->
-        runWithLedgerArgs args $
-        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
-      HttpJson ->
-        httpJsonRequest args "POST" "/v1/parties/allocate" $
-        setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
+    runWithLedgerArgs args $
+    L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
   return party
 
 runLedgerReset :: LedgerFlags -> IO ()
@@ -487,53 +440,48 @@ runLedgerReset flags = do
 
 reset :: LedgerArgs -> IO ()
 reset args = do
-  case api args of
-    Grpc ->
-      runWithLedgerArgs args $ do
-        parties <- map L.party <$> L.listKnownParties
-        unless (null parties) $ do
-          ledgerId <- L.getLedgerIdentity
-          activeContracts <-
-            L.getActiveContracts
-              ledgerId
-              (TransactionFilter $
-               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
-              (L.Verbosity False)
-          let chunks = chunksOf 100 activeContracts
-          forM_ chunks $ \chunk -> do
-            let cmds cmdId =
-                  L.Commands
-                    { coms =
-                        [ L.ExerciseCommand
-                          { tid = tid
-                          , cid = cid
-                          , choice = L.Choice "Archive"
-                          , arg = L.VRecord $ L.Record Nothing []
-                          }
-                        | (_offset, _mbWid, events) <- chunk
-                        , L.CreatedEvent {cid, tid} <- events
-                        ]
-                    , lid = ledgerId
-                    , wid = Nothing
-                    , aid = L.ApplicationId "ledger-reset"
-                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                    , actAs = parties
-                    , readAs = []
-                    , dedupPeriod = Nothing
-                    , minLeTimeAbs = Nothing
-                    , minLeTimeRel = Nothing
-                    , sid = Nothing
-                    }
-            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
-            unless noCommands $ do
-              cmdId <- liftIO UUID.nextRandom
-              errOrEmpty <- L.submit $ cmds cmdId
-              case errOrEmpty of
-                Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-                Right () -> pure ()
-    HttpJson ->
-      fail
-        "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
+  runWithLedgerArgs args $ do
+    parties <- map L.party <$> L.listKnownParties
+    unless (null parties) $ do
+      ledgerId <- L.getLedgerIdentity
+      activeContracts <-
+        L.getActiveContracts
+          ledgerId
+          (TransactionFilter $
+           Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+          (L.Verbosity False)
+      let chunks = chunksOf 100 activeContracts
+      forM_ chunks $ \chunk -> do
+        let cmds cmdId =
+              L.Commands
+                { coms =
+                    [ L.ExerciseCommand
+                      { tid = tid
+                      , cid = cid
+                      , choice = L.Choice "Archive"
+                      , arg = L.VRecord $ L.Record Nothing []
+                      }
+                    | (_offset, _mbWid, events) <- chunk
+                    , L.CreatedEvent {cid, tid} <- events
+                    ]
+                , lid = ledgerId
+                , wid = Nothing
+                , aid = L.ApplicationId "ledger-reset"
+                , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                , actAs = parties
+                , readAs = []
+                , dedupPeriod = Nothing
+                , minLeTimeAbs = Nothing
+                , minLeTimeRel = Nothing
+                , sid = Nothing
+                }
+        let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+        unless noCommands $ do
+          cmdId <- liftIO UUID.nextRandom
+          errOrEmpty <- L.submit $ cmds cmdId
+          case errOrEmpty of
+            Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+            Right () -> pure ()
 
 -- | Run export against configured ledger.
 runLedgerExport :: LedgerFlags -> [String] -> IO ()
@@ -572,90 +520,6 @@ runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM, grpcArgs} ls = 
                 sslConfigM
     L.runLedgerService ls' timeout ledgerClientConfig
 
---
--- Interface with the HTTP JSON API
------------------------------------
-
-newtype Method = Method
-  { unMethod :: BS.ByteString
-  } deriving IsString
-
-newtype Path = Path
-  { unPath :: BS.ByteString
-  } deriving IsString
-
-data HttpJsonResponseBody a = HttpJsonResponseBody
-  { status :: Int
-  , result :: a
-  } deriving (Generic)
-instance A.FromJSON a => A.FromJSON (HttpJsonResponseBody a)
-
-data AllocatePartyRequest = AllocatePartyRequest
-  { identifierHint :: TL.Text
-  , displayName :: TL.Text
-  } deriving (Generic)
-instance A.ToJSON AllocatePartyRequest
-
--- | Run a request against the HTTP JSON API.
-httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> (Request -> Request) -> IO a
-httpJsonRequest args method path modify = do
-  req <- makeRequest args method path modify
-  respOrErr <- runHttp httpJSONEither req
-  case respOrErr of
-    Right resp -> pure $ result resp
-    Left err ->
-      case err of
-        JSONParseException _req resp parseErr -> handleError resp parseErr
-        JSONConversionException _req resp convErr -> handleError resp convErr
-  where
-    handleError resp err = do
-      let contentType = getResponseHeader "Content-Type" resp
-      if BSC.pack "application/json" `elem` contentType
-        then fail $ "Response could not be parsed: " <> show err <> "\nResponse: " <> show resp
-        else fail $
-             unlines
-               [ "The service returned an error response: "
-               , show $ getResponseStatus resp
-               , show $ getResponseBody resp
-               ]
-
-httpBsRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO BS.ByteString
-httpBsRequest args method path modify = do
-  req <- makeRequest args method path modify
-  runHttp httpBS req
-
-makeRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO Request
-makeRequest LedgerArgs {sslConfigM, tokM, port, host} method path modify = do
-  secure <- case sslConfigM of
-    Nothing -> pure False
-    Just (L.ClientSSLConfig Nothing Nothing Nothing) -> pure True
-    Just _ -> fail "The HTTP JSON API does not support --pem, --crt and --cacrt flags."
-  pure $
-    setRequestSecure secure $
-    setRequestPort port $
-    setRequestHost (BSC.pack host) $
-    setRequestMethod (unMethod method) $
-    setRequestPath (unPath path) $
-    modify $
-    setRequestHeader
-      "authorization"
-      [BSC.pack $ sanitizeToken tok | Just (L.Token tok) <- [tokM]]
-      defaultRequest
-
-runHttp :: (Request -> IO (Response a)) -> Request -> IO a
-runHttp run req = do
-  resp <- run req
-  let status = getResponseStatus resp
-  unless (statusCode status == 200) $ fail $ "Request failed with error code " <> show status
-  pure $ getResponseBody resp
-
--- This matches how the com.daml.ledger.api.auth.client.LedgerCallCredentials
--- behaves.
-sanitizeToken :: String -> String
-sanitizeToken tok
-  | "Bearer " `isPrefixOf` tok = tok
-  | otherwise = "Bearer " <> tok
-
 -- | Report on Ledger Use.
 runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationId -> Bool -> IO ()
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
@@ -669,11 +533,6 @@ runLedgerMeteringReport flags fromIso toIso application compactOutput = do
 
 meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO Aeson.Value
 meteringReport args from to application =
-  case api args of
-    Grpc ->
-      runWithLedgerArgs args $
-        do L.getMeteringReport (L.utcDayToTimestamp from) (fmap L.utcDayToTimestamp to) application
-    HttpJson ->
-      httpJsonRequest args "POST" "/v1/metering-report" $
-        setRequestBodyJSON $ MeteringRequestByDay { from = from, to = to, application = application }
+  runWithLedgerArgs args $
+    do L.getMeteringReport (L.utcDayToTimestamp from) (fmap L.utcDayToTimestamp to) application
 

@@ -421,10 +421,10 @@ resolvePkgsWithLedger depsDir tokFpM pkgs = do
 ----------------------
 
 getDalfsFromLedger :: Maybe FilePath -> [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger tokFpM = runLedgerGetDalfs $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
+getDalfsFromLedger tokFpM = runLedgerGetDalfs $ defaultLedgerFlags {fTokFileM = tokFpM}
 
 listLedgerPackages :: Maybe FilePath -> IO [LF.PackageId]
-listLedgerPackages tokFpM = runLedgerListPackages $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
+listLedgerPackages tokFpM = runLedgerListPackages $ defaultLedgerFlags {fTokFileM = tokFpM}
 
 -- Updating/Fingerprint
 -----------------------

@@ -386,7 +386,6 @@ argWhitelist = S.fromList
     , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
     , "codegen", "java", "js"
     , "deploy"
-    , "json-api"
     , "trigger", "trigger-service", "list"
     , "oauth2-middleware"
     , "script"
