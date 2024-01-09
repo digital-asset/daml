@@ -77,31 +77,6 @@ object Typecheck {
         case _ => None;
       })
 
-    def dataTypeOriginAndShouldCheck(
-        module: Ast.Module,
-        name: Ref.DottedName,
-    ): (UpgradedRecordOrigin, Boolean) = {
-      module.templates.get(name) match {
-        case Some(template) => (TemplateBody(name), true);
-        case _ => {
-          val choices = for {
-            (templateName, template) <- module.templates
-            (choiceName, choice) <- template.choices
-          } yield {
-            val prefix = templateName.segments.init
-            val fullName = prefix.slowSnoc(choiceName)
-            (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
-          }
-
-          choices.get(name) match {
-            case Some((templateName, choiceName)) =>
-              (TemplateChoiceInput(templateName, choiceName), true);
-            case _ => (TopLevel, true)
-          }
-        }
-      }
-    }
-
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
@@ -113,24 +88,7 @@ object Typecheck {
         module.map(datatypes(_)),
         (_: Ast.DDataType) => UpgradeError(s"MissingDataCon(t)"),
       )
-      _ <- Try {
-        existingDatatypes
-          .map({
-            case (dtName, dt) => {
-              val originAndShouldCheck = module.map(dataTypeOriginAndShouldCheck(_, dtName))
-              if (originAndShouldCheck.present._1 != originAndShouldCheck.past._1) {
-                Failure(UpgradeError("RecordChangedOrigin"))
-              } else {
-                if (originAndShouldCheck.present._2) {
-                  checkDatatype(originAndShouldCheck.present._1, dt)
-                } else {
-                  Success(())
-                }
-              }
-            }
-          })
-          .map(_.get)
-      }
+      _ <- Try { existingDatatypes.map({ case (name, dt) => checkDatatype(module, name, dt).get }) }
     } yield ()
   }
 
@@ -142,7 +100,21 @@ object Typecheck {
       )
 
       _ <- tryAll(existingChoices.values, checkChoice(_))
+      _ <- checkKey(template.map(_.key))
     } yield ()
+  }
+
+  def checkKey(key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
+    key match {
+      case Upgrading(None, None) => Success(());
+      case Upgrading(Some(pastKey), Some(presentKey)) =>
+        if (!AlphaEquiv.alphaEquiv(pastKey.typ, presentKey.typ)) Failure(UpgradeError(s"TemplateChangedKeyType"))
+        else Success(())
+      case Upgrading(Some(_pastKey), None) =>
+        Failure(UpgradeError(s"TemplateRemovedKey"))
+      case Upgrading(None, Some(_presentKey)) =>
+        Success(()) // Should emit a warning, but we don't currently have a framework for warnings
+    }
   }
 
   def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
@@ -155,14 +127,44 @@ object Typecheck {
     }
   }
 
-  def checkDatatype(origin: UpgradedRecordOrigin, datatype: Upgrading[Ast.DDataType]): Try[Unit] = {
-    datatype.map(_.cons) match {
-      case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-        checkFields(origin, Upgrading(past, present))
-      case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) => Try(())
-      case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) => Try(())
-      case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-      case _ => Failure(UpgradeError(s"MismatchDataConsVariety"))
+  def dataTypeOrigin(
+      module: Ast.Module,
+      name: Ref.DottedName,
+  ): UpgradedRecordOrigin = {
+    module.templates.get(name) match {
+      case Some(template) => TemplateBody(name);
+      case _ => {
+        val choices = for {
+          (templateName, template) <- module.templates
+          (choiceName, choice) <- template.choices
+        } yield {
+          val prefix = templateName.segments.init
+          val fullName = prefix.slowSnoc(choiceName)
+          (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
+        }
+
+        choices.get(name) match {
+          case Some((templateName, choiceName)) =>
+            TemplateChoiceInput(templateName, choiceName);
+          case _ => TopLevel;
+        }
+      }
+    }
+  }
+
+  def checkDatatype(module: Upgrading[Ast.Module], name: Ref.DottedName, datatype: Upgrading[Ast.DDataType]): Try[Unit] = {
+    val origin = module.map(dataTypeOrigin(_, name))
+    if (origin.present != origin.past) {
+      Failure(UpgradeError("RecordChangedOrigin"))
+    } else {
+      datatype.map(_.cons) match {
+        case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
+          checkFields(origin.present, Upgrading(past, present))
+        case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) => Try(())
+        case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) => Try(())
+        case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
+        case _ => Failure(UpgradeError(s"MismatchDataConsVariety"))
+      }
     }
   }
 
@@ -189,3 +191,4 @@ object Typecheck {
     }
   }
 }
+
