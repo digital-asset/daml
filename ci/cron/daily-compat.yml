@@ -272,7 +272,7 @@ jobs:
           canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
           branch="canton-update-$canton_tag-$canton2_version-$canton3_version-main2x"
           
-          if git diff --exit-code origin/main -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
+          if git diff --exit-code origin/main-2.x -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
