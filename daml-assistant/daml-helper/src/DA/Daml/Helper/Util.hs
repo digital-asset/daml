@@ -298,6 +298,7 @@ data CantonOptions = CantonOptions
   , cantonStaticTime :: StaticTime
   , cantonHelp :: Bool
   , cantonConfigFiles :: [FilePath]
+  , cantonJsonApi :: Maybe Int
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString
@@ -324,6 +325,8 @@ cantonConfig CantonOptions{..} =
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
+                     ] <>
+                     [ json port | Just port <- [cantonJsonApi]
                      ]
                     )
                 ]
@@ -339,6 +342,10 @@ cantonConfig CantonOptions{..} =
   where
     port p = Aeson.object [ "port" Aeson..= p ]
     storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
+    json port = "http-ledger-api-experimental" Aeson..= Aeson.object
+        [ "allow-insecure-tokens" Aeson..= True
+        , "server" Aeson..= Aeson.object [ "port" Aeson..= port]
+        ]
 
 decodeCantonPort :: String -> String -> Maybe Int
 decodeCantonPort participantName json = do

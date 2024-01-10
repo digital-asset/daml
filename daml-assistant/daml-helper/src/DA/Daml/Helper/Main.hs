@@ -448,6 +448,8 @@ commandParser = subparser $ fold
             cantonAdminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
             cantonDomainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
             cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
+            cantonJsonApi <- optional $ option auto (long "json-api-port"
+                <> help "Port that the HTTP JSON API should listen on, omit to disable it")
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
             cantonStaticTime <- StaticTime <$>
