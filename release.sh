@@ -102,7 +102,7 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(main$|release/)'
+      | grep -q -E '^origin/(main$|main-2\.x$|release/)'
 }
 
 case $1 in
