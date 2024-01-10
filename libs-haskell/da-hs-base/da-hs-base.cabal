@@ -29,10 +29,6 @@ library
       async,
       -- @stackage//:base
       base,
-      -- @stackage//:base16-bytestring
-      base16-bytestring,
-      -- @stackage//:base64-bytestring
-      base64-bytestring,
       -- @stackage//:binary
       binary,
       -- @stackage//:blaze-html
@@ -47,70 +43,42 @@ library
       deepseq,
       -- @stackage//:directory
       directory,
-      -- @stackage//:dlist
-      dlist,
       -- @stackage//:extra
       extra,
       -- @stackage//:filepath
       filepath,
       -- @stackage//:hashable
       hashable,
-      -- @stackage//:http-conduit
-      http-conduit,
-      -- @stackage//:http-types
-      http-types,
       -- @stackage//:lens
       lens,
-      -- @stackage//:monad-loops
-      monad-loops,
-      -- @stackage//:mtl
-      mtl,
       -- @stackage//:network
       network,
       -- @stackage//:optparse-applicative
       optparse-applicative,
       -- @stackage//:pretty
       pretty,
-      -- @stackage//:pretty-show
-      pretty-show,
       -- @stackage//:process
       process,
-      -- @stackage//:random
-      random,
       -- @stackage//:safe
       safe,
       -- @stackage//:safe-exceptions
       safe-exceptions,
-      -- @stackage//:stm
-      stm,
       -- @stackage//:tar-conduit
       tar-conduit,
       -- @stackage//:tasty
       tasty,
-      -- @stackage//:tasty-hunit
-      tasty-hunit,
       -- @stackage//:tasty-quickcheck
       tasty-quickcheck,
-      -- @stackage//:template-haskell
-      template-haskell,
       -- @stackage//:text
       text,
       -- @stackage//:time
       time,
-      -- @stackage//:transformers
-      transformers,
-      -- @stackage//:transformers-base
-      transformers-base,
       -- @stackage//:unix
       unix,
       -- @stackage//:unix-compat
       unix-compat,
       -- @stackage//:unordered-containers
       unordered-containers,
-      -- @stackage//:utf8-string
-      utf8-string,
-      -- @stackage//:uuid
-      uuid,
       -- @stackage//:vector
       vector,
     exposed-modules:

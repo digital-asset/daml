@@ -14,7 +14,7 @@ import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
-import SdkVersion (sdkVersion)
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
@@ -70,7 +70,7 @@ instance Show PackageIdentifier where
 -}
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
   withTempDir $ \damlHome -> do
@@ -84,7 +84,7 @@ main = do
     void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
     defaultMain $ tests damlAssistant
 
-tests :: FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> TestTree
 tests damlAssistant =
   testGroup
     "Multi-Package build"

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -23,11 +23,11 @@ import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
 import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
+import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
+import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.canton.ledger.client.services.admin.{MeteringReportClient, PackageManagementClient, PartyManagementClient}
 import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
-import com.digitalasset.canton.ledger.client.services.pkg.withoutledgerid.PackageClient
-import com.digitalasset.canton.ledger.client.services.transactions.withoutledgerid.TransactionClient
-import com.digitalasset.canton.ledger.client.withoutledgerid.LedgerClient as DamlLedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -76,7 +76,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         log(GetActiveContractsLog) {
           client.activeContractSetClient
-            .getActiveContracts(filter, ledgerId, verbose, bearer(jwt))
+            .getActiveContracts(filter, verbose, bearer(jwt))
             .mapMaterializedValue(_ => NotUsed)
         }
       }
@@ -94,7 +94,6 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
                 offset,
                 terminates.toOffset,
                 filter,
-                ledgerId,
                 verbose = true,
                 token = bearer(jwt),
               )
@@ -195,7 +194,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logger.trace(s"sending list packages request to ledger, ${lc.makeString}")
         logFuture(ListPackagesLog) {
-          client.packageClient.listPackages(ledgerId, bearer(jwt))
+          client.packageClient.listPackages(bearer(jwt))
         }
       }
 
@@ -206,7 +205,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logger.trace(s"sending get packages request to ledger, ${lc.makeString}")
         logFuture(GetPackageLog) {
-          client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
+          client.packageClient.getPackage(packageId, token = bearer(jwt))
         }
       }
 

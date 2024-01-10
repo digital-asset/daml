@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -61,12 +61,14 @@ class CantonDynamicDomainParameterGetter(
             "No domain defined",
           )
           allTolerances <- EitherT.right(domainAliases.parTraverseFilter { domainId =>
-            getToleranceForDomain(domainId)
-              .leftMap { error =>
-                logger.info(s"Failed to get ledger time tolerance for domain $domainId: $error")
-              }
-              .toOption
-              .value
+            if (aliasManager.connectionStateForDomain(domainId).exists(_.isActive)) {
+              getToleranceForDomain(domainId)
+                .leftMap { error =>
+                  logger.info(s"Failed to get ledger time tolerance for domain $domainId: $error")
+                }
+                .toOption
+                .value
+            } else Future.successful(None)
           })
           allTolerancesNE <- EitherT.fromOption[Future](
             NonEmpty.from(allTolerances),

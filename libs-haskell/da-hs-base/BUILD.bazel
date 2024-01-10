@@ -13,8 +13,6 @@ da_haskell_library(
         "ansi-terminal",
         "async",
         "base",
-        "base16-bytestring",
-        "base64-bytestring",
         "binary",
         "blaze-html",
         "bytestring",
@@ -22,45 +20,27 @@ da_haskell_library(
         "containers",
         "deepseq",
         "directory",
-        "dlist",
         "extra",
         "filepath",
         "hashable",
-        "http-conduit",
-        "http-types",
         "lens",
-        "monad-loops",
-        "mtl",
         "network",
         "optparse-applicative",
-        "pretty-show",
         "pretty",
         "process",
-        "random",
         "safe",
         "safe-exceptions",
-        "stm",
         "tar-conduit",
-        "tasty-hunit",
         "tasty-quickcheck",
         "tasty",
-        "template-haskell",
         "text",
         "time",
-        "transformers-base",
-        "transformers",
         "unordered-containers",
         "unix-compat",
-        "utf8-string",
-        "uuid",
         "vector",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [
-        "//:sdk-version-hs-lib",
-        "//daml-assistant:daml-project-config",
-    ],
 )
 
 da_haskell_test(
@@ -76,36 +56,8 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":da-hs-base",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/test-utils",
     ],
 )
 
-da_haskell_test(
-    name = "da-hs-base-telemetry-tests",
-    srcs = glob(["tests/Telemetry.hs"]),
-    hackage_deps = [
-        "aeson",
-        "extra",
-        "tasty",
-        "base",
-        "directory",
-        "tasty-hunit",
-        "text",
-    ],
-    main_function = "Telemetry.main",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":da-hs-base",
-        "//daml-assistant:daml-project-config",
-        "//libs-haskell/test-utils",
-    ],
-)
-
-generate_and_track_cabal(
-    "da-hs-base",
-    None,
-    None,
-    ["daml-project-config"],
-    ["DA.Service.Logger.Impl.GCP"],
-)
+generate_and_track_cabal("da-hs-base")

@@ -18,20 +18,20 @@ import Test.Tasty.HUnit
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain (tests damlc)
 
-tests :: FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> TestTree
 tests damlc = testGroup "damlc" $ map (\f -> f damlc)
   [ testsForDamlcLint
   ]
 
-testsForDamlcLint :: FilePath -> TestTree
+testsForDamlcLint :: SdkVersioned => FilePath -> TestTree
 testsForDamlcLint damlc = testGroup "damlc test"
     [ testCase "Lint all project files" $ do
         withTempDir $ \dir -> do

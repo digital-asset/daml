@@ -37,10 +37,10 @@ import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     yarn : args <- getArgs
     withTempDir $ \tmpDir -> do
         oldPath <- getSearchPath
@@ -97,7 +97,7 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: FilePath -> IO DamlStartResource
+damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
 damlStart tmpDir = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
@@ -176,7 +176,7 @@ damlStart tmpDir = do
             , stdoutChan = outChan
             }
 
-tests :: FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> TestTree
 tests tmpDir =
     withSdkResource $ \_ ->
         testGroup
@@ -203,7 +203,7 @@ tests tmpDir =
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
 -- integration tests.
-packagingTests :: FilePath -> TestTree
+packagingTests :: SdkVersioned => FilePath -> TestTree
 packagingTests tmpDir =
     testGroup
         "packaging"
@@ -326,7 +326,7 @@ damlToolTests =
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
-damlStartTests :: IO DamlStartResource -> TestTree
+damlStartTests :: SdkVersioned => IO DamlStartResource -> TestTree
 damlStartTests getDamlStart =
     -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
     testCaseSteps "daml start" $ \step -> do
@@ -508,7 +508,7 @@ damlStartTests getDamlStart =
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
 
 -- | daml start tests that don't use the shared server
-damlStartNotSharedTest :: TestTree
+damlStartNotSharedTest :: SdkVersioned => TestTree
 damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
     withTempDir $ \tmpDir -> do
         writeFileUTF8 (tmpDir </> "daml.yaml") $

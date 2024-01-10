@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver
@@ -116,6 +116,7 @@ object ApiServices {
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
+      community: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -471,7 +472,10 @@ object ApiServices {
         )
 
         val participantPruningService = Option
-          .when(!multiDomainEnabled)( // TODO(i13540): pruning is not supported for multi domain
+          .when(
+            community || // In community, it just replies with a "not available in community" error
+              !multiDomainEnabled // TODO(i13540): pruning is not supported for multi domain
+          )(
             new ParticipantPruningServiceAuthorization(
               ApiParticipantPruningService.createApiService(
                 indexService,

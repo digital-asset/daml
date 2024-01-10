@@ -34,7 +34,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
@@ -43,6 +42,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 

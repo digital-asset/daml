@@ -143,7 +143,7 @@
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
   - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}
-  - {name: unsafeCoerce, within: []}
+  - {name: unsafeCoerce, within: [SdkVersion.Class]}
 
 # Add custom hints for this project
 #

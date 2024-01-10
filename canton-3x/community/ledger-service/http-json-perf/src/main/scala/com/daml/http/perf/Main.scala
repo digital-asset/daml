@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf
@@ -13,7 +13,7 @@ import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
 import com.daml.integrationtest.CantonRunner
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging

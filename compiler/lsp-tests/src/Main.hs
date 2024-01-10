@@ -25,7 +25,7 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 import Language.LSP.Types.Capabilities
 import Language.LSP.Types.Lens hiding (id, to)
 import Network.URI
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory
 import System.Environment.Blank
 import System.FilePath
@@ -44,7 +44,7 @@ fullCaps' :: ClientCapabilities
 fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
@@ -1043,7 +1043,7 @@ mkKeywordCompletion label =
     defaultCompletion label &
     kind ?~ CiKeyword
 
-includePathTests :: FilePath -> FilePath -> TestTree
+includePathTests :: SdkVersioned => FilePath -> FilePath -> TestTree
 includePathTests damlc scriptDarPath = testGroup "include-path"
     [ testCase "IDE in root directory" $ withTempDir $ \dir -> do
           createDirectory (dir </> "src1")
@@ -1089,7 +1089,7 @@ includePathTests damlc scriptDarPath = testGroup "include-path"
               expectDiagnostics [ ("src1/Root.daml", [(DsError, (4,0), "Assertion failed")]) ]
     ]
 
-multiPackageTests :: FilePath -> FilePath -> TestTree
+multiPackageTests :: SdkVersioned => FilePath -> FilePath -> TestTree
 multiPackageTests damlc scriptDarPath
   | isWindows = testGroup "multi-package (skipped)" [] -- see issue #4904
   | otherwise = testGroup "multi-package"

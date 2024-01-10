@@ -99,48 +99,6 @@ genrule(
 )
 
 genrule(
-    name = "sdk-version-hs",
-    srcs = [],
-    outs = ["SdkVersion.hs"],
-    cmd = """
-        cat > $@ <<EOF
-module SdkVersion where
-
-import Module (stringToUnitId, UnitId)
-
-sdkVersion :: String
-sdkVersion = "{sdk}"
-
-mvnVersion :: String
-mvnVersion = "{mvn}"
-
--- | SDK version with non numeric subversions removed. Used for daml-script and daml-triggers versions
-sdkPackageVersion :: String
-sdkPackageVersion = "{ghc}"
-
-damlStdlib :: UnitId
-damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
-EOF
-    """.format(
-        ghc = ghc_version,
-        mvn = mvn_version,
-        sdk = sdk_version,
-    ),
-)
-
-da_haskell_library(
-    name = "sdk-version-hs-lib",
-    srcs = [":sdk-version-hs"],
-    hackage_deps = [
-        "base",
-        "extra",
-        "ghc-lib-parser",
-        "split",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
     name = "sdk-version-scala",
     srcs = [],
     outs = ["SdkVersion.scala"],

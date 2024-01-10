@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -390,7 +390,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ): Unit = {
     final case class ParticipantApis(ledgerApi: Int, adminApi: Int)
     config.parameters.portsFile.foreach { portsFile =>
-      val items = participants.running.map { node =>
+      val items = participantsX.running.map { node =>
         (
           node.name.unwrap,
           ParticipantApis(node.config.ledgerApi.port.unwrap, node.config.adminApi.port.unwrap),

@@ -22,9 +22,11 @@ import Development.IDE.Plugin.Completions as Completions
 import Development.IDE.Plugin.CodeAction as CodeAction
 import qualified Development.IDE.Types.Logger as IdeLogger
 import qualified Language.LSP.Types as LSP
+import SdkVersion.Class (SdkVersioned)
 
-getDamlIdeState
-    :: Options
+getDamlIdeState :: 
+       SdkVersioned
+    => Options
     -> StudioAutorunAllScenarios
     -> Maybe Scenario.Handle
     -> Logger.Handle IO
@@ -44,8 +46,9 @@ enabledPlugins = Completions.plugin <> CodeAction.plugin
 -- will be started automatically (if enabled)
 -- and we use the builtin VFSHandle. We always disable
 -- the debouncer here since this is not used in the IDE.
-withDamlIdeState
-    :: Options
+withDamlIdeState ::
+       SdkVersioned
+    => Options
     -> Logger.Handle IO
     -> NotificationHandler
     -> (IdeState -> IO a)

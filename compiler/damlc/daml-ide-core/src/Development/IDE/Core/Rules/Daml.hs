@@ -104,7 +104,7 @@ import qualified DA.Daml.LF.TypeChecker as LF
 import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
 import DA.Pretty (PrettyLevel)
-import SdkVersion (damlStdlib)
+import SdkVersion.Class (SdkVersioned, damlStdlib)
 
 import Language.Haskell.HLint4
 
@@ -222,7 +222,7 @@ getUnstableDalfDependencies files = do
     pkgMap <- Map.unions . map getPackageMap <$> usesE' GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
-getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getDalfDependencies :: SdkVersioned => [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
     actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
@@ -254,7 +254,7 @@ priorityGenerateDalf = priorityGenerateCore
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
-generateRawDalfRule :: Rules ()
+generateRawDalfRule :: SdkVersioned => Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
@@ -388,7 +388,7 @@ packageMetadataFromOptions options = LF.PackageMetadata
 -- We use the ABI hash of the .hi files to detect if we need to recompile dependent files. Note that this is more aggressive
 -- than just looking at the file hash. E.g., consider module A depending on module B. If B changes but its ABI hash stays the same
 -- we do not need to recompile A.
-generateSerializedDalfRule :: Options -> Rules ()
+generateSerializedDalfRule :: SdkVersioned => Options -> Rules ()
 generateSerializedDalfRule options =
     defineOnDisk $ \GenerateSerializedDalf file ->
       OnDiskRule
@@ -561,7 +561,7 @@ generatePackageMapRule opts = do
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just (PackageMap res)))
 
-damlGhcSessionRule :: Options -> Rules ()
+damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
@@ -593,7 +593,7 @@ damlGhcSessionRule opts@Options{..} = do
         -- incremental builds we need an early cutoff.
         pure (Just "", ([], Just hscEnv))
 
-generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
+generateStablePackages :: SdkVersioned => LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
     (diags, pkgs) <- fmap partitionEithers $ do
         let prefix = fp </> ("lf-v" <> renderMajorVersion (versionMajor lfVersion))
@@ -665,7 +665,7 @@ locateStablePackages = locateResource Resource
   , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
   }
 
-generateStablePackagesRule :: Options -> Rules ()
+generateStablePackagesRule :: SdkVersioned => Options -> Rules ()
 generateStablePackagesRule opts =
     defineEarlyCutoff $ \GenerateStablePackages _file -> assert (null $ fromNormalizedFilePath _file) $ do
         lfVersion <- getDamlLfVersion
@@ -1518,7 +1518,7 @@ internalModules = map FPP.normalise
   ]
 
 
-damlRule :: Options -> Rules ()
+damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule
     generateDalfRule
@@ -1547,7 +1547,7 @@ damlRule opts = do
     damlGhcSessionRule opts
     when (optEnableOfInterestRule opts) ofInterestRule
 
-mainRule :: Options -> Rules ()
+mainRule :: SdkVersioned => Options -> Rules ()
 mainRule options = do
     IDE.mainRule
     damlRule options

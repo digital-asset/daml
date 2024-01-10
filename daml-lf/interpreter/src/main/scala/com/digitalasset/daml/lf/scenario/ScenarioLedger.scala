@@ -125,6 +125,14 @@ object ScenarioLedger {
       txid: TransactionId,
   ) extends ScenarioStep
 
+  final case class SubmissionFailed(
+      actAs: Set[Party],
+      readAs: Set[Party],
+      optLocation: Option[Location],
+      time: Time.Timestamp,
+      txid: TransactionId,
+  ) extends ScenarioStep
+
   final case class Disclosure(
       since: TransactionId,
       explicit: Boolean,
@@ -590,7 +598,21 @@ final case class ScenarioLedger(
       scenarioSteps = newIMS,
       scenarioStepId = scenarioStepId.next,
     )
+  }
 
+  def insertSubmissionFailed(
+      actAs: Set[Party],
+      readAs: Set[Party],
+      optLocation: Option[Location],
+  ): ScenarioLedger = {
+    val id = scenarioStepId
+    val effAt = currentTime
+    val newIMS =
+      scenarioSteps + (id.index -> SubmissionFailed(actAs, readAs, optLocation, effAt, id))
+    copy(
+      scenarioSteps = newIMS,
+      scenarioStepId = scenarioStepId.next,
+    )
   }
 
   def query(

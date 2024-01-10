@@ -128,7 +128,7 @@ import qualified "ghc-lib-parser" Name
 import qualified "ghc-lib-parser" Avail as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
-import           SdkVersion
+import           SdkVersion.Class (SdkVersioned, damlStdlib)
 
 ---------------------------------------------------------------------
 -- FUNCTIONS ON THE ENVIRONMENT
@@ -659,13 +659,13 @@ convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
 convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
-convertInterfaces :: Env -> ModuleContents -> ConvertM [Definition]
+convertInterfaces :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
 convertInterfaces env mc =
   concatMapM
     (\(name, binds) -> convertInterface env mc name binds)
     (MS.toList (mcInterfaceBinds mc))
 
-convertInterface :: Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
+convertInterface :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
 convertInterface env mc intName ib =
   withRange intLocation do
     unless (envLfVersion env `supports` featureSimpleInterfaces) do
@@ -751,7 +751,8 @@ convertConsuming consumingTy = case consumingTy of
       _ -> unhandled "choice consumption type" (show consumingTy)
 
 convertModule
-    :: LF.Version
+    :: SdkVersioned
+    => LF.Version
     -> EnableScenarios
     -> AllowLargeTuples
     -> MS.Map UnitId DalfPackage
@@ -771,7 +772,7 @@ convertModule lfVersion enableScenarios allowLargeTuples pkgMap stablePackages f
     where
         flags = LF.daml12FeatureFlags
 
-convertModuleContents :: Env -> ModuleContents -> ConvertM [Definition]
+convertModuleContents :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
 convertModuleContents env mc = do
     definitions <- convertBinds env mc
     types <- convertTypeDefs env mc
@@ -1083,13 +1084,13 @@ self = mkVar "self"
 arg = mkVar "arg"
 res = mkVar "res"
 
-convertTemplateDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertTemplateDefs :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
 convertTemplateDefs env mc =
     forM (MS.toList (mcTemplateBinds mc)) $ \(tname, tbinds) -> do
         resetFreshVarCounters
         DTemplate <$> convertTemplate env mc tname tbinds
 
-convertTemplate :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM Template
+convertTemplate :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM Template
 convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     | Just tplTyCon <- tbTyCon
     , Just fSignatory <- tbSignatory
@@ -1137,7 +1138,7 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
         = b
 
 
-convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
+convertTemplateKey :: SdkVersioned => Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}
     | Just keyTy <- tbKeyType
     , Just fKey <- tbKey
@@ -1153,13 +1154,13 @@ convertTemplateKey env tname TemplateBinds{..}
     | otherwise
     = pure Nothing
 
-convertExceptionDefs :: Env -> ModuleContents -> ConvertM [Definition]
+convertExceptionDefs :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
 convertExceptionDefs env mc =
     forM (MS.toList (mcExceptionBinds mc)) $ \(ename, ebinds) -> do
         resetFreshVarCounters
         DException <$> convertDefException env ename ebinds
 
-convertDefException :: Env -> LF.TypeConName -> ExceptionBinds -> ConvertM DefException
+convertDefException :: SdkVersioned => Env -> LF.TypeConName -> ExceptionBinds -> ConvertM DefException
 convertDefException env exnName ExceptionBinds{..} = do
     let exnLocation = convNameLoc (GHC.tyConName ebTyCon)
     withRange exnLocation $ do
@@ -1169,14 +1170,14 @@ convertDefException env exnName ExceptionBinds{..} = do
 -- | Convert the method from a single method type class dictionary
 -- (such as those used in template desugaring), and then fmap over it
 -- (usually to apply some arguments).
-useSingleMethodDict :: Env -> GHC.Expr Var -> (LF.Expr -> t) -> ConvertM t
+useSingleMethodDict :: SdkVersioned => Env -> GHC.Expr Var -> (LF.Expr -> t) -> ConvertM t
 useSingleMethodDict env (Cast ghcExpr _) f = do
     lfExpr <- convertExpr env ghcExpr
     pure (f lfExpr)
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
-convertImplements :: Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
+convertImplements :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
   mapM convertImplements1
     (maybe [] interfaceInstanceGroupBinds (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
@@ -1189,7 +1190,8 @@ convertImplements env mc tpl = NM.fromList <$>
         env
 
 convertInterfaceInstance ::
-     TemplateOrInterface' TypeConName
+     SdkVersioned
+  => TemplateOrInterface' TypeConName
   -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> Maybe SourceLoc -> r)
   -> Env
   -> InterfaceInstanceBinds
@@ -1253,12 +1255,12 @@ convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
         , s
         ]
 
-convertChoices :: Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
+convertChoices :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env mc tplTypeCon tbinds =
     NM.fromList <$> traverse (convertChoice env tbinds)
         (MS.findWithDefault [] tplTypeCon (mcChoiceData mc))
 
-convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
+convertChoice :: SdkVersioned => Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
 convertChoice env tbinds (ChoiceData ty expr) = do
     -- The desuaged representation of a Daml Choice is a five tuple.
     -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
@@ -1326,11 +1328,11 @@ convertChoice env tbinds (ChoiceData ty expr) = do
       where
         applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
-convertBinds :: Env -> ModuleContents -> ConvertM [Definition]
+convertBinds :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
 convertBinds env mc =
   concatMapM (\bind -> resetFreshVarCounters >> topLevelWarnings bind >> convertBind env mc bind) (mcBinds mc)
 
-convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
+convertBind :: SdkVersioned => Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
     | "_choice$_" `T.isPrefixOf` getOccText name
@@ -1568,7 +1570,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     ]
 
-convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
+convertExpr :: SdkVersioned => Env -> GHC.Expr Var -> ConvertM LF.Expr
 convertExpr env0 e = do
     (e, args) <- go env0 e []
     let appArg e (mbSrcSpan, arg) =
@@ -2110,7 +2112,7 @@ splitConArgs_maybe con args = do
 -- NOTE(MH): Handle data constructors. Fully applied record
 -- constructors are inlined. This is required for contract keys to
 -- work. Constructor workers are not handled (yet).
-convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+convertDataCon :: SdkVersioned => Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
     | AllowLargeTuples False <- envAllowLargeTuples env
     , envUserWrittenTuple env
@@ -2180,7 +2182,7 @@ convertDataCon env m con args
         , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
         | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
 
-convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
+convertArg :: SdkVersioned => Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
     Type t -> TyArg <$> convertType env t
     e -> TmArg <$> convertExpr env e
@@ -2203,7 +2205,7 @@ withTyArg env k args cont = do
     (x, args) <- cont env' (TVar v) args
     pure (ETyLam (v, k) x, args)
 
-withTmArg :: Env -> LF.Type -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTmArg :: SdkVersioned => Env -> LF.Type -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTmArg env _ (LExpr x:args) cont = do
     x <- convertExpr env x
     cont x args
@@ -2212,7 +2214,7 @@ withTmArg env t args cont = do
     (x, args) <- cont (EVar v) args
     pure (ETmLam (v, t) x, args)
 
-convertLet :: Env -> Var -> GHC.Expr Var -> (Env -> ConvertM LF.Expr) -> ConvertM LF.Expr
+convertLet :: SdkVersioned => Env -> Var -> GHC.Expr Var -> (Env -> ConvertM LF.Expr) -> ConvertM LF.Expr
 convertLet env binder bound mkBody = do
     bound <- convertExpr env bound
     case bound of
@@ -2231,7 +2233,7 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
     Just DalfPackage{..} -> pure $ LF.PRImport dalfPackageId
     Nothing -> unknown unitId pkgMap
 
-convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
+convertAlt :: SdkVersioned => Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
 convertAlt env ty (DEFAULT, [], x) = GCA (GCPNormal CPDefault) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
     | NameIn GHC_Types "True" <- con = GCA (GCPNormal (CPBool True)) <$> convertExpr env x
@@ -2731,7 +2733,7 @@ convVal = mkVal . varPrettyPrint
 convValWithType :: Env -> Var -> ConvertM (ExprValName, LF.Type)
 convValWithType env v = (convVal v,) <$> convertType env (varType v)
 
-mkPure :: Env -> GHC.Type -> GHC.Expr Var -> LF.Type -> LF.Expr -> ConvertM LF.Expr
+mkPure :: SdkVersioned => Env -> GHC.Type -> GHC.Expr Var -> LF.Type -> LF.Expr -> ConvertM LF.Expr
 mkPure env monad dict t x = do
     monad' <- convertType env monad
     case monad' of

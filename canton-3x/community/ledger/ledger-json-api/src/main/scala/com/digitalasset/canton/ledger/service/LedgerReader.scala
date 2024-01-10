@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.service
@@ -14,7 +14,6 @@ import com.daml.scalautil.TraverseFMSyntax.*
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
-import com.digitalasset.canton.ledger.client.services.pkg.withoutledgerid.PackageClient as LoosePackageClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import scalaz.*
@@ -30,7 +29,7 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
   /** @return [[LedgerReader.UpToDate]] if packages did not change
     */
   def loadPackageStoreUpdates(
-      client: LoosePackageClient,
+      client: PackageClient,
       loadCache: LoadCache,
       token: Option[String],
       ledgerId: LedgerId,
@@ -41,7 +40,7 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
       lc: LoggingContextOf[Any],
   ): Future[Error \/ Option[PackageStore]] =
     for {
-      newPackageIds <- client.listPackages(ledgerId, token).map(_.packageIds.toList)
+      newPackageIds <- client.listPackages(token).map(_.packageIds.toList)
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
       result <-
         if (diffIds.isEmpty) UpToDate
@@ -57,10 +56,10 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
       ec: ExecutionContext,
       lc: LoggingContextOf[Any],
   ): Future[Error \/ Option[PackageStore]] =
-    loadPackageStoreUpdates(client.it, loadCache, token, client.ledgerId)(loadedPackageIds)
+    loadPackageStoreUpdates(client, loadCache, token)(loadedPackageIds)
 
   private def load[PS >: Some[PackageStore]](
-      client: LoosePackageClient,
+      client: PackageClient,
       loadCache: LoadCache,
       packageIds: List[String],
       ledgerId: LedgerId,
@@ -75,7 +74,7 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
   }
 
   private def getPackage(
-      client: LoosePackageClient,
+      client: PackageClient,
       loadCache: LoadCache,
       ledgerId: LedgerId,
       token: Option[String],
@@ -93,7 +92,7 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
               .trace(s"detected redundant package load before starting: $pkid, ${lc.makeString}")
             Future successful v
           },
-          client.getPackage(pkid, ledgerId, token).map { pkresp =>
+          client.getPackage(pkid, token).map { pkresp =>
             cache
               .getIfPresent(ck)
               .cata(

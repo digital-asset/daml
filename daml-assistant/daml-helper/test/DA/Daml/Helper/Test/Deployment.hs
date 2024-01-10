@@ -24,7 +24,7 @@ import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
 import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
 import DA.Test.Util
-import SdkVersion (sdkVersion)
+import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 
@@ -37,7 +37,7 @@ data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 -- compatibility workspace.
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
   -- We manipulate global state via the working directory
   -- so running tests in parallel will cause trouble.
   setEnv "TASTY_NUM_THREADS" "1" True
@@ -50,7 +50,7 @@ main = do
     ]
 
 -- | Test `daml ledger list-parties --access-token-file`
-authenticationTests :: Tools -> TestTree
+authenticationTests :: SdkVersioned => Tools -> TestTree
 authenticationTests Tools{..} =
   withCantonSandbox defaultSandboxConf { mbSharedSecret = Just sharedSecret } $ \getSandboxPort ->
     testGroup "authentication"
@@ -102,7 +102,7 @@ authenticationTests Tools{..} =
   where
     sharedSecret = "TheSharedSecret"
 
-unauthenticatedTests :: Tools -> TestTree
+unauthenticatedTests :: SdkVersioned => Tools -> TestTree
 unauthenticatedTests tools = do
     withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
         testGroup "unauthenticated"
@@ -129,7 +129,7 @@ timeoutTest Tools{..} getSandboxPort = do
         exit @?= ExitFailure 1
 
 -- | Test `daml ledger fetch-dar`
-fetchTest :: Tools -> IO Int -> TestTree
+fetchTest :: SdkVersioned => Tools -> IO Int -> TestTree
 fetchTest Tools{..} getSandboxPort = do
     testCaseSteps "fetchTest" $ \step -> do
     port <- getSandboxPort
@@ -166,7 +166,7 @@ getMainPidOfDar fp = do
   return $ T.unpack $ LF.unPackageId pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: IO ()
+writeMinimalProject :: SdkVersioned => IO ()
 writeMinimalProject = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> sdkVersion

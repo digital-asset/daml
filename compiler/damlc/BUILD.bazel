@@ -106,6 +106,7 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
@@ -225,7 +226,6 @@ da_haskell_library(
     src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
-        "//:sdk-version-hs-lib",
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -250,7 +250,9 @@ da_haskell_library(
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-gcp-logger",
         "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 

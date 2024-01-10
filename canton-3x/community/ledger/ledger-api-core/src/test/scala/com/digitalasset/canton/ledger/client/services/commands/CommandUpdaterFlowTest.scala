@@ -1,14 +1,14 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.commands
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetryContext
-import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, domain}
+import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.util.Ctx
 import com.google.protobuf.duration.Duration
@@ -25,16 +25,6 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
   import CommandUpdaterFlowTest.*
 
   "apply" should {
-    "fail fast on an invalid ledger ID" in {
-      val aCommandSubmission =
-        CommandSubmission(defaultCommands.copy(ledgerId = "anotherLedgerId"))
-
-      runCommandUpdaterFlow(aCommandSubmission)
-        .transformWith {
-          case Failure(exception) => exception shouldBe an[IllegalArgumentException]
-          case _ => fail
-        }
-    }
 
     "fail fast on an invalid application ID" in {
       val aCommandSubmission =
@@ -63,7 +53,7 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
 
       runCommandUpdaterFlow(aCommandSubmission)
         .map(
-          _.value.commands.getDeduplicationTime shouldBe Duration
+          _.value.commands.getDeduplicationDuration shouldBe Duration
             .of(defaultDeduplicationTime.getSeconds, defaultDeduplicationTime.getNano)
         )
     }
@@ -77,7 +67,6 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
           CommandClientConfiguration.default,
           aSubmissionIdGenerator,
           anApplicationId,
-          aLedgerId,
         )
       )
       .runWith(Sink.head)
@@ -86,9 +75,8 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
 
 object CommandUpdaterFlowTest {
   private val anApplicationId = "anApplicationId"
-  private val aLedgerId = domain.LedgerId("aLedgerId")
   private val aSubmissionId = Ref.SubmissionId.assertFromString("aSubmissionId")
   private val aSubmissionIdGenerator: SubmissionIdGenerator = () => aSubmissionId
   private val defaultCommands =
-    Commands.defaultInstance.copy(applicationId = anApplicationId, ledgerId = aLedgerId.toString)
+    Commands.defaultInstance.copy(applicationId = anApplicationId)
 }

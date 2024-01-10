@@ -61,6 +61,8 @@ import qualified Text.Blaze.Html.Renderer.Text as Blaze
 import qualified Text.Blaze.Html4.Strict as Blaze
 import Text.Regex.TDFA
 
+import SdkVersion.Class (SdkVersioned)
+
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
@@ -74,7 +76,7 @@ data CoveragePaths = CoveragePaths
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> [CoverageFilter] -> IO ()
+execTest :: SdkVersioned => [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> [CoverageFilter] -> IO ()
 execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
