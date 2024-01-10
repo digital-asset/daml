@@ -1270,18 +1270,17 @@ final case class DynamicDomainParametersWithValidity(
   * @param catchUpIntervalSkip         The number of reconciliation intervals that the participant skips in
   *                                    catch-up mode.
   *                                    A catch-up interval thus has a length of
-  *                                    reconciliation interval * `catchUpIntervalSkip`.
-  *                                    Note that, to ensure that all participants catch up to the same timestamp, the
-  *                                    interval count starts at the beginning of time, as opposed to starting at the
-  *                                    participant's current time when it triggers catch-up.
-  *                                    For example, with time beginning at 0, a reconciliation interval of 5 seconds,
-  *                                    and a catchUpIntervalSkip of 2 (intervals), a participant triggering catch-up at
-  *                                    time 15 seconds will catch-up to timestamp 20 seconds.
-  * @param nrIntervalsToTriggerCatchUp The number of catch-up intervals intervals a participant should lag behind in
-  *                                    order to enter catch-up mode. If a participant's current timestamp is behind
-  *                                    the timestamp of valid received commitments by reconciliation interval *
-  *                                    `catchUpIntervalSkip`.value` * `nrIntervalsToTriggerCatchUp`, and
-  *                                    `catchUpModeEnabled` is true, then the participant triggers catch-up mode.
+  *                                    `reconciliationInterval` * `catchUpIntervalSkip`.
+  *                                    All participants must catch up to the same timestamp. To ensure this, the
+  *                                    interval count starts at EPOCH and gets incremented in catch-up intervals.
+  *                                    For example, a `reconciliationInterval` of 5 seconds,
+  *                                    and a catchUpIntervalSkip of 2 (intervals), when a participant receiving a valid commitment at
+  *                                    15 seconds with timestamp 20 seconds, will perform catch-up from 10 seconds to 20 seconds (skipping 15 seconds commitment).
+  * @param nrIntervalsToTriggerCatchUp The number of intervals a participant should lag behind in
+  *                                    order to trigger catch-up mode. If a participant's current timestamp is behind
+  *                                    the timestamp of valid received commitments by `reconciliationInterval` *
+  *                                    `catchUpIntervalSkip` * `nrIntervalsToTriggerCatchUp`,
+  *                                     then the participant triggers catch-up mode.
   */
 final case class CatchUpConfig(
     catchUpIntervalSkip: PositiveInt,

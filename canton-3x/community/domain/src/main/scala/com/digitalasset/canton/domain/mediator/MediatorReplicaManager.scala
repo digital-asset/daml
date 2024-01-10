@@ -1,10 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
@@ -70,6 +71,13 @@ class CommunityMediatorReplicaManager(
 )(implicit executionContext: ExecutionContext)
     extends MediatorReplicaManager {
 
+  val enterpriseAdminService =
+    new GrpcDynamicService(
+      EnterpriseMediatorAdministrationServiceGrpc.SERVICE,
+      serviceUnavailableMessage,
+      loggerFactory,
+    )
+
   override def setup(
       adminServiceRegistry: CantonMutableHandlerRegistry,
       factory: () => EitherT[Future, String, MediatorRuntime],
@@ -83,13 +91,17 @@ class CommunityMediatorReplicaManager(
       )
     }
 
-    adminServiceRegistry.addServiceU(domainTimeService.serviceDescriptor)
+    adminServiceRegistry
+      .addServiceU(domainTimeService.serviceDescriptor)
+    adminServiceRegistry
+      .addServiceU(enterpriseAdminService.serviceDescriptor)
 
     val result = for {
       mediatorRuntime <- factory()
     } yield {
       mediatorRuntimeRef.set(Some(mediatorRuntime))
       domainTimeService.setInstance(mediatorRuntime.timeService)
+      enterpriseAdminService.setInstance(mediatorRuntime.enterpriseAdministrationService)
     }
 
     EitherTUtil.toFuture(result.leftMap(new MediatorReplicaManagerException(_)))

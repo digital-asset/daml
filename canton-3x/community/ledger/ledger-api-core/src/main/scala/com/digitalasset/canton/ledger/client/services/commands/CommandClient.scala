@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.commands
@@ -67,13 +67,13 @@ final class CommandClient(
       parties: Seq[String],
       offset: LedgerOffset,
       token: Option[String] = None,
-  ): Source[CompletionStreamElement, NotUsed] = {
+  ): Source[CompletionStreamElementV1, NotUsed] = {
     noTracingLogger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
       parties,
       offset: Any,
     )
-    CommandCompletionSource(
+    CommandCompletionSourceV1(
       CompletionStreamRequest(
         applicationId = applicationId,
         parties = parties,
@@ -85,11 +85,15 @@ final class CommandClient(
 
   def submissionFlow[Context](
       token: Option[String] = None
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
-    Flow[Ctx[Context, CommandSubmission]]
-      .via(CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId))
+  ): Flow[Ctx[Context, CommandSubmissionV1], Ctx[Context, Try[Empty]], NotUsed] = {
+    Flow[Ctx[Context, CommandSubmissionV1]]
+      .via(CommandUpdaterFlowV1[Context](config, submissionIdGenerator, applicationId))
       .via(
-        CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions, loggerFactory)
+        CommandSubmissionFlowV1[Context](
+          submit(token),
+          config.maxParallelSubmissions,
+          loggerFactory,
+        )
       )
   }
 
