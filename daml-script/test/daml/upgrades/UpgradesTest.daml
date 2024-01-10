@@ -54,8 +54,6 @@ brokenScript act = do
   tryToEither (\() -> liftFailedCommandToException act) >>= \case
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> do
-      -- Cleanup so next test can run.
-      setProvidePackageId False
       -- Unvet first so we don't end up vetting a package twice
       unsafeUnvetDarOnParticipant v1DarName $ Some participant0
       unsafeUnvetDarOnParticipant v1DarName $ Some participant1
@@ -620,7 +618,7 @@ templateVariantDowngradeFromNew = do
 queryKeyUnchanged : Script ()
 queryKeyUnchanged = do
   a <- allocateParty "alice"
-  cid <- withExplicitPackageIds $ a `submit` createCmd (V1.UnchangedKey a 1)
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
   keyRes <- queryContractKey a $ V2.UnchangedKeyKey a 1
   case keyRes of
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UnchangedKey a 1 None -> pure ()
@@ -629,8 +627,8 @@ queryKeyUnchanged = do
 exerciseCmdKeyUnchanged : Script ()
 exerciseCmdKeyUnchanged = do
   a <- allocateParty "alice"
-  cid <- withExplicitPackageIds $ a `submit` createCmd (V1.UnchangedKey a 1)
-  res <- withExplicitPackageIds $ a `submit` exerciseByKeyCmd @V2.UnchangedKey (V2.UnchangedKeyKey a 1) V2.UnchangedKeyCall
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
+  res <- a `submit` exerciseByKeyExactCmd @V2.UnchangedKey (V2.UnchangedKeyKey a 1) V2.UnchangedKeyCall
   res === "V2"
 
 fetchKeyUnchanged : Script ()
