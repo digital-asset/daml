@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | HIDE
-module Daml.Script.Free
+module Daml.Script.Internal.Free
   ( Free(..)
   , lift
   , foldFree

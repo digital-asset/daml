@@ -45,15 +45,15 @@ case class ScriptIds(val scriptPackageId: PackageId) {
 }
 
 object ScriptIds {
-  // Constructs ScriptIds if the given type has the form Daml.Script.Script a (or Daml.Script.Internal.Script a).
+  // Constructs ScriptIds if the given type has the form Daml.Script.Script a (or Daml.Script.Internal.LowLevel.Script a).
   def fromType(ty: Type): Option[ScriptIds] = {
     ty match {
       case TApp(TTyCon(tyCon), _) => {
         val scriptIds = ScriptIds(tyCon.packageId)
-        // First is v1, second is v2 where Script was moved to Daml.Script.Internal
+        // First is v1, second is v2 where Script was moved to Daml.Script.Internal.LowLevel
         if (
           tyCon == scriptIds.damlScript("Script")
-          || tyCon == scriptIds.damlScriptModule("Daml.Script.Internal", "Script")
+          || tyCon == scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "Script")
         ) {
           Some(scriptIds)
         } else {

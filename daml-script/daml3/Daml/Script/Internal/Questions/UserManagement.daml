@@ -1,15 +1,15 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Questions.UserManagement where
+module Daml.Script.Internal.Questions.UserManagement where
 
-import Daml.Script.Internal
-import Daml.Script.Questions.Commands
-import Daml.Script.Questions.PartyManagement
-import Daml.Script.Questions.Submit
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Commands
+import Daml.Script.Internal.Questions.PartyManagement
+import Daml.Script.Internal.Questions.Submit
 import DA.Stack
 import DA.Exception
-import Daml.Script.Questions.Exceptions ()
+import Daml.Script.Internal.Questions.Exceptions ()
 
 -- | Identifier for a user in the user management service.
 newtype UserId = UserId Text deriving (Eq, Ord)

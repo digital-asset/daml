@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Questions.Util where
+module Daml.Script.Internal.Questions.Util where
 
 data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep

@@ -1,9 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Questions.Time where
+module Daml.Script.Internal.Questions.Time where
 
-import Daml.Script.Internal
+import Daml.Script.Internal.LowLevel
 import DA.Time
 import DA.Stack
 

@@ -1,168 +1,38 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
+-- Includes all "internal" functionality that we intend to use outside of daml-script
 module Daml.Script.Internal
-  ( Question (..)
-  , IsQuestion (..)
-  , Script (..)
-  , LedgerValue
-  , ScriptF (..)
-  , lift
-  , script
-  , fromLedgerValue
-  , toLedgerValue
-  , getExposedCallStack
+  ( -- Testing
+    CommandName (..)
+  , ErrorClassName (..)
+  , ErrorMessage (..)
+  , tryCommands
+  , FailedCmd (..)
+  , liftFailedCommandToException
+
+  , -- Packages
+    PackageName (..)
+  , vetPackages
+  , unvetPackages
+  , listVettedPackages
+  , listAllPackages
+  , vetDar
+  , vetDarOnParticipant
+  , unvetDar
+  , unvetDarOnParticipant
+
+  , -- Concurrent submit
+    concurrently
+  , trySubmitConcurrently
+
+  , -- Exceptions
+    -- TODO: consider exposing this normally.
+    tryToEither
+
+  , -- Internal submit error
+    ContractNotFoundAdditionalInfo
+  , isNotActive
   ) where
 
-import Daml.Script.Free (Free(..))
-import qualified Daml.Script.Free as Free
-import DA.Stack
-import DA.Text (isPrefixOf)
-
-{-
-  Writing your own Questions
-
-  Time.daml is an excellent example, be sure to check that.
-  The generic structure is as follows:
-  You define a data type to use as the payload for your question.
-    IMPORTANT: This type must be a record in LF, so either give it fields, or use the `data MyRecord = MyRecord {}` syntax.
-    Note that if all the fields in your record are of the form `() -> ...`, you'll need to add a `dummy : ()` field
-      due to old-style typeclasses, if you want daml3-script to be usable as a data dependency.
-      `Catch` is a good example of this.
-  e.g.
-  ```
-    data MyQuestion = MyQuestion with
-      someData : Int
-  ```
-  The above data type will be your payload, the input to the question.
-  Next you define an IsQuestion instance, giving the expected return type. The body should include the name and version for this payload
-  e.g.
-  ```
-    instance IsQuestion MyQuestion Int where
-      command = "MyQuestion"
-      version = 1
-  ```
-  Here we're saying that MyQuestion will return an Int, we're calling it MyQuestion, and starting our version as 1. The default version is also 1, so this could be omitted.
-
-  Lastly, you can use `lift` on that data type to bring it up to a Script of the return type
-  e.g.
-  ```
-    myQuestion : Int -> Script Int
-    myQuestion = lift . MyQuestion
-  ```
-  If you're unable to return the exact data type you want from the engine, you can fmap your conversion functions onto the result of lift.
-  
-  Note: `lift` will take a stack trace for the question from its call site, removing any script frames.
-  
-  Finally, go to `daml-script/runner/src/main/scala/com/digitalasset/daml/lf/engine/script/v2/ScriptF.scala`
-    and add a command and parse command definition for your question data type. Again see GetTime and SetTime for examples.
-    You'll also need to include a case in the final `parse` definition to call to your commands parser
--}
-
--- Everything is a question, which has a continuation, as well as input/putput types and callstack
--- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
-data Question req res a = Question with
-    commandName : Text
-    commandVersion : Int
-    payload : req
-    locations : [(Text, SrcLoc)]
-    continue : res -> a
-  deriving Functor
-
--- We relate question requests to replies with this class, and build using the method.
-class IsQuestion req res where
-  command : Text
-  version : Int
-  version = 1
-  makeQuestion : HasCallStack => req -> Question req res res
-  makeQuestion req = Question (command @req @res) (version @req @res) req getExposedCallStack identity
-
--- Drop any stack frames that reference Daml Script internals
-dropInternalFrames : [(Text, SrcLoc)] -> [(Text, SrcLoc)]
-dropInternalFrames = dropWhile $ isInternalSrcLoc . snd
-
-getExposedCallStack : HasCallStack => [(Text, SrcLoc)]
-getExposedCallStack = dropInternalFrames $ getCallStack callStack
-
-isInternalSrcLoc : SrcLoc -> Bool
-isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =
-  "daml3-script-" `isPrefixOf` srcLocPackage && "Daml.Script" `isPrefixOf` srcLocModule
-
--- We don't care about the type information once its a full ScriptF, as scala side will work that out.
--- So, we use our danger cast to turn the req and res into LedgerValues
-castQuestion : Question req res a -> Question LedgerValue LedgerValue a
-castQuestion = dangerousCast
-
--- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
-newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
-
--- Build our question and cast to a ScriptF
-makeScriptF : (HasCallStack, IsQuestion req res) => req -> ScriptF res
-makeScriptF = ScriptF . castQuestion . makeQuestion
-
--- | This is the type of A Daml script. `Script` is an instance of `Action`,
--- so you can use `do` notation.
-data Script a = Script with
-    runScript : () -> Free ScriptF (a, ())
-    -- We use an inlined StateT () to separate evaluation of
-    -- something of type Script from execution and to ensure
-    -- proper sequencing of evaluation. This is mainly so that `debug` does something
-    -- slightly more sensible.
-    dummy : ()
-    -- Dummy field to make sure damlc does not consider this an old-style
-    -- typeclass.
-  deriving Functor
-
-instance CanAbort Script where
-  abort s = Script (\_ -> error s) ()
-
-instance ActionFail Script where
-  fail = abort
-
-instance Applicative Script where
-    pure a = Script (\s -> return (a, s)) ()
-
-    Script mf _ <*> Script mx _ = Script with
-      runScript = \ s -> do
-        (f, s') <- mf s
-        (x, s'') <- mx s'
-        return (f x, s'')
-      dummy = ()
-
-instance Action Script where
-    m >>= k  = Script with
-      runScript = \ s -> do
-        (a, s') <- runScript m s
-        runScript (k a) s'
-      dummy = ()
-
-liftScript : Free ScriptF a -> Script a
-liftScript m = Script with
-  runScript = \s -> do
-    a <- m
-    pure (a, s)
-  dummy = ()
-
-lift : (HasCallStack, IsQuestion req res) => req -> Script res
-lift = liftScript . Free.lift . makeScriptF
-
--- | Convenience helper to declare you are writing a Script.
---
--- This is only useful for readability and to improve type inference.
--- Any expression of type `Script a` is a valid script regardless of whether
--- it is implemented using `script` or not.
-script : Script a -> Script a
-script = identity
-
-dangerousCast : a -> b
-dangerousCast = error "Non-replaced call to internal-only dangerousCast. Are you using the Script runner? " -- gets replaced by the identity-function in script/Runner.scala
-
-data LedgerValue = LedgerValue {}
-
-fromLedgerValue : LedgerValue -> a
-fromLedgerValue = dangerousCast
-
-toLedgerValue : a -> LedgerValue
-toLedgerValue = dangerousCast
+import Daml.Script.Internal.Questions

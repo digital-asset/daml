@@ -4,12 +4,12 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module Daml.Script.Questions.Exceptions where
+module Daml.Script.Internal.Questions.Exceptions where
 
 #ifdef DAML_EXCEPTIONS
 import DA.Exception
 import DA.Optional
-import Daml.Script.Internal
+import Daml.Script.Internal.LowLevel
 
 data Catch = Catch with
   act : () -> LedgerValue
