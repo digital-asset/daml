@@ -101,9 +101,11 @@ cat <<'CRON' > /root/daily-reset.sh
 set -euo pipefail
 echo "$(date -Is -u) start"
 
-AZURE_PAT=${secret_resource.vsts-token.value}
+echo "$(date -Is -u) arg: $1"
+target="$(/root/get-targets.sh $1)"
+echo "$(date -Is -u) target: $target"
 
-target="$1"
+AZURE_PAT=${secret_resource.vsts-token.value}
 
 echo "$(date -Is -u) Shutting down all machines"
 
@@ -145,7 +147,7 @@ CRON
 
 chmod +x /root/daily-reset.sh
 
-cat <<GET_TARGETS > /root/get-targets.sh
+cat <<'GET_TARGETS' > /root/get-targets.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -160,16 +162,25 @@ else
   target="$arg_target"
 fi
 
-sizes='{"high": {"du1":10,"du2":0,"dw1":5,"dw2":0}, "low": {"du1":2,"du2":0,"dw1":1,"dw2":0}}'
-echo "$sizes" | jq -r --arg target "$target" '.[$target] | @json'
+case $target in
+  high)
+    echo '{"du1":10,"du2":0,"dw1":5,"dw2":0}'
+    ;;
+  low)
+    echo '{"du1":2,"du2":0,"dw1":1,"dw2":0}'
+    ;;
+  *)
+    echo "ERROR: unexpected target '$target'" >&2
+    ;;
+esac
 GET_TARGETS
 
 chmod +x /root/get-targets.sh
 
-cat <<CRONTAB >> /etc/crontab
-30 5 * * 1-5 root /root/daily-reset.sh \$(/root/get-targets.sh 'high') >> /root/log 2>&1
-30 18 * * 1-5 root /root/daily-reset.sh \$(/root/get-targets.sh 'low') >> /root/log 2>&1
-30 5 * * 6,7 root /root/daily-reset.sh \$(/root/get-targets.sh 'low') >> /root/log 2>&1
+cat <<'CRONTAB' >> /etc/crontab
+30 5 * * 1-5 root /root/daily-reset.sh high >> /root/log 2>&1
+30 18 * * 1-5 root /root/daily-reset.sh low >> /root/log 2>&1
+30 5 * * 6,7 root /root/daily-reset.sh low >> /root/log 2>&1
 CRONTAB
 
 tail -f /root/log
