@@ -7,7 +7,7 @@ package iterable
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
 
-private[validation] object TypeIterable {
+object TypeIterable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =

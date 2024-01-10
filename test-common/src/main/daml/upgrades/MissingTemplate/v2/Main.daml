@@ -8,7 +8,14 @@ import Daml.Script
 main : Script ()
 main = pure ()
 
-data Struct = Struct
-  { field1 : Text
-  }
+template T with
+    p: Party
+  where
+  signatory p
+
+-- Remove U from v2, triggering an error
+--template U with
+--    p: Party
+--  where
+--  signatory p
 

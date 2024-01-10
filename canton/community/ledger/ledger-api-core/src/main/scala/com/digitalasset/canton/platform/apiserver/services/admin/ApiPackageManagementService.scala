@@ -151,7 +151,7 @@ private[apiserver] final class ApiPackageManagementService private (
             val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradedPackageMb)
             upgradeCheckResult match {
               case Success(()) => {
-                logger.info(s"Typechecking upgrades succeeded.")
+                logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
                 Future(())
               }
               case Failure(err: UpgradeError) => {

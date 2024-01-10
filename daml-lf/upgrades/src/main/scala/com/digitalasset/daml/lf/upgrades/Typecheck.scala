@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
 import com.daml.lf.data._
+import com.daml.lf.validation.iterable.{TypeIterable}
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -68,7 +69,6 @@ object Typecheck {
       present: (Ref.PackageId, Ast.Package),
       past: (Ref.PackageId, Ast.Package),
   ): Try[Unit] = {
-    println(s"Upgrading typecheck $past, $present")
     val package_ = Upgrading(past._2, present._2)
     for {
       (upgradedModules, newModules @ _) <-
@@ -114,13 +114,38 @@ object Typecheck {
     } yield ()
   }
 
+  // TODO: Stripping all package ids means pointing to other packages would be
+  // valid even when those packages are not upgraded
+  // What we should do is actually only strip package ids belonging to
+  // upgradeable packages
+  def checkType(typ: Upgrading[Ast.Type]): Boolean = {
+    AlphaEquiv.alphaEquiv(stripPackageIds(typ.past), stripPackageIds(typ.present))
+  }
+
+  def stripPackageIds(typ: Ast.Type): Ast.Type = {
+    def strip(id: Ref.Identifier): Ref.Identifier =
+      Ref.Identifier(Ref.PackageId.fromLong(0), id.qualifiedName)
+
+    typ match {
+      case Ast.TNat(n) => Ast.TNat(n)
+      case Ast.TSynApp(n, args) => Ast.TSynApp(strip(n), args.map(stripPackageIds(_)))
+      case Ast.TVar(n) => Ast.TVar(n)
+      case Ast.TTyCon(con) => Ast.TTyCon(strip(con))
+      case Ast.TBuiltin(bt) => Ast.TBuiltin(bt)
+      case Ast.TApp(fun, arg) => Ast.TApp(stripPackageIds(fun), stripPackageIds(arg))
+      case Ast.TForall(v, body) => Ast.TForall(v, stripPackageIds(body))
+      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(stripPackageIds(_)))
+    }
+  }
+
   def checkKey(key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
     key match {
       case Upgrading(None, None) => Success(());
-      case Upgrading(Some(pastKey), Some(presentKey)) =>
-        if (!AlphaEquiv.alphaEquiv(pastKey.typ, presentKey.typ))
+      case Upgrading(Some(pastKey), Some(presentKey)) => {
+        if (!checkType(Upgrading(pastKey.typ, presentKey.typ))) {
           Failure(UpgradeError(s"TemplateChangedKeyType"))
-        else Success(())
+        } else Success(())
+      }
       case Upgrading(Some(_pastKey), None) =>
         Failure(UpgradeError(s"TemplateRemovedKey"))
       case Upgrading(None, Some(_presentKey)) =>
@@ -129,9 +154,7 @@ object Typecheck {
   }
 
   def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
-    val returnTypes = choice.map(_.returnType)
-    val typesMatch = AlphaEquiv.alphaEquiv(returnTypes.past, returnTypes.present)
-    if (typesMatch) {
+    if (checkType(choice.map(_.returnType))) {
       Success(())
     } else {
       Failure(UpgradeError("ChoiceChangedReturnType"))
@@ -186,23 +209,21 @@ object Typecheck {
   def checkFields(origin: UpgradedRecordOrigin, records: Upgrading[Ast.DataRecord]): Try[Unit] = {
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
       records.map(rec => Map.from(rec.fields.iterator))
-    def fieldTypeUnchanged(typ: Upgrading[Ast.Type]): Boolean =
-      AlphaEquiv.alphaEquiv(typ.past, typ.present)
     def fieldTypeOptional(typ: Ast.Type): Boolean =
       typ match {
-        case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => false
-        case _ => true
+        case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => true
+        case _ => false
       }
 
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
     if (_deleted.nonEmpty) {
       Failure(UpgradeError("RecordFieldsMissing"))
-    } else if (!_existing.forall({ case (_field, typ) => fieldTypeUnchanged(typ) })) {
+    } else if (!_existing.forall({ case (_field, typ) => checkType(typ) })) {
       Failure(UpgradeError("RecordFieldsExistingChanged"))
     } else if (_new_.find({ case (field, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
       Failure(UpgradeError("RecordFieldsNewNonOptional"))
     } else {
-      Try(())
+      Success(())
     }
   }
 }
