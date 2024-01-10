@@ -4,15 +4,15 @@
 package com.digitalasset.canton.ledger.client.services.commands
 
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v1.completion.Completion
 
-sealed abstract class CompletionStreamElement extends Product with Serializable
+sealed abstract class CompletionStreamElementV1 extends Product with Serializable
 
-object CompletionStreamElement {
+object CompletionStreamElementV1 {
 
-  final case class CheckpointElement(checkpoint: Checkpoint) extends CompletionStreamElement
+  final case class CheckpointElement(checkpoint: Checkpoint) extends CompletionStreamElementV1
 
   final case class CompletionElement(completion: Completion, checkpoint: Option[Checkpoint])
-      extends CompletionStreamElement
+      extends CompletionStreamElementV1
 
 }

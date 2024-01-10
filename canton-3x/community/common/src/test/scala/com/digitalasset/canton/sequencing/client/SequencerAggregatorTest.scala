@@ -355,10 +355,10 @@ class SequencerAggregatorTest
       val f2 = aggregator
         .combineAndMergeEvent(sequencerBob, bobEvents(0))
 
-      f2.futureValueUS.discard
-
-      f1.isCompleted shouldBe true
-      f2.isCompleted shouldBe true
+      eventually() {
+        f1.isCompleted shouldBe true
+        f2.isCompleted shouldBe true
+      }
 
       assertCombinedDownstreamMessage(
         aggregator,

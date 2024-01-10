@@ -390,7 +390,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ): Unit = {
     final case class ParticipantApis(ledgerApi: Int, adminApi: Int)
     config.parameters.portsFile.foreach { portsFile =>
-      val items = participants.running.map { node =>
+      val items = participantsX.running.map { node =>
         (
           node.name.unwrap,
           ParticipantApis(node.config.ledgerApi.port.unwrap, node.config.adminApi.port.unwrap),

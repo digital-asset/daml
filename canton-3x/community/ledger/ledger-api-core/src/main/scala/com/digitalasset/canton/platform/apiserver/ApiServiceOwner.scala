@@ -100,6 +100,7 @@ object ApiServiceOwner {
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
       dynParamGetter: DynamicDomainParameterGetter,
+      community: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -168,6 +169,7 @@ object ApiServiceOwner {
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
+        community = community,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

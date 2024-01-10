@@ -352,14 +352,14 @@ class ParticipantTopologyDispatcherX(
   override def trustDomain(domainId: DomainId, parameters: StaticDomainParameters)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    def alreadyTrusted(
-        state: SyncDomainPersistentStateX
+    def alreadyTrustedInStore(
+        store: TopologyStoreX[?]
     ): EitherT[FutureUnlessShutdown, String, Boolean] =
       for {
         alreadyTrusted <- EitherT
           .right[String](
             performUnlessClosingF(functionFullName)(
-              state.topologyStore
+              store
                 .findPositiveTransactions(
                   asOf = CantonTimestamp.MaxValue,
                   asOfInclusive = true,
@@ -378,32 +378,34 @@ class ParticipantTopologyDispatcherX(
     def trustDomain(
         state: SyncDomainPersistentStateX
     ): EitherT[FutureUnlessShutdown, String, Unit] =
-      performUnlessClosingEitherUSF(functionFullName)(
-        manager
-          .proposeAndAuthorize(
-            TopologyChangeOpX.Replace,
-            DomainTrustCertificateX(
-              participantId,
-              domainId,
-              transferOnlyToGivenTargetDomains = false,
-              targetDomains = Seq.empty,
-            ),
-            serial = None,
-            // TODO(#12390) auto-determine signing keys
-            signingKeys = Seq(participantId.uid.namespace.fingerprint),
-            protocolVersion = state.protocolVersion,
-            expectFullAuthorization = true,
-            force = false,
-          )
-          // TODO(#14048) improve error handling
-          .leftMap(_.cause)
-      ).map(_ => ())
-    // check if cert already exists
+      performUnlessClosingEitherUSF(functionFullName) {
+        MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
+          manager
+            .proposeAndAuthorize(
+              TopologyChangeOpX.Replace,
+              DomainTrustCertificateX(
+                participantId,
+                domainId,
+                transferOnlyToGivenTargetDomains = false,
+                targetDomains = Seq.empty,
+              ),
+              serial = None,
+              // TODO(#12390) auto-determine signing keys
+              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              protocolVersion = state.protocolVersion,
+              expectFullAuthorization = true,
+              force = false,
+            )
+            // TODO(#14048) improve error handling
+            .leftMap(_.cause)
+        }
+      }
+    // check if cert already exists in the domain store
     val ret = for {
       state <- getState(domainId).leftMap(_.cause)
-      have <- alreadyTrusted(state)
+      alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
       _ <-
-        if (have) EitherT.rightT[FutureUnlessShutdown, String](())
+        if (alreadyTrustedInDomainStore) EitherT.rightT[FutureUnlessShutdown, String](())
         else trustDomain(state)
     } yield ()
     ret

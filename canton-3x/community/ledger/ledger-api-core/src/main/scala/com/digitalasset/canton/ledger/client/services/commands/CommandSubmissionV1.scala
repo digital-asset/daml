@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v1.commands.Commands
 
 import java.time.Duration
 
-final case class CommandSubmission(commands: Commands, timeout: Option[Duration] = None)
+final case class CommandSubmissionV1(commands: Commands, timeout: Option[Duration] = None)
