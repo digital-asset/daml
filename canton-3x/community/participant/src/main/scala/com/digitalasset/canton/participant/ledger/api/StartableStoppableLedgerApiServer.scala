@@ -79,6 +79,7 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
+    community: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -335,6 +336,7 @@ class StartableStoppableLedgerApiServer(
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        community = community,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

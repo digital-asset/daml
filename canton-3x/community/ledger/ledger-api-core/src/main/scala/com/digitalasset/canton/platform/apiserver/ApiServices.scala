@@ -116,6 +116,7 @@ object ApiServices {
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
+      community: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -471,7 +472,10 @@ object ApiServices {
         )
 
         val participantPruningService = Option
-          .when(!multiDomainEnabled)( // TODO(i13540): pruning is not supported for multi domain
+          .when(
+            community || // In community, it just replies with a "not available in community" error
+              !multiDomainEnabled // TODO(i13540): pruning is not supported for multi domain
+          )(
             new ParticipantPruningServiceAuthorization(
               ApiParticipantPruningService.createApiService(
                 indexService,

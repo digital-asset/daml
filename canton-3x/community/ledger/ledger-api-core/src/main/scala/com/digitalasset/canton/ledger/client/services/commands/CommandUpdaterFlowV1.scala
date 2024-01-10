@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.util.Ctx
@@ -11,15 +11,18 @@ import com.google.protobuf.duration.Duration
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
-object CommandUpdaterFlow {
+import scala.annotation.nowarn
 
+object CommandUpdaterFlowV1 {
+
+  @nowarn("msg=deprecated")
   def apply[Context](
       config: CommandClientConfiguration,
       submissionIdGenerator: SubmissionIdGenerator,
       applicationId: String,
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, CommandSubmission], NotUsed] =
-    Flow[Ctx[Context, CommandSubmission]]
-      .map(_.map { case submission @ CommandSubmission(commands, _) =>
+  ): Flow[Ctx[Context, CommandSubmissionV1], Ctx[Context, CommandSubmissionV1], NotUsed] =
+    Flow[Ctx[Context, CommandSubmissionV1]]
+      .map(_.map { case submission @ CommandSubmissionV1(commands, _) =>
         if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
@@ -31,7 +34,7 @@ object CommandUpdaterFlow {
         }
         val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
           case DeduplicationPeriod.Empty =>
-            DeduplicationPeriod.DeduplicationDuration(
+            DeduplicationPeriod.DeduplicationTime(
               Duration
                 .of(
                   config.defaultDeduplicationTime.getSeconds,

@@ -82,6 +82,7 @@ class CantonLedgerApiServerFactory(
     allocateIndexerLockIds: DbConfig => Either[String, Option[IndexerLockIds]],
     meteringReportKey: MeteringReportKey,
     val multiDomainEnabled: Boolean,
+    community: Boolean,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -162,6 +163,7 @@ class CantonLedgerApiServerFactory(
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
+          community = community,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
