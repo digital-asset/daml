@@ -32,7 +32,6 @@ trait StartSettings {
   val packageMaxInboundMessageSize: Option[Int]
   val maxInboundMessageSize: Int
   val healthTimeoutSeconds: Int
-  val nonRepudiation: nonrepudiation.Configuration.Cli
   val logLevel: Option[LogLevel]
   val logEncoder: LogEncoder
   val metricsReporter: Option[MetricsReporter]

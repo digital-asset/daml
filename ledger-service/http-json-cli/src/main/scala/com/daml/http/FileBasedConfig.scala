@@ -68,7 +68,6 @@ private[http] final case class FileBasedConfig(
     authConfig: Option[AuthConfig] = None,
 ) {
   def toConfig(
-      nonRepudiation: nonrepudiation.Configuration.Cli,
       logLevel: Option[LogLevel], // the default is in logback.xml
       logEncoder: LogEncoder,
   ): Config = {
@@ -89,7 +88,6 @@ private[http] final case class FileBasedConfig(
       authConfig = authConfig,
       allowNonHttps = allowInsecureTokens,
       wsConfig = websocketConfig,
-      nonRepudiation = nonRepudiation,
       logLevel = logLevel,
       logEncoder = logEncoder,
       metricsReporter = metrics.map(_.reporter),
