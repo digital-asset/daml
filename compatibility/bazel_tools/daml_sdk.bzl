@@ -55,41 +55,21 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
-    if ctx.attr.test_tool:
-        ctx.symlink(ctx.attr.test_tool, "ledger-api-test-tool.jar")
-    elif ctx.attr.test_tool_sha256:
-        ctx.download(
-            output = "ledger-api-test-tool.jar",
-            url = ["{mirror}/com/daml/ledger-api-test-tool/{version}/ledger-api-test-tool-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
-            sha256 = ctx.attr.test_tool_sha256,
-        )
-    else:
-        fail("Must specify either test_tool or test_tool_sha256")
-
     if versions.is_at_least("2.6.0", ctx.attr.version):
         stripPrefix = "test-common"
     else:
         stripPrefix = "ledger/test-common"
 
-    ctx.extract(
-        "ledger-api-test-tool.jar",
-        output = "extracted-test-tool",
-        # We cannot fully extract the JAR because there are files
-        # that clash on case insensitive file systems. Luckily, we only
-        # need the DAR so this is not an issue.
-        stripPrefix = stripPrefix,
-    )
-
     if ctx.attr.create_daml_app_patch:
         ctx.symlink(ctx.attr.create_daml_app_patch, "create_daml_app.patch")
-    elif ctx.attr.test_tool_sha256:
+    elif ctx.attr.create_daml_app_patch_sha256:
         ctx.download(
             output = "create_daml_app.patch",
             url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
             sha256 = ctx.attr.create_daml_app_patch_sha256,
         )
     else:
-        fail("Must specify either test_tool or test_tool_sha256")
+        fail("Must specify either create_daml_app_patch or create_daml_app_patch_sha256")
 
     for lib in ["types", "ledger", "react"]:
         tarball_name = "daml_{}_tarball".format(lib)
@@ -113,14 +93,6 @@ def _daml_sdk_impl(ctx):
 auto-install: false
 update-check: never
 """,
-    )
-    ctx.file(
-        "ledger-api-test-tool.sh",
-        content =
-            """#!/usr/bin/env bash
-{runfiles_library}
-$JAVA_HOME/bin/java -jar $(rlocation daml-sdk-{version}/ledger-api-test-tool.jar) $@
-""".format(version = ctx.attr.version, runfiles_library = runfiles_library),
     )
 
     # Depending on all files as runfiles results in thousands of symlinks
@@ -156,23 +128,11 @@ $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
         content =
             """
 package(default_visibility = ["//visibility:public"])
-sh_binary(
-  name = "ledger-api-test-tool",
-  srcs = [":ledger-api-test-tool.sh"],
-  data = [":ledger-api-test-tool.jar"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
-)
 cc_binary(
   name = "daml",
   srcs = ["daml.cc"],
   data = [":sdk/bin/daml", ":sdk/sdk/{version}/checksums"],
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
-)
-# Needed to provide the same set of DARs to the ledger that
-# are used by the ledger API test tool.
-filegroup(
-    name = "dar-files",
-    srcs = glob(["extracted-test-tool/**/*.dar"], exclude = ["**/*-dev.dar"]),
 )
 exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
 """.format(version = ctx.attr.version),
@@ -186,8 +146,6 @@ _daml_sdk = repository_rule(
         "os_name": attr.string(mandatory = False, default = os_name),
         "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
-        "test_tool_sha256": attr.string(mandatory = False),
-        "test_tool": attr.label(allow_single_file = True, mandatory = False),
         "daml_types_tarball": attr.label(allow_single_file = True, mandatory = False),
         "daml_ledger_tarball": attr.label(allow_single_file = True, mandatory = False),
         "daml_react_tarball": attr.label(allow_single_file = True, mandatory = False),
@@ -206,13 +164,12 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
-        test_tool = ledger_api_test_tool,
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,

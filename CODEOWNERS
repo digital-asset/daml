@@ -46,10 +46,6 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Owned by KV Participant with KV Committer added for notifications
 /ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger-test-tool/                      @digital-asset/kv-participant @digital-asset/kv-committer
-
-# Conformance test on canton
-/ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Ecosystems
 /language-support/hs/       @remyhaemmerle-da
