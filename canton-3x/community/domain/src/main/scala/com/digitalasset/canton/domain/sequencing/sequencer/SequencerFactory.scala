@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -6,7 +6,9 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -136,15 +138,30 @@ object CommunitySequencerFactory extends MkSequencerFactory {
   )(sequencerConfig: SequencerConfig)(implicit
       executionContext: ExecutionContext
   ): SequencerFactory = sequencerConfig match {
-    case communityConfig: CommunitySequencerConfig.Database =>
+    case communityDbConfig: CommunitySequencerConfig.Database =>
       new CommunityDatabaseSequencerFactory(
-        communityConfig,
+        communityDbConfig,
         metrics,
         storage,
         protocolVersion,
         topologyClientMember,
         nodeParameters,
         loggerFactory,
+      )
+
+    case CommunitySequencerConfig.External(sequencerType, config, testingInterceptor) =>
+      DriverBlockSequencerFactory(
+        sequencerType,
+        SequencerDriver.DriverApiVersion,
+        config,
+        health,
+        storage,
+        protocolVersion,
+        topologyClientMember,
+        nodeParameters,
+        metrics,
+        loggerFactory,
+        testingInterceptor,
       )
 
     case config: SequencerConfig =>

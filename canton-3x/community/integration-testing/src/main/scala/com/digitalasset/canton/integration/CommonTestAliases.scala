@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
@@ -12,6 +12,7 @@ import com.digitalasset.canton.console.{
   LocalSequencerNodeReferenceX,
   ParticipantReference,
   ParticipantReferenceX,
+  RemoteMediatorReferenceX,
   RemoteSequencerNodeReferenceX,
 }
 
@@ -44,6 +45,7 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val remoteSequencer1x: RemoteSequencerNodeReferenceX = rsx("sequencer1")
   lazy val remoteSequencer2x: RemoteSequencerNodeReferenceX = rsx("sequencer2")
   lazy val remoteSequencer3x: RemoteSequencerNodeReferenceX = rsx("sequencer3")
+  lazy val remoteMediator1x: RemoteMediatorReferenceX = rmx("mediator1")
 
   lazy val mediator1x: LocalMediatorReferenceX = mx("mediator1")
   lazy val mediator2x: LocalMediatorReferenceX = mx("mediator2")

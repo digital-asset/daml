@@ -1,9 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.util.Ctx
@@ -11,11 +11,8 @@ import com.google.protobuf.duration.Duration
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
-import scala.annotation.nowarn
-
 object CommandUpdaterFlow {
 
-  @nowarn("msg=deprecated")
   def apply[Context](
       config: CommandClientConfiguration,
       submissionIdGenerator: SubmissionIdGenerator,
@@ -34,7 +31,7 @@ object CommandUpdaterFlow {
         }
         val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
           case DeduplicationPeriod.Empty =>
-            DeduplicationPeriod.DeduplicationTime(
+            DeduplicationPeriod.DeduplicationDuration(
               Duration
                 .of(
                   config.defaultDeduplicationTime.getSeconds,

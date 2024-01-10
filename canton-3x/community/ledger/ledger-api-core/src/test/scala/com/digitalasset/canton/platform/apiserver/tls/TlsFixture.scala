@@ -1,12 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -19,7 +19,7 @@ import io.netty.handler.ssl.ClientAuth
 import java.io.File
 import java.util.concurrent.Executors
 import scala.collection.immutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final case class TlsFixture(
     loggerFactory: NamedLoggerFactory,
@@ -31,14 +31,14 @@ final case class TlsFixture(
     clientKey: Option[File],
     clientAuth: ClientAuth = ClientAuth.REQUIRE,
     certRevocationChecking: Boolean = false,
-)(implicit rc: ResourceContext) {
+)(implicit rc: ResourceContext, ec: ExecutionContext) {
 
-  def makeARequest(): Future[HelloResponse] =
+  def makeARequest(): Future[v0.Hello.Response] =
     resources().use { channel =>
-      val testRequest = HelloRequest(1)
-      HelloServiceGrpc
+      val testRequest = v0.Hello.Request("foo")
+      v0.HelloServiceGrpc
         .stub(channel)
-        .single(testRequest)
+        .hello(testRequest)
     }
 
   private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
