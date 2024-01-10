@@ -86,7 +86,7 @@ beforeAll(async () => {
   await waitOn({ resources: [`tcp:127.0.0.1:7575`] });
   console.debug("JSON API is running");
 
-  await adminLedger.readyWithRetry(60);
+  await adminLedger.ready(60);
 
   [publicUser, publicParty] = await getParty();
 
