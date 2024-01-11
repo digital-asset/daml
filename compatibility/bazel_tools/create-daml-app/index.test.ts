@@ -44,7 +44,6 @@ const JSON_API_PORT = 7575;
 const UI_PORT = 3000;
 
 let sandbox: ChildProcess | undefined = undefined;
-let jsonApi: ChildProcess | undefined = undefined;
 
 // `npm start` process
 let uiProc: ChildProcess | undefined = undefined;
@@ -141,7 +140,9 @@ beforeAll(async () => {
   const sandboxOptions = [
     "sandbox",
     "--canton-port-file",
-    `${SANDBOX_PORT_FILE_NAME}`
+    `${SANDBOX_PORT_FILE_NAME}`,
+    `--json-api-port=${JSON_API_PORT}`,
+    `--json-api-port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
@@ -165,24 +166,6 @@ beforeAll(async () => {
   const sandboxPort = cantonPorts.sandbox.ledgerApi
   execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=127.0.0.1", `--port=${sandboxPort}`, DAR_PATH])
 
-  const jsonApiOptions = [
-    "json-api",
-    "--ledger-host=127.0.0.1",
-    `--ledger-port=${sandboxPort}`,
-    `--http-port=${JSON_API_PORT}`,
-    `--port-file=${JSON_API_PORT_FILE_NAME}`,
-    `--allow-insecure-tokens`,
-  ];
-  jsonApi = spawn(
-    process.env.DAML_JSON_API,
-    jsonApiOptions,
-    {
-      cwd: "..",
-      stdio: "inherit",
-      detached: detached,
-      env: { ...process.env, DAML_SDK_VERSION: process.env.JSON_API_VERSION },
-    }
-  );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
   [publicUser, publicParty] = await getParty();
@@ -208,9 +191,6 @@ afterAll(async () => {
   }
   if (uiProc) {
     await killTree(uiProc);
-  }
-  if (jsonApi) {
-    await killTree(jsonApi);
   }
   if (sandbox) {
     await killTree(sandbox);

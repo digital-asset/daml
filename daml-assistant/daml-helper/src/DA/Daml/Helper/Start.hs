@@ -13,7 +13,6 @@ module DA.Daml.Helper.Start
     , SandboxPortSpec(..)
     , toSandboxPortSpec
     , JsonApiPort(..)
-    , JsonApiConfig(..)
     , SandboxCantonPortSpec(..)
     ) where
 
@@ -77,6 +76,7 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile jsonApi 
     let cantonHelp = False
     let cantonConfigFiles = []
     let cantonJsonApi = fmap unJsonApiPort jsonApi
+    let cantonJsonApiPortFileM = Nothing
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
@@ -85,7 +85,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
   where
     cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
-      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile (mbJsonApiPort jsonApiConfig)
+      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPortM
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
@@ -112,10 +112,6 @@ withJsonApi sandboxPh (JsonApiPort jsonApiPort) a = do
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
         a sandboxPh
 
-data JsonApiConfig = JsonApiConfig
-  { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
-  }
-
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
     optsYaml :: [String] <-
@@ -129,12 +125,11 @@ data StartOptions = StartOptions
     , shouldOpenBrowser :: Bool
     , shouldStartNavigator :: YesNoAuto
     , navigatorPort :: NavigatorPort
-    , jsonApiConfig :: JsonApiConfig
+    , jsonApiPortM :: Maybe JsonApiPort
     , onStartM :: Maybe String
     , shouldWaitForSignal :: Bool
     , sandboxOptions :: [String]
     , navigatorOptions :: [String]
-    , jsonApiOptions :: [String]
     , scriptOptions :: [String]
     , sandboxPortSpec :: !SandboxCantonPortSpec
     }
@@ -198,7 +193,7 @@ runStart startOptions@StartOptions{..} =
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
         withJsonApi' sandboxPh f =
-            case mbJsonApiPort jsonApiConfig of
+            case jsonApiPortM of
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPh jsonApiPort f
         doCodegen projectConfig =

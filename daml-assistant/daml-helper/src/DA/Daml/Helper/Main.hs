@@ -163,12 +163,11 @@ commandParser = subparser $ fold
         shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
         shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
         navigatorPort <- navigatorPortOption
-        jsonApiConfig <- jsonApiCfg
+        jsonApiPortM <- jsonApiPortOpt "json-api-port" "Port that the HTTP JSON API should listen on or 'none' to disable it"
         onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
         navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
-        jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
@@ -210,11 +209,11 @@ commandParser = subparser $ fold
     deployCmd = Deploy
         <$> ledgerFlags
 
-    jsonApiCfg = JsonApiConfig <$> option
+    jsonApiPortOpt name desc = option
         readJsonApiPort
-        ( long "json-api-port"
+        ( long name
        <> value (Just $ JsonApiPort 7575)
-       <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
+       <> help desc
         )
 
     readJsonApiPort = eitherReader $ \case
@@ -440,6 +439,8 @@ commandParser = subparser $ fold
             cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
             cantonJsonApi <- optional $ option auto (long "json-api-port"
                 <> help "Port that the HTTP JSON API should listen on, omit to disable it")
+            cantonJsonApiPortFileM <- optional $ option str (long "json-api-port-file" <> metavar "PATH"
+                <> help "File to write canton json-api port when ready")
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
             cantonStaticTime <- StaticTime <$>
