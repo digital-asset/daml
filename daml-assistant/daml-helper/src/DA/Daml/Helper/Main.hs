@@ -160,14 +160,10 @@ commandParser = subparser $ fold
 
     startCmd = do
         sandboxPortM <- sandboxPortOpt "sandbox-port" "Port number for the sandbox"
-        shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
-        shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
-        navigatorPort <- navigatorPortOption
         jsonApiPortM <- jsonApiPortOpt "json-api-port" "Port that the HTTP JSON API should listen on or 'none' to disable it"
-        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox is running."))
         shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
-        navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
@@ -182,12 +178,6 @@ commandParser = subparser $ fold
         domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
         domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
         pure SandboxCantonPortSpec {..}
-
-    navigatorPortOption = NavigatorPort <$> option auto
-        (long "navigator-port"
-        <> metavar "PORT_NUM"
-        <> value 7500
-        <> help "Port number for navigator (default is 7500).")
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
