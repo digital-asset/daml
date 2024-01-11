@@ -196,7 +196,8 @@ object ReferenceBlockOrderer {
   }
 
   private[sequencer] def storeMultipleRequest(
-      timeProvider: TimeProvider,
+      blockHeight: Long,
+      timestamp: CantonTimestamp,
       sendQueue: SimpleExecutionQueue,
       store: ReferenceBlockOrderingStore,
       requests: Seq[Traced[(String, ByteString)]],
@@ -224,13 +225,12 @@ object ReferenceBlockOrderer {
         (BatchTag, body)
       }
 
-    val microsecondsSinceEpoch = timeProvider.nowInMicrosecondsSinceEpoch
     sendQueue
       .execute(
         store.insertRequest(
-          BlockOrderer.OrderedRequest(microsecondsSinceEpoch, tag, body)
+          BlockOrderer.OrderedRequest(timestamp.underlying.micros, tag, body)
         ),
-        s"send request at $microsecondsSinceEpoch",
+        s"send request at $timestamp",
       )
       .unwrap
       .map(_ => ())

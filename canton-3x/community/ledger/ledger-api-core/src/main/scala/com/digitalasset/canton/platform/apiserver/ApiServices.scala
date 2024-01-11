@@ -471,23 +471,13 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
-        val participantPruningService = Option
-          .when(
-            community || // In community, it just replies with a "not available in community" error
-              !multiDomainEnabled // TODO(i13540): pruning is not supported for multi domain
-          )(
-            new ParticipantPruningServiceAuthorization(
-              ApiParticipantPruningService.createApiService(
-                indexService,
-                writeService,
-                metrics,
-                telemetry,
-                loggerFactory,
-              ),
-              authorizer,
-            )
-          )
-          .toList
+        val participantPruningService = ApiParticipantPruningService.createApiService(
+          indexService,
+          writeService,
+          metrics,
+          telemetry,
+          loggerFactory,
+        )
 
         val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
           val apiSubmissionServiceV2 = new ApiCommandSubmissionServiceV2(
@@ -533,7 +523,8 @@ object ApiServices {
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
           new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
-        ) ::: participantPruningService ::: ledgerApiV2Services
+          new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
+        ) ::: ledgerApiV2Services
       }
     }
   }
