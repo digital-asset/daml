@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | For compiler level warnings on packages that aren't included as standard. This includes, at the very least, Daml.Script and Triggers
+-- | For compiler level warnings on packages that aren't included as standard. This includes, at the very least Daml.Script
 module DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings) where
 
 import           DA.Daml.LFConversion.ConvertM

@@ -370,7 +370,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "empty-skeleton", "quickstart-java", "copy-trigger", "gsg-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "daml-intro-13"
@@ -386,8 +386,6 @@ argWhitelist = S.fromList
     , "codegen", "java", "js"
     , "deploy"
     , "json-api"
-    , "trigger", "trigger-service", "list"
-    , "oauth2-middleware"
     , "script"
     ]
 

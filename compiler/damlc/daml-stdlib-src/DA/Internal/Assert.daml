@@ -23,7 +23,7 @@ import DA.Internal.Exception
 -- in this context.
 class Action m => CanAssert m where
     -- | Abort since an assertion has failed. In an Update, Scenario,
-    -- Script, or Trigger context this will throw an AssertionFailed
+    -- or Script context this will throw an AssertionFailed
     -- exception. In an `Either Text` context, this will return the
     -- message as an error.
     assertFail : Text -> m t

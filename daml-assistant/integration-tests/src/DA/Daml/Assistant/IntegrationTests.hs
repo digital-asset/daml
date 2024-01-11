@@ -182,7 +182,6 @@ tests tmpDir =
             , testCase "daml new --list" $
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
-            , damlToolTests
             , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
             , cleanTests cleanDir
             , templateTests
@@ -200,53 +199,7 @@ packagingTests :: SdkVersioned => FilePath -> TestTree
 packagingTests tmpDir =
     testGroup
         "packaging"
-        [ testCase "Build copy trigger" $ do
-              let projDir = tmpDir </> "copy-trigger1"
-              callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
-              callCommandSilentIn projDir "daml build"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger1-0.0.1.dar"
-              assertFileExists dar
-        , testCase "Build copy trigger with LF version 1.dev" $ do
-              let projDir = tmpDir </> "copy-trigger2"
-              callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
-              callCommandSilentIn projDir "daml build --target 1.dev"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger2-0.0.1.dar"
-              assertFileExists dar
-        , testCase "Build trigger with extra dependency" $ do
-              let myDepDir = tmpDir </> "mydep"
-              createDirectoryIfMissing True (myDepDir </> "daml")
-              writeFileUTF8 (myDepDir </> "daml.yaml") $
-                  unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: mydep"
-                      , "version: \"1.0\""
-                      , "source: daml"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ]
-              writeFileUTF8 (myDepDir </> "daml" </> "MyDep.daml") $ unlines ["module MyDep where"]
-              callCommandSilentIn myDepDir "daml build -o mydep.dar"
-              let myTriggerDir = tmpDir </> "mytrigger"
-              createDirectoryIfMissing True (myTriggerDir </> "daml")
-              writeFileUTF8 (myTriggerDir </> "daml.yaml") $
-                  unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: mytrigger"
-                      , "version: \"1.0\""
-                      , "source: daml"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - daml-trigger"
-                      , "  - " <> myDepDir </> "mydep.dar"
-                      ]
-              writeFileUTF8 (myTriggerDir </> "daml/Main.daml") $
-                  unlines ["module Main where", "import MyDep ()", "import Daml.Trigger ()"]
-              callCommandSilentIn myTriggerDir "daml build -o mytrigger.dar"
-              let dar = myTriggerDir </> "mytrigger.dar"
-              assertFileExists dar
-        , testCase "Build Daml script example" $ do
+        [ testCase "Build Daml script example" $ do
               let projDir = tmpDir </> "script-example"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build"
@@ -259,7 +212,7 @@ packagingTests tmpDir =
               callCommandSilentIn projDir "daml build --target 1.dev"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar -}
-        , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ do
+        , testCase "Package depending on daml-script can use data-dependencies" $ do
               callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"
               createDirectoryIfMissing True (tmpDir </> "proj")
@@ -269,7 +222,7 @@ packagingTests tmpDir =
                       , "name: proj"
                       , "version: 0.0.1"
                       , "source: ."
-                      , "dependencies: [daml-prim, daml-stdlib, daml-script, daml-trigger]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
                       , "data-dependencies: [" <>
                         show (tmpDir </> "data-dependency" </> "data-dependency.dar") <>
                         "]"
@@ -283,39 +236,6 @@ packagingTests tmpDir =
           -- This also checks that we get the same Script type within an SDK version.
                       ]
               callCommandSilentIn (tmpDir </> "proj") "daml build"
-        ]
-
--- Test tools that can run outside a daml project
-damlToolTests :: TestTree
-damlToolTests =
-    testGroup
-        "daml tools"
-        [ testCase "OAuth 2.0 middleware startup" $ do
-            withTempDir $ \tmpDir -> do
-                middlewarePort <- getFreePort
-                withDamlServiceIn tmpDir "oauth2-middleware"
-                    [ "--address"
-                    , "localhost"
-                    , "--http-port"
-                    , show middlewarePort
-                    , "--oauth-auth"
-                    , "http://localhost:0/authorize"
-                    , "--oauth-token"
-                    , "http://localhost:0/token"
-                    , "--auth-jwt-hs256-unsafe"
-                    , "jwt-secret"
-                    , "--id"
-                    , "client-id"
-                    , "--secret"
-                    , "client-secret"
-                    ] $ \ ph -> do
-                        let endpoint =
-                                "http://localhost:" <> show middlewarePort <> "/livez"
-                        waitForHttpServer 240 ph (threadDelay 500000) endpoint []
-                        req <- parseRequest endpoint
-                        manager <- newManager defaultManagerSettings
-                        resp <- httpLbs req manager
-                        responseBody resp @?= "{\"status\":\"pass\"}"
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
@@ -394,24 +314,6 @@ damlStartTests getDamlStart =
                 didGenerateDamlYaml <- doesFileExist (exportDir </> "daml.yaml")
                 didGenerateExportDaml @?= True
                 didGenerateDamlYaml @?= True
-        subtest "trigger service startup" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            triggerServicePort <- getFreePort
-            withDamlServiceIn projDir "trigger-service"
-                [ "--ledger-host"
-                , "localhost"
-                , "--ledger-port"
-                , show sandboxPort
-                , "--http-port"
-                , show triggerServicePort
-                , "--wall-clock-time"
-                ] $ \ ph -> do
-                    let endpoint = "http://localhost:" <> show triggerServicePort <> "/livez"
-                    waitForHttpServer 240 ph (threadDelay 500000) endpoint []
-                    req <- parseRequest endpoint
-                    manager <- newManager defaultManagerSettings
-                    resp <- httpLbs req manager
-                    responseBody resp @?= "{\"status\":\"pass\"}"
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
@@ -529,9 +431,7 @@ templateTests = testGroup "templates" $
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
   where templateNames =
-            [ "copy-trigger"
-            , "gsg-trigger"
-            -- daml-intro-1 - daml-intro-6 are not full projects.
+            [ -- daml-intro-1 - daml-intro-6 are not full projects.
             , "daml-intro-7"
             , "daml-patterns"
             , "quickstart-java"

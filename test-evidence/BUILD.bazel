@@ -39,17 +39,12 @@ write_scalatest_runpath(
         tests = [
             "//ledger-service/utils",
             "//libs-scala/jwt:tests-lib",
-            "//triggers/service:test",
-            "//triggers/service/auth:oauth2-middleware-tests",
         ],
         runtime_deps = [
             "//ledger/error:error-test-lib",
             "//libs-scala/flyway-testing",
             "//libs-scala/jwt",
             "//libs-scala/scalatest-utils",
-            "//triggers/service:trigger-service",
-            "//triggers/service:trigger-service-tests",
-            "//triggers/service/auth:oauth2-middleware-tests",
         ],
         deps = [
             ":ledger-generator-lib",

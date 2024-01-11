@@ -10,7 +10,7 @@ private[lf] sealed abstract class InitialSeeding extends Product with Serializab
 
 private[lf] object InitialSeeding {
   // NoSeed may be used to initialize machines that are not intended to create transactions
-  // e.g. trigger and script runners, tests
+  // e.g. script runners, tests
   final case object NoSeed extends InitialSeeding
   final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
   final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding

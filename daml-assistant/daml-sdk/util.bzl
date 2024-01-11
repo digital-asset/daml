@@ -6,7 +6,4 @@ def deps(edition):
         "//daml-script/runner:script-runner-lib",
         "//language-support/codegen-main:codegen-main-lib",
         "//daml-script/export",
-        "//triggers/runner:trigger-runner-lib",
-        "//triggers/service:trigger-service-binary-{}".format(edition),
-        "//triggers/service/auth:oauth2-middleware",
     ]

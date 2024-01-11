@@ -635,10 +635,6 @@ load("@canton_maven//:defs.bzl", pinned_canton_maven_install = "pinned_maven_ins
 
 pinned_canton_maven_install()
 
-load("@triggers_maven//:defs.bzl", pinned_triggers_maven_install = "pinned_maven_install")
-
-pinned_triggers_maven_install()
-
 load("@deprecated_maven//:defs.bzl", pinned_deprecated_maven_install = "pinned_maven_install")
 
 pinned_deprecated_maven_install()
