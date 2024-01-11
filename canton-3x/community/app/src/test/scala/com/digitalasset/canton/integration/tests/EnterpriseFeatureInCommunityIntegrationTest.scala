@@ -17,7 +17,6 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.PruningNotSupportedInCommunityEdition
-import monocle.macros.syntax.lens.*
 
 sealed trait EnterpriseFeatureInCommunityXIntegrationTest
     extends CommunityIntegrationTest

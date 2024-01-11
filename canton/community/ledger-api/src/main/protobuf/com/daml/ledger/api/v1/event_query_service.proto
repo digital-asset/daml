@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -16,8 +16,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service EventQueryService {
 
   // Get the create and the consuming exercise event for the contract with the provided ID.
-  // No events will be returned for contracts that have been pruned because they 
-  // have already been archived before the latest pruning offset. 
+  // No events will be returned for contracts that have been pruned because they
+  // have already been archived before the latest pruning offset.
   rpc GetEventsByContractId (GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
 
   // Get all create and consuming exercise events for the contracts with the provided contract key.
@@ -85,7 +85,7 @@ message GetEventsByContractKeyResponse {
 
   // The most recent create event for a contract with the key given in the request, if
   // no ``continuation_token`` is provided. If a ``continuation_token`` is provided, then
-  // this is the most recent create event preceding the create event whose 
+  // this is the most recent create event preceding the create event whose
   // ``continuation_token`` was provided.
   // Optional
   CreatedEvent create_event = 1;

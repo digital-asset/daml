@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -24,8 +24,8 @@ service PackageManagementService {
     (ListKnownPackagesResponse);
 
   // Upload a DAR file to the backing participant.
-  // Depending on the ledger implementation this might also make the package 
-  // available on the whole ledger. This call might not be supported by some 
+  // Depending on the ledger implementation this might also make the package
+  // available on the whole ledger. This call might not be supported by some
   // ledger implementations. Canton could be an example, where uploading a DAR
   // is not sufficient to render it usable, it must be activated first.
   // This call may:
@@ -46,7 +46,7 @@ message ListKnownPackagesResponse {
 }
 
 message PackageDetails {
- 
+
   // The identity of the Daml-LF package.
   // Must be a valid PackageIdString (as describe in ``value.proto``).
   // Required

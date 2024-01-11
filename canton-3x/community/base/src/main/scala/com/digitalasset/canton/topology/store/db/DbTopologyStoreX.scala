@@ -80,45 +80,57 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransactionX]] = {
+
     if (hashes.isEmpty) Future.successful(Seq.empty)
-    else
+    else {
+      logger.debug(s"Querying transactions for tx hashes $hashes as of $asOfExclusive")
+
       findAsOfExclusive(
         asOfExclusive,
         sql" AND (" ++ hashes
           .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
           .toList
           .intercalate(sql" OR ") ++ sql")",
+        operation = "transactionsByTxHash",
       )
+    }
   }
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
       hashes: NonEmpty[Set[TxHash]],
-  )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransactionX]] =
+  )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransactionX]] = {
+    logger.debug(s"Querying proposals for tx hashes $hashes as of $asOfExclusive")
+
     findAsOfExclusive(
       asOfExclusive,
       sql" AND is_proposal = true AND (" ++ hashes
         .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
         .forgetNE
         .toList
-        .intercalate(
-          sql" OR "
-        ) ++ sql")",
+        .intercalate(sql" OR ") ++ sql")",
+      "proposalsByTxHash",
     )
+  }
 
   override def findTransactionsForMapping(
       asOfExclusive: EffectiveTime,
       hashes: NonEmpty[Set[MappingHash]],
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] = findAsOfExclusive(
-    asOfExclusive,
-    sql" AND is_proposal = false AND (" ++ hashes
-      .map(mappingHash => sql"mapping_key_hash = ${mappingHash.hash.toLengthLimitedHexString}")
-      .forgetNE
-      .toList
-      .intercalate(sql" OR ") ++ sql")",
-  )
+  ): Future[Seq[GenericSignedTopologyTransactionX]] = {
+    logger.debug(s"Querying proposals for mapping hashes $hashes as of $asOfExclusive")
+
+    findAsOfExclusive(
+      asOfExclusive,
+      sql" AND is_proposal = false AND (" ++ hashes
+        .map(mappingHash => sql"mapping_key_hash = ${mappingHash.hash.toLengthLimitedHexString}")
+        .forgetNE
+        .toList
+        .intercalate(sql" OR ") ++ sql")",
+      operation = "transactionsForMapping",
+    )
+  }
 
   /** @param elements       Elements to be batched
     * @param operationName  Name of the operation
@@ -247,6 +259,8 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] = {
+    logger.debug(s"Inspecting store for type=$typ, filter=$idFilter, time=$timeQuery")
+
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQueryX.HeadState =>
         getHeadStateQuery(recentTimestampO)
@@ -277,7 +291,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     val mappingProposalsAndPreviousFilter =
       mappingTypeAndPreviousFilter ++ sql" AND is_proposal = $proposals"
 
-    queryForTransactions(mappingProposalsAndPreviousFilter)
+    queryForTransactions(mappingProposalsAndPreviousFilter, "inspect")
   }
 
   @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
@@ -287,6 +301,10 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       filterParticipant: String,
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] = {
+    logger.debug(
+      s"Inspecting known parties at t=$timestamp with filterParty=$filterParty and filterParticipant=$filterParticipant"
+    )
+
     def splitFilterPrefixAndSql(uidFilter: String): (String, String, String, String) =
       UniqueIdentifier.splitFilter(uidFilter) match {
         case (id, ns) => (id, ns, id + "%", ns + "%")
@@ -372,14 +390,17 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   override def findFirstMediatorStateForMediator(mediatorId: MediatorId)(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransactionX[Replace, MediatorDomainStateX]]] =
+  ): Future[Option[StoredTopologyTransactionX[Replace, MediatorDomainStateX]]] = {
+    logger.debug(s"Querying first mediator state for $mediatorId")
+
     queryForTransactions(
       // We don't expect too many MediatorDomainStateX mappings in a single domain, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
       // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOpX.Replace}" ++
-        sql" AND transaction_type = ${MediatorDomainStateX.code}"
+        sql" AND transaction_type = ${MediatorDomainStateX.code}",
+      operation = "firstMediatorState",
     ).map(
       _.collectOfMapping[MediatorDomainStateX]
         .collectOfType[Replace]
@@ -393,10 +414,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         .sortBy(_.transaction.transaction.serial)
         .headOption
     )
+  }
 
   override def findFirstTrustCertificateForParticipant(participant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransactionX[Replace, DomainTrustCertificateX]]] =
+  ): Future[Option[StoredTopologyTransactionX[Replace, DomainTrustCertificateX]]] = {
+    logger.debug(s"Querying first trust certificate for participant $participant")
+
     queryForTransactions(
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOpX.Replace}" ++
@@ -404,18 +428,23 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         sql" AND identifier = ${participant.uid.id} AND namespace = ${participant.uid.namespace}",
       limit = storage.limit(1),
       orderBy = " ORDER BY serial_counter ",
+      operation = "participantFirstTrustCertificate",
     ).map(
       _.collectOfMapping[DomainTrustCertificateX]
         .collectOfType[Replace]
         .result
         .headOption
     )
+  }
 
   override def findEssentialStateForMember(member: Member, asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
     val timeFilter = sql" AND sequenced <= $asOfInclusive"
-    queryForTransactions(timeFilter).map(_.asSnapshotAtMaxEffectiveTime)
+
+    logger.debug(s"Querying essential state for member $member as of $asOfInclusive")
+
+    queryForTransactions(timeFilter, "essentialState").map(_.asSnapshotAtMaxEffectiveTime)
   }
 
   override def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
@@ -430,16 +459,24 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] = queryForTransactions(
-    sql" AND valid_from >= $asOfInclusive ",
-    orderBy = " ORDER BY valid_from",
-  ).map(res => TopologyStoreX.accumulateUpcomingEffectiveChanges(res.result))
+  ): Future[Seq[TopologyStore.Change]] = {
+    logger.debug(s"Querying upcoming effective changes as of $asOfInclusive")
+
+    queryForTransactions(
+      sql" AND valid_from >= $asOfInclusive ",
+      orderBy = " ORDER BY valid_from",
+      operation = "upcomingEffectiveChanges",
+    ).map(res => TopologyStoreX.accumulateUpcomingEffectiveChanges(res.result))
+  }
 
   override def maxTimestamp()(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] =
+  ): Future[Option[(SequencedTime, EffectiveTime)]] = {
+    logger.debug(s"Querying max timestamp")
+
     queryForTransactions(sql"", storage.limit(1), orderBy = " ORDER BY id DESC")
       .map(_.result.headOption.map(tx => (tx.sequenced, tx.validFrom)))
+  }
 
   override def findDispatchingTransactionsAfter(
       timestampExclusive: CantonTimestamp,
@@ -450,6 +487,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     val subQuery =
       sql" AND valid_from > $timestampExclusive AND (not is_proposal OR valid_until is NULL)"
     val limitQ = limitO.fold("")(storage.limit(_))
+
+    logger.debug(s"Querying dispatching transactions after $timestampExclusive")
+
     queryForTransactions(subQuery, limitQ)
   }
 
@@ -458,10 +498,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]] =
+  ): Future[Option[GenericStoredTopologyTransactionX]] = {
+    logger.debug(s"Querying for transaction $transaction")
+
     findStoredSql(transaction.transaction, includeRejected = includeRejected).map(
       _.result.lastOption
     )
+  }
 
   override def findStoredForVersion(
       transaction: GenericTopologyTransactionX,
@@ -470,6 +513,8 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]] = {
     val rpv = TopologyTransactionX.protocolVersionRepresentativeFor(protocolVersion)
+
+    logger.debug(s"Querying for transaction $transaction with protocol version $protocolVersion")
 
     findStoredSql(
       transaction,
@@ -482,22 +527,29 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       domainId: DomainId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransactionX]] = for {
-    transactions <- FutureUnlessShutdown
-      .outcomeF(
-        queryForTransactions(
-          sql" AND not is_proposal " ++
-            sql" AND transaction_type IN (" ++ TopologyStoreX.initialParticipantDispatchingSet.toList
-              .map(s => sql"$s")
-              .intercalate(sql", ") ++ sql") "
-        )
-      )
-    filteredTransactions = TopologyStoreX.filterInitialParticipantDispatchingTransactions(
-      participantId,
-      domainId,
-      transactions.result,
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransactionX]] = {
+    logger.debug(
+      s"Querying participant onboarding transactions for participant $participantId on domain $domainId"
     )
-  } yield filteredTransactions
+
+    for {
+      transactions <- FutureUnlessShutdown
+        .outcomeF(
+          queryForTransactions(
+            sql" AND not is_proposal " ++
+              sql" AND transaction_type IN (" ++ TopologyStoreX.initialParticipantDispatchingSet.toList
+                .map(s => sql"$s")
+                .intercalate(sql", ") ++ sql") ",
+            operation = "participantOnboardingTransactions",
+          )
+        )
+      filteredTransactions = TopologyStoreX.filterInitialParticipantDispatchingTransactions(
+        participantId,
+        domainId,
+        transactions.result,
+      )
+    } yield filteredTransactions
+  }
 
   // Insert helper shared by bootstrap and update.
   private def insertSignedTransaction[T](toTxEntry: T => TransactionEntry)(
@@ -605,6 +657,8 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     if (hasUidFilter && filterUid.forall(_.isEmpty) && filterNamespace.forall(_.isEmpty)) {
       Future.successful(StoredTopologyTransactionsX.empty)
     } else {
+      logger.debug(s"Querying transactions as of $asOf for types $types")
+
       val timeRangeFilter = asOfQuery(asOf, asOfInclusive)
       val isProposalFilter = sql" AND is_proposal = $isProposal"
       val changeOpFilter = filterOp.fold(sql"")(op => sql" AND operation = $op")
@@ -623,7 +677,8 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         } else SQLActionBuilderChain(sql"")
 
       queryForTransactions(
-        timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
+        timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter,
+        operation = "singleBatch",
       )
     }
   }
@@ -631,8 +686,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   private def findAsOfExclusive(
       effective: EffectiveTime,
       subQuery: SQLActionBuilder,
+      operation: String,
   )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransactionX]] = {
-    queryForTransactions(asOfQuery(effective.value, asOfInclusive = false) ++ subQuery)
+    queryForTransactions(asOfQuery(effective.value, asOfInclusive = false) ++ subQuery, operation)
       .map(_.result.map(_.transaction))
   }
 
@@ -654,11 +710,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         ++ sql" AND operation = ${transaction.op}"
         ++ subQuery,
       includeRejected = includeRejected,
+      operation = "findStored",
     )
   }
 
   private def queryForTransactions(
       subQuery: SQLActionBuilder,
+      operation: String,
       limit: String = "",
       orderBy: String = " ORDER BY id ",
       includeRejected: Boolean = false,
@@ -680,7 +738,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
                 Option[CantonTimestamp],
             )
           ],
-          functionFullName,
+          s"$functionFullName-$operation",
         )
         .map(_.map { case (tx, sequencedTs, validFrom, validUntil) =>
           StoredTopologyTransactionX(

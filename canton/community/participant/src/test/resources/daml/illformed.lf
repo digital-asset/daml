@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // From daml main repo:
@@ -8,7 +8,7 @@
 //     bazel run daml-lf/repl -- validate /tmp/illformed.dar
 // - To inspect the generated package
 //     bazel run damlc -- inspect /tmp/illformed.dar
- 
+
 module Mod {
 
    val x: Bool = ();

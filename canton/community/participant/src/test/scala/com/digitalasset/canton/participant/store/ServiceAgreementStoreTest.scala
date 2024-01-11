@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -204,7 +204,7 @@ trait ServiceAgreementStoreTest { this: AsyncWordSpec & BaseTest =>
                            |      same "printed page" as the copyright notice for easier
                            |      identification within third-party archives.
                            |
-                           |   Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates
+                           |   Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates
                            |
                            |   Licensed under the Apache License, Version 2.0 (the "License");
                            |   you may not use this file except in compliance with the License.
