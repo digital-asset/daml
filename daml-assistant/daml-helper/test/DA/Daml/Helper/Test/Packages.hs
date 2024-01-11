@@ -7,7 +7,6 @@ module DA.Daml.Helper.Test.Packages
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import DA.Bazel.Runfiles
-import DA.Test.HttpJson
 import DA.Test.Sandbox
 import System.Environment.Blank
 import System.FilePath
@@ -31,18 +30,4 @@ main = do
                       out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
                       ("(test-1.0.0)" `elem` words out) @?
                           "Missing `test-1.0.0` package in packages list."
-                , withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
-                      testCase "succeeds listing packages against HTTP JSON API" $ do
-                          HttpJson {hjPort, hjTokenFile} <- getHttpJson
-                          let ledgerOpts =
-                                  [ "--host=localhost"
-                                  , "--json-api"
-                                  , "--port"
-                                  , show hjPort
-                                  , "--access-token-file"
-                                  , hjTokenFile
-                                  ]
-                          out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
-                          ("(test-1.0.0)" `elem` words out) @?
-                              "Missing `test-1.0.0` package in packages list."
                 ]

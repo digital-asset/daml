@@ -37,19 +37,12 @@ write_scalatest_runpath(
         testonly = True,  # needed in order to depend on testonly targets
         main_class = "com.daml.test.evidence.generator.Main",
         tests = [
-            "//ledger-service/http-json:failure-tests",
-            "//ledger-service/http-json:integration-tests-ce",
-            "//ledger-service/http-json:integration-tests-lib",
-            "//ledger-service/http-json:tests-ce",
             "//ledger-service/utils",
             "//libs-scala/jwt:tests-lib",
             "//triggers/service:test",
             "//triggers/service/auth:oauth2-middleware-tests",
         ],
         runtime_deps = [
-            "//ledger-service/http-json:failure-tests-lib-ce",
-            "//ledger-service/http-json:http-json-ce",
-            "//ledger-service/http-json:integration-tests-lib-postgres-ce",
             "//ledger/error:error-test-lib",
             "//libs-scala/flyway-testing",
             "//libs-scala/jwt",

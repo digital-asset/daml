@@ -11,7 +11,6 @@ import Control.Monad
 import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
-import qualified Data.ByteString.Lazy as LBS
 import Data.List.Extra
 import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
@@ -155,11 +154,7 @@ damlStart tmpDir = do
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
         atomically $ writeTChan outChan line
-    waitForHttpServer 240 startPh
-        (threadDelay 500000)
-        ("http://localhost:" <> show jsonApiPort <> "/v1/query")
-        (authorizationHeaders "Alice") -- dummy party here, not important
-    scriptOutput <- readFileUTF8 (projDir </> scriptOutputFile)
+    scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
     pure $
         DamlStartResource
@@ -190,7 +185,6 @@ tests tmpDir =
             , packagingTests tmpDir
             , damlToolTests
             , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
-            , damlStartNotSharedTest
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
@@ -506,46 +500,6 @@ damlStartTests getDamlStart =
                 ]
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
-
--- | daml start tests that don't use the shared server
-damlStartNotSharedTest :: SdkVersioned => TestTree
-damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
-    withTempDir $ \tmpDir -> do
-        writeFileUTF8 (tmpDir </> "daml.yaml") $
-            unlines
-                [ "sdk-version: " <> sdkVersion
-                , "name: sandbox-options"
-                , "version: \"1.0\""
-                , "source: ."
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "start-navigator: false"
-                ]
-        withDamlServiceIn tmpDir "start"
-            [ "--sandbox-port=0"
-            , "--json-api-port=0"
-            , "--json-api-option=--port-file=jsonapi.port"
-            ] $ \ ph -> do
-                jsonApiPort <- readPortFile ph maxRetries (tmpDir </> "jsonapi.port")
-                initialRequest <-
-                    parseRequest $
-                    "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
-                let queryRequest =
-                        initialRequest
-                            { method = "POST"
-                            , requestHeaders = authorizationHeaders "Alice"
-                            , requestBody =
-                                    RequestBodyLBS $
-                                    Aeson.encode $
-                                    Aeson.object ["identifierHint" Aeson..= ("Alice" :: String)]
-                            }
-                manager <- newManager defaultManagerSettings
-                queryResponse <- httpLbs queryRequest manager
-                let body = responseBody queryResponse
-                assertBool ("result is unexpected: " <> show body) $
-                    ("{\"result\":{\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
-                    ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
