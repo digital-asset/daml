@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.domain
@@ -69,7 +69,16 @@ class DomainAliasManager private (
     conf <- configStore.get(alias).toOption
   } yield conf.status
 
+  /** Return known domain aliases
+    *
+    * Note: this includes inactive domains! Use [[connectionStateForDomain]] to check the status
+    */
   override def aliases: Set[DomainAlias] = Set(domainAliasMap.get().keySet().asScala.toSeq: _*)
+
+  /** Return known domain ids
+    *
+    * Note: this includes inactive domains! Use [[connectionStateForDomain]] to check the status
+    */
   def ids: Set[DomainId] = Set(domainAliasMap.get().values().asScala.toSeq: _*)
 
   private def addMapping(domainAlias: DomainAlias, domainId: DomainId)(implicit

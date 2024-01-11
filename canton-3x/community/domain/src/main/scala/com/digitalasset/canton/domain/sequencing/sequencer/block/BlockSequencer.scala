@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block
@@ -136,6 +136,7 @@ class BlockSequencer(
             .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
             .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
         )(Merge(_))(Keep.both)
+        .filterNot(_ => isClosing)
         .mapAsync(
           // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
           parallelism = 1
@@ -512,11 +513,11 @@ class BlockSequencer(
         localEventsQueue.watchCompletion(),
         timeouts.shutdownProcessing,
       ),
+      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
       SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
       SyncCloseable("stateManager.close()", stateManager.close()),
-      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
     )
   }
 

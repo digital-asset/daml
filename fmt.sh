@@ -129,6 +129,13 @@ echo "\
 ──██────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 "
 
+# In 'test' mode, this checks that the 'yarn.lock' file doesn't need any changes.
+# In 'format' mode, the 'yarn.lock' file will be updated ("formatted") by
+# 'yarn install' below, if needed.
+if [[ $is_test = 1 ]]; then
+  run pre-commit run yarn-lock-check
+fi
+
 # Make sure the current packages are installed so we can call pprettier
 # via yarn because calling it via bazel results in very bad performance.
 run yarn install --silent

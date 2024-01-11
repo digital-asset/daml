@@ -4,8 +4,7 @@
 
 
 # Build the release artifacts required for running the compatibility
-# tests against HEAD. At the moment this includes the SDK release tarball
-# and the ledger-api-test-tool fat JAR.
+# tests against HEAD. At the moment this includes the SDK release tarball.
 
 set -eou pipefail
 

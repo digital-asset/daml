@@ -82,6 +82,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             contractId,
             choiceName,
             arg,
+            _, // Result cannot be encoded in daml without some kind of `AnyChoiceResult` type, likely using the `Choice` constraint to unpack.
             childEvents,
           ) =>
         for {
@@ -276,6 +277,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
+              choiceResult <- NoLoggingValueValidator
+                .validateValue(exercised.getExerciseResult)
+                .left
+                .map(_.toString)
               childEvents <- exercised.childEventIds.toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
@@ -284,6 +289,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               cid,
               choice,
               choiceArg,
+              choiceResult,
               childEvents,
             )
           case TreeEvent.Kind.Empty => throw new RuntimeException("foo")
@@ -329,6 +335,15 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         } yield Right(Question(name, version.toInt, payload, stackTrace, continue))
       case SVariant(_, "Pure", _, v) => Right(Left(v))
       case _ => Left(s"Expected Free Question or Pure, got $v")
+    }
+
+  def toCommandWithMeta(v: SValue): Either[String, ScriptLedgerClient.CommandWithMeta] =
+    v match {
+      case SRecord(_, _, ArrayList(command, SBool(explicitPackageId))) =>
+        for {
+          command <- toCommand(command)
+        } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
+      case _ => Left(s"Expected CommandWithMeta but got $v")
     }
 
   def toCommand(v: SValue): Either[String, command.ApiCommand] =

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -33,10 +33,9 @@ import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
-import com.digitalasset.canton.ledger.client.services.pkg.withoutledgerid.PackageClient
-import com.digitalasset.canton.ledger.client.withoutledgerid.LedgerClient as DamlLedgerClient
+import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
+import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.LedgerReader
 import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -81,11 +80,10 @@ class HttpService(
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(DummyApplicationId),
-      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
     )
 
-    val ledgerClient: DamlLedgerClient = DamlLedgerClient(channel, clientConfig, loggerFactory)
+    val ledgerClient: DamlLedgerClient = DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
     import org.apache.pekko.http.scaladsl.server.Directives.*
     val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] = for {
       _ <- eitherT(Future.successful(\/-(ledgerClient)))

@@ -612,6 +612,7 @@ prettyScenarioStep lvl (ScenarioStep stepId (Just step)) = do
     ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
       prettyCommit lvl txId mbLoc tx
 
+    -- Deprecated
     ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail actAs readAs time txId mbLoc) ->
       pure
           $ idSC ("n" <> TE.show txId) (keyword_ "TX")
@@ -619,6 +620,18 @@ prettyScenarioStep lvl (ScenarioStep stepId (Just step)) = do
         <-> prettyTimestamp time
          $$ (nest 3
              $   keyword_ "mustFailAt"
+             <-> label_ "actAs:" (braces $ prettyParties actAs)
+             <-> label_ "readAs:" (braces $ prettyParties readAs)
+             <-> parens (prettyMayLocation world mbLoc)
+            )
+    
+    ScenarioStepStepSubmissionFailed (ScenarioStep_SubmissionFailed actAs readAs time txId mbLoc) ->
+      pure
+          $ idSC ("n" <> TE.show txId) (keyword_ "TX")
+        <-> prettyTxId txId
+        <-> prettyTimestamp time
+         $$ (nest 3
+             $   keyword_ "submissionFailed"
              <-> label_ "actAs:" (braces $ prettyParties actAs)
              <-> label_ "readAs:" (braces $ prettyParties readAs)
              <-> parens (prettyMayLocation world mbLoc)

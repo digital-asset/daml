@@ -86,9 +86,6 @@ object Main {
         s", authConfig=${config.authConfig.shows}" +
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", wsConfig=${config.wsConfig.shows}" +
-        s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
         s", surrogateTpIdCacheMaxEntries=${config.surrogateTpIdCacheMaxEntries: Option[Long]}" +
         ")"
     )

@@ -103,30 +103,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
-- target: //ledger-test-tool/infrastructure:infrastructure-1.14
-  type: jar-scala
-- target: //ledger-test-tool/infrastructure:infrastructure-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/runner:runner-1.14
-  type: jar-scala
-- target: //ledger-test-tool/runner:runner-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/suites:suites-1.14
-  type: jar-scala
-- target: //ledger-test-tool/suites:suites-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/tool:ledger-api-test-tool
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.14
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.15
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.dev
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.1
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.dev
-  type: jar-distribute
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-1.14-lib

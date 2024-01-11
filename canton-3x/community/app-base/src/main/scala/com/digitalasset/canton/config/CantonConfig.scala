@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -35,6 +35,7 @@ import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.domain.DomainNodeParameters
+import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.domain.config.*
 import com.digitalasset.canton.domain.mediator.{
   MediatorNodeConfigCommon,
@@ -50,6 +51,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
+import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpApiConfig, StaticContentConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
@@ -350,8 +352,8 @@ final case class CantonFeatures(
 /** Root configuration parameters for a single Canton process. */
 trait CantonConfig {
 
-  type DomainConfigType <: DomainConfig with ConfigDefaults[DefaultPorts, DomainConfigType]
-  type ParticipantConfigType <: LocalParticipantConfig with ConfigDefaults[
+  type DomainConfigType <: DomainConfig & ConfigDefaults[DefaultPorts, DomainConfigType]
+  type ParticipantConfigType <: LocalParticipantConfig & ConfigDefaults[
     DefaultPorts,
     ParticipantConfigType,
   ]
@@ -975,8 +977,21 @@ object CantonConfig {
     lazy implicit val sequencerNodeInitXConfigReader: ConfigReader[SequencerNodeInitXConfig] =
       deriveReader[SequencerNodeInitXConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
+
     lazy implicit val communitySequencerConfigReader: ConfigReader[CommunitySequencerConfig] =
-      deriveReader[CommunitySequencerConfig]
+      ConfigReader.fromCursor[CommunitySequencerConfig] { cur =>
+        for {
+          objCur <- cur.asObjectCursor
+          sequencerType <- objCur.atKey("type").flatMap(_.asString)
+          config <- (sequencerType match {
+            case "database" =>
+              communitySequencerConfigDatabaseReader.from(objCur.withoutKey("type"))
+            case other =>
+              objCur.atKey("config").map(CommunitySequencerConfig.External(other, _, None))
+          }): ConfigReader.Result[CommunitySequencerConfig]
+        } yield config
+      }
+
     lazy implicit val sequencerNodeParametersConfigReader
         : ConfigReader[SequencerNodeParameterConfig] =
       deriveReader[SequencerNodeParameterConfig]
@@ -1364,8 +1379,35 @@ object CantonConfig {
       deriveWriter[SequencerWriterConfig.LowLatency]
     lazy implicit val sequencerNodeInitXConfigWriter: ConfigWriter[SequencerNodeInitXConfig] =
       deriveWriter[SequencerNodeInitXConfig]
-    lazy implicit val communitySequencerConfigWriter: ConfigWriter[CommunitySequencerConfig] =
-      deriveWriter[CommunitySequencerConfig]
+
+    implicit def communitySequencerConfigWriter[C]: ConfigWriter[CommunitySequencerConfig] = {
+      case dbSequencerConfig: CommunitySequencerConfig.Database =>
+        import pureconfig.syntax.*
+        Map("type" -> "database").toConfig
+          .withFallback(communitySequencerConfigDatabaseWriter.to(dbSequencerConfig))
+
+      case otherSequencerConfig: CommunitySequencerConfig.External =>
+        import scala.jdk.CollectionConverters.*
+        val sequencerType = otherSequencerConfig.sequencerType
+
+        val factory: SequencerDriverFactory {
+          type ConfigType = C
+        } = DriverBlockSequencerFactory
+          .getSequencerDriverFactory(sequencerType, SequencerDriver.DriverApiVersion)
+
+        val configValue = factory.configParser
+          .from(otherSequencerConfig.config)
+          // in order to make use of the confidential flag, we must first parse the raw sequencer driver config
+          // and then write it again now making sure to use hide fields if confidentiality is turned on
+          .map(parsedConfig => factory.configWriter(confidential).to(parsedConfig))
+          .valueOr(error =>
+            sys.error(s"Failed to read $sequencerType sequencer's config. Error: $error")
+          )
+        ConfigValueFactory.fromMap(
+          Map[String, Object]("type" -> sequencerType, "config" -> configValue).asJava
+        )
+    }
+
     lazy implicit val sequencerNodeParameterConfigWriter
         : ConfigWriter[SequencerNodeParameterConfig] =
       deriveWriter[SequencerNodeParameterConfig]

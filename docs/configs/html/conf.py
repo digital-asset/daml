@@ -177,7 +177,6 @@ rst_prolog = """
 .. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
 .. _Artifactory: https://digitalasset.jfrog.io/ui/repos/tree/General/sdk-ee
 .. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
-.. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
 .. _ts-daml-react: daml-react
 .. _ts-daml-ledger: daml-ledger
 .. _ts-daml-types: daml-types

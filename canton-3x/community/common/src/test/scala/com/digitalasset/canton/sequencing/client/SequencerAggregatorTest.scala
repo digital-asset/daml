@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -355,10 +355,10 @@ class SequencerAggregatorTest
       val f2 = aggregator
         .combineAndMergeEvent(sequencerBob, bobEvents(0))
 
-      f2.futureValueUS.discard
-
-      f1.isCompleted shouldBe true
-      f2.isCompleted shouldBe true
+      eventually() {
+        f1.isCompleted shouldBe true
+        f2.isCompleted shouldBe true
+      }
 
       assertCombinedDownstreamMessage(
         aggregator,

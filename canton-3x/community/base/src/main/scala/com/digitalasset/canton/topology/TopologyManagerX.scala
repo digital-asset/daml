@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -194,7 +194,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
     for {
       transactionsForHash <- EitherT
         .right[TopologyManagerError](
-          store.findTransactionsByTxHash(effective, NonEmpty(Set, transactionHash))
+          store.findTransactionsByTxHash(effective, Set(transactionHash))
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       existingTransaction <-
@@ -388,25 +388,57 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
         val ts = timestampForValidation()
         for {
           _ <- MonadUtil.sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
-          // validate incrementally and apply to in-memory state
-          _ <- processor
-            .validateAndApplyAuthorization(
-              SequencedTime(ts),
-              EffectiveTime(ts),
-              transactions,
-              abortIfCascading = !force,
-              expectFullAuthorization,
+          transactionsInStore <- EitherT.liftF(
+            store.findTransactionsByTxHash(
+              EffectiveTime.MaxValue,
+              transactions.map(_.transaction.hash).toSet,
             )
-            .leftMap { res =>
-              // a "duplicate rejection" is not a reason to report an error as it's just a no-op
-              res.flatMap(_.nonDuplicateRejectionReason).headOption match {
-                case Some(rejection) => rejection.toTopologyManagerError
-                case None =>
-                  TopologyManagerError.InternalError
-                    .Other("Topology transaction validation failed but there are no rejections")
-              }
+          )
+          existingHashes = transactionsInStore
+            .map(tx => tx.transaction.hash -> tx.hashOfSignatures)
+            .toMap
+          (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(
+            tx => existingHashes.get(tx.transaction.hash).contains(tx.hashOfSignatures)
+          )
+          _ = logger.debug(
+            s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"
+          )
+          _ = if (existingTransactions.nonEmpty) {
+            logger.debug(
+              s"Ignoring existing transactions: $existingTransactions"
+            )
+          }
+
+          _ <-
+            if (newTransactionsOrAdditionalSignatures.isEmpty)
+              EitherT.pure[Future, TopologyManagerError](())
+            else {
+              for {
+                // validate incrementally and apply to in-memory state
+                _ <- processor
+                  .validateAndApplyAuthorization(
+                    SequencedTime(ts),
+                    EffectiveTime(ts),
+                    newTransactionsOrAdditionalSignatures,
+                    abortIfCascading = !force,
+                    expectFullAuthorization,
+                  )
+                  .leftMap { res =>
+                    // a "duplicate rejection" is not a reason to report an error as it's just a no-op
+                    res.flatMap(_.nonDuplicateRejectionReason).headOption match {
+                      case Some(rejection) => rejection.toTopologyManagerError
+                      case None =>
+                        TopologyManagerError.InternalError
+                          .Other(
+                            "Topology transaction validation failed but there are no rejections"
+                          )
+                    }
+                  }
+                _ <- EitherT.right[TopologyManagerError](
+                  notifyObservers(ts, newTransactionsOrAdditionalSignatures)
+                )
+              } yield ()
             }
-          _ <- EitherT.right(notifyObservers(ts, transactions))
         } yield ()
       },
       "add-topology-transaction",

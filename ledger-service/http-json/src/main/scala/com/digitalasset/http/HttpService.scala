@@ -118,7 +118,6 @@ object HttpService {
           ledgerPort,
           clientConfig,
           clientChannelConfiguration,
-          startSettings.nonRepudiation,
         )
       ): ET[DamlLedgerClient]
 
@@ -130,7 +129,6 @@ object HttpService {
           packageMaxInboundMessageSize.fold(clientChannelConfiguration)(size =>
             clientChannelConfiguration.copy(maxInboundMessageSize = size)
           ),
-          startSettings.nonRepudiation,
         )
       ): ET[DamlLedgerClient]
 
@@ -407,7 +405,6 @@ object HttpService {
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
       clientChannelConfig: LedgerClientChannelConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
@@ -419,7 +416,6 @@ object HttpService {
         ledgerPort,
         clientConfig,
         clientChannelConfig,
-        nonRepudiationConfig,
         MaxInitialLedgerConnectRetryAttempts,
       )
       .map(

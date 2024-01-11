@@ -1,25 +1,27 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.InstanceReferenceX
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
 }
+import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityConfigTransforms,
   CommunityEnvironmentDefinition,
 }
 
-class SimplestPingXCommunityIntegrationTest
+sealed trait SimplestPingXCommunityIntegrationTest
     extends CommunityIntegrationTest
     with SharedCommunityEnvironment {
+
   override def environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition
-      .fromResource("distributed-single-domain.conf")
+    CommunityEnvironmentDefinition.simpleTopologyX
       .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
       .withManualStart
 
@@ -44,10 +46,16 @@ class SimplestPingXCommunityIntegrationTest
 
     participantsX.local.start()
 
-  // TODO(i16087): comment out as soon as the db sequencer supports group addresses
-//    participantsX.local.domains.connect_local(sequencer1x)
-  //    mediator1x.testing.fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
-  //    participant1.health.ping(participant2)
+    participantsX.local.domains.connect_local(sequencer1x)
+    mediator1x.testing
+      .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
+    participant1x.health.ping(participant2x)
   }
+}
 
+final class SimplestPingReferenceXCommunityIntegrationTest
+    extends SimplestPingXCommunityIntegrationTest {
+  registerPlugin(
+    new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
+  )
 }

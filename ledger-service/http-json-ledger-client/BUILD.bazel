@@ -15,7 +15,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings-pekko",
-        "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/rs-grpc-bridge",
@@ -26,9 +25,7 @@ da_scala_library(
 
 deps = {
     "ce": [],
-    "ee": [
-        "//runtime-components/non-repudiation-client",
-    ],
+    "ee": [],
 }
 
 [
@@ -43,9 +40,8 @@ deps = {
         deps = deps.get(edition) + [
             ":base",
             "//ledger/ledger-api-client",
-            "//libs-scala/rs-grpc-bridge",
-            "//ledger-service/http-json-cli:{}".format(edition),
             "//libs-scala/contextualized-logging",
+            "//libs-scala/rs-grpc-bridge",
             "@maven//:io_grpc_grpc_api",
             "@maven//:io_grpc_grpc_netty",
         ],

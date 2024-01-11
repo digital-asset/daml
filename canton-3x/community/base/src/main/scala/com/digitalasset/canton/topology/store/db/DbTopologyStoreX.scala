@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -77,17 +77,19 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   protected val readTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("topology-store-x-read")
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] =
-    findAsOfExclusive(
-      asOfExclusive,
-      sql" AND (" ++ hashes
-        .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
-        .forgetNE
-        .toList
-        .intercalate(sql" OR ") ++ sql")",
-    )
+  ): Future[Seq[GenericSignedTopologyTransactionX]] = {
+    if (hashes.isEmpty) Future.successful(Seq.empty)
+    else
+      findAsOfExclusive(
+        asOfExclusive,
+        sql" AND (" ++ hashes
+          .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
+          .toList
+          .intercalate(sql" OR ") ++ sql")",
+      )
+  }
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,

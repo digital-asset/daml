@@ -9,5 +9,5 @@ object Cli extends CliBase {
   override protected def configParser(getEnvVar: String => Option[String])(implicit
       jcd: JdbcConfigDefaults
   ): OptionParser =
-    new OptionParser(getEnvVar) with NonRepudiationOptions
+    new OptionParser(getEnvVar)
 }

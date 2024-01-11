@@ -55,9 +55,12 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 
+import SdkVersion.Class (SdkVersioned)
+
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
-    ExtractOptions
+       SdkVersioned
+    => ExtractOptions
     -> Service.NotificationHandler
     -> Options
     -> [NormalizedFilePath]
@@ -176,7 +179,8 @@ buildDocCtx dc_extractOptions tcmod  =
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: Service.NotificationHandler ->
+haddockParse :: SdkVersioned =>
+                Service.NotificationHandler ->
                 Options ->
                 [NormalizedFilePath] ->
                 MaybeT IO [Service.TcModuleResult]

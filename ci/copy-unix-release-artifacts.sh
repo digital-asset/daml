@@ -59,37 +59,6 @@ if [[ "$NAME" == "linux" ]]; then
     bazel build //daml-script/runner:daml-script-binary_distribute.jar
     cp bazel-bin/daml-script/runner/daml-script-binary_distribute.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
-    NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
-    bazel build //runtime-components/non-repudiation-app:non-repudiation-app_distribute.jar
-    cp bazel-bin/runtime-components/non-repudiation-app/non-repudiation-app_distribute.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION
-
-    NON_REPUDIATION_CORE_JAR=non-repudiation-core-$RELEASE_TAG.jar
-    NON_REPUDIATION_CORE_POM=non-repudiation-core-$RELEASE_TAG.pom
-    NON_REPUDIATION_CORE_SRC=non-repudiation-core-$RELEASE_TAG-sources.jar
-    NON_REPUDIATION_CORE_DOC=non-repudiation-core-$RELEASE_TAG-javadoc.jar
-    bazel build \
-          //runtime-components/non-repudiation-core/... \
-          //runtime-components/non-repudiation-core:non-repudiation-core_javadoc \
-          //runtime-components/non-repudiation-core:libnon-repudiation-core-src.jar
-    cp bazel-bin/runtime-components/non-repudiation-core/libnon-repudiation-core.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CORE_JAR
-    cp bazel-bin/runtime-components/non-repudiation-core/non-repudiation-core_pom.xml $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CORE_POM
-    cp bazel-bin/runtime-components/non-repudiation-core/libnon-repudiation-core-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CORE_SRC
-    cp bazel-bin/runtime-components/non-repudiation-core/non-repudiation-core_javadoc.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CORE_DOC
-
-
-    NON_REPUDIATION_CLIENT_JAR=non-repudiation-client-$RELEASE_TAG.jar
-    NON_REPUDIATION_CLIENT_POM=non-repudiation-client-$RELEASE_TAG.pom
-    NON_REPUDIATION_CLIENT_SRC=non-repudiation-client-$RELEASE_TAG-sources.jar
-    NON_REPUDIATION_CLIENT_DOC=non-repudiation-client-$RELEASE_TAG-javadoc.jar
-    bazel build \
-          //runtime-components/non-repudiation-client/... \
-          //runtime-components/non-repudiation-client:non-repudiation-client_javadoc \
-          //runtime-components/non-repudiation-client:libnon-repudiation-client-src.jar
-    cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_JAR
-    cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_pom.xml $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_POM
-    cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_SRC
-    cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_javadoc.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_DOC
-
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     bazel build //daml-script/daml:daml-script-dars
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/

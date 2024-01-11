@@ -1036,6 +1036,7 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_wartremover",
         ":community_participant",
+        ":community_sequencer-driver",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",

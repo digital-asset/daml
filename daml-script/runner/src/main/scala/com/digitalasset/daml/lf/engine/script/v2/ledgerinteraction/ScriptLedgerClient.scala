@@ -7,14 +7,13 @@ package v2.ledgerinteraction
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
-import com.daml.lf.command
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
 
@@ -42,6 +41,7 @@ object ScriptLedgerClient {
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
+      result: Value,
       childEvents: List[TreeEvent],
   ) extends TreeEvent
   final case class Created(
@@ -50,6 +50,28 @@ object ScriptLedgerClient {
       argument: Value,
       blob: Bytes,
   ) extends TreeEvent
+
+  def transactionTreeToCommandResults(tree: TransactionTree): List[CommandResult] =
+    tree.rootEvents.map {
+      case c: Created => CreateResult(c.contractId)
+      case e: Exercised => ExerciseResult(e.templateId, e.interfaceId, e.choice, e.result)
+    }
+
+  final case class SubmitFailure(
+      statusError: RuntimeException,
+      submitError: Option[SubmitError],
+  )
+
+  // Ideally this lives in ScriptF, but is needed to pass forward to IDELedgerClient
+  sealed trait SubmissionErrorBehaviour
+
+  object SubmissionErrorBehaviour {
+    final case object MustFail extends SubmissionErrorBehaviour
+    final case object MustSucceed extends SubmissionErrorBehaviour
+    final case object Try extends SubmissionErrorBehaviour
+  }
+
+  final case class CommandWithMeta(command: ApiCommand, explicitPackageId: Boolean)
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
@@ -145,28 +167,32 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      // TODO[SW]: The error behaviour handling logic is written in ScriptF, so each LedgerClient doesn't need to know about it
+      // However, the IDELedgerClient knows more about the script being run than it should, and requires to know whether a transaction behaved correctly or not
+      // in order to correctly set the partial transaction.
+      // Alternative routes attempted:
+      // - Omit the partial transaction, use the most recent transaction step.
+      //     This doesn't work because we don't know which errors are transaction errors and which aren't - some can be thrown by both submissions and other script questions
+      //     We could consider tagging all errors that _can_ be submission errors to include this data, either by adding a field, or using the `addSuppressed` method on RuntimeErrors
+      //     In order for this to work, we'll also need an explicit error for submitMustFail succeeding, as right now its a UserError. Likely breaks tests
+      //     This method should be discussed.
+      // - Wrap any error coming from submission paths in IdeLedgerClient with an error that includes the partial tx - will likely break some tests, but would work
+      //     Can't wrap the submitMustFail error, as it is thrown from ScriptF, after the IDELedgerClient, but the scenario service can assume that the most recent Commit is the
+      //     partial tx for that.
+      //     At that point though, the wrapper only needs to act as a tag to inform the scenario service to take the most recent transaction step as the partial tx
+      //     again requires explicit mustFail succeeded error, which will likely break some tests
+      // Suppressed exception tag is likely cleanest, though possibly a misuse of this feature.
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
-
-  def submitMustFail(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
-
-  def submitTree(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
+  ): Future[Either[
+    ScriptLedgerClient.SubmitFailure,
+    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+  ]]
 
   def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
@@ -230,29 +256,6 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[List[UserRight]]]
 
-  def trySubmit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]
-
-  def trySubmitConcurrently(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      commandss: List[List[command.ApiCommand]],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]]
-
   def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -284,15 +287,6 @@ trait ScriptLedgerClient {
   ): Future[Unit]
 
   def unvetDar(name: String)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit]
-
-  // TEMPORARY AND INTERNAL - once we have decided on a proper daml3-script upgrading interface for users, we will update this to be
-  // specified per command
-  // https://github.com/digital-asset/daml/issues/17703
-  def setProvidePackageId(shouldProvide: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
@@ -93,6 +93,7 @@ class ParticipantNodeBootstrap(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
+    skipRecipientsCheck: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -333,6 +334,7 @@ class ParticipantNodeBootstrap(
         topologyManager,
         packageDependencyResolver,
         componentFactory,
+        skipRecipientsCheck,
       ).map {
         case (
               partyNotifier,
@@ -474,6 +476,7 @@ object ParticipantNodeBootstrap {
         futureSupervisor = arguments.futureSupervisor,
         loggerFactory = arguments.loggerFactory,
         multiDomainEnabled = multiDomainEnabledForLedgerApiServer,
+        community = true,
       )
 
     protected def multiDomainEnabledForLedgerApiServer: Boolean
@@ -544,6 +547,7 @@ object ParticipantNodeBootstrap {
         createResourceService(arguments),
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
+        skipRecipientsCheck = false,
         ledgerApiServerFactory = ledgerApiServerFactory,
       )
 

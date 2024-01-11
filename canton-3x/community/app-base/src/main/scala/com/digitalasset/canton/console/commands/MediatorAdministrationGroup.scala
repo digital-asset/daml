@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -196,27 +196,31 @@ class MediatorAdministrationGroupWithInit(
 
 }
 
+class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
+    extends ConsoleCommandGroup.Impl(consoleCommandGroup)
+    with InitNodeId {
+  @Help.Summary("Assign a mediator to a domain")
+  def assign(
+      domainId: DomainId,
+      domainParameters: StaticDomainParameters,
+      sequencerConnections: SequencerConnections,
+  ): Unit = consoleEnvironment.run {
+    runner.adminCommand(
+      InitializeX(
+        domainId,
+        domainParameters.toInternal,
+        sequencerConnections,
+      )
+    )
+  }
+
+}
+
 trait MediatorXAdministrationGroupWithInit extends ConsoleCommandGroup {
 
+  private lazy val setup_ = new MediatorXSetupGroup(this)
   @Help.Summary("Methods used to initialize the node")
-  object setup extends ConsoleCommandGroup.Impl(this) with InitNodeId {
-
-    @Help.Summary("Assign a mediator to a domain")
-    def assign(
-        domainId: DomainId,
-        domainParameters: StaticDomainParameters,
-        sequencerConnections: SequencerConnections,
-    ): Unit = consoleEnvironment.run {
-      runner.adminCommand(
-        InitializeX(
-          domainId,
-          domainParameters.toInternal,
-          sequencerConnections,
-        )
-      )
-    }
-
-  }
+  def setup: MediatorXSetupGroup = setup_
 
   private lazy val testing_ = new MediatorTestingGroup(runner, consoleEnvironment, loggerFactory)
   @Help.Summary("Testing functionality for the mediator")

@@ -19,7 +19,7 @@ module DA.Test.DamlcIntegration
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Test.Util (redactStablePackageIds, standardizeQuotes)
+import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
@@ -94,7 +94,7 @@ import Test.Tasty.Runners (Result(..))
 import DA.Cli.Damlc.DependencyDb (installDependencies)
 import DA.Cli.Damlc.Packaging (createProjectPackageDb)
 import Module (stringToUnitId)
-import SdkVersion (sdkVersion, sdkPackageVersion)
+import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion, sdkPackageVersion)
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
@@ -124,17 +124,17 @@ instance IsOption IsScriptV2Opt where
 type ScriptPackageData = (FilePath, [PackageFlag])
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
-withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep :: SdkVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep mLfVer =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
 
-withDamlScriptV2Dep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep :: SdkVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep mLfVer = withDamlScriptV2Dep' mLfVer []
 
-withDamlScriptV2Dep' :: Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep' :: SdkVersioned => Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep' mLfVer extraPackages =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
@@ -155,7 +155,7 @@ scriptV2ExternalPackages =
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag
-withVersionedDamlScriptDep :: String -> String -> Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withVersionedDamlScriptDep :: SdkVersioned => String -> String -> Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
@@ -184,7 +184,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
       cont (dir </> projectPackageDatabase, packageFlags)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
@@ -298,7 +298,7 @@ getCantSkipPreprocessorTestFiles = do
             }
         ]
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
+getIntegrationTests :: SdkVersioned => (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
 getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
@@ -328,6 +328,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optPackageImports = packageFlags
+                , optDetailLevel = PrettyLevel (-1)
                 }
 
               mkIde options = do
@@ -522,7 +523,7 @@ checkDiagnostics log expected got
             DMessage m ->
               standardizeQuotes (T.pack m)
                   `T.isInfixOf`
-                      standardizeQuotes (redactStablePackageIds (T.unwords (T.words _message)))
+                      standardizeQuotes (T.unwords (T.words _message))
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)

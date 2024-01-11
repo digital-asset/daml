@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
@@ -82,6 +82,7 @@ class CantonLedgerApiServerFactory(
     allocateIndexerLockIds: DbConfig => Either[String, Option[IndexerLockIds]],
     meteringReportKey: MeteringReportKey,
     val multiDomainEnabled: Boolean,
+    community: Boolean,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -162,6 +163,7 @@ class CantonLedgerApiServerFactory(
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
           multiDomainEnabled = multiDomainEnabled,
+          community = community,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -251,6 +253,7 @@ trait ParticipantNodeBootstrapCommon {
       topologyManager: ParticipantTopologyManagerOps,
       packageDependencyResolver: PackageDependencyResolver,
       componentFactory: ParticipantComponentBootstrapFactory,
+      skipRecipientsCheck: Boolean,
       overrideKeyUniqueness: Option[Boolean] = None, // TODO(i13235) remove when UCK is gone
   )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
     FutureUnlessShutdown,
@@ -453,6 +456,7 @@ trait ParticipantNodeBootstrapCommon {
         sequencerInfoLoader,
         arguments.futureSupervisor,
         loggerFactory,
+        skipRecipientsCheck,
         multiDomainLedgerAPIEnabled = ledgerApiServerFactory.multiDomainEnabled,
       )
 

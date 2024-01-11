@@ -520,7 +520,17 @@ message ScenarioStep {
     Location location = 3;
   }
 
+  // Deprecated
   message AssertMustFail {
+    repeated Party actAs = 1;
+    repeated Party readAs = 2;
+    sfixed64 time = 3;
+    int32 tx_id = 4;
+    Location location = 5;
+  }
+
+  // TODO[SW] #18032 Consider adding the transaction itself.
+  message SubmissionFailed {
     repeated Party actAs = 1;
     repeated Party readAs = 2;
     sfixed64 time = 3;
@@ -532,7 +542,9 @@ message ScenarioStep {
   oneof step {
      Commit commit = 2;
      int64 pass_time = 3;
+     // TODO[SW] #18032 Remove this.
      AssertMustFail assert_must_fail = 4;
+     SubmissionFailed submission_failed = 5;
   }
 }
 

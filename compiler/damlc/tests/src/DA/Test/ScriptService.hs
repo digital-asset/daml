@@ -35,7 +35,7 @@ import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
 import Development.IDE.Types.Diagnostics (showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -45,7 +45,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $
         testGroup
@@ -54,7 +54,7 @@ main = do
             | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
             ]
 
-withScriptService :: LF.Version -> (SS.Handle -> IO ()) -> IO ()
+withScriptService :: SdkVersioned => LF.Version -> (SS.Handle -> IO ()) -> IO ()
 withScriptService lfVersion action =
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
@@ -95,7 +95,7 @@ withScriptService lfVersion action =
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
 
-testScriptService :: LF.Version -> IO SS.Handle -> TestTree
+testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
           testGroup
             ("LF " <> LF.renderVersion lfVersion)
@@ -1229,7 +1229,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
 options :: LF.Version -> Options
 options lfVersion = defaultOptions (Just lfVersion)
 
-runScripts :: IO SS.Handle -> LF.Version -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScripts :: SdkVersioned => IO SS.Handle -> LF.Version -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
 runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \ideState -> do
   setBufferModified ideState file $ Just $ T.unlines fileContent
   setFilesOfInterest ideState (HashSet.singleton file)

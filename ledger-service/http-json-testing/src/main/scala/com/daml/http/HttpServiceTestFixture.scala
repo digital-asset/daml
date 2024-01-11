@@ -92,7 +92,6 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       useTls: UseTls = UseTls.NoTls,
       useHttps: UseHttps = UseHttps.NoHttps,
       wsConfig: Option[WebsocketConfig] = None,
-      nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
       ledgerIdOverwrite: Option[LedgerId] = None,
       token: Option[Jwt] = None,
       targetScope: Option[String] = None,
@@ -125,7 +124,6 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         staticContentConfig = staticContentConfig,
         authConfig = targetScope.map(scope => new AuthConfig(Some(scope))),
         packageReloadInterval = doNotReloadPackages,
-        nonRepudiation = nonRepudiation,
       )
       httpService <- stripLeft(
         HttpService.start(

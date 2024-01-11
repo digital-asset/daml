@@ -64,7 +64,7 @@ import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
-import SdkVersion
+import SdkVersion.Class (SdkVersioned, damlStdlib)
 
 -- | Create the project package database containing the given dar packages.
 --
@@ -80,7 +80,7 @@ import SdkVersion
 --   ledger. Based on the Daml-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
-createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
@@ -259,7 +259,7 @@ data InstallDataDepArgs = InstallDataDepArgs
   , dalfPackage :: LF.DalfPackage
   }
 
-installDataDep :: InstallDataDepArgs -> IO ()
+installDataDep :: SdkVersioned => InstallDataDepArgs -> IO ()
 installDataDep InstallDataDepArgs {..} = do
   exposedModules <- getExposedModules opts projectRoot
 
@@ -342,7 +342,7 @@ data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
   }
 
 -- | Generate interface files and install them in the package database
-generateAndInstallIfaceFiles :: GenerateAndInstallIfaceFilesArgs -> IO ()
+generateAndInstallIfaceFiles :: SdkVersioned => GenerateAndInstallIfaceFilesArgs -> IO ()
 generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
     let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgId <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
@@ -462,7 +462,7 @@ recachePkgDb dbPath = do
         ]
 
 -- TODO We should generate the list of stable packages automatically here.
-baseImports :: [PackageFlag]
+baseImports :: SdkVersioned => [PackageFlag]
 baseImports =
     [ exposePackage
         (GHC.stringToUnitId "daml-prim")
@@ -857,7 +857,7 @@ checkForUnitIdConflicts dalfs builtinDependencies
           ]
         ]
 
-getExposedModules :: Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
+getExposedModules :: SdkVersioned => Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
 getExposedModules opts projectRoot = do
     logger <- getLogger opts "list exposed modules"
     -- We need to avoid inference of package flags. Otherwise, we will

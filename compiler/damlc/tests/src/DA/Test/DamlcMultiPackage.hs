@@ -20,7 +20,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
-import SdkVersion (sdkVersion)
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, listDirectory, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
@@ -86,7 +86,7 @@ data CompositeDarDefinition = CompositeDarDefinition
 -}
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
   oldPath <- getSearchPath
@@ -108,7 +108,7 @@ main = do
         (defaultMain $ tests damlAssistant)
 
 
-tests :: FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> TestTree
 tests damlAssistant =
   testGroup
     "Multi-Package build"

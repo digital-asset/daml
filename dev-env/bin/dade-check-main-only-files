@@ -6,11 +6,11 @@
 # on a PR branch which touches those files.
 #
 
-DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 --format=%b | tr -d ' ' | grep '^run-all-tests:true$')}"
+DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 --format=%b | tr -d ' ' | grep '^run-all-tests: *true$')}"
 if [[ -n "$DADE_SKIP_MAIN_ONLY_CHECK" ]]; then
   # The user has been explicit about whether they want all tests run,
   # either by setting the env var, or adding a line to their last commit.
-  exit 0; 
+  exit 0
 fi
 
 MODIFIED_FILES=$(echo "$@" | xargs -n1 | sort)

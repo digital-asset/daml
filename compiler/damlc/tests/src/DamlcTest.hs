@@ -23,10 +23,10 @@ import qualified Data.Text.Extended as T
 import DA.Bazel.Runfiles
 import DA.Test.Process
 import DA.Test.Util
-import SdkVersion
+import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
-main = do
+main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
@@ -40,13 +40,13 @@ main = do
 
 -- TODO https://github.com/digital-asset/daml/issues/12051
 --   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
-tests :: FilePath -> FilePath -> FilePath -> TestTree
+tests :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
 tests damlc scriptDar script1DevDar = testGroup "damlc"
   [ testsForDamlcValidate damlc
   , testsForDamlcTest damlc scriptDar script1DevDar
   ]
 
-testsForDamlcValidate :: FilePath -> TestTree
+testsForDamlcValidate :: SdkVersioned => FilePath -> TestTree
 testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   [ testCase "Non-existent file" $ do
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", "does-not-exist.dar"] ""
@@ -267,7 +267,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
 -- TODO https://github.com/digital-asset/daml/issues/12051
 --   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
-testsForDamlcTest :: FilePath -> FilePath -> FilePath -> TestTree
+testsForDamlcTest :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
 testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
           (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", "foobar"] ""

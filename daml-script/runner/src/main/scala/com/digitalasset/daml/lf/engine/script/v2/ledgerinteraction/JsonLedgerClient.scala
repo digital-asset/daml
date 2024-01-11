@@ -308,24 +308,30 @@ class JsonLedgerClient(
       })
     }
   }
+
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
+      commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
+      languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
-    for {
+  ): Future[Either[
+    ScriptLedgerClient.SubmitFailure,
+    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+  ]] = {
+    val resultF = for {
       _ <- Converter.noDisclosures(disclosures)
       partySets <- validateSubmitParties(actAs, readAs)
 
       result <- commands match {
         case Nil => Future { Right(List()) }
         case cmd :: Nil =>
-          cmd match {
+          cmd.command match {
             case command.CreateCommand(tplRef, argument) =>
               create(tplRef.assertToTypeConName, argument, partySets)
             case command.ExerciseCommand(typeRef, cid, choice, argument) =>
@@ -343,36 +349,11 @@ class JsonLedgerClient(
           )
       }
     } yield result
-  }
-
-  override def submitMustFail(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, disclosures, commands, optLocation).map {
-      case Right(_) => Left(())
-      case Left(_) => Right(())
+    // Json api doesn't give back a SubmitError or a transaction tree.
+    resultF.map {
+      case Left(err) => Left(ScriptLedgerClient.SubmitFailure(err, None))
+      case Right(results) => Right((results, None))
     }
-  }
-
-  override def submitTree(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[ScriptLedgerClient.TransactionTree] = {
-    Future.failed(
-      new RuntimeException(
-        "submitTree is not supported when running Daml Script over the JSON API."
-      )
-    )
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
@@ -695,31 +676,6 @@ class JsonLedgerClient(
       )
     }
 
-  override def trySubmit(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      disclosures: List[Disclosure],
-      commands: List[command.ApiCommand],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] = unsupportedOn("trySubmit")
-
-  override def trySubmitConcurrently(
-      actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party],
-      commandss: List[List[command.ApiCommand]],
-      optLocation: Option[Location],
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[List[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]]] = unsupportedOn(
-    "trySubmitConcurrently"
-  )
-
   override def vetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -755,12 +711,6 @@ class JsonLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = unsupportedOn("unvetDar")
-
-  override def setProvidePackageId(shouldProvide: Boolean)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = unsupportedOn("setProvidePackageId")
 }
 
 object JsonLedgerClient {

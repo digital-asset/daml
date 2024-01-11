@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -28,7 +28,12 @@ import com.digitalasset.canton.sequencing.client.{
   TestSubscriptionError,
 }
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
-import com.digitalasset.canton.util.OrderedBucketMergeHub.{ActiveSourceTerminated, NewConfiguration}
+import com.digitalasset.canton.util.OrderedBucketMergeHub.{
+  ActiveSourceTerminated,
+  DeadlockDetected,
+  DeadlockTrigger,
+  NewConfiguration,
+}
 import com.digitalasset.canton.util.{OrderedBucketMergeConfig, ResourceUtil}
 import com.digitalasset.canton.{
   BaseTest,
@@ -159,11 +164,17 @@ class SequencerAggregatorPekkoTest
           sink.request(5)
           sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
           sink.expectNext() shouldBe Left(ActiveSourceTerminated(sequencerAlice, None))
+          sink.expectNext() shouldBe Left(
+            DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
+          )
 
           (handle, sink)
         },
         _.warningMessage should include(
           s"Sequencer subscription for $sequencerAlice failed with $UnretryableError"
+        ),
+        _.errorMessage should include(
+          s"Sequencer subscription for domain $domainId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
       )
       killSwitch.shutdown()
@@ -194,10 +205,16 @@ class SequencerAggregatorPekkoTest
           sink.request(5)
           sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
           sink.expectNext() shouldBe Left(ActiveSourceTerminated(sequencerAlice, Some(ex)))
+          sink.expectNext() shouldBe Left(
+            DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
+          )
 
           (handle, sink)
         },
         _.errorMessage should include(s"Sequencer subscription for $sequencerAlice failed"),
+        _.errorMessage should include(
+          s"Sequencer subscription for domain $domainId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+        ),
       )
       killSwitch.shutdown()
       sink.expectComplete()
@@ -449,7 +466,7 @@ class SequencerAggregatorPekkoTest
       doneF.futureValue
     }
 
-    "aggregate health signal for a multiple sequencers" in { implicit fixture =>
+    "aggregate health signal for multiple sequencers" in { implicit fixture =>
       import fixture.*
 
       val aggregator = mkAggregatorPekko()
@@ -541,6 +558,130 @@ class SequencerAggregatorPekkoTest
           s"Disconnected from domain $domainId"
         )
       }
+    }
+
+    "become unhealthy upon deadlock notifications" in { implicit fixture =>
+      import fixture.*
+
+      val aggregator = mkAggregatorPekko()
+
+      val factoryAlice1 =
+        TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "alice-1"))
+      val factoryBob1 =
+        TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "bob-1"))
+      val factoryCarlos =
+        TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "carlos"))
+
+      val signatureAlice = fakeSignatureFor("Alice")
+      val signatureBob = fakeSignatureFor("Bob")
+      val signatureCarlos = fakeSignatureFor("Carlos")
+
+      factoryAlice1.add(
+        mkEvents(SequencerCounter.Genesis, 1)
+          .map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *
+      )
+      factoryBob1.add(
+        mkEvents(SequencerCounter.Genesis, 1)
+          .map(_.copy(signatures = NonEmpty(Set, signatureBob))) *
+      )
+      factoryCarlos.add(
+        mkEvents(SequencerCounter.Genesis + 3, 1)
+          .map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *
+      )
+
+      val config1 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          sequencerAlice -> Config("1")(factoryAlice1),
+          sequencerBob -> Config("1")(factoryBob1),
+          sequencerCarlos -> Config("1")(factoryCarlos),
+        ),
+      )
+
+      val ((configSource, (doneF, reportedHealth)), sink) = Source
+        .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
+        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+      configSource.offer(config1) shouldBe QueueOfferResult.Enqueued
+
+      reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
+
+      sink.request(10)
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, SequencerCounter.Genesis - 1L))
+      normalize(sink.expectNext().value) shouldBe
+        normalize(
+          Event(
+            SequencerCounter.Genesis,
+            NonEmpty(Set, signatureAlice, signatureBob),
+          ).asOrdinarySerializedEvent
+        )
+
+      eventually() {
+        reportedHealth.getState shouldBe ComponentHealthState.Ok()
+      }
+
+      // Now reconfigure Alice and Bob to get into deadlock: each source provides a different next sequencer counter
+      clue("Create a deadlock") {
+        val factoryAlice2 =
+          TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "alice-2"))
+        val factoryBob2 =
+          TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "bob-2"))
+
+        factoryAlice2.add(mkEvents(SequencerCounter.Genesis + 1, 1) *)
+        factoryBob2.add(mkEvents(SequencerCounter.Genesis + 2, 1) *)
+        val config2 = OrderedBucketMergeConfig(
+          PositiveInt.tryCreate(2),
+          NonEmpty(
+            Map,
+            sequencerAlice -> Config("2")(factoryAlice2),
+            sequencerBob -> Config("2")(factoryBob2),
+            sequencerCarlos -> Config("1")(factoryCarlos),
+          ),
+        )
+        loggerFactory.assertLogs(
+          {
+            configSource.offer(config2)
+            sink.expectNext() shouldBe Left(NewConfiguration(config2, SequencerCounter.Genesis))
+            inside(sink.expectNext()) {
+              case Left(DeadlockDetected(elems, DeadlockTrigger.ElementBucketing)) =>
+                elems should have size 3
+            }
+            eventually() {
+              reportedHealth.getState shouldBe ComponentHealthState.failed(
+                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for domain $domainId any more."
+              )
+            }
+          },
+          _.errorMessage should include(
+            s"Sequencer subscriptions have diverged and cannot reach the threshold for domain $domainId any more."
+          ),
+        )
+      }
+
+      clue("Resolve deadlock through reconfiguration") {
+        val config3 = OrderedBucketMergeConfig(
+          PositiveInt.tryCreate(1),
+          NonEmpty(
+            Map,
+            sequencerCarlos -> Config("1")(factoryCarlos),
+          ),
+        )
+        configSource.offer(config3) shouldBe QueueOfferResult.Enqueued
+        sink.expectNext() shouldBe Left(NewConfiguration(config3, SequencerCounter.Genesis))
+        sink.expectNext().value shouldBe
+          Event(SequencerCounter(3), NonEmpty(Set, signatureCarlos)).asOrdinarySerializedEvent
+
+        eventually() {
+          reportedHealth.getState shouldBe ComponentHealthState.Ok()
+        }
+      }
+
+      configSource.complete()
+      sink.expectComplete()
+      doneF.futureValue
+
     }
   }
 }

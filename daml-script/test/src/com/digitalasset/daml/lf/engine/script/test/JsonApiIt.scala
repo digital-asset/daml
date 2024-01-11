@@ -14,7 +14,7 @@ import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
-import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.http.{HttpService, StartSettings}
 import com.daml.integrationtest._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
@@ -140,7 +140,6 @@ trait JsonApiFixture
                 override val wsConfig = None
                 override val allowNonHttps = true
                 override val authConfig = None
-                override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
                 override val logEncoder = LogEncoder.Plain
                 override val metricsReporter: Option[MetricsReporter] = None

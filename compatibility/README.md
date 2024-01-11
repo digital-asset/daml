@@ -25,20 +25,6 @@ Since running all tests can be rather slow, we run them in a daily
 cron job. On each PR we only include HEAD and the latest stable
 release.
 
-#### Cross-version compatibility between ledger-api-test-tool
-
-We test that the `ledger-api-test-tool` of a given version passes
-against Sandbox next and classic of another version. We test all
-possible version combinations here to ensure forwards and backwards
-compatibility. The `ledger-api-test-tool` includes a DAR built using a
-compiler from the same SDK version so this also ensures that sandbox
-can load a DAR from a different SDK version. We test both in-memory
-backends and postgresql backends.
-
-Since all our JVM ledger clients use the same client libraries we
-consider the `ledger-api-test-tool` to be a good proxy and if things
-are not covered it should be extended.
-
 #### Data-continuity for Sandbox classic
 
 We have migration tests that work as follows:
@@ -86,5 +72,4 @@ We test that we can run the create-daml-app tests with JS client
 libraries and codegen from one version against the JSON API and
 Sandbox from another version. We test all version combinations
 here. Currently we do not test different versions of the JSON API and
-Sandbox. This should be covered by the `ledger-api-test-tool` tests
-since the JSON API uses the same client libraries.
+Sandbox.

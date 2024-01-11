@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -37,8 +37,13 @@ import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.{StoredTopologyTransactionsX, TimeQueryX}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+  TimeQueryX,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -212,6 +217,33 @@ class TopologyAdministrationGroupX(
         }
     }
 
+    @Help.Summary("Find the latest transaction for a given mapping hash")
+    @Help.Description(
+      """
+        mappingHash: the unique key of the topology mapping to find
+        store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
+               - "<domain-id>": the topology transaction will be looked up in the specified domain store.
+        includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
+    )
+    def findLatestByMappingHash[M <: TopologyMappingX: ClassTag](
+        mappingHash: MappingHash,
+        filterStore: String,
+        includeProposals: Boolean = false,
+    ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
+      val latestAuthorized = list(filterStore = filterStore)
+        .collectOfMapping[M]
+        .filter(_.mapping.uniqueKey == mappingHash)
+        .result
+      val latestProposal =
+        if (includeProposals)
+          list(filterStore = filterStore, proposals = true)
+            .collectOfMapping[M]
+            .filter(_.mapping.uniqueKey == mappingHash)
+            .result
+        else Seq.empty
+      (latestAuthorized ++ latestProposal).maxByOption(_.transaction.transaction.serial)
+    }
+
     @Help.Summary("Manage topology transaction purging", FeatureFlag.Preview)
     @Help.Group("Purge Topology Transactions")
     object purge extends Helpful {
@@ -260,37 +292,58 @@ class TopologyAdministrationGroupX(
 
       val thisNodeRootKey = Some(instance.id.uid.namespace.fingerprint)
 
+      def latest[M <: TopologyMappingX: ClassTag](hash: MappingHash) = {
+        instance.topology.transactions
+          .findLatestByMappingHash[M](
+            hash,
+            filterStore = AuthorizedStore.filterName,
+            includeProposals = true,
+          )
+          .map(_.transaction)
+      }
+
       // create and sign the initial domain parameters
       val domainParameterState =
-        instance.topology.domain_parameters.propose(
-          domainId,
-          ConsoleDynamicDomainParameters
-            .initialValues(
-              consoleEnvironment.environment.clock,
-              ProtocolVersion.latest,
-            ),
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+        latest[DomainParametersStateX](DomainParametersStateX.uniqueKey(domainId))
+          .getOrElse(
+            instance.topology.domain_parameters.propose(
+              domainId,
+              ConsoleDynamicDomainParameters
+                .initialValues(
+                  consoleEnvironment.environment.clock,
+                  ProtocolVersion.latest,
+                ),
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
 
-      val mediatorState =
-        instance.topology.mediators.propose(
-          domainId,
-          threshold = PositiveInt.one,
-          group = NonNegativeInt.zero,
-          active = mediators,
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+      val mediatorState = {
+        latest[MediatorDomainStateX](MediatorDomainStateX.uniqueKey(domainId, NonNegativeInt.zero))
+          .getOrElse(
+            instance.topology.mediators.propose(
+              domainId,
+              threshold = PositiveInt.one,
+              group = NonNegativeInt.zero,
+              active = mediators,
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
+      }
 
-      val sequencerState =
-        instance.topology.sequencers.propose(
-          domainId,
-          threshold = PositiveInt.one,
-          active = sequencers,
-          signedBy = thisNodeRootKey,
-          store = Some(AuthorizedStore.filterName),
-        )
+      val sequencerState = {
+        latest[SequencerDomainStateX](SequencerDomainStateX.uniqueKey(domainId))
+          .getOrElse(
+            instance.topology.sequencers.propose(
+              domainId,
+              threshold = PositiveInt.one,
+              active = sequencers,
+              signedBy = thisNodeRootKey,
+              store = Some(AuthorizedStore.filterName),
+            )
+          )
+      }
 
       Seq(domainParameterState, sequencerState, mediatorState)
     }
@@ -764,6 +817,7 @@ class TopologyAdministrationGroupX(
         member: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
+        synchronize: Option[config.NonNegativeDuration],
     ): Unit = nodeInstance match {
       case nodeInstanceX: InstanceReferenceX =>
         val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
@@ -800,6 +854,7 @@ class TopologyAdministrationGroupX(
             signedBy = signingKeyForNow,
             add = true,
             nodeInstance = nodeInstanceX,
+            synchronize = synchronize,
           )
 
           // Remove the old key by sending the matching `Remove` transaction
@@ -811,6 +866,7 @@ class TopologyAdministrationGroupX(
             signedBy = signingKeyForNow,
             add = false,
             nodeInstance = nodeInstanceX,
+            synchronize = synchronize,
           )
         }
       case _ =>

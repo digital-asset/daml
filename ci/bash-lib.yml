@@ -33,11 +33,12 @@ steps:
         fi
     }
     open_pr() {
-      local branch title body pr_number header output
+      local branch title body pr_number base header output
       branch="$1"
       title="$2"
       body="${3:-}"
       pr_number="${4:-}"
+      base="${5:-main}"
       header=$(mktemp)
       output=$(mktemp)
 
@@ -50,8 +51,9 @@ steps:
       git push origin $branch:$branch
       jq -n --arg title "$title" \
             --arg branch "$branch" \
+            --arg base "$base" \
             --arg body "$(printf "$body")" \
-            '{"title": $title, "head": $branch, "base": "main", "body": $body}' \
+            '{"title": $title, "head": $branch, "base": $base, "body": $body}' \
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
                --fail \

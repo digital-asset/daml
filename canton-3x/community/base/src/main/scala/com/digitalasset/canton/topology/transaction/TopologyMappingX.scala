@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -69,26 +69,25 @@ sealed trait TopologyMappingX extends Product with Serializable with PrettyPrint
 
   def toProtoV2: v2.TopologyMappingX
 
-  lazy val uniqueKey: MappingHash = {
-    // TODO(#14048) use different hash purpose (this one isn't used anymore)
+  def uniqueKey: MappingHash
+
+  final def select[TargetMapping <: TopologyMappingX](implicit
+      M: ClassTag[TargetMapping]
+  ): Option[TargetMapping] = M.unapply(this)
+
+}
+
+object TopologyMappingX {
+
+  private[transaction] def buildUniqueKey(code: TopologyMappingX.Code)(
+      addUniqueKeyToBuilder: HashBuilder => HashBuilder
+  ): MappingHash =
     MappingHash(
       addUniqueKeyToBuilder(
         Hash.build(HashPurpose.DomainTopologyTransactionMessageSignature, HashAlgorithm.Sha256)
       ).add(code.dbInt)
         .finish()
     )
-  }
-
-  final def select[TargetMapping <: TopologyMappingX](implicit
-      M: ClassTag[TargetMapping]
-  ): Option[TargetMapping] = M.unapply(this)
-
-  /** Returns a hash builder based on the values of the topology mapping that needs to be unique */
-  protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder
-
-}
-
-object TopologyMappingX {
 
   final case class MappingHash(hash: Hash) extends AnyVal
 
@@ -369,13 +368,14 @@ final case class NamespaceDelegationX private (
     RequiredNamespaces(Set(namespace), requireRootDelegation = true)
   }
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(namespace.fingerprint.unwrap)
-      .add(target.fingerprint.unwrap)
+  override lazy val uniqueKey: MappingHash =
+    NamespaceDelegationX.uniqueKey(namespace, target.fingerprint)
 }
 
 object NamespaceDelegationX {
+
+  def uniqueKey(namespace: Namespace, target: Fingerprint): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap).add(target.unwrap))
 
   def create(
       namespace: Namespace,
@@ -495,11 +495,13 @@ final case class DecentralizedNamespaceDefinitionX private (
     }
   }
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(namespace.fingerprint.unwrap)
+  override def uniqueKey: MappingHash = DecentralizedNamespaceDefinitionX.uniqueKey(namespace)
 }
 
 object DecentralizedNamespaceDefinitionX {
+
+  def uniqueKey(namespace: Namespace): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap))
 
   def code: TopologyMappingX.Code = Code.DecentralizedNamespaceDefinitionX
 
@@ -581,13 +583,14 @@ final case class IdentifierDelegationX(identifier: UniqueIdentifier, target: Sig
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(identifier))
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(identifier.toProtoPrimitive)
-      .add(target.fingerprint.unwrap)
+  override def uniqueKey: MappingHash =
+    IdentifierDelegationX.uniqueKey(identifier, target.fingerprint)
 }
 
 object IdentifierDelegationX {
+
+  def uniqueKey(identifier: UniqueIdentifier, targetKey: Fingerprint): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(identifier.toProtoPrimitive).add(targetKey.unwrap))
 
   def code: Code = Code.IdentifierDelegationX
 
@@ -616,9 +619,6 @@ final case class OwnerToKeyMappingX(
     keys: NonEmpty[Seq[PublicKey]],
 ) extends TopologyMappingX {
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    TopologyMappingX.addDomainId(builder.add(member.uid.toProtoPrimitive), domain)
-
   def toProto: v2.OwnerToKeyMappingX = v2.OwnerToKeyMappingX(
     member = member.toProtoPrimitive,
     publicKeys = keys.map(_.toProtoPublicKeyV0),
@@ -643,9 +643,15 @@ final case class OwnerToKeyMappingX(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(member.uid))
 
+  override def uniqueKey: MappingHash = OwnerToKeyMappingX.uniqueKey(member, domain)
 }
 
 object OwnerToKeyMappingX {
+
+  def uniqueKey(member: Member, domain: Option[DomainId]): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(b =>
+      TopologyMappingX.addDomainId(b.add(member.uid.toProtoPrimitive), domain)
+    )
 
   def code: TopologyMappingX.Code = Code.OwnerToKeyMappingX
 
@@ -707,13 +713,15 @@ final case class DomainTrustCertificateX(
   ): RequiredAuthX =
     RequiredUids(Set(participantId.uid))
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(participantId.toProtoPrimitive)
-      .add(domainId.toProtoPrimitive)
+  override def uniqueKey: MappingHash = DomainTrustCertificateX.uniqueKey(participantId, domainId)
 }
 
 object DomainTrustCertificateX {
+
+  def uniqueKey(participantId: ParticipantId, domainId: DomainId): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(participantId.toProtoPrimitive).add(domainId.toProtoPrimitive)
+    )
 
   def code: Code = Code.DomainTrustCertificateX
 
@@ -855,10 +863,8 @@ final case class ParticipantDomainPermissionX(
   ): RequiredAuthX =
     RequiredUids(Set(domainId.uid))
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(domainId.toProtoPrimitive)
-      .add(participantId.toProtoPrimitive)
+  override def uniqueKey: MappingHash =
+    ParticipantDomainPermissionX.uniqueKey(domainId, participantId)
 
   def setDefaultLimitIfNotSet(
       defaultLimits: ParticipantDomainLimits
@@ -877,6 +883,11 @@ final case class ParticipantDomainPermissionX(
 }
 
 object ParticipantDomainPermissionX {
+
+  def uniqueKey(domainId: DomainId, participantId: ParticipantId): MappingHash =
+    TopologyMappingX.buildUniqueKey(
+      code
+    )(_.add(domainId.toProtoPrimitive).add(participantId.toProtoPrimitive))
 
   def code: Code = Code.ParticipantDomainPermissionX
 
@@ -948,13 +959,15 @@ final case class PartyHostingLimitsX(
   ): RequiredAuthX =
     RequiredUids(Set(domainId.uid))
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(domainId.toProtoPrimitive)
-      .add(partyId.toProtoPrimitive)
+  override def uniqueKey: MappingHash = PartyHostingLimitsX.uniqueKey(domainId, partyId)
 }
 
 object PartyHostingLimitsX {
+
+  def uniqueKey(domainId: DomainId, partyId: PartyId): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(domainId.toProtoPrimitive).add(partyId.toProtoPrimitive)
+    )
 
   def code: Code = Code.PartyHostingLimitsX
 
@@ -1001,13 +1014,15 @@ final case class VettedPackagesX(
   ): RequiredAuthX =
     RequiredUids(Set(participantId.uid))
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(participantId.toProtoPrimitive)
-      .add(domainId.fold("")(_.toProtoPrimitive))
+  override def uniqueKey: MappingHash = VettedPackagesX.uniqueKey(participantId, domainId)
 }
 
 object VettedPackagesX {
+
+  def uniqueKey(participantId: ParticipantId, domainId: Option[DomainId]): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(participantId.toProtoPrimitive).add(domainId.fold("")(_.toProtoPrimitive))
+    )
 
   def code: Code = Code.VettedPackagesX
 
@@ -1104,13 +1119,15 @@ final case class PartyToParticipantX(
       )
   }
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(partyId.toProtoPrimitive)
-      .add(domainId.fold("")(_.toProtoPrimitive))
+  override def uniqueKey: MappingHash = PartyToParticipantX.uniqueKey(partyId, domainId)
 }
 
 object PartyToParticipantX {
+
+  def uniqueKey(partyId: PartyId, domainId: Option[DomainId]): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(partyId.toProtoPrimitive).add(domainId.fold("")(_.toProtoPrimitive))
+    )
 
   def code: Code = Code.PartyToParticipantX
 
@@ -1166,13 +1183,15 @@ final case class AuthorityOfX(
     RequiredUids(Set(partyId.uid) ++ parties.map(_.uid))
   }
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder
-      .add(partyId.toProtoPrimitive)
-      .add(domainId.fold("")(_.toProtoPrimitive))
+  override def uniqueKey: MappingHash = AuthorityOfX.uniqueKey(partyId, domainId)
 }
 
 object AuthorityOfX {
+
+  def uniqueKey(partyId: PartyId, domainId: Option[DomainId]): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(partyId.toProtoPrimitive).add(domainId.fold("")(_.toProtoPrimitive))
+    )
 
   def code: Code = Code.AuthorityOfX
 
@@ -1199,9 +1218,6 @@ object AuthorityOfX {
 final case class DomainParametersStateX(domain: DomainId, parameters: DynamicDomainParameters)
     extends TopologyMappingX {
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(domain.uid.toProtoPrimitive)
-
   def toProtoV2: v2.TopologyMappingX =
     v2.TopologyMappingX(
       v2.TopologyMappingX.Mapping.DomainParametersState(
@@ -1222,9 +1238,14 @@ final case class DomainParametersStateX(domain: DomainId, parameters: DynamicDom
   override def requiredAuth(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(domain.uid))
+
+  override def uniqueKey: MappingHash = DomainParametersStateX.uniqueKey(domain)
 }
 
 object DomainParametersStateX {
+
+  def uniqueKey(domainId: DomainId): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
 
   def code: TopologyMappingX.Code = Code.DomainParametersStateX
 
@@ -1259,9 +1280,6 @@ final case class MediatorDomainStateX private (
 
   lazy val allMediatorsInGroup = active ++ observers
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(domain.uid.toProtoPrimitive).add(group.unwrap)
-
   def toProto: v2.MediatorDomainStateX =
     v2.MediatorDomainStateX(
       domain = domain.toProtoPrimitive,
@@ -1288,9 +1306,14 @@ final case class MediatorDomainStateX private (
   override def requiredAuth(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(domain.uid))
+
+  override def uniqueKey: MappingHash = MediatorDomainStateX.uniqueKey(domain, group)
 }
 
 object MediatorDomainStateX {
+
+  def uniqueKey(domainId: DomainId, group: NonNegativeInt): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive).add(group.unwrap))
 
   def code: TopologyMappingX.Code = Code.MediatorDomainStateX
 
@@ -1352,9 +1375,6 @@ final case class SequencerDomainStateX private (
 
   lazy val allSequencers = active ++ observers
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(domain.uid.toProtoPrimitive)
-
   def toProto: v2.SequencerDomainStateX =
     v2.SequencerDomainStateX(
       domain = domain.toProtoPrimitive,
@@ -1380,9 +1400,14 @@ final case class SequencerDomainStateX private (
   override def requiredAuth(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(domain.uid))
+
+  override def uniqueKey: MappingHash = SequencerDomainStateX.uniqueKey(domain)
 }
 
 object SequencerDomainStateX {
+
+  def uniqueKey(domainId: DomainId): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
 
   def code: TopologyMappingX.Code = Code.SequencerDomainStateX
 
@@ -1429,9 +1454,6 @@ final case class PurgeTopologyTransactionX private (
     mappings: NonEmpty[Seq[TopologyMappingX]],
 ) extends TopologyMappingX {
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(domain.uid.toProtoPrimitive)
-
   def toProto: v2.PurgeTopologyTransactionX =
     v2.PurgeTopologyTransactionX(
       domain = domain.toProtoPrimitive,
@@ -1455,9 +1477,14 @@ final case class PurgeTopologyTransactionX private (
   override def requiredAuth(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = RequiredUids(Set(domain.uid))
+
+  override def uniqueKey: MappingHash = PurgeTopologyTransactionX.uniqueKey(domain)
 }
 
 object PurgeTopologyTransactionX {
+
+  def uniqueKey(domainId: DomainId): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive))
 
   def code: TopologyMappingX.Code = Code.PurgeTopologyTransactionX
 
@@ -1492,9 +1519,6 @@ final case class TrafficControlStateX private (
     totalExtraTrafficLimit: PositiveLong,
 ) extends TopologyMappingX {
 
-  override protected def addUniqueKeyToBuilder(builder: HashBuilder): HashBuilder =
-    builder.add(domain.uid.toProtoPrimitive).add(member.uid.toProtoPrimitive)
-
   def toProto: v2.TrafficControlStateX = {
     v2.TrafficControlStateX(
       domain = domain.toProtoPrimitive,
@@ -1520,9 +1544,16 @@ final case class TrafficControlStateX private (
   ): RequiredAuthX = RequiredUids(Set(domain.uid))
 
   override def restrictedToDomain: Option[DomainId] = Some(domain)
+
+  override def uniqueKey: MappingHash = TrafficControlStateX.uniqueKey(domain, member)
 }
 
 object TrafficControlStateX {
+
+  def uniqueKey(domainId: DomainId, member: Member): MappingHash =
+    TopologyMappingX.buildUniqueKey(code)(
+      _.add(domainId.toProtoPrimitive).add(member.uid.toProtoPrimitive)
+    )
 
   def code: TopologyMappingX.Code = Code.TrafficControlStateX
 
