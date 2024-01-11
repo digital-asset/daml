@@ -41,7 +41,11 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
     bytes.map((dar.main.pkgId, _))
   }
 
-  private def testPackagePair(upgraded: String, upgrading: String, failureMessage: Option[String]): Future[Assertion] = {
+  private def testPackagePair(
+      upgraded: String,
+      upgrading: String,
+      failureMessage: Option[String],
+  ): Future[Assertion] = {
     for {
       client <- defaultLedgerClient()
       (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
@@ -88,7 +92,9 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
           uploadV2Result match {
             case None => succeed;
             case Some(err) => {
-              fail(s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err");
+              fail(
+                s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
+              );
             }
           }
         }
@@ -98,25 +104,53 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
 
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {
-      testPackagePair("test-common/upgrades-ValidUpgrade-v1.dar", "test-common/upgrades-ValidUpgrade-v2.dar", None)
+      testPackagePair(
+        "test-common/upgrades-ValidUpgrade-v1.dar",
+        "test-common/upgrades-ValidUpgrade-v2.dar",
+        None,
+      )
     }
     "report error when module is missing in upgrading package" in {
-      testPackagePair("test-common/upgrades-MissingModule-v1.dar", "test-common/upgrades-MissingModule-v2.dar", Some("MissingModule"))
+      testPackagePair(
+        "test-common/upgrades-MissingModule-v1.dar",
+        "test-common/upgrades-MissingModule-v2.dar",
+        Some("MissingModule"),
+      )
     }
     "report error when template is missing in upgrading package" in {
-      testPackagePair("test-common/upgrades-MissingTemplate-v1.dar", "test-common/upgrades-MissingTemplate-v2.dar", Some("MissingTemplate"))
+      testPackagePair(
+        "test-common/upgrades-MissingTemplate-v1.dar",
+        "test-common/upgrades-MissingTemplate-v2.dar",
+        Some("MissingTemplate"),
+      )
     }
     "report error when datatype is missing in upgrading package" in {
-      testPackagePair("test-common/upgrades-MissingDataCon-v1.dar", "test-common/upgrades-MissingDataCon-v2.dar", Some("MissingDataCon"))
+      testPackagePair(
+        "test-common/upgrades-MissingDataCon-v1.dar",
+        "test-common/upgrades-MissingDataCon-v2.dar",
+        Some("MissingDataCon"),
+      )
     }
     "report error when choice is missing in upgrading package" in {
-      testPackagePair("test-common/upgrades-MissingChoice-v1.dar", "test-common/upgrades-MissingChoice-v2.dar", Some("MissingChoice"))
+      testPackagePair(
+        "test-common/upgrades-MissingChoice-v1.dar",
+        "test-common/upgrades-MissingChoice-v2.dar",
+        Some("MissingChoice"),
+      )
     }
     "report error when key type changes" in {
-      testPackagePair("test-common/upgrades-TemplateChangedKeyType-v1.dar", "test-common/upgrades-TemplateChangedKeyType-v2.dar", Some("TemplateChangedKeyType"))
+      testPackagePair(
+        "test-common/upgrades-TemplateChangedKeyType-v1.dar",
+        "test-common/upgrades-TemplateChangedKeyType-v2.dar",
+        Some("TemplateChangedKeyType"),
+      )
     }
     "report error when record fields change" in {
-      testPackagePair("test-common/upgrades-RecordFieldsNewNonOptional-v1.dar", "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar", Some("RecordFieldsNewNonOptional"))
+      testPackagePair(
+        "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
+        "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
+        Some("RecordFieldsNewNonOptional"),
+      )
     }
   }
 }

@@ -130,8 +130,17 @@ da_scala_dar_resources_library(
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
             visibility = ["//visibility:public"],
-        )
-    ] for identifier in ["MissingModule", "MissingTemplate", "MissingDataCon", "MissingChoice", "RecordFieldsNewNonOptional", "TemplateChangedKeyType", "ValidUpgrade"]
+        ),
+    ]
+    for identifier in [
+        "MissingModule",
+        "MissingTemplate",
+        "MissingDataCon",
+        "MissingChoice",
+        "RecordFieldsNewNonOptional",
+        "TemplateChangedKeyType",
+        "ValidUpgrade",
+    ]
 ]
 
 [
