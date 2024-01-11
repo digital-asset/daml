@@ -11,6 +11,8 @@ import com.digitalasset.canton.config.{
   CommunityStorageConfig,
 }
 import com.digitalasset.canton.domain.config.{CommunityDomainConfig, DomainInitConfig}
+import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
@@ -39,6 +41,12 @@ object ConfigStubs {
       CommunityStorageConfig.Memory(),
       CommunityCryptoConfig(),
     )
+
+  def sequencerx: CommunitySequencerNodeXConfig =
+    CommunitySequencerNodeXConfig()
+
+  def mediatorx: CommunityMediatorNodeXConfig =
+    CommunityMediatorNodeXConfig()
 
   def adminApi: CommunityAdminServerConfig =
     CommunityAdminServerConfig(internalPort = Port.tryCreate(42).some)
