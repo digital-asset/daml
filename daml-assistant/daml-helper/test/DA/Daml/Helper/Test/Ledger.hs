@@ -57,7 +57,7 @@ main = do
     withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
     testGroup
       "daml ledger"
-      [ testGroup "list-parties"
+      [ testGroup "allocate-party then list-parties"
           [ testCase "succeeds against gRPC" $ do
               sandboxPort <- getSandboxPort
               -- allocate parties via gRPC
@@ -82,7 +82,7 @@ main = do
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
               out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
           ]
-      , testGroup "allocate-parties"
+      , testGroup "allocate-parties theb list-parties"
           [ testCase "succeeds against gRPC" $ do
               sandboxPort <- getSandboxPort
               -- allocate parties via gRPC
@@ -135,39 +135,6 @@ main = do
                     ]
                 fetchedPkgId <- readDarMainPackageId tmp
                 fetchedPkgId == testDarPkgId @? "Fechted dar differs from uploaded dar."
-          ]
-      , testGroup "fetch-dar"
-          [ testCase "succeeds against gRPC" $ do
-              sandboxPort <- getSandboxPort
-              testDarPkgId <- readDarMainPackageId testDar
-              -- upload-dar via gRPC
-              callCommand $
-                unwords
-                  [ damlHelper
-                  , "ledger"
-                  , "upload-dar"
-                  , "--host=localhost"
-                  , "--port"
-                  , show sandboxPort
-                  , testDar
-                  ]
-              -- fetch dar via gRPC
-              withTempFile $ \tmp -> do
-                callCommand $
-                  unwords
-                    [ damlHelper
-                    , "ledger"
-                    , "fetch-dar"
-                    , "--host=localhost"
-                    , "--port"
-                    , show sandboxPort
-                    , "--main-package-id"
-                    , testDarPkgId
-                    , "-o"
-                    , tmp
-                    ]
-                fetchedPkgId <- readDarMainPackageId tmp
-                testDarPkgId == fetchedPkgId @? "Fechted dar differs from uploaded dar."
           ]
       , testGroup "fetch-dar limited gRPC message size"
           [ testCase "fails if the message size is too low" $ do
