@@ -1028,7 +1028,7 @@ withMaybeConfig withConfig handler = do
     handle (\case
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
         pure Nothing
-      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "contains only sdk-version" `isInfixOf` exc -> do
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "packageless daml.yaml" `isInfixOf` exc -> do
         putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e

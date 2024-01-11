@@ -33,6 +33,7 @@ import Data.List.Extra (nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
@@ -148,14 +149,32 @@ overrideSdkVersion pkgConfig = do
                     ]
             pure pkgConfig { pSdkVersion = sdkVersion }
 
+-- If any of these fields are present in a daml.yaml, it is considered a "full" daml.yaml
+-- rather than a verion/options only file, and as such, cannot be ignored by processes like multi-build.
+-- Note that we do not handle this by restricting unknown fields, as our daml.yaml parsing has always been
+-- lax.
+-- Fields "sdk-version", and "build-options" are intentionally missing.
+fullDamlYamlFields :: Set.Set String
+fullDamlYamlFields = Set.fromList
+  [ "name"
+  , "source"
+  , "exposed-modules"
+  , "version"
+  , "dependencies"
+  , "data-dependencies"
+  , "module-prefixes"
+  , "upgrades"
+  , "typecheck-upgrades"
+  ]
+
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
     -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
     case unwrapProjectConfig project of
-      A.Object (A.keys -> [A.toString -> "sdk-version"]) ->
+      A.Object (fmap A.toString . A.keys -> strKeys) | all (`Set.notMember` fullDamlYamlFields) strKeys ->
         throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
-          projectConfigName ++ " contains only sdk-version, cannot be used for package config."
+          projectConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
       _ -> pure ()
 
     pkgConfig <- either throwIO pure (parseProjectConfig project)
