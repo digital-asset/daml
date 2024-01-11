@@ -6,7 +6,6 @@ dependencies:
 - daml-prim
 - daml-stdlib
 - daml-script
-start-navigator: false
 codegen:
   js:
     output-directory: ui/daml.js

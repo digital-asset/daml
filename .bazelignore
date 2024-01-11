@@ -5,6 +5,5 @@ node_modules/
 compiler/daml-extension/node_modules/
 language-support/ts/node_modules/
 language-support/ts/packages/node_modules/
-navigator/frontend/node_modules/
 compatibility/
 
