@@ -105,12 +105,11 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             (navigatorURL navigatorPort) []
         a ph
 
-withJsonApi :: Process () () () -> JsonApiPort -> (Process () () () -> IO a) -> IO a
-withJsonApi sandboxPh (JsonApiPort jsonApiPort) a = do
+waitForJsonApi :: Process () () () -> JsonApiPort -> IO ()
+waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
         putStrLn "Waiting for JSON API to start: "
         waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
-        a sandboxPh
 
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
@@ -183,19 +182,15 @@ runStart startOptions@StartOptions{..} =
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
-            withJsonApi' sandboxPh $ \jsonApiPh -> do
-                when shouldWaitForSignal $
-                  void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
+            whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
+            when shouldWaitForSignal $
+              void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh]
 
     where
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
-        withJsonApi' sandboxPh f =
-            case jsonApiPortM of
-                Nothing -> f sandboxPh
-                Just jsonApiPort -> withJsonApi sandboxPh jsonApiPort f
         doCodegen projectConfig =
           forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
             mbOutputPath :: Maybe String <-

@@ -3,8 +3,7 @@
 
 package com.daml.lf.engine.script
 
-import com.daml.integrationtest.{CantonFixture, CantonFixtureWithResource}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.integrationtest.CantonFixture
 import com.daml.lf.archive.DarParser
 import com.daml.ports.Port
 import java.nio.charset.StandardCharsets
@@ -13,16 +12,8 @@ import org.scalatest.{Suite, Succeeded}
 import org.scalatest.compatible.Assertion
 import scala.concurrent.{ExecutionContext, Future}
 
-trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Unit] with RunnerMainTestBase {
+trait RunnerMainTestBaseCanton extends CantonFixture with RunnerMainTestBase {
   self: Suite =>
-
-  override protected def makeAdditionalResource(
-      ports: Vector[CantonFixture.LedgerPorts]
-  ): ResourceOwner[Unit] =
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-        Resource(Future.successful(()))(Future.successful)
-    }
 
   private def didUpload(dar: Path): Future[Boolean] = {
     implicit val ec: ExecutionContext = ExecutionContext.global
@@ -30,7 +21,7 @@ trait RunnerMainTestBaseCanton extends CantonFixtureWithResource[Unit] with Runn
       client <- defaultLedgerClient()
       res <- client.packageClient.listPackages()
       lf = DarParser.assertReadArchiveFromFile(dar.toFile)
-    } yield res.packageIds.exists(_ == lf.main.getHash)
+    } yield res.packageIds.contains(lf.main.getHash)
   }
 
   private def assertUpload(dar: Path, shouldHaveUploaded: Boolean): Future[Assertion] = {
