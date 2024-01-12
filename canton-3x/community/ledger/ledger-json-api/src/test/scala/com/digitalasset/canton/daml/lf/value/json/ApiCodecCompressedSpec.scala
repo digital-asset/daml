@@ -159,7 +159,7 @@ class ApiCodecCompressedSpec
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj] = va.injarb
-        forAll(minSuccessful(20)) { v: va.Inj =>
+        forAll(minSuccessful(20)) { (v: va.Inj) =>
           roundtrip(va)(v) should ===(Some(v))
         }
       }
@@ -181,7 +181,7 @@ class ApiCodecCompressedSpec
         val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj] = va.injarb
-        forAll(minSuccessful(1000)) { v: va.Inj =>
+        forAll(minSuccessful(1000)) { (v: va.Inj) =>
           roundtrip(va)(v) should ===(Some(v))
         }
       }
@@ -189,7 +189,7 @@ class ApiCodecCompressedSpec
       "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
         val mapVa = VA.genMap(kva, VA.int64)
         import mapVa.{injarb, injshrink}
-        forAll(minSuccessful(50)) { map: mapVa.Inj =>
+        forAll(minSuccessful(50)) { (map: mapVa.Inj) =>
           val canonical = mapVa.inj(map)
           val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
             elements

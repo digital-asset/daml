@@ -75,17 +75,20 @@ final case class TransferOutViewTree private (
 }
 
 object TransferOutViewTree
-    extends HasProtocolVersionedWithContextCompanion[TransferOutViewTree, HashOps] {
+    extends HasProtocolVersionedWithContextAndValidationCompanion[
+      TransferOutViewTree,
+      HashOps,
+    ] {
 
   override val name: String = "TransferOutViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.TransferViewTree)(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV0(hashOps)(proto)),
+      supportedProtoVersion(_)((context, proto) => fromProtoV0(context)(proto)),
       _.toProtoV0.toByteString,
     ),
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.TransferViewTree)(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV1(hashOps)(proto)),
+      supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
       _.toProtoV1.toByteString,
     ),
   )
@@ -101,33 +104,35 @@ object TransferOutViewTree
       hashOps,
     )
 
-  // TODO(#12626) – try with context
-  def fromProtoV0(hashOps: HashOps)(
+  def fromProtoV0(context: (HashOps, ProtocolVersion))(
       transferOutViewTreeP: v0.TransferViewTree
-  ): ParsingResult[TransferOutViewTree] =
+  ): ParsingResult[TransferOutViewTree] = {
+    val (hashOps, expectedProtocolVersion) = context
     GenTransferViewTree.fromProtoV0(
-      TransferOutCommonData.fromByteStringUnsafe(hashOps),
-      TransferOutView.fromByteStringUnsafe(hashOps),
+      TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+      TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
     )((commonData, view) =>
       TransferOutViewTree(commonData, view)(
         protocolVersionRepresentativeFor(ProtoVersion(0)),
         hashOps,
       )
     )(transferOutViewTreeP)
+  }
 
-  // TODO(#12626) – try with context
-  def fromProtoV1(hashOps: HashOps)(
+  def fromProtoV1(context: (HashOps, ProtocolVersion))(
       transferOutViewTreeP: v1.TransferViewTree
-  ): ParsingResult[TransferOutViewTree] =
+  ): ParsingResult[TransferOutViewTree] = {
+    val (hashOps, expectedProtocolVersion) = context
     GenTransferViewTree.fromProtoV1(
-      TransferOutCommonData.fromByteStringUnsafe(hashOps),
-      TransferOutView.fromByteStringUnsafe(hashOps),
+      TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+      TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
     )((commonData, view) =>
       TransferOutViewTree(commonData, view)(
         protocolVersionRepresentativeFor(ProtoVersion(1)),
         hashOps,
       )
     )(transferOutViewTreeP)
+  }
 }
 
 /** Aggregates the data of a transfer-out request that is sent to the mediator and the involved participants.
@@ -598,7 +603,7 @@ object TransferOutView
         submitter,
         contractId,
         TargetDomainId(targetDomain),
-        TargetProtocolVersion(targetProtocolVersion), // TODO(#12626)
+        TargetProtocolVersion(targetProtocolVersion),
         targetTimeProof,
       )
     }
@@ -751,7 +756,7 @@ object TransferOutView
       commonData.targetTimeProof,
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)), // TODO(#12626)
+      protocolVersionRepresentativeFor(ProtoVersion(0)),
       Some(bytes),
     )
   }
@@ -795,7 +800,7 @@ object TransferOutView
       commonData.targetDomainPV,
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)), // TODO(#12626)
+      protocolVersionRepresentativeFor(ProtoVersion(1)),
       Some(bytes),
     )
   }
@@ -855,7 +860,7 @@ object TransferOutView
       TransferCounter(transferCounter),
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(2)), // TODO(#12626)
+      protocolVersionRepresentativeFor(ProtoVersion(2)),
       Some(bytes),
     )
 
@@ -919,10 +924,11 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
 object FullTransferOutTree {
   def fromByteString(
-      crypto: CryptoPureApi
+      crypto: CryptoPureApi,
+      sourceProtocolVersion: SourceProtocolVersion,
   )(bytes: ByteString): ParsingResult[FullTransferOutTree] =
     for {
-      tree <- TransferOutViewTree.fromByteStringUnsafe(crypto)(bytes)
+      tree <- TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion.v)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-out request ${tree.rootHash} is not fully unblinded"),

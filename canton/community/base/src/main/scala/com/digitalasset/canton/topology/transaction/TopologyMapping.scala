@@ -241,13 +241,12 @@ object SignedLegalIdentityClaim {
     SignedLegalIdentityClaim(claim.uid, claim.toByteString, signature)
 
   def fromProtoV0(
-      value: v0.SignedLegalIdentityClaim
+      protocolVersionValidation: ProtocolVersionValidation,
+      value: v0.SignedLegalIdentityClaim,
   ): ParsingResult[SignedLegalIdentityClaim] =
     for {
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", value.signature)
-      claim <- LegalIdentityClaim.fromByteStringUnsafe(
-        value.claim
-      ) // TODO(#12626) - try with context
+      claim <- LegalIdentityClaim.fromByteString(protocolVersionValidation)(value.claim)
     } yield SignedLegalIdentityClaim(claim.uid, value.claim, signature)
 }
 

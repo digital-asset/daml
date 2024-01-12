@@ -63,7 +63,7 @@ import com.digitalasset.canton.tracing.{BatchTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{DiscardOps, SequencerCounter, checked}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
@@ -152,7 +152,7 @@ private[domain] class DomainTopologyDispatcher(
   private val initialized = new AtomicBoolean(false)
   private val queue = mutable.Queue[Traced[StoredTopologyTransaction[TopologyChangeOp]]]()
   private val lock = new Object()
-  private val catchup = new MemberTopologyCatchup(authorizedStore, loggerFactory)
+  private val catchup = new MemberTopologyCatchup(protocolVersion, authorizedStore, loggerFactory)
   private val lastTs = new AtomicReference(CantonTimestamp.MinValue)
   private val inflight = new AtomicInteger(0)
 
@@ -547,7 +547,6 @@ private[domain] class DomainTopologyDispatcher(
                       transactions.head1.validFrom.value,
                       transactions.last1.validFrom.value,
                       participant,
-                      protocolVersion,
                     )
                 )
               )
@@ -1059,6 +1058,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
 }
 
 class MemberTopologyCatchup(
+    protocolVersion: ProtocolVersion,
     store: TopologyStore[TopologyStoreId.AuthorizedStore],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -1077,7 +1077,6 @@ class MemberTopologyCatchup(
       upToExclusive: CantonTimestamp,
       asOf: CantonTimestamp,
       participantId: ParticipantId,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[(Boolean, StoredTopologyTransactions[TopologyChangeOp])]] = {
@@ -1100,7 +1099,6 @@ class MemberTopologyCatchup(
           participantInactiveSince <- findDeactivationTsOfParticipantBefore(
             asOf,
             participantId,
-            protocolVersion,
           )
           participantCatchupTxs <- store.findTransactionsInRange(
             // exclusive, as last message a participant will receive is the one that is deactivating it
@@ -1145,7 +1143,6 @@ class MemberTopologyCatchup(
   private def findDeactivationTsOfParticipantBefore(
       ts: CantonTimestamp,
       participantId: ParticipantId,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = {
@@ -1189,7 +1186,6 @@ class MemberTopologyCatchup(
                   // continue from lowest ts here
                   some.lastOption.getOrElse(CantonTimestamp.MinValue), // is never empty
                   participantId,
-                  protocolVersion,
                 )
               case None => Future.successful(None)
             }
@@ -1225,6 +1221,7 @@ class MemberTopologyCatchup(
       false,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
       loggerFactory,
+      ProtocolVersionValidation(protocolVersion),
     )
 
   def determinePermissionChangeForMediator(

@@ -101,7 +101,6 @@ package domain {
   trait JwtPayloadTag
 
   trait JwtPayloadG {
-    val ledgerId: LedgerId
     val applicationId: ApplicationId
     val readAs: List[Party]
     val actAs: List[Party]
@@ -112,7 +111,6 @@ package domain {
   // (only the first one is used for pre-multiparty ledgers)
   // but we can have multiple parties in readAs.
   final case class JwtWritePayload(
-      ledgerId: LedgerId,
       applicationId: ApplicationId,
       submitter: NonEmptyList[Party],
       readAs: List[Party],
@@ -122,12 +120,9 @@ package domain {
       submitter.toSet1 ++ readAs
   }
 
-  final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
-
 // As with JwtWritePayload, but supports empty `actAs`.  At least one of
 // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
-      ledgerId: LedgerId,
       applicationId: ApplicationId,
       readAs: List[Party],
       actAs: List[Party],
@@ -136,7 +131,6 @@ package domain {
 
   object JwtPayload {
     def apply(
-        ledgerId: LedgerId,
         applicationId: ApplicationId,
         readAs: List[Party],
         actAs: List[Party],
@@ -144,7 +138,7 @@ package domain {
       (readAs ++ actAs) match {
         case NonEmpty(ps) =>
           Some(
-            new JwtPayload(ledgerId, applicationId, readAs, actAs, ps.toSet) {}
+            new JwtPayload(applicationId, readAs, actAs, ps.toSet) {}
           )
         case _ => None
       }
