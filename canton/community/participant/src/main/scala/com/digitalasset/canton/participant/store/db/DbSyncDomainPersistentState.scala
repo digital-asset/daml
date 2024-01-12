@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.db.{DbTopologyStore, DbTopologyStoreX}
 import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManagerX}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 
 import scala.concurrent.ExecutionContext
@@ -75,7 +76,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   val transferStore: DbTransferStore = new DbTransferStore(
     storage,
     TargetDomainId(domainId.item),
-    protocolVersion,
+    TargetProtocolVersion(protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     timeouts,

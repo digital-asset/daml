@@ -52,9 +52,11 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
   object SimpleTopology {
     val submitterParticipantId: ParticipantId = ParticipantId("submitter")
     val observerParticipantId: ParticipantId = ParticipantId("counter")
+    val participantId3: ParticipantId = ParticipantId("participant3")
 
     val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
     val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
+    val party3: LfPartyId = LfPartyId.assertFromString("party3::default")
 
     val correctTopology: Map[LfPartyId, List[ParticipantId]] = Map(
       signatory -> List(submitterParticipantId),

@@ -236,7 +236,18 @@ class PackageService(
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _unit <- revokeVettingForDar(mainPkg, packages, darDescriptor)
+      packagesThatCanBeRemoved <- EitherT
+        .liftF(
+          packagesDarsStore
+            .determinePackagesExclusivelyInDar(packages, darDescriptor)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
+      _unit <- revokeVettingForDar(
+        mainPkg,
+        packagesThatCanBeRemoved.toList,
+        darDescriptor,
+      )
 
       _unit <-
         EitherT.liftF(packagesDarsStore.removePackage(mainPkg))

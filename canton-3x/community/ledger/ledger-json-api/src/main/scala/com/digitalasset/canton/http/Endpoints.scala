@@ -16,7 +16,6 @@ import org.apache.pekko.util.ByteString
 import ContractsService.SearchResult
 import EndpointsCompanion.*
 import json.*
-import util.toLedgerId
 import util.FutureUtil.{either, rightT}
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -34,9 +33,7 @@ import com.daml.metrics.Timed
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.domain.Jwt
-import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.digitalasset.canton.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import scalaz.EitherT.eitherT
@@ -56,7 +53,6 @@ class Endpoints(
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
     userManagementClient: UserManagementClient,
-    ledgerIdentityClient: LedgerIdentityClient,
     val loggerFactory: NamedLoggerFactory,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer)
@@ -68,7 +64,6 @@ class Endpoints(
     decodeJwt = decodeJwt,
     encoder = encoder,
     userManagementClient,
-    ledgerIdentityClient,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
     loggerFactory = loggerFactory,
   )
@@ -148,50 +143,30 @@ class Endpoints(
     responseToRoute(httpResponse(res))
   }
 
-  private def toGetRouteLedgerId[Res](
-      httpRequest: HttpRequest,
-      fn: (Jwt, LedgerApiDomain.LedgerId) => ET[domain.SyncResponse[Res]],
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
-  ): Route = {
-    val res = for {
-      t <- extractJwtAndLedgerId(httpRequest)
-      (jwt, ledgerId) = t
-      res <- eitherT(
-        RouteSetup.handleFutureEitherFailure(fn(jwt, ledgerId).run)
-      ): ET[domain.SyncResponse[Res]]
-    } yield res
-    responseToRoute(httpResponse(res))
-  }
-
   private def toDownloadPackageRoute(
       httpRequest: HttpRequest,
       packageId: String,
-      fn: (Jwt, LedgerApiDomain.LedgerId, String) => Future[HttpResponse],
+      fn: (Jwt, String) => Future[HttpResponse],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Route = {
     responseToRoute(
       httpResponse(
-        extractJwtAndLedgerId(httpRequest).flatMap { case (jwt, ledgerId) =>
-          rightT(fn(jwt, ledgerId, packageId))
+        extractJwt(httpRequest).flatMap { jwt =>
+          rightT(fn(jwt, packageId))
         }
       )
     )
   }
 
-  private def extractJwtAndLedgerId(
+  private def extractJwt(
       httpRequest: HttpRequest
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[(Jwt, LedgerApiDomain.LedgerId)] = for {
-    t <- routeSetup
-      .inputAndJwtPayload[domain.JwtPayloadLedgerIdOnly](httpRequest): ET[
-      (Jwt, domain.JwtPayloadLedgerIdOnly, String)
-    ]
-    (jwt, jwtBody, _) = t
-  } yield (jwt, toLedgerId(jwtBody.ledgerId))
+  ): ET[Jwt] = for {
+    t <- eitherT(routeSetup.input(httpRequest)): ET[(Jwt, String)]
+    (jwt, _) = t
+  } yield jwt
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
     s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
@@ -361,7 +336,7 @@ class Endpoints(
           path("user" / "rights") apply toGetRoute(req, listAuthenticatedUserRights),
           path("users") apply toGetRoute(req, listUsers),
           path("parties") apply toGetRoute(req, allParties),
-          path("packages") apply toGetRouteLedgerId(req, listPackages),
+          path("packages") apply toGetRoute(req, listPackages),
           path("packages" / ".+".r)(packageId =>
             extractRequest apply (req => toDownloadPackageRoute(req, packageId, downloadPackage))
           ),

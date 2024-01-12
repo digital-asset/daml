@@ -63,6 +63,7 @@ class GrpcSequencerTopologyBootstrapService(
                 loggerFactory,
                 timeouts,
                 futureSupervisor,
+                protocolVersion,
               )
               .leftMap(Status.INVALID_ARGUMENT.withDescription(_).asException())
             _ <- EitherT

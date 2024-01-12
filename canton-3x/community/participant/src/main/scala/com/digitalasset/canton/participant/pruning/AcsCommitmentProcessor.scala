@@ -51,7 +51,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter, TransferCounterO}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -363,7 +363,8 @@ class AcsCommitmentProcessor(
         _ = logger.debug(
           show"Commitment messages for $completedPeriod: ${msgs.fmap(_.message.commitment)}"
         )
-        _ <- storeAndSendCommitmentMessages(completedPeriod, msgs)
+        _ <- storeCommitments(msgs)
+        _ = sendCommitmentMessages(completedPeriod, msgs)
         _ <- store.markOutstanding(completedPeriod, msgs.keySet)
         _ <- persistRunningCommitments(snapshotRes)
         // The ordering here is important; we shouldn't move `readyForRemote` before we mark the periods as outstanding,
@@ -695,6 +696,23 @@ class AcsCommitmentProcessor(
     if (local.isEmpty) {
       if (lastPruningTime.forall(_ < remote.period.toInclusive.forgetRefinement)) {
         Errors.MismatchError.NoSharedContracts.Mismatch(domainId, remote).report()
+        FutureUtil.doNotAwait(
+          for {
+            cryptoSnapshot <- domainCrypto.awaitSnapshot(
+              remote.period.toInclusive.forgetRefinement
+            )
+            msg <- signCommitment(
+              cryptoSnapshot,
+              remote.sender,
+              LtHash16().getByteString(),
+              remote.period,
+            )
+            _ = sendCommitmentMessages(remote.period, Map(remote.sender -> msg))
+          } yield logger.debug(
+            s" ${remote.sender} send a non-empty ACS, but local ACS was empty. returned an empty ACS counter-commitment."
+          ),
+          s"Failed to respond empty ACS back to ${remote.sender}",
+        )
       } else
         logger.info(s"Ignoring incoming commitment for a pruned period: $remote")
       false
@@ -784,46 +802,43 @@ class AcsCommitmentProcessor(
     } yield msgs
   }
 
-  /** Send the computed commitment messages and store their computed commitments */
-  private def storeAndSendCommitmentMessages(
+  /** Store the computed commitments of the commitment messages */
+  private def storeCommitments(
+      msgs: Map[ParticipantId, SignedProtocolMessage[AcsCommitment]]
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    msgs.toList.parTraverse_ { case (pid, msg) =>
+      store.storeComputed(msg.message.period, pid, msg.message.commitment)
+    }
+
+  /** Send the computed commitment messages */
+  private def sendCommitmentMessages(
       period: CommitmentPeriod,
       msgs: Map[ParticipantId, SignedProtocolMessage[AcsCommitment]],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    for {
-      _ <- msgs.toList.parTraverse_ { case (pid, msg) =>
-        store.storeComputed(msg.message.period, pid, msg.message.commitment)
-      }
-      _ = logger.debug(s"Computed and stored ${msgs.size} commitment messages for period $period")
-      batchForm = msgs.toList.map { case (pid, msg) => (msg, Recipients.cc(pid)) }
-      batch = Batch.of[ProtocolMessage](protocolVersion, batchForm: _*)
-      // send async: we'll get gaps in the commitments if the send fails, but that shouldn't
-      // hurt if every sequencer connection is reasonably reliably. The next commitments will
-      // go through again and then the counterparticipant has a gap, but we don't really care
-      // about them
-      _ = if (batch.envelopes.nonEmpty)
-        performUnlessClosingEitherT(functionFullName, ()) {
-          def message = s"Failed to send commitment message batch for period $period"
-          EitherT(
-            FutureUtil.logOnFailure(
-              sequencerClient
-                .sendAsync(batch, SendType.Other, None)
-                .leftMap {
-                  case RequestRefused(SendAsyncError.ShuttingDown(msg)) =>
-                    logger.info(
-                      s"${message} as the sequencer is shutting down. Once the sequencer is back, we'll recover."
-                    )
-                  case other =>
-                    logger.warn(s"${message}: ${other}")
-                }
-                .value,
-              message,
-            )
+  )(implicit traceContext: TraceContext): Unit = {
+    val batchForm = msgs.toList.map { case (pid, msg) => (msg, Recipients.cc(pid)) }
+    val batch = Batch.of[ProtocolMessage](protocolVersion, batchForm: _*)
+    if (batch.envelopes.nonEmpty) {
+      performUnlessClosingEitherT(functionFullName, ()) {
+        def message = s"Failed to send commitment message batch for period $period"
+        EitherT(
+          FutureUtil.logOnFailure(
+            sequencerClient
+              .sendAsync(batch, SendType.Other, None)
+              .leftMap {
+                case RequestRefused(SendAsyncError.ShuttingDown(msg)) =>
+                  logger.info(
+                    s"${message} as the sequencer is shutting down. Once the sequencer is back, we'll recover."
+                  )
+                case other =>
+                  logger.warn(s"${message}: ${other}")
+              }
+              .value,
+            message,
           )
-        }
-    } yield logger.debug(
-      s"Request to sequence local commitment messages for period $period sent to sequencer"
-    )
-
+        )
+      }.discard
+    }
+  }
   override protected def onClosed(): Unit = {
     Lifecycle.close(dbQueue, publishQueue)(logger)
   }

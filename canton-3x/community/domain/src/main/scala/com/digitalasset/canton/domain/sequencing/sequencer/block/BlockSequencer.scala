@@ -513,11 +513,11 @@ class BlockSequencer(
         localEventsQueue.watchCompletion(),
         timeouts.shutdownProcessing,
       ),
-      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
       SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
       SyncCloseable("stateManager.close()", stateManager.close()),
+      SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
     )
   }
 

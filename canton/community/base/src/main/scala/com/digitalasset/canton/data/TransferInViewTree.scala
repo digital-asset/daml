@@ -85,7 +85,10 @@ final case class TransferInViewTree(
 }
 
 object TransferInViewTree
-    extends HasVersionedMessageWithContextCompanion[TransferInViewTree, HashOps] {
+    extends HasVersionedMessageWithContextCompanion[
+      TransferInViewTree,
+      (HashOps, ProtocolVersion),
+    ] {
   override val name: String = "TransferInViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -101,25 +104,31 @@ object TransferInViewTree
     ),
   )
 
-  // TODO(#12626) – try with context
   def fromProtoV0(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       transferInViewTreeP: v0.TransferViewTree,
-  ): ParsingResult[TransferInViewTree] =
+  ): ParsingResult[TransferInViewTree] = {
+    val (hashOps, expectedProtocolVersion) = context
     GenTransferViewTree.fromProtoV0(
-      TransferInCommonData.fromByteStringUnsafe(hashOps),
-      TransferInView.fromByteStringUnsafe(hashOps),
-    )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
+      TransferInCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+      TransferInView.fromByteString(expectedProtocolVersion)(hashOps),
+    )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(
+      transferInViewTreeP
+    )
+  }
 
-  // TODO(#12626) – try with context
   def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       transferInViewTreeP: v1.TransferViewTree,
-  ): ParsingResult[TransferInViewTree] =
+  ): ParsingResult[TransferInViewTree] = {
+    val (hashOps, expectedProtocolVersion) = context
     GenTransferViewTree.fromProtoV1(
-      TransferInCommonData.fromByteStringUnsafe(hashOps),
-      TransferInView.fromByteStringUnsafe(hashOps),
-    )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(transferInViewTreeP)
+      TransferInCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+      TransferInView.fromByteString(expectedProtocolVersion)(hashOps),
+    )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(
+      transferInViewTreeP
+    )
+  }
 }
 
 /** Aggregates the data of a transfer-in request that is sent to the mediator and the involved participants.
@@ -288,7 +297,7 @@ object TransferInCommonData
       commonData.uuid,
     )(
       hashOps,
-      TargetProtocolVersion(protocolVersion), // TODO(#12626)
+      TargetProtocolVersion(protocolVersion),
       Some(bytes),
     )
   }
@@ -768,10 +777,11 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
 object FullTransferInTree {
   def fromByteString(
-      crypto: CryptoPureApi
+      crypto: CryptoPureApi,
+      expectedProtocolVersion: ProtocolVersion,
   )(bytes: ByteString): ParsingResult[FullTransferInTree] =
     for {
-      tree <- TransferInViewTree.fromByteString(crypto)(bytes)
+      tree <- TransferInViewTree.fromByteString((crypto, expectedProtocolVersion))(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-in request ${tree.rootHash} is not fully unblinded"),

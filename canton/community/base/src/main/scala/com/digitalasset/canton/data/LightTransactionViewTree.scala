@@ -103,7 +103,10 @@ private final case class LightTransactionViewTreeV1 private[data] (
 ) extends LightTransactionViewTree(tree)
 
 object LightTransactionViewTree
-    extends HasVersionedMessageWithContextCompanion[LightTransactionViewTree, HashOps] {
+    extends HasVersionedMessageWithContextCompanion[
+      LightTransactionViewTree,
+      (HashOps, ProtocolVersion),
+    ] {
   override val name: String = "LightTransactionViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -153,12 +156,12 @@ object LightTransactionViewTree
     LightTransactionViewTreeV1(tree, subviewHashes).validated
 
   private def fromProtoV0(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoT: v0.LightTransactionViewTree,
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
-      tree <- GenTransactionTree.fromProtoV0(hashOps, protoTree)
+      tree <- GenTransactionTree.fromProtoV0(context, protoTree)
       result <- LightTransactionViewTree
         .createV0(tree)
         .leftMap(e =>
@@ -167,12 +170,12 @@ object LightTransactionViewTree
     } yield result
 
   private def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoT: v1.LightTransactionViewTree,
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
-      tree <- GenTransactionTree.fromProtoV1(hashOps, protoTree)
+      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
       subviewHashes <- protoT.subviewHashes.traverse(ViewHash.fromProtoPrimitive)
       result <- LightTransactionViewTree
         .createV1(tree, subviewHashes)

@@ -626,6 +626,49 @@ trait BaseLedgerApiAdministration extends NoTracing {
             throw new IllegalStateException(s"UnassignedWrapper expected, but got: $invalid")
         }
 
+      @Help.Summary(
+        "Combines `submit_unassign` and `submit_assign` in a single macro",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """See `submit_unassign` and `submit_assign` for the parameters."""
+      )
+      def submit_reassign(
+          submitter: PartyId,
+          contractId: LfContractId,
+          source: DomainId,
+          target: DomainId,
+          workflowId: String = "",
+          applicationId: String = applicationId,
+          submissionId: String = UUID.randomUUID().toString,
+          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+      ): (UnassignedWrapper, AssignedWrapper) = {
+        val unassigned = submit_unassign(
+          submitter,
+          contractId,
+          source,
+          target,
+          workflowId,
+          applicationId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+        val assigned = submit_assign(
+          submitter,
+          unassigned.unassignedEvent.unassignId,
+          source,
+          target,
+          workflowId,
+          applicationId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+        (unassigned, assigned)
+      }
+
       // TODO(#15429) this could be improved to use pointwise lookups similarly to submit as soon as the pointwise lookups
       // for reassignments are available over the Ladger API.
       private def submitReassignment(
