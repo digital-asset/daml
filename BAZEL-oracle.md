@@ -1,6 +1,6 @@
 # Running tests against an Oracle database
 
-Certain integration tests use Oracle as a DBMS for certain components (e.g. the JSON API).
+Certain integration tests use Oracle as a DBMS for certain components (e.g. the Trigger Service).
 
 These tests are executed separately on CI and you can see an up-to-date list of them in the [CI configuration](./ci/build.yml).
 
@@ -14,7 +14,7 @@ In order to execute them locally, the repository has a couple of conveniences:
 This means that _once you have an Oracle database running locally with the proper credentials and using the proper port_, you can
 run tests that require Oracle as in the following example:
 
-    bazel test --config=oracle //ledger-service/http-json-oracle/...
+    bazel test --config=oracle //trigger/service/...
 
 ## Running an Oracle database locally
 
