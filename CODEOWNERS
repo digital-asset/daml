@@ -55,7 +55,6 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Application Runtime
 /ledger-service/       @filmackay
-/navigator/            @filmackay
 /runtime-components/   @filmackay
 /triggers/service/     @filmackay
 

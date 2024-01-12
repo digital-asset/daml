@@ -141,7 +141,6 @@ damlStart tmpDir = do
     let startProc =
             (shell $ unwords
                 [ "daml start"
-                , "--start-navigator=no"
                 , "--sandbox-port", show $ ledger ports
                 , "--sandbox-admin-api-port", show $ admin ports
                 , "--sandbox-domain-public-port", show $ domainPublic ports
@@ -413,23 +412,6 @@ damlStartTests getDamlStart =
                     manager <- newManager defaultManagerSettings
                     resp <- httpLbs req manager
                     responseBody resp @?= "{\"status\":\"pass\"}"
-        subtest "Navigator startup" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            navigatorPort :: Int <- fromIntegral <$> getFreePort
-            -- This test just checks that navigator starts up and returns a 200 response.
-            -- Nevertheless this would have caught a few issues on rules_nodejs upgrades
-            -- where we got a 404 instead.
-            withDamlServiceIn projDir "navigator"
-                [ "server"
-                , "localhost"
-                , show sandboxPort
-                , "--port"
-                , show navigatorPort
-                ] $ \ ph -> do
-                    waitForHttpServer 240 ph
-                        (threadDelay 500000)
-                        ("http://localhost:" <> show navigatorPort)
-                        []
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart

@@ -45,10 +45,6 @@ packages/daml-manual/reference/file-structure.html -> /daml/reference/file-struc
 packages/daml-manual/reference/expressions.html -> /daml/reference/expressions.html
 packages/sdk-docs-introduction/index.html -> /getting-started/index.html
 packages/da-docs-example-collateral/index.html -> /examples/collateral/index.html
-packages/navigator-docs/index.html -> /tools/navigator/index.html
-packages/navigator-docs/database.html -> /tools/navigator/database.html
-packages/navigator-docs/backend-licenses.html -> /
-packages/navigator-docs/frontend-licenses.html -> /
 packages/quickstart/index.html -> /getting-started/index.html
 packages/da-docs-ledger-model/ledger-integrity.html -> /concepts/ledger-model/ledger-integrity.html
 packages/da-docs-ledger-model/index.html -> /concepts/ledger-model/index.html

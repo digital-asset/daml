@@ -5,11 +5,8 @@ def deps(edition):
     return [
         "//daml-script/runner:script-runner-lib",
         "//language-support/codegen-main:codegen-main-lib",
-        "//navigator/backend:navigator-library",
         "//daml-script/export",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service:trigger-service-binary-{}".format(edition),
         "//triggers/service/auth:oauth2-middleware",
-        "//navigator/backend:backend-resources",
-        "//navigator/backend:frontend-resources",
     ]

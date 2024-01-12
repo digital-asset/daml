@@ -33,7 +33,7 @@ commands:
 - name: start
   path: daml-helper/daml-helper
   args: ["start"]
-  desc: "Launch Sandbox and Navigator for current Daml project"
+  desc: "Launch Sandbox for current Daml project"
   completion: true
 - name: clean
   path: damlc/damlc
@@ -48,10 +48,6 @@ commands:
   path: daml-helper/daml-helper
   desc: "Launch Canton Sandbox"
   args: ["sandbox"]
-- name: navigator
-  path: daml-helper/daml-helper
-  desc: "Launch the Navigator"
-  args: ["run-jar", "--logback-config=daml-sdk/navigator-logback.xml", "daml-sdk/daml-sdk.jar", "navigator"]
 - name: ledger
   path: daml-helper/daml-helper
   desc: "Interact with a Daml ledger"

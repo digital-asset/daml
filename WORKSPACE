@@ -732,15 +732,6 @@ yarn_install(
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
-# TODO use fine-grained managed dependency
-yarn_install(
-    name = "navigator_frontend_deps",
-    args = ["--frozen-lockfile"],
-    package_json = "//navigator/frontend:package.json",
-    symlink_node_modules = False,
-    yarn_lock = "//navigator/frontend:yarn.lock",
-)
-
 # We’ve had a bunch of problems with typescript rules on Windows.
 # Therefore we’ve disabled them completely for now.
 # Since we need to @load stuff in @language_support_ts_deps
