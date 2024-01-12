@@ -4,7 +4,6 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 exports_files(glob(["create-daml-app-test-resources/*"]) + [
-    "copy-trigger/src/CopyTrigger.daml",
     "create-daml-app/ui/package.json.template",
 ])
 
@@ -52,8 +51,6 @@ genrule(
             "empty-skeleton/**",
             "create-daml-app/**",
             "quickstart-java/**",
-            "copy-trigger/**",
-            "gsg-trigger.patch",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
@@ -76,17 +73,11 @@ genrule(
 
         cp -rL templates/* $$SRC/
 
-        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
-        cp -rL $$SRC/create-daml-app $$SRC/gsg-trigger
-        "$$PATCH_TOOL" -d $$SRC/gsg-trigger -p1 < $$SRC/gsg-trigger.patch
-
         # templates in templates dir
         for d in skeleton \
                  empty-skeleton \
                  create-daml-app \
-                 quickstart-java \
-                 copy-trigger \
-                 gsg-trigger; do
+                 quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             for f in gitattributes gitignore dlint.yaml; do

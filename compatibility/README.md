@@ -54,13 +54,6 @@ We test that the Daml Script runner from a given SDK version can load
 DARs built against the Daml Script library from an older SDK. We only
 guarantee backwards compatibility here.
 
-
-#### Backwards-compatibility for Daml Triggers
-
-We test that the Daml Trigger runner from a given SDK version can load
-DARs built against the Daml Script library from an older SDK. We only
-guarantee backwards compatibility here.
-
 #### Backwards-compatibility for data-dependencies
 
 We test that we can import DARs built in older SDK versions via

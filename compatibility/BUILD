@@ -9,11 +9,6 @@ load(
     "daml_script_example_test",
 )
 load(
-    "//bazel_tools/daml_trigger:daml_trigger.bzl",
-    "daml_trigger_dar",
-    "daml_trigger_test",
-)
-load(
     "//bazel_tools/data_dependencies:data_dependencies.bzl",
     "data_dependencies_coins",
     "data_dependencies_daml_script_test",
@@ -102,29 +97,6 @@ head = "0.0.0"
     # more recent.
     if versions.is_at_least(sdk_version, platform_version)
 ] if not is_windows else None
-
-# Change to `CommandId` generation
-first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
-
-[
-    daml_trigger_dar(sdk_version)
-    for sdk_version in sdk_versions
-    if versions.is_at_least(first_post_7587_trigger_version, sdk_version)
-]
-
-[
-    daml_trigger_test(
-        compiler_version = sdk_version,
-        runner_version = platform_version,
-    )
-    for sdk_version in sdk_versions
-    for platform_version in platform_versions
-    # Test that the Daml trigger runner can run DARs built with an older SDK
-    # version. I.e. where the runner version is at least the SDK version or
-    # more recent.
-    if versions.is_at_least(first_post_7587_trigger_version, sdk_version) and
-       versions.is_at_least(sdk_version, platform_version)
-]
 
 [
     data_dependencies_coins(

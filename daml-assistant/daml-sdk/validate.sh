@@ -18,10 +18,3 @@ set -eou pipefail
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 SDK_CE=$(rlocation "$TEST_WORKSPACE/$2")
 SDK_EE=$(rlocation "$TEST_WORKSPACE/$3")
-
-if ! ($JAVA -jar $SDK_EE trigger-service --help | grep -q oracle); then
-  exit 1
-fi
-if $JAVA -jar $SDK_CE trigger-service --help | grep -q oracle; then
-    exit 1
-fi

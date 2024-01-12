@@ -21,7 +21,6 @@ da_scala_library(
     visibility = [
         "//daml-lf:__subpackages__",
         "//ledger:__subpackages__",
-        "//triggers:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",

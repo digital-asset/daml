@@ -313,22 +313,6 @@ def install_java_deps():
         version_conflict_policy = "pinned",
     )
 
-    # Triggers depend on sjsonnet whose latest version still depends transitively on upickle 1.x,
-    # while ammonite cannot work with upickle < 2.x. So we define the sjsonnet dependency in a
-    # different maven_install.
-    maven_install(
-        name = "triggers_maven",
-        maven_install_json = "@//:triggers_maven_install.json",
-        artifacts = [
-            "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
-        ],
-        repositories = [
-            "https://repo1.maven.org/maven2",
-        ],
-        fetch_sources = True,
-        version_conflict_policy = "pinned",
-    )
-
     # Do not use those dependencies in anything new !
     maven_install(
         name = "deprecated_maven",

@@ -791,8 +791,6 @@ daml/intro/9_Functional101.html -> /daml/intro/10_Functional101.html
 daml/intro/10_StdLib.html -> /daml/intro/11_StdLib.html
 daml/intro/11_Testing.html -> /daml/intro/12_Testing.html
 daml-script/daml-script-docs.html -> /daml-script/api/index.html
-triggers/trigger-docs.html -> /triggers/api/index.html
-tools/trigger-service.html -> trigger-service/index.html
 support.html -> /support/support.html
 release-notes.html -> /support/releases.html#release-notes
 support/release-notes.html -> /support/releases.html#release-notes

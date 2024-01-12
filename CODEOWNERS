@@ -25,7 +25,6 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Language
 /daml-assistant/    @remyhaemmerle-da @filmackay
 /daml-script/       @remyhaemmerle-da
-/triggers/          @remyhaemmerle-da
 /compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
 /libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
 /ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
@@ -56,7 +55,6 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Application Runtime
 /ledger-service/       @filmackay
 /runtime-components/   @filmackay
-/triggers/service/     @filmackay
 
 # Canton code drop
 /canton/               @remyhaemmerle-da

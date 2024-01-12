@@ -343,7 +343,7 @@ private[lf] final class ValueTranslator(
 
   // This does not try to pull missing packages, return an error instead.
   // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Strict
+  //  This is used by script, this should problaby use ValueTranslator.Config.Strict
   def strictTranslateValue(
       ty: Type,
       value: Value,

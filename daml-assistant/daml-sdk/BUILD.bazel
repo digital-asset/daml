@@ -9,10 +9,6 @@ load(
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "deps")
 
-scala_deps = [
-    "@maven//:com_typesafe_scala_logging_scala_logging",
-]
-
 scala_runtime_deps = [
     "@maven//:org_apache_pekko_pekko_slf4j",
     "@maven//:org_tpolecat_doobie_postgres",
@@ -30,7 +26,7 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.sdk.SdkMain",
     resources = glob(["src/main/resources/**/*"]),
-    scala_deps = scala_deps,
+    scala_deps = [],
     scala_runtime_deps = scala_runtime_deps,
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps,
@@ -42,7 +38,7 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.sdk.SdkMain",
     resources = glob(["src/main/resources/**/*"]),
-    scala_deps = scala_deps,
+    scala_deps = [],
     scala_runtime_deps = scala_runtime_deps,
     tags = ["ee-jar-license"],
     visibility = ["//visibility:public"],
