@@ -102,6 +102,9 @@ private[script] case class RunnerMainConfigIntermediate(
     (participantMode, uploadDar) match {
       case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
         Left("Cannot upload dar to IDELedger.")
+      case (ParticipantMode.IdeLedgerParticipant(), _) =>
+        // We don't need to upload the dar when using the IDE ledger
+        Right(false)
       case (_, Some(true)) if jsonApi => Left("Cannot upload dar via JSON API")
       case (_, Some(v)) => Right(v)
       case (_, None) =>
