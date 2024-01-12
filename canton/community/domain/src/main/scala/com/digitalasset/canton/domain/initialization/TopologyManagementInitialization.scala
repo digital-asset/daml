@@ -256,6 +256,7 @@ object TopologyManagementInitialization {
           mustHaveActiveMediator = isEmbedded,
           timeouts,
           loggerFactory,
+          protocolVersion,
         )
       )
       // before starting the domain identity dispatcher, we need to make sure the initial topology transactions

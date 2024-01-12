@@ -7,9 +7,19 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse}
-import com.daml.ledger.api.v1.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
-import com.daml.ledger.api.v1.event_query_service.{GetEventsByContractIdResponse, GetEventsByContractKeyResponse}
+import com.daml.ledger.api.v1.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  GetMeteringReportResponse,
+}
+import com.daml.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitRequest,
+}
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -19,13 +29,16 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
 import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.canton.ledger.client.services.admin.{MeteringReportClient, PackageManagementClient, PartyManagementClient}
+import com.digitalasset.canton.ledger.client.services.admin.{
+  MeteringReportClient,
+  PackageManagementClient,
+  PartyManagementClient,
+}
 import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
@@ -72,7 +85,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
-    (jwt, ledgerId, filter, verbose) =>
+    (jwt, filter, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
           client.activeContractSetClient
@@ -82,7 +95,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
 
   def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
-    (jwt, ledgerId, filter, offset, terminates) => { implicit lc =>
+    (jwt, filter, offset, terminates) => { implicit lc =>
       {
         val end = terminates.toOffset
         if (skipRequest(offset, end))
@@ -190,7 +203,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
   def listPackages(client: DamlLedgerClient)(implicit
       ec: EC
   ): ListPackages =
-    (jwt, ledgerId) =>
+    jwt =>
       implicit lc => {
         logger.trace(s"sending list packages request to ledger, ${lc.makeString}")
         logFuture(ListPackagesLog) {
@@ -201,7 +214,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
   def getPackage(client: DamlLedgerClient)(implicit
       ec: EC
   ): GetPackage =
-    (jwt, ledgerId, packageId) =>
+    (jwt, packageId) =>
       implicit lc => {
         logger.trace(s"sending get packages request to ledger, ${lc.makeString}")
         logFuture(GetPackageLog) {
@@ -212,7 +225,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
   def uploadDar(client: DamlLedgerClient)(implicit
       ec: EC
   ): UploadDarFile =
-    (jwt, _, byteString) =>
+    (jwt, byteString) =>
       implicit lc => {
         logger.trace(s"sending upload dar request to ledger, ${lc.makeString}")
         logFuture(UploadDarFileLog) {
@@ -281,7 +294,6 @@ object LedgerClientJwt {
   type GetActiveContracts =
     (
         Jwt,
-        LedgerApiDomain.LedgerId,
         TransactionFilter,
         Boolean,
     ) => LoggingContextOf[InstanceUUID] => Source[
@@ -292,7 +304,6 @@ object LedgerClientJwt {
   type GetCreatesAndArchivesSince =
     (
         Jwt,
-        LedgerApiDomain.LedgerId,
         TransactionFilter,
         LedgerOffset,
         Terminates,
@@ -336,14 +347,13 @@ object LedgerClientJwt {
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[domainPartyDetails]
 
   type ListPackages =
-    (Jwt, LedgerApiDomain.LedgerId) => LoggingContextOf[InstanceUUID with RequestID] => Future[
+    Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.ListPackagesResponse
     ]
 
   type GetPackage =
     (
         Jwt,
-        LedgerApiDomain.LedgerId,
         String,
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.GetPackageResponse
@@ -352,7 +362,6 @@ object LedgerClientJwt {
   type UploadDarFile =
     (
         Jwt,
-        LedgerApiDomain.LedgerId,
         protobuf.ByteString,
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
 

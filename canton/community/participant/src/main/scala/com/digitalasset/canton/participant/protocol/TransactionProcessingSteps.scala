@@ -563,7 +563,7 @@ class TransactionProcessingSteps(
           bytes: ByteString
       ): Either[DefaultDeserializationError, LightTransactionViewTree] =
         LightTransactionViewTree
-          .fromByteString(pureCrypto)(bytes)
+          .fromByteString((pureCrypto, protocolVersion))(bytes)
           .leftMap(err => DefaultDeserializationError(err.message))
 
       def decryptTree(

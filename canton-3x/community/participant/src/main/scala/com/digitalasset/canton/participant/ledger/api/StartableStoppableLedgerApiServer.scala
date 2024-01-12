@@ -79,7 +79,6 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
-    community: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -330,13 +329,12 @@ class StartableStoppableLedgerApiServer(
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
         meteringReportKey = config.meteringReportKey,
         enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
+        multiDomainEnabled = multiDomainEnabled,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
-        community = community,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

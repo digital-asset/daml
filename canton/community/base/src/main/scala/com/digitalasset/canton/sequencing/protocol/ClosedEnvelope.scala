@@ -70,13 +70,14 @@ final case class ClosedEnvelope private (
   ): ParsingResult[DefaultOpenEnvelope] = {
     NonEmpty.from(signatures) match {
       case None =>
-        EnvelopeContent.fromByteStringLegacy(protocolVersion)(hashOps)(bytes).map {
-          envelopeContent =>
+        EnvelopeContent
+          .fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(bytes)
+          .map { envelopeContent =>
             OpenEnvelope(envelopeContent.message, recipients)(protocolVersion)
-        }
+          }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteString(protocolVersion)(hashOps)(bytes)
+          .fromByteString(hashOps, protocolVersion)(bytes)
           .map { typedMessage =>
             OpenEnvelope(
               SignedProtocolMessage.tryCreate(typedMessage, signaturesNE, protocolVersion),

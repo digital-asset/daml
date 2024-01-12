@@ -285,7 +285,7 @@ class TransferOutProcessingSteps(
         sourceDomainProtocolVersion.v,
       ) { bytes =>
         FullTransferOutTree
-          .fromByteString(sourceSnapshot.pureCrypto)(bytes)
+          .fromByteString(sourceSnapshot.pureCrypto, sourceDomainProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))

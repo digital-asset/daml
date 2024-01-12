@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.client.{
   StoreBasedTopologySnapshot,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   TopologyStore,
@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,6 +62,7 @@ object DomainTopologyManager {
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
+      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -79,7 +80,14 @@ object DomainTopologyManager {
           )
       )
       .flatMap { _ =>
-        isInitializedAt(id, store, ts.immediateSuccessor, mustHaveActiveMediator, loggerFactory)
+        isInitializedAt(
+          id,
+          store,
+          ts.immediateSuccessor,
+          mustHaveActiveMediator,
+          loggerFactory,
+          protocolVersion,
+        )
       }
   }
 
@@ -89,14 +97,12 @@ object DomainTopologyManager {
       timestamp: CantonTimestamp,
       mustHaveActiveMediator: Boolean,
       loggerFactory: NamedLoggerFactory,
+      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): EitherT[Future, String, Unit] = {
-    val useStateStore = store.storeId match {
-      case AuthorizedStore => false
-      case DomainStore(_, _) => true
-    }
+    val useStateStore = store.storeId.isDomainStore
     val dbSnapshot = new StoreBasedTopologySnapshot(
       timestamp,
       store,
@@ -105,6 +111,7 @@ object DomainTopologyManager {
       useStateTxs = useStateStore,
       packageDependencies = StoreBasedDomainTopologyClient.NoPackageDependencies,
       loggerFactory,
+      ProtocolVersionValidation(protocolVersion),
     )
     def hasSigningKey(owner: KeyOwner): EitherT[Future, String, SigningPublicKey] = EitherT(
       dbSnapshot
@@ -388,6 +395,7 @@ class DomainTopologyManager(
         CantonTimestamp.MaxValue,
         mustHaveActiveMediator,
         loggerFactory,
+        protocolVersion,
       )
 
   override def issueParticipantStateForDomain(participantId: ParticipantId)(implicit

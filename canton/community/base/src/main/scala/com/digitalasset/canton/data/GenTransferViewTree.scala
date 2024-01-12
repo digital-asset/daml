@@ -43,7 +43,7 @@ abstract class GenTransferViewTree[
   method explicitly.
    */
   def toProtoVersioned(version: ProtocolVersion): VersionedMessage[TransferViewTree] = {
-    if (version <= ProtocolVersion.v5)
+    if (version <= ProtocolVersion.v3)
       VersionedMessage(toProtoV0.toByteString, 0)
     else
       VersionedMessage(toProtoV1.toByteString, 1)

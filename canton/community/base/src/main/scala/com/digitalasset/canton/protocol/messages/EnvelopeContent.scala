@@ -65,7 +65,8 @@ sealed abstract case class EnvelopeContentV4(override val message: UnsignedProto
     EnvelopeContent.representativeV4
 }
 
-object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, HashOps] {
+object EnvelopeContent
+    extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> LegacyProtoConverter(ProtocolVersion.v3)(v0.EnvelopeContent)(
@@ -136,27 +137,28 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
     create(message, protocolVersion).valueOr(err => throw new IllegalArgumentException(err))
 
   private def fromProtoV0(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       envelopeContent: v0.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
+    val (_, expectedProtocolVersion) = context
     import v0.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
-        InformeeMessage.fromProtoV0(hashOps)(messageP)
+        InformeeMessage.fromProtoV0(context)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV0(messageP)
+        DomainTopologyTransactionMessage.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV0.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
-        SignedProtocolMessage.fromProtoV0(hashOps, messageP)
+        SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV0(hashOps)(messageP)
+        TransferOutMediatorMessage.fromProtoV0(context)(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV0(hashOps)(messageP)
+        TransferInMediatorMessage.fromProtoV0(context)(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
-        RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+        RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.RegisterTopologyTransactionResponse(messageP) =>
         RegisterTopologyTransactionResponse.fromProtoV0(messageP)
       case Content.CausalityMessage(messageP) => CausalityMessage.fromProtoV0(messageP)
@@ -166,27 +168,28 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   }
 
   private def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       envelopeContent: v1.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
+    val (_, expectedProtocolVersion) = context
     import v1.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
-        InformeeMessage.fromProtoV1(hashOps)(messageP)
+        InformeeMessage.fromProtoV1(context)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV0(messageP)
+        DomainTopologyTransactionMessage.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV1.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
-        SignedProtocolMessage.fromProtoV0(hashOps, messageP)
+        SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferInMediatorMessage.fromProtoV1(context)(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
-        RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+        RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.RegisterTopologyTransactionResponse(messageP) =>
         RegisterTopologyTransactionResponse.fromProtoV1(messageP)
       case Content.CausalityMessage(messageP) => CausalityMessage.fromProtoV0(messageP)
@@ -196,27 +199,31 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   }
 
   private def fromProtoV2(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       envelopeContent: v2.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
+    val (_, expectedProtocolVersion) = context
     import v2.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
-        InformeeMessage.fromProtoV1(hashOps)(messageP)
+        InformeeMessage.fromProtoV1(context)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(1))(messageP)
+        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(1))(
+          expectedProtocolVersion,
+          messageP,
+        )
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV1.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
-        SignedProtocolMessage.fromProtoV0(hashOps, messageP)
+        SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferInMediatorMessage.fromProtoV1(context)(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
-        RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+        RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.RegisterTopologyTransactionResponse(messageP) =>
         RegisterTopologyTransactionResponse.fromProtoV1(messageP)
       case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
@@ -225,27 +232,31 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   }
 
   def fromProtoV3(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       envelopeContent: v3.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
+    val (_, expectedProtocolVersion) = context
     import v3.EnvelopeContent.SomeEnvelopeContent as Content
     val messageE = (envelopeContent.someEnvelopeContent match {
       case Content.InformeeMessage(messageP) =>
-        InformeeMessage.fromProtoV1(hashOps)(messageP)
+        InformeeMessage.fromProtoV1(context)(messageP)
       case Content.DomainTopologyTransactionMessage(messageP) =>
-        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(messageP)
+        DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(
+          expectedProtocolVersion,
+          messageP,
+        )
       case Content.EncryptedViewMessage(messageP) =>
         EncryptedViewMessageV2.fromProto(messageP)
       case Content.SignedMessage(messageP) =>
-        SignedProtocolMessage.fromProtoV0(hashOps, messageP)
+        SignedProtocolMessage.fromProtoV0(context, messageP)
       case Content.TransferOutMediatorMessage(messageP) =>
-        TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferOutMediatorMessage.fromProtoV1(context)(messageP)
       case Content.TransferInMediatorMessage(messageP) =>
-        TransferInMediatorMessage.fromProtoV1(hashOps)(messageP)
+        TransferInMediatorMessage.fromProtoV1(context)(messageP)
       case Content.RootHashMessage(messageP) =>
         RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
       case Content.RegisterTopologyTransactionRequest(messageP) =>
-        RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+        RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
       case Content.RegisterTopologyTransactionResponse(messageP) =>
         RegisterTopologyTransactionResponse.fromProtoV1(messageP)
       case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
@@ -254,30 +265,34 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
   }
 
   private def fromProtoV4(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       contentP: v4.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
+    val (_, expectedProtocolVersion) = context
     import v4.EnvelopeContent.SomeEnvelopeContent as Content
     for {
       content <- (contentP.someEnvelopeContent match {
         case Content.InformeeMessage(messageP) =>
-          InformeeMessage.fromProtoV1(hashOps)(messageP)
+          InformeeMessage.fromProtoV1(context)(messageP)
         case Content.DomainTopologyTransactionMessage(messageP) =>
-          DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(messageP)
+          DomainTopologyTransactionMessage.fromProtoV1(ProtoVersion(2))(
+            expectedProtocolVersion,
+            messageP,
+          )
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessageV2.fromProto(messageP)
         case Content.TransferOutMediatorMessage(messageP) =>
-          TransferOutMediatorMessage.fromProtoV1(hashOps)(messageP)
+          TransferOutMediatorMessage.fromProtoV1(context)(messageP)
         case Content.TransferInMediatorMessage(messageP) =>
-          TransferInMediatorMessage.fromProtoV1(hashOps)(messageP)
+          TransferInMediatorMessage.fromProtoV1(context)(messageP)
         case Content.RootHashMessage(messageP) =>
           RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
         case Content.RegisterTopologyTransactionRequest(messageP) =>
-          RegisterTopologyTransactionRequest.fromProtoV0(messageP)
+          RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
         case Content.RegisterTopologyTransactionResponse(messageP) =>
           RegisterTopologyTransactionResponse.fromProtoV1(messageP)
         case Content.TopologyTransactionsBroadcast(messageP) =>
-          TopologyTransactionsBroadcastX.fromProtoV2(messageP)
+          TopologyTransactionsBroadcastX.fromProtoV2(expectedProtocolVersion, messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
       }): ParsingResult[UnsignedProtocolMessageV4]
     } yield new EnvelopeContentV4(content) {}
@@ -292,7 +307,9 @@ object EnvelopeContent extends HasProtocolVersionedWithContextCompanion[Envelope
       bytes: Array[Byte]
   )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] = {
     for {
-      envelopeContent <- fromByteStringLegacy(protocolVersion)(hashOps)(ByteString.copyFrom(bytes))
+      envelopeContent <- fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(
+        ByteString.copyFrom(bytes)
+      )
       message <- cast
         .toKind(envelopeContent.message)
         .toRight(
