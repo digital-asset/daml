@@ -55,9 +55,9 @@ steps:
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       t="${{parameters.test_mode}}"
       if [ "$p" == "_m1" ]; then
-          ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t 
+          ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t
       else
-          ./build.sh $p $a $t 
+          ./build.sh $p $a $t
       fi
     displayName: 'Build'
     env:
