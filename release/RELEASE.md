@@ -353,10 +353,6 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    1. Run `daml new myproject` to create a new project and switch to it using
       `cd myproject`.
    1. Run `daml start`.
-   1. ~~Open your browser at `http://localhost:7500`, verify that you can log in as
-      alice and there is one contract, and that the template list contains
-      `Main:Asset` among other templates.~~
-      > **_NOTE:_**  Navigator has been removed, this step is broken.
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
@@ -381,15 +377,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-    1. ~~Run `daml start`. Your browser should be opened automatically at
-       `http://localhost:7500`.~~
-       > **_NOTE:_**  Navigator has been removed, this step is broken.
-       1. Login as `alice` and verify that there is 1 contract.
-
-       1. In the templates section, verify that the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
-       and `IouTrade:IouTrade` among other templates.
-
-    1. Close the tab and kill `daml start` using `Ctrl-C`.
+    1. Kill `daml start` using `Ctrl-C`.
 
     1. Run `daml build`.
 
@@ -411,9 +399,6 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
              ["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
              ```
              where `NAMESPACE` is some randomly generated series of hex digits.
-
-          1. ~~`daml navigator server localhost 6865 --port 7500`~~
-             > **_NOTE:_**  Navigator has been removed, this step is broken.
 
        1. In Terminal 3, run:
 
@@ -443,11 +428,6 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
            > Another common problem is that artifacts fail to resolve because of custom
            > Maven settings. Check your `~/.m2/settings.xml` configuration and try
            > disabling them temporarily.
-
-    1. ~~Point your browser to `http://localhost:7500`, login as `alice` and verify
-       that there is 1 contract, 1 owned IOU, and the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
-       and `IouTrade:IouTrade` among other templates.~~
-       > **_NOTE:_**  Navigator has been removed, this step is broken.
 
     1. Check that `curl http://localhost:8080/iou` returns:
        ```
