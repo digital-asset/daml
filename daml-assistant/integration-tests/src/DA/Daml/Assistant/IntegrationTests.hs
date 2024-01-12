@@ -31,7 +31,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
+import DA.Daml.Helper.Util (tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
@@ -432,7 +432,7 @@ templateTests = testGroup "templates" $
   -- this should be good enough.
   where templateNames =
             [ -- daml-intro-1 - daml-intro-6 are not full projects.
-            , "daml-intro-7"
+              "daml-intro-7"
             , "daml-patterns"
             , "quickstart-java"
             , "script-example"
