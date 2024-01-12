@@ -28,7 +28,6 @@ push() {
 TRIGGER_RUNNER=daml-trigger-runner-$RELEASE_TAG.jar
 TRIGGER_SERVICE=trigger-service-$RELEASE_TAG-ee.jar
 SCRIPT_RUNNER=daml-script-$RELEASE_TAG.jar
-HTTP_JSON=http-json-$RELEASE_TAG-ee.jar
 
 cd $INPUTS
 push daml-trigger-runner $TRIGGER_RUNNER
@@ -37,8 +36,6 @@ push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
 push trigger-service $TRIGGER_SERVICE
 push trigger-service $TRIGGER_SERVICE.asc
-push http-json $HTTP_JSON
-push http-json $HTTP_JSON.asc
 
 # For the split release process these are not published to artifactory.
 if [[ "$#" -lt 3 || $3 != "split" ]]; then
