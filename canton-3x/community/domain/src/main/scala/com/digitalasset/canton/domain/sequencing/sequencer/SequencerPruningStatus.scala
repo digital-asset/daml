@@ -133,7 +133,7 @@ final case class SequencerPruningStatus(
     */
   def clientsPreventingPruning(timestamp: CantonTimestamp): SequencerClients =
     members.foldLeft(SequencerClients()) { (disabled, memberStatus) =>
-      if (memberStatus.safePruningTimestamp.isBefore(timestamp)) {
+      if (memberStatus.safePruningTimestamp.isBefore(timestamp) && memberStatus.enabled) {
         disabled.copy(members = disabled.members + memberStatus.member)
       } else disabled
     }

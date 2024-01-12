@@ -176,7 +176,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     var errorMessageO: Option[String] = None
 
     while (hasDataInStream && errorMessageO.isEmpty) {
-      ActiveContract.parseDelimitedFrom(source) match {
+      ActiveContract.parseDelimitedFromUnsafe(source) match {
         case None =>
           // parseDelimitedFrom returns None to indicate that there is no more data to read from the input stream
           hasDataInStream = false

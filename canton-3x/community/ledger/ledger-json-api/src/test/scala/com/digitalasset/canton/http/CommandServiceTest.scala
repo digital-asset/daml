@@ -79,7 +79,6 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
 
 object CommandServiceTest extends BaseTest {
   private val multiPartyJwp = domain.JwtWritePayload(
-    domain.LedgerId("what"),
     domain.ApplicationId("myapp"),
     submitter = domain.Party subst NonEmptyList("foo", "bar"),
     readAs = domain.Party subst List("baz", "quux"),
@@ -87,7 +86,6 @@ object CommandServiceTest extends BaseTest {
   private lazy val multiPartyJwt = jwtForParties(
     actAs = multiPartyJwp.submitter.toList,
     readAs = multiPartyJwp.readAs,
-    ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
   private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")
   private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
@@ -100,7 +98,6 @@ object CommandServiceTest extends BaseTest {
   def jwtForParties(
       actAs: List[domain.Party],
       readAs: List[domain.Party],
-      ledgerId: Option[String] = None,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
   ): Jwt = {
@@ -108,7 +105,7 @@ object CommandServiceTest extends BaseTest {
     val payload: JsValue = {
       val customJwtPayload: AuthServiceJWTPayload =
         CustomDamlJWTPayload(
-          ledgerId = ledgerId,
+          ledgerId = None,
           applicationId = Some(applicationId.unwrap),
           actAs = domain.Party unsubst actAs,
           participantId = None,

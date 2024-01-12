@@ -21,6 +21,7 @@ import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.{
   ProtocolVersion,
+  ProtocolVersionValidation,
   ReleaseProtocolVersion,
   RepresentativeProtocolVersion,
 }
@@ -391,6 +392,9 @@ object BaseTest {
 
   lazy val testedProtocolVersion: ProtocolVersion =
     tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
+
+  lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
+    ProtocolVersionValidation(testedProtocolVersion)
 
   lazy val testedReleaseProtocolVersion: ReleaseProtocolVersion = ReleaseProtocolVersion(
     testedProtocolVersion

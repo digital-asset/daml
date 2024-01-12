@@ -30,7 +30,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithContextCompanion,
+  HasProtocolVersionedWithContextAndValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
@@ -165,7 +165,7 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedWithContextCompanion[SignedProtocolMessage[
+    extends HasProtocolVersionedWithContextAndValidationCompanion[SignedProtocolMessage[
       SignedProtocolMessageContent
     ], HashOps] {
   override val name: String = "SignedProtocolMessage"
@@ -280,26 +280,27 @@ object SignedProtocolMessage
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )
 
-  private[messages] def fromProtoV0( // TODO(#12626) – try with context
-      hashOps: HashOps,
+  private[messages] def fromProtoV0(
+      context: (HashOps, ProtocolVersion),
       signedMessageP: v0.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
+    val (_, expectedProtocolVersion) = context
     import v0.SignedProtocolMessage.{SomeSignedProtocolMessage as Sm}
     val v0.SignedProtocolMessage(maybeSignatureP, messageBytes) = signedMessageP
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
+          MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteStringUnsafe(hashOps)(
+          TransactionResultMessage.fromByteString(expectedProtocolVersion)(context)(
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteStringUnsafe(transferResultBytes)
+          TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
+          AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteStringUnsafe(
+          MalformedMediatorRequestResult.fromByteString(expectedProtocolVersion)(
             malformedMediatorRequestResultBytes
           )
         case Sm.Empty =>
@@ -315,12 +316,15 @@ object SignedProtocolMessage
   }
 
   private def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       signedMessageP: v1.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
+    val (_, expectedProtocolVersion) = context
     val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteStringUnsafe(hashOps)(
+      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
+        context
+      )(
         typedMessageBytes
       )
       signatures <- ProtoConverter.parseRequiredNonEmpty(
