@@ -45,5 +45,24 @@ final class IdeLedgerRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBas
         ),
         Left(Seq("Cannot upload dar to IDELedger")),
       )
+    "Do not warn users to add --upload-dar when using --all with IDE ledger" in
+      testDamlScriptPred(
+        dars(0),
+        Seq(
+          "--ide-ledger",
+          "--all",
+        ),
+      ) { res =>
+        res match {
+          case Left(actual) =>
+            fail(s"Expected daml-script to succeed but it failed with $actual")
+          case Right(actual) =>
+            if (actual contains "Please use the explicit `--upload-dar yes` option") {
+              fail("Did not expect `--upload-dar` warning")
+            } else {
+              succeed
+            }
+        }
+      }
   }
 }

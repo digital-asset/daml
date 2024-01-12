@@ -52,7 +52,7 @@ trait RunnerMainTestBase {
       args: Seq[String],
       expectedResult: Either[Seq[String], Seq[String]] = Right(Seq()),
   ): Future[Assertion] =
-    runProc(damlScript, Seq("--dar", dar.toString) ++ args).map { res =>
+    testDamlScriptPred(dar, args) { res =>
       (res, expectedResult) match {
         case (Right(actual), Right(expecteds)) =>
           if (expecteds.forall(actual contains _)) succeed
@@ -75,4 +75,10 @@ trait RunnerMainTestBase {
           fail(s"Expected daml-script to succeed but it failed with $actual")
       }
     }
+
+  def testDamlScriptPred(
+      dar: Path,
+      args: Seq[String],
+  )(resultAssertion: Either[String, String] => Assertion): Future[Assertion] =
+    runProc(damlScript, Seq("--dar", dar.toString) ++ args).map(resultAssertion(_))
 }
