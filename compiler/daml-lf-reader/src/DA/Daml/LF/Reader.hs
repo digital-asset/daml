@@ -15,7 +15,7 @@ module DA.Daml.LF.Reader
 
 import "zip-archive" Codec.Archive.Zip
 import qualified DA.Daml.LF.Ast as LF
-import Data.Bifunctor (second)
+import Data.Bitraversable (bimapM)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -127,15 +127,15 @@ readDalfs dar = do
     dalfs <- mapM (getEntry dar) (delete mainDalfPath dalfPaths)
     pure $ Dalfs mainDalf dalfs
 
-extractNameAndPackageIdFromPath :: FilePath -> (T.Text, LF.PackageId)
-extractNameAndPackageIdFromPath = second LF.PackageId . T.breakOnEnd "-" . T.pack . takeBaseName
+extractNameAndPackageIdFromPath :: FilePath -> Maybe (T.Text, LF.PackageId)
+extractNameAndPackageIdFromPath = bimapM (T.stripSuffix "-") (pure . LF.PackageId) . T.breakOnEnd "-" . T.pack . takeBaseName
 
 readDalfsWithMeta :: Archive -> Either String (Dalfs (T.Text, BSL.ByteString, LF.PackageId))
 readDalfsWithMeta dar = do
     DalfManifest{..} <- readDalfManifest dar
     let getEntryWithMeta dar path = do
           dalf <- getEntry dar path
-          let (name, pkgId) = extractNameAndPackageIdFromPath path
+          (name, pkgId) <- maybe (Left "Couldn't parse dalf filename, didn't contain dash.") Right $ extractNameAndPackageIdFromPath path
           pure (name, dalf, pkgId)
     mainDalf <- getEntryWithMeta dar mainDalfPath
     dalfs <- mapM (getEntryWithMeta dar) (delete mainDalfPath dalfPaths)
