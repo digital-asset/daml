@@ -26,4 +26,5 @@ steps:
     name: tell_slack_failed
     condition: and(failed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
