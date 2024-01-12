@@ -183,6 +183,55 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
     }
   }
 
+  "PackageVersion.fromString" - {
+    "parse valid package version strings" in {
+      val testCases = Table(
+        "Raw version string" -> "Parsed package version",
+        "0" -> ImmArray(0),
+        "1" -> ImmArray(1),
+        "1.10" -> ImmArray(1, 10),
+        Int.MaxValue.toString -> ImmArray(Int.MaxValue),
+        "1.0.2" -> ImmArray(1, 0, 2),
+        "0" + ".123" * 255 + ".12" -> ImmArray.from(Seq(0) ++ Seq.fill(255)(123) ++ Seq(12)),
+      )
+
+      testCases.forEvery { (input, expected) =>
+        PackageVersion.fromString(input) shouldBe Right(PackageVersion(expected))
+      }
+    }
+
+    "reject invalid package version strings" in {
+      val testCases = Table(
+        "(Invalid) Raw version string",
+        "",
+        ".",
+        "1.",
+        ".0",
+        "00",
+        "1.002",
+        "0.-1",
+        "+1.0",
+        "beef.0",
+      )
+
+      testCases.forEvery(input =>
+        PackageVersion.fromString(input) shouldBe Left(
+          s"Invalid package version string: `$input`. Package versions are non-empty strings consisting of segments of digits (without leading zeros) separated by dots."
+        )
+      )
+
+      val tooBigForInt = s"${Int.MaxValue.toLong + 1}"
+      val versionWithNumberBiggerThanInt = s"1.$tooBigForInt"
+      PackageVersion.fromString(versionWithNumberBiggerThanInt) shouldBe Left(
+        s"Failed parsing $tooBigForInt as an integer"
+      )
+
+      PackageVersion.fromString("0" + ".123" * 255 + ".123") shouldBe Left(
+        "Package version string length (1025) exceeds the maximum supported length (1024)"
+      )
+    }
+  }
+
   private[this] val qualifiedNamesInOrder =
     for {
       modNane <- dottedNamesInOrder
