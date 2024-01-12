@@ -1262,7 +1262,7 @@ multiPackageBuildEffect relativize buildMode multiPackageConfig projectOpts opts
             liftIO $ traverse_ (buildAndWriteCompositeDar loggerH buildableDataDeps) compositeDars
           _ -> error "Impossible case"
 
-buildAndWriteCompositeDar :: Logger.Handle IO -> BuildableDataDeps -> CompositeDar -> IO ()
+buildAndWriteCompositeDar :: SdkVersion.Class.SdkVersioned => Logger.Handle IO -> BuildableDataDeps -> CompositeDar -> IO ()
 buildAndWriteCompositeDar loggerH buildableDataDeps cd = do
   Logger.logInfo loggerH $ "Building " <> LF.unPackageName (cdName cd) <> " Composite Dar"
 

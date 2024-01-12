@@ -15,7 +15,7 @@ module DA.Daml.LF.Reader
 
 import "zip-archive" Codec.Archive.Zip
 import qualified DA.Daml.LF.Ast as LF
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (second)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -23,7 +23,6 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Char
 import Data.Either.Extra
 import Data.List.Extra
-import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Data.Void
 import System.FilePath (takeBaseName)
@@ -129,7 +128,7 @@ readDalfs dar = do
     pure $ Dalfs mainDalf dalfs
 
 extractNameAndPackageIdFromPath :: FilePath -> (T.Text, LF.PackageId)
-extractNameAndPackageIdFromPath = bimap (T.pack . intercalate "-") (LF.PackageId . T.pack) . fromJust . unsnoc . wordsBy (=='-') . takeBaseName
+extractNameAndPackageIdFromPath = second LF.PackageId . T.breakOnEnd "-" . T.pack . takeBaseName
 
 readDalfsWithMeta :: Archive -> Either String (Dalfs (T.Text, BSL.ByteString, LF.PackageId))
 readDalfsWithMeta dar = do

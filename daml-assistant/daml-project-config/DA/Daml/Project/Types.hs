@@ -55,10 +55,6 @@ newtype MultiPackageCompositeDar = MultiPackageCompositeDar
     { unwrapMultiPackageCompositeDar :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
-newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
-    { unwrapUnresolvedReleaseVersion :: V.Version
-    } deriving (Eq, Ord, Show)
-
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath
