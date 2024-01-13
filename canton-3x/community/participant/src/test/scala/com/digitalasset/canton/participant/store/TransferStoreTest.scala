@@ -79,6 +79,16 @@ trait TransferStoreTest {
         .NonNegativeFiniteDuration(10.seconds)
         .await("make transfer data")(mkTransferData(transfer10, mediator1))
 
+    val transferData2 =
+      config
+        .NonNegativeFiniteDuration(10.seconds)
+        .await("make transfer data")(mkTransferData(transfer11, mediator1))
+
+    val transferData3 =
+      config
+        .NonNegativeFiniteDuration(10.seconds)
+        .await("make transfer data")(mkTransferData(transfer20, mediator1))
+
     def transferDataFor(
         transferId: TransferId,
         contract: SerializableContract,
@@ -796,6 +806,184 @@ trait TransferStoreTest {
         } yield {
           lookup0 shouldBe empty
           lookup1 should have size 1
+        }
+      }
+    }
+
+    "find first incomplete" should {
+
+      "find incomplete transfers (transfer-out done)" in {
+        val store = mk(targetDomain)
+        val transferId = transferData.transferId
+
+        val transferOutOffset = 10L
+        val transferInOffset = 20L
+        for {
+          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+          lookupAfterTransferOut <- store.findEarliestIncomplete()
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+
+          lookupAfterTransferIn <- store.findEarliestIncomplete()
+        } yield {
+          inside(lookupAfterTransferOut) { case Some((offset, _, _)) =>
+            offset shouldBe GlobalOffset.tryFromLong(transferOutOffset)
+          }
+          lookupAfterTransferIn shouldBe None
+        }
+      }
+
+      "find incomplete transfers (transfer-in done)" in {
+        val store = mk(targetDomain)
+        val transferId = transferData.transferId
+
+        val transferOutOffset = 10L
+        val transferInOffset = 20L
+
+        for {
+          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+          lookupAfterTransferIn <- store.findEarliestIncomplete()
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+          lookupAfterTransferOut <- store.findEarliestIncomplete()
+
+        } yield {
+          inside(lookupAfterTransferIn) { case Some((offset, _, _)) =>
+            offset shouldBe GlobalOffset.tryFromLong(transferInOffset)
+          }
+          lookupAfterTransferOut shouldBe None
+        }
+      }
+
+      "returns None when transfer store is empty or each transfer is either complete or has no offset information" in {
+        val store = mk(targetDomain)
+        val transferId1 = transferData.transferId
+        val transferId3 = transferData3.transferId
+
+        val transferOutOffset1 = 10L
+        val transferInOffset1 = 20L
+
+        val transferOutOffset3 = 30L
+        val transferInOffset3 = 35L
+
+        for {
+          lookupEmpty <- store.findEarliestIncomplete()
+          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData3))("add failed")
+
+          lookupAllInFlight <- store.findEarliestIncomplete()
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId1 -> TransferInGlobalOffset(transferInOffset1)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId1 -> TransferOutGlobalOffset(transferOutOffset1)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+
+          lookupInFlightOrComplete <- store.findEarliestIncomplete()
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId3 -> TransferInGlobalOffset(transferInOffset3)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId3 -> TransferOutGlobalOffset(transferOutOffset3)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+          lookupAllComplete <- store.findEarliestIncomplete()
+
+        } yield {
+          lookupEmpty shouldBe None
+          lookupAllInFlight shouldBe None
+          lookupInFlightOrComplete shouldBe None
+          lookupAllComplete shouldBe None
+        }
+      }
+
+      "works in complex scenario" in {
+        val store = mk(targetDomain)
+        val transferId1 = transferData.transferId
+        val transferId2 = transferData2.transferId
+        val transferId3 = transferData3.transferId
+
+        val transferOutOffset1 = 10L
+        val transferInOffset1 = 20L
+
+        // transfer 2 is incomplete
+        val transferOutOffset2 = 12L
+
+        val transferOutOffset3 = 30L
+        val transferInOffset3 = 35L
+
+        for {
+          _ <- valueOrFail(store.addTransfer(transferData))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData2))("add failed")
+          _ <- valueOrFail(store.addTransfer(transferData3))("add failed")
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId1 -> TransferInGlobalOffset(transferInOffset1)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId1 -> TransferOutGlobalOffset(transferOutOffset1)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId2 -> TransferInGlobalOffset(transferOutOffset2)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId3 -> TransferInGlobalOffset(transferInOffset3)))
+            .valueOrFailShutdown(
+              "add transfer-in offset failed"
+            )
+
+          _ <- store
+            .addTransfersOffsets(Map(transferId3 -> TransferOutGlobalOffset(transferOutOffset3)))
+            .valueOrFailShutdown(
+              "add transfer-out offset failed"
+            )
+
+          lookupEnd <- store.findEarliestIncomplete()
+
+        } yield {
+          inside(lookupEnd) { case Some((offset, _, _)) =>
+            offset shouldBe GlobalOffset.tryFromLong(transferOutOffset2)
+          }
         }
       }
     }

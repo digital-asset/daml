@@ -993,6 +993,7 @@ class AcsCommitmentProcessorTest
       val sequencerCounterTrackerStore =
         new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
+
       val ts0 = CantonTimestamp.Epoch
       val ts1 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis)
       val ts2 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 2)

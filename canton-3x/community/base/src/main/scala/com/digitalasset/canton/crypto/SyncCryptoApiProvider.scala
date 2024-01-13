@@ -580,33 +580,6 @@ class DomainSnapshotSyncCryptoApi(
         EitherT.rightT(validKeys.nonEmpty)
     }
 
-  override def decrypt[M](encryptedMessage: Encrypted[M])(
-      deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
-    EitherT(
-      ipsSnapshot
-        .encryptionKey(member)
-        .map { keyO =>
-          keyO
-            .toRight(
-              KeyNotAvailable(
-                member,
-                KeyPurpose.Encryption,
-                ipsSnapshot.timestamp,
-                Seq.empty,
-              ): SyncCryptoError
-            )
-        }
-    )
-      .flatMap(key =>
-        crypto.privateCrypto
-          .decrypt(AsymmetricEncrypted(encryptedMessage.ciphertext, key.fingerprint))(
-            deserialize
-          )
-          .leftMap(err => SyncCryptoError.SyncCryptoDecryptionError(err))
-      )
-  }
-
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {

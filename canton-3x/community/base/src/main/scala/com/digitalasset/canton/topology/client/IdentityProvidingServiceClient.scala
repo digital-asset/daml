@@ -430,12 +430,6 @@ trait CertificateSnapshotClient {
   this: BaseTopologySnapshotClient =>
 
   @Deprecated(since = "3.0.0")
-  def hasParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    findParticipantCertificate(participantId).map(_.isDefined)
-
-  @Deprecated(since = "3.0.0")
   def findParticipantCertificate(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): Future[Option[X509Cert]]

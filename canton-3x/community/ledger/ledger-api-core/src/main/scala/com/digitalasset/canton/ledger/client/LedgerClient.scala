@@ -14,11 +14,11 @@ import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServic
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc as CommandServiceGrpcV1
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc as CommandServiceGrpcV2
+import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
 import com.digitalasset.canton.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
@@ -63,6 +63,9 @@ final class LedgerClient private (
     )
     lazy val stateService = new StateServiceClient(
       LedgerClient.stub(StateServiceGrpc.stub(channel), config.token)
+    )
+    lazy val eventQueryService = new EventQueryServiceClient(
+      LedgerClient.stub(EventQueryServiceGrpc.stub(channel), config.token)
     )
 
   }
@@ -126,10 +129,6 @@ final class LedgerClient private (
     new ParticipantPruningManagementClient(
       LedgerClient.stub(ParticipantPruningServiceGrpc.stub(channel), config.token)
     )
-
-  lazy val eventQueryServiceClient = new EventQueryServiceClient(
-    LedgerClient.stub(EventQueryServiceGrpc.stub(channel), config.token)
-  )
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

@@ -9,10 +9,9 @@ import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v2.transaction.TransactionTree as TransactionTreeV2
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{
-  InstanceReference,
-  InstanceReferenceWithSequencerConnection,
-  LocalParticipantReference,
+  InstanceReferenceX,
   LocalParticipantReferenceCommon,
+  LocalParticipantReferenceX,
 }
 import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
@@ -45,12 +44,11 @@ object IntegrationTestUtilities {
   }
 
   def grabCountsRemote(
-      domainRef: InstanceReferenceWithSequencerConnection,
+      domain: DomainAlias,
       pr: SyncStateInspection,
       limit: Int = 100,
   ): GrabbedCounts = {
     implicit val traceContext: TraceContext = TraceContext.empty
-    val domain = domainRef.name
     val pcsCount = pr.findContracts(domain, None, None, None, limit = limit).length
     val acceptedTransactionCount = pr.findAcceptedTransactions(Some(domain)).length
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
@@ -76,23 +74,24 @@ object IntegrationTestUtilities {
   /** @param domainRef can either be a domain reference or a sequencer reference (in a distributed domain)
     */
   def grabCounts(
-      domainRef: InstanceReference,
-      pr: LocalParticipantReference,
+      domainAlias: DomainAlias,
+      participant: LocalParticipantReferenceX,
       limit: Int = 100,
   ): GrabbedCounts = {
-    val domain = domainRef.name
-    val pcsCount = pr.testing.pcs_search(domain, limit = limit).length
-    val acceptedTransactionCount = pr.testing.transaction_search(Some(domain), limit = limit).length
+    val pcsCount = participant.testing.pcs_search(domainAlias, limit = limit).length
+    val acceptedTransactionCount =
+      participant.testing.transaction_search(Some(domainAlias), limit = limit).length
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
   def grabCountsX[ParticipantNodeT <: ParticipantNodeCommon](
-      domain: DomainAlias,
-      pr: LocalParticipantReferenceCommon[ParticipantNodeT],
+      domainAlias: DomainAlias,
+      participant: LocalParticipantReferenceCommon[ParticipantNodeT],
       limit: Int = 100,
   ): GrabbedCounts = {
-    val pcsCount = pr.testing.pcs_search(domain, limit = limit).length
-    val acceptedTransactionCount = pr.testing.transaction_search(Some(domain), limit = limit).length
+    val pcsCount = participant.testing.pcs_search(domainAlias, limit = limit).length
+    val acceptedTransactionCount =
+      participant.testing.transaction_search(Some(domainAlias), limit = limit).length
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
@@ -182,4 +181,16 @@ object IntegrationTestUtilities {
     }
     pollTestCode()
   }
+
+  def runOnAllInitializedDomainsForAllOwners(
+      initializedDomains: Map[DomainAlias, InitializedDomain],
+      run: (InstanceReferenceX, InitializedDomain) => Unit,
+      topologyAwaitIdle: Boolean,
+  ): Unit =
+    initializedDomains.foreach { case (_, initializedDomain) =>
+      if (topologyAwaitIdle) {
+        initializedDomain.domainOwners.foreach(_.topology.synchronisation.await_idle())
+      }
+      initializedDomain.domainOwners.foreach(run(_, initializedDomain))
+    }
 }

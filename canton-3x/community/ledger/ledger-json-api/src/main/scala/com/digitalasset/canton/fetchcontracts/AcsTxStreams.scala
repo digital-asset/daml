@@ -9,6 +9,7 @@ import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
@@ -47,7 +48,7 @@ object AcsTxStreams extends NoTracing {
       ec: concurrent.ExecutionContext,
       lc: com.daml.logging.LoggingContextOf[Any],
   ): Graph[FanOutShape2[
-    lav1.active_contracts_service.GetActiveContractsResponse,
+    lav2.state_service.GetActiveContractsResponse,
     ContractStreamStep.LAV1,
     BeginBookmark[domain.Offset],
   ], NotUsed] =
@@ -76,14 +77,16 @@ object AcsTxStreams extends NoTracing {
     * other with a single result, the last offset.
     */
   private[this] def acsAndBoundary
-      : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
+      : Graph[FanOutShape2[lav2.state_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
       ], BeginBookmark[domain.Offset]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits.*
-      import lav1.active_contracts_service.GetActiveContractsResponse as GACR
+      import lav2.state_service.GetActiveContractsResponse as GACR
       val dup = b add Broadcast[GACR](2, eagerCancel = true)
-      val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
+      val acs = b add (Flow fromFunction ((_: GACR).contractEntry.activeContract
+        .flatMap(_.createdEvent)
+        .toSeq))
       val off = b add Flow[GACR]
         .collect {
           case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(domain.Offset(gacr.offset))
@@ -139,7 +142,8 @@ object AcsTxStreams extends NoTracing {
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
-  def transactionFilter(
+  // TODO(#15278) remove
+  def transactionFilterV1(
       parties: domain.PartySet,
       contractTypeIds: List[ContractTypeId.Resolved],
   ): lav1.transaction_filter.TransactionFilter = {
@@ -164,4 +168,31 @@ object AcsTxStreams extends NoTracing {
       domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
     )
   }
+
+  def transactionFilter(
+      parties: domain.PartySet,
+      contractTypeIds: List[ContractTypeId.Resolved],
+  ): lav2.transaction_filter.TransactionFilter = {
+    import lav1.transaction_filter.{Filters, InterfaceFilter, InclusiveFilters}
+
+    val (templateIds, interfaceIds) = ResolvedQuery.partition(contractTypeIds)
+    val filters = Filters(
+      Some(
+        InclusiveFilters(
+          templateIds = templateIds.map(apiIdentifier),
+          interfaceFilters = interfaceIds.map(interfaceId =>
+            InterfaceFilter(
+              interfaceId = Some(apiIdentifier(interfaceId)),
+              includeInterfaceView = true,
+            )
+          ),
+        )
+      )
+    )
+
+    lav2.transaction_filter.TransactionFilter(
+      domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
+    )
+  }
+
 }

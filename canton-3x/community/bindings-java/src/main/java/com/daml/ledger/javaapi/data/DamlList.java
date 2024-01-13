@@ -31,21 +31,6 @@ public final class DamlList extends Value {
     return fromPrivateList(Arrays.asList(values));
   }
 
-  @Deprecated // use DamlList:of
-  public DamlList(@NonNull List<@NonNull Value> values) {
-    this.values = values;
-  }
-
-  @Deprecated // use DamlMap:of
-  public DamlList(@NonNull Value... values) {
-    this(Arrays.asList(values));
-  }
-
-  @Deprecated // use DamlMap::stream or DamlMap::toListf
-  public @NonNull List<@NonNull Value> getValues() {
-    return toList(Function.identity());
-  }
-
   public @NonNull Stream<Value> stream() {
     return values.stream();
   }

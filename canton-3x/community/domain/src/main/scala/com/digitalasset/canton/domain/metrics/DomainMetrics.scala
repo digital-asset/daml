@@ -11,15 +11,13 @@ import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.metrics.MetricHandle.{MetricsFactory, NoOpMetricsFactory}
+import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, NoOpMetricsFactory}
 import com.digitalasset.canton.metrics.{DbStorageMetrics, SequencerClientMetrics}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.annotation.nowarn
-
 class SequencerMetrics(
     parent: MetricName,
-    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
@@ -27,7 +25,7 @@ class SequencerMetrics(
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object sequencerClient extends SequencerClientMetrics(prefix, metricsFactory)
+  object sequencerClient extends SequencerClientMetrics(prefix, openTelemetryMetricsFactory)
 
   @MetricDoc.Tag(
     summary = "Number of active sequencer subscriptions",
@@ -37,14 +35,16 @@ class SequencerMetrics(
     qualification = Debug,
   )
   val subscriptionsGauge: Gauge[Int] =
-    metricsFactory.gauge[Int](MetricName(prefix :+ "subscriptions"), 0)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge[Int](MetricName(prefix :+ "subscriptions"), 0)(
+      MetricsContext.Empty
+    )
   @MetricDoc.Tag(
     summary = "Number of messages processed by the sequencer",
     description = """This metric measures the number of successfully validated messages processed
                     |by the sequencer since the start of this process.""",
     qualification = Debug,
   )
-  val messagesProcessed: Meter = metricsFactory.meter(prefix :+ "processed")
+  val messagesProcessed: Meter = openTelemetryMetricsFactory.meter(prefix :+ "processed")
 
   @MetricDoc.Tag(
     summary = "Number of message bytes processed by the sequencer",
@@ -54,7 +54,7 @@ class SequencerMetrics(
         |the contents of these fields do not contribute to this metric.""",
     qualification = Debug,
   )
-  val bytesProcessed: Meter = metricsFactory.meter(prefix :+ "processed-bytes")
+  val bytesProcessed: Meter = openTelemetryMetricsFactory.meter(prefix :+ "processed-bytes")
 
   @MetricDoc.Tag(
     summary = "Number of time requests received by the sequencer",
@@ -65,7 +65,7 @@ class SequencerMetrics(
         |need to be revised to deal with different clock skews and latencies between the sequencer and participants.""",
     qualification = Debug,
   )
-  val timeRequests: Meter = metricsFactory.meter(prefix :+ "time-requests")
+  val timeRequests: Meter = openTelemetryMetricsFactory.meter(prefix :+ "time-requests")
 
   @MetricDoc.Tag(
     summary = "Age of oldest unpruned sequencer event.",
@@ -75,9 +75,11 @@ class SequencerMetrics(
     qualification = Debug,
   )
   val maxEventAge: Gauge[Long] =
-    metricsFactory.gauge[Long](MetricName(prefix :+ "max-event-age"), 0L)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge[Long](MetricName(prefix :+ "max-event-age"), 0L)(
+      MetricsContext.Empty
+    )
 
-  object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
 
   // TODO(i14580): add testing
   object trafficControl {
@@ -89,7 +91,7 @@ class SequencerMetrics(
         """This the raw payload size of an event, on the write path. Final event cost calculation.""",
       qualification = Traffic,
     )
-    val eventReceived: Meter = metricsFactory.meter(prefix :+ "event-received-size")
+    val eventReceived: Meter = openTelemetryMetricsFactory.meter(prefix :+ "event-received-size")
 
     @MetricDoc.Tag(
       summary = "Cost of rejected event.",
@@ -97,14 +99,14 @@ class SequencerMetrics(
         """Cost of an event that was rejected because it exceeded the sender's traffic limit.""",
       qualification = Traffic,
     )
-    val eventRejected: Meter = metricsFactory.meter(prefix :+ "event-rejected-cost")
+    val eventRejected: Meter = openTelemetryMetricsFactory.meter(prefix :+ "event-rejected-cost")
 
     @MetricDoc.Tag(
       summary = "Cost of delivered event.",
       description = """Cost of an event that was delivered.""",
       qualification = Traffic,
     )
-    val eventDelivered: Meter = metricsFactory.meter(prefix :+ "event-delivered-cost")
+    val eventDelivered: Meter = openTelemetryMetricsFactory.meter(prefix :+ "event-delivered-cost")
   }
 }
 
@@ -121,7 +123,7 @@ object SequencerMetrics {
 }
 
 class EnvMetrics(
-    @nowarn("cat=deprecation") factory: MetricsFactory
+    factory: LabeledMetricsFactory
 ) {
   def prefix: MetricName = MetricName("env")
 
@@ -152,39 +154,40 @@ class EnvMetrics(
 )
 class DomainMetrics(
     val prefix: MetricName,
-    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
 
-  object sequencer extends SequencerMetrics(prefix, metricsFactory, grpcMetrics, healthMetrics)
+  object sequencer
+      extends SequencerMetrics(prefix, openTelemetryMetricsFactory, grpcMetrics, healthMetrics)
 
-  object mediator extends MediatorMetrics(prefix, metricsFactory)
+  object mediator extends MediatorMetrics(prefix, openTelemetryMetricsFactory)
 
-  object topologyManager extends IdentityManagerMetrics(prefix, metricsFactory)
+  object topologyManager extends IdentityManagerMetrics(prefix, openTelemetryMetricsFactory)
 }
 
 class MediatorNodeMetrics(
     val prefix: MetricName,
-    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
 
-  object mediator extends MediatorMetrics(prefix, metricsFactory)
+  object mediator extends MediatorMetrics(prefix, openTelemetryMetricsFactory)
 }
 
 class MediatorMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
+    metricsFactory: LabeledMetricsFactory,
 ) {
 
   val prefix: MetricName = basePrefix :+ "mediator"
@@ -233,7 +236,7 @@ class MediatorMetrics(
 
 class IdentityManagerMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
+    metricsFactory: LabeledMetricsFactory,
 ) {
   val prefix: MetricName = basePrefix :+ "topology-manager"
 

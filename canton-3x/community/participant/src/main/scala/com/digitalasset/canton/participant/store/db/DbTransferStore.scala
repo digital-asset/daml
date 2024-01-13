@@ -39,6 +39,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -585,6 +586,50 @@ class DbTransferStore(
           .sortBy(_.transferEventGlobalOffset.globalOffset)
       )
     }
+
+  override def findEarliestIncomplete()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] = {
+    val result = storage
+      .query(
+        {
+          val maxCompletedOffset: SQLActionBuilder =
+            sql"""select min(coalesce(transfer_in_global_offset,${GlobalOffset.MaxValue})),
+                  min(coalesce(transfer_out_global_offset,${GlobalOffset.MaxValue})),
+                  origin_domain, transfer_out_timestamp
+                  from transfers
+                  where target_domain=$domain and (transfer_out_global_offset is null or transfer_in_global_offset is null)
+                  group by origin_domain, transfer_out_timestamp
+                  """
+
+          maxCompletedOffset
+            .as[(Option[GlobalOffset], Option[GlobalOffset], DomainId, CantonTimestamp)]
+        },
+        functionFullName,
+      )
+
+    result
+      .map(
+        _.toList
+          .map { case (in, out, source, ts) =>
+            ((in.toList ++ out.toList).minOption, TransferId(SourceDomainId(source), ts))
+          }
+          .foldLeft(
+            (
+              GlobalOffset.MaxValue,
+              TransferId(SourceDomainId(domain.unwrap), CantonTimestamp.MaxValue),
+            )
+          )((acc: (GlobalOffset, TransferId), n) =>
+            n match {
+              case (Some(o), tid) => if (acc._1 > o) (o, tid) else acc
+              case (None, _) => acc
+            }
+          ) match {
+          case (offset, transferId) =>
+            if (offset == GlobalOffset.MaxValue) None else Some((offset, transferId, domain))
+        }
+      )
+  }
 
   private def insertDependentDeprecated[E, W, A, R](
       exists: DBIO[Option[A]],

@@ -18,7 +18,6 @@ import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.{Executor, TimeUnit}
-import scala.annotation.nowarn
 
 /** The [[io.grpc.ServerBuilder]] is pretty "loose" with its type parameters
   * causing some issues for `scalac` and IntelliJ.
@@ -142,7 +141,7 @@ object CantonServerBuilder {
   def forConfig(
       config: ServerConfig,
       metricsPrefix: MetricName,
-      @nowarn("cat=deprecation") metricsFactory: MetricHandle.MetricsFactory,
+      metricsFactory: MetricHandle.LabeledMetricsFactory,
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,

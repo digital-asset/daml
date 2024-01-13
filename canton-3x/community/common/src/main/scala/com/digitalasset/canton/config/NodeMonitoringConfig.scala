@@ -48,7 +48,14 @@ final case class GrpcHealthServerConfig(
     ClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }
 
+/** Configuration of health server backend. */
+final case class HttpHealthServerConfig(address: String = "0.0.0.0", port: Port)
+
 /** Monitoring configuration for a canton node.
   * @param grpcHealthServer Optional gRPC Health server configuration
+  * @param httpHealthServer Optional HTTP Health server configuration
   */
-final case class NodeMonitoringConfig(grpcHealthServer: Option[GrpcHealthServerConfig] = None)
+final case class NodeMonitoringConfig(
+    grpcHealthServer: Option[GrpcHealthServerConfig] = None,
+    httpHealthServer: Option[HttpHealthServerConfig] = None,
+)

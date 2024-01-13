@@ -16,7 +16,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, NoOpMetricsFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -76,7 +76,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
     val metrics = {
       val registry = new MetricRegistry
       new Metrics(
-        new DropwizardMetricsFactory(registry),
+        new DropwizardMetricsFactory(registry) with LabeledMetricsFactory,
         NoOpMetricsFactory,
         registry,
         reportExecutionContextMetrics = true,
