@@ -141,7 +141,12 @@ jobs:
 
       branch="notices-update-$(Build.BuildId)"
 
-      tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
+      if [ "$(Build.SourceBranchName)" = "main-2.x" ]; then
+        source="main_2_x"
+      else
+        source="$(Build.SourceBranchName)"
+      fi
+      tr -d '\015' < digital_asset_daml_${source}_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
       if git diff --exit-code -- NOTICES; then
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
