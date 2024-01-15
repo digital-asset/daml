@@ -836,6 +836,63 @@ tests damlc =
                       ]
                 )
               ]
+        , test
+              "Succeeds when two deeply nested type synonyms resolve to the same datatypes"
+              Succeed
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Int"
+                      , "type Synonym3 = Text"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (Synonym2, a)"
+                      , "type Synonym2 = Int"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Text"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+        , test
+              "Fails when two deeply nested type synonyms resolve to different datatypes"
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
+              [ ( "daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Int"
+                      , "type Synonym3 = Text"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
+              [ ("daml/MyLib.daml"
+                , unlines
+                      [ "module MyLib where"
+                      , "type Synonym1 a = (a, Synonym3)"
+                      , "type Synonym2 = Text"
+                      , "type Synonym3 = Int"
+                      , "template A with"
+                      , "    p : Party"
+                      , "    q : Synonym1 Synonym2"
+                      , "  where signatory [p]"
+                      ]
+                )
+              ]
         ]
   where
     test ::
