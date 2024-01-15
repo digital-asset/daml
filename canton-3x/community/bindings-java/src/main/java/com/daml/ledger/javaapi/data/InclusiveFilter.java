@@ -36,25 +36,6 @@ public final class InclusiveFilter extends Filter {
     this(Collections.emptySet(), interfaceFilters, templateFilters);
   }
 
-  /**
-   * @deprecated Use {@link #ofTemplateIds} instead; {@code templateIds} must not include interface
-   *     IDs. Since Daml 2.4.0
-   */
-  @Deprecated
-  public InclusiveFilter(@NonNull Set<@NonNull Identifier> templateIds) {
-    this(templateIds, Collections.emptyMap());
-  }
-
-  /**
-   * @deprecated Use the constructor with {@link #templateFilters} instead of IDs. Since Daml 2.8.0
-   */
-  @Deprecated
-  public InclusiveFilter(
-      @NonNull Set<@NonNull Identifier> templateIds,
-      @NonNull Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceIds) {
-    this(templateIds, interfaceIds, Collections.emptyMap());
-  }
-
   public static InclusiveFilter ofTemplateIds(@NonNull Set<@NonNull Identifier> templateIds) {
     return new InclusiveFilter(
         Collections.emptyMap(),

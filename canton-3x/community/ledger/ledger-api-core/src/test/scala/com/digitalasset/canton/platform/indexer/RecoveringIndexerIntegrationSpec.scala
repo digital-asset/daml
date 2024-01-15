@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -15,6 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
   Update,
   WritePartyService,
 }
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLogging,

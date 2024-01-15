@@ -1057,7 +1057,7 @@ object ConsoleMacros extends ConsoleMacros with NamedLogging {
 object DebuggingHelpers extends LazyLogging {
 
   def get_active_contracts(
-      ref: LocalParticipantReference,
+      ref: LocalParticipantReferenceCommon[?],
       limit: PositiveInt = PositiveInt.tryCreate(1000000),
   ): (Map[String, String], Map[String, TemplateId]) =
     get_active_contracts_helper(
@@ -1066,7 +1066,7 @@ object DebuggingHelpers extends LazyLogging {
     )
 
   def get_active_contracts_from_internal_db_state(
-      ref: ParticipantReference,
+      ref: ParticipantReferenceCommon,
       state: SyncStateInspection,
       limit: PositiveInt = PositiveInt.tryCreate(1000000),
   ): (Map[String, String], Map[String, TemplateId]) =
@@ -1079,7 +1079,7 @@ object DebuggingHelpers extends LazyLogging {
     )
 
   private def get_active_contracts_helper(
-      ref: ParticipantReference,
+      ref: ParticipantReferenceCommon,
       lookup: DomainAlias => Seq[(Boolean, SerializableContract)],
   ): (Map[String, String], Map[String, TemplateId]) = {
     val syncAcs = ref.domains
@@ -1095,7 +1095,7 @@ object DebuggingHelpers extends LazyLogging {
     (syncAcs, lapiAcs)
   }
 
-  def diff_active_contracts(ref: LocalParticipantReference, limit: Int = 1000000): Unit = {
+  def diff_active_contracts(ref: LocalParticipantReferenceCommon[?], limit: Int = 1000000): Unit = {
     val (syncAcs, lapiAcs) = get_active_contracts(ref, limit)
     if (syncAcs.sizeCompare(lapiAcs) != 0) {
       logger.error(s"Sync ACS differs ${syncAcs.size} from Ledger API ACS ${lapiAcs.size} in size")
@@ -1122,7 +1122,7 @@ object DebuggingHelpers extends LazyLogging {
   }
 
   def active_contracts_by_template(
-      ref: LocalParticipantReference,
+      ref: LocalParticipantReferenceCommon[?],
       limit: Int = 1000000,
   ): (Map[String, Int], Map[TemplateId, Int]) = {
     val (syncAcs, lapiAcs) = get_active_contracts(ref, limit)

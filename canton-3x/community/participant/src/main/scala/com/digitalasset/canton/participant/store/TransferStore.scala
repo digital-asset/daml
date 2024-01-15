@@ -338,4 +338,14 @@ trait TransferLookup {
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]]
+
+  /** Find utility to look for the earliest incomplete transfer w.r.t. the ledger end.
+    * If an incomplete transfer exists, the method returns the global offset of the incomplete transfer for either the
+    * transfer-out or the transfer-in, whichever of these is not null, the transfer id and the target domain id.
+    * It returns None if there is no incomplete transfer (either because all transfers are complete or are in-flight,
+    * or because there are no transfers), or the transfer table is empty.
+    */
+  def findEarliestIncomplete()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]]
 }

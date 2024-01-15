@@ -93,7 +93,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
   private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
   case class TestMetrics(
       prefix: MetricName = MetricName("test-metrics"),
-      metricsFactory: LabeledMetricsFactory = metricsFactory,
+      openTelemetryMetricsFactory: LabeledMetricsFactory = metricsFactory,
       grpcMetrics: GrpcServerMetrics = Metrics.ForTesting.daml.grpc,
       healthMetrics: HealthMetrics = Metrics.ForTesting.daml.health,
       storageMetrics: DbStorageMetrics = new DbStorageMetrics(MetricName("storage"), metricsFactory),

@@ -15,6 +15,7 @@ import com.daml.ledger.api.v2.state_service.{
   GetLedgerEndRequest,
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.util.pekkostreams.ExtractMaterializedValue
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -36,6 +37,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
       filter: TransactionFilter,
       verbose: Boolean = false,
       validAtOffset: Option[String] = None,
+      token: Option[String] = None,
   ): Source[GetActiveContractsResponse, Future[String]] = {
     ClientAdapter
       .serverStreaming(
@@ -44,7 +46,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
           verbose = verbose,
           activeAtOffset = validAtOffset.getOrElse(""),
         ),
-        service.getActiveContracts,
+        LedgerClient.stub(service, token).getActiveContracts,
       )
       .viaMat(StateServiceClient.extractOffset)(
         Keep.right
@@ -56,11 +58,14 @@ class StateServiceClient(service: StateServiceStub)(implicit
       filter: TransactionFilter,
       verbose: Boolean = false,
       validAtOffset: Option[String] = None,
+      token: Option[String] = None,
   )(implicit
       materializer: Materializer
   ): Future[(Seq[ActiveContract], ParticipantOffset)] = {
     val (offsetF, contractsF) =
-      getActiveContractsSource(filter, verbose, validAtOffset).toMat(Sink.seq)(Keep.both).run()
+      getActiveContractsSource(filter, verbose, validAtOffset, token)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
     val activeF = contractsF
       .map(
         _.map(_.contractEntry)

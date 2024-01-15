@@ -4,7 +4,7 @@
 package com.digitalasset.canton.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.noop.NoOpMetricsFactory
@@ -14,13 +14,11 @@ import com.daml.metrics.{ExecutorServiceMetrics, HealthMetrics}
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 
-import scala.annotation.nowarn
-
 object Metrics {
 
   def apply(registry: MetricRegistry, otelMeter: Meter, reportExecutionContextMetrics: Boolean) =
     new Metrics(
-      new DropwizardMetricsFactory(registry),
+      new DropwizardMetricsFactory(registry) with LabeledMetricsFactory,
       new OpenTelemetryMetricsFactory(otelMeter),
       registry,
       reportExecutionContextMetrics,
@@ -29,7 +27,7 @@ object Metrics {
   lazy val ForTesting: Metrics = {
     val registry = new MetricRegistry
     new Metrics(
-      new DropwizardMetricsFactory(registry),
+      new DropwizardMetricsFactory(registry) with LabeledMetricsFactory,
       new OpenTelemetryMetricsFactory(SdkMeterProvider.builder().build().get("for_testing")),
       registry,
       reportExecutionContextMetrics = true,
@@ -38,16 +36,15 @@ object Metrics {
 }
 
 final class Metrics(
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
-    val defaultMetricsFactory: MetricsFactory,
-    val labeledMetricsFactory: LabeledMetricsFactory,
+    val dropWizardMetricsFactory: LabeledMetricsFactory,
+    val openTelemetryMetricsFactory: LabeledMetricsFactory,
     val registry: MetricRegistry,
     reportExecutionContextMetrics: Boolean,
 ) {
 
   private val executorServiceMetricsFactory =
     if (reportExecutionContextMetrics)
-      labeledMetricsFactory
+      openTelemetryMetricsFactory
     else
       NoOpMetricsFactory
 
@@ -56,61 +53,63 @@ final class Metrics(
   object daml {
     val prefix: MetricName = MetricName.Daml
 
-    @nowarn("cat=deprecation")
-    object commands extends CommandMetrics(prefix :+ "commands", defaultMetricsFactory)
+    object commands extends CommandMetrics(prefix :+ "commands", dropWizardMetricsFactory)
 
-    @nowarn("cat=deprecation")
     object execution
         extends ExecutionMetrics(
           prefix :+ "execution",
-          defaultMetricsFactory,
-          labeledMetricsFactory,
+          dropWizardMetricsFactory,
+          openTelemetryMetricsFactory,
         )
 
-    @nowarn("cat=deprecation")
-    object lapi extends LAPIMetrics(prefix :+ "lapi", defaultMetricsFactory)
+    object lapi extends LAPIMetrics(prefix :+ "lapi", dropWizardMetricsFactory)
 
     object userManagement
         extends UserManagementMetrics(
           prefix :+ "user_management",
-          labeledMetricsFactory,
+          openTelemetryMetricsFactory,
         )
 
     object partyRecordStore
         extends PartyRecordStoreMetrics(
           prefix :+ "party_record_store",
-          labeledMetricsFactory,
+          openTelemetryMetricsFactory,
         )
 
     object identityProviderConfigStore
         extends IdentityProviderConfigStoreMetrics(
           prefix :+ "identity_provider_config_store",
-          labeledMetricsFactory,
+          openTelemetryMetricsFactory,
         )
 
-    @nowarn("cat=deprecation")
     object index
-        extends IndexMetrics(prefix :+ "index", defaultMetricsFactory, labeledMetricsFactory)
+        extends IndexMetrics(
+          prefix :+ "index",
+          dropWizardMetricsFactory,
+          openTelemetryMetricsFactory,
+        )
 
-    @nowarn("cat=deprecation")
-    object indexer extends IndexerMetrics(prefix :+ "indexer", defaultMetricsFactory)
+    object indexer extends IndexerMetrics(prefix :+ "indexer", dropWizardMetricsFactory)
 
-    object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", labeledMetricsFactory)
+    object indexerEvents
+        extends IndexedUpdatesMetrics(prefix :+ "indexer", openTelemetryMetricsFactory)
 
-    @nowarn("cat=deprecation")
     object parallelIndexer
         extends ParallelIndexerMetrics(
           prefix :+ "parallel_indexer",
-          defaultMetricsFactory,
-          labeledMetricsFactory,
+          dropWizardMetricsFactory,
+          openTelemetryMetricsFactory,
         )
 
-    @nowarn("cat=deprecation")
     object services
-        extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labeledMetricsFactory)
+        extends ServicesMetrics(
+          prefix :+ "services",
+          dropWizardMetricsFactory,
+          openTelemetryMetricsFactory,
+        )
 
-    object grpc extends DamlGrpcServerMetrics(labeledMetricsFactory, "participant")
+    object grpc extends DamlGrpcServerMetrics(openTelemetryMetricsFactory, "participant")
 
-    object health extends HealthMetrics(labeledMetricsFactory)
+    object health extends HealthMetrics(openTelemetryMetricsFactory)
   }
 }

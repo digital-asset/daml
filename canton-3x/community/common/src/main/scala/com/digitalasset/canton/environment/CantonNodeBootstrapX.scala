@@ -128,10 +128,11 @@ abstract class CantonNodeBootstrapX[
           // init health services once
           val healthService = mkNodeHealthService(storage)
           addCloseable(healthService)
-          val (healthReporter, grpcHealthServer, livenessHealthService) =
+          val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
             mkHealthComponents(healthService)
           addCloseable(livenessHealthService)
           grpcHealthServer.foreach(addCloseable)
+          httpHealthServer.foreach(addCloseable)
           addCloseable(storage)
           Some(new SetupCrypto(storage, healthReporter, healthService))
         }
