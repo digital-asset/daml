@@ -17,36 +17,6 @@ jobs:
     test_mode: pr
 - template: check-for-release-job.yml
 
-
-- job: check_standard_change_label
-  dependsOn:
-    - git_sha
-  variables:
-    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-  condition: eq(variables['Build.Reason'], 'PullRequest')
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: |
-        set -euo pipefail
-
-        has_changed () {
-            git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
-        }
-
-        fail_if_missing_std_change_label () {
-            curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
-        }
-
-        if has_changed "infra/" || has_changed "LATEST"; then
-            fail_if_missing_std_change_label
-        fi
-      env:
-        PR: $(System.PullRequest.PullRequestNumber)
-
 - job: compatiblity_target_protobuf
   pool:
     name: ubuntu_20_04
