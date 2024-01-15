@@ -159,8 +159,6 @@ functionalTests =
     [ testInteraction' "create and query"
           [ input "import DA.Time"
           , input "alice <- allocateParty \"Alice\""
-          -- TODO: use topology commands instead, and remove the DA.Time import
-          , input "_ <- sleep (seconds 1)"
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\]$"
           , input "_ <- submit alice $ createCmd (T alice alice)"
@@ -171,8 +169,6 @@ functionalTests =
           [ input "import DA.Time"
           , input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
-          -- TODO: use topology commands instead, and remove the DA.Time import
-          , input "_ <- sleep (seconds 1)"
           , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
