@@ -43,7 +43,7 @@ object PackageMetadata {
   }
 
   def from(archive: DamlLf.Archive, priority: Priority): PackageMetadata = {
-    val packageInfo = Decode.assertDecodeInfoPackage(archive)
+    val packageInfo = Decode.assertDecodeInfoPackage(archive)._2
     PackageMetadata(
       templates = createVersionedTemplatesMap(packageInfo.definedTemplates, priority),
       interfaces = packageInfo.definedInterfaces,
