@@ -11,24 +11,35 @@ import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContract
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data.{codegen => jcg, _}
+import com.daml.ledger.javaapi.data.{codegen => jcg, Unit => _, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
 trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
+
+  /** A scheduled service executor used by [[sleep]]. */
+  private val scheduledExecutorService: ScheduledExecutorService =
+    Executors.newScheduledThreadPool(1)
+
+  /** Returns a future that completes after the provided delay. */
+  private def sleep(delay: FiniteDuration): Future[Unit] = {
+    val promise = Promise[Unit]()
+    val _ = scheduledExecutorService.schedule(() => promise.success(()), delay.length, delay.unit)
+    promise.future
+  }
 
   override protected lazy val darFiles = List(
     BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
@@ -44,9 +55,12 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
 
   protected def allocateParty: Future[String] = {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
-    client.partyManagementClient
-      .allocateParty(hint = None, displayName = None)
-      .map(_.party)
+    for {
+      partyDetails <- client.partyManagementClient.allocateParty(hint = None, displayName = None)
+      // TODO(https://github.com/DACH-NY/canton/issues/16401): remove once we have a better way of
+      //   synchronizing after a party allocation.
+      _ <- sleep(250.millis)
+    } yield partyDetails.party
   }
 
   def withClient(testCode: Channel => Future[Assertion]): Future[Assertion] = testCode(
