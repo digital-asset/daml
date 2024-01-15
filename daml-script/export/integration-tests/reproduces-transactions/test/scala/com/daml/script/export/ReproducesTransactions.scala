@@ -45,7 +45,7 @@ final class ReproducesTransactions
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
-  val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml/daml-script.dar")
+  val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml3/daml3-script.dar")
   val darPath = BazelRunfiles.rlocation("daml-script/test/script-test.dar")
 
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
