@@ -58,11 +58,13 @@ object Decode {
   ): (PackageId, Ast.Package) =
     assertRight(decodeArchive(archive, onlySerializableDataDefs))
 
-  def decodeInfoPackage(archive: DamlLf.Archive): Either[Error, PackageInfo] =
+  def decodeInfoPackage(
+      archive: DamlLf.Archive
+  ): Either[Error, ((PackageId, Ast.Package), PackageInfo)] =
     decodeArchive(archive, onlySerializableDataDefs = true)
-      .map(entry => new PackageInfo(Map(entry)))
+      .map(entry => entry -> new PackageInfo(Map(entry)))
 
-  def assertDecodeInfoPackage(archive: DamlLf.Archive): PackageInfo =
+  def assertDecodeInfoPackage(archive: DamlLf.Archive): ((PackageId, Ast.Package), PackageInfo) =
     assertRight(decodeInfoPackage(archive: DamlLf.Archive))
 
 }
