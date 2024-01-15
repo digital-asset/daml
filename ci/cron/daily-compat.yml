@@ -381,5 +381,5 @@ jobs:
         '
             tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
         else
-            tell_slack "Daily tests failed (($Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+            tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
