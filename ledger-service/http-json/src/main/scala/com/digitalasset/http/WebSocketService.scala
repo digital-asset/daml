@@ -48,6 +48,7 @@ import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
 import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
+import com.daml.http.ContractsService.RR
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -58,6 +59,8 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Util
 import com.daml.nonempty.NonEmpty
 
 object WebSocketService {
@@ -297,7 +300,7 @@ object WebSocketService {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[(Set[domain.ContractTypeId.Resolved], Set[domain.ContractTypeId.OptionalPkg])] =
+        ): Future[(Set[RR], Set[domain.ContractTypeId.OptionalPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
@@ -305,7 +308,7 @@ object WebSocketService {
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
+                  Either[RR, domain.ContractTypeId.OptionalPkg]
                 ]
               )
             )
@@ -446,7 +449,8 @@ object WebSocketService {
         ): NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmptyList[
           ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
         ]]] = {
-          val compiledQueries = prepareFilters(rsfq.resolvedQuery.resolved, rsfq.query, lookupType)
+          val compiledQueries =
+            prepareFilters(rsfq.resolvedQuery.resolved.map(_._1), rsfq.query, lookupType)
           compiledQueries.transform((_, p) => NonEmptyList((p, (ix, pos))))
         }
 
@@ -534,7 +538,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmpty[Set[V]]]],
+      q: NonEmpty[Map[RR, NonEmpty[Set[V]]]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
@@ -609,15 +613,16 @@ object WebSocketService {
       request.toList
         .traverse { x: CKR[LfV] =>
           resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
-            .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
+            .map(_.toOption.flatten.map(r => (r, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]]
+            .toSet[Either[((domain.ContractTypeId.Resolved, LanguageVersion), LfV), OptionalPkg]]
             .partitionMap(identity)
           for {
-            resolvedWithKey <- (NonEmpty from resolvedWithKey
-              toRightDisjunction InvalidUserInput(ResolvedQuery.CannotBeEmpty.errorMsg))
+            resolvedWithKey <- (NonEmpty from resolvedWithKey toRightDisjunction InvalidUserInput(
+              ResolvedQuery.CannotBeEmpty.errorMsg
+            ))
             q = getQ(resolvedWithKey)
             rq <- domain
               .ResolvedQuery(q.keySet)
@@ -648,19 +653,21 @@ object WebSocketService {
               if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
           }
       }
-      def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
-          q: NonEmpty[Map[CtId, NonEmpty[Set[LfV]]]]
+      def dbQueries(
+          q: NonEmpty[Map[RR, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
-      ): NonEmpty[Seq[(CtId, doobie.Fragment)]] =
-        q.toSeq map { case (t, lfvKeys) =>
+      ): NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]] =
+        q.toSeq map { case ((t, lv), lfvKeys) =>
           val keys = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
             t,
             joinFragment(
               keys map (k =>
-                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k, shared = false))
+                keyEquality(
+                  Hash.assertHashContractKey(toLedgerApiValue(t), k, shared = Util.sharedKey(lv))
+                )
               ),
               sql" OR ",
             ),
@@ -671,14 +678,14 @@ object WebSocketService {
         StreamPredicate[Positive](
           resolvedRequest.resolvedQuery,
           resolvedRequest.unresolved,
-          fn(resolvedRequest.q),
+          fn(resolvedRequest.q.map({ case (k, v) => (k._1, v) }).toMap.forgetNE),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
             selectContractsMultiTemplate(
-              parties,
-              dbQueries(resolvedRequest.q),
-              MatchedQueryMarker.Unused,
+              parties = parties,
+              predicates = dbQueries(resolvedRequest.q),
+              trackMatchIndices = MatchedQueryMarker.Unused,
             )
           },
         )
@@ -929,7 +936,7 @@ class WebSocketService(
             jwt,
             ledgerId,
             parties,
-            predicate.resolvedQuery.resolved.toList,
+            predicate.resolvedQuery.resolved.toList.map(_._1),
           )
           .via(
             convertFilterContracts(
@@ -995,7 +1002,7 @@ class WebSocketService(
             jwt,
             ledgerId,
             parties,
-            resolvedQuery.resolved.toList,
+            resolvedQuery.resolved.toList.map(_._1),
             liveStartingOffset,
             Terminates.Never,
           )
@@ -1045,7 +1052,7 @@ class WebSocketService(
                     jwt,
                     ledgerId,
                     parties,
-                    resolvedQuery.resolved.toList,
+                    resolvedQuery.resolved.toList.map(_._1),
                     liveStartingOffset,
                     Terminates.Never,
                   )

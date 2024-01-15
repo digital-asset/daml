@@ -4,13 +4,13 @@
 package com.daml.lf.typesig
 
 import java.{util => j}
-
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
+import com.daml.lf.language.LanguageVersion
 import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
@@ -32,6 +32,7 @@ final case class PackageMetadata(
   */
 final case class PackageSignature(
     packageId: PackageId,
+    languageVersion: LanguageVersion,
     metadata: Option[PackageMetadata],
     typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
     interfaces: Map[QualifiedName, DefInterface.FWT],

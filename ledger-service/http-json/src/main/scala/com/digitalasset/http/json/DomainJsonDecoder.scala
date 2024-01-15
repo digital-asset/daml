@@ -244,7 +244,9 @@ class DomainJsonDecoder(
   ): ET[R] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
-        .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
+        .map(
+          _.toOption.flatten.map(_._1).toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
+        )
     )
 
   // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonReaders defined below

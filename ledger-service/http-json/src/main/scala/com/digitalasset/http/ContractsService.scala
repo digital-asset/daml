@@ -50,6 +50,8 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Util
 import scalaz.std.scalaFuture._
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
@@ -94,11 +96,11 @@ class ContractsService(
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
         resolveContractTypeId(jwt, ledgerId)(templateId).map(
-          _.toOption.flatten.map(x => -\/(x -> key))
+          _.toOption.flatten.map(x => -\/(x._1 -> key))
         )
       case domain.EnrichedContractId(Some(templateId), contractId) =>
         resolveContractTypeId(jwt, ledgerId)(templateId).map(
-          _.toOption.flatten.map(x => \/-(x -> contractId))
+          _.toOption.flatten.map(x => \/-(x._1 -> contractId))
         )
       case domain.EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, None, ledgerId, contractId)
@@ -132,7 +134,7 @@ class ContractsService(
   private[this] def findByContractKey(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateId: ContractTypeId.Template.OptionalPkg,
+      templateId: domain.ContractTypeId.Template.OptionalPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
   )(implicit
@@ -190,7 +192,7 @@ class ContractsService(
         predicate = domain.ActiveContract.matchesKey(contractKey) _
 
         result <- OptionT(
-          searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateId, predicate)
+          searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateId._1, predicate)
             .runWith(Sink.headOption)
             .flatMap(lookupResult)
         )
@@ -212,16 +214,14 @@ class ContractsService(
           templateId.cata(
             x =>
               resolveContractTypeId(jwt, ledgerId)(x)
-                .map(_.toOption.flatten.map(Set(_))),
+                .map(_.toOption.flatten.map({ r: RR => Set(r) })),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[domain.ContractTypeId.Resolved].some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[RR].some),
           )
         )
         resolvedQuery <- OptionT(
           Future.successful(
-            domain
-              .ResolvedQuery(resolvedTemplateIds)
-              .toOption
+            domain.ResolvedQuery.apply(resolvedTemplateIds).toOption
           )
         )
         result <- OptionT(
@@ -277,7 +277,7 @@ class ContractsService(
         .future(allTemplateIds(lc)(jwt, ledgerId))
         .flatMapConcat(x =>
           Source(x)
-            .flatMapConcat(x => searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true))
+            .flatMapConcat(x => searchInMemoryOneTpId(jwt, ledgerId, parties, x._1, _ => true))
         )
     )
   }
@@ -382,7 +382,7 @@ class ContractsService(
           // TODO query store support for interface query/fetch #14819
           // we need a template ID to update the database
           def doSearchInMemory = OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
-          def doSearchInDb(resolved: domain.ContractTypeId.Resolved) =
+          def doSearchInDb(resolved: RR) =
             OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
@@ -394,7 +394,7 @@ class ContractsService(
               ) *>
                 timed(
                   metrics.Db.fetchByIdQuery,
-                  ContractDao.fetchById(parties, resolved, contractId),
+                  ContractDao.fetchById(parties, resolved._1, contractId),
                 )
             })
 
@@ -420,7 +420,9 @@ class ContractsService(
         ): Future[Option[domain.ActiveContract.ResolvedCtTyId[LfV]]] = {
           import ctx.{jwt, parties, templateIds => templateId, ledgerId}, com.daml.lf.crypto.Hash
           for {
-            resolved <- resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
+            (resolved, languageVersion) <- resolveContractTypeId(jwt, ledgerId)(templateId).map(
+              _.toOption.flatten.get
+            )
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // it is possible for the contract under a given key to have been
@@ -432,7 +434,7 @@ class ContractsService(
               // have to be contained within a single fetchAndPersistBracket -SC
               timed(
                 metrics.Db.fetchByKeyFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
+                fetch.fetchAndPersist(jwt, ledgerId, parties, List((resolved, languageVersion))),
               ) *>
                 timed(
                   metrics.Db.fetchByKeyQuery,
@@ -442,7 +444,7 @@ class ContractsService(
                     Hash.assertHashContractKey(
                       toLedgerApiValue(resolved),
                       contractKey,
-                      shared = false,
+                      shared = Util.sharedKey(languageVersion),
                     ),
                   ),
                 )
@@ -506,7 +508,7 @@ class ContractsService(
                 timed(
                   metrics.Db.searchQuery,
                   templateIds.resolved.forgetNE.toVector
-                    .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+                    .traverse(tpId => searchDbOneTpId_(parties, tpId._1, queryParams)),
                 )
             }
           } yield cts.flatten
@@ -534,7 +536,7 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[InternalError \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
-    val templateIds = resolvedQuery.resolved
+    val templateIds = resolvedQuery.resolved.map(_._1)
     logger.debug(
       s"Searching in memory, parties: $parties, templateIds: $templateIds, queryParms: $queryParams"
     )
@@ -576,8 +578,11 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
-    val resolvedQuery = domain.ResolvedQuery(templateId)
-    searchInMemory(jwt, ledgerId, parties, resolvedQuery, InMemoryQuery.Filter(queryParams))
+    val queryTemplateIds = domain.ResolvedQuery(
+      templateId,
+      LanguageVersion.default,
+    ) // Language version not used in this context
+    searchInMemory(jwt, ledgerId, parties, queryTemplateIds, InMemoryQuery.Filter(queryParams))
   }
 
   private[this] sealed abstract class InMemoryQuery extends Product with Serializable {
@@ -683,16 +688,14 @@ class ContractsService(
       xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[domain.ContractTypeId.Resolved], Set[Tid])] = {
+  ): Future[(Set[RR], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.list._, scalaz.std.scalaFuture._
 
     xs.toList.toNEF
       .traverse { x =>
         resolveContractTypeId(jwt, ledgerId)(x)
-          .map(_.toOption.flatten.toLeft(x)): Future[
-          Either[domain.ContractTypeId.Resolved, Tid]
-        ]
+          .map(_.toOption.flatten.toLeft(x)): Future[Either[RR, Tid]]
       }
       .map(_.toSet.partitionMap(a => a))
   }
@@ -805,4 +808,7 @@ object ContractsService {
   }
 
   type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
+
+  // Rename
+  type RR = (domain.ContractTypeId.Resolved, LanguageVersion)
 }

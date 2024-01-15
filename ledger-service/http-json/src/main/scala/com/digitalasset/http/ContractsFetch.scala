@@ -46,7 +46,11 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Util
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+
+import scala.collection.immutable.List
 
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -68,7 +72,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      _templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -79,12 +83,19 @@ private class ContractsFetch(
     import ContractDao.laggingOffsets
     val initTries = 10
     val fetchContext = FetchContext(jwt, ledgerId, parties)
+    val templateLV = _templateIds.toMap
+    val templateIds = _templateIds.map(_._1)
+    def tlv(
+        l: List[domain.ContractTypeId.Resolved]
+    ): List[(domain.ContractTypeId.Resolved, LanguageVersion)] = {
+      l.flatMap(t => templateLV.get(t).map(l => (t, l)))
+    }
     def go(
         maxAttempts: Int,
         fetchTemplateIds: List[domain.ContractTypeId.Resolved],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
-      bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
+      bb <- tickFetch(fetchToAbsEnd(fetchContext, tlv(fetchTemplateIds), absEnd))
       a <- within(bb)
       // fetchTemplateIds can be a subset of templateIds (or even empty),
       // but we only get away with that by checking _all_ of templateIds,
@@ -125,7 +136,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -141,7 +152,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -159,7 +170,7 @@ private class ContractsFetch(
     // re-traverse any that != the max returned bookmark (overriding lastOffset)
     // fetch cannot go "too far" the second time
     templateIds
-      .traverse(fetchAndPersist(fetchContext, false, absEnd, _))
+      .traverse({ case (t, lv) => fetchAndPersist(fetchContext, false, absEnd, t, lv) })
       .flatMap { actualAbsEnds =>
         val newAbsEndTarget = {
           import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`
@@ -179,14 +190,15 @@ private class ContractsFetch(
             // to "catch them up" to the one that "raced" ahead
             (actualAbsEnds zip templateIds)
               .collect { case (`newAbsEndTarget`, templateId) => templateId }
-              .traverse_ {
+              .traverse_ { tId =>
                 // passing a priorBookmark prevents contractsIo_ from using the ACS,
                 // and it cannot go "too far" reading only the tx stream
                 fetchAndPersist(
                   fetchContext,
                   true,
                   feedbackTerminator,
-                  _,
+                  tId._1,
+                  tId._2,
                 )
               }
               .as(AbsoluteBookmark(feedbackTerminator))
@@ -199,6 +211,7 @@ private class ContractsFetch(
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.ContractTypeId.Resolved,
+      languageVersion: LanguageVersion,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -212,7 +225,13 @@ private class ContractsFetch(
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
       fconn.handleErrorWith(
-        (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit),
+        (contractsIo_(
+          fetchContext,
+          disableAcs,
+          absEnd,
+          templateId,
+          languageVersion,
+        ) <* fconn.commit),
         {
           case e: SQLException if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
             logger.error(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
@@ -244,6 +263,7 @@ private class ContractsFetch(
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.ContractTypeId.Resolved,
+      languageVersion: LanguageVersion,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -256,6 +276,7 @@ private class ContractsFetch(
       offset1 <- contractsFromOffsetIo(
         fetchContext,
         templateId,
+        languageVersion,
         offsets,
         disableAcs,
         absEnd,
@@ -300,6 +321,7 @@ private class ContractsFetch(
             contractsFromOffsetIo(
               fetchContext,
               templateId,
+              LanguageVersion.default, // TODO Need to store with template info in DB
               partyOffsets,
               true,
               ledgerEnd,
@@ -314,13 +336,14 @@ private class ContractsFetch(
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
       d: ContractTypeId.Resolved,
+      lv: LanguageVersion,
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
       ac <-
-        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d), ce) leftMap (de =>
+        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d, lv), ce) leftMap (de =>
           new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
         )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
@@ -331,7 +354,11 @@ private class ContractsFetch(
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
       keyHash = lfKey.map(
         Hash
-          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _, shared = false)
+          .assertHashContractKey(
+            ContractTypeId.toLedgerApiValue(ac.templateId),
+            _,
+            shared = Util.sharedKey(lv),
+          )
           .toHexString
       ),
       payload = lfValueToDbJsValue(lfArg),
@@ -344,13 +371,15 @@ private class ContractsFetch(
   private def jsonifyInsertDeleteStep[D <: ContractTypeId.Resolved](
       a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
       d: D,
+      lv: LanguageVersion,
   ): InsertDeleteStep[D, PreInsertContract] =
     a.leftMap(_ => d)
-      .mapPreservingIds(prepareCreatedEventStorage(_, d) valueOr (e => throw e))
+      .mapPreservingIds(prepareCreatedEventStorage(_, d, lv) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
       templateId: domain.ContractTypeId.Resolved,
+      languageVersion: LanguageVersion,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -419,6 +448,7 @@ private class ContractsFetch(
                 jsonifyInsertDeleteStep(
                   (_: InsertDeleteStep[Any, lav1.event.CreatedEvent]),
                   templateId,
+                  languageVersion,
                 )
               )
               .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)

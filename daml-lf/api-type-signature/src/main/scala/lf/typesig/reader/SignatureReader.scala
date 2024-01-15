@@ -15,8 +15,7 @@ import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.language.Ast
-import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.nonempty.NonEmpty
 
 import scala.collection.immutable.Map
@@ -60,8 +59,12 @@ object SignatureReader {
       interfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
       errors: Error.Tree = mzero[Error.Tree],
   ) {
-    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
-      typesig.PackageSignature(packageId, metadata, typeDecls, interfaces)
+    def asOut(
+        packageId: PackageId,
+        languageVersion: LanguageVersion,
+        metadata: Option[PackageMetadata],
+    ): typesig.PackageSignature =
+      typesig.PackageSignature(packageId, languageVersion, metadata, typeDecls, interfaces)
   }
 
   private[reader] object State {
@@ -95,7 +98,8 @@ object SignatureReader {
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = typesig.PackageSignature(dummyPkgId, None, Map.empty, Map.empty)
+  private val dummyInterface =
+    typesig.PackageSignature(dummyPkgId, LanguageVersion.default, None, Map.empty, Map.empty)
 
   def readPackageSignature(
       f: () => String \/ (PackageId, Ast.Package)
@@ -112,7 +116,11 @@ object SignatureReader {
         }
         val r = (
           filterOutUnserializableErrors(s.errors),
-          s.asOut(templateGroupId, lfPackage.metadata.map(toIfaceMetadata(_))),
+          s.asOut(
+            templateGroupId,
+            lfPackage.languageVersion,
+            lfPackage.metadata.map(toIfaceMetadata(_)),
+          ),
         )
         lfprintln(s"result: $r")
         r

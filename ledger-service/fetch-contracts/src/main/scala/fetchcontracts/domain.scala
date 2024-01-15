@@ -125,7 +125,7 @@ package domain {
       val (getId, key, getPayload): IdKeyPayload = RQ match {
         case ForQuery.Resolved =>
           resolvedQuery match {
-            case ResolvedQuery.ByInterfaceId(interfaceId) =>
+            case ResolvedQuery.ByInterfaceId((interfaceId, _)) =>
               import util.IdentifierConverters.apiIdentifier
               val id = apiIdentifier(interfaceId)
               val view = in.interfaceViews.find(_.interfaceId.exists(_ == id))

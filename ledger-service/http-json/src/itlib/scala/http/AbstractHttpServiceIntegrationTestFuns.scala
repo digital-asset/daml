@@ -136,6 +136,8 @@ trait AbstractHttpServiceIntegrationTestFuns
   import HttpServiceTestFixture._
   import json.JsonProtocol._
 
+  override protected lazy val devMode: Boolean = true
+
   def jdbcConfig: Option[JdbcConfig]
 
   def staticContentConfig: Option[StaticContentConfig]

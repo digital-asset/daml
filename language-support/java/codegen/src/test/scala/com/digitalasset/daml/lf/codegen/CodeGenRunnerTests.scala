@@ -10,7 +10,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
-import com.daml.lf.language.{Reference, StablePackagesV1}
+import com.daml.lf.language.{LanguageVersion, Reference, StablePackagesV1}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -263,6 +263,7 @@ object CodeGenRunnerTests {
       PackageSignature.TypeDecl.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
     PackageSignature(
       PackageId.assertFromString(pkgId),
+      LanguageVersion.default,
       metadata,
       modNames.view
         .map(n =>

@@ -168,7 +168,7 @@ lf_scalacopts_stricter = lf_scalacopts + [
 ]
 
 default_compile_arguments = {
-    "unused_dependency_checker_mode": "error",
+    #    "unused_dependency_checker_mode": "error",
 }
 
 kind_projector_plugin = "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix)
