@@ -7,7 +7,14 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
-import com.daml.ledger.api.v1.admin.party_management_service.{AllocatePartyRequest, GetParticipantIdRequest, GetPartiesRequest, ListKnownPartiesRequest, UpdatePartyDetailsRequest, PartyDetails => ApiPartyDetails}
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  GetParticipantIdRequest,
+  GetPartiesRequest,
+  ListKnownPartiesRequest,
+  UpdatePartyDetailsRequest,
+  PartyDetails => ApiPartyDetails,
+}
 import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ApiObjectMeta}
 import com.daml.ledger.client.LedgerClient
 import com.google.protobuf.field_mask.FieldMask

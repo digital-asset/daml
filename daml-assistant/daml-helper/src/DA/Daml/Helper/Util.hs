@@ -314,7 +314,6 @@ withCantonSandbox options remainingArgs k = do
             , "val domainOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
             , "sandbox.domains.connect_local(sequencer1)"
-            , "Thread.sleep(1000)"
             , "os.copy(os.Path(" <> show altPortFile <> "), os.Path(" <> show portFile <> "))"
             ]
 
