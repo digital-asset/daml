@@ -10,11 +10,6 @@ load(
 da_scala_library(
     name = "upgrades",
     srcs = glob(["src/main/**/*.scala"]),
-    scala_deps = [
-    ],
-    scalacopts = lf_scalacopts_stricter + [
-        "-nowarn",
-    ],
     tags = ["maven_coordinates=com.daml:daml-lf-upgrades:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

@@ -4,13 +4,10 @@
 package com.daml.lf
 package upgrades
 
-//import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
-import com.daml.lf.data._
-import com.daml.lf.validation.iterable.{TypeIterable}
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -118,14 +115,12 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     } yield ()
   }
 
-  // TODO: Stripping all package ids means pointing to other packages would be
-  // valid even when those packages are not upgraded
-  // What we should do is actually only strip package ids belonging to
-  // upgradeable packages
   def checkType(typ: Upgrading[Ast.Type]): Boolean = {
     AlphaEquiv.alphaEquiv(stripPackageIds(typ.past), stripPackageIds(typ.present))
   }
 
+  // TODO: Consider whether we should strip package ids from all packages in the
+  // upgrade set, not just within the pair
   def stripPackageIds(typ: Ast.Type): Ast.Type = {
     def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
       if (id.packageId == packageId.present) {
@@ -155,10 +150,12 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
         else
           Success(())
       }
-      case Upgrading(Some(_pastKey), None) =>
+      case Upgrading(Some(pastKey @ _), None) =>
         Failure(UpgradeError(s"TemplateRemovedKey"))
-      case Upgrading(None, Some(_presentKey)) =>
-        Success(()) // Should emit a warning, but we don't currently have a framework for warnings
+      case Upgrading(None, Some(presentKey @ _)) =>
+        Success(
+          ()
+        ) // TODO: Should emit a warning, but we don't currently have a framework for warnings
     }
   }
 
@@ -175,8 +172,8 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
       name: Ref.DottedName,
   ): UpgradedRecordOrigin = {
     module.templates.get(name) match {
-      case Some(template) => TemplateBody(name);
-      case _ => {
+      case Some(template @ _) => TemplateBody(name);
+      case None => {
         val choices = for {
           (templateName, template) <- module.templates
           (choiceName, choice) <- template.choices
@@ -206,16 +203,16 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(origin.present, Upgrading(past, present))
-        case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) => Try(())
-        case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) => Try(())
+          checkFields(Upgrading(past, present))
+        case Upgrading(_: Ast.DataVariant, _: Ast.DataVariant) => Try(())
+        case Upgrading(_: Ast.DataEnum, _: Ast.DataEnum) => Try(())
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case _ => Failure(UpgradeError(s"MismatchDataConsVariety"))
       }
     }
   }
 
-  def checkFields(origin: UpgradedRecordOrigin, records: Upgrading[Ast.DataRecord]): Try[Unit] = {
+  def checkFields(records: Upgrading[Ast.DataRecord]): Try[Unit] = {
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
       records.map(rec => Map.from(rec.fields.iterator))
     def fieldTypeOptional(typ: Ast.Type): Boolean =
@@ -227,9 +224,9 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
     if (_deleted.nonEmpty) {
       Failure(UpgradeError("RecordFieldsMissing"))
-    } else if (!_existing.forall({ case (_field, typ) => checkType(typ) })) {
+    } else if (!_existing.forall({ case (field @ _, typ) => checkType(typ) })) {
       Failure(UpgradeError("RecordFieldsExistingChanged"))
-    } else if (_new_.find({ case (field, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
+    } else if (_new_.find({ case (field @ _, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
       Failure(UpgradeError("RecordFieldsNewNonOptional"))
     } else {
       Success(())
