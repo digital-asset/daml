@@ -8,14 +8,12 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Tr
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-import scala.annotation.nowarn
-
 class ParallelIndexerMetrics(
     prefix: MetricName,
-    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
-    labeledMetricsFactory: LabeledMetricsFactory,
+    dropWizardMetricsFactory: LabeledMetricsFactory,
+    openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
-  val initialization = new DatabaseMetrics(prefix :+ "initialization", labeledMetricsFactory)
+  val initialization = new DatabaseMetrics(prefix :+ "initialization", openTelemetryMetricsFactory)
 
   // Number of state updates persisted to the database
   // (after the effect of the corresponding Update is persisted into the database,
@@ -27,7 +25,7 @@ class ParallelIndexerMetrics(
                     |party allocations, rejections, etc.""",
     qualification = Traffic,
   )
-  val updates: Counter = metricsFactory.counter(prefix :+ "updates")
+  val updates: Counter = dropWizardMetricsFactory.counter(prefix :+ "updates")
 
   @MetricDoc.Tag(
     summary = "The number of elements in the queue in front of the indexer.",
@@ -35,7 +33,7 @@ class ParallelIndexerMetrics(
                     |batch formation during the database ingestion.""",
     qualification = Saturation,
   )
-  val inputBufferLength: Counter = metricsFactory.counter(prefix :+ "input_buffer_length")
+  val inputBufferLength: Counter = dropWizardMetricsFactory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The size of the queue between the indexer and the in-memory state updating flow.",
@@ -45,7 +43,7 @@ class ParallelIndexerMetrics(
     qualification = Debug,
   )
   val outputBatchedBufferLength: Counter =
-    metricsFactory.counter(prefix :+ "output_batched_buffer_length")
+    dropWizardMetricsFactory.counter(prefix :+ "output_batched_buffer_length")
 
   // Input mapping stage
   // Translating state updates to data objects corresponding to individual SQL insert statements
@@ -61,7 +59,7 @@ class ParallelIndexerMetrics(
                       |database submission.""",
       qualification = Debug,
     )
-    val batchSize: Histogram = metricsFactory.histogram(prefix :+ "batch_size")
+    val batchSize: Histogram = dropWizardMetricsFactory.histogram(prefix :+ "batch_size")
   }
 
   // Batching stage
@@ -83,14 +81,14 @@ class ParallelIndexerMetrics(
                       |indexer.""",
       qualification = Debug,
     )
-    val duration: Timer = metricsFactory.timer(prefix :+ "duration")
+    val duration: Timer = dropWizardMetricsFactory.timer(prefix :+ "duration")
   }
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database
-  val ingestion = new DatabaseMetrics(prefix :+ "ingestion", labeledMetricsFactory)
+  val ingestion = new DatabaseMetrics(prefix :+ "ingestion", openTelemetryMetricsFactory)
 
   // Tail ingestion stage
   // The throttled update of ledger end parameters
-  val tailIngestion = new DatabaseMetrics(prefix :+ "tail_ingestion", labeledMetricsFactory)
+  val tailIngestion = new DatabaseMetrics(prefix :+ "tail_ingestion", openTelemetryMetricsFactory)
 }

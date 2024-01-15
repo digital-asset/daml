@@ -7,7 +7,7 @@ import com.digitalasset.canton.BaseTest
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.wordspec.AnyWordSpec
 
-class MetricsFactoryTest extends AnyWordSpec with BaseTest {
+class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
 
   "metrics factory" should {
     "generate valid documentation" in {

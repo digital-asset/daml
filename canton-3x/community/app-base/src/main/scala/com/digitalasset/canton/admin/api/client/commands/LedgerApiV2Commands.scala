@@ -116,6 +116,7 @@ object LedgerApiV2Commands {
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
+      def unassignId: String = reassignment.getUnassignedEvent.unassignId
     }
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper = {

@@ -140,11 +140,6 @@ trait SyncCryptoApi {
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M]
 
-  @Deprecated
-  def decrypt[M](encryptedMessage: Encrypted[M])(
-      deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M]
-
   /** Verify signature of a given owner
     *
     * Convenience method to lookup a key of a given owner, domain and timestamp and verify the result.

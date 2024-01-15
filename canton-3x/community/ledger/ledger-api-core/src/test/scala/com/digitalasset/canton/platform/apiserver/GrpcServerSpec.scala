@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.api.v0
@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,

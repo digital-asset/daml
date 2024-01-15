@@ -90,7 +90,7 @@ trait SequencerNodeBootstrapCommon[
       maxRequestSize,
       arguments.parameterConfig,
       config.publicApi,
-      arguments.metrics.metricsFactory,
+      arguments.metrics.openTelemetryMetricsFactory,
       arguments.metrics.grpcMetrics,
       grpcHealthReporter,
       sequencerPublicApiHealthService,

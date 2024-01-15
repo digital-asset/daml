@@ -53,12 +53,13 @@ object AcsTxStreamsTest {
   import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
   import aks.testkit as tk
   import com.daml.ledger.api.v1 as lav1
+  import com.daml.ledger.api.v2 as lav2
   import com.daml.logging.LoggingContextOf
   import tk.TestPublisher.Probe as InProbe
   import tk.TestSubscriber.Probe as OutProbe
   import tk.scaladsl.{TestSink, TestSource}
 
-  private val liveBegin = lav1.active_contracts_service.GetActiveContractsResponse(offset = "42")
+  private val liveBegin = lav2.state_service.GetActiveContractsResponse(offset = "42")
   private val txEnd = lav1.transaction.Transaction(offset = "84")
 
   private implicit val `log ctx`: LoggingContextOf[Any] =

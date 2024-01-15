@@ -7,19 +7,17 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
 import com.daml.metrics.api.noop.{NoOpGauge, NoOpTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
+import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 @MetricDoc.GroupTag(
   representative = "canton.db-storage.<service>.executor",
   groupableClass = classOf[DbQueueMetrics],
 )
-@nowarn("cat=deprecation")
 class DbStorageMetrics(
     basePrefix: MetricName,
-    metricsFactory: MetricsFactory,
+    metricsFactory: LabeledMetricsFactory,
 ) {
 
   val prefix: MetricName = basePrefix :+ "db-storage"
@@ -57,10 +55,9 @@ class DbStorageMetrics(
   object locks extends DbQueueMetrics(prefix :+ "locks", metricsFactory)
 }
 
-@nowarn("cat=deprecation")
 class DbQueueMetrics(
     basePrefix: MetricName,
-    factory: MetricsFactory,
+    factory: LabeledMetricsFactory,
 ) {
   val prefix: MetricName = basePrefix :+ "executor"
 
@@ -94,10 +91,9 @@ class DbQueueMetrics(
 
 }
 
-@nowarn("cat=deprecation")
 class DbAlertMetrics(
     basePrefix: MetricName,
-    factory: MetricsFactory,
+    factory: LabeledMetricsFactory,
 ) {
   val prefix: MetricName = basePrefix :+ "alerts"
 
