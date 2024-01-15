@@ -10,7 +10,6 @@ LATEST       @gerolf-da @bame-da
 /ci/                @garyverhaegen-da
 /dev-env/           @garyverhaegen-da
 /nix/               @garyverhaegen-da
-/infra/             @garyverhaegen-da
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 /release/           @garyverhaegen-da

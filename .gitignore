@@ -78,3 +78,7 @@ out
 # Visual Studio Code
 .vscode/*
 !.vscode/settings.json.default
+
+# terraform
+.terraform/
+.terraform.lock.hcl
