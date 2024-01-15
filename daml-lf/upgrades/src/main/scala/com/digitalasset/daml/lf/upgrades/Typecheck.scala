@@ -29,6 +29,24 @@ final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.Choic
 final case object TopLevel extends UpgradedRecordOrigin
 
 object Typecheck {
+  def typecheckUpgrades(
+      present: (Ref.PackageId, Ast.Package),
+      mbPast: Option[(Ref.PackageId, Ast.Package)],
+  ): Try[Unit] = {
+    mbPast match {
+      case None => Failure(UpgradeError("CouldNotResolveUpgradedPackageId"));
+      case Some(past) => {
+        val tc = this(Upgrading(past, present))
+        tc.check()
+      }
+    }
+  }
+}
+
+case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+  lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
+  lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
+
   def extractDelExistNew[K, V](
       arg: Upgrading[Map[K, V]]
   ): (Map[K, V], Map[K, Upgrading[V]], Map[K, V]) =
@@ -55,25 +73,11 @@ object Typecheck {
   def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try { t.map(f(_).get).toSeq }
 
-  def typecheckUpgrades(
-      present: (Ref.PackageId, Ast.Package),
-      mbPast: Option[(Ref.PackageId, Ast.Package)],
-  ): Try[Unit] = {
-    mbPast match {
-      case None => Failure(UpgradeError("CouldNotResolveUpgradedPackageId"));
-      case Some(past) => checkPackage(present, past);
-    }
-  }
-
-  def checkPackage(
-      present: (Ref.PackageId, Ast.Package),
-      past: (Ref.PackageId, Ast.Package),
-  ): Try[Unit] = {
-    val package_ = Upgrading(past._2, present._2)
+  def check(): Try[Unit] = {
     for {
       (upgradedModules, newModules @ _) <-
         checkDeleted(
-          package_.map(_.modules),
+          _package.map(_.modules),
           (m: Ast.Module) => UpgradeError(s"MissingModule(${m.name})"),
         )
       _ <- tryAll(upgradedModules.values, checkModule(_))
@@ -123,14 +127,18 @@ object Typecheck {
   }
 
   def stripPackageIds(typ: Ast.Type): Ast.Type = {
-    def strip(id: Ref.Identifier): Ref.Identifier =
-      Ref.Identifier(Ref.PackageId.fromLong(0), id.qualifiedName)
+    def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
+      if (id.packageId == packageId.present) {
+        Ref.Identifier(packageId.past, id.qualifiedName)
+      } else {
+        id
+      }
 
     typ match {
       case Ast.TNat(n) => Ast.TNat(n)
-      case Ast.TSynApp(n, args) => Ast.TSynApp(strip(n), args.map(stripPackageIds(_)))
+      case Ast.TSynApp(n, args) => Ast.TSynApp(stripIdentifier(n), args.map(stripPackageIds(_)))
       case Ast.TVar(n) => Ast.TVar(n)
-      case Ast.TTyCon(con) => Ast.TTyCon(strip(con))
+      case Ast.TTyCon(con) => Ast.TTyCon(stripIdentifier(con))
       case Ast.TBuiltin(bt) => Ast.TBuiltin(bt)
       case Ast.TApp(fun, arg) => Ast.TApp(stripPackageIds(fun), stripPackageIds(arg))
       case Ast.TForall(v, body) => Ast.TForall(v, stripPackageIds(body))
@@ -142,9 +150,10 @@ object Typecheck {
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
-        if (!checkType(Upgrading(pastKey.typ, presentKey.typ))) {
+        if (!checkType(Upgrading(pastKey.typ, presentKey.typ)))
           Failure(UpgradeError(s"TemplateChangedKeyType"))
-        } else Success(())
+        else
+          Success(())
       }
       case Upgrading(Some(_pastKey), None) =>
         Failure(UpgradeError(s"TemplateRemovedKey"))

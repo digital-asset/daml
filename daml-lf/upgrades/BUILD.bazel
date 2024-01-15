@@ -23,6 +23,5 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/validation",
         # "//daml-lf/engine",
-        # "@maven//:org_scalaz_scalaz_core_2_13",
     ],
 )
