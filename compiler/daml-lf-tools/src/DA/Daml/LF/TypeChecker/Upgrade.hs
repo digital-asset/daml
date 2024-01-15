@@ -5,7 +5,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiWayIf #-}
 
 module DA.Daml.LF.TypeChecker.Upgrade (
         module DA.Daml.LF.TypeChecker.Upgrade
