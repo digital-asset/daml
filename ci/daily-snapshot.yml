@@ -71,7 +71,6 @@ jobs:
             exit 1
             ;;
         esac
-        setvar scala_2_13 true
       name: out
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
