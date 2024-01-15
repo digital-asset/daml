@@ -14,16 +14,6 @@ Comprehensive documentation for `@daml/ledger` can be found
 
 ## Usage
 
-The best way to get you started quickly is to use the `create-daml-app` template:
-
-```
-daml new --template=create-daml-app my-project-name
-```
-
-and to read the [Quickstart Guide].
-
-[Quickstart Guide]: https://docs.daml.com/getting-started/quickstart.html
-
 We recommend to use the [React](https://reactjs.org) framework and the `@daml/react` library to
 build frontends for Daml applications. If you choose a different Javascript based framework, please
 take a look at the source of `@daml/react` and it's usage of the `@daml/ledger` library.

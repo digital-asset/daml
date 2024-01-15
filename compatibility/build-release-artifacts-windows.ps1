@@ -46,4 +46,3 @@ git clean -fxd -e 'daml-*.tgz' compatibility/head_sdk
 
 cp -Force bazel-bin\release\sdk-release-tarball-ce.tar.gz compatibility/head_sdk
 cp -Force bazel-bin\daml-assistant\daml.exe compatibility/head_sdk
-cp -Force templates\create-daml-app-test-resources\messaging.patch compatibility/head_sdk

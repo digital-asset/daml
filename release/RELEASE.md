@@ -186,166 +186,79 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
 
    > ## Tips for Windows testing in an ad-hoc machine
    >
-   > If you are part of the release rotation, you can create Windows VMs
-   > through the [ad-hoc] project. The created machine is a bit raw, though, so
-   > here are a few tips to help you along.
+   > If you are part of the release rotation, you should b able to create
+   > Windows VMs through the [ad-hoc] project. If you don't have permission,
+   > follow these steps:
    >
-   > First we should clone the git repository https://github.com/DACH-NY/daml-language-ad-hoc and then enter the cloned
-   > repo.
+   > 1. First you should clone the [ad-hoc] repository and then enter the
+   >    cloned repo.
+   > 2. Edit `tf/main.tf` and add your username to the `members` field of the
+   >    `google_project_iam_binding.machine_managers` resource. Generate and
+   >    submit a PR with these changes. Once the PR has been accepted, you
+   >    should now have permission to create GCP compute instances.
    >
-   > If this is your first time doing this, edit `tf/main.tf` and add your username to the `members` field of the
-   > `google_project_iam_binding.machine_managers` resource. Generate and submit a PR with these changes. Once the PR
-   > has been accepted, you should now have permission to create GCP compute instances.
+   > Assuming `direnv` is installed, entering the `daml-language-ad-hoc`
+   > project directory will be sufficient to configure and install the extra
+   > software (e.g. the GCP SDK) required for your environment. Note that this
+   > could take a few minutes.
    >
-   > Assuming `direnv` is installed, entering the `daml-language-ad-hoc` project directory will be sufficient to
-   > configure and install the extra software (e.g. the GCP SDK) required for your environment. Note that this could
-   > take a few minutes.
+   > A new GCP windows instance can be created by running `./ad-hoc.sh temp
+   > windows` inside the `daml-language-ad-hoc` project. This command prints IP
+   > address, username and password for the created Windows VM. Save this
+   > output.  You will need this information later when you create an RDP
+   > connection.
    >
-   > A new GCP windows instance can be created by running `./ad-hoc.sh temp windows` inside the `daml-language-ad-hoc`
-   > project. This command prints IP address, username and password for the created Windows VM. Save this output.
-   > You will need this information later when you create an RDP connection.
+   > > ‼️ After starting, it's going to take some time for the machine to be
+   > > configured (see notes below).
    >
-   > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
+   > Before you may connect to this windows instance, you need to ensure that
+   > the VPN is connected. On macOS you can do this by selecting the
+   > preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
    >
-   > Before you may connect to this windows instance, you need to ensure that the VPN is connected. On Mac OSX you can
-   > do this by selecting the preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
-   >
-   > If you're on a Mac, you can use Microsoft Remote Desktop to connect. This can be installed via the Mac App Store
-   > or directly [here](https://go.microsoft.com/fwlink/?linkid=868963).
+   > If you're on a Mac, you can use Microsoft Remote Desktop to connect. This
+   > can be installed via the Mac App Store or directly
+   > [here](https://go.microsoft.com/fwlink/?linkid=868963).
    >
    > If you're on Linux, you can use [Remmina].
    >
-   > Remmina notes: when creating an RDP connection, you may want to specify custom
-   > resolution. The default setting is to `use client resolution`. You may notice a
-   > failure due to color depth settings. You can adjust those in the settings panel
-   > right below the resolution settings.
+   > > Remmina notes: when creating an RDP connection, you may want to specify
+   > > custom resolution. The default setting is to `use client resolution`.
+   > > You may notice a failure due to color depth settings. You can adjust
+   > > those in the settings panel right below the resolution settings.
    >
-   > The ad-hoc machines take a bit of time to be available after being reported as
-   > created, so be patient for a bit if your first connection attempt(s) fail.
+   > The ad-hoc machines take a bit of time to be available after being
+   > reported as created, so be patient for a bit if your first connection
+   > attempt(s) fail. Also note that the machine will accept connections before
+   > it is fully initialized; initialization is finished when the Firefox icon
+   > appears on the Desktop.
    >
-   > Once the Windows machine is up and running, use Firefox (in Windows) to download and install
-   > `daml-sdk-$VERSION-windows.exe` from https://github.com/digital-asset/daml/releases
-   > (please ensure `$VERSION` is expanded correctly!.
+   > Once the Windows machine is up and running, use Firefox (in Windows) to
+   > download and install `daml-sdk-$VERSION-windows.exe` from the [releases
+   > page] (please ensure `$VERSION` is expanded correctly!.
    >
-   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do
-   > not make the mistake of trying to use Internet Explorer.
+   > Ad-hoc machines come with VSCode and OpenJDK preinstalled, so you don't
+   > need to worry about those.
    >
-   > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
-   > you don't need to worry about those.
+   > NOTE 2: After logging in, **it takes some time for the machine to be
+   > configured.** The script that installs Firefox, VSCode and OpenJDK runs
+   > once the machine is available for login. The software you need should
+   > appear within about 10 minutes (an easy way to check is to try to open
+   > `D:\` , as this volume is created after all the software is installed).
    >
-   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox,
-   > Node, VSCode and OpenJDK runs once the machine is available for login. The software you need should appear within
-   > about 10 minutes (an easy way to check is to try to open `D:\` , as this volume is created after all the software
-   > is installed).
+   > All the commands mentioned in this testing section can be run from a
+   > simple DOS prompt (start menu -> type "cmd" -> click "Command prompt").
    >
-   > All the commands mentioned in this testing section can be run from a simple
-   > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
-   >
-   > At the end of your Windows testing session, please be sure to terminate the GCP instance by running
-   > `./ad-hoc.sh destroy $ID`. Here `$ID` is the identity for your GCP instance - this is printed when you create your
+   > At the end of your Windows testing session, please be sure to terminate
+   > the GCP instance by running `./ad-hoc.sh destroy $ID`. Here `$ID` is the
+   > identity for your GCP instance - this is printed when you create your
    > Windows instance.
 
 1. Prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
-    - [Node.js](https://nodejs.org/en/download/)
-      - Just the bare install; no need to build C dependencies.
-        If you have `nix` installed, you can use a suitable version of nodejs by
-        running `nix-shell -p nodejs-18_x` before running the `npm` commands below.
     - [Maven](https://maven.apache.org)
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
-
-1. Tests for the getting started guide (macOS/Linux **and** Windows). Note: if
-   using a remote Windows VM and an RDP client that supports copy/paste, you
-   can run through this on both Windows and your local unix in parallel fairly
-   easily.
-
-    1. For these steps you will need the getting started documentation for the
-       release that you are about to make. This documentation (for the release that you are testing) is published
-       at `https://docs.daml.com/$VERSION/getting-started/index.html`. Please ensure that `$VERSION` is expanded
-       correctly before trying this link!
-
-    1. `daml new create-daml-app --template create-daml-app`
-
-    1. `cd create-daml-app`
-
-       1. `daml start`
-
-    1. In a new terminal (with nodejs configured as above), from the `ui` folder:
-
-       1. `npm install`
-           - if this command returns with an exit code of 0, errors may be safely ignored.
-
-       1. `npm start`
-
-    1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
-
-    1. Log in as `alice` in the first window, log in as `bob` in the second window.
-
-    1. In the first window, where you are logged in as `Alice`, follow
-       `Bob` by typing their name in the dropdown (note that it will
-       be `Bob` not `bob`, the former is the global alias, the latter
-       is the participant-local username).  Verify that `Bob` appears
-       in the list of users `Alice` is following. Verify in the other
-       browser window that `Alice` shows up in `Bob`’s network.
-
-    1. In the second window, where you are logged in as `Bob`,
-       follow `Alice` by selecting it in the dropdown.
-       Verify that `Alice` appears in
-       the list of users `Bob` is following. Verify in the other
-       browser window that `Bob` shows up in `Alice`’s network.
-
-    1. Open the *"Your first feature"* section of the Getting Started Guide, e.g., from
-       `https://docs.daml.com/$VERSION/getting-started/first-feature.html`
-       if you did not build docs locally.
-
-    1. In a third terminal window, run `daml studio --replace=always` from the project root
-        directory. This should open Visual Studio Code. In the editor, open `daml/User.daml`.
-
-    1. Copy the `Message` template from the documentation to the end of `User.daml`.
-
-    1. Copy the `SendMessage` choice from the documentation to the
-        `User` template below the `Follow` choice.
-
-    1. Save your changes and close VSCode.
-
-    1. In the first terminal window (where `daml start` is running), press 'r'
-        (respectively 'r' + 'Enter' on Windows).
-
-    1. In the third terminal window, run `daml studio`.
-
-    1. Create `MessageList.tsx`, `MessageEdit.tsx` and modify
-        `MainView.tsx` as described in the documentation.
-
-    1. Verify that you do not see errors in the typescript code in VSCode.
-
-    1. Save your changes and close VSCode.
-
-    1. As before, open two browser windows at `localhost:3000` and log
-        in as `alice` and `bob`.
-
-    1. Make `Alice` follow `Bob`.
-
-    1. From `Bob`, select Alice in the `Select a follower` dropdown,
-        insert `hi alice` in the message field and click on `Send`.
-
-    1. Verify that `Alice` has received the message in the other window.
-
-    1. Make `Bob` follow `Alice`.
-
-    1. From `Alice`, select Bob in the `Select a follower` dropdown,
-        insert `hi bob` in the message field and click on `Send`.
-
-    1. Verify that `Bob` has received the message in the other window.
-
-    1. You can now close both browser windows and both running processes (`daml
-        start` and `npm start`).
-
-    1. Don't forget to run this on the other platform! E.g. if you just ran
-        through on Linux or macOS, you still need to run on Windows, and vice
-        versa. For testing on Windows instances, please refer to the _Tips for Windows testing in an ad-hoc machine_
-        notes above.
 
 1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
@@ -367,10 +280,6 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    > Manual tests passed on Windows.
 
 1. Tests for `quickstart-java` (Linux/macOS)
-
-   While this is no longer the default in the Getting Started Guide, we still test it
-   since the process covers things not covered by the new Getting Started Guide
-   (e.g. Navigator, Scripts, Maven artifacts, etc.)
 
     1. Create a new project with `daml new quickstart --template quickstart-java`
        and switch to it using `cd quickstart`.
@@ -467,7 +376,7 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
     > you can run `daml studio --replace=published`.
 
 1. On your PR (the one that triggered the release process: on
-   [daml] for 1.x releases, and on [assembly] for 2.x
+   [daml] for 1.x releases, and on [assembly] for 2.x and 3.x
    releases), add the comment:
 
    > Manual tests passed on [Linux/macOS].
@@ -502,16 +411,17 @@ For a stable release, you need to additionally:
 
 Thanks for making a release!
 
+[Remmina]: https://remmina.org
+[`LATEST`]: https://github.com/digital-asset/daml/blob/main/LATEST
+[`NIGHTLY_PREFIX`]: https://github.com/digital-asset/daml/blob/main/NIGHTLY_PREFIX
+[`release.sh`]: https://github.com/digital-asset/daml/blob/main/release.sh
+[ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
 [assembly]: https://github.com/DACH-NY/assembly
 [canton]: https://github.com/DACH-NY/canton
-[docs]: https://github.com/digital-asset/docs.daml.com
-[`LATEST`]: https://github.com/digital-asset/daml/blob/main/LATEST
-[`LATEST`]: https://github.com/digital-asset/daml/blob/main/NIGHTLY_PREFIX
-[`release.sh`]: https://github.com/digital-asset/daml/blob/main/release.sh
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
-[release planning]: https://docs.google.com/document/d/1FaBFuYweYt0hx6fVg9rhufCtDNPiATXu5zwN2NWp2s4/edit#
 [daml]: https://github.com/digital-asset/daml
+[docs]: https://github.com/digital-asset/docs.daml.com
 [release notes]: https://daml.com/release-notes/
+[release planning]: https://docs.google.com/document/d/1FaBFuYweYt0hx6fVg9rhufCtDNPiATXu5zwN2NWp2s4/edit#
 [releases page]: https://github.com/digital-asset/daml/releases
 [testing]: #testing
-[Remmina]: https://remmina.org

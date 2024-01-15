@@ -437,7 +437,6 @@ templateTests = testGroup "templates" $
             , "quickstart-java"
             , "script-example"
             , "skeleton"
-            , "create-daml-app"
             ]
 
 -- | Check we can generate language bindings.
