@@ -144,7 +144,7 @@ run yarn install --silent
 run security/update.sh ${security_update_args[@]:-}
 
 # Check for correct copyrights
-run dade-copyright-headers "$dade_copyright_arg" infra
+run dade-copyright-headers "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
