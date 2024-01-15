@@ -208,7 +208,6 @@ jobs:
           }
 
           canton2_version=$(get_canton_version_for_major_version 2)
-          canton3_version=$(get_canton_version_for_major_version 3)
 
           ### update binaries ###
 
@@ -256,7 +255,6 @@ jobs:
           }
 
           copy_canton_code $canton2_version canton
-          copy_canton_code $canton3_version canton-3x
 
           ### create PR ###
 
@@ -264,7 +262,7 @@ jobs:
           number_of_commits=$(git -C $tmp rev-list --count HEAD)
           commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
           canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
-          branch="canton-update-$canton_tag-$canton2_version-$canton3_version-main2x"
+          branch="canton-update-$canton_tag-$canton2_version-main2x"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
@@ -272,7 +270,7 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ] \
               || [ "main-2.x" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh test-common/canton/BUILD.bazel
-                  open_pr "$branch" "update canton to $canton_tag/$canton2_version/$canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  open_pr "$branch" "update canton to $canton_tag/$canton2_version in main-2.x" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
