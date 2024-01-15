@@ -41,7 +41,9 @@ import com.daml.script.converter.Converter.{toContractId, toText}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.{Executors, ScheduledExecutorService}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 object ScriptF {
@@ -51,6 +53,17 @@ object ScriptF {
   val right = SEBuiltin(
     SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
   )
+
+  /** A scheduled service executor used by [[sleep]]. */
+  private val scheduledExecutorService: ScheduledExecutorService =
+    Executors.newScheduledThreadPool(1)
+
+  /** Returns a future that completes after the provided delay. */
+  private def sleep(delay: FiniteDuration): Future[Unit] = {
+    val promise = Promise[Unit]()
+    val _ = scheduledExecutorService.schedule(() => promise.success(()), delay.length, delay.unit)
+    promise.future
+  }
 
   sealed trait Cmd {
     private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
@@ -408,7 +421,9 @@ object ScriptF {
           case Left(err) => Future.failed(new RuntimeException(err))
         }
         party <- client.allocateParty(idHint, displayName)
-
+        // TODO(https://github.com/DACH-NY/canton/issues/16401): remove once we have a better way of
+        //   synchronizing after a party allocation.
+        _ <- sleep(250.millis)
       } yield {
         participant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))

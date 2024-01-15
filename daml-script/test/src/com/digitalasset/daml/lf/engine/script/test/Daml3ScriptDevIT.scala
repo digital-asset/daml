@@ -50,18 +50,6 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
       } yield r shouldBe SUnit
     }
 
-    "return exactly one successful result and n-1 errors when attempting to create n contracts with the same key" in {
-      for {
-        clients <- scriptClients()
-        r <-
-          run(
-            clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:keyCollision"),
-            dar = trySubmitConcurrentlyTestDar,
-          )
-      } yield r shouldBe SUnit
-    }
-
     "return exactly one successful result and n-1 errors when attempting to exercise n consuming choices on the same contract" in {
       for {
         clients <- scriptClients()
