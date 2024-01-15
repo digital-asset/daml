@@ -103,7 +103,7 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.split_release_process'] ]
     - name: skip_tests
       value: $[ and(eq(variables.is_release, 'true'),
-                       eq(variables['Build.SourceBranchName'], 'main')) ]
+                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x')) ]
     - template: job-variables.yml
   timeoutInMinutes: 240
   pool:
