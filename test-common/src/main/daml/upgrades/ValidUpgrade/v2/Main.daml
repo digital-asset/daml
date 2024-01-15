@@ -1,0 +1,30 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import Daml.Script
+
+main : Script ()
+main = pure ()
+
+data TKey1 = TKey1 { p : Party }
+
+template T with
+    p: Party
+  where
+  signatory p
+  key (TKey1 p) : TKey1
+  maintainer key.p
+
+data TKey2 = TKey2 { p : Party }
+
+template U with
+    p: Party
+  where
+  signatory p
+  key (TKey2 p) : TKey2
+  maintainer key.p
+
+data D = D { t : Text, u : Optional Text }
+data E = E { t : Text }
