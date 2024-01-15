@@ -17,7 +17,8 @@ load(
     "lf_version_configuration",
 )
 
-tested_lf_config = "default"
+# TODO(#17366): revert to "default" once LF2 is the default
+tested_lf_config = "2.1"
 
 daml_compile(
     name = "MyMain",
@@ -26,13 +27,13 @@ daml_compile(
         "src/main/daml/MyMainIface.daml",
         "src/main/daml/MyMainIfaceRetro.daml",
     ],
-    target = lf_version_configuration.get(tested_lf_config),
+    target = tested_lf_config,
 )
 
 daml_compile(
     name = "MySecondMain",
     srcs = ["src/main/daml/MySecondMain.daml"],
-    target = lf_version_configuration.get(tested_lf_config),
+    target = tested_lf_config,
 )
 
 dar_to_scala(
