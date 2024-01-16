@@ -1,0 +1,17 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
+
+da_haskell_test(
+    name = "set-env-crash",
+    srcs = glob(["SetEnvCrash.hs"]),
+    hackage_deps = [
+        "tasty",
+        "base",
+        "directory",
+        "tasty-hunit",
+    ],
+    main_function = "SetEnvCrash.main",
+    visibility = ["//visibility:public"],
+)
