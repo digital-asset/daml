@@ -40,7 +40,7 @@ object PackageMetadata {
   def from(archive: DamlLf.Archive): PackageMetadata = {
     val (packageId, pkg): (Ref.PackageId, Ast.Package) = Decode.assertDecodeArchive(archive)
     // TODO(#16362): Do not decode the archive twice
-    val packageInfo = Decode.assertDecodeInfoPackage(archive)
+    val packageInfo = Decode.assertDecodeInfoPackage(archive)._2
 
     val packageLanguageVersion = pkg.languageVersion
     val nonUpgradablePackageMetadata = PackageMetadata(
