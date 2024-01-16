@@ -309,7 +309,7 @@ jobs:
 
         ## get latest version, in case it's already up to date
         git fetch origin
-        git merge origin/main
+        git merge --ff-only origin/$(Build.SourceBranchName)
 
         source $(bash_lib)
 
