@@ -578,7 +578,6 @@ object TransactionTreeFactoryImpl {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       cryptoOps: HashOps & HmacOps,
-      uniqueContractKeys: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImplV3(
@@ -587,7 +586,6 @@ object TransactionTreeFactoryImpl {
       protocolVersion,
       contractSerializer,
       cryptoOps,
-      uniqueContractKeys,
       loggerFactory,
     )
 

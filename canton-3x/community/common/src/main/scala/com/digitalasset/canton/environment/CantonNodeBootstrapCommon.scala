@@ -33,12 +33,13 @@ import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   GrpcHealthServer,
   HealthService,
+  HttpHealthServer,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
+import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
@@ -52,7 +53,6 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.{Executors, ScheduledExecutorService}
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 /** When a canton node is created it first has to obtain an identity before most of its services can be started.
@@ -83,8 +83,7 @@ object CantonNodeBootstrap {
 trait BaseMetrics {
   def prefix: MetricName
 
-  @nowarn("cat=deprecation")
-  def metricsFactory: MetricsFactory
+  def openTelemetryMetricsFactory: LabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetrics
   def healthMetrics: HealthMetrics
@@ -182,7 +181,7 @@ abstract class CantonNodeBootstrapCommon[
       .forConfig(
         adminApiConfig,
         arguments.metrics.prefix,
-        arguments.metrics.metricsFactory,
+        arguments.metrics.openTelemetryMetricsFactory,
         executionContext,
         loggerFactory,
         parameterConfig.loggingConfig.api,
@@ -212,7 +211,7 @@ abstract class CantonNodeBootstrapCommon[
   protected def mkNodeHealthService(storage: Storage): HealthService
   protected def mkHealthComponents(
       nodeHealthService: HealthService
-  ): (GrpcHealthReporter, Option[GrpcHealthServer], HealthService) = {
+  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer], HealthService) = {
     // Service that will always return `SERVING`. Useful to be targeted by k8s liveness probes.
     val livenessService = HealthService("liveness", logger, timeouts)
     val healthReporter: GrpcHealthReporter = new GrpcHealthReporter(loggerFactory)
@@ -229,7 +228,7 @@ abstract class CantonNodeBootstrapCommon[
 
       new GrpcHealthServer(
         healthConfig,
-        arguments.metrics.metricsFactory,
+        arguments.metrics.openTelemetryMetricsFactory,
         executor,
         loggerFactory,
         parameterConfig.loggingConfig.api,
@@ -239,7 +238,16 @@ abstract class CantonNodeBootstrapCommon[
         grpcNodeHealthManager.manager,
       )
     }
-    (healthReporter, grpcHealthServer, livenessService)
+    val httpHealthServer = config.monitoring.httpHealthServer.map { healthConfig =>
+      new HttpHealthServer(
+        nodeHealthService,
+        healthConfig.address,
+        healthConfig.port,
+        timeouts,
+        loggerFactory,
+      )
+    }
+    (healthReporter, grpcHealthServer, httpHealthServer, livenessService)
   }
 
 }

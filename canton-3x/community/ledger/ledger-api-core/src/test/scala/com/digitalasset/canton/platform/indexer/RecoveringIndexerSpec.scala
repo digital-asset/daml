@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,

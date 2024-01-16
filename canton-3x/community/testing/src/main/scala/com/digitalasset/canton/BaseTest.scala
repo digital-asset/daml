@@ -363,10 +363,8 @@ object BaseTest {
     defaultStaticDomainParametersWith()
 
   def defaultStaticDomainParametersWith(
-      uniqueContractKeys: Boolean = false,
-      protocolVersion: ProtocolVersion = testedProtocolVersion,
+      protocolVersion: ProtocolVersion = testedProtocolVersion
   ): StaticDomainParameters = StaticDomainParameters.create(
-    uniqueContractKeys = uniqueContractKeys,
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,

@@ -105,7 +105,6 @@ class TransactionProcessor(
         new AuthenticationValidator(),
         new AuthorizationValidator(participantId, enableContractUpgrading),
         new InternalConsistencyChecker(
-          staticDomainParameters.uniqueContractKeys,
           staticDomainParameters.protocolVersion,
           loggerFactory,
         ),

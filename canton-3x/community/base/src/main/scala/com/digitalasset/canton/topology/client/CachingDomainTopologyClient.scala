@@ -347,10 +347,6 @@ private class ForwardingTopologySnapshotClient(
       participantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
   ): Future[PartyInfo] =
     parent.loadActiveParticipantsOf(party, participantStates)
-  override def findParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[LegalIdentityClaimEvidence.X509Cert]] =
-    parent.findParticipantCertificate(participantId)
 
   override def inspectKeys(
       filterOwner: String,
@@ -523,13 +519,6 @@ class CachingTopologySnapshot(
     participants
       .parTraverse(participant => participantState(participant).map((participant, _)))
       .map(_.toMap)
-
-  override def findParticipantCertificate(
-      participantId: ParticipantId
-  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] = {
-    // This one is not cached as we don't need during processing
-    parent.findParticipantCertificate(participantId)
-  }
 
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,

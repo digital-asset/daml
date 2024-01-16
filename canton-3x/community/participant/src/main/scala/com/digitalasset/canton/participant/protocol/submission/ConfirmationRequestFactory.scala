@@ -242,10 +242,9 @@ class ConfirmationRequestFactory(
 
 object ConfirmationRequestFactory {
   def apply(submitterNode: ParticipantId, domainId: DomainId, protocolVersion: ProtocolVersion)(
-      cryptoOps: HashOps with HmacOps,
+      cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
-      uniqueContractKeys: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ConfirmationRequestFactory = {
 
@@ -255,7 +254,6 @@ object ConfirmationRequestFactory {
         domainId,
         protocolVersion,
         cryptoOps,
-        uniqueContractKeys,
         loggerFactory,
       )
 
@@ -303,36 +301,6 @@ object ConfirmationRequestFactory {
   final case class ContractConsistencyError(errors: Seq[ReferenceToFutureContractError])
       extends ConfirmationRequestCreationError {
     override def pretty: Pretty[ContractConsistencyError] = prettyOfClass(unnamedParam(_.errors))
-  }
-
-  /** Indicates that the given transaction is contract key-inconsistent. */
-  final case class ContractKeyConsistencyError(key: LfGlobalKey)
-      extends ConfirmationRequestCreationError
-      with PrettyPrinting {
-    override def pretty: Pretty[ContractKeyConsistencyError] =
-      prettyOfClass(
-        param("key", _.key)
-      )
-  }
-
-  /** Indicates that the given transaction yields a duplicate for a contract ID. */
-  final case class ContractIdDuplicateError(contractId: LfContractId)
-      extends ConfirmationRequestCreationError
-      with PrettyPrinting {
-    override def pretty: Pretty[ContractIdDuplicateError] =
-      prettyOfClass(
-        param("contractId", _.contractId)
-      )
-  }
-
-  /** Indicates that the given transaction yields a duplicate for a key. */
-  final case class ContractKeyDuplicateError(key: LfGlobalKey)
-      extends ConfirmationRequestCreationError
-      with PrettyPrinting {
-    override def pretty: Pretty[ContractKeyDuplicateError] =
-      prettyOfClass(
-        param("key", _.key)
-      )
   }
 
   /** Indicates that the encrypted view message could not be created. */

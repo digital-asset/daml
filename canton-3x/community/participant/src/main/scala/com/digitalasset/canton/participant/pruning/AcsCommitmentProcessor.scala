@@ -1162,6 +1162,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         )
 
     val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(domainId)
+
     safeToPrune_(
       cleanReplayF,
       commitmentsPruningBound = commitmentsPruningBound,

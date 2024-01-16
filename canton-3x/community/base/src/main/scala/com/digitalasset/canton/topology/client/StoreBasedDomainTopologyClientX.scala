@@ -611,14 +611,6 @@ class StoreBasedTopologySnapshotX(
         s"Participants lookup not supported by StoreBasedDomainTopologyClientX. This is a coding bug."
       )
     )
-  override def findParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[LegalIdentityClaimEvidence.X509Cert]] =
-    Future.failed(
-      new UnsupportedOperationException(
-        s"Legal claims not supported by StoreBasedDomainTopologyClientX. This is a coding bug."
-      )
-    )
 
   /** abstract loading function used to obtain the full key collection for a key owner */
   override def allKeys(owner: Member): Future[KeyCollection] = findTransactions(

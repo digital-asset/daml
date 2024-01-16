@@ -635,41 +635,6 @@ class StoreBasedTopologySnapshot(
   ): Future[Option[ParticipantAttributes]] =
     loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
-  override def findParticipantCertificate(
-      participantId: ParticipantId
-  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] = {
-    import cats.implicits.*
-    findTransactions(
-      asOfInclusive = false,
-      includeSecondary = false,
-      types = Seq(DomainTopologyTransactionType.SignedLegalIdentityClaim),
-      filterUid = Some(Seq(participantId.uid)),
-      filterNamespace = None,
-    ).map(_.toTopologyState.reverse.collectFirstSome {
-      case TopologyStateUpdateElement(_id, SignedLegalIdentityClaim(_, claimBytes, _signature)) =>
-        val result = for {
-          claim <- LegalIdentityClaim
-            .fromByteStringUnsafe(
-              claimBytes
-            ) // TODO(#12626) – try with context
-            .leftMap(err => s"Failed to parse legal identity claim proto: $err")
-
-          certOpt = claim.evidence match {
-            case cert: LegalIdentityClaimEvidence.X509Cert if claim.uid == participantId.uid =>
-              Some(cert)
-            case _ => None
-          }
-        } yield certOpt
-
-        result.valueOr { err =>
-          logger.error(s"Failed to inspect domain topology state for participant certificate: $err")
-          None
-        }
-
-      case _ => None
-    })
-  }
-
   /** Returns a list of all known parties on this domain */
   override def inspectKeys(
       filterOwner: String,

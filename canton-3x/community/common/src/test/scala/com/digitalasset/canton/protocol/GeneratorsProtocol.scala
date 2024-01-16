@@ -33,8 +33,6 @@ final class GeneratorsProtocol(
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
     Arbitrary(for {
-      uniqueContractKeys <- Arbitrary.arbitrary[Boolean]
-
       requiredSigningKeySchemes <- nonEmptySetGen[SigningKeyScheme]
       requiredEncryptionKeySchemes <- nonEmptySetGen[EncryptionKeyScheme]
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
@@ -42,7 +40,6 @@ final class GeneratorsProtocol(
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
 
       parameters = StaticDomainParameters.create(
-        uniqueContractKeys,
         requiredSigningKeySchemes,
         requiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes,
@@ -222,5 +219,4 @@ final class GeneratorsProtocol(
       )
       .value
   )
-
 }

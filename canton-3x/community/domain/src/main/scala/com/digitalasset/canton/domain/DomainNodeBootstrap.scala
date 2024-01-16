@@ -188,7 +188,7 @@ class DomainNodeBootstrap(
       maxRequestSize,
       parameters,
       config.publicApi,
-      arguments.metrics.metricsFactory,
+      arguments.metrics.openTelemetryMetricsFactory,
       arguments.metrics.grpcMetrics,
       healthReporter,
       domainApiServiceHealth,

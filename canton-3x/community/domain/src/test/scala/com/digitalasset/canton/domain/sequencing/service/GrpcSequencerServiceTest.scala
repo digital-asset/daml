@@ -119,7 +119,7 @@ class GrpcSequencerServiceTest
 
     private val domainParamLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
       DomainParametersLookup.forSequencerDomainParameters(
-        BaseTest.defaultStaticDomainParametersWith(),
+        BaseTest.defaultStaticDomainParameters,
         None,
         topologyClient,
         FutureSupervisor.Noop,

@@ -17,7 +17,6 @@ import com.digitalasset.canton.crypto.{
   SymmetricKeyScheme,
   TestHash,
 }
-import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -77,7 +76,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MessageDispatcherTest {
-  this: AnyWordSpec with BaseTest with HasExecutorService =>
+  this: AnyWordSpec & BaseTest & HasExecutorService =>
 
   implicit lazy val executionContext: ExecutionContext = executorService
 
@@ -118,7 +117,6 @@ trait MessageDispatcherTest {
     def mk(
         mkMd: (
             ProtocolVersion,
-            Boolean,
             DomainId,
             ParticipantId,
             RequestTracker,
@@ -139,7 +137,6 @@ trait MessageDispatcherTest {
           FutureUnlessShutdown.unit,
         processingRequestHandlerF: => HandlerResult = HandlerResult.done,
         processingResultHandlerF: => HandlerResult = HandlerResult.done,
-        uck: Option[Boolean] = None,
     ): Fixture = {
       val requestTracker = mock[RequestTracker]
 
@@ -209,18 +206,7 @@ trait MessageDispatcherTest {
 
       val badRootHashMessagesRequestProcessor = mock[BadRootHashMessagesRequestProcessor]
       when(
-        badRootHashMessagesRequestProcessor
-          .handleBadRequestWithExpectedMalformedMediatorRequest(
-            any[RequestCounter],
-            any[SequencerCounter],
-            any[CantonTimestamp],
-            any[MediatorRef],
-          )(anyTraceContext)
-      )
-        .thenReturn(badRootHashMessagesRequestProcessorF)
-      when(
-        badRootHashMessagesRequestProcessor.sendRejectionAndExpectMediatorResult(
-          any[RequestCounter],
+        badRootHashMessagesRequestProcessor.sendRejectionAndTerminate(
           any[SequencerCounter],
           any[CantonTimestamp],
           any[RootHash],
@@ -260,7 +246,6 @@ trait MessageDispatcherTest {
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,
-        uck.getOrElse(defaultStaticDomainParameters.uniqueContractKeys),
         domainId,
         participantId,
         requestTracker,
@@ -365,7 +350,6 @@ trait MessageDispatcherTest {
   protected def messageDispatcher(
       mkMd: (
           ProtocolVersion,
-          Boolean,
           DomainId,
           ParticipantId,
           RequestTracker,
@@ -388,9 +372,8 @@ trait MessageDispatcherTest {
     def mk(
         initRc: RequestCounter = RequestCounter(0),
         cleanReplaySequencerCounter: SequencerCounter = SequencerCounter(0),
-        uck: Option[Boolean] = None,
     ): Fixture =
-      Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter, uck = uck)
+      Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter)
 
     val idTx = DomainTopologyTransactionMessage
       .tryCreate(
@@ -581,74 +564,6 @@ trait MessageDispatcherTest {
           verify(sut.recordOrderPublisher).scheduleEmptyAcsChangePublication(isEq(sc), isEq(ts))
           checkTicks(sut, sc, ts)
         }.futureValue
-      }
-    }
-
-    List(
-      DisabledTransferTestData(
-        "in",
-        TransferInViewType,
-        EncryptedView(TransferInViewType)(
-          Encrypted.fromByteString[CompressedView[FullTransferInTree]](ByteString.EMPTY).value
-        ),
-      ),
-      DisabledTransferTestData(
-        "out",
-        TransferOutViewType,
-        EncryptedView(TransferOutViewType)(
-          Encrypted.fromByteString[CompressedView[FullTransferOutTree]](ByteString.EMPTY).value
-        ),
-      ),
-    ).foreach { case DisabledTransferTestData(inOut, viewType, transferView) =>
-      s"transfer $inOut requests" should {
-        "not be let through if UCK is enabled" in {
-          val sut = mk(initRc = RequestCounter(-12), uck = Some(true))
-          val encryptedTransferViewMessage =
-            EncryptedViewMessage(
-              None,
-              ViewHash(TestHash.digest(9002)),
-              randomness = encryptedRandomnessTest,
-              sessionKey = sessionKeyMapTest,
-              transferView,
-              domainId,
-              SymmetricKeyScheme.Aes128Gcm,
-              testedProtocolVersion,
-            )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
-          val rootHashMessage =
-            RootHashMessage(
-              rootHash(1),
-              domainId,
-              testedProtocolVersion,
-              viewType,
-              SerializedRootHashMessagePayload.empty,
-            )
-          val event = mkDeliver(
-            Batch.of[ProtocolMessage](
-              testedProtocolVersion,
-              encryptedTransferViewMessage -> Recipients.cc(participantId),
-              rootHashMessage -> Recipients.cc(participantId, mediatorId),
-            ),
-            SequencerCounter(11),
-            CantonTimestamp.ofEpochSecond(11),
-          )
-
-          val error = loggerFactory
-            .assertLogs(
-              sut.messageDispatcher.handleAll(signAndTrace(event)).failed,
-              loggerFactory.checkLogsInternalError[IllegalArgumentException](
-                _.getMessage should include(
-                  "Domain transfers are not supported with unique contract keys"
-                )
-              ),
-              _.errorMessage should include("event processing failed."),
-            )
-            .futureValue
-
-          error shouldBe a[IllegalArgumentException]
-          error.getMessage should include(
-            "Domain transfers are not supported with unique contract keys"
-          )
-        }
       }
     }
 
@@ -906,15 +821,13 @@ trait MessageDispatcherTest {
             rootHashMessage -> Recipients.cc(participantId, otherParticipant, mediatorId2),
           ) -> Seq(
             "Received root hash message with invalid recipients"
-          ) -> ExpectMalformedMediatorRequestResult(MediatorRef(mediatorId2)),
+          ) -> ExpectMalformedMediatorRequestResult,
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
             rootHashMessage -> Recipients.cc(participantId, otherParticipant, mediatorId2),
             rootHashMessage -> Recipients.cc(participantId, mediatorId2),
-          ) -> Seq("Multiple root hash messages in batch") -> ExpectMalformedMediatorRequestResult(
-            (MediatorRef(mediatorId2))
-          ),
+          ) -> Seq("Multiple root hash messages in batch") -> ExpectMalformedMediatorRequestResult,
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
@@ -953,60 +866,46 @@ trait MessageDispatcherTest {
         )
 
         // sequentially process the test cases so that the log messages don't interfere
-        MonadUtil
-          .sequentialTraverse_(badBatches.zipWithIndex) {
-            case (((batch, alarms), reaction), index) =>
-              val initRc = RequestCounter(index)
-              val sut = mk(initRc = initRc)
-              val sc = SequencerCounter(index)
-              val ts = CantonTimestamp.ofEpochSecond(index.toLong)
-              withClueF(s"at batch $index") {
-                loggerFactory.assertLogsUnordered(
-                  handle(sut, mkDeliver(batch, sc, ts)) {
-                    // tick the request counter only if we expect a mediator result
-                    sut.requestCounterAllocator.peek shouldBe
-                      (if (reaction == DoNotExpectMediatorResult) initRc else initRc + 1)
-                    checkNotProcessRequest(processor(sut))
-                    reaction match {
-                      case DoNotExpectMediatorResult => checkTicks(sut, sc, ts)
-                      case ExpectMalformedMediatorRequestResult(mediatorId) =>
-                        verify(sut.badRootHashMessagesRequestProcessor)
-                          .handleBadRequestWithExpectedMalformedMediatorRequest(
-                            eqTo(initRc),
-                            eqTo(sc),
-                            eqTo(ts),
-                            eqTo(mediatorId),
-                          )(anyTraceContext)
-                        checkTickTopologyProcessor(sut, sc, ts)
-                        checkTickRequestTracker(sut, sc, ts)
-                      case SendMalformedAndExpectMediatorResult(rootHash, mediatorId, reason) =>
-                        verify(sut.badRootHashMessagesRequestProcessor)
-                          .sendRejectionAndExpectMediatorResult(
-                            eqTo(initRc),
-                            eqTo(sc),
-                            eqTo(ts),
-                            eqTo(rootHash),
-                            eqTo(mediatorId),
-                            eqTo(
-                              LocalReject.MalformedRejects.BadRootHashMessages
-                                .Reject(reason, testedProtocolVersion)
-                            ),
-                          )(anyTraceContext)
-                        checkTickTopologyProcessor(sut, sc, ts)
-                        checkTickRequestTracker(sut, sc, ts)
-                    }
-                    succeed
-                  },
-                  alarms.map(alarm =>
-                    (entry: LogEntry) => {
-                      entry.shouldBeCantonErrorCode(SyncServiceAlarm)
-                      entry.warningMessage should include(alarm)
-                    }
-                  ): _*
-                )
-              }
-          }
-          .futureValue
+        forAll(badBatches.zipWithIndex) { case (((batch, alarms), reaction), index) =>
+          val initRc = RequestCounter(index)
+          val sut = mk(initRc = initRc)
+          val sc = SequencerCounter(index)
+          val ts = CantonTimestamp.ofEpochSecond(index.toLong)
+          withClueF(s"at batch $index:") {
+            loggerFactory.assertLogsUnordered(
+              handle(sut, mkDeliver(batch, sc, ts)) {
+                // never tick the request counter
+                sut.requestCounterAllocator.peek shouldBe initRc
+                checkNotProcessRequest(processor(sut))
+                reaction match {
+                  case DoNotExpectMediatorResult => checkTicks(sut, sc, ts)
+                  case ExpectMalformedMediatorRequestResult => checkTicks(sut, sc, ts)
+                  case SendMalformedAndExpectMediatorResult(rootHash, mediatorId, reason) =>
+                    verify(sut.badRootHashMessagesRequestProcessor)
+                      .sendRejectionAndTerminate(
+                        eqTo(sc),
+                        eqTo(ts),
+                        eqTo(rootHash),
+                        eqTo(mediatorId),
+                        eqTo(
+                          LocalReject.MalformedRejects.BadRootHashMessages
+                            .Reject(reason, testedProtocolVersion)
+                        ),
+                      )(anyTraceContext)
+                    checkTickTopologyProcessor(sut, sc, ts)
+                    checkTickRequestTracker(sut, sc, ts)
+                }
+                succeed
+              },
+              alarms.map(alarm =>
+                (entry: LogEntry) => {
+                  entry.shouldBeCantonErrorCode(SyncServiceAlarm)
+                  entry.warningMessage should include(alarm)
+                }
+              ): _*
+            )
+          }.futureValue
+        }
       }
 
       "crash upon root hash messages for multiple mediators" in {

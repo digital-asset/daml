@@ -57,7 +57,6 @@ object DomainParameters {
 }
 
 final case class StaticDomainParameters private (
-    uniqueContractKeys: Boolean, // TODO(i13235) remove when UCK is gone
     requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
     requiredEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
@@ -76,12 +75,8 @@ final case class StaticDomainParameters private (
   @transient override protected lazy val companionObj: StaticDomainParameters.type =
     StaticDomainParameters
 
-  def update(uniqueContractKeys: Boolean = uniqueContractKeys): StaticDomainParameters =
-    this.copy(uniqueContractKeys = uniqueContractKeys)
-
   def toProtoV1: protoV1.StaticDomainParameters =
     protoV1.StaticDomainParameters(
-      uniqueContractKeys = uniqueContractKeys,
       requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
       requiredEncryptionKeySchemes = requiredEncryptionKeySchemes.toSeq.map(_.toProtoEnum),
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
@@ -105,7 +100,6 @@ object StaticDomainParameters
   override def name: String = "static domain parameters"
 
   def create(
-      uniqueContractKeys: Boolean,
       requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
       requiredEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
       requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
@@ -113,7 +107,6 @@ object StaticDomainParameters
       requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
       protocolVersion: ProtocolVersion,
   ): StaticDomainParameters = StaticDomainParameters(
-    uniqueContractKeys = uniqueContractKeys,
     requiredSigningKeySchemes = requiredSigningKeySchemes,
     requiredEncryptionKeySchemes = requiredEncryptionKeySchemes,
     requiredSymmetricKeySchemes = requiredSymmetricKeySchemes,
@@ -133,7 +126,6 @@ object StaticDomainParameters
       domainParametersP: protoV1.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
     val protoV1.StaticDomainParameters(
-      uniqueContractKeys,
       requiredSigningKeySchemesP,
       requiredEncryptionKeySchemesP,
       requiredSymmetricKeySchemesP,
@@ -170,7 +162,6 @@ object StaticDomainParameters
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticDomainParameters(
-      uniqueContractKeys,
       requiredSigningKeySchemes,
       requiredEncryptionKeySchemes,
       requiredSymmetricKeySchemes,

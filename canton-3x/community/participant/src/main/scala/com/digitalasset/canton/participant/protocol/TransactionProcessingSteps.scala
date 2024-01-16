@@ -68,8 +68,8 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{LfTransactionErrors, *}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
@@ -313,44 +313,6 @@ class TransactionProcessingSteps(
         )
 
       val result = for {
-        _ <-
-          if (staticDomainParameters.uniqueContractKeys) {
-            val result = wfTransaction.withoutVersion.contractKeyInputs match {
-              case Left(
-                    LfTransactionErrors.DuplicateContractIdKIError(
-                      LfTransactionErrors.DuplicateContractId(contractId)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract ID semantics",
-                  ContractIdDuplicateError(contractId),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.DuplicateContractKeyKIError(
-                      LfTransactionErrors.DuplicateContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyDuplicateError(key),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.InconsistentContractKeyKIError(
-                      LfTransactionErrors.InconsistentContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyConsistencyError(key),
-                ).asLeft
-
-              case Right(_) => ().asRight
-            }
-
-            EitherT.fromEither[Future](result)
-          } else EitherT.pure[Future, TransactionSubmissionTrackingData.RejectionCause](())
         confirmationPolicy <- EitherT(
           ConfirmationPolicy
             .choose(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)

@@ -5,8 +5,9 @@ package com.digitalasset.canton.http.util
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.{domain}
-import lav1.commands.Commands.DeduplicationPeriod
+import lav2.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
@@ -76,8 +77,8 @@ object Commands {
       submissionId: Option[domain.SubmissionId],
       workflowId: Option[domain.WorkflowId],
       disclosedContracts: Seq[domain.DisclosedContract.LAV],
-  ): lav1.command_service.SubmitAndWaitRequest = {
-    val commands = lav1.commands.Commands(
+  ): lav2.command_service.SubmitAndWaitRequest = {
+    val commands = lav2.commands.Commands(
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
       // We set party for backwards compatibility. The
@@ -101,6 +102,6 @@ object Commands {
         .unsubst(workflowId)
         .map(commandsWithSubmissionId.withWorkflowId)
         .getOrElse(commandsWithSubmissionId)
-    lav1.command_service.SubmitAndWaitRequest(Some(commandsWithWorkflowId))
+    lav2.command_service.SubmitAndWaitRequest(Some(commandsWithWorkflowId))
   }
 }

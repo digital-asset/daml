@@ -7,20 +7,12 @@ package com.digitalasset.canton.admin.participant.v0;
 
 import "com/digitalasset/canton/admin/participant/v0/domain_connectivity.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
 
 // Moving ACS from one participant to another
 service ParticipantRepairService {
-  // TODO(i14441): Remove deprecated ACS download / upload functionality
-  // deprecated endpoint to get contracts for a party
-  rpc Download(DownloadRequest) returns (stream AcsSnapshotChunk);
 
   // get contracts for a party
   rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
-
-  // TODO(i14441): Remove deprecated ACS download / upload functionality
-  // deprecated endpoint to upload contracts for a party
-  rpc Upload(stream UploadRequest) returns (UploadResponse);
 
   // upload contracts for a party
   rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
@@ -29,22 +21,6 @@ service ParticipantRepairService {
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
 
   rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
-}
-
-// TODO(i14441): Remove deprecated ACS download / upload functionality
-message DownloadRequest {
-  repeated string parties = 1;
-  string filter_domain_id = 2; // optional; exact match if set
-  google.protobuf.Timestamp timestamp = 3; // optional; take acs state for this timestamp
-  string protocol_version = 4; // optional; version of serialization to use
-  // Size of the byte chunks to stream back.
-  // Defaults to 2MB (half of the default gRPC max message size)
-  google.protobuf.UInt32Value chunkSize = 5;
-  bool gzip_format = 6;
-
-  // Optional mapping from one domain id to another to rename the associated domain of contracts in the export
-  // NOTE: This is not a proper domain migration of contracts.
-  map<string, string> contract_domain_renames = 7;
 }
 
 message PurgeContractsRequest {
@@ -59,20 +35,6 @@ message PurgeContractsRequest {
 }
 
 message PurgeContractsResponse {}
-
-// TODO(i14441): Remove deprecated ACS download / upload functionality
-message AcsSnapshotChunk {
-  bytes chunk = 1; // a chunk of the acs snapshot download
-}
-
-// TODO(i14441): Remove deprecated ACS download / upload functionality
-message UploadRequest {
-  bytes acs_snapshot = 1;
-  bool gzip_format = 2;
-}
-
-// TODO(i14441): Remove deprecated ACS download / upload functionality
-message UploadResponse {}
 
 message MigrateDomainRequest {
   // the alias of the source domain

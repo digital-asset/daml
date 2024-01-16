@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.migration.postgres
 
-import com.daml.ledger.resources.TestResourceContext
 import com.digitalasset.canton.TestEssentials
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.store.FlywayMigrations
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

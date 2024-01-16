@@ -39,7 +39,6 @@ import io.scalaland.chimney.dsl.*
 import scala.Ordering.Implicits.*
 
 final case class StaticDomainParameters(
-    uniqueContractKeys: Boolean,
     requiredSigningKeySchemes: Set[SigningKeyScheme],
     requiredEncryptionKeySchemes: Set[EncryptionKeyScheme],
     requiredSymmetricKeySchemes: Set[SymmetricKeyScheme],
@@ -52,7 +51,6 @@ final case class StaticDomainParameters(
 
   private[canton] def toInternal: StaticDomainParametersInternal =
     StaticDomainParametersInternal.create(
-      uniqueContractKeys = uniqueContractKeys,
       requiredSigningKeySchemes = NonEmptyUtil.fromUnsafe(
         requiredSigningKeySchemes.map(_.transformInto[DomainCrypto.SigningKeyScheme])
       ),
@@ -108,7 +106,6 @@ object StaticDomainParameters {
       domain: StaticDomainParametersInternal
   ): StaticDomainParameters =
     StaticDomainParameters(
-      uniqueContractKeys = domain.uniqueContractKeys,
       requiredSigningKeySchemes =
         domain.requiredSigningKeySchemes.forgetNE.map(_.transformInto[SigningKeyScheme]),
       requiredEncryptionKeySchemes =

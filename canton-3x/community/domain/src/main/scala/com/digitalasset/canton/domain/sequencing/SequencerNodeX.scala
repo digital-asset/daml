@@ -280,14 +280,12 @@ class SequencerNodeBootstrapX(
         // TODO(#14048) how to handle this error properly?
         throw new IllegalStateException("domainTopologyManager shouldn't have been set before")
       }
-      // TODO(i13235) remove when UCK is gone
-      val domainParametersWithoutUCK = domainParameters.update(uniqueContractKeys = false)
       new StartupNode(
         storage,
         crypto,
         sequencerId,
         sequencerFactory,
-        domainParametersWithoutUCK,
+        domainParameters,
         manager,
         domainTopologyMgr,
         nonInitializedSequencerNodeServer.getAndSet(None),

@@ -17,11 +17,13 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
 import com.digitalasset.canton.topology.admin.v0.InitializationServiceGrpc
+import com.digitalasset.canton.topology.admin.v1.IdentityInitializationServiceXGrpc
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, PriorityBlockingQueueUtil}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.empty.Empty
+import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock as JClock, Duration, Instant}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
@@ -380,6 +382,7 @@ class SimClock(
 class RemoteClock(
     config: ClientConfig,
     timeouts: ProcessingTimeout,
+    getTimeFromXNode: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContextExecutor)
     extends Clock
@@ -391,7 +394,15 @@ class RemoteClock(
     noTracingLogger,
   )
   private val channel = ClientChannelBuilder.createChannelToTrustedServer(config)
-  private val service = InitializationServiceGrpc.stub(channel)
+  private val service = Either.cond(
+    getTimeFromXNode,
+    IdentityInitializationServiceXGrpc.stub(channel),
+    InitializationServiceGrpc.stub(channel),
+  )
+
+  private def getCurrentRemoteTime(): Future[Timestamp] =
+    service.fold(_.currentTime(Empty()), _.currentTime(Empty()))
+
   private val running = new AtomicBoolean(true)
   private val updating = new AtomicReference[Option[CantonTimestamp]](None)
 
@@ -446,7 +457,7 @@ class RemoteClock(
   @tailrec
   private def getRemoteTime: CantonTimestamp = {
     val req = for {
-      pbTimestamp <- EitherT.right[ProtoDeserializationError](service.currentTime(Empty()))
+      pbTimestamp <- EitherT.right[ProtoDeserializationError](getCurrentRemoteTime())
       timestamp <- EitherT.fromEither[Future](CantonTimestamp.fromProtoPrimitive(pbTimestamp))
     } yield timestamp
     import TraceContext.Implicits.Empty.*

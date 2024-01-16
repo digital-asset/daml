@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.packages
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach

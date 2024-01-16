@@ -60,8 +60,6 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def protocolVersion: ProtocolVersion
 
-  protected def uniqueContractKeys: Boolean
-
   protected def domainId: DomainId
 
   protected def participantId: ParticipantId
@@ -199,7 +197,7 @@ trait MessageDispatcher { this: NamedLogging =>
       // we can receive an empty batch if it was for a deliver we sent but were not a recipient
       sanityCheck <-
         if (content.isReceipt) {
-          logger.debug(show"Received the receipt for a previously sent batch:\n${content}")
+          logger.debug(show"Received the receipt for a previously sent batch:\n$content")
           FutureUnlessShutdown.pure(processingResultMonoid.empty)
         } else if (batch.envelopes.isEmpty) {
           doProcess(
@@ -259,9 +257,9 @@ trait MessageDispatcher { this: NamedLogging =>
       envelopes: List[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     def alarmIfNonEmptySigned(
-        kind: MessageKind[_],
+        kind: MessageKind[?],
         envelopes: Seq[
-          OpenEnvelope[SignedProtocolMessage[HasRequestId with SignedProtocolMessageContent]]
+          OpenEnvelope[SignedProtocolMessage[HasRequestId & SignedProtocolMessageContent]]
         ],
     ): Unit =
       if (envelopes.nonEmpty) {
@@ -344,26 +342,17 @@ trait MessageDispatcher { this: NamedLogging =>
         val rootHashMessage: goodRequest.rootHashMessage.type = goodRequest.rootHashMessage
         val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType
 
-        viewType match {
-          case TransferInViewType | TransferOutViewType if uniqueContractKeys =>
-            ErrorUtil.internalError(
-              new IllegalArgumentException(
-                "Domain transfers are not supported with unique contract keys"
-              )
-            )
-          case _ =>
-            val processor = tryProtocolProcessor(viewType)
-            val batch = RequestAndRootHashMessage(
-              goodRequest.requestEnvelopes,
-              rootHashMessage,
-              goodRequest.mediator,
-              isReceipt,
-            )
-            doProcess(
-              RequestKind(goodRequest.rootHashMessage.viewType),
-              processor.processRequest(ts, rc, sc, batch),
-            )
-        }
+        val processor = tryProtocolProcessor(viewType)
+        val batch = RequestAndRootHashMessage(
+          goodRequest.requestEnvelopes,
+          rootHashMessage,
+          goodRequest.mediator,
+          isReceipt,
+        )
+        doProcess(
+          RequestKind(goodRequest.rootHashMessage.viewType),
+          processor.processRequest(ts, rc, sc, batch),
+        )
       }
     }
 
@@ -377,23 +366,11 @@ trait MessageDispatcher { this: NamedLogging =>
           if (!containsTopologyTransactionsX)
             processRequest(goodRequest)
           else {
-            /*A batch should not contain a request and a topology transaction.
+            /* A batch should not contain a request and a topology transaction.
              * Handling of such a batch is done consistently with the case [[ExpectMalformedMediatorRequestResult]] below.
              */
             alarm(sc, ts, "Invalid batch containing both a request and topology transaction")
-
-            withNewRequestCounter { rc =>
-              doProcess(
-                UnspecifiedMessageKind,
-                badRootHashMessagesRequestProcessor
-                  .handleBadRequestWithExpectedMalformedMediatorRequest(
-                    rc,
-                    sc,
-                    ts,
-                    goodRequest.mediator,
-                  ),
-              )
-            }
+            tickRecordOrderPublisher(sc, ts)
           }
 
         case Left(DoNotExpectMediatorResult) =>
@@ -402,32 +379,23 @@ trait MessageDispatcher { this: NamedLogging =>
             doProcess(UnspecifiedMessageKind, FutureUnlessShutdown.pure(()))
           } else
             tickRecordOrderPublisher(sc, ts)
-        case Left(ExpectMalformedMediatorRequestResult(mediator)) =>
+        case Left(ExpectMalformedMediatorRequestResult) =>
           // The request is malformed from this participant's and the mediator's point of view if the sequencer is honest.
           // An honest mediator will therefore try to send a `MalformedMediatorRequestResult`.
-          withNewRequestCounter { rc =>
-            doProcess(
-              UnspecifiedMessageKind,
-              badRootHashMessagesRequestProcessor
-                .handleBadRequestWithExpectedMalformedMediatorRequest(rc, sc, ts, mediator),
-            )
-          }
+          // We do not really care about the result though and just discard the request.
+          tickRecordOrderPublisher(sc, ts)
         case Left(SendMalformedAndExpectMediatorResult(rootHash, mediator, reason)) =>
           // The request is malformed from this participant's point of view, but not necessarily from the mediator's.
-          withNewRequestCounter { rc =>
-            doProcess(
-              UnspecifiedMessageKind,
-              badRootHashMessagesRequestProcessor.sendRejectionAndExpectMediatorResult(
-                rc,
-                sc,
-                ts,
-                rootHash,
-                mediator,
-                LocalReject.MalformedRejects.BadRootHashMessages
-                  .Reject(reason, protocolVersion),
-              ),
-            )
-          }
+          doProcess(
+            UnspecifiedMessageKind,
+            badRootHashMessagesRequestProcessor.sendRejectionAndTerminate(
+              sc,
+              ts,
+              rootHash,
+              mediator,
+              LocalReject.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
+            ),
+          )
       }
     } yield result
   }
@@ -483,7 +451,7 @@ trait MessageDispatcher { this: NamedLogging =>
               } else {
                 // We assume that the participant receives only envelopes of which it is a recipient
                 Checked.Abort(
-                  ExpectMalformedMediatorRequestResult(mediator): FailedRootHashMessageCheck,
+                  ExpectMalformedMediatorRequestResult: FailedRootHashMessageCheck,
                   Chain(
                     show"Received root hash message with invalid recipients: ${rootHashMessage.recipients}"
                   ),
@@ -498,7 +466,7 @@ trait MessageDispatcher { this: NamedLogging =>
             checkedT(
               FutureUnlessShutdown.pure(
                 Checked.Abort(
-                  ExpectMalformedMediatorRequestResult(mediator): FailedRootHashMessageCheck,
+                  ExpectMalformedMediatorRequestResult: FailedRootHashMessageCheck,
                   Chain(
                     show"Multiple root hash messages in batch: $rootHashMessagesSentToAMediator"
                   ),
@@ -814,7 +782,7 @@ private[participant] object MessageDispatcher {
   @VisibleForTesting
   private[protocol] sealed trait FailedRootHashMessageCheck extends Product with Serializable
   @VisibleForTesting
-  private[protocol] final case class ExpectMalformedMediatorRequestResult(mediator: MediatorRef)
+  private[protocol] case object ExpectMalformedMediatorRequestResult
       extends FailedRootHashMessageCheck
   @VisibleForTesting
   private[protocol] final case class SendMalformedAndExpectMediatorResult(
@@ -828,7 +796,6 @@ private[participant] object MessageDispatcher {
   trait Factory[+T <: MessageDispatcher] {
     def create(
         protocolVersion: ProtocolVersion,
-        uniqueContractKeys: Boolean,
         domainId: DomainId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
@@ -850,7 +817,6 @@ private[participant] object MessageDispatcher {
 
     def create(
         protocolVersion: ProtocolVersion,
-        uniqueContractKeys: Boolean,
         domainId: DomainId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
@@ -894,7 +860,6 @@ private[participant] object MessageDispatcher {
 
       create(
         protocolVersion,
-        uniqueContractKeys,
         domainId,
         participantId,
         requestTracker,
@@ -915,7 +880,6 @@ private[participant] object MessageDispatcher {
   object DefaultFactory extends Factory[MessageDispatcher] {
     override def create(
         protocolVersion: ProtocolVersion,
-        uniqueContractKeys: Boolean,
         domainId: DomainId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
@@ -936,7 +900,6 @@ private[participant] object MessageDispatcher {
     )(implicit ec: ExecutionContext, tracer: Tracer): MessageDispatcher = {
       new DefaultMessageDispatcher(
         protocolVersion,
-        uniqueContractKeys,
         domainId,
         participantId,
         requestTracker,

@@ -40,7 +40,6 @@ class TransactionTreeFactoryImplV3(
     protocolVersion: ProtocolVersion,
     contractSerializer: (LfContractInst, AgreementText) => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
-    uniqueContractKeys: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TransactionTreeFactoryImpl(
@@ -53,9 +52,7 @@ class TransactionTreeFactoryImplV3(
     ) {
 
   private val initialCsmState: ContractStateMachine.State[Unit] =
-    ContractStateMachine.initial[Unit](
-      if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
-    )
+    ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
 
   protected[submission] class State private (
       override val mediator: MediatorRef,
@@ -85,8 +82,7 @@ class TransactionTreeFactoryImplV3(
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var csmState: ContractStateMachine.State[Unit] = initialCsmState
 
-    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]]
-      * if `uniqueContractKeys` is false.
+    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]].
       */
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var currentResolver: LfKeyResolver = initialResolver
@@ -358,16 +354,6 @@ class TransactionTreeFactoryImplV3(
       viewInputContractIds == stateInputContractIds,
       s"Failed to reconstruct input contracts for the view at position $viewPosition.\n  Reconstructed: $viewInputContractIds\n  Expected: $stateInputContractIds",
     )
-    // Reconstruction of the active ledger state works currently only in UCK mode
-    if (uniqueContractKeys) {
-      // The locally created contracts should also be computable in non-UCK mode from the view data.
-      // However, `activeLedgerState` as a whole can be reconstructed only in UCK mode,
-      // and therefore we check this only in UCK mode.
-      ErrorUtil.requireState(
-        transactionView.activeLedgerState.isEquivalent(csmState.activeState),
-        show"Failed to reconstruct ActiveLedgerState $viewPosition.\n  Reconstructed: ${transactionView.activeLedgerState}\n  Expected: ${csmState.activeState}",
-      )
-    }
   }
 
   /** The difference between `viewKeyInputs: Map[LfGlobalKey, KeyInput]` and

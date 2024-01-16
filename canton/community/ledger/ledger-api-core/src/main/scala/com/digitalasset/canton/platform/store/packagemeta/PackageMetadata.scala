@@ -3,84 +3,109 @@
 
 package com.digitalasset.canton.platform.store.packagemeta
 
-import cats.implicits.*
 import cats.kernel.Semigroup
+import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
-import com.daml.lf.data.{Ref, Time}
-import com.daml.nonempty.NonEmpty
+import com.daml.lf.data.Ref
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
-  VersionedTemplates,
+  PackageResolution,
 }
-import com.google.common.annotations.VisibleForTesting
+
+import scala.math.Ordered.orderingToOrdered
 
 final case class PackageMetadata(
-    templates: VersionedTemplates = Map.empty,
     interfaces: Set[Ref.Identifier] = Set.empty,
+    templates: Set[Ref.Identifier] = Set.empty,
     interfacesImplementedBy: InterfacesImplementedBy = Map.empty,
+    packageNameMap: Map[Ref.PackageName, PackageResolution] = Map.empty,
+    packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
 )
 
 object PackageMetadata {
-  type Priority = Time.Timestamp
   type InterfacesImplementedBy = Map[Ref.Identifier, Set[Ref.Identifier]]
-  type VersionedTemplates = Map[Ref.QualifiedName, TemplatesForQualifiedName]
 
-  final case class TemplateIdWithPriority(templateId: Ref.Identifier, priority: Priority)
+  final case class LocalPackagePreference(
+      version: Ref.PackageVersion,
+      packageId: Ref.PackageId,
+  )
 
-  final case class TemplatesForQualifiedName(
-      all: NonEmpty[Set[Ref.Identifier]],
-      private[TemplatesForQualifiedName] val _primary: TemplateIdWithPriority,
-  ) {
-    def primary: Ref.Identifier = _primary.templateId
+  final case class PackageResolution(
+      preference: LocalPackagePreference,
+      allPackageIdsForName: Set[Ref.PackageId],
+  )
 
-    def merge(other: TemplatesForQualifiedName): TemplatesForQualifiedName =
-      TemplatesForQualifiedName(
-        all = all ++ other.all,
-        _primary =
-          Ordering.by[TemplateIdWithPriority, Priority](_.priority).max(_primary, other._primary),
-      )
-  }
-
-  def from(archive: DamlLf.Archive, priority: Priority): PackageMetadata = {
+  def from(archive: DamlLf.Archive): PackageMetadata = {
+    val (packageId, pkg): (Ref.PackageId, Ast.Package) = Decode.assertDecodeArchive(archive)
+    // TODO(#16362): Do not decode the archive twice
     val packageInfo = Decode.assertDecodeInfoPackage(archive)._2
-    PackageMetadata(
-      templates = createVersionedTemplatesMap(packageInfo.definedTemplates, priority),
-      interfaces = packageInfo.definedInterfaces,
-      interfacesImplementedBy = packageInfo.interfaceInstances,
-    )
-  }
 
-  @VisibleForTesting
-  private[packagemeta] def createVersionedTemplatesMap(
-      definedTemplates: Set[Ref.Identifier],
-      priority: Priority,
-  ): Map[Ref.QualifiedName, TemplatesForQualifiedName] =
-    definedTemplates.view.groupBy(_.qualifiedName).map { case (qualifiedName, templatesForQn) =>
-      templatesForQn.toSeq match {
-        case Seq(templateId) =>
-          qualifiedName -> TemplatesForQualifiedName(
-            NonEmpty(Set, templateId),
-            TemplateIdWithPriority(templateId, priority),
-          )
-        case other =>
-          throw new IllegalStateException(
-            s"Expected exactly one templateId for a qualified name in a Daml archive, but got ${other.size}. This is likely a programming error. Please contact support"
+    val packageLanguageVersion = pkg.languageVersion
+    val nonUpgradablePackageMetadata = PackageMetadata(
+      packageNameMap = Map.empty,
+      interfaces = packageInfo.definedInterfaces,
+      templates = packageInfo.definedTemplates,
+      interfacesImplementedBy = packageInfo.interfaceInstances,
+      packageIdVersionMap = Map.empty,
+    )
+
+    pkg.metadata
+      .collect {
+        case decodedPackageMeta
+            // TODO(#16362): Replace with own feature
+            if packageLanguageVersion >= LanguageVersion.Features.sharedKeys =>
+          val packageName = decodedPackageMeta.name
+          val packageVersion = decodedPackageMeta.version
+
+          // Update with upgradable package metadata
+          nonUpgradablePackageMetadata.copy(
+            packageNameMap = Map(
+              packageName -> PackageResolution(
+                preference = LocalPackagePreference(packageVersion, packageId),
+                allPackageIdsForName = Set(packageId),
+              )
+            ),
+            packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
           )
       }
-    }
+      .getOrElse(nonUpgradablePackageMetadata)
+  }
 
   object Implicits {
+    // Although the combine for the semigroups below is safely commutative,
+    // we care about the order of the operands for performance considerations.
+    // Specifically, we must keep the complexity linear in the size of the appended package
+    // and NOT in the size of the current PackageMetadata state.
     implicit def packageMetadataSemigroup: Semigroup[PackageMetadata] =
       Semigroup.instance { case (x, y) =>
         PackageMetadata(
-          templates = x.templates |+| y.templates,
+          packageNameMap = x.packageNameMap |+| y.packageNameMap,
           interfaces = x.interfaces |+| y.interfaces,
+          templates = x.templates |+| y.templates,
           interfacesImplementedBy = x.interfacesImplementedBy |+| y.interfacesImplementedBy,
+          packageIdVersionMap = y.packageIdVersionMap
+            .foldLeft(x.packageIdVersionMap) { case (acc, (k, v)) =>
+              acc.updatedWith(k) {
+                case None => Some(v)
+                case Some(existing) if existing == v => Some(v)
+                case Some(existing) =>
+                  throw new IllegalStateException(
+                    s"Conflicting versioned package names for the same package id $k. Previous ($existing) vs uploaded($v)"
+                  )
+              }
+            },
         )
       }
 
-    private implicit def templatesForQualifiedNameSemigroup: Semigroup[TemplatesForQualifiedName] =
-      Semigroup.instance(_ merge _)
+    implicit def upgradablePackageIdPriorityMapSemigroup: Semigroup[PackageResolution] =
+      Semigroup.instance { case (x, y) =>
+        PackageResolution(
+          preference =
+            if (y.preference.version > x.preference.version) y.preference else x.preference,
+          allPackageIdsForName = x.allPackageIdsForName |+| y.allPackageIdsForName,
+        )
+      }
   }
 }

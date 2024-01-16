@@ -169,7 +169,6 @@ private[mediator] class DefaultVerdictSender(
         Some(requestId.unwrap),
         callback = callback,
         maxSequencingTime = decisionTime,
-        messageId = VerdictMessageId(requestId).toMessageId,
         aggregationRule = aggregationRule,
       )
     } else {

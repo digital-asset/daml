@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import cats.syntax.foldable.*
-import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
@@ -69,7 +68,6 @@ trait ParticipantNodePersistentStateFactory {
       storage: Storage,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
-      uniqueContractKeysO: Option[Boolean],
       batching: BatchingConfig,
       parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
@@ -91,7 +89,6 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       storage: Storage,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
-      uniqueContractKeysO: Option[Boolean],
       batching: BatchingConfig,
       parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
@@ -110,7 +107,6 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       storage,
       clock,
       maxDeduplicationDurationO,
-      uniqueContractKeysO,
       batching,
       parameters,
       releaseProtocolVersion,
@@ -126,18 +122,12 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
 object ParticipantNodePersistentState extends HasLoggerName {
 
   /** Creates a [[ParticipantNodePersistentState]] and initializes the settings store.
-    *
-    * @param uniqueContractKeysO If [[scala.Some$]], try to set the unique contract key mode accordingly,
-    *                            but if the participant has previously been connected to a domain,
-    *                            the domain's parameter for unique contract keys takes precedence.
-    *                            If [[scala.None$]], skip storing and checking the UCK setting.
     */
   def create(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
-      uniqueContractKeysO: Option[Boolean],
       batching: BatchingConfig,
       parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
@@ -234,61 +224,8 @@ object ParticipantNodePersistentState extends HasLoggerName {
       }
     }
 
-    def setUniqueContractKeysSetting(uniqueContractKeys: Boolean): FutureUnlessShutdown[Unit] = {
-      def checkStoredSetting(stored: Boolean): FutureUnlessShutdown[Unit] = {
-        if (uniqueContractKeys != stored) {
-          logger.warn(
-            show"Using unique-contract-keys=$stored instead of the configured $uniqueContractKeys.\nThis indicates that the participant was previously started with unique-contract-keys=$stored and then the configuration was changed."
-          )
-        }
-        FutureUnlessShutdown.unit
-      }
-
-      if (storage.isActive) {
-        for {
-          // Figure out whether the participant has previously been connected to a UCK or a non-UCK domain.
-          ucksByDomain <- syncDomainPersistentStates.getAll.toSeq.parTraverseFilter {
-            case (domainId, state) =>
-              FutureUnlessShutdown.outcomeF(
-                state.parameterStore.lastParameters.map(
-                  _.map(param => domainId -> param.uniqueContractKeys)
-                )
-              )
-          }
-          (nonUckDomains, uckDomains) = ucksByDomain.partitionMap { case (domainId, isUck) =>
-            Either.cond(isUck, domainId, domainId)
-          }
-          toBePersisted =
-            if (uckDomains.nonEmpty) {
-              if (!uniqueContractKeys) {
-                logger.warn(
-                  show"Ignoring participant config of not enforcing unique contract keys as the participant has been previously connected to domains with unique contract keys: $uckDomains"
-                )
-              }
-              true
-            } else if (nonUckDomains.nonEmpty) {
-              if (uniqueContractKeys) {
-                logger.warn(
-                  show"Ignoring participant config of enforcing unique contract keys as the participant has been previously connected to domains without unique contract keys: $nonUckDomains"
-                )
-              }
-              false
-            } else uniqueContractKeys
-          _ <- settingsStore.settings.uniqueContractKeys match {
-            case None => settingsStore.insertUniqueContractKeysMode(toBePersisted)
-            case Some(persisted) => checkStoredSetting(persisted)
-          }
-        } yield ()
-      } else {
-        waitForSettingsStoreUpdate(_.uniqueContractKeys, "unique contract key config").flatMap(
-          checkStoredSetting
-        )
-      }
-    }
-
     for {
       _ <- settingsStore.refreshCache()
-      _ <- uniqueContractKeysO.traverse_(setUniqueContractKeysSetting)
       _ <- maxDeduplicationDurationO.traverse_(checkOrSetMaxDedupDuration)
       multiDomainEventLog <- FutureUnlessShutdown.outcomeF(
         MultiDomainEventLog.create(

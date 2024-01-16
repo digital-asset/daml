@@ -1,4 +1,4 @@
-sdk-version: 3.0.0-snapshot.20240109.12547.0.v54009a41
+sdk-version: 3.0.0-snapshot.20240112.12569.0.v79107eff
 name: carbonv2-tests
 data-dependencies: 
 - ../../../../scala-2.13/resource_managed/main/carbonv1-tests.dar

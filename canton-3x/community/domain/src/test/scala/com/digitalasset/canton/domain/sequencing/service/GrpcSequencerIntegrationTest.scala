@@ -122,7 +122,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
 
   private val domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
     DomainParametersLookup.forSequencerDomainParameters(
-      BaseTest.defaultStaticDomainParametersWith(),
+      BaseTest.defaultStaticDomainParameters,
       None,
       topologyClient,
       futureSupervisor,

@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Numeric extends Value {
+public final class Numeric extends Value {
 
   private final BigDecimal value;
 

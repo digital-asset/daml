@@ -62,7 +62,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
     forEvery(relevantExamples) { example =>
       s"checking $example" must {
 
-        val sut = new InternalConsistencyChecker(true, testedProtocolVersion, loggerFactory)
+        val sut = new InternalConsistencyChecker(testedProtocolVersion, loggerFactory)
 
         "yield the correct result" in {
           check(sut, example.rootTransactionViewTrees).isRight shouldBe true

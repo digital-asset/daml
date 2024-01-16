@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxPartialOrder
+import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -238,5 +239,49 @@ class InMemoryTransferStore(
       .take(limit.unwrap)
 
     Future.successful(values)
+  }
+
+  override def findEarliestIncomplete()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] = {
+    // empty table: there are no transfers
+    if (transferDataMap.isEmpty) Future.successful(None)
+    else {
+      def incompleteTransfer(entry: TransferEntry): Boolean =
+        (entry.transferData.transferInGlobalOffset.isEmpty ||
+          entry.transferData.transferOutGlobalOffset.isEmpty) &&
+          entry.transferData.targetDomain == domain
+      val incompleteTransfers = transferDataMap.values
+        .to(LazyList)
+        .filter(entry => incompleteTransfer(entry))
+      // all transfers are complete
+      if (incompleteTransfers.isEmpty) Future.successful(None)
+      else {
+        val incompleteTransfersOffsets = incompleteTransfers
+          .mapFilter(entry =>
+            (
+              entry.transferData.transferInGlobalOffset
+                .orElse(entry.transferData.transferOutGlobalOffset),
+              entry.transferData.transferId,
+            ) match {
+              case (Some(o), transferId) => Some((o, transferId))
+              case (None, _) => None
+            }
+          )
+        // only in-flight transfers
+        if (incompleteTransfersOffsets.isEmpty) Future.successful(None)
+        else {
+          val default = (
+            GlobalOffset.MaxValue,
+            TransferId(SourceDomainId(domain.unwrap), CantonTimestamp.MaxValue),
+          )
+          val minIncompleteTransferOffset =
+            incompleteTransfersOffsets.minByOption(_._1).getOrElse(default)
+          Future.successful(
+            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, domain))
+          )
+        }
+      }
+    }
   }
 }

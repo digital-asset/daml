@@ -435,7 +435,6 @@ object ParticipantNodeBootstrap {
 
     override protected def createEngine(arguments: Arguments): Engine =
       DAMLe.newEngine(
-        uniqueContractKeys = arguments.parameterConfig.uniqueContractKeys,
         enableLfDev = arguments.parameterConfig.devVersionSupport,
         enableStackTraces = arguments.parameterConfig.enableEngineStackTrace,
         enableContractUpgrading = arguments.parameterConfig.enableContractUpgrading,
