@@ -28,7 +28,7 @@ object PartyManagementClient {
 
   /** A scheduled service executor used by [[sleep]]. */
   private val scheduledExecutorService: ScheduledExecutorService =
-    Executors.newScheduledThreadPool(1)
+    Executors.newScheduledThreadPool(0)
 
   /** Returns a future that completes after the provided delay. */
   private def sleep(delay: FiniteDuration): Future[Unit] = {
