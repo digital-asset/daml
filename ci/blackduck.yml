@@ -152,7 +152,7 @@ jobs:
           setvar need_to_build false
       else
           git add NOTICES
-          open_pr "$branch" "update NOTICES file" "" "$(Build.SourceBranchName)"
+          open_pr "$branch" "update NOTICES file" "" "" "$(Build.SourceBranchName)"
           setvar need_to_build true
       fi
     displayName: open PR
