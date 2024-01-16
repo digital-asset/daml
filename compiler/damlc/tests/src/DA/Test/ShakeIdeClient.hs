@@ -797,7 +797,7 @@ goToDefinitionTests lfVersion mbScenarioService scriptPackageData = Tasty.testGr
               (foo, 3, [7..19])
               (In $ case LF.versionMajor lfVersion of
                       LF.V1 -> "Daml.Script"
-                      LF.V2 -> "Daml.Script.Questions.PartyManagement")
+                      LF.V2 -> "Daml.Script.Internal.Questions.PartyManagement")
 
     ,    testCase' "Exception goto definition" $ do
             foo <- makeModule "Foo"
