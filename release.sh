@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # The usage of this script is documented in /release/RELEASE.md
@@ -102,7 +102,7 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(main$|release/)'
+      | grep -q -E '^origin/(main$|main-2\.x$|release/)'
 }
 
 case $1 in

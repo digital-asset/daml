@@ -295,7 +295,6 @@ daml_sdk_head(
     daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
     daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
-    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_distribute.jar",
     os_name = os_name,
     sdk_tarball = "@head_sdk//:sdk-release-tarball-ce.tar.gz",
 )
@@ -310,7 +309,6 @@ daml_sdk_head(
         daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
         os_name = os_name,
         sdk_sha256 = version_sha256s.get(ver),
-        test_tool_sha256 = version_sha256s.get(ver).get("test_tool"),
         version = ver,
     )
     for ver in sdk_versions

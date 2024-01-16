@@ -15,7 +15,6 @@ import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServic
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc as CommandServiceGrpcV1
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc
-import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
@@ -35,7 +34,6 @@ import com.digitalasset.canton.ledger.client.services.commands.{
   CommandServiceClient,
   SynchronousCommandClient,
 }
-import com.digitalasset.canton.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
@@ -47,7 +45,6 @@ import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.Closeable
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerClient private (
@@ -119,16 +116,6 @@ final class LedgerClient private (
 
   lazy val versionClient: VersionClient =
     new VersionClient(LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
-
-  lazy val identityClient =
-    new LedgerIdentityClient(
-      LedgerClient.stub(
-        LedgerIdentityServiceGrpc.stub(channel): @nowarn(
-          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
-        ),
-        config.token,
-      )
-    )
 
   lazy val userManagementClient: UserManagementClient =
     new UserManagementClient(

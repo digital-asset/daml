@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -165,9 +165,7 @@ object StoredTopologyTransactions
           item.validFrom,
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransaction.fromByteStringUnsafe(
-          item.transaction
-        ) // TODO(#12626) – try with context – use an optional protocol version for cases when the protocol version is known
+        transaction <- SignedTopologyTransaction.fromByteStringUnsafe(item.transaction)
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,

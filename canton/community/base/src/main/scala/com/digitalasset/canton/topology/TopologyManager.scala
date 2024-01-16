@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -50,6 +50,8 @@ abstract class TopologyManager[E <: CantonError](
     extends TopologyManagerStatus
     with NamedLogging
     with FlagCloseableAsync {
+
+  def isAuthorizedStore: Boolean = store.storeId.isAuthorizedStore
 
   protected val validator =
     new IncomingTopologyTransactionAuthorizationValidator(

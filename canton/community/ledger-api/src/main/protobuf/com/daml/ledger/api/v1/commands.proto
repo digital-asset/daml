@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -123,6 +123,10 @@ message Commands {
   // Additional contracts used to resolve contract & contract key lookups.
   // Optional
   repeated DisclosedContract disclosed_contracts = 17;
+
+  // The package-id selection preference of the client for resolving
+  // package names and interface instances in command submission and interpretation
+  repeated string package_id_selection_preference = 18;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.

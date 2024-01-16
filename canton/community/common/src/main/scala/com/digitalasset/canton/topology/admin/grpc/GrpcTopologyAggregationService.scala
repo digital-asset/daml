@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.{DomainId, KeyOwnerCode, ParticipantId, 
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -201,6 +202,7 @@ class GrpcTopologyAggregationService(
     useStateTxs = true,
     StoreBasedDomainTopologyClient.NoPackageDependencies,
     loggerFactory,
+    ProtocolVersionValidation.NoValidation,
   )
 }
 

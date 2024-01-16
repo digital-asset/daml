@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
@@ -8,11 +8,6 @@ inputs = {
     "sdk_config": ":sdk-config.yaml.tmpl",
     "install_sh": ":install.sh",
     "install_bat": ":install.bat",
-    "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
-    "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
-    "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
-    "trigger_service_logback": "//triggers/service:release/trigger-service-logback.xml",
-    "trigger_logback": "//triggers/runner:src/main/resources/logback.xml",
     "java_codegen_logback": "//language-support/java/codegen:src/main/resources/logback.xml",
     "daml_script_logback": "//daml-script/runner:src/main/resources/logback.xml",
     "export_logback": "//daml-script/export:src/main/resources/logback.xml",
@@ -24,7 +19,6 @@ inputs = {
     "daml_extension_stylesheet": "//compiler/daml-extension:webview-stylesheet.css",
     "daml2js_dist": "//language-support/ts/codegen:daml2js-dist",
     "templates": "//templates:templates-tarball.tar.gz",
-    "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
     "script3_dars": "//daml-script/daml3:daml3-script-dars",
     "canton": "//canton:community_app_deploy.jar",
@@ -76,7 +70,6 @@ def sdk_tarball(name, version, config):
           tar xf $(location {damlc_dist}) --strip-components=1 -C $$OUT/damlc
 
           mkdir -p $$OUT/daml-libs
-          cp -t $$OUT/daml-libs $(locations {trigger_dars})
           cp -t $$OUT/daml-libs $(locations {script_dars})
           cp -t $$OUT/daml-libs $(locations {script3_dars})
 
@@ -98,12 +91,7 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/daml-sdk
           cp $(location {sdk_deploy_jar}) $$OUT/daml-sdk/daml-sdk.jar
-          cp -L $(location {http_json_logback}) $$OUT/daml-sdk/json-api-logback.xml
-          cp -L $(location {trigger_service_logback}) $$OUT/daml-sdk/
-          cp -L $(location {oauth2_middleware_logback}) $$OUT/daml-sdk/
-          cp -L $(location {navigator_logback}) $$OUT/daml-sdk/navigator-logback.xml
           cp -L $(location {java_codegen_logback}) $$OUT/daml-sdk/codegen-logback.xml
-          cp -L $(location {trigger_logback}) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location {daml_script_logback}) $$OUT/daml-sdk/script-logback.xml
           cp -L $(location {export_logback}) $$OUT/daml-sdk/export-logback.xml
 

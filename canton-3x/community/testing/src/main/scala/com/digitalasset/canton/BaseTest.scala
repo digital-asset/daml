@@ -159,7 +159,12 @@ trait BaseTest
   def eventually[T](
       timeUntilSuccess: FiniteDuration = 20.seconds,
       maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval)(testCode)
+  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, true)(testCode)
+
+  def eventuallyNoException[T](
+      timeUntilSuccess: FiniteDuration = 20.seconds,
+      maxPollInterval: FiniteDuration = 5.seconds,
+  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
     * @return the result the last evaluation of `testCode`
@@ -327,6 +332,7 @@ object BaseTest {
   def eventually[T](
       timeUntilSuccess: FiniteDuration = 20.seconds,
       maxPollInterval: FiniteDuration = 5.seconds,
+      retryOnTestFailuresOnly: Boolean = true,
   )(testCode: => T): T = {
     require(
       timeUntilSuccess >= Duration.Zero,
@@ -334,14 +340,19 @@ object BaseTest {
     )
     val deadline = timeUntilSuccess.fromNow
     var sleepMs = 1L
+    def sleep(): Unit = {
+      val timeLeft = deadline.timeLeft.toMillis max 0
+      Threading.sleep(sleepMs min timeLeft)
+      sleepMs = (sleepMs * 2) min maxPollInterval.toMillis
+    }
     while (deadline.hasTimeLeft()) {
       try {
         return testCode
       } catch {
         case _: TestFailedException =>
-          val timeLeft = deadline.timeLeft.toMillis max 0
-          Threading.sleep(sleepMs min timeLeft)
-          sleepMs = (sleepMs * 2) min maxPollInterval.toMillis
+          sleep()
+        case _: Throwable if !retryOnTestFailuresOnly =>
+          sleep()
       }
     }
     testCode // try one last time and throw exception, if assertion keeps failing

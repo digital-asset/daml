@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.initialization
@@ -256,6 +256,7 @@ object TopologyManagementInitialization {
           mustHaveActiveMediator = isEmbedded,
           timeouts,
           loggerFactory,
+          protocolVersion,
         )
       )
       // before starting the domain identity dispatcher, we need to make sure the initial topology transactions

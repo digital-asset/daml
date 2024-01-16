@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
@@ -80,7 +80,8 @@ lowerCommands = \case
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
         commandsMinLedgerTimeRel = minLeTimeRel,
-        commandsDisclosedContracts = Vector.empty }
+        commandsDisclosedContracts = Vector.empty,
+        commandsPackageIdSelectionPreference = Vector.empty }
 
 lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
 lowerDeduplicationPeriod = \case

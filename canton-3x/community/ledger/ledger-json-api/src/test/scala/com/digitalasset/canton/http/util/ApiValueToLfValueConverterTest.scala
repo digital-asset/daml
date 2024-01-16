@@ -5,7 +5,7 @@ package com.digitalasset.canton.http.util
 
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.coidGen
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.{Value as V}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.Arbitrary
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -25,7 +25,7 @@ class ApiValueToLfValueConverterTest
     "retract lfValueToApiValue" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.injshrink
       implicit val arbInj: Arbitrary[va.Inj] = va.injarb
-      forAll(minSuccessful(20)) { v: va.Inj =>
+      forAll(minSuccessful(20)) { (v: va.Inj) =>
         val vv = va.inj(v)
         val roundTrip =
           lfValueToApiValue(true, vv).toOption flatMap (x => apiValueToLfValue(x).toMaybe.toOption)

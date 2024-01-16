@@ -33,7 +33,7 @@ commands:
 - name: start
   path: daml-helper/daml-helper
   args: ["start"]
-  desc: "Launch Sandbox and Navigator for current Daml project"
+  desc: "Launch Sandbox for current Daml project"
   completion: true
 - name: clean
   path: damlc/damlc
@@ -48,10 +48,6 @@ commands:
   path: daml-helper/daml-helper
   desc: "Launch Canton Sandbox"
   args: ["sandbox"]
-- name: navigator
-  path: daml-helper/daml-helper
-  desc: "Launch the Navigator"
-  args: ["run-jar", "--logback-config=daml-sdk/navigator-logback.xml", "daml-sdk/daml-sdk.jar", "navigator"]
 - name: ledger
   path: daml-helper/daml-helper
   desc: "Interact with a Daml ledger"
@@ -75,22 +71,6 @@ commands:
 - name: ide
   path: damlc/damlc
   args: ["ide"]
-- name: json-api
-  path: daml-helper/daml-helper
-  desc: "Launch the HTTP JSON API"
-  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
-- name: trigger-service
-  path: daml-helper/daml-helper
-  desc: "Launch the trigger service"
-  args: ["run-jar", "--logback-config=daml-sdk/trigger-service-logback.xml", "daml-sdk/daml-sdk.jar", "trigger-service"]
-- name: oauth2-middleware
-  path: daml-helper/daml-helper
-  desc: "Launch the OAuth 2.0 middleware"
-  args: ["run-jar", "--logback-config=daml-sdk/oauth2-middleware-logback.xml", "daml-sdk/daml-sdk.jar", "oauth2-middleware"]
-- name: trigger
-  path: daml-helper/daml-helper
-  args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
-  desc: "Run a Daml trigger"
 - name: script
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]

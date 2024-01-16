@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
@@ -103,30 +103,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
-- target: //ledger-test-tool/infrastructure:infrastructure-1.14
-  type: jar-scala
-- target: //ledger-test-tool/infrastructure:infrastructure-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/runner:runner-1.14
-  type: jar-scala
-- target: //ledger-test-tool/runner:runner-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/suites:suites-1.14
-  type: jar-scala
-- target: //ledger-test-tool/suites:suites-1.dev
-  type: jar-scala
-- target: //ledger-test-tool/tool:ledger-api-test-tool
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.14
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.15
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-1.dev
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.1
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.dev
-  type: jar-distribute
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-1.14-lib
@@ -232,8 +208,6 @@
 - target: //libs-scala/test-evidence/generator:generator
   type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
-  type: jar-scala
-- target: //triggers/runner:trigger-runner-lib
   type: jar-scala
 - target: //libs-scala/nameof:nameof
   type: jar-scala

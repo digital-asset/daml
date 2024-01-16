@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -19,9 +19,10 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
+  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 import com.google.common.annotations.VisibleForTesting
@@ -107,7 +108,10 @@ final case class DomainTopologyTransactionMessage private (
 }
 
 object DomainTopologyTransactionMessage
-    extends HasProtocolVersionedCompanion[DomainTopologyTransactionMessage] {
+    extends HasProtocolVersionedWithContextCompanion[
+      DomainTopologyTransactionMessage,
+      ProtocolVersion,
+    ] {
 
   implicit val domainIdentityTransactionMessageCast
       : ProtocolMessageContentCast[DomainTopologyTransactionMessage] =
@@ -250,14 +254,17 @@ object DomainTopologyTransactionMessage
   }
 
   private[messages] def fromProtoV0(
-      message: v0.DomainTopologyTransactionMessage
+      expectedProtocolVersion: ProtocolVersion,
+      message: v0.DomainTopologyTransactionMessage,
   ): ParsingResult[DomainTopologyTransactionMessage] = {
     val v0.DomainTopologyTransactionMessage(signature, _domainId, transactions) = message
 
     for {
       succeededContent <- transactions.toList.traverse(
-        SignedTopologyTransaction.fromByteStringUnsafe
-      ) // TODO(#12626) - try with context
+        SignedTopologyTransaction.fromByteString(
+          ProtocolVersionValidation(expectedProtocolVersion)
+        )
+      )
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", signature)
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
     } yield DomainTopologyTransactionMessage(
@@ -269,12 +276,15 @@ object DomainTopologyTransactionMessage
   }
 
   private[messages] def fromProtoV1(protoVersion: ProtoVersion)(
-      message: v1.DomainTopologyTransactionMessage
+      expectedProtocolVersion: ProtocolVersion,
+      message: v1.DomainTopologyTransactionMessage,
   ): ParsingResult[DomainTopologyTransactionMessage] = {
     val v1.DomainTopologyTransactionMessage(signature, domainId, timestamp, transactions) = message
     for {
       succeededContent <- transactions.toList.traverse(
-        SignedTopologyTransaction.fromByteStringUnsafe // TODO(#12626) – try with context
+        SignedTopologyTransaction.fromByteString(
+          ProtocolVersionValidation(expectedProtocolVersion)
+        )
       )
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", signature)
       domainUid <- UniqueIdentifier.fromProtoPrimitive(domainId, "domainId")
@@ -319,8 +329,9 @@ final case class TopologyTransactionsBroadcastX private (
 }
 
 object TopologyTransactionsBroadcastX
-    extends HasProtocolVersionedCompanion[
-      TopologyTransactionsBroadcastX
+    extends HasProtocolVersionedWithContextCompanion[
+      TopologyTransactionsBroadcastX,
+      ProtocolVersion,
     ] {
 
   def create(
@@ -354,24 +365,30 @@ object TopologyTransactionsBroadcastX
   )
 
   private[messages] def fromProtoV2(
-      message: v2.TopologyTransactionsBroadcastX
+      expectedProtocolVersion: ProtocolVersion,
+      message: v2.TopologyTransactionsBroadcastX,
   ): ParsingResult[TopologyTransactionsBroadcastX] = {
     val v2.TopologyTransactionsBroadcastX(domain, broadcasts) = message
     for {
       domainId <- DomainId.fromProtoPrimitive(domain, "domain")
-      broadcasts <- broadcasts.traverse(broadcastFromProtoV2)
+      broadcasts <- broadcasts.traverse(broadcastFromProtoV2(expectedProtocolVersion))
     } yield TopologyTransactionsBroadcastX(domainId, broadcasts.toList)(
       protocolVersionRepresentativeFor(ProtoVersion(2))
     )
   }
 
-  private def broadcastFromProtoV2(
+  private def broadcastFromProtoV2(expectedProtocolVersion: ProtocolVersion)(
       message: v2.TopologyTransactionsBroadcastX.Broadcast
   ): ParsingResult[Broadcast] = {
     val v2.TopologyTransactionsBroadcastX.Broadcast(broadcastId, transactions) = message
     for {
       broadcastId <- String255.fromProtoPrimitive(broadcastId, "broadcast_id")
-      transactions <- transactions.traverse(SignedTopologyTransactionX.fromProtoV2)
+      transactions <- transactions.traverse(tx =>
+        SignedTopologyTransactionX.fromProtoV2(
+          ProtocolVersionValidation(expectedProtocolVersion),
+          tx,
+        )
+      )
     } yield Broadcast(broadcastId, transactions.toList)
   }
 

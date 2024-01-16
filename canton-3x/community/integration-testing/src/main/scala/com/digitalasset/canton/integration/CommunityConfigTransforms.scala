@@ -104,6 +104,14 @@ object CommunityConfigTransforms {
         .focus(_.mediatorsX)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
+  def updateAllParticipantXConfigs(
+      update: (String, CommunityParticipantConfig) => CommunityParticipantConfig
+  ): CommunityConfigTransform =
+    cantonConfig =>
+      cantonConfig
+        .focus(_.participantsX)
+        .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
+
   def uniqueH2DatabaseNames: CommunityConfigTransform = {
     updateAllDomainConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
@@ -132,6 +140,14 @@ object CommunityConfigTransforms {
         .replace(nextPort.some)
     }
 
+    val participantXUpdate = updateAllParticipantXConfigs { case (_, config) =>
+      config
+        .focus(_.ledgerApi.internalPort)
+        .replace(nextPort.some)
+        .focus(_.adminApi.internalPort)
+        .replace(nextPort.some)
+    }
+
     val sequencerXUpdate = updateAllSequencerXConfigs_(
       _.focus(_.publicApi.internalPort)
         .replace(nextPort.some)
@@ -148,7 +164,6 @@ object CommunityConfigTransforms {
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
 
-    domainUpdate compose participantUpdate compose sequencerXUpdate compose mediatorXUpdate
-
+    domainUpdate compose participantUpdate compose sequencerXUpdate compose mediatorXUpdate compose participantXUpdate
   }
 }

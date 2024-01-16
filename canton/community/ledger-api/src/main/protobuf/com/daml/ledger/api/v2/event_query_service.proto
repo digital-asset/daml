@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -19,8 +19,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 service EventQueryService {
 
   // Get the create and the consuming exercise event for the contract with the provided ID.
-  // No events will be returned for contracts that have been pruned because they 
-  // have already been archived before the latest pruning offset. 
+  // No events will be returned for contracts that have been pruned because they
+  // have already been archived before the latest pruning offset.
   rpc GetEventsByContractId (com.daml.ledger.api.v1.GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
 }
 

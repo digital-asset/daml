@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -77,21 +77,21 @@ class SerializationDeserializationTest
         if (version >= ProtocolVersion.CNTestNet) {
           testMemoizedProtocolVersionedWithCtx(
             TypedSignedProtocolMessageContent,
-            (TestHash),
+            (TestHash, version),
           )
         }
         if (version >= ProtocolVersion.v5) {
-          testProtocolVersionedWithCtx(SignedProtocolMessage, (TestHash))
+          testProtocolVersionedWithCtx(SignedProtocolMessage, (TestHash, version))
         }
 
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
         testProtocolVersioned(MalformedMediatorRequestResult)
         if (version >= ProtocolVersion.v4 && version < ProtocolVersion.CNTestNet) {
-          testProtocolVersionedWithCtx(EnvelopeContent, TestHash)
+          testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
         }
         if (version >= ProtocolVersion.CNTestNet) {
-          testMemoizedProtocolVersionedWithCtx(TransactionResultMessage, (TestHash))
+          testMemoizedProtocolVersionedWithCtx(TransactionResultMessage, (TestHash, version))
         }
 
         testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AcknowledgeRequest)
@@ -130,7 +130,10 @@ class SerializationDeserializationTest
         }
 
         if (version < ProtocolVersion.CNTestNet) {
-          testMemoizedProtocolVersioned(SignedTopologyTransaction)
+          testMemoizedProtocolVersionedWithCtx(
+            SignedTopologyTransaction,
+            ProtocolVersionValidation(version),
+          )
         }
         testMemoizedProtocolVersioned(LegalIdentityClaim)
 

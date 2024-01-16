@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -103,7 +103,7 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.split_release_process'] ]
     - name: skip_tests
       value: $[ and(eq(variables.is_release, 'true'),
-                       eq(variables['Build.SourceBranchName'], 'main')) ]
+                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x')) ]
     - template: job-variables.yml
   timeoutInMinutes: 240
   pool:
@@ -142,101 +142,6 @@ jobs:
         is_split_release: $(is_split_release)
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-    - template: report-end.yml
-
-- job: Linux_oracle
-  timeoutInMinutes: 240
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - template: clean-up.yml
-    - bash: |
-        source dev-env/lib/ensure-nix
-        ci/dev-env-push.py
-      displayName: 'Push Developer Environment build results'
-      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
-      env:
-        # to upload to the Nix cache
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
-    - bash: ci/configure-bazel.sh
-      displayName: 'Configure Bazel'
-      env:
-        IS_FORK: $(System.PullRequest.IsFork)
-        # to upload to the bazel cache
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - bash: |
-        set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
-        docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
-        IMAGE=$(cat ci/oracle_image)
-        docker pull $IMAGE
-        # Cleanup stray containers that might still be running from
-        # another build that didn’t get shut down cleanly.
-        docker rm -f oracle || true
-        # Oracle does not like if you connect to it via localhost if it’s running in the container.
-        # Interestingly it works if you use the external IP of the host so the issue is
-        # not the host it is listening on (it claims for that to be 0.0.0.0).
-        # --network host is a cheap escape hatch for this.
-        docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
-        function cleanup() {
-            docker rm -f oracle
-        }
-        trap cleanup EXIT
-        testConnection() {
-            docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
-        }
-        until testConnection
-        do
-          echo "Could not connect to Oracle, trying again..."
-          sleep 1
-        done
-        # Actually run some tests
-        # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
-        # and we sometimes observe transient connection issues when running tests in parallel.
-        bazel test \
-          --config=oracle \
-          --test_strategy=exclusive \
-          --test_tag_filters=+oracle \
-          //...
-
-        oracle_logs=$(Build.StagingDirectory)/oracle-logs
-        mkdir $oracle_logs
-        for path in $(docker exec oracle bash -c 'find /opt/oracle/diag/rdbms/ -type f'); do
-          # $path starts with a slash
-          mkdir -p $(dirname ${oracle_logs}${path})
-          docker exec oracle bash -c "cat $path" > ${oracle_logs}${path}
-        done
-      env:
-        DOCKER_LOGIN: $(DOCKER_LOGIN)
-        DOCKER_PASSWORD: $(DOCKER_PASSWORD)
-        ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
-        ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
-      displayName: 'Build'
-      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
-
-    - task: PublishBuildArtifacts@1
-      condition: failed()
-      displayName: 'Publish the bazel test logs'
-      inputs:
-        pathtoPublish: 'bazel-testlogs/'
-        artifactName: 'Test logs Oracle'
-
-    - task: PublishBuildArtifacts@1
-      condition: failed()
-      displayName: 'Publish Oracle image logs'
-      inputs:
-        pathtoPublish: '$(Build.StagingDirectory)/oracle-logs'
-        artifactName: 'Oracle image logs'
-
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -336,7 +241,6 @@ jobs:
   condition: failed()
   dependsOn:
     - Linux
-    - Linux_oracle
     - macOS
     - Windows
     - release

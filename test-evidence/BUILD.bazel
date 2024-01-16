@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_linux")
@@ -26,8 +26,6 @@ write_scalatest_runpath(
         ],
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
-            "//ledger-test-tool/infrastructure",
-            "//ledger-test-tool/suites",
             "//libs-scala/test-evidence/generator",
             "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
@@ -39,31 +37,17 @@ write_scalatest_runpath(
         testonly = True,  # needed in order to depend on testonly targets
         main_class = "com.daml.test.evidence.generator.Main",
         tests = [
-            "//ledger-service/http-json:failure-tests",
-            "//ledger-service/http-json:integration-tests-ce",
-            "//ledger-service/http-json:integration-tests-lib",
-            "//ledger-service/http-json:tests-ce",
             "//ledger-service/utils",
             "//libs-scala/jwt:tests-lib",
-            "//triggers/service:test",
-            "//triggers/service/auth:oauth2-middleware-tests",
         ],
         runtime_deps = [
-            "//ledger-service/http-json:failure-tests-lib-ce",
-            "//ledger-service/http-json:http-json-ce",
-            "//ledger-service/http-json:integration-tests-lib-postgres-ce",
             "//ledger/error:error-test-lib",
             "//libs-scala/flyway-testing",
             "//libs-scala/jwt",
             "//libs-scala/scalatest-utils",
-            "//triggers/service:trigger-service",
-            "//triggers/service:trigger-service-tests",
-            "//triggers/service/auth:oauth2-middleware-tests",
         ],
         deps = [
             ":ledger-generator-lib",
-            "//ledger-test-tool/infrastructure",
-            "//ledger-test-tool/suites",
             "//libs-scala/test-evidence/generator",
             "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
             "//libs-scala/test-evidence/tag:test-evidence-tag",

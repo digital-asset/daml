@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -289,9 +289,9 @@ dataDependableExtensions :: ES.EnumSet Extension
 dataDependableExtensions = ES.fromList $ xExtensionsSet ++
   [ -- useful for beginners to learn about type inference
     PartialTypeSignatures
-    -- needed for script and triggers
+    -- needed for script
   , ApplicativeDo
-    -- used in daml-stdlib and triggers and a very reasonable
+    -- used in daml-stdlib and very reasonable
     -- extension in general in the presence of TypeApplications
   , AllowAmbiguousTypes
     -- helpful for documentation purposes
@@ -306,7 +306,7 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- would be silly
   , ExplicitNamespaces
     -- there's no way for our users to actually use this and listing it here
-    -- removes a lot of warning from out stdlib, script and trigger builds
+    -- removes a lot of warning from out stdlib and script builds
     -- NOTE: This should not appear on any list of extensions that are
     -- compatible with data-dependencies since this would spur wrong hopes.
   , Cpp
@@ -544,14 +544,14 @@ checkDFlags Options {..} dflags@DynFlags {..}
             \ or the dependency."
 
 -- Expand SDK package dependencies using the SDK root path.
--- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
+-- E.g. `daml-script` --> `$DAML_SDK/daml-libs/daml-script.dar`
 -- When invoked outside of the SDK, we will only error out
 -- if there is actually an SDK package so that
 -- When there is no SDK
 expandSdkPackages :: Logger.Handle IO -> LF.Version -> [FilePath] -> IO [FilePath]
 expandSdkPackages logger lfVersion dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
+    mapM (expand mbSdkPath) (nubOrd dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     isInvalidDaml3Script = \case
@@ -569,14 +569,6 @@ expandSdkPackages logger lfVersion dars = do
               pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
-    -- For `dependencies` you need to specify all transitive dependencies.
-    -- However, for the packages in the SDK that is an implementation detail
-    -- so we automagically insert `daml-script` if you’ve specified `daml-trigger`.
-    addDep fp
-      | isSdkPackage fp = fp : Map.findWithDefault [] fp sdkDependencies
-      | otherwise = [fp]
-    sdkDependencies = Map.fromList
-      [ ("daml-trigger", ["daml-script"]) ]
 
 
 mkPackageFlag :: UnitId -> PackageFlag

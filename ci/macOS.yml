@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -15,8 +15,10 @@ jobs:
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: or(eq('${{parameters.name}}', 'macos'),
-                eq(variables['Build.SourceBranchName'], 'main'))
+  condition: and(succeeded(),
+                 or(eq('${{parameters.name}}', 'macos'),
+                    or(eq(variables['Build.SourceBranchName'], 'main'),
+                       eq(variables['Build.SourceBranchName'], 'main-2.x'))))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]

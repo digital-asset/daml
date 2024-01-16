@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
 # Build the release artifacts required for running the compatibility
-# tests against HEAD. At the moment this includes the SDK release tarball
-# and the ledger-api-test-tool fat JAR.
+# tests against HEAD. At the moment this includes the SDK release tarball.
 
 set -eou pipefail
 
@@ -25,10 +24,8 @@ bazel build \
   --tool_java_runtime_version=nixpkgs_java_11 \
   --tool_java_language_version=11 \
   //release:sdk-release-tarball \
-  //ledger-test-tool/tool:ledger-api-test-tool_distribute.jar \
   //daml-assistant:daml
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp -f bazel-bin/ledger-test-tool/tool/ledger-api-test-tool_distribute.jar "$HEAD_TARGET_DIR"
 cp -f bazel-bin/daml-assistant/daml "$HEAD_TARGET_DIR"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

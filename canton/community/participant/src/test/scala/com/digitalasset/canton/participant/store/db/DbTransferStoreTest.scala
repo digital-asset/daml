@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -9,6 +9,7 @@ import com.digitalasset.canton.participant.store.TransferStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.TestingIdentityFactory
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -26,7 +27,7 @@ trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStore
       new DbTransferStore(
         storage,
         domainId,
-        testedProtocolVersion,
+        TargetProtocolVersion(testedProtocolVersion),
         TestingIdentityFactory.pureCrypto(),
         futureSupervisor,
         timeouts,

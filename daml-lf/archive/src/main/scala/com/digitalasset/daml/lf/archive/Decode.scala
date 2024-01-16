@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -58,11 +58,13 @@ object Decode {
   ): (PackageId, Ast.Package) =
     assertRight(decodeArchive(archive, onlySerializableDataDefs))
 
-  def decodeInfoPackage(archive: DamlLf.Archive): Either[Error, PackageInfo] =
+  def decodeInfoPackage(
+      archive: DamlLf.Archive
+  ): Either[Error, ((PackageId, Ast.Package), PackageInfo)] =
     decodeArchive(archive, onlySerializableDataDefs = true)
-      .map(entry => new PackageInfo(Map(entry)))
+      .map(entry => entry -> new PackageInfo(Map(entry)))
 
-  def assertDecodeInfoPackage(archive: DamlLf.Archive): PackageInfo =
+  def assertDecodeInfoPackage(archive: DamlLf.Archive): ((PackageId, Ast.Package), PackageInfo) =
     assertRight(decodeInfoPackage(archive: DamlLf.Archive))
 
 }

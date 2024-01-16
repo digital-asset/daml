@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
@@ -11,7 +11,6 @@ import Control.Monad
 import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
-import qualified Data.ByteString.Lazy as LBS
 import Data.List.Extra
 import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
@@ -32,7 +31,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
+import DA.Daml.Helper.Util (tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
@@ -142,7 +141,6 @@ damlStart tmpDir = do
     let startProc =
             (shell $ unwords
                 [ "daml start"
-                , "--start-navigator=no"
                 , "--sandbox-port", show $ ledger ports
                 , "--sandbox-admin-api-port", show $ admin ports
                 , "--sandbox-domain-public-port", show $ domainPublic ports
@@ -155,11 +153,7 @@ damlStart tmpDir = do
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
         atomically $ writeTChan outChan line
-    waitForHttpServer 240 startPh
-        (threadDelay 500000)
-        ("http://localhost:" <> show jsonApiPort <> "/v1/query")
-        (authorizationHeaders "Alice") -- dummy party here, not important
-    scriptOutput <- readFileUTF8 (projDir </> scriptOutputFile)
+    scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
     pure $
         DamlStartResource
@@ -188,9 +182,7 @@ tests tmpDir =
             , testCase "daml new --list" $
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
-            , damlToolTests
             , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
-            , damlStartNotSharedTest
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
@@ -207,53 +199,7 @@ packagingTests :: SdkVersioned => FilePath -> TestTree
 packagingTests tmpDir =
     testGroup
         "packaging"
-        [ testCase "Build copy trigger" $ do
-              let projDir = tmpDir </> "copy-trigger1"
-              callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
-              callCommandSilentIn projDir "daml build"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger1-0.0.1.dar"
-              assertFileExists dar
-        , testCase "Build copy trigger with LF version 1.dev" $ do
-              let projDir = tmpDir </> "copy-trigger2"
-              callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
-              callCommandSilentIn projDir "daml build --target 1.dev"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger2-0.0.1.dar"
-              assertFileExists dar
-        , testCase "Build trigger with extra dependency" $ do
-              let myDepDir = tmpDir </> "mydep"
-              createDirectoryIfMissing True (myDepDir </> "daml")
-              writeFileUTF8 (myDepDir </> "daml.yaml") $
-                  unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: mydep"
-                      , "version: \"1.0\""
-                      , "source: daml"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      ]
-              writeFileUTF8 (myDepDir </> "daml" </> "MyDep.daml") $ unlines ["module MyDep where"]
-              callCommandSilentIn myDepDir "daml build -o mydep.dar"
-              let myTriggerDir = tmpDir </> "mytrigger"
-              createDirectoryIfMissing True (myTriggerDir </> "daml")
-              writeFileUTF8 (myTriggerDir </> "daml.yaml") $
-                  unlines
-                      [ "sdk-version: " <> sdkVersion
-                      , "name: mytrigger"
-                      , "version: \"1.0\""
-                      , "source: daml"
-                      , "dependencies:"
-                      , "  - daml-prim"
-                      , "  - daml-stdlib"
-                      , "  - daml-trigger"
-                      , "  - " <> myDepDir </> "mydep.dar"
-                      ]
-              writeFileUTF8 (myTriggerDir </> "daml/Main.daml") $
-                  unlines ["module Main where", "import MyDep ()", "import Daml.Trigger ()"]
-              callCommandSilentIn myTriggerDir "daml build -o mytrigger.dar"
-              let dar = myTriggerDir </> "mytrigger.dar"
-              assertFileExists dar
-        , testCase "Build Daml script example" $ do
+        [ testCase "Build Daml script example" $ do
               let projDir = tmpDir </> "script-example"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build"
@@ -266,7 +212,7 @@ packagingTests tmpDir =
               callCommandSilentIn projDir "daml build --target 1.dev"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar -}
-        , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ do
+        , testCase "Package depending on daml-script can use data-dependencies" $ do
               callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"
               createDirectoryIfMissing True (tmpDir </> "proj")
@@ -276,7 +222,7 @@ packagingTests tmpDir =
                       , "name: proj"
                       , "version: 0.0.1"
                       , "source: ."
-                      , "dependencies: [daml-prim, daml-stdlib, daml-script, daml-trigger]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
                       , "data-dependencies: [" <>
                         show (tmpDir </> "data-dependency" </> "data-dependency.dar") <>
                         "]"
@@ -290,39 +236,6 @@ packagingTests tmpDir =
           -- This also checks that we get the same Script type within an SDK version.
                       ]
               callCommandSilentIn (tmpDir </> "proj") "daml build"
-        ]
-
--- Test tools that can run outside a daml project
-damlToolTests :: TestTree
-damlToolTests =
-    testGroup
-        "daml tools"
-        [ testCase "OAuth 2.0 middleware startup" $ do
-            withTempDir $ \tmpDir -> do
-                middlewarePort <- getFreePort
-                withDamlServiceIn tmpDir "oauth2-middleware"
-                    [ "--address"
-                    , "localhost"
-                    , "--http-port"
-                    , show middlewarePort
-                    , "--oauth-auth"
-                    , "http://localhost:0/authorize"
-                    , "--oauth-token"
-                    , "http://localhost:0/token"
-                    , "--auth-jwt-hs256-unsafe"
-                    , "jwt-secret"
-                    , "--id"
-                    , "client-id"
-                    , "--secret"
-                    , "client-secret"
-                    ] $ \ ph -> do
-                        let endpoint =
-                                "http://localhost:" <> show middlewarePort <> "/livez"
-                        waitForHttpServer 240 ph (threadDelay 500000) endpoint []
-                        req <- parseRequest endpoint
-                        manager <- newManager defaultManagerSettings
-                        resp <- httpLbs req manager
-                        responseBody resp @?= "{\"status\":\"pass\"}"
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
@@ -401,41 +314,6 @@ damlStartTests getDamlStart =
                 didGenerateDamlYaml <- doesFileExist (exportDir </> "daml.yaml")
                 didGenerateExportDaml @?= True
                 didGenerateDamlYaml @?= True
-        subtest "trigger service startup" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            triggerServicePort <- getFreePort
-            withDamlServiceIn projDir "trigger-service"
-                [ "--ledger-host"
-                , "localhost"
-                , "--ledger-port"
-                , show sandboxPort
-                , "--http-port"
-                , show triggerServicePort
-                , "--wall-clock-time"
-                ] $ \ ph -> do
-                    let endpoint = "http://localhost:" <> show triggerServicePort <> "/livez"
-                    waitForHttpServer 240 ph (threadDelay 500000) endpoint []
-                    req <- parseRequest endpoint
-                    manager <- newManager defaultManagerSettings
-                    resp <- httpLbs req manager
-                    responseBody resp @?= "{\"status\":\"pass\"}"
-        subtest "Navigator startup" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            navigatorPort :: Int <- fromIntegral <$> getFreePort
-            -- This test just checks that navigator starts up and returns a 200 response.
-            -- Nevertheless this would have caught a few issues on rules_nodejs upgrades
-            -- where we got a 404 instead.
-            withDamlServiceIn projDir "navigator"
-                [ "server"
-                , "localhost"
-                , show sandboxPort
-                , "--port"
-                , show navigatorPort
-                ] $ \ ph -> do
-                    waitForHttpServer 240 ph
-                        (threadDelay 500000)
-                        ("http://localhost:" <> show navigatorPort)
-                        []
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
@@ -507,46 +385,6 @@ damlStartTests getDamlStart =
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
 
--- | daml start tests that don't use the shared server
-damlStartNotSharedTest :: SdkVersioned => TestTree
-damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
-    withTempDir $ \tmpDir -> do
-        writeFileUTF8 (tmpDir </> "daml.yaml") $
-            unlines
-                [ "sdk-version: " <> sdkVersion
-                , "name: sandbox-options"
-                , "version: \"1.0\""
-                , "source: ."
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "start-navigator: false"
-                ]
-        withDamlServiceIn tmpDir "start"
-            [ "--sandbox-port=0"
-            , "--json-api-port=0"
-            , "--json-api-option=--port-file=jsonapi.port"
-            ] $ \ ph -> do
-                jsonApiPort <- readPortFile ph maxRetries (tmpDir </> "jsonapi.port")
-                initialRequest <-
-                    parseRequest $
-                    "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
-                let queryRequest =
-                        initialRequest
-                            { method = "POST"
-                            , requestHeaders = authorizationHeaders "Alice"
-                            , requestBody =
-                                    RequestBodyLBS $
-                                    Aeson.encode $
-                                    Aeson.object ["identifierHint" Aeson..= ("Alice" :: String)]
-                            }
-                manager <- newManager defaultManagerSettings
-                queryResponse <- httpLbs queryRequest manager
-                let body = responseBody queryResponse
-                assertBool ("result is unexpected: " <> show body) $
-                    ("{\"result\":{\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
-                    ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
-
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
 cleanTests baseDir = testGroup "daml clean"
@@ -593,10 +431,8 @@ templateTests = testGroup "templates" $
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
   where templateNames =
-            [ "copy-trigger"
-            , "gsg-trigger"
-            -- daml-intro-1 - daml-intro-6 are not full projects.
-            , "daml-intro-7"
+            [ -- daml-intro-1 - daml-intro-6 are not full projects.
+              "daml-intro-7"
             , "daml-patterns"
             , "quickstart-java"
             , "script-example"

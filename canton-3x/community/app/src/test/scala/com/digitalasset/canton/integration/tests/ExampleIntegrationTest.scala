@@ -4,13 +4,14 @@
 package com.digitalasset.canton.integration.tests
 
 import better.files.*
-import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.CommunityDbConfig.H2
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   IsolatedCommunityEnvironments,
 }
+import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ExampleIntegrationTest.{
   ensureSystemProperties,
   referenceConfiguration,
@@ -36,7 +37,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
   override lazy val environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition
-      .fromFiles(configPaths: _*)
+      .fromFiles(configPaths *)
       .addConfigTransforms(
         // lets not share databases
         CommunityConfigTransforms.uniqueH2DatabaseNames,
@@ -81,24 +82,23 @@ object ExampleIntegrationTest {
   })
 }
 
-class SimplePingExampleIntegrationTest
-    extends ExampleIntegrationTest(simpleTopology / "simple-topology.conf") {
+sealed abstract class SimplePingExampleXIntegrationTest
+    extends ExampleIntegrationTest(simpleTopology / "simple-topology-x.conf") {
 
   "run simple-ping.canton successfully" in { implicit env =>
     import env.*
-    val port = environment.config
-      .domains(InstanceName.tryCreate("mydomain"))
-      .publicApi
-      .internalPort
-      .value
-      .unwrap
-      .toString
-    ensureSystemProperties(("canton-examples.mydomain-port", port))
+    val port = sequencer1x.sequencerConnection.endpoints.head.port.unwrap.toString
+    ensureSystemProperties(("canton-examples.da-port", port))
     runScript(simpleTopology / "simple-ping.canton")(environment)
   }
 }
 
-class RepairExampleIntegrationTest
+final class SimplePingExampleReferenceXIntegrationTestDefault
+    extends SimplePingExampleXIntegrationTest {
+  registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
+}
+
+sealed abstract class RepairExampleXIntegrationTest
     extends ExampleIntegrationTest(
       referenceConfiguration / "storage" / "h2.conf",
       repairConfiguration / "domain-repair-lost.conf",
@@ -111,4 +111,8 @@ class RepairExampleIntegrationTest
     ExampleIntegrationTest.ensureSystemProperties("canton-examples.dar-path" -> CantonExamplesPath)
     runScript(repairConfiguration / "domain-repair-init.canton")(env.environment)
   }
+}
+
+final class RepairExampleReferenceXIntegrationTestDefault extends RepairExampleXIntegrationTest {
+  registerPlugin(new UseCommunityReferenceBlockSequencer[H2](loggerFactory))
 }

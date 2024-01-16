@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -118,7 +118,7 @@ case class TransactionResultMessage private (
 object TransactionResultMessage
     extends HasMemoizedProtocolVersionedWithContextCompanion[
       TransactionResultMessage,
-      HashOps,
+      (HashOps, ProtocolVersion),
     ] {
   override val name: String = "TransactionResultMessage"
 
@@ -171,7 +171,10 @@ object TransactionResultMessage
       None,
     )
 
-  private def fromProtoV0(hashOps: HashOps, protoResultMessage: v0.TransactionResultMessage)(
+  private def fromProtoV0(
+      context: (HashOps, ProtocolVersion),
+      protoResultMessage: v0.TransactionResultMessage,
+  )(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] =
     for {
@@ -185,7 +188,7 @@ object TransactionResultMessage
       protoNotificationTree <- ProtoConverter
         .required("notification_tree", protoResultMessage.notificationTree)
         .leftWiden[ProtoDeserializationError]
-      notificationTree <- InformeeTree.fromProtoV0(hashOps, protoNotificationTree)
+      notificationTree <- InformeeTree.fromProtoV0(context, protoNotificationTree)
     } yield TransactionResultMessage(
       requestId,
       transactionResult,
@@ -197,7 +200,10 @@ object TransactionResultMessage
       Some(bytes),
     )
 
-  private def fromProtoV1(hashOps: HashOps, protoResultMessage: v1.TransactionResultMessage)(
+  private def fromProtoV1(
+      context: (HashOps, ProtocolVersion),
+      protoResultMessage: v1.TransactionResultMessage,
+  )(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] = {
     val v1.TransactionResultMessage(requestIdPO, verdictPO, notificationTreePO) = protoResultMessage
@@ -210,7 +216,7 @@ object TransactionResultMessage
         .flatMap(Verdict.fromProtoV1)
       notificationTree <- ProtoConverter
         .required("notification_tree", notificationTreePO)
-        .flatMap(InformeeTree.fromProtoV1(hashOps, _))
+        .flatMap(InformeeTree.fromProtoV1(context, _))
     } yield TransactionResultMessage(
       requestId,
       transactionResult,
@@ -223,7 +229,10 @@ object TransactionResultMessage
     )
   }
 
-  private def fromProtoV2(_hashOps: HashOps, protoResultMessage: v2.TransactionResultMessage)(
+  private def fromProtoV2(
+      _context: (HashOps, ProtocolVersion),
+      protoResultMessage: v2.TransactionResultMessage,
+  )(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] = {
     val v2.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
@@ -243,7 +252,10 @@ object TransactionResultMessage
     )
   }
 
-  private def fromProtoV3(_hashOps: HashOps, protoResultMessage: v3.TransactionResultMessage)(
+  private def fromProtoV3(
+      _context: (HashOps, ProtocolVersion),
+      protoResultMessage: v3.TransactionResultMessage,
+  )(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] = {
     val v3.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -24,9 +24,9 @@ if [ "{local}" = "true" ]; then
     exit 0
 fi
 
-CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240109.11690.0.vbbd2ff67
-CANTON_ENTERPRISE_SHA=845f167cacd9927b7a5b6be9408dc0ab214d4e68b00e3b3a8fa6fbd5f5024cc4
-CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240109.11690.0.vbbd2ff67/845f167cacd9927b7a5b6be9408dc0ab214d4e68b00e3b3a8fa6fbd5f5024cc4/canton-enterprise-2.9.0-snapshot.20240109.11690.0.vbbd2ff67.tar.gz
+CANTON_ENTERPRISE_VERSION=2.9.0-snapshot.20240111.11698.0.vaec40098
+CANTON_ENTERPRISE_SHA=00981e71fd051c174498adb8e28f1d5e4af0bc632317caa2f9e3b88faf0a44e9
+CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/2.9.0-snapshot.20240111.11698.0.vaec40098/00981e71fd051c174498adb8e28f1d5e4af0bc632317caa2f9e3b88faf0a44e9/canton-enterprise-2.9.0-snapshot.20240111.11698.0.vaec40098.tar.gz
 
 url=$$CANTON_ENTERPRISE_URL
 

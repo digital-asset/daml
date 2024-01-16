@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -28,8 +28,8 @@ error msg = primitive @"EThrow" (GeneralError msg)
 -- | `error` stops execution and displays the given error message.
 --
 -- If called within a transaction, it will abort the current transaction.
--- Outside of a transaction (scenarios, Daml Script or Daml Triggers)
--- it will stop the whole scenario/script/trigger.
+-- Outside of a transaction (scenarios and Daml Script)
+-- it will stop the whole scenario/script.
 error : Text -> a
 error = primitive @"BEError"
 

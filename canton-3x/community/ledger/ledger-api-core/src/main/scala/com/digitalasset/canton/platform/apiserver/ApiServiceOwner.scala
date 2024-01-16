@@ -100,7 +100,6 @@ object ApiServiceOwner {
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
       dynParamGetter: DynamicDomainParameterGetter,
-      community: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -165,11 +164,10 @@ object ApiServiceOwner {
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
-        community = community,
+        multiDomainEnabled = multiDomainEnabled,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

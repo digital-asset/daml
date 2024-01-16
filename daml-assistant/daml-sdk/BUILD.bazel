@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,12 +8,6 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "deps")
-
-scala_deps = [
-    "@maven//:org_apache_pekko_pekko_http_spray_json",
-    "@maven//:com_typesafe_scala_logging_scala_logging",
-    "@maven//:io_spray_spray_json",
-]
 
 scala_runtime_deps = [
     "@maven//:org_apache_pekko_pekko_slf4j",
@@ -32,10 +26,8 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.sdk.SdkMain",
     resources = glob(["src/main/resources/**/*"]),
-    scala_deps = scala_deps,
+    scala_deps = [],
     scala_runtime_deps = scala_runtime_deps,
-    # Navigator resources trigger this incorrectly
-    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps,
     deps = deps("ce"),
@@ -46,11 +38,9 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.sdk.SdkMain",
     resources = glob(["src/main/resources/**/*"]),
-    scala_deps = scala_deps,
+    scala_deps = [],
     scala_runtime_deps = scala_runtime_deps,
     tags = ["ee-jar-license"],
-    # Navigator resources trigger this incorrectly
-    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps + [
         "@maven//:com_oracle_database_jdbc_ojdbc8",

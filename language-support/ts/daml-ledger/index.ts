@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import {
   Choice,
@@ -1016,6 +1016,67 @@ export class Ledger {
       console.warn(ledgerResponse.warnings);
     }
     return ledgerResponse.result;
+  }
+
+  /***
+   * Internal
+   *
+   * Retrieve the readiness status from the JSON API.
+   */
+  private async checkIfReady(): Promise<unknown> {
+    const endpoint = "readyz";
+    const httpResponse = await fetch(this.httpBaseUrl + endpoint, {
+      headers: {
+        ...this.auth(),
+        "Content-type": "application/json",
+      },
+      method: "get",
+    });
+    await this.throwOnError(httpResponse);
+    const text = await httpResponse.text();
+    if (text.includes("readyz check passed")) return httpResponse;
+    else if (text.includes("readyz check failed"))
+      throw decode(decodeLedgerError, httpResponse);
+    else {
+      const json = await httpResponse.json();
+      const ledgerResponse = jtv.Result.withException(
+        decodeLedgerResponse.run(json),
+      );
+
+      if (!(ledgerResponse.status >= 200 && ledgerResponse.status <= 299)) {
+        console.log(
+          `Request to ${endpoint} returned status ${
+            ledgerResponse.status
+          } with response body: ${JSON.stringify(json)}.`,
+        );
+        throw decode(decodeLedgerError, json);
+      }
+      if (ledgerResponse.warnings) {
+        console.warn(ledgerResponse.warnings);
+      }
+      return ledgerResponse.result;
+    }
+  }
+
+  /***
+   * Retrieve the readiness status from the JSON API with retries every 1s.
+   */
+  async ready(maxAttempts: number): Promise<unknown> {
+    const execute = async (attempt: number): Promise<unknown> => {
+      try {
+        return await this.checkIfReady();
+      } catch (err) {
+        if (attempt <= maxAttempts) {
+          return delay(() => execute(attempt + 1), 1000);
+        } else {
+          throw err;
+        }
+      }
+    };
+    const delay = async (fn: () => Promise<unknown>, ms: number) => {
+      return new Promise(resolve => setTimeout(() => resolve(fn()), ms));
+    };
+    return execute(1);
   }
 
   /**
