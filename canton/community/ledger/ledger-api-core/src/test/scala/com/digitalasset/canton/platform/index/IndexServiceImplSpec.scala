@@ -5,8 +5,6 @@ package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
-import com.daml.lf.data.Time
-import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -29,8 +27,6 @@ import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, Pack
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import PackageMetadata.{TemplateIdWithPriority, TemplatesForQualifiedName}
 
 class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
@@ -323,7 +319,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "return zero unknown templates for known templates" in new Scope {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
-      PackageMetadata(templates = Map(templatesForQn1)),
+      PackageMetadata(templates = Set(template1)),
     ) shouldBe List()
   }
 
@@ -340,7 +336,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         )
       ),
       PackageMetadata(
-        templates = Map(templatesForQn1),
+        templates = Set(template1),
         interfaces = Set(iface1),
       ),
     ) shouldBe List(Right(iface2), Left(template2), Left(template3))
@@ -389,11 +385,6 @@ object IndexServiceImplSpec {
     val template1: Identifier = Identifier.assertFromString("PackageName:ModuleName:template1")
     val template1Filter: TemplateFilter =
       TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
-    val templatesForQn1: (QualifiedName, TemplatesForQualifiedName) = templateQualifiedName1 ->
-      TemplatesForQualifiedName(
-        NonEmptyUtil.fromUnsafe(Set(template1)),
-        TemplateIdWithPriority(template1, Time.Timestamp.Epoch),
-      )
     val template2: Identifier = Identifier.assertFromString("PackageName:ModuleName:template2")
     val template2Filter: TemplateFilter =
       TemplateFilter(templateId = template2, includeCreatedEventBlob = false)

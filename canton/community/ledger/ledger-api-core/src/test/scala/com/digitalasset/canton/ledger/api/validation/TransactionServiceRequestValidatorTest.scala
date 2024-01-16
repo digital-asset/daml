@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageName
 import com.digitalasset.canton.ledger.api.domain
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -68,7 +69,9 @@ class TransactionServiceRequestValidatorTest
     verbose,
   )
   private val txReq = txReqBuilder(Seq(templateId))
-  private val txReqWithMissingPackageId = txReqBuilder(Seq(templateId.copy(packageId = "")))
+  private val txReqWithPackageNameScoping = txReqBuilder(
+    Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
+  )
 
   private val txTreeReq = GetTransactionsRequest(
     expectedLedgerId,
@@ -88,7 +91,7 @@ class TransactionServiceRequestValidatorTest
 
   private val transactionFilterValidator = new TransactionFilterValidator(
     upgradingEnabled = false,
-    resolveTemplateIds = _ => fail("Code path should not be exercised"),
+    resolveAllUpgradablePackagesForName = (_, _) => fail("Code path should not be exercised"),
   )
 
   private val validator = new TransactionServiceRequestValidator(
@@ -99,16 +102,14 @@ class TransactionServiceRequestValidatorTest
 
   private val transactionFilterValidatorUpgradingEnabled = new TransactionFilterValidator(
     upgradingEnabled = true,
-    resolveTemplateIds = {
-      case `templateQualifiedName` =>
-        _ => Right(Set(refTemplateId, refTemplateId2))
+    resolveAllUpgradablePackagesForName = {
+      case (`packageName`, _) => Right(Set(packageId, packageId2))
       case _ =>
-        _ =>
-          Left(
-            io.grpc.Status.NOT_FOUND
-              .augmentDescription("template qualified name not resolved!")
-              .asRuntimeException()
-          )
+        Left(
+          io.grpc.Status.NOT_FOUND
+            .augmentDescription("package name not resolved!")
+            .asRuntimeException()
+        )
     },
   )
 
@@ -341,8 +342,8 @@ class TransactionServiceRequestValidatorTest
           }
         }
 
-        "resolve missing packageIds" in {
-          inside(validatorUpgradingEnabled.validate(txReqWithMissingPackageId, ledgerEnd)) {
+        "resolve package-name scoped template-ids" in {
+          inside(validatorUpgradingEnabled.validate(txReqWithPackageNameScoping, ledgerEnd)) {
             case Right(req) =>
               req.ledgerId shouldEqual Some(expectedLedgerId)
               req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
@@ -366,13 +367,18 @@ class TransactionServiceRequestValidatorTest
         }
 
         "forward resolution error from resolver" in {
+          val nonExistingPackageName = Ref.PackageRef
+            .Name(PackageName.assertFromString("invalidPackageName"))
+            .toString
           requestMustFailWith(
             request = validatorUpgradingEnabled.validate(
-              txReqBuilder(Seq(Identifier("", "unknownModule", "unknownEntity"))),
+              txReqBuilder(
+                Seq(Identifier(nonExistingPackageName, "unknownModule", "unknownEntity"))
+              ),
               ledgerEnd,
             ),
             code = NOT_FOUND,
-            description = "template qualified name not resolved!",
+            description = "package name not resolved!",
             metadata = Map.empty,
           )
         }

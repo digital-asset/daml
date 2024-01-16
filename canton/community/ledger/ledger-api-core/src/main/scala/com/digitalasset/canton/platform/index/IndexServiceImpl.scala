@@ -559,18 +559,19 @@ private[index] class IndexServiceImpl(
         )
       }(directEc)
 
-  override def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
+  override def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName] =
+  ): Either[StatusRuntimeException, Set[Ref.PackageId]] =
     packageMetadataView
       .current()
-      .templates
-      .get(templateQualifiedName)
+      .packageNameMap
+      .get(packageName)
       .toRight(
         RequestValidationErrors.NotFound.TemplateQualifiedNameNotFound
-          .Reject(templateQualifiedName)(loggingContext)
+          .Reject(packageName)(loggingContext)
           .asGrpcError
       )
+      .map(_.allPackageIdsForName)
 }
 
 object IndexServiceImpl {
@@ -589,7 +590,7 @@ object IndexServiceImpl {
           .map(Right(_))
       unknownTemplates = inclusiveFilter.templateFilters
         .map(_.templateId)
-        .diff(metadata.templates.view.values.flatMap(_.all).toSet)
+        .diff(metadata.templates)
         .map(Left(_))
       unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
     } yield unknownTemplateOrInterface).toList
