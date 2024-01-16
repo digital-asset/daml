@@ -31,7 +31,11 @@ private[lf] class Runner(
   import Free.Result, SExpr.SExpr
 
   private val initialClientsV2 = initialClients.map(
-    ScriptLedgerClient.realiseScriptLedgerClient(_, unversionedRunner.enableContractUpgrading)
+    ScriptLedgerClient.realiseScriptLedgerClient(
+      _,
+      unversionedRunner.enableContractUpgrading,
+      unversionedRunner.extendedCompiledPackages,
+    )
   )
 
   private val env =
