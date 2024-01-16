@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -9,7 +9,7 @@ import Daml.Script
 
 -- BEGIN_KEYED
 template Keyed
-  with 
+  with
     sig: Party
     k: Int
   where
@@ -18,7 +18,7 @@ template Keyed
     maintainer key._1
 -- END_KEYED
 
--- Emulate lookupByKey and fetchByKey via choices in Daml script as explained in 
+-- Emulate lookupByKey and fetchByKey via choices in Daml script as explained in
 -- https://discuss.daml.com/t/in-daml-script-do-we-have-equivalent-command-for-lookupbykey-fetchbykey/919/2
 -- BEGIN_KEYED_HELPER
 template KeyedHelper
@@ -36,12 +36,12 @@ template KeyedHelper
       with keyP: (Party, Int)
       controller p
       do lookupByKey @Keyed keyP
--- END_KEYED_HELPER  
+-- END_KEYED_HELPER
 
 -- BEGIN_MULTIPLE_CREATES
 multiple = script do
   alice <- allocateParty "alice"
-  submitMustFail alice $ do 
+  submitMustFail alice $ do
     createCmd (Keyed with sig = alice, k = 1)
     createCmd (Keyed with sig = alice, k = 1)
     pure ()
@@ -81,9 +81,9 @@ lookupNone = script do
   alice <- allocateParty "alice"
   orchestratorId <- submit alice do
     createCmd Orchestrator with sig = alice
-  submit alice do 
+  submit alice do
     exerciseCmd orchestratorId Initialize with k = 1
-  submit alice do 
+  submit alice do
     exerciseCmd orchestratorId Initialize with k = 1
 -- END_LOOKUP_NONE
 
@@ -94,10 +94,10 @@ fetchSome = script do
     createCmd Keyed with sig = alice, k = 1
   keyedId2 <- submitMustFail alice do
     createCmd Keyed with sig = alice, k = 1
-  (foundId, _) <- submit alice do 
+  (foundId, _) <- submit alice do
     createAndExerciseCmd (KeyedHelper alice) $ FetchByKey (alice, 1)
   assert $ foundId == keyedId1
-  optFoundId <- submit alice do 
+  optFoundId <- submit alice do
     createAndExerciseCmd (KeyedHelper alice) $ LookupByKey (alice, 1)
   assert $ optFoundId == Some keyedId1
 -- END_FETCH_BY_KEY
@@ -117,7 +117,7 @@ template Generator
           existing <- lookupByKey @Keyed (sig, k)
           keyed <- case existing of
             Some cid -> pure cid
-            None -> 
+            None ->
               create Keyed with ..
           gen <- create this
           pure (gen, keyed)

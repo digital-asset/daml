@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -32,29 +32,6 @@ if [[ "$NAME" == "linux" ]]; then
     PROTOS_ZIP=protobufs-$RELEASE_TAG.zip
     cp bazel-bin/release/protobufs.zip $OUTPUT_DIR/github/$PROTOS_ZIP
 
-    JSON_API=http-json-$RELEASE_TAG.jar
-    JSON_API_EE=http-json-$RELEASE_TAG-ee.jar
-    bazel build //ledger-service/http-json:http-json-binary_distribute.jar
-    cp bazel-bin/ledger-service/http-json/http-json-binary_distribute.jar $OUTPUT_DIR/github/$JSON_API
-    bazel build //ledger-service/http-json:http-json-binary-ee_distribute.jar
-    cp bazel-bin/ledger-service/http-json/http-json-binary-ee_distribute.jar $OUTPUT_DIR/artifactory/$JSON_API_EE
-
-    TRIGGER_SERVICE=trigger-service-$RELEASE_TAG.jar
-    TRIGGER_SERVICE_EE=trigger-service-$RELEASE_TAG-ee.jar
-    bazel build //triggers/service:trigger-service-binary-ce_distribute.jar
-    cp bazel-bin/triggers/service/trigger-service-binary-ce_distribute.jar $OUTPUT_DIR/github/$TRIGGER_SERVICE
-    bazel build //triggers/service:trigger-service-binary-ee_distribute.jar
-    cp bazel-bin/triggers/service/trigger-service-binary-ee_distribute.jar $OUTPUT_DIR/artifactory/$TRIGGER_SERVICE_EE
-
-    OAUTH2_MIDDLEWARE=oauth2-middleware-$RELEASE_TAG.jar
-    bazel build //triggers/service/auth:oauth2-middleware-binary_distribute.jar
-    cp bazel-bin/triggers/service/auth/oauth2-middleware-binary_distribute.jar $OUTPUT_DIR/github/$OAUTH2_MIDDLEWARE
-
-
-    TRIGGER=daml-trigger-runner-$RELEASE_TAG.jar
-    bazel build //triggers/runner:trigger-runner_distribute.jar
-    cp bazel-bin/triggers/runner/trigger-runner_distribute.jar $OUTPUT_DIR/artifactory/$TRIGGER
-
     SCRIPT=daml-script-$RELEASE_TAG.jar
     bazel build //daml-script/runner:daml-script-binary_distribute.jar
     cp bazel-bin/daml-script/runner/daml-script-binary_distribute.jar $OUTPUT_DIR/artifactory/$SCRIPT
@@ -64,10 +41,6 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
     bazel build //daml-script/daml3:daml3-script-dars
     cp bazel-bin/daml-script/daml3/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
-
-    mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-trigger
-    bazel build //triggers/daml:daml-trigger-dars
-    cp bazel-bin/triggers/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-trigger/
 
     mkdir -p $OUTPUT_DIR/split-release/docs
 

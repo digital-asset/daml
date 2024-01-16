@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -135,77 +135,6 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
               "--script-name",
               "TestScript:myScript",
             ) ++ tlsArgs,
-            Right(Seq("Ran myScript")),
-          )
-        }
-    }
-    "JSON-API" - {
-      "Succeeds with single run" in
-        testDamlScriptCanton(
-          dars(4),
-          Seq(
-            "--ledger-host",
-            "localhost",
-            "--ledger-port",
-            jsonApiPort.toString,
-            "--access-token-file",
-            jwt.toString,
-            "--json-api",
-            "--script-name",
-            "TestScript:myScript",
-          ) ++ tlsArgs,
-          Right(Seq("Ran myScript")),
-        )
-      "Succeeds with all run" in
-        testDamlScriptCanton(
-          dars(4),
-          Seq(
-            "--ledger-host",
-            "localhost",
-            "--ledger-port",
-            jsonApiPort.toString,
-            "--access-token-file",
-            jwt.toString,
-            "--json-api",
-            "--all",
-          ) ++ tlsArgs,
-          Right(
-            Seq(
-              "TestScript:myOtherScript SUCCESS",
-              "TestScript:myScript SUCCESS",
-            )
-          ),
-        )
-      "Fails when attempting to upload dar" in
-        testDamlScriptCanton(
-          dars(4),
-          Seq(
-            "--ledger-host",
-            "localhost",
-            "--ledger-port",
-            jsonApiPort.toString,
-            "--access-token-file",
-            jwt.toString,
-            "--json-api",
-            "--upload-dar=yes",
-            "--script-name",
-            "TestScript:myScript",
-          ) ++ tlsArgs,
-          Left(Seq("Cannot upload dar via JSON API")),
-        )
-      "Succeeds using --participant-config" in
-        withGrpcParticipantConfig { path =>
-          testDamlScriptCanton(
-            dars(4),
-            Seq(
-              "--participant-config",
-              path.toString,
-              "--access-token-file",
-              jwt.toString,
-              "--json-api",
-              "--script-name",
-              "TestScript:myScript",
-            ),
             Right(Seq("Ran myScript")),
           )
         }

@@ -1,19 +1,15 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Start
     ( runStart
 
     , withJar
     , withSandbox
-    , withNavigator
-
     , StartOptions(..)
-    , NavigatorPort(..)
     , SandboxPort(..)
     , SandboxPortSpec(..)
     , toSandboxPortSpec
     , JsonApiPort(..)
-    , JsonApiConfig(..)
     , SandboxCantonPortSpec(..)
     ) where
 
@@ -30,9 +26,6 @@ import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
 import System.Info.Extra
-import Web.Browser
-
-import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 
 import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Ledger
@@ -49,14 +42,7 @@ toSandboxPortSpec n
   | otherwise = Just (SpecifiedPort (SandboxPort n))
 
 newtype SandboxPort = SandboxPort { unSandboxPort :: Int }
-newtype NavigatorPort = NavigatorPort Int
-newtype JsonApiPort = JsonApiPort Int
-
-navigatorPortNavigatorArgs :: NavigatorPort -> [String]
-navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
-
-navigatorURL :: NavigatorPort -> String
-navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
+newtype JsonApiPort = JsonApiPort { unJsonApiPort :: Int }
 
 -- | Use SandboxPortSpec to determine a sandbox port number.
 -- This is racy thanks to getFreePort, but there's no good alternative at the moment.
@@ -66,8 +52,8 @@ getPortForSandbox defaultPortSpec portSpecM =
         SpecifiedPort port -> pure (unSandboxPort port)
         FreePort -> fromIntegral <$> getFreePort
 
-determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
-determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
+determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> Maybe JsonApiPort -> IO CantonOptions
+determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile jsonApi = do
     cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort (ledger defaultSandboxPorts))) ledgerApiSpec
     cantonAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (admin defaultSandboxPorts))) adminApiSpec
     cantonDomainPublicApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainPublic defaultSandboxPorts))) domainPublicApiSpec
@@ -76,6 +62,8 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
     let cantonStaticTime = StaticTime False
     let cantonHelp = False
     let cantonConfigFiles = []
+    let cantonJsonApi = fmap unJsonApiPort jsonApi
+    let cantonJsonApiPortFileM = Nothing
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
@@ -84,44 +72,18 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
   where
     cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
-      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile
+      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPortM
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
         runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
-withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
-withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
-    let navigatorArgs = concat
-            [ ["navigator", "server", "localhost", show sandboxPort]
-            , navigatorPortNavigatorArgs navigatorPort
-            , args
-            ]
-    withSdkJar navigatorArgs "navigator-logback.xml" $ \ph -> do
-        putStrLn "Waiting for navigator to start: "
-        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
-            (navigatorURL navigatorPort) []
-        a ph
-
-withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
-withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
-    let args =
-            [ "json-api"
-            , "--ledger-host", "localhost"
-            , "--ledger-port", show sandboxPort
-            , "--http-port", show jsonApiPort
-            , "--allow-insecure-tokens"
-            ] ++ extraArgs
-    withSdkJar args "json-api-logback.xml" $ \ph -> do
+waitForJsonApi :: Process () () () -> JsonApiPort -> IO ()
+waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
         putStrLn "Waiting for JSON API to start: "
-        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
+        waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
-        a ph
-
-data JsonApiConfig = JsonApiConfig
-  { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
-  }
 
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
@@ -133,15 +95,10 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 
 data StartOptions = StartOptions
     { sandboxPortM :: Maybe SandboxPortSpec
-    , shouldOpenBrowser :: Bool
-    , shouldStartNavigator :: YesNoAuto
-    , navigatorPort :: NavigatorPort
-    , jsonApiConfig :: JsonApiConfig
+    , jsonApiPortM :: Maybe JsonApiPort
     , onStartM :: Maybe String
     , shouldWaitForSignal :: Bool
     , sandboxOptions :: [String]
-    , navigatorOptions :: [String]
-    , jsonApiOptions :: [String]
     , scriptOptions :: [String]
     , sandboxPortSpec :: !SandboxCantonPortSpec
     }
@@ -160,14 +117,7 @@ runStart startOptions@StartOptions{..} =
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
-    shouldStartNavigator :: Bool <-
-      determineAutoM (fmap (fromMaybe True) $
-        requiredE "Failed to parse start-navigator" $
-        queryProjectConfig ["start-navigator"] projectConfig)
-        shouldStartNavigator
     sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOptions projectConfig
-    navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOptions projectConfig
-    jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOptions projectConfig
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
     doBuild
     doCodegen projectConfig
@@ -192,23 +142,13 @@ runStart startOptions@StartOptions{..} =
                   runProcess_ procScript
         doRunInitScript
         listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
-        withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
+        do
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
-            when (shouldStartNavigator && shouldOpenBrowser) $
-                void $ openBrowser (navigatorURL navigatorPort)
-            withJsonApi' sandboxPh sandboxPort jsonApiOpts $ \jsonApiPh -> do
-                when shouldWaitForSignal $
-                  void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
+            whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
+            when shouldWaitForSignal $
+              void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
 
     where
-        withNavigator' shouldStartNavigator sandboxPh =
-            if shouldStartNavigator
-                then withNavigator
-                else (\_ _ _ f -> f sandboxPh)
-        withJsonApi' sandboxPh sandboxPort args f =
-            case mbJsonApiPort jsonApiConfig of
-                Nothing -> f sandboxPh
-                Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
         doCodegen projectConfig =
           forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
             mbOutputPath :: Maybe String <-
@@ -253,14 +193,3 @@ runStart startOptions@StartOptions{..} =
         reloadInstructions
           | isWindows = "\nPress 'r' + 'Enter' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
           | otherwise = "\nPress 'r' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
-
-withSdkJar
-    :: [String]
-    -- ^ Commands passed to the assistant and the SDK JAR.
-    -> FilePath
-    -- ^ File name of the logback config.
-    -> (Process () () () -> IO a)
-    -> IO a
-withSdkJar args logbackConf f = do
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> logbackConf)
-    withJar damlSdkJar [logbackArg] args f

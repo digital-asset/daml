@@ -476,7 +476,6 @@ object ParticipantNodeBootstrap {
         futureSupervisor = arguments.futureSupervisor,
         loggerFactory = arguments.loggerFactory,
         multiDomainEnabled = multiDomainEnabledForLedgerApiServer,
-        community = true,
       )
 
     protected def multiDomainEnabledForLedgerApiServer: Boolean

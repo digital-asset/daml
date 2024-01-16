@@ -635,10 +635,6 @@ load("@canton_maven//:defs.bzl", pinned_canton_maven_install = "pinned_maven_ins
 
 pinned_canton_maven_install()
 
-load("@triggers_maven//:defs.bzl", pinned_triggers_maven_install = "pinned_maven_install")
-
-pinned_triggers_maven_install()
-
 load("@deprecated_maven//:defs.bzl", pinned_deprecated_maven_install = "pinned_maven_install")
 
 pinned_deprecated_maven_install()
@@ -730,15 +726,6 @@ yarn_install(
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
-)
-
-# TODO use fine-grained managed dependency
-yarn_install(
-    name = "navigator_frontend_deps",
-    args = ["--frozen-lockfile"],
-    package_json = "//navigator/frontend:package.json",
-    symlink_node_modules = False,
-    yarn_lock = "//navigator/frontend:yarn.lock",
 )
 
 # We’ve had a bunch of problems with typescript rules on Windows.

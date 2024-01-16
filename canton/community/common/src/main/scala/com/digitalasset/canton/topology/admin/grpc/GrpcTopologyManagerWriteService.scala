@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthoriza
 import com.digitalasset.canton.topology.admin.v0.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -163,13 +163,12 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
       request: SignedTopologyTransactionAddition
   ): Future[AdditionSuccess] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val pvv = ProtocolVersionValidation.unless(manager.isAuthorizedStore)(protocolVersion)
     for {
       parsed <- mapErrNew(
         EitherT
           .fromEither[Future](
-            SignedTopologyTransaction.fromByteString(protocolVersion)(
-              request.serialized
-            )
+            SignedTopologyTransaction.fromByteString(pvv)(request.serialized)
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )

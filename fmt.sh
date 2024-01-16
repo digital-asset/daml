@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Run formatters and linter, anything platform-independent and quick
@@ -175,7 +175,7 @@ if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
     diff -u .bazelrc compatibility/.bazelrc
 fi
 
-# check akka is not used as dependency except in navigator_maven and deprecated_maven
+# check akka is not used as dependency except in deprecated_maven
 for f in $(ls *_install*.json | egrep -v "deprecated"); do
   if grep -q akka $f;  then
     echo $f contains a dependency to akka

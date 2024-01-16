@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 locals {
@@ -99,59 +99,10 @@ az configure --defaults group=${azurerm_resource_group.daml-ci.name} > /root/log
 cat <<'CRON' > /root/daily-reset.sh
 #!/usr/bin/env bash
 set -euo pipefail
+
 echo "$(date -Is -u) start"
 
 echo "$(date -Is -u) arg: $1"
-target="$(/root/get-targets.sh $1)"
-echo "$(date -Is -u) target: $target"
-
-AZURE_PAT=${secret_resource.vsts-token.value}
-
-echo "$(date -Is -u) Shutting down all machines"
-
-for set in du1 du2 dw1 dw2; do
-  echo "$(date -Is -u) - Setting scale set $set size to 0"
-  az vmss scale -n $set --new-capacity 0 >/dev/null
-done
-
-echo "$(date -Is -u) Waiting for scale sets to adapt"
-
-sleep 300
-
-echo "$(date -Is -u) Removing all nodes from Azure Pipelines"
-
-for pool in 11 18; do
-  agents=$(curl -s -u :$AZURE_PAT "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool/agents?api-version=7.0" | jq -c '[.value[] | {name,id}]')
-  for idx in $(seq 0 $(echo "$agents" | jq 'length - 1')); do
-    name=$(echo "$agents" | jq -r ".[$idx].name")
-    id=$(echo "$agents" | jq -r ".[$idx].id")
-    if [[ "$name" =~ d[uw][12]-.* ]]; then
-      echo "$(date -Is -u) - Removing agent $name ($id)"
-      curl -s -u :$AZURE_PAT -XDELETE "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$${pool}/agents/$${id}?api-version=7.0" &>/dev/null
-    else
-      echo "$(date -Is -u) - Leaving agent $name untouched"
-    fi
-  done
-done
-
-echo "$(date -Is -u) Bringing scale sets back up"
-
-for set in du1 du2 dw1 dw2; do
-  size=$(echo "$target" | jq --arg name $set -r '.[$name]')
-  echo "$(date -Is -u) - Setting scale set $set size to $size"
-  az vmss scale -n $set --new-capacity $size >/dev/null
-done
-
-echo "$(date -Is -u) end"
-CRON
-
-chmod +x /root/daily-reset.sh
-
-cat <<'GET_TARGETS' > /root/get-targets.sh
-#!/usr/bin/env bash
-set -euo pipefail
-
-arg_target="$1"
 
 month=$(date +%m)
 day_of_month=$(date +%d)
@@ -159,23 +110,103 @@ if [[ "$month" -eq 12 && "$day_of_month" -gt 22 ]]; then
   # We treat the days after December 22nd as weekend days.
   target='low'
 else
-  target="$arg_target"
+  target="$1"
 fi
 
 case $target in
   high)
-    echo '{"du1":10,"du2":0,"dw1":5,"dw2":0}'
+    target='{"du1":10,"du2":0,"dw1":5,"dw2":0}'
     ;;
   low)
-    echo '{"du1":2,"du2":0,"dw1":1,"dw2":0}'
+    target='{"du1":0,"du2":2,"dw1":0,"dw2":1}'
     ;;
   *)
     echo "ERROR: unexpected target '$target'" >&2
     ;;
 esac
-GET_TARGETS
 
-chmod +x /root/get-targets.sh
+echo "$(date -Is -u) target: $target"
+
+AZURE_PAT=${secret_resource.vsts-token.value}
+
+agent_is_busy() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id/?includeAssignedRequest=true&includeLastCompletedRequest=true&api-version=5.1" \
+       | jq -e .assignedRequest.requestId \
+   >/dev/null
+)
+
+disable_agent() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id?api-version=5.0" \
+       -X 'PATCH' \
+       -H 'Content-Type: application/json' \
+       --data-binary '{"id":'$agent_id',"enabled":false}' \
+   >/dev/null
+)
+
+remove_agent() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       -XDELETE \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id?api-version=7.0" \
+   >/dev/null
+)
+
+for platform in '{"name":"u","pool":18}' '{"name":"w","pool":11}'; do
+  platform_name=$(echo "$platform" | jq -r .name)
+  pool_id=$(echo "$platform" | jq -r .pool)
+  agents=$(curl --silent \
+                --fail \
+                -u :$AZURE_PAT \
+                "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents?api-version=7.0" \
+           | jq -c '[.value[] | {name,id}]')
+  for scale_set in d$${platform_name}1 d$${platform_name}2; do
+  (
+    echo "$(date -Is -u) $scale_set: shutting down all machines"
+    for idx in $(seq 0 $(echo "$agents" | jq 'length - 1')); do
+    (
+      agent_name=$(echo "$agents" | jq -r ".[$idx].name")
+      agent_id=$(echo "$agents" | jq -r ".[$idx].id")
+      if [[ "$${agent_name%-*}" = "$scale_set" ]]; then
+        echo "$(date -Is -u) > $agent_name: disabling agent and waiting for job to finish."
+        disable_agent $pool_id $agent_id
+        while agent_is_busy $pool_id $agent_id; do
+          echo "$(date -Is -u) > $agent_name: waiting for jobs to finish."
+          sleep 30
+        done
+        echo "$(date -Is -u) > $agent_name: removing from Azure Pipelines."
+        remove_agent $pool_id $agent_id
+        echo "$(date -Is -u) > $agent_name: shutting down."
+        instance_id=$((36#$${agent_name#*-}))
+        az vmss delete-instances --resource-group daml-ci --name $scale_set --instance-ids $instance_id
+      fi
+    )
+    done
+    echo "$(date -Is -u) $scale_set: ensuring all machines are gone."
+    az vmss scale --resource-group daml-ci --name $scale_set --new-capacity 0 >/dev/null
+    echo "$(date -Is -u) $scale_set: create new machines."
+    target_size=$(echo "$target" | jq --arg name $scale_set -r '.[$name]')
+    az vmss scale --resource-group daml-ci --name $scale_set --new-capacity $target_size >/dev/null
+    echo "$(date -Is -u) $scale_set: done."
+  )
+  done
+done
+echo "$(date -Is -u) end"
+CRON
+
+chmod +x /root/daily-reset.sh
 
 cat <<'CRONTAB' >> /etc/crontab
 30 5 * * 1-5 root /root/daily-reset.sh high >> /root/log 2>&1
@@ -224,6 +255,7 @@ resource "azurerm_role_definition" "daily-reset" {
 
   permissions {
     actions = [
+      "Microsoft.Compute/virtualMachineScaleSets/delete/action",
       "Microsoft.Compute/virtualMachineScaleSets/read",
       "Microsoft.Compute/virtualMachineScaleSets/write",
     ]

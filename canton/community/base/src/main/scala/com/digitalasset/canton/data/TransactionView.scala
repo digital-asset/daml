@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -409,7 +409,7 @@ final case class TransactionView private (
 object TransactionView
     extends HasProtocolVersionedWithContextCompanion[
       TransactionView,
-      (HashOps, ConfirmationPolicy),
+      (HashOps, ConfirmationPolicy, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
@@ -524,20 +524,19 @@ object TransactionView
   val subviewsUnsafe: Lens[TransactionView, TransactionSubviews] =
     GenLens[TransactionView](_.subviews)
 
-  // TODO(#12626) – try with context
   private def fromProtoV0(
-      context: (HashOps, ConfirmationPolicy),
+      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
       protoView: v0.ViewNode,
   ): ParsingResult[TransactionView] = {
-    val (hashOps, _) = context
+    val (hashOps, confirmationPolicy, expectedProtocolVersion) = context
     for {
       commonData <- MerkleTree.fromProtoOptionV0(
         protoView.viewCommonData,
-        ViewCommonData.fromByteStringUnsafe(context),
+        ViewCommonData.fromByteString(expectedProtocolVersion)((hashOps, confirmationPolicy)),
       )
       participantData <- MerkleTree.fromProtoOptionV0(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteStringUnsafe(hashOps),
+        ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV0(context, protoView.subviews)
       view <- createFromRepresentativePV(hashOps)(
@@ -551,20 +550,19 @@ object TransactionView
     } yield view
   }
 
-  // TODO(#12626) – try with context
   private def fromProtoV1(
-      context: (HashOps, ConfirmationPolicy),
+      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
       protoView: v1.ViewNode,
   ): ParsingResult[TransactionView] = {
-    val (hashOps, _) = context
+    val (hashOps, confirmationPolicy, expectedProtocolVersion) = context
     for {
       commonData <- MerkleTree.fromProtoOptionV1(
         protoView.viewCommonData,
-        ViewCommonData.fromByteStringUnsafe(context),
+        ViewCommonData.fromByteString(expectedProtocolVersion)((hashOps, confirmationPolicy)),
       )
       participantData <- MerkleTree.fromProtoOptionV1(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteStringUnsafe(hashOps),
+        ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV1(context, protoView.subviews)
       view <- createFromRepresentativePV(hashOps)(

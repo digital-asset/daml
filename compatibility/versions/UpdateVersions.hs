@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -43,7 +43,7 @@ headVersion = SemVer.initial
 -- We include this here so buildifier does not modify this file.
 copyrightHeader :: [T.Text]
 copyrightHeader =
-    [ "# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
+    [ "# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
     , "# SPDX-License-Identifier: Apache-2.0"
     ]
 
@@ -95,7 +95,6 @@ data Checksums = Checksums
   { linuxHash :: Digest SHA256
   , macosHash :: Digest SHA256
   , windowsHash :: Digest SHA256
-  , testToolHash :: Digest SHA256
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
   , damlReactHash :: Digest SHA256
@@ -126,7 +125,7 @@ getChecksums ver = do
             (base16Hash : _) <- find (\line -> path == line !! 1) lines
             byteHash <- (eitherToMaybe . convertFromBase Base16 . T.encodeUtf8) base16Hash
             digestFromByteString @SHA256 @ByteString byteHash
-    [ testToolHash, damlTypesHash, damlLedgerHash, damlReactHash] <-
+    [ damlTypesHash, damlLedgerHash, damlReactHash] <-
         forConcurrently
             [ tsLib "types"
             , tsLib "ledger"

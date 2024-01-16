@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -59,7 +59,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends HasMemoizedProtocolVersionedWithContextAndValidationCompanion[
       TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
       HashOps,
     ] {
@@ -91,27 +91,28 @@ object TypedSignedProtocolMessageContent
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
   private def fromProtoV0(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       proto: v0.TypedSignedProtocolMessageContent,
-  )( // TODO(#12626) – try with context
+  )(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
+    val (_, expectedProtocolVersion) = context
     import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
     val v0.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
+          MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteStringUnsafe(hashOps)(
+          TransactionResultMessage.fromByteString(expectedProtocolVersion)(context)(
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteStringUnsafe(transferResultBytes)
+          TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
+          AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteStringUnsafe(
+          MalformedMediatorRequestResult.fromByteString(expectedProtocolVersion)(
             malformedMediatorRequestResultBytes
           )
         case Sm.Empty =>

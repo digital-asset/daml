@@ -85,7 +85,7 @@ diff --git create-daml-app/daml/User.daml create-daml-app/daml/User.daml
 +-- MESSAGE_END
 --- create-daml-app/daml.yaml.template	2022-01-26 17:29:37.149557361 +0100
 +++ create-daml-app/daml.yaml.template	2022-01-26 17:29:27.749276386 +0100
-@@ -2,10 +2,13 @@
+@@ -2,9 +2,12 @@
  name: __PROJECT_NAME__
  version: 0.1.0
  source: daml
@@ -96,7 +96,6 @@ diff --git create-daml-app/daml/User.daml create-daml-app/daml/User.daml
  - daml-script
 +- daml-trigger
 +# trigger-dependencies-end
- start-navigator: false
  codegen:
    js:
 diff --git create-daml-app/ui/src/components/MainView.tsx.template create-daml-app/ui/src/components/MainView.tsx.template

@@ -392,7 +392,7 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
       timeouts,
       configs,
       parametersFor,
-      startUpGroup = 0,
+      startUpGroup = 2,
       loggerFactory,
     ) {
   private def migrateIndexerDatabase(name: InstanceName): Either[StartupError, Unit] = {

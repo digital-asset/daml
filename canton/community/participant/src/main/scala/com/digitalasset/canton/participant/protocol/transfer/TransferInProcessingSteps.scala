@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.transfer
@@ -273,7 +273,7 @@ private[transfer] class TransferInProcessingSteps(
         targetProtocolVersion.v,
       ) { bytes =>
         FullTransferInTree
-          .fromByteString(snapshot.pureCrypto)(bytes)
+          .fromByteString(snapshot.pureCrypto, targetProtocolVersion.v)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))

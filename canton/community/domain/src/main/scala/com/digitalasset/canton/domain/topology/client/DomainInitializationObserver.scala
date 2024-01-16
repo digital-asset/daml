@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.topology.client
@@ -13,6 +13,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -24,6 +25,7 @@ private[domain] class DomainInitializationObserver(
     mustHaveActiveMediator: Boolean,
     processingTimeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
+    protocolVersion: ProtocolVersion,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with NoTracing {
@@ -35,6 +37,7 @@ private[domain] class DomainInitializationObserver(
       timestamp,
       mustHaveActiveMediator,
       loggerFactory,
+      protocolVersion,
     )
 
   /** returns unit if the initialisation data exists (but might not yet be effective) */
@@ -78,6 +81,7 @@ private[domain] object DomainInitializationObserver {
       mustHaveActiveMediator: Boolean,
       processingTimeout: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      protocolVersion: ProtocolVersion,
   )(implicit
       executionContext: ExecutionContext
   ): Future[DomainInitializationObserver] = {
@@ -89,6 +93,7 @@ private[domain] object DomainInitializationObserver {
         mustHaveActiveMediator,
         processingTimeout,
         loggerFactory,
+        protocolVersion,
       )
     Future.successful(obs)
   }

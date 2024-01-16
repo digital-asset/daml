@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -34,7 +34,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreX}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -147,6 +147,7 @@ class TopologyComponentFactoryOld(
       useStateTxs = true,
       packageDependencies,
       loggerFactory,
+      ProtocolVersionValidation.NoValidation,
     )
     if (preferCaching) {
       new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)

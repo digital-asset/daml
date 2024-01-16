@@ -39,6 +39,4 @@ object IdentifierConverters {
   def refApiIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(FC.apiIdentifier(a))
 
-  def apiLedgerId(a: com.digitalasset.canton.ledger.api.domain.LedgerId): lar.LedgerId =
-    lar.LedgerId(com.digitalasset.canton.ledger.api.domain.LedgerId.unwrap(a))
 }

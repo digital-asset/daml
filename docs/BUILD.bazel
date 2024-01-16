@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
@@ -28,14 +28,12 @@ genrule(
     srcs = [
         "//compiler/damlc:daml-base-hoogle.txt",
         "//daml-script/daml:daml-script-hoogle.txt",
-        "//triggers/daml:daml-trigger-hoogle.txt",
     ],
     outs = ["hoogle_db.tar.gz"],
     cmd = """
     mkdir hoogle
     cp -L $(location //compiler/damlc:daml-base-hoogle.txt) hoogle/
     cp -L $(location //daml-script/daml:daml-script-hoogle.txt) hoogle/
-    cp -L $(location //triggers/daml:daml-trigger-hoogle.txt) hoogle/
     $(execpath //bazel_tools/sh:mktgz) $@ hoogle
   """,
     tools = ["//bazel_tools/sh:mktgz"],
@@ -76,7 +74,6 @@ genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//triggers/daml:daml-trigger-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
         "//canton:ledger-api-docs",
         "//:LICENSE",
@@ -101,12 +98,6 @@ genrule(
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
             --strip-components 1 \\
             -C source/daml/stdlib
-
-        # Copy in daml-trigger documentation
-        mkdir -p source/triggers/api/
-        tar xf $(location //triggers/daml:daml-trigger-rst.tar.gz) \\
-            --strip-components 1 \\
-            -C source/triggers/api/
 
         # Copy in daml-script documentation
         mkdir -p source/daml-script/api/
@@ -140,7 +131,6 @@ genrule(
         ":generate-docs-error-codes-inventory-into-rst-file",
         ":generate-docs-error-categories-inventory-into-rst-file",
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//triggers/daml:daml-trigger-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
         "//canton:ledger-api-docs",
         "//:LICENSE",
@@ -166,7 +156,6 @@ genrule(
     cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
     cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
-    cp  $(location //triggers/daml:daml-trigger-rst.tar.gz) $$DIR/deps/
     cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
     cp -L $(location //canton:ledger-api-docs) $$DIR/deps/
     cp -L $(location //:LICENSE) $$DIR/deps/
@@ -620,18 +609,6 @@ daml_build_test(
         "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-initiate-upgrade",
-)
-
-daml_build_test(
-    name = "daml-upgrade-example-upgrade-trigger",
-    dar_dict = {
-        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
-        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
-        ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//triggers/daml:daml-trigger.dar": "daml-trigger.dar",
-        "//daml-script/daml:daml-script.dar": "daml-script.dar",
-    },
-    project_dir = "source/upgrade/example/carbon-upgrade-trigger",
 )
 
 filegroup(

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -343,7 +343,7 @@ private[lf] final class ValueTranslator(
 
   // This does not try to pull missing packages, return an error instead.
   // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Strict
+  //  This is used by script, this should problaby use ValueTranslator.Config.Strict
   def strictTranslateValue(
       ty: Type,
       value: Value,

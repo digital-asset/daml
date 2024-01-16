@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -10,7 +10,7 @@ class LoggerUtilTest extends BaseTestWordSpec {
   lazy val testString =
     """I hate bananas
   |I actually do like em
-  |But I prefer bockwurst 
+  |But I prefer bockwurst
   |""".stripMargin
 
   "string truncation" should {

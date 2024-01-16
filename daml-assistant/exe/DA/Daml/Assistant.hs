@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -370,7 +370,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "empty-skeleton", "quickstart-java", "copy-trigger", "gsg-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "daml-intro-13"
@@ -382,13 +382,10 @@ argWhitelist = S.fromList
     , "clean"
     , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "validate-dar", "doctest", "lint"
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
-    , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
     , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
     , "codegen", "java", "js"
     , "deploy"
     , "json-api"
-    , "trigger", "trigger-service", "list"
-    , "oauth2-middleware"
     , "script"
     ]
 

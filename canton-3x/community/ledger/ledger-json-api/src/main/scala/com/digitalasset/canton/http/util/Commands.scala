@@ -67,7 +67,6 @@ object Commands {
     )
 
   def submitAndWaitRequest(
-      ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
       commandId: lar.CommandId,
       actAs: NonEmptyList[lar.Party],
@@ -79,7 +78,6 @@ object Commands {
       disclosedContracts: Seq[domain.DisclosedContract.LAV],
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
-      ledgerId = ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
       // We set party for backwards compatibility. The
@@ -99,7 +97,10 @@ object Commands {
     val commandsWithSubmissionId =
       domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
     val commandsWithWorkflowId =
-      domain.WorkflowId.unsubst(workflowId).map(commandsWithSubmissionId.withWorkflowId).getOrElse(commandsWithSubmissionId)
+      domain.WorkflowId
+        .unsubst(workflowId)
+        .map(commandsWithSubmissionId.withWorkflowId)
+        .getOrElse(commandsWithSubmissionId)
     lav1.command_service.SubmitAndWaitRequest(Some(commandsWithWorkflowId))
   }
 }

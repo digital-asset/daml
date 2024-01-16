@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
@@ -94,8 +94,6 @@ data AppTemplate
   | AppTemplateViaOption String
   | AppTemplateViaArgument String
 
-newtype ShowJsonApi = ShowJsonApi {_showJsonApi :: Bool}
-
 commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
@@ -162,15 +160,10 @@ commandParser = subparser $ fold
 
     startCmd = do
         sandboxPortM <- sandboxPortOpt "sandbox-port" "Port number for the sandbox"
-        shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
-        shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
-        navigatorPort <- navigatorPortOption
-        jsonApiConfig <- jsonApiCfg
-        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+        jsonApiPortM <- jsonApiPortOpt "json-api-port" "Port that the HTTP JSON API should listen on or 'none' to disable it"
+        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox is running."))
         shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
-        navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
-        jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
@@ -185,12 +178,6 @@ commandParser = subparser $ fold
         domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
         domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
         pure SandboxCantonPortSpec {..}
-
-    navigatorPortOption = NavigatorPort <$> option auto
-        (long "navigator-port"
-        <> metavar "PORT_NUM"
-        <> value 7500
-        <> help "Port number for navigator (default is 7500).")
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
@@ -210,13 +197,13 @@ commandParser = subparser $ fold
     deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
-        <$> ledgerFlags (ShowJsonApi False)
+        <$> ledgerFlags
 
-    jsonApiCfg = JsonApiConfig <$> option
+    jsonApiPortOpt name desc = option
         readJsonApiPort
-        ( long "json-api-port"
+        ( long name
        <> value (Just $ JsonApiPort 7575)
-       <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
+       <> help desc
         )
 
     readJsonApiPort = eitherReader $ \case
@@ -304,53 +291,52 @@ commandParser = subparser $ fold
             ]
 
     ledgerListPartiesCmd = LedgerListParties
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     packagesListCmd = PackagesList
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger if it doesn't exist"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerFetchDarCmd = LedgerFetchDar
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
     ledgerResetCmd = LedgerReset
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
 
     ledgerExportCmd = subparser $
         command "script" (info scriptOptions (progDesc "Export ledger state in Daml script format" <> forwardOptions))
       where
         scriptOptions = LedgerExport
-          <$> ledgerFlags (ShowJsonApi False)
+          <$> ledgerFlags
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
 
     app :: ReadM ApplicationId
     app = fmap (ApplicationId . pack) str
 
     ledgerMeteringReportCmd = LedgerMeteringReport
-        <$> ledgerFlags (ShowJsonApi True)
+        <$> ledgerFlags
         <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
         <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
         <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
         <*> switch (long "compact-output" <> help "Generate compact report.")
 
-    ledgerFlags showJsonApi = LedgerFlags
-        <$> httpJsonFlag showJsonApi
-        <*> sslConfig
+    ledgerFlags = LedgerFlags
+        <$> sslConfig
         <*> timeoutOption
         <*> hostFlag
         <*> portFlag
@@ -385,13 +371,6 @@ commandParser = subparser $ fold
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
                 }
-
-    httpJsonFlag :: ShowJsonApi -> Parser LedgerApi
-    httpJsonFlag (ShowJsonApi showJsonApi)
-      | showJsonApi =
-        flag Grpc HttpJson $
-        long "json-api" <> help "Use the HTTP JSON API instead of gRPC"
-      | otherwise = pure Grpc
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -448,6 +427,10 @@ commandParser = subparser $ fold
             cantonAdminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
             cantonDomainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
             cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
+            cantonJsonApi <- optional $ option auto (long "json-api-port"
+                <> help "Port that the HTTP JSON API should listen on, omit to disable it")
+            cantonJsonApiPortFileM <- optional $ option str (long "json-api-port-file" <> metavar "PATH"
+                <> help "File to write canton json-api port when ready")
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
             cantonStaticTime <- StaticTime <$>

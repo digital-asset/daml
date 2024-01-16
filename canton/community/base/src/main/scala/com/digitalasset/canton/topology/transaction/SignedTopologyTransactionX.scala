@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -119,8 +119,8 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
 }
 
 object SignedTopologyTransactionX
-    extends HasProtocolVersionedCompanion[
-      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+    extends HasProtocolVersionedWithOptionalValidationCompanion[
+      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
     ] {
   override val name: String = "SignedTopologyTransactionX"
 
@@ -200,13 +200,12 @@ object SignedTopologyTransactionX
   }
 
   def fromProtoV2(
-      transactionP: v2.SignedTopologyTransactionX
+      protocolVersionValidation: ProtocolVersionValidation,
+      transactionP: v2.SignedTopologyTransactionX,
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
     val v2.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
     for {
-      transaction <- TopologyTransactionX.fromByteStringUnsafe(
-        txBytes
-      ) // TODO(#12626) - try with context
+      transaction <- TopologyTransactionX.fromByteString(protocolVersionValidation)(txBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "SignedTopologyTransactionX.signatures",
@@ -220,12 +219,11 @@ object SignedTopologyTransactionX
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =
     GetResult { r =>
-      fromByteStringUnsafe(r.<<[ByteString])
-        .valueOr(err =>
-          throw new DbSerializationException(
-            s"Failed to deserialize SignedTopologyTransactionX: $err"
-          )
+      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
+        throw new DbSerializationException(
+          s"Failed to deserialize SignedTopologyTransactionX: $err"
         )
+      )
     }
 
   implicit def setParameterTopologyTransaction(implicit

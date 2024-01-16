@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -35,9 +35,9 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
     def fromByteString(
         bytes: ByteString,
         protoVersion: Int,
-        domainProtocolVersion: ProtocolVersion,
+        expectedProtocolVersion: ProtocolVersion,
     ): ParsingResult[Message] = Message
-      .fromByteString(domainProtocolVersion)(
+      .fromByteString(expectedProtocolVersion)(
         VersionedMessage[Message](bytes, protoVersion).toByteString
       )
 
@@ -103,17 +103,17 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
     "validate proto version against expected (representative) protocol version" in {
       Message
-        .validateDeserialization(Some(ProtocolVersion(5)), ProtocolVersion(5))
+        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion(5)), ProtocolVersion(5))
         .value shouldBe ()
       Message
-        .validateDeserialization(Some(ProtocolVersion(6)), ProtocolVersion(5))
+        .validateDeserialization(ProtocolVersionValidation(ProtocolVersion(6)), ProtocolVersion(5))
         .left
         .value should have message Message
         .unexpectedProtoVersionError(ProtocolVersion(6), ProtocolVersion(5))
         .message
       Message
         .validateDeserialization(
-          None, // skips expected protocol version check
+          ProtocolVersionValidation.NoValidation,
           ProtocolVersion(3),
         )
         .value shouldBe ()

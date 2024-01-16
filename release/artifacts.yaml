@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
@@ -208,8 +208,6 @@
 - target: //libs-scala/test-evidence/generator:generator
   type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
-  type: jar-scala
-- target: //triggers/runner:trigger-runner-lib
   type: jar-scala
 - target: //libs-scala/nameof:nameof
   type: jar-scala

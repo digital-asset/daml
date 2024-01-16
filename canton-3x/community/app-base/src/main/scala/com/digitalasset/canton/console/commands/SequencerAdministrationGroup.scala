@@ -168,7 +168,10 @@ trait SequencerAdministrationGroupCommon extends ConsoleCommandGroup {
       if (dryRun) {
         formatDisableDryRun(timestamp, clientsToDisable)
       } else {
-        disableClients(clientsToDisable)
+        val authenticatedClientsToDisable = clientsToDisable.members.toSeq.filter(_.isAuthenticated)
+        // There's no need to explicitly disable unauthenticated members
+        // prune will take care of that implicitly
+        authenticatedClientsToDisable.foreach(disable_member)
 
         // check we can now prune for the provided timestamp
         val statusAfterDisabling = status()
@@ -179,12 +182,14 @@ trait SequencerAdministrationGroupCommon extends ConsoleCommandGroup {
             s"We disabled all clients preventing pruning at $timestamp however the safe timestamp is set to $safeTimestamp"
           )
 
-        prune_at(timestamp)
+        val pruneMsg = prune_at(timestamp)
+        if (clientsToDisable.members.nonEmpty) {
+          s"$pruneMsg\nDisabled the following authenticated members:${authenticatedClientsToDisable.map(_.toString).sorted.mkString("\n  - ", "\n  - ", "\n")}"
+        } else {
+          pruneMsg
+        }
       }
     }
-
-    private def disableClients(toDisable: SequencerClients): Unit =
-      toDisable.members.foreach(disable_member)
 
     private def formatDisableDryRun(
         timestamp: CantonTimestamp,

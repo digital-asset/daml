@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.db.{DbTopologyStore, DbTopologyStoreX}
 import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManagerX}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 
 import scala.concurrent.ExecutionContext
@@ -75,7 +76,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   val transferStore: DbTransferStore = new DbTransferStore(
     storage,
     TargetDomainId(domainId.item),
-    protocolVersion,
+    TargetProtocolVersion(protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     timeouts,

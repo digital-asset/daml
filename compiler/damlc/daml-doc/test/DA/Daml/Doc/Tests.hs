@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -492,11 +492,10 @@ fileTest externalAnchors scriptPackageData damlFile = do
             other -> error $ "Unsupported file extension " <> other
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
-    -- In cases where daml-script/daml-trigger is used, the version of the package is embedded in the json.
+    -- In cases where daml-script is used, the version of the package is embedded in the json.
     -- When we release, this version changes, which would break the golden file test.
-    -- Instead, we omit daml-script/daml-trigger versions from .EXPECTED.json files in golden tests.
+    -- Instead, we omit daml-script versions from .EXPECTED.json files in golden tests.
     replaceSdkPackages = 
       TL.encodeUtf8
       . TL.replace (TL.pack $ "daml-script-" <> sdkPackageVersion) "daml-script-UNVERSIONED"
-      . TL.replace (TL.pack $ "daml-trigger-" <> sdkPackageVersion) "daml-trigger-UNVERSIONED"
       . TL.decodeUtf8

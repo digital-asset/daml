@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.DependencyDb
@@ -421,10 +421,10 @@ resolvePkgsWithLedger depsDir tokFpM pkgs = do
 ----------------------
 
 getDalfsFromLedger :: Maybe FilePath -> [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger tokFpM = runLedgerGetDalfs $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
+getDalfsFromLedger tokFpM = runLedgerGetDalfs $ defaultLedgerFlags {fTokFileM = tokFpM}
 
 listLedgerPackages :: Maybe FilePath -> IO [LF.PackageId]
-listLedgerPackages tokFpM = runLedgerListPackages $ (defaultLedgerFlags Grpc) {fTokFileM = tokFpM}
+listLedgerPackages tokFpM = runLedgerListPackages $ defaultLedgerFlags {fTokFileM = tokFpM}
 
 -- Updating/Fingerprint
 -----------------------

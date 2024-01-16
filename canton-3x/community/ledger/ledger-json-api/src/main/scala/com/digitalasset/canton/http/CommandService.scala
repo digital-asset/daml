@@ -245,7 +245,6 @@ class CommandService(
           s"Submitting $commandKind command, ${lc.makeString}"
         )
         Commands.submitAndWaitRequest(
-          jwtPayload.ledgerId,
           jwtPayload.applicationId,
           commandId,
           actAs,

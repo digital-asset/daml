@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE BlockArguments #-}
@@ -161,7 +161,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
-          -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
+          -- daml-script use the sdkPackageVersion for their versioning
           mkPackageFlag flagName = ExposePackage ("--package " <> flagName) (UnitIdArg $ stringToUnitId flagName) (ModRenaming True [])
           toPackageName (name, version) = name <> "-" <> version
           packageFlags = mkPackageFlag <$> packageFlagName : (toPackageName <$> extraPackages)

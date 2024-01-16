@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -43,7 +43,7 @@ abstract class GenTransferViewTree[
   method explicitly.
    */
   def toProtoVersioned(version: ProtocolVersion): VersionedMessage[TransferViewTree] = {
-    if (version <= ProtocolVersion.v5)
+    if (version <= ProtocolVersion.v3)
       VersionedMessage(toProtoV0.toByteString, 0)
     else
       VersionedMessage(toProtoV1.toByteString, 1)
