@@ -395,18 +395,6 @@ cantonConfig CantonOptions{..} =
                      [ "admin-api" Aeson..= port cantonMediatorAdminApi
                      ]
                 ]
-            , "monitoring" Aeson..= Aeson.object
-                [ "logging" Aeson..= Aeson.object
-                    [ "event-details" Aeson..= True
-                    , "api" Aeson..= Aeson.object
-                        [ "message-payloads" Aeson..= True
-                        , "max-method-length" Aeson..= (1000 :: Int)
-                        , "max-message-lines" Aeson..= (10000 :: Int)
-                        , "max-string-length" Aeson..= (10000 :: Int)
-                        , "max-metadata-size" Aeson..= (10000 :: Int)
-                        ]
-                    ]
-                ]
             ]
         ]
   where

@@ -152,7 +152,6 @@ createCantonSandbox dir sandboxOutput conf = do
                 pure (SandboxResource ph port lockedPorts)
         unmask (waitForStart `onException` cleanupProcess ph)
 
--- TODO: replace with https://github.com/digital-asset/docs.daml.com/pull/582/files#diff-26dd6f57464579b580645656eeccdcb20eb953f481003726a013d49a7aa7b3c9R184-R185
 getCantonBootstrap :: SandboxConfig -> FilePath -> String
 getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars conf) <> [cpPortFile]
   where

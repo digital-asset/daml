@@ -157,8 +157,7 @@ drainHandle handle chan = forever $ do
 functionalTests :: [SpecWith InteractionTester]
 functionalTests =
     [ testInteraction' "create and query"
-          [ input "import DA.Time"
-          , input "alice <- allocateParty \"Alice\""
+          [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\]$"
           , input "_ <- submit alice $ createCmd (T alice alice)"
@@ -166,8 +165,7 @@ functionalTests =
           , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
-          [ input "import DA.Time"
-          , input "alice <- allocateParty \"Alice\""
+          [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
           , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
