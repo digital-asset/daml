@@ -199,10 +199,10 @@ class ContractsService(
             )
           })
           .map(_.flatMap {
-            case GetEventsByContractIdResponse(_, Some(_), _) =>
+            case GetEventsByContractIdResponse(_, Some(_)) =>
               logger.debug(s"Contract archived for contract id $contractId")
               \/-(Option.empty)
-            case GetEventsByContractIdResponse(Some(created), None, _)
+            case GetEventsByContractIdResponse(Some(created), None)
                 if created.createdEvent.nonEmpty =>
               ActiveContract
                 .fromLedgerApi(
@@ -218,7 +218,7 @@ class ContractsService(
                   serverError(s"Error processing create event for active contract: $err")
                 }
                 .map(Some(_))
-            case GetEventsByContractIdResponse(_, None, _) =>
+            case GetEventsByContractIdResponse(_, None) =>
               logger.debug(s"Contract with id $contractId not found")
               \/-(Option.empty)
           })
@@ -400,7 +400,7 @@ class ContractsService(
   )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = transactionFilter(parties, templateIds)
     getActiveContracts(jwt, txnFilter, true)(lc)
-      .map { case GetActiveContractsResponse(offset, _, contractEntry, _) =>
+      .map { case GetActiveContractsResponse(offset, _, contractEntry) =>
         if (contractEntry.isActiveContract) {
           val createdEvent = contractEntry.activeContract
             .getOrElse(
