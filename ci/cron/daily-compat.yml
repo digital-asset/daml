@@ -341,7 +341,7 @@ jobs:
       demands: assignment -equals default
     variables:
       compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
-      compatibility: $[ dependencies.compatibility.result ]
+      compatibility_linux: $[ dependencies.compatibility_linux.result ]
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
@@ -364,7 +364,7 @@ jobs:
         COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
 
         if [[ "$(compatibility_ts_libs)" == "Succeeded"
-           && "$(compatibility)" == "Succeeded"
+           && "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
            && "$(perf_speedy)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
