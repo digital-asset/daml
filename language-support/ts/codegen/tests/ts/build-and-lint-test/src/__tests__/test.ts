@@ -832,7 +832,7 @@ describe("interfaces", () => {
     expect(noCt).toEqual([]);
   });
 
-  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+  //TODO https://github.com/DACH-NY/canton/issues/13812
   test.skip("fetch", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
