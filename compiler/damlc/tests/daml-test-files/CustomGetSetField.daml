@@ -2,9 +2,9 @@
 -- All rights reserved.
 
 -- This tests that "dot syntax" works for getting and setting "fields" defined
--- using custom (i.e. not daml-preprocessor-generated) `HasField` instances.
+-- using custom (i.e. not daml-preprocessor-generated) `GetField`/`SetField` instances.
 
-module CustomHasField where
+module CustomGetSetField where
 
 import Daml.Script
 import DA.Assert ((===))
@@ -13,14 +13,16 @@ data Foo = Foo with
     ab : (Int, Bool)
   deriving (Eq, Show)
 
-instance HasField "a" Foo Int where
+instance GetField "a" Foo Int where
   getField foo = foo.ab._1
+
+instance SetField "a" Foo Int where
   setField x foo = foo with ab._1 = x
 
 indirectGetA : Foo -> Int
 indirectGetA = getField'
   where
-    getField' : forall r t. HasField "a" r t => r -> t
+    getField' : forall r t. GetField "a" r t => r -> t
     getField' = getField @"a"
 
 directGetA : Foo -> Int
@@ -29,7 +31,7 @@ directGetA x = x.a
 indirectSetA : Int -> Foo -> Foo
 indirectSetA = setField'
   where
-    setField' : forall r t. HasField "a" r t => t -> r -> r
+    setField' : forall r t. SetField "a" r t => t -> r -> r
     setField' = setField @"a"
 
 directSetA : Int -> Foo -> Foo

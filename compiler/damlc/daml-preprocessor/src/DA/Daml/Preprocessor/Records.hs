@@ -37,8 +37,9 @@ setL l (L _ x) = L l x
 mod_records :: GHC.ModuleName
 mod_records = GHC.mkModuleName "DA.Internal.Record"
 
-var_HasField, var_getField, var_setField, var_getFieldPrim, var_setFieldPrim, var_dot :: GHC.RdrName
-var_HasField = GHC.mkRdrQual mod_records $ GHC.mkClsOcc "HasField"
+var_GetField, var_SetField, var_getField, var_setField, var_getFieldPrim, var_setFieldPrim, var_dot :: GHC.RdrName
+var_GetField = GHC.mkRdrQual mod_records $ GHC.mkClsOcc "GetField"
+var_SetField = GHC.mkRdrQual mod_records $ GHC.mkClsOcc "SetField"
 var_getField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "getField"
 var_setField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "setField"
 var_getFieldPrim = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "getFieldPrim"
@@ -60,22 +61,30 @@ onImports = (:) $ noL $ importGenerated True (mkImport $ noL mod_records)
 
 
 {-
-instance HasField "selector" Record Field where
+instance GetField "selector" Record Field where
     getField = selector
+instance SetField "selector" Record Field where
     setField v x = x{selector=v} -- EITHER
     setField v x = magicSetField @selector x v -- OR (if length selectors >= 3 AND not a sum type)
-
 -}
-instanceTemplate :: Bool -> FieldOcc GhcPs -> HsType GhcPs -> HsType GhcPs -> InstDecl GhcPs
-instanceTemplate abstract selector record field = ClsInstD noE $ ClsInstDecl noE (HsIB noE typ) binds [] [] [] Nothing
+mkFieldInstances :: Bool -> FieldOcc GhcPs -> HsType GhcPs -> HsType GhcPs -> [InstDecl GhcPs]
+mkFieldInstances abstract selector record field =
+    [ mkFieldInstance var_GetField get getAbstract
+    , mkFieldInstance var_SetField set setAbstract
+    ]
     where
-        typ = mkHsAppTys
-            (noL (HsTyVar noE GHC.NotPromoted (noL var_HasField)))
+        mkFieldInstance className fConcrete fAbstract =
+            ClsInstD noE $ ClsInstDecl noE
+              (HsIB noE (typ className))
+              (unitBag (if abstract then fAbstract else fConcrete))
+              [] [] [] Nothing
+
+        typ className = mkHsAppTys
+            (noL (HsTyVar noE GHC.NotPromoted (noL className)))
             [noL (HsTyLit noE (HsStrTy GHC.NoSourceText (GHC.occNameFS $ GHC.occName $ unLoc $ rdrNameFieldOcc selector)))
             ,noL record
             ,noL field
             ]
-        binds = listToBag $ if abstract then [getAbstract, setAbstract] else [get,set]
 
         funbind :: GHC.RdrName -> [LPat GhcPs] -> LHsExpr GhcPs -> LHsBind GhcPs
         funbind name args body = noL $ FunBind noE (noL $ unqual name) (MG noE (noL [eqn]) GHC.Generated) WpHole []
@@ -112,9 +121,11 @@ onDecl :: LHsDecl GhcPs -> [LHsDecl GhcPs]
 onDecl o = descendBi onExp o : extraDecls o
     where
         extraDecls (L _ (GHC.TyClD _ x)) =
-            [ noL $ InstD noE $ instanceTemplate (length ctors == 1) field (unLoc record) typ
+            [ noL $ InstD noE inst
             | let fields = nubOrdOn (\(_,_,x,_) -> GHC.occNameFS $ GHC.rdrNameOcc $ unLoc $ rdrNameFieldOcc x) $ getFields x
-            , (record, _, field, typ) <- fields]
+            , (record, _, field, typ) <- fields
+            , inst <- mkFieldInstances (length ctors == 1) field (unLoc record) typ
+            ]
             where ctors = dd_cons $ tcdDataDefn x
         extraDecls _ = []
 
