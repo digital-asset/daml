@@ -264,7 +264,7 @@ jobs:
           number_of_commits=$(git -C $tmp rev-list --count HEAD)
           commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
           canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
-          branch="canton-update-$canton_tag-$canton2_version-$canton3_version-main2x"
+          branch="main-canton-update-$canton_tag-$canton2_version-$canton3_version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
