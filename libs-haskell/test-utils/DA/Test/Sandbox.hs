@@ -160,7 +160,7 @@ getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars
         [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
         , "val domainOwners = Seq(sequencer1, mediator1)"
         , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
-        , getParticipantName conf <> ".domains.connect_local(sequencer1)"
+        , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1)"
         ]
     upload dar = "participantsX.all.dars.upload(" <> show dar <> ")"
     -- We copy out the port file after bootstrap is finished to get a true setup marker

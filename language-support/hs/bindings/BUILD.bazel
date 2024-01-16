@@ -40,11 +40,15 @@ da_haskell_library(
 daml_compile(
     name = "for-tests",
     srcs = glob(["test/daml/for-tests/*.daml"]),
+    # TODO(#17366): remove explicit target once LF2 is the default
+    target = "2.1",
 )
 
 daml_compile(
     name = "for-upload",
     srcs = ["test/daml/for-upload/ExtraModule.daml"],
+    # TODO(#17366): remove explicit target once LF2 is the default
+    target = "2.1",
 )
 
 da_haskell_test(
