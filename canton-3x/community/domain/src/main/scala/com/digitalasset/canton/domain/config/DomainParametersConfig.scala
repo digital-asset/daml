@@ -22,9 +22,6 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
   * for further information.
   *
-  * @param uniqueContractKeys When set, participants connected to this domain will check that contract keys are unique.
-  *                           When a participant is connected to a domain with unique contract keys support,
-  *                           it must not connect nor have ever been connected to any other domain.
   * @param requiredSigningKeySchemes The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredEncryptionKeySchemes The optional required encryption key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredSymmetricKeySchemes The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
@@ -34,7 +31,6 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * @param dontWarnOnDeprecatedPV If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   */
 final case class DomainParametersConfig(
-    uniqueContractKeys: Boolean = true,
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
     requiredEncryptionKeySchemes: Option[NonEmpty[Set[EncryptionKeyScheme]]] = None,
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
@@ -50,7 +46,6 @@ final case class DomainParametersConfig(
     with PrettyPrinting {
 
   override def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
-    param("uniqueContractKeys", _.uniqueContractKeys),
     param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
     param("requiredEncryptionKeySchemes", _.requiredEncryptionKeySchemes),
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
@@ -109,7 +104,6 @@ final case class DomainParametersConfig(
       )
     } yield {
       StaticDomainParameters.create(
-        uniqueContractKeys = uniqueContractKeys,
         requiredSigningKeySchemes = newRequiredSigningKeySchemes,
         requiredEncryptionKeySchemes = newRequiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,

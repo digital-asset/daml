@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.ratelimiting
 import com.codahale.metrics.MetricRegistry
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
@@ -15,6 +15,7 @@ import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplement
 import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthService}
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
 import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor

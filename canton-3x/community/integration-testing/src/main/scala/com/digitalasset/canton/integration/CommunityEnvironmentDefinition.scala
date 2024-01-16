@@ -72,8 +72,6 @@ final case class CommunityEnvironmentDefinition(
       DomainParametersConfig(
         protocolVersion = DomainProtocolVersion(BaseTest.testedProtocolVersion),
         devVersionSupport = true,
-        // TODO(#13235) Remove key uniqueness config
-        uniqueContractKeys = false,
       ),
       CommunityCryptoConfig(),
     )

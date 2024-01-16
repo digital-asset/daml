@@ -4,12 +4,13 @@
 package com.digitalasset.canton.http
 
 import com.daml.ledger.api.v1 as lav1
-import lav1.command_service.{
+import com.daml.ledger.api.v2 as lav2
+import lav2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
-import lav1.transaction.{Transaction, TransactionTree}
+import lav2.transaction.{Transaction, TransactionTree}
 import com.digitalasset.canton.http.util.Logging as HLogging
 import com.daml.logging.LoggingContextOf
 import LoggingContextOf.{label, newLoggingContext}
@@ -63,8 +64,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
         overridden shouldBe a[\/-[_]]
         inside(txns) {
           case sc.Seq(
-                SubmitAndWaitRequest(Some(normalC)),
-                SubmitAndWaitRequest(Some(overriddenC)),
+                SubmitAndWaitRequest(Some(normalC), _),
+                SubmitAndWaitRequest(Some(overriddenC), _),
               ) =>
             normalC.actAs should ===(multiPartyJwp.actAs)
             normalC.readAs should ===(multiPartyJwp.readAs)

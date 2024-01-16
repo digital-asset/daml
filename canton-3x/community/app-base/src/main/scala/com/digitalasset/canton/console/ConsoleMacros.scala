@@ -145,36 +145,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       }
     }
 
-    @Help.Summary("Create a navigator ui-backend.conf for a participant")
-    def generate_navigator_conf(
-        participant: LocalParticipantReference,
-        file: Option[String] = None,
-    ): JFile = {
-      val conf =
-        participant.parties
-          .hosted()
-          .map(x => x.party)
-          .map(party => {
-            s"""    ${party.uid.id.unwrap} {
-               |        party = "${party.uid.toProtoPrimitive}"
-               |        password = password
-               |    }
-               |""".stripMargin
-          })
-          .mkString("\n")
-      val port = participant.config.ledgerApi.port
-      val targetFile = file.map(File(_)).getOrElse(File(s"ui-backend-${participant.name}.conf"))
-      val instructions =
-        s"daml navigator server localhost ${port.unwrap} -t wallclock --port ${(port + 4).unwrap.toString} -c ${targetFile.name}"
-
-      targetFile.overwrite("// run with\n// ")
-      targetFile.appendLines(instructions, "users {")
-      targetFile.appendText(conf)
-      targetFile.appendLine("}")
-
-      targetFile.toJava
-    }
-
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     private object GenerateDamlScriptParticipantsConf {
       import ConsoleEnvironment.Implicits.*
@@ -1057,7 +1027,7 @@ object ConsoleMacros extends ConsoleMacros with NamedLogging {
 object DebuggingHelpers extends LazyLogging {
 
   def get_active_contracts(
-      ref: LocalParticipantReference,
+      ref: LocalParticipantReferenceCommon[?],
       limit: PositiveInt = PositiveInt.tryCreate(1000000),
   ): (Map[String, String], Map[String, TemplateId]) =
     get_active_contracts_helper(
@@ -1066,7 +1036,7 @@ object DebuggingHelpers extends LazyLogging {
     )
 
   def get_active_contracts_from_internal_db_state(
-      ref: ParticipantReference,
+      ref: ParticipantReferenceCommon,
       state: SyncStateInspection,
       limit: PositiveInt = PositiveInt.tryCreate(1000000),
   ): (Map[String, String], Map[String, TemplateId]) =
@@ -1079,7 +1049,7 @@ object DebuggingHelpers extends LazyLogging {
     )
 
   private def get_active_contracts_helper(
-      ref: ParticipantReference,
+      ref: ParticipantReferenceCommon,
       lookup: DomainAlias => Seq[(Boolean, SerializableContract)],
   ): (Map[String, String], Map[String, TemplateId]) = {
     val syncAcs = ref.domains
@@ -1091,11 +1061,12 @@ object DebuggingHelpers extends LazyLogging {
           (sc.contractId.coid, sc.contractInstance.unversioned.template.qualifiedName.toString())
       }
       .toMap
-    val lapiAcs = ref.ledger_api.acs.of_all().map(ev => (ev.event.contractId, ev.templateId)).toMap
+    val lapiAcs =
+      ref.ledger_api.acs.of_all().map(ev => (ev.event.contractId, ev.templateId)).toMap
     (syncAcs, lapiAcs)
   }
 
-  def diff_active_contracts(ref: LocalParticipantReference, limit: Int = 1000000): Unit = {
+  def diff_active_contracts(ref: LocalParticipantReferenceCommon[?], limit: Int = 1000000): Unit = {
     val (syncAcs, lapiAcs) = get_active_contracts(ref, limit)
     if (syncAcs.sizeCompare(lapiAcs) != 0) {
       logger.error(s"Sync ACS differs ${syncAcs.size} from Ledger API ACS ${lapiAcs.size} in size")
@@ -1122,7 +1093,7 @@ object DebuggingHelpers extends LazyLogging {
   }
 
   def active_contracts_by_template(
-      ref: LocalParticipantReference,
+      ref: LocalParticipantReferenceCommon[?],
       limit: Int = 1000000,
   ): (Map[String, Int], Map[TemplateId, Int]) = {
     val (syncAcs, lapiAcs) = get_active_contracts(ref, limit)

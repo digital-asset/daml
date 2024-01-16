@@ -11,13 +11,11 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.api.{MetricHandle as DamlMetricHandle, MetricName, MetricsContext}
 import io.opentelemetry.api.metrics
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 
 object MetricHandle {
 
-  @deprecated("Use LabeledMetricsFactory to create metrics that support labels.", since = "2.7.0")
-  trait MetricsFactory extends DamlMetricHandle.MetricsFactory {
+  trait LabeledMetricsFactory extends DamlMetricHandle.LabeledMetricsFactory {
 
     def loadGauge(
         name: MetricName,
@@ -30,13 +28,10 @@ object MetricHandle {
     }
   }
 
-  @nowarn("cat=deprecation")
-  trait LabeledMetricsFactory extends MetricsFactory with DamlMetricHandle.LabeledMetricsFactory
-
-  @nowarn("cat=deprecation")
+  // TODO(i15600): remove it and replace usages by OpenTelemetry
   class CantonDropwizardMetricsFactory(registry: MetricRegistry)
       extends DropwizardMetricsFactory(registry)
-      with MetricsFactory
+      with LabeledMetricsFactory
 
   object NoOpMetricsFactory extends DamlNoOpMetricsFactory with LabeledMetricsFactory
 

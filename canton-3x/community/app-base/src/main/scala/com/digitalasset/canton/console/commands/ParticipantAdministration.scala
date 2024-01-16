@@ -6,6 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
   GetParticipantScheduleCommand,
@@ -56,6 +57,7 @@ import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.TimestampedEvent
+import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -556,16 +558,18 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[LedgerOffset] = {
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
         ledgerApiCommand(LedgerApiCommands.TransactionService.GetLedgerEnd())
       )
-      consoleEnvironment.run(
-        adminCommand(
-          ParticipantAdminCommands.Pruning.GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
+      consoleEnvironment
+        .run(
+          adminCommand(
+            ParticipantAdminCommands.Pruning.GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
+          )
         )
-      )
+        .map(ledgerOffset => ApiConversions.toV2(ledgerOffset))
     }
   }
 

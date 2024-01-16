@@ -205,13 +205,11 @@ final case class RemoteDomainConfig(
 
 /** Configuration parameters for the domain topology manager.
   *
-  * @param requireParticipantCertificate requires a participant to provide a certificate of its identity before being added to the domain.
   * @param open if set to true (default), the domain is open. Anyone who is able to connect to a sequencer node
   *             can join. If false, new participants are only accepted if their ParticipantState has already been
   *             registered (equivalent to allow-listing).
   */
 final case class TopologyConfig(
-    requireParticipantCertificate: Boolean = false,
     // TODO(i4933) make false default for distributed enterprise deployments and move permissioning to enterprise
-    open: Boolean = true,
+    open: Boolean = true
 )

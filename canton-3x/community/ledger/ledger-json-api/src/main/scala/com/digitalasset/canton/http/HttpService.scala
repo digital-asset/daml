@@ -103,7 +103,6 @@ class HttpService(
         packageService.resolveContractTypeId,
         packageService.allTemplateIds,
         ledgerClientJwt.getByContractId(ledgerClient),
-        ledgerClientJwt.getByContractKey(ledgerClient),
         ledgerClientJwt.getActiveContracts(ledgerClient),
         ledgerClientJwt.getCreatesAndArchivesSince(ledgerClient),
         loggerFactory,

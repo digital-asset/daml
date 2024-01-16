@@ -48,43 +48,20 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
         (
           _.message should (include("Config field") and include("is deprecated")),
           "deprecated field not logged",
-        ),
-        (
-          _.message should (include("Config path") and include("is deprecated")),
-          "deprecated path not logged",
-        ),
+        )
       ),
       Seq.empty,
     ) _
 
-    def deprecatedConfigChecks(config: CantonCommunityConfig) = {
+    def deprecatedConfigChecks(config: CantonCommunityConfig): Unit = {
       import scala.concurrent.duration.*
-
-      config.monitoring.health.foreach { health =>
-        health.check match {
-          case CheckConfig.IsActive(node) => node shouldBe Some("my_node")
-          case _ =>
-        }
-      }
 
       val (_, participantConfig) = config.participants.headOption.value
       participantConfig.init.ledgerApi.maxDeduplicationDuration.duration.toSeconds shouldBe 10.minutes.toSeconds
-      participantConfig.init.parameters.uniqueContractKeys shouldBe false
       participantConfig.init.identity.map(_.generateLegalIdentityCertificate) shouldBe Some(true)
       participantConfig.storage.parameters.failFastOnStartup shouldBe false
       participantConfig.storage.parameters.maxConnections shouldBe Some(10)
       participantConfig.storage.parameters.ledgerApiJdbcUrl shouldBe Some("yes")
-
-      def domain(name: String) = config.domains
-        .find(_._1.unwrap == name)
-        .value
-        ._2
-
-      val domain1Parameters = domain("domain1").init.domainParameters
-      val domain2parameters = domain("domain2").init.domainParameters
-
-      domain1Parameters.uniqueContractKeys shouldBe false
-      domain2parameters.uniqueContractKeys shouldBe true
     }
 
     // In this test case, both deprecated and new fields are set with opposite values, we make sure the new fields

@@ -38,7 +38,6 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.R
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -274,8 +273,8 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       ),
     )
 
-  override def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
+  override def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName] =
-    delegate.resolveToTemplateIds(templateQualifiedName)
+  ): Either[StatusRuntimeException, Set[Ref.PackageId]] =
+    delegate.resolveUpgradablePackagesForName(packageName)
 }

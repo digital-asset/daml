@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.ledger.resources.TestResourceContext
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.apiserver.LedgerApiService
 import com.digitalasset.canton.testing.utils.TestResourceUtils
 import io.netty.handler.ssl.ClientAuth

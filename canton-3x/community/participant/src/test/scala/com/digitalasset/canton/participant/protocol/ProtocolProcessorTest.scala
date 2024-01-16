@@ -235,7 +235,6 @@ class ProtocolProcessorTest
           new MemoryStorage(loggerFactory, timeouts),
           clock,
           None,
-          uniqueContractKeysO = Some(false),
           BatchingConfig(),
           ParticipantStoreConfig(),
           testedReleaseProtocolVersion,

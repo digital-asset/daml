@@ -380,37 +380,6 @@ final class RepairService(
                       .distinct
                       .parTraverse_(packageKnown)
 
-                    _uniqueKeysWithHostedMaintainerInContractsToAdd <- EitherTUtil.ifThenET(
-                      repair.domain.parameters.uniqueContractKeys
-                    ) {
-                      val keysWithContractIdsF = filteredContracts
-                        .parTraverseFilter { repairContractWithCurrentState =>
-                          val contract = repairContractWithCurrentState.contract
-                          // Only check for duplicates where the participant hosts a maintainer
-                          getKeyIfOneMaintainerIsLocal(
-                            repair.domain.topologySnapshot,
-                            contract.metadata.maybeKeyWithMaintainers,
-                            participantId,
-                          ).map { lfKeyO =>
-                            lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
-                              keyWithMaintainers =>
-                                keyWithMaintainers.globalKey -> contract.contractId
-                            }
-                          }
-                        }
-                        .map(x => x.groupBy { case (globalKey, _) => globalKey })
-                      EitherT(keysWithContractIdsF.map { keysWithContractIds =>
-                        val duplicates = keysWithContractIds.mapFilter { keyCoids =>
-                          if (keyCoids.lengthCompare(1) > 0) Some(keyCoids.map(_._2)) else None
-                        }
-                        Either.cond(
-                          duplicates.isEmpty,
-                          (),
-                          log(show"Cannot add multiple contracts for the same key(s): $duplicates"),
-                        )
-                      })
-                    }
-
                     hostedParties <- EitherT.right(
                       filteredContracts
                         .flatMap(_.witnesses)
@@ -514,7 +483,7 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change domain request for ${contractIds.length} contracts from ${sourceDomain} to ${targetDomain} with skipInactive=${skipInactive}"
+      s"Change domain request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
     )
     lockAndAwaitEitherT(
       "repair.change_domain", {
@@ -693,7 +662,7 @@ final class RepairService(
         EitherT(hostsParty(topologySnapshot, participantId)(p).map { hosted =>
           EitherUtil.condUnitE(
             hosted,
-            log(s"Witness ${p} not active on domain ${repair.domain.alias} and local participant"),
+            log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
           )
         })
       }
@@ -730,7 +699,7 @@ final class RepairService(
       _ <- topologySnapshot.allHaveActiveParticipants(contractToAdd.witnesses).leftMap {
         missingWitnesses =>
           log(
-            s"Domain ${repair.domain.alias} missing witnesses ${missingWitnesses} of contract ${contract.contractId}"
+            s"Domain ${repair.domain.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
       }
 
@@ -777,7 +746,7 @@ final class RepairService(
 
       contractO <- EitherTUtil.fromFuture(
         repair.domain.persistentState.contractStore.lookupContract(cid).value,
-        t => log(s"Failed to look up contract ${cid} in domain ${repair.domain.alias}", t),
+        t => log(s"Failed to look up contract $cid in domain ${repair.domain.alias}", t),
       )
       // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
       // on behalf of stakeholders no longer around.
@@ -798,21 +767,6 @@ final class RepairService(
                 log(show"Active contract $cid not found in contract store"),
               )
 
-            keyOfHostedMaintainerO <- EitherT.liftF(
-              if (repair.domain.parameters.uniqueContractKeys)
-                getKeyIfOneMaintainerIsLocal(
-                  repair.domain.topologySnapshot,
-                  contract.metadata.maybeKeyWithMaintainers,
-                  participantId,
-                )
-              else Future.successful(None)
-            )
-
-            _ <- keyOfHostedMaintainerO.traverse_ { key =>
-              repair.domain.persistentState.contractKeyJournal
-                .addKeyStateUpdates(Map(key -> (ContractKeyJournal.Unassigned, timeOfChange)))
-                .leftMap(err => log(s"Error while persisting key state updates: $err"))
-            }
             _ <- persistArchival(repair, timeOfChange)(cid)
           } yield {
             logger.info(
@@ -1472,11 +1426,9 @@ object RepairService {
   ) {
     def checkAssignable(domain: RepairRequest.DomainData): Either[String, LfGlobalKey] =
       Either.cond(
-        !domain.parameters.uniqueContractKeys ||
-          state.map(_.status).forall(_ == ContractKeyJournal.Unassigned),
+        state.map(_.status).forall(_ == ContractKeyJournal.Unassigned),
         key,
         show"Key $key is already assigned to a different contract",
       )
   }
-
 }

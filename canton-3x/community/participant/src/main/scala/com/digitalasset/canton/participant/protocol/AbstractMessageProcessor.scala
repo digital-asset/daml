@@ -84,14 +84,13 @@ abstract class AbstractMessageProcessor(
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
   protected def sendResponses(
       requestId: RequestId,
-      rc: RequestCounter,
       messages: Seq[(ProtocolMessage, Recipients)],
-      messageId: Option[MessageId] =
-        None, // use client.messageId. passed in here such that we can log it before sending
+      // use client.messageId. passed in here such that we can log it before sending
+      messageId: Option[MessageId] = None,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     if (messages.isEmpty) EitherT.pure[Future, SendAsyncClientError](())
     else {
-      logger.trace(s"Request $rc: ProtocolProcessor scheduling the sending of responses")
+      logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
 
       for {
         domainParameters <- EitherT.right(
@@ -104,7 +103,7 @@ abstract class AbstractMessageProcessor(
           Batch.of(protocolVersion, messages: _*),
           maxSequencingTime = maxSequencingTime,
           messageId = messageId.getOrElse(MessageId.randomMessageId()),
-          callback = SendCallback.log(s"Response message for request [$rc]", logger),
+          callback = SendCallback.log(s"Response message for request [$requestId]", logger),
         )
       } yield ()
     }

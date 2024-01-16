@@ -22,11 +22,12 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
+import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContractWithWitnesses}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ResourceUtil
@@ -242,7 +243,7 @@ abstract class LocalParticipantRepairAdministration(
   )
   def add(
       domain: DomainAlias,
-      contractsToAdd: Seq[SerializableContractWithWitnesses],
+      contractsToAdd: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean = true,
       ignoreStakeholderCheck: Boolean = false,
   ): Unit =

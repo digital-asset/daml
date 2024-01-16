@@ -162,7 +162,6 @@ class SyncDomain(
       domainCrypto.crypto.pureCrypto,
       seedGenerator,
       parameters.loggingConfig,
-      staticDomainParameters.uniqueContractKeys,
       loggerFactory,
     )
 
@@ -255,7 +254,7 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      journalGarbageCollector.observer(_),
+      journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
       timeouts,
@@ -301,7 +300,6 @@ class SyncDomain(
   private val messageDispatcher: MessageDispatcher =
     messageDispatcherFactory.create(
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.uniqueContractKeys,
       domainId,
       participantId,
       ephemeral.requestTracker,

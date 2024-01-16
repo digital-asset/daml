@@ -74,9 +74,7 @@ trait MediatorDomainConfigurationStoreTest {
       val updatedConfig = originalConfig
         .focus(_.domainParameters)
         .replace(
-          BaseTest.defaultStaticDomainParametersWith(
-            uniqueContractKeys = true
-          )
+          BaseTest.defaultStaticDomainParameters
         )
 
       for {

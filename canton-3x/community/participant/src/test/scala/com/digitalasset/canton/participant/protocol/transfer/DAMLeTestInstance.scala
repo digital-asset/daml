@@ -34,7 +34,7 @@ object DAMLeTestInstance {
   )(implicit ec: ExecutionContext): DAMLe = {
     val pureCrypto = new SymbolicPureCrypto
     val engine =
-      DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = false, enableStackTraces = false)
+      DAMLe.newEngine(enableLfDev = false, enableStackTraces = false)
     val timeouts = ProcessingTimeout()
     val mockPackageService =
       new PackageService(

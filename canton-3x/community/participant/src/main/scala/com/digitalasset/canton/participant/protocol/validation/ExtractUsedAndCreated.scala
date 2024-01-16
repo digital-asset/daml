@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
-import com.daml.lf.transaction.ContractStateMachine.{KeyInactive, KeyMapping}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -14,7 +13,6 @@ import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCre
   ViewData,
   viewDataInPreOrder,
 }
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -112,7 +110,6 @@ object ExtractUsedAndCreated {
     fetchHostedParties(partyIds, participantId, topologySnapshot)
       .map { hostedParties =>
         new ExtractUsedAndCreated(
-          staticDomainParameters.uniqueContractKeys,
           staticDomainParameters.protocolVersion,
           hostedParties,
           loggerFactory,
@@ -136,7 +133,6 @@ object ExtractUsedAndCreated {
 }
 
 private[validation] class ExtractUsedAndCreated(
-    uniqueContractKeys: Boolean,
     protocolVersion: ProtocolVersion,
     hostedParties: Map[LfPartyId, Boolean],
     protected val loggerFactory: NamedLoggerFactory,
@@ -155,8 +151,12 @@ private[validation] class ExtractUsedAndCreated(
 
     UsedAndCreated(
       contracts = usedAndCreatedContracts(createdContracts, inputContracts, transientContracts),
-      keys = extractInputAndUpdatedKeysV3(rootViews.forgetNE),
-      hostedWitnesses = hostedParties.filter(_._2).map(_._1).toSet,
+      keys = InputAndUpdatedKeysV3(
+        // UCK is not supported anymore
+        uckFreeKeysOfHostedMaintainers = Set.empty,
+        uckUpdatedKeysOfHostedMaintainers = Map.empty,
+      ),
+      hostedWitnesses = hostedParties.filter(_._2).keySet,
     )
   }
 
@@ -297,77 +297,6 @@ private[validation] class ExtractUsedAndCreated(
       maybeCreated = maybeCreated,
       transient = transient,
       used = inputContracts.used,
-    )
-  }
-
-  /** For [[com.digitalasset.canton.data.FullTransactionViewTree]]s produced by
-    * [[com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImplV3]]
-    */
-  private def extractInputAndUpdatedKeysV3(
-      rootViews: Seq[TransactionView]
-  ): InputAndUpdatedKeys = {
-    val (updatedKeys, freeKeys) = if (uniqueContractKeys) {
-      /* In UCK mode, the globalKeyInputs have been computed with `ContractKeyUniquenessMode.Strict`,
-       * i.e., the global key input of each view contain the expected pre-view state of the key.
-       * So for key freshness, it suffices to combine the global key inputs with earlier view's resolution taking precedence
-       *
-       * For the updates of the key state, we count the created contracts for a key and the archivals for contracts with this key,
-       * and look at the difference. The counting ignore nodes underneath rollback nodes.
-       * This is fine because the nodes under a rollback do not take effect;
-       * even if the transaction was committed only partially,
-       * the committed subtransaction would still contain the rollback node.
-       */
-      val freeKeysB = Set.newBuilder[LfGlobalKey]
-      rootViews
-        .foldLeft(Set.empty[LfGlobalKey]) { (seenKeys, rootView) =>
-          val gki = rootView.globalKeyInputs
-          gki.foldLeft(seenKeys) { case (seenKeys, (key, resolution)) =>
-            if (seenKeys.contains(key)) seenKeys
-            else {
-              if (resolution.resolution.isEmpty && hostsAny(resolution.maintainers)) {
-                freeKeysB.addOne(key)
-              }
-              seenKeys.incl(key)
-            }
-          }
-        }
-        .discard
-      val freeKeys = freeKeysB.result()
-
-      // Now find out the keys that this transaction updates.
-      // We cannot just compare the end state of the key against the initial state,
-      // because a key may be free at the start and at the end, and yet be allocated in between to a transient contract.
-      // Since transactions can be committed partially, the transient contract may actually be created.
-      // So we have to lock the key.
-
-      val allUpdatedKeys = rootViews.foldLeft(Map.empty[LfGlobalKey, Set[LfPartyId]]) {
-        (acc, rootView) => acc ++ rootView.updatedKeys
-      }
-      val updatedKeysOfHostedMaintainer = allUpdatedKeys.filter { case (_, maintainers) =>
-        hostsAny(maintainers)
-      }
-
-      // As the participant receives all views that update a key it hosts a maintainer of,
-      // we simply merge the active ledger states at the end of all root views for the updated keys.
-      // This gives the final resolution for the key.
-      val mergedKeys = rootViews.foldLeft(Map.empty[LfGlobalKey, KeyMapping]) {
-        (accKeys, rootView) => accKeys ++ rootView.updatedKeyValues
-      }
-
-      val updatedKeys = mergedKeys.collect {
-        case (key, keyMapping) if updatedKeysOfHostedMaintainer.contains(key) =>
-          val status =
-            if (keyMapping == KeyInactive) ContractKeyJournal.Unassigned
-            else ContractKeyJournal.Assigned
-          key -> status
-      }
-
-      (updatedKeys, freeKeys)
-    } else (Map.empty[LfGlobalKey, ContractKeyJournal.Status], Set.empty[LfGlobalKey])
-
-    InputAndUpdatedKeysV3(
-      uckFreeKeysOfHostedMaintainers = freeKeys,
-      uckUpdatedKeysOfHostedMaintainers = updatedKeys,
     )
   }
 

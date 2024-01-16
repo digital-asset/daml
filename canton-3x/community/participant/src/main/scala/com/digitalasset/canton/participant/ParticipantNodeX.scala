@@ -295,7 +295,6 @@ class ParticipantNodeBootstrapX(
         packageDependencyResolver,
         componentFactory,
         skipRecipientsCheck,
-        overrideKeyUniqueness = Some(false),
       ).map {
         case (
               partyNotifier,
@@ -367,9 +366,8 @@ object ParticipantNodeBootstrapX {
   object CommunityParticipantFactory
       extends CommunityParticipantFactoryCommon[ParticipantNodeBootstrapX] {
 
-    override protected def createEngine(arguments: Arguments): Engine = super.createEngine(
-      arguments.copy(parameterConfig = arguments.parameterConfig.copy(uniqueContractKeys = false))
-    )
+    override protected def createEngine(arguments: Arguments): Engine =
+      super.createEngine(arguments)
 
     override protected def createNode(
         arguments: Arguments,

@@ -252,7 +252,6 @@ trait ParticipantNodeBootstrapCommon {
       packageDependencyResolver: PackageDependencyResolver,
       componentFactory: ParticipantComponentBootstrapFactory,
       skipRecipientsCheck: Boolean,
-      overrideKeyUniqueness: Option[Boolean] = None, // TODO(i13235) remove when UCK is gone
   )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
     FutureUnlessShutdown,
     String,
@@ -315,7 +314,6 @@ trait ParticipantNodeBootstrapCommon {
           storage,
           clock,
           config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
-          overrideKeyUniqueness.orElse(config.init.parameters.uniqueContractKeys.some),
           parameterConfig.batchingConfig,
           parameterConfig.stores,
           ReleaseProtocolVersion.latest,

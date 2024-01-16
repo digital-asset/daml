@@ -3,24 +3,23 @@
 
 package com.digitalasset.canton.health
 
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{HealthConfig, ProcessingTimeout}
-import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.HealthMetrics
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, ToResponseMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpResponse, ResponseEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.directives.DebuggingDirectives
 
-class HealthServer(
-    check: HealthCheck,
+class HttpHealthServer(
+    service: HealthService,
     address: String,
     port: Port,
     protected override val timeouts: ProcessingTimeout,
@@ -32,53 +31,47 @@ class HealthServer(
   private val binding = {
     import TraceContext.Implicits.Empty.*
     timeouts.unbounded.await(s"Binding the health server")(
-      Http().newServerAt(address, port.unwrap).bind(HealthServer.route(check))
+      Http().newServerAt(address, port.unwrap).bind(HttpHealthServer.route(service))
     )
   }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.*
     List[AsyncOrSyncCloseable](
-      AsyncCloseable("binding", binding.unbind(), timeouts.shutdownNetwork),
-      SyncCloseable("check", Lifecycle.close(check)(logger)),
+      AsyncCloseable("binding", binding.unbind(), timeouts.shutdownNetwork)
     )
   }
 }
 
-object HealthServer {
-  def apply(
-      config: HealthConfig,
-      metrics: HealthMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(environment: Environment)(implicit system: ActorSystem): HealthServer = {
-    val check = HealthCheck(config.check, metrics, timeouts, loggerFactory)(environment)
-
-    new HealthServer(check, config.server.address, config.server.port, timeouts, loggerFactory)
-  }
+object HttpHealthServer {
 
   /** Routes for powering the health server.
     * Provides:
     *   GET /health => calls check and returns:
     *     200 if healthy
-    *     500 if unhealthy
+    *     503 if unhealthy
     *     500 if the check fails
     */
   @VisibleForTesting
-  private[health] def route(check: HealthCheck): Route = {
-    implicit val _marshaller: ToResponseMarshaller[HealthCheckResult] =
+  private[health] def route(service: HealthService): Route = {
+    def renderStatus(status: Seq[ComponentStatus]): ResponseEntity = HttpEntity(
+      status.map(_.toString).mkString("\n")
+    )
+    implicit val _marshaller: ToResponseMarshaller[(ServingStatus, Seq[ComponentStatus])] =
       Marshaller.opaque {
-        case Healthy =>
-          HttpResponse(status = StatusCodes.OK, entity = HttpEntity("healthy"))
-        case Unhealthy(message) =>
-          HttpResponse(status = StatusCodes.InternalServerError, entity = HttpEntity(message))
+        case (ServingStatus.SERVING, status) =>
+          HttpResponse(status = StatusCodes.OK, entity = renderStatus(status))
+        case (ServingStatus.NOT_SERVING, status) =>
+          HttpResponse(status = StatusCodes.ServiceUnavailable, entity = renderStatus(status))
+        case (_, status) =>
+          HttpResponse(status = StatusCodes.InternalServerError, entity = renderStatus(status))
       }
 
     get {
       path("health") {
         DebuggingDirectives.logRequest("health-request") {
           DebuggingDirectives.logRequestResult("health-request-response") {
-            complete(TraceContext.withNewTraceContext(check.isHealthy(_)))
+            complete((service.getState, service.dependencies.map(_.toComponentStatus)))
           }
         }
       }

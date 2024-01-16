@@ -299,16 +299,6 @@ private[domain] object RequestProcessingStrategy {
           (),
           DomainTopologyManagerError.ParticipantNotInitialized.Failure(participant, keys),
         )
-        participantCert <- EitherT
-          .right(snapshot.findParticipantCertificate(participant))
-          .mapK(FutureUnlessShutdown.outcomeK)
-        _ <- EitherT.cond[FutureUnlessShutdown](
-          participantCert.nonEmpty || !config.requireParticipantCertificate,
-          (),
-          reject(
-            s"Participant $participant needs a SignedLegalIdentityClaim, but did not provide one"
-          ),
-        )
         res <- EitherT.right(addTransactions(reduced1.toList))
         // Activate the participant
         _ <-

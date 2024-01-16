@@ -1043,7 +1043,7 @@ abstract class ProtocolProcessor[
                   }
               s"approved=${approved}, rejected=${rejected}" }"
           )
-          sendResponses(requestId, rc, signedResponsesTo, Some(messageId))
+          sendResponses(requestId, signedResponsesTo, Some(messageId))
             .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
             .mapK(FutureUnlessShutdown.outcomeK)
         } else {
@@ -1086,7 +1086,7 @@ abstract class ProtocolProcessor[
           signResponse(snapshot, response).map(_ -> recipients)
         })
 
-        _ <- sendResponses(requestId, rc, messages)
+        _ <- sendResponses(requestId, messages)
           .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
 
         _ = handleRequestData.complete(None)

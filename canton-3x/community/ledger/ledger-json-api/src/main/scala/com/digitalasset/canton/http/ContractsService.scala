@@ -16,21 +16,18 @@ import com.digitalasset.canton.http.domain.{
   JwtPayload,
 }
 import util.ApiValueToLfValueConverter
-import com.digitalasset.canton.fetchcontracts.AcsTxStreams.transactionFilter
+import com.digitalasset.canton.fetchcontracts.AcsTxStreams.{transactionFilter, transactionFilterV1}
 import com.digitalasset.canton.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overload
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.http.util.FutureUtil.eitherT
+import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1 as api
-import com.daml.ledger.api.v1.event_query_service.{
-  GetEventsByContractIdResponse,
-  GetEventsByContractKeyResponse,
-}
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
@@ -40,9 +37,9 @@ import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
   ContractStreamStep,
-  IdentifierConverters,
   InsertDeleteStep,
 }
+import com.digitalasset.canton.http.EndpointsCompanion.NotFound
 import scalaz.syntax.show.*
 import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
@@ -52,14 +49,12 @@ import spray.json.JsValue
 import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import scalaz.std.scalaFuture.*
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
     allTemplateIds: PackageService.AllTemplateIds,
     getContractByContractId: LedgerClientJwt.GetContractByContractId,
-    getContractByContractKey: LedgerClientJwt.GetContractByContractKey,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     val loggerFactory: NamedLoggerFactory,
@@ -112,77 +107,80 @@ class ContractsService(
   ): ET[ActiveContractO] = {
     val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
     req.locator match {
-      case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, readAs, templateId, contractKey)
+      case domain.EnrichedContractKey(_templateId, _contractKey) =>
+        either(-\/(NotFound("lookup by contract key is not supported")))
+      //  TODO(#16065)
+      //  findByContractKey(jwt, readAs, templateId, contractKey)
       case domain.EnrichedContractId(_templateId, contractId) =>
         findByContractId(jwt, readAs, contractId)
     }
   }
 
-  private[this] def findByContractKey(
-      jwt: Jwt,
-      parties: domain.PartySet,
-      templateId: ContractTypeId.Template.OptionalPkg,
-      contractKey: LfValue,
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpApiMetrics,
-  ): ET[ActiveContractO] =
-    timedETFuture(metrics.dbFindByContractKey)(
-      for {
-        resolvedTemplateId <- _resolveContractTypeId(
-          jwt,
-          templateId,
-        )
-        keyApiValue <-
-          EitherT(
-            Future.successful(
-              \/.fromEither(
-                LfEngineToApi.lfValueToApiValue(verbose = true, contractKey)
-              ).leftMap { err =>
-                serverError(s"Cannot convert key $contractKey from LF value to API value: $err")
-              }
-            )
-          )
-        response <- EitherT(
-          getContractByContractKey(
-            jwt,
-            keyApiValue,
-            IdentifierConverters.apiIdentifier(resolvedTemplateId),
-            parties,
-            "",
-          )(lc).map(_.leftMap { err =>
-            unauthorized(
-              s"Unauthorized access for fetching contract with key $contractKey for parties $parties: $err"
-            )
-          })
-        )
-        result <- response match {
-          case GetEventsByContractKeyResponse(None, Some(_), _) =>
-            EitherT.pureLeft(
-              serverError(
-                s"Found archived event in response without a matching create for key $contractKey"
-              )
-            ): ET[ActiveContractO]
-          case GetEventsByContractKeyResponse(_, Some(_), _) |
-              GetEventsByContractKeyResponse(None, None, _) =>
-            logger.debug(s"Contract archived for contract key $contractKey")
-            EitherT.pure(None): ET[ActiveContractO]
-          case GetEventsByContractKeyResponse(Some(createdEvent), None, _) =>
-            EitherT.either(
-              ActiveContract
-                .fromLedgerApi(domain.ActiveContract.IgnoreInterface, createdEvent)
-                .leftMap(_.shows)
-                .flatMap(apiAcToLfAc(_).leftMap(_.shows))
-                .flatMap(_.traverse(lfValueToJsValue(_).leftMap(_.shows)))
-                .leftMap { err =>
-                  serverError(s"Error processing create event for active contract: $err")
-                }
-                .map(Some(_))
-            ): ET[ActiveContractO]
-        }
-      } yield result
-    )
+//  TODO(#16065)
+//  private[this] def findByContractKey(
+//      jwt: Jwt,
+//      parties: domain.PartySet,
+//      templateId: ContractTypeId.Template.OptionalPkg,
+//      contractKey: LfValue,
+//  )(implicit
+//      lc: LoggingContextOf[InstanceUUID with RequestID],
+//      metrics: HttpApiMetrics,
+//  ): ET[ActiveContractO] =
+//    timedETFuture(metrics.dbFindByContractKey)(
+//      for {
+//        resolvedTemplateId <- _resolveContractTypeId(
+//          jwt,
+//          templateId,
+//        )
+//        keyApiValue <-
+//          EitherT(
+//            Future.successful(
+//              \/.fromEither(
+//                LfEngineToApi.lfValueToApiValue(verbose = true, contractKey)
+//              ).leftMap { err =>
+//                serverError(s"Cannot convert key $contractKey from LF value to API value: $err")
+//              }
+//            )
+//          )
+//        response <- EitherT(
+//          getContractByContractKey(
+//            jwt,
+//            keyApiValue,
+//            IdentifierConverters.apiIdentifier(resolvedTemplateId),
+//            parties,
+//            "",
+//          )(lc).map(_.leftMap { err =>
+//            unauthorized(
+//              s"Unauthorized access for fetching contract with key $contractKey for parties $parties: $err"
+//            )
+//          })
+//        )
+//        result <- response match {
+//          case GetEventsByContractKeyResponse(None, Some(_), _) =>
+//            EitherT.pureLeft(
+//              serverError(
+//                s"Found archived event in response without a matching create for key $contractKey"
+//              )
+//            ): ET[ActiveContractO]
+//          case GetEventsByContractKeyResponse(_, Some(_), _) |
+//              GetEventsByContractKeyResponse(None, None, _) =>
+//            logger.debug(s"Contract archived for contract key $contractKey")
+//            EitherT.pure(None): ET[ActiveContractO]
+//          case GetEventsByContractKeyResponse(Some(createdEvent), None, _) =>
+//            EitherT.either(
+//              ActiveContract
+//                .fromLedgerApi(domain.ActiveContract.IgnoreInterface, createdEvent)
+//                .leftMap(_.shows)
+//                .flatMap(apiAcToLfAc(_).leftMap(_.shows))
+//                .flatMap(_.traverse(lfValueToJsValue(_).leftMap(_.shows)))
+//                .leftMap { err =>
+//                  serverError(s"Error processing create event for active contract: $err")
+//                }
+//                .map(Some(_))
+//            ): ET[ActiveContractO]
+//        }
+//      } yield result
+//    )
 
   private[this] def findByContractId(
       jwt: Jwt,
@@ -201,12 +199,18 @@ class ContractsService(
             )
           })
           .map(_.flatMap {
-            case GetEventsByContractIdResponse(_, Some(_)) =>
+            case GetEventsByContractIdResponse(_, Some(_), _) =>
               logger.debug(s"Contract archived for contract id $contractId")
               \/-(Option.empty)
-            case GetEventsByContractIdResponse(Some(created), None) =>
+            case GetEventsByContractIdResponse(Some(created), None, _)
+                if created.createdEvent.nonEmpty =>
               ActiveContract
-                .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
+                .fromLedgerApi(
+                  domain.ActiveContract.IgnoreInterface,
+                  created.createdEvent.getOrElse(
+                    throw new RuntimeException("unreachable since created.createdEvent is nonEmpty")
+                  ),
+                )
                 .leftMap(_.shows)
                 .flatMap(apiAcToLfAc(_).leftMap(_.shows))
                 .flatMap(_.traverse(lfValueToJsValue(_).leftMap(_.shows)))
@@ -214,7 +218,7 @@ class ContractsService(
                   serverError(s"Error processing create event for active contract: $err")
                 }
                 .map(Some(_))
-            case GetEventsByContractIdResponse(None, None) =>
+            case GetEventsByContractIdResponse(_, None, _) =>
               logger.debug(s"Contract with id $contractId not found")
               \/-(Option.empty)
           })
@@ -396,9 +400,17 @@ class ContractsService(
   )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = transactionFilter(parties, templateIds)
     getActiveContracts(jwt, txnFilter, true)(lc)
-      .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
-        if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
-        else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
+      .map { case GetActiveContractsResponse(offset, _, contractEntry, _) =>
+        if (contractEntry.isActiveContract) {
+          val createdEvent = contractEntry.activeContract
+            .getOrElse(
+              throw new RuntimeException(
+                "unreachable, activeContract should not have been empty since contract is checked to be an active contract"
+              )
+            )
+            .createdEvent
+          Acs(createdEvent.toVector)
+        } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
       }
   }
 
@@ -416,6 +428,7 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = transactionFilter(parties, templateIds)
+    val txnFilterV1 = transactionFilterV1(parties, templateIds)
     def source =
       (getActiveContracts(jwt, txnFilter, true)(lc)
         via logTermination(logger, "ACS upstream"))
@@ -424,7 +437,7 @@ class ContractsService(
         : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(
         jwt,
-        txnFilter,
+        txnFilterV1,
         _: api.ledger_offset.LedgerOffset,
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")

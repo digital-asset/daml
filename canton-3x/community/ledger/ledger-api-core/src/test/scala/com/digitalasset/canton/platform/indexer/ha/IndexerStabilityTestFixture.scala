@@ -8,7 +8,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, NoOpMetricsFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, IndexServiceConfig}
@@ -88,7 +88,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
         metrics = {
           val registry = new MetricRegistry
           new Metrics(
-            new DropwizardMetricsFactory(registry),
+            new DropwizardMetricsFactory(registry) with LabeledMetricsFactory,
             NoOpMetricsFactory,
             registry,
             reportExecutionContextMetrics = true,
