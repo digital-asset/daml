@@ -809,6 +809,7 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
@@ -864,6 +865,7 @@ da_haskell_test(
         "//compiler/repl-service/client",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
@@ -1175,8 +1177,8 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
     ],
 )

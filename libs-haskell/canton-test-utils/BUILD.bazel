@@ -7,30 +7,30 @@ load(
 )
 
 da_haskell_library(
-    name = "test-utils",
+    name = "canton-test-utils",
     srcs = glob(["DA/Test/**/*.hs"]),
+    data = [
+        "//canton:community_app_deploy.jar",
+    ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
         "containers",
-        "directory",
         "extra",
-        "filelock",
         "filepath",
-        "lens",
-        "network",
+        "jwt",
         "process",
-        "QuickCheck",
-        "regex-tdfa",
-        "safe",
         "tasty",
-        "tasty-hunit",
         "text",
-        "unliftio",
-        "unliftio-core",
+        "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
         "@rules_haskell//tools/runfiles",
     ],
 )
