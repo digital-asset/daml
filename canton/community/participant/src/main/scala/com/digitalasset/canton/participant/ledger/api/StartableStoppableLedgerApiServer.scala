@@ -279,6 +279,9 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
       )
 
+      packageMetadataStore = new InMemoryPackageMetadataStore(
+        inMemoryState.packageMetadataView
+      )
       serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
         new UnicumGenerator(config.syncService.pureCryptoApi)
       )
@@ -291,6 +294,7 @@ class StartableStoppableLedgerApiServer(
         submissionTracker = inMemoryState.submissionTracker,
         indexService = indexService,
         userManagementStore = userManagementStore,
+        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
           dbSupport,
           config.serverConfig.identityProviderManagement,

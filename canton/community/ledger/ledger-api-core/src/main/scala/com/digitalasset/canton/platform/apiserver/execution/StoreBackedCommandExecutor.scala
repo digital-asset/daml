@@ -201,6 +201,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
         // authorize the resulting transaction.
         val commitAuthorizers = commands.actAs
         engine.submit(
+          packageMap = commands.packageMap,
+          packagePreference = commands.packagePreferenceSet,
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,

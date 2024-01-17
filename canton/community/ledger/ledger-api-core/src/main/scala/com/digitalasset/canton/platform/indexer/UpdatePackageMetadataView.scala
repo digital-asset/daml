@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import cats.Applicative
 import com.daml.lf.archive.ArchiveParser
-import com.daml.lf.data.Time
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
@@ -41,50 +39,42 @@ object UpdatePackageMetadataView {
     val startedTime = System.nanoTime()
 
     def loadLfArchive(
-        packageId: Timestamped[PackageId]
-    ): Future[Timestamped[(PackageId, Array[Byte])]] =
-      packageId.traverse { packageId =>
-        dbDispatcher
-          .executeSql(metrics.daml.index.db.loadArchive)(connection =>
-            packageStorageBackend
-              .lfArchive(packageId)(connection)
-              .getOrElse(
-                // should never happen as we received a reference to packageId
-                sys.error(s"LfArchive does not exist by packageId=$packageId")
-              )
-          )
-          .map(packageId -> _)
-      }
+        packageId: PackageId
+    ): Future[(PackageId, Array[Byte])] =
+      dbDispatcher
+        .executeSql(metrics.daml.index.db.loadArchive)(connection =>
+          packageStorageBackend
+            .lfArchive(packageId)(connection)
+            .getOrElse(
+              // should never happen as we received a reference to packageId
+              sys.error(s"LfArchive does not exist by packageId=$packageId")
+            )
+        )
+        .map(packageId -> _)
 
-    def lfPackagesSource(): Future[Source[Timestamped[PackageId], NotUsed]] =
+    def lfPackagesSource(): Future[Source[PackageId, NotUsed]] =
       dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
-        Source(packageStorageBackend.lfPackages(connection).map { case (pkgId, pkgDetails) =>
-          Timestamped(pkgId, pkgDetails.knownSince)
-        })
+        Source(packageStorageBackend.lfPackages(connection).map { case (pkgId, _) => pkgId })
       )
 
-    def toMetadataDefinition(
-        timestampedPackageBytes: Timestamped[Array[Byte]]
-    ): PackageMetadata = timestampedPackageBytes match {
-      case Timestamped(packageBytes, timestamp) =>
-        val archive = ArchiveParser.assertFromByteArray(packageBytes)
-        Timed.value(
-          metrics.daml.index.packageMetadata.decodeArchive,
-          PackageMetadata.from(archive, timestamp),
-        )
+    def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata = {
+      val archive = ArchiveParser.assertFromByteArray(packageBytes)
+      Timed.value(
+        metrics.daml.index.packageMetadata.decodeArchive,
+        PackageMetadata.from(archive),
+      )
     }
 
     def processPackage(
-        timestampedArchive: Timestamped[(PackageId, Array[Byte])]
+        archive: (PackageId, Array[Byte])
     ): Future[PackageMetadata] = {
-      val Timestamped((packageId, archive), timestamp) = timestampedArchive
-      Future(toMetadataDefinition(Timestamped(archive, timestamp))).recoverWith {
-        case NonFatal(e) =>
-          logger.error(
-            s"Failed to decode loaded LF Archive by packageId=$packageId",
-            e,
-          )
-          Future.failed(e)
+      val (packageId, archiveBytes) = archive
+      Future(toMetadataDefinition(archiveBytes)).recoverWith { case NonFatal(e) =>
+        logger.error(
+          s"Failed to decode loaded LF Archive by packageId=$packageId",
+          e,
+        )
+        Future.failed(e)
       }
     }
 
@@ -112,11 +102,5 @@ object UpdatePackageMetadataView {
         logger.error(s"Failed to initialize Package Metadata View", e)
         throw e
       }
-  }
-
-  final case class Timestamped[T](value: T, timestamp: Time.Timestamp) {
-    import cats.implicits.*
-    def traverse[F[_], O](f: T => F[O])(implicit applicative: Applicative[F]): F[Timestamped[O]] =
-      f(value).map(Timestamped(_, timestamp))
   }
 }

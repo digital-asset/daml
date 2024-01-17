@@ -18,9 +18,9 @@ import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
 class TransactionFilterValidator(
-    resolveTemplateIds: Ref.QualifiedName => ContextualizedErrorLogger => Either[
+    resolveAllUpgradablePackagesForName: (Ref.PackageName, ContextualizedErrorLogger) => Either[
       StatusRuntimeException,
-      Iterable[Ref.Identifier],
+      Iterable[Ref.PackageId],
     ],
     upgradingEnabled: Boolean,
 ) {
@@ -32,37 +32,34 @@ class TransactionFilterValidator(
       txFilter: TransactionFilter
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.TransactionFilter] = {
+  ): Either[StatusRuntimeException, domain.TransactionFilter] =
     if (txFilter.filtersByParty.isEmpty) {
       Left(invalidArgument("filtersByParty cannot be empty"))
     } else {
       for {
         _ <- validateAllFilterDefinitionsAreEitherDeprecatedOrCurrent(txFilter)
-        convertedFilters <- txFilter.filtersByParty.toList.traverse { case (k, v) =>
+        convertedFilters <- txFilter.filtersByParty.toList.traverse { case (party, filters) =>
           for {
-            key <- requireParty(k)
-            value <- validateFilters(
-              v,
-              resolveTemplateIds(_)(contextualizedErrorLogger),
+            key <- requireParty(party)
+            validatedFilters <- validateFilters(
+              filters,
+              resolveAllUpgradablePackagesForName(_, contextualizedErrorLogger),
               upgradingEnabled,
             )
-          } yield key -> value
+          } yield key -> validatedFilters
         }
       } yield domain.TransactionFilter(convertedFilters.toMap)
     }
-  }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateFilters(
       filters: Filters,
-      resolvePackageIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
-        Ref.Identifier
-      ]],
+      resolvePackageIds: Ref.PackageName => Either[StatusRuntimeException, Iterable[Ref.PackageId]],
       upgradingEnabled: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.Filters] = {
+  ): Either[StatusRuntimeException, domain.Filters] =
     filters.inclusive
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
@@ -70,7 +67,7 @@ class TransactionFilterValidator(
             validatedIdents <-
               inclusive.templateIds.toList
                 .traverse(
-                  validatedTemplateIdWithPackageIdResolutionFallback(
+                  validateIdentifierWithPackageUpgrading(
                     _,
                     includeCreatedEventBlob = false,
                     resolvePackageIds,
@@ -92,7 +89,6 @@ class TransactionFilterValidator(
             )
           )
       }
-  }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
@@ -124,22 +120,21 @@ class TransactionFilterValidator(
 
   private def validateTemplateFilter(
       filter: TemplateFilter,
-      resolvePackageIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
-        Ref.Identifier
+      resolveUpgradablePackagesForName: Ref.PackageName => Either[StatusRuntimeException, Iterable[
+        Ref.PackageId
       ]],
       upgradingEnabled: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Iterable[domain.TemplateFilter]] = {
+  ): Either[StatusRuntimeException, Iterable[domain.TemplateFilter]] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
-      validatedIds <- validatedTemplateIdWithPackageIdResolutionFallback(
+      validatedIds <- validateIdentifierWithPackageUpgrading(
         templateId,
         filter.includeCreatedEventBlob,
-        resolvePackageIds,
+        resolveUpgradablePackagesForName,
       )(upgradingEnabled)
     } yield validatedIds
-  }
 
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
