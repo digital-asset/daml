@@ -171,8 +171,6 @@
   type: jar-scala
 - target: //libs-scala/crypto:crypto
   type: jar-scala
-- target: //libs-scala/doobie-slf4j:doobie-slf4j
-  type: jar-scala
 - target: //libs-scala/grpc-test-utils:grpc-test-utils
   type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
