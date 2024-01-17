@@ -214,7 +214,6 @@ private[lf] final class ValueTranslator(
                   val oLabeledFlds =
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
-                      .filter(Function.const(config.allowFieldReordering))
 
                   // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
                   //   filled with Nones when type is Optional
@@ -317,7 +316,7 @@ private[lf] final class ValueTranslator(
 
                   val fields =
                     labeledRecordToMap(sourceElements).fold(typeError, identity _) match {
-                      case Some(labeledRecords) if config.allowFieldReordering =>
+                      case Some(labeledRecords) =>
                         targetFieldsAndTypes.map { case (lbl, typ) =>
                           labeledRecords
                             .get(lbl)
@@ -369,7 +368,7 @@ private[lf] final class ValueTranslator(
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value, Config.Legacy)
+      unsafeTranslateValue(ty, value, Config.Strict)
     )
 
   def translateValue(
@@ -386,20 +385,18 @@ private[lf] final class ValueTranslator(
 object ValueTranslator {
 
   case class Config(
-      allowFieldReordering: Boolean,
       ignorePackageId: Boolean,
       enableUpgrade: Boolean,
   )
   object Config {
     val Strict =
-      Config(allowFieldReordering = false, ignorePackageId = false, enableUpgrade = false)
+      Config(ignorePackageId = false, enableUpgrade = false)
 
-    // Lenient Legacy config, i.e. pre-upgrade
-    val Legacy =
-      Config(allowFieldReordering = true, ignorePackageId = false, enableUpgrade = false)
+    val Coerceable =
+      Config(ignorePackageId = true, enableUpgrade = false)
 
     val Upgradeable =
-      Config(allowFieldReordering = true, ignorePackageId = true, enableUpgrade = true)
+      Config(ignorePackageId = true, enableUpgrade = true)
   }
 
 }

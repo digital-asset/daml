@@ -145,7 +145,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value, svalue) =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       }
     }
@@ -163,7 +163,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases)(testCase =>
         Try(
-          unsafeTranslateValue(typ, testCase, Config.Legacy)
+          unsafeTranslateValue(typ, testCase, Config.Strict)
         ) shouldBe Success(svalue)
       )
     }
@@ -179,7 +179,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases)(value =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       )
     }
@@ -190,7 +190,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val svalue = SEnum("Mod:Color", "green", 1)
       forEvery(testCases)(value =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       )
     }
@@ -206,7 +206,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
             ),
           ),
-          Config.Legacy,
+          Config.Strict,
         )
       )
       inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
@@ -220,7 +220,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2, Config.Legacy)
+              unsafeTranslateValue(typ1, value2, Config.Strict)
             )
           }
         }
@@ -245,14 +245,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         unsafeTranslateValue(
           t"Mod:MyList",
           notTooBig,
-          Config.Legacy,
+          Config.Strict,
         )
       ) shouldBe a[Success[_]]
       Try(
         unsafeTranslateValue(
           t"Mod:MyList",
           tooBig,
-          Config.Legacy,
+          Config.Strict,
         )
       ) shouldBe failure
     }
@@ -301,7 +301,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
             valueTranslator.unsafeTranslateValue(
               typ,
               value,
-              Config.Legacy,
+              Config.Strict,
             )
           ) shouldBe a[Success[_]]
         )
@@ -328,7 +328,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           valueTranslator.unsafeTranslateValue(
             typ,
             value,
-            Config.Legacy,
+            Config.Strict,
           )
         ) shouldBe a[Success[_]]
       )
@@ -337,7 +337,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           valueTranslator.unsafeTranslateValue(
             typ,
             value,
-            Config.Legacy,
+            Config.Strict,
           )
         ) shouldBe failure
       )
