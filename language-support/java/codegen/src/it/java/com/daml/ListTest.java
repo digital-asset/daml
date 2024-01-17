@@ -357,7 +357,6 @@ public class ListTest {
                             new IllegalArgumentException(
                                 "Expected list to be of type"
                                     + " com.daml.ledger.javaapi.data.DamlList"))
-                    .getValues()
                     .stream()
                     .map(
                         f1 ->

@@ -9,7 +9,9 @@ import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Exercises;
 import com.daml.ledger.javaapi.data.codegen.Update;
+import com.google.protobuf.ByteString;
 import da.internal.template.Archive;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -128,10 +130,14 @@ public class TemplateMethodTest {
           SimpleTemplate.TEMPLATE_ID,
           "cid",
           simpleTemplateRecord,
+          ByteString.EMPTY,
+          Collections.emptyMap(),
+          Collections.emptyMap(),
           Optional.of("I agree"),
           Optional.empty(),
           Collections.emptySet(),
-          Collections.emptySet());
+          Collections.emptySet(),
+          Instant.ofEpochMilli(0));
 
   @Test
   void contractHasFromCreatedEvent() {
@@ -142,10 +148,14 @@ public class TemplateMethodTest {
             SimpleTemplate.TEMPLATE_ID,
             "cid",
             simpleTemplateRecord,
+            ByteString.EMPTY,
+            Collections.emptyMap(),
+            Collections.emptyMap(),
             Optional.empty(),
             Optional.empty(),
             Collections.emptySet(),
-            Collections.emptySet());
+            Collections.emptySet(),
+            Instant.ofEpochMilli(0));
 
     SimpleTemplate.Contract withAgreement =
         SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
