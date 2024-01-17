@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
+load("//bazel_tools:testing.bzl", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_example_dar",
@@ -41,14 +41,6 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
     for sdk_version in sdk_versions
     if versions.is_at_least("2.7.6", sdk_version)
 ] if not is_windows else None
-
-[
-    [
-        create_daml_app_dar(sdk_version),
-        create_daml_app_codegen(sdk_version),
-    ]
-    for sdk_version in sdk_versions
-]
 
 # Instead of testing the full cartesian product of all SDK versions with
 # all platform (~= Sandbox/JSON API) versions, we test the latest version of

@@ -58,9 +58,6 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
-    | CreateDamlApp { targetFolder :: FilePath }
-    -- ^ CreateDamlApp is sufficiently special that in addition to
-    -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
@@ -98,7 +95,6 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
-    , command "create-daml-app" (info (createDamlAppCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -150,10 +146,6 @@ commandParser = subparser $ fold
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
             <*> appTemplateFlag
         ]
-
-    createDamlAppCmd =
-        CreateDamlApp <$>
-        argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
 
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
@@ -501,7 +493,6 @@ runCommand = \case
                     ]
                 pure (Just templateName)
         runNew targetFolder templateNameM
-    CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->

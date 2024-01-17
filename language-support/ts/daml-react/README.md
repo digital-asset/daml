@@ -12,16 +12,6 @@ Comprehensive documentation for `@daml/react` can be found [here](https://docs.d
 
 ## Usage
 
-The best way to get you started quickly is to use the `create-daml-app` template:
-
-```
-daml new --template=create-daml-app my-project-name
-```
-
-and to read the [Quickstart Guide].
-
-[Quickstart Guide]: https://docs.daml.com/getting-started/quickstart.html
-
 To get an overview on how to build a Daml application, please read the [application architecture overview](https://docs.daml.com/app-dev/app-arch.html).
 
 To use `@daml/react` your application needs to be connected to the JSON API of a Daml ledger. If
