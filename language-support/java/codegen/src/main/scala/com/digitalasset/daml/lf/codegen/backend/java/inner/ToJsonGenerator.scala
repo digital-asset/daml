@@ -127,6 +127,14 @@ private[inner] object ToJsonGenerator {
     (methods, staticImports)
   }
 
+  def forKey(keyDamlType: Type)(implicit packagePrefixes: PackagePrefixes) =
+    MethodSpec
+      .methodBuilder("keyJsonEncoder")
+      .addModifiers(Modifier.PUBLIC)
+      .returns(classOf[JsonLfEncoder])
+      .addStatement("return this.key.map($L).orElse(null)", encoderOf(keyDamlType))
+      .build()
+
   // When a type has type parameters (generic classes), we need to tell
   // the encoder how to encode that type argument,
   // e.g. if encoding a List<T>, we need to tell it how to encode a T.

@@ -113,4 +113,12 @@ public class ContractKeysTest {
     JsonLfDecoder<Tuple2<Tuple3<String, Long, String>, Tuple4<Long, Boolean, String, Long>>> ntk =
         NestedTupleKey.Contract.keyJsonDecoder();
   }
+
+  @Test
+  void keyJsonEncoder() {
+    partyKey.keyJsonEncoder();
+    recordKey.keyJsonEncoder();
+    tupleKey.keyJsonEncoder();
+    nestedTupleKey.keyJsonEncoder();
+  }
 }

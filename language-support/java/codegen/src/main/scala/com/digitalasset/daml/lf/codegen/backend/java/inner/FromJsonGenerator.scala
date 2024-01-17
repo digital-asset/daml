@@ -209,13 +209,13 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       )
       .build()
 
-    def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) =
-      MethodSpec
-        .methodBuilder("keyJsonDecoder")
-        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-        .returns(decoderTypeName(toJavaTypeName(damlType)))
-        .addStatement("return $L", jsonDecoderForType(damlType))
-        .build()
+  def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) =
+    MethodSpec
+      .methodBuilder("keyJsonDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(decoderTypeName(toJavaTypeName(damlType)))
+      .addStatement("return $L", jsonDecoderForType(damlType))
+      .build()
 
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {
     val jsonDecoder = MethodSpec
