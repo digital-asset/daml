@@ -3,6 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.lf.typesig.Type
 import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
@@ -208,6 +209,14 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       )
       .build()
 
+    def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) =
+      MethodSpec
+        .methodBuilder("keyJsonDecoder")
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(decoderTypeName(toJavaTypeName(damlType)))
+        .addStatement("return $L", jsonDecoderForType(damlType))
+        .build()
+
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {
     val jsonDecoder = MethodSpec
       .methodBuilder("jsonDecoder")
@@ -219,7 +228,6 @@ private[inner] object FromJsonGenerator extends StrictLogging {
     Seq(jsonDecoder, fromJsonString(className, IndexedSeq.empty[String]))
   }
 
-  import com.daml.lf.typesig.Type
   private def jsonDecoderForType(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {

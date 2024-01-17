@@ -5,6 +5,7 @@ package com.daml;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import da.types.Tuple2;
 import da.types.Tuple3;
 import da.types.Tuple4;
@@ -102,5 +103,14 @@ public class ContractKeysTest {
     assertEquals(nestedTupleKey.key.get()._2._2.booleanValue(), true);
     assertEquals(nestedTupleKey.key.get()._2._3, "foobar");
     assertEquals(nestedTupleKey.key.get()._2._4.longValue(), 0L);
+  }
+
+  @Test
+  void keyJsonDecoder() {
+    JsonLfDecoder<String> pk = PartyKey.Contract.keyJsonDecoder();
+    JsonLfDecoder<PartyAndInt> rk = RecordKey.Contract.keyJsonDecoder();
+    JsonLfDecoder<Tuple2<String, Long>> tk = TupleKey.Contract.keyJsonDecoder();
+    JsonLfDecoder<Tuple2<Tuple3<String, Long, String>, Tuple4<Long, Boolean, String, Long>>> ntk =
+        NestedTupleKey.Contract.keyJsonDecoder();
   }
 }

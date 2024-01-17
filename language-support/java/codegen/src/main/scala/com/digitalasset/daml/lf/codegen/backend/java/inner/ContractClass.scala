@@ -169,6 +169,8 @@ object ContractClass {
 
       classBuilder.addMethod(constructor)
 
+      key.foreach(keyDamlType => classBuilder.addMethod(FromJsonGenerator.forKey(keyDamlType)))
+
       classBuilder
         .addMethod(generateGetCompanion(templateClassName))
       new Builder(
