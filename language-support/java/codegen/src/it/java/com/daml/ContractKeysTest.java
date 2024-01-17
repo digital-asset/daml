@@ -106,19 +106,11 @@ public class ContractKeysTest {
   }
 
   @Test
-  void keyJsonDecoder() {
-    JsonLfDecoder<String> pk = PartyKey.Contract.keyJsonDecoder();
-    JsonLfDecoder<PartyAndInt> rk = RecordKey.Contract.keyJsonDecoder();
-    JsonLfDecoder<Tuple2<String, Long>> tk = TupleKey.Contract.keyJsonDecoder();
-    JsonLfDecoder<Tuple2<Tuple3<String, Long, String>, Tuple4<Long, Boolean, String, Long>>> ntk =
-        NestedTupleKey.Contract.keyJsonDecoder();
-  }
-
-  @Test
-  void keyJsonEncoder() {
-    partyKey.keyJsonEncoder();
-    recordKey.keyJsonEncoder();
-    tupleKey.keyJsonEncoder();
-    nestedTupleKey.keyJsonEncoder();
+  void roundTripKeyThroughJson() throws JsonLfDecoder.Error {
+    assertEquals(partyKey.key.get(), PartyKey.Contract.keyFromJson(partyKey.keyToJson()));
+    assertEquals(recordKey.key.get(), RecordKey.Contract.keyFromJson(recordKey.keyToJson()));
+    assertEquals(tupleKey.key.get(), TupleKey.Contract.keyFromJson(tupleKey.keyToJson()));
+    assertEquals(
+        nestedTupleKey.key.get(), NestedTupleKey.Contract.keyFromJson(nestedTupleKey.keyToJson()));
   }
 }

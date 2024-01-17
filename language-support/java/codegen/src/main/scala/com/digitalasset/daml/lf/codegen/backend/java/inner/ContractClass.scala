@@ -170,8 +170,8 @@ object ContractClass {
       classBuilder.addMethod(constructor)
 
       key.foreach { keyDamlType =>
-        classBuilder.addMethod(FromJsonGenerator.forKey(keyDamlType))
-        classBuilder.addMethod(ToJsonGenerator.forKey(keyDamlType))
+        classBuilder.addMethods(FromJsonGenerator.forKey(keyDamlType).asJava)
+        classBuilder.addMethods(ToJsonGenerator.forKey(keyDamlType).asJava)
       }
 
       classBuilder
