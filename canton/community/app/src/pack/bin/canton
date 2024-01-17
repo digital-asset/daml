@@ -35,7 +35,7 @@ if [ -z "$PROG_HOME" ] ; then
   PROG_HOME=`dirname "$PRG"`/..
 
   # make it fully qualified
-  PROG_HOME=`cd "$PROG_HOME" && pwd`
+  PROG_HOME=`cd "$PROG_HOME" > /dev/null && pwd`
 
   cd "$saveddir"
 fi

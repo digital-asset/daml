@@ -79,7 +79,7 @@ private[backend] object AppendOnlySchema {
       BooleanOptional(extractor)
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
-    def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+    def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int, ordering: Ordering[FROM])(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM]
   }
@@ -317,6 +317,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.idempotentInsert(
         tableName = "packages",
         keyFieldIndex = 0,
+        ordering = Ordering.by[DbDto.Package, String](_.package_id),
       )(
         "package_id" -> fieldStrategy.string(_ => _.package_id),
         "upload_id" -> fieldStrategy.string(_ => _.upload_id),

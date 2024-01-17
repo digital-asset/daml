@@ -128,7 +128,7 @@ private[participant] class ConflictDetector(
   private[this] val directExecutionContext: DirectExecutionContext =
     DirectExecutionContext(noTracingLogger)
 
-  private[this] val initialTransferCounter = TransferCounter.forCreatedContract(protocolVersion)
+  private[this] val initialTransferCounter = Some(TransferCounter.Genesis)
 
   /** Registers a pending activeness set.
     * This marks all contracts and keys in the `activenessSet` with a pending activeness check.

@@ -297,7 +297,6 @@ class ConfirmationResponseFactory(
                   .tryCreate(
                     requestId,
                     participantId,
-                    Some(viewValidationResult.view.view.viewHash),
                     Some(viewPosition),
                     localVerdict,
                     Some(transactionValidationResult.transactionId.toRootHash),
@@ -340,10 +339,9 @@ class ConfirmationResponseFactory(
         .tryCreate(
           requestId,
           participantId,
-          // We don't have to specify a viewHash or viewPosition.
+          // We don't have to specify a viewPosition.
           // The mediator will interpret this as a rejection
           // for all views and on behalf of all declared confirming parties hosted by the participant.
-          None,
           None,
           logged(
             requestId,

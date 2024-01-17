@@ -37,7 +37,6 @@ import io.prometheus.client.dropwizard.DropwizardExports
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 
 final case class MetricsConfig(
@@ -51,7 +50,7 @@ object MetricsReporterConfig {
   object DeprecatedImplicits {
     implicit def deprecatedDomainBaseConfig[X <: MetricsReporterConfig]: DeprecatedFieldsFor[X] =
       new DeprecatedFieldsFor[MetricsReporterConfig] {
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
+        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
           DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("jmx")),
           DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("csv")),
           DeprecatedConfigUtils
@@ -86,7 +85,6 @@ object MetricsPrefix {
     case NoPrefix => None
     case Static(prefix) => Some(prefix)
   }
-
 }
 
 object MetricsConfig {
@@ -131,23 +129,20 @@ final case class MetricsFactory(
     reportExecutionContextMetrics: Boolean,
 ) extends AutoCloseable {
 
-  @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
-  val metricsFactory: MetricHandle.MetricsFactory =
-    createUnlabeledMetricsFactory(MetricsContext.Empty, registry)
-
-  @nowarn("cat=deprecation")
+  val metricsFactory: MetricHandle.LabeledMetricsFactory =
+    createDropwizardMetricsFactory(MetricsContext.Empty, registry)
   private val envMetrics = new EnvMetrics(metricsFactory)
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val domains = TrieMap[String, DomainMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
   private val mediators = TrieMap[String, MediatorNodeMetrics]()
-  private val allNodeMetrics: Seq[TrieMap[String, _]] =
+  private val allNodeMetrics: Seq[TrieMap[String, ?]] =
     Seq(participants, domains, sequencers, mediators)
-  private def nodeMetricsExcept(toExclude: TrieMap[String, _]): Seq[TrieMap[String, _]] =
+  private def nodeMetricsExcept(toExclude: TrieMap[String, ?]): Seq[TrieMap[String, ?]] =
     allNodeMetrics filterNot (_ eq toExclude)
 
   val executionServiceMetrics: ExecutorServiceMetrics = new ExecutorServiceMetrics(
-    createLabeledMetricsFactory(MetricsContext.Empty)
+    createOpenTelemetryMetricsFactory(MetricsContext.Empty)
   )
 
   object benchmark extends MetricsGroup(MetricName(MetricsFactory.prefix :+ "benchmark"), registry)
@@ -176,8 +171,8 @@ final case class MetricsFactory(
         new ParticipantMetrics(
           name,
           MetricsFactory.prefix,
-          createUnlabeledMetricsFactory(participantMetricsContext, participantRegistry),
-          createLabeledMetricsFactory(
+          createDropwizardMetricsFactory(participantMetricsContext, participantRegistry),
+          createOpenTelemetryMetricsFactory(
             participantMetricsContext
           ),
           participantRegistry,
@@ -195,10 +190,10 @@ final case class MetricsFactory(
         val metricName = deduplicateName(name, "domain", domains)
         val domainMetricsContext = MetricsContext("domain" -> name, "component" -> "domain")
         val labeledMetricsFactory =
-          createLabeledMetricsFactory(domainMetricsContext)
+          createOpenTelemetryMetricsFactory(domainMetricsContext)
         new DomainMetrics(
           MetricsFactory.prefix,
-          createUnlabeledMetricsFactory(domainMetricsContext, newRegistry(metricName)),
+          createDropwizardMetricsFactory(domainMetricsContext, newRegistry(metricName)),
           new DamlGrpcServerMetrics(labeledMetricsFactory, "domain"),
           new DMHealth(labeledMetricsFactory),
         )
@@ -212,12 +207,12 @@ final case class MetricsFactory(
         val metricName = deduplicateName(name, "sequencer", sequencers)
         val sequencerMetricsContext =
           MetricsContext("sequencer" -> name, "component" -> "sequencer")
-        val labeledMetricsFactory = createLabeledMetricsFactory(
+        val labeledMetricsFactory = createOpenTelemetryMetricsFactory(
           sequencerMetricsContext
         )
         new SequencerMetrics(
           MetricsFactory.prefix,
-          createUnlabeledMetricsFactory(sequencerMetricsContext, newRegistry(metricName)),
+          createDropwizardMetricsFactory(sequencerMetricsContext, newRegistry(metricName)),
           new DamlGrpcServerMetrics(labeledMetricsFactory, "sequencer"),
           new DMHealth(labeledMetricsFactory),
         )
@@ -231,10 +226,10 @@ final case class MetricsFactory(
         val metricName = deduplicateName(name, "mediator", mediators)
         val mediatorMetricsContext = MetricsContext("mediator" -> name, "component" -> "mediator")
         val labeledMetricsFactory =
-          createLabeledMetricsFactory(mediatorMetricsContext)
+          createOpenTelemetryMetricsFactory(mediatorMetricsContext)
         new MediatorNodeMetrics(
           MetricsFactory.prefix,
-          createUnlabeledMetricsFactory(mediatorMetricsContext, newRegistry(metricName)),
+          createDropwizardMetricsFactory(mediatorMetricsContext, newRegistry(metricName)),
           new DamlGrpcServerMetrics(labeledMetricsFactory, "mediator"),
           new DMHealth(labeledMetricsFactory),
         )
@@ -247,13 +242,13 @@ final case class MetricsFactory(
   private def deduplicateName(
       name: String,
       nodeType: String,
-      nodesToExclude: TrieMap[String, _],
+      nodesToExclude: TrieMap[String, ?],
   ): String =
     if (nodeMetricsExcept(nodesToExclude).exists(_.keySet.contains(name)))
       s"$nodeType-$name"
     else name
 
-  private def createLabeledMetricsFactory(extraContext: MetricsContext) = {
+  private def createOpenTelemetryMetricsFactory(extraContext: MetricsContext) = {
     factoryType match {
       case MetricsFactoryType.InMemory(provider) =>
         provider(extraContext)
@@ -267,14 +262,12 @@ final case class MetricsFactory(
     }
   }
 
-  private def createUnlabeledMetricsFactory(
+  private def createDropwizardMetricsFactory(
       extraContext: MetricsContext,
       registry: MetricRegistry,
-  ) = {
-    factoryType match {
-      case MetricsFactoryType.InMemory(builder) => builder(extraContext)
-      case MetricsFactoryType.External => new CantonDropwizardMetricsFactory(registry)
-    }
+  ) = factoryType match {
+    case MetricsFactoryType.InMemory(builder) => builder(extraContext)
+    case MetricsFactoryType.External => new CantonDropwizardMetricsFactory(registry)
   }
 
   /** returns the documented metrics by possibly creating fake participants / domains */
@@ -378,11 +371,9 @@ class HealthMetrics(prefix: MetricName, registry: metrics.MetricRegistry)
     extends MetricsGroup(prefix, registry) {
 
   val pingLatency: metrics.Timer = timer("ping-latency")
-
 }
 
 abstract class MetricsGroup(prefix: MetricName, registry: metrics.MetricRegistry) {
 
   def timer(name: String): metrics.Timer = registry.timer(MetricName(prefix :+ name))
-
 }

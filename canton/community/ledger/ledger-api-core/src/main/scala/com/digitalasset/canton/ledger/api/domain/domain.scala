@@ -88,9 +88,6 @@ final case class Commands(
     commands: LfCommands,
     disclosedContracts: ImmArray[DisclosedContract],
     domainId: Option[DomainId] = None,
-    packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
-    // Used to indicate the package map against which package resolution was performed.
-    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
 ) extends PrettyPrinting {
 
   override def pretty: Pretty[Commands] = {

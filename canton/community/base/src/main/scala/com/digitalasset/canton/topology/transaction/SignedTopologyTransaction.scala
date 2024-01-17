@@ -15,11 +15,10 @@ import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWithOptionalValidationCompanion,
+  HasMemoizedProtocolVersionedWrapperCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
-  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 import com.google.common.annotations.VisibleForTesting
@@ -91,17 +90,15 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
 }
 
 object SignedTopologyTransaction
-    extends HasMemoizedProtocolVersionedWithOptionalValidationCompanion[
-      SignedTopologyTransaction[
-        TopologyChangeOp
-      ]
-    ] {
+    extends HasMemoizedProtocolVersionedWrapperCompanion[SignedTopologyTransaction[
+      TopologyChangeOp
+    ]] {
   override val name: String = "SignedTopologyTransaction"
 
   type GenericSignedTopologyTransaction = SignedTopologyTransaction[TopologyChangeOp]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SignedTopologyTransaction)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.SignedTopologyTransaction)(
       supportedProtoVersionMemoized(_)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -167,17 +164,13 @@ object SignedTopologyTransaction
       EitherT.rightT(signedTx)
   }
 
-  private def fromProtoV0(
-      protocolVersionValidation: ProtocolVersionValidation,
-      transactionP: v0.SignedTopologyTransaction,
-  )(
+  private def fromProtoV0(transactionP: v0.SignedTopologyTransaction)(
       bytes: ByteString
   ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
     for {
-      transaction <-
-        TopologyTransaction.fromByteString(protocolVersionValidation)(
-          transactionP.transaction
-        )
+      transaction <- TopologyTransaction.fromByteStringUnsafe(
+        transactionP.transaction
+      ) // TODO(#12626) – try with context
       publicKey <- ProtoConverter.parseRequired(
         SigningPublicKey.fromProtoV0,
         "key",
@@ -198,9 +191,12 @@ object SignedTopologyTransaction
   def createGetResultDomainTopologyTransaction
       : GetResult[SignedTopologyTransaction[TopologyChangeOp]] =
     GetResult { r =>
-      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
-        throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
+      fromByteStringUnsafe(
+        r.<<[ByteString]
       )
+        .valueOr(err =>
+          throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
+        )
     }
 
   implicit def setParameterTopologyTransaction(implicit

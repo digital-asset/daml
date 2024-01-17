@@ -65,7 +65,6 @@ object HasProtoTraceContext {
 class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
     context: CancellableContext,
     callHandler: Traced[R] => Future[Either[E, Unit]],
-    metrics: SequencerClientMetrics,
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -140,7 +139,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
       AsyncCloseable(
         "grpc-sequencer-subscription",
         completionF,
-        timeouts.shutdownShort.duration,
+        timeouts.shutdownShort,
         onTimeout = onTimeout,
       ),
     )
@@ -257,27 +256,6 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
 }
 
 object GrpcSequencerSubscription {
-  def fromSubscriptionResponse[E](
-      context: CancellableContext,
-      handler: SerializedEventHandler[E],
-      metrics: SequencerClientMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(protocolVersion: ProtocolVersion)(implicit
-      executionContext: ExecutionContext
-  ): GrpcSequencerSubscription[E, v0.SubscriptionResponse] =
-    new GrpcSequencerSubscription(
-      context,
-      deserializingSubscriptionHandler(
-        handler,
-        (value, traceContext) =>
-          SubscriptionResponse.fromProtoV0(protocolVersion)(value)(traceContext),
-      ),
-      metrics,
-      timeouts,
-      loggerFactory,
-    )
-
   def fromVersionedSubscriptionResponse[E](
       context: CancellableContext,
       handler: SerializedEventHandler[E],
@@ -294,7 +272,6 @@ object GrpcSequencerSubscription {
         (value, traceContext) =>
           SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(value)(traceContext),
       ),
-      metrics,
       timeouts,
       loggerFactory,
     )

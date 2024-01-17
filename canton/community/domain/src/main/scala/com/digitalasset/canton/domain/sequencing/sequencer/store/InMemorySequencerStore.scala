@@ -11,9 +11,9 @@ import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore.CheckpointDataAtCounter
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -22,6 +22,7 @@ import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -157,15 +158,6 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
   ): Future[ReadEvents] = Future.successful {
     import scala.jdk.CollectionConverters.*
 
-    def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean = event match {
-      case DeliverStoreEvent(sender, messageId, recipients, payload, signingTimestampO, _trace) =>
-        recipients.contains(
-          member
-        ) // only if they're a recipient (sender should already be a recipient)
-      case DeliverErrorStoreEvent(sender, _messageId, _message, _error, _trace) =>
-        sender == member // only if we're the sender
-    }
-
     def lookupPayloadForDeliver(event: Sequenced[PayloadId]): Sequenced[Payload] =
       event.map { payloadId =>
         val storedPayload = Option(payloads.get(payloadId.unwrap))
@@ -196,6 +188,16 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
         SafeWatermark(Some(watermark))
     }
   }
+
+  private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
+    event match {
+      case DeliverStoreEvent(sender, messageId, recipients, payload, signingTimestampO, _trace) =>
+        recipients.contains(
+          member
+        ) // only if they're a recipient (sender should already be a recipient)
+      case DeliverErrorStoreEvent(sender, _messageId, _error, _trace) =>
+        sender == member // only if we're the sender
+    }
 
   /** No implementation as only required for crash recovery */
   override def deleteEventsPastWatermark(instanceIndex: Int)(implicit
@@ -378,22 +380,27 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
   override def status(
       now: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
-    Future.successful {
-      val disabledClients = disabledClientsRef.get()
+    Future.successful(internalStatus(now))
 
-      SequencerPruningStatus(
-        lowerBound = lowerBound.get().getOrElse(CantonTimestamp.Epoch),
-        now = now,
-        members = members.map { case (member, RegisteredMember(memberId, registeredFrom)) =>
+  private def internalStatus(
+      now: CantonTimestamp
+  ): SequencerPruningStatus = {
+    val disabledClients = disabledClientsRef.get()
+
+    SequencerPruningStatus(
+      lowerBound = lowerBound.get().getOrElse(CantonTimestamp.Epoch),
+      now = now,
+      members = members.collect {
+        case (member, RegisteredMember(memberId, registeredFrom)) if (registeredFrom <= now) =>
           SequencerMemberStatus(
             member,
             registeredFrom,
             lastAcknowledged = acknowledgements.asScala.get(memberId),
             enabled = !disabledClients.members.contains(member),
           )
-        }.toSeq,
-      )
-    }
+      }.toSeq,
+    )
+  }
 
   /** This store does not support multiple concurrent instances so will do nothing. */
   override def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
@@ -446,6 +453,56 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
     )
 
   override def close(): Unit = ()
+
+  override def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[EphemeralState] = {
+
+    val watermarkO = watermark.get()
+    val disabledClients = disabledClientsRef.get()
+
+    val memberCheckpoints = watermarkO.fold[Map[Member, CounterCheckpoint]](Map()) { watermark =>
+      val registeredMembers = members.filter { case (member, RegisteredMember(_, registeredFrom)) =>
+        !disabledClients.members.contains(member) && registeredFrom <= timestamp
+      }.toSeq
+      val validEvents = events
+        .headMap(if (watermark < timestamp) watermark else timestamp, true)
+        .asScala
+        .toSeq
+
+      registeredMembers.map { case (member, RegisteredMember(id, _)) =>
+        val checkpointO = for {
+          memberCheckpoints <- checkpoints.get(id)
+          checkpoint <- memberCheckpoints.asScala.toSeq.findLast(e => e._2.timestamp <= timestamp)
+        } yield checkpoint
+        val memberEvents = validEvents.filter(e =>
+          isMemberRecipient(id)(e._2) && checkpointO.fold(true)(_._2.timestamp < e._1)
+        )
+        def counter(c: Int): SequencerCounter = Counter[SequencerCounterDiscriminator](c.toLong)
+
+        val checkpoint = CounterCheckpoint(
+          checkpointO.map(_._1).getOrElse(counter(-1)) + memberEvents.size,
+          memberEvents
+            .map(_._1)
+            .maxOption
+            .orElse(checkpointO.map(_._2.timestamp))
+            .getOrElse(CantonTimestamp.MinValue),
+          checkpointO.flatMap(_._2.latestTopologyClientTimestamp),
+        )
+
+        (member, checkpoint)
+      }.toMap
+    }
+    Future.successful(
+      EphemeralState(
+        Map(): InFlightAggregations,
+        internalStatus(timestamp).toInternal,
+        memberCheckpoints,
+        Set(),
+        Map(),
+      )
+    )
+  }
 }
 
 object InMemorySequencerStore {

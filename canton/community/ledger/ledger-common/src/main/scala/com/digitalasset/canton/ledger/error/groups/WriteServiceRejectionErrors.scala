@@ -59,53 +59,6 @@ object WriteServiceRejectionErrors extends WriteServiceRejectionErrorGroup {
       override def resources: Seq[(ErrorResource, String)] =
         parties.map((ErrorResource.Party, _)).toSeq
     }
-
-    @deprecated(
-      "Corresponds to transaction submission rejections that are not produced anymore.",
-      since = "1.18.0",
-    )
-    final case class RejectDeprecated(
-        description: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(
-          cause = s"Party not known on ledger: $description"
-        )
-  }
-
-  @Explanation("An invalid transaction submission was not detected by the participant.")
-  @Resolution("Contact support.")
-  @deprecated(
-    "Corresponds to transaction submission rejections that are not produced anymore.",
-    since = "1.18.0",
-  )
-  object Disputed
-      extends ErrorCode(
-        id = "DISPUTED",
-        ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
-      ) {
-    final case class Reject(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(
-          cause = s"Disputed: $details"
-        )
-  }
-
-  @Explanation(
-    "The Participant node did not have sufficient resource quota to submit the transaction."
-  )
-  @Resolution(
-    "Inspect the error message and retry after after correcting the underlying issue."
-  )
-  @deprecated(
-    "Corresponds to transaction submission rejections that are not produced anymore.",
-    since = "1.18.0",
-  )
-  object OutOfQuota
-      extends ErrorCode(id = "OUT_OF_QUOTA", ErrorCategory.ContentionOnSharedResources) {
-    final case class Reject(reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = reason)
   }
 
   @Explanation("A submitting party is not authorized to act through the participant.")

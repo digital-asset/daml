@@ -97,9 +97,6 @@ trait SortedReconciliationIntervalsHelpers {
   protected def fromEpoch(seconds: Long): CantonTimestamp =
     CantonTimestamp.Epoch + NonNegativeFiniteDuration.tryOfSeconds(seconds)
 
-  protected def fromEpochSecond(seconds: Long): CantonTimestampSecond =
-    CantonTimestampSecond.ofEpochSecond(seconds)
-
   protected def mkCommitmentPeriod(times: (Long, Long)): CommitmentPeriod = {
     val (after, beforeAndAt) = times
 
@@ -137,9 +134,7 @@ trait SortedReconciliationIntervalsHelpers {
       )
     }
 
-    SortedReconciliationIntervalsProvider(
-      staticDomainParameters =
-        BaseTest.defaultStaticDomainParametersWith(reconciliationInterval = reconciliationInterval),
+    new SortedReconciliationIntervalsProvider(
       topologyClient = topologyClient,
       futureSupervisor = FutureSupervisor.Noop,
       loggerFactory = loggerFactory,

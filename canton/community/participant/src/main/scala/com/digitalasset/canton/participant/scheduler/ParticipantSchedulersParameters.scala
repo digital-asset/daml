@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.scheduler
 
 import cats.Eval
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.ledger.api.CantonAdminToken
 import com.digitalasset.canton.participant.store.MultiDomainEventLog
@@ -17,4 +18,5 @@ final case class ParticipantSchedulersParameters(
     storage: Storage, // storage to build the pruning scheduler store that tracks the current schedule
     adminToken: CantonAdminToken, // the admin token is needed to invoke pruning via the ledger-api
     pruningConfig: ParticipantStoreConfig, // pruning configuration
+    batchingConfig: BatchingConfig, // batching configuration
 )

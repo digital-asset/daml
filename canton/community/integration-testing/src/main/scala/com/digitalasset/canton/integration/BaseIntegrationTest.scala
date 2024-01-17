@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
 import com.digitalasset.canton.config.NonNegativeDuration
-import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
+import com.digitalasset.canton.console.{CommandFailure, ParticipantReferenceCommon}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.{
@@ -72,19 +72,20 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
   ): Assertion =
     loggerFactory.assertThrowsAndLogs[CommandFailure](
       within,
-      assertions.map(assertion => { (entry: LogEntry) =>
-        assertion(entry)
-        entry.commandFailureMessage
-        succeed
-      }): _*
+      assertions
+        .map(assertion => { (entry: LogEntry) =>
+          assertion(entry)
+          entry.commandFailureMessage
+          succeed
+        }) *,
     )
 
   /** Similar to [[com.digitalasset.canton.console.commands.ParticipantAdministration#ping]]
     * But unlike `ping`, this version mixes nicely with `eventually`.
     */
   def assertPingSucceeds(
-      sender: ParticipantReference,
-      receiver: ParticipantReference,
+      sender: ParticipantReferenceCommon,
+      receiver: ParticipantReferenceCommon,
       timeoutMillis: Long = 20000,
       workflowId: String = "",
       id: String = "",
@@ -102,8 +103,8 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     * But unlike `ping`, this version mixes nicely with `eventually` and it waits until all pong contracts have been archived.
     */
   def assertPingSucceedsAndIsClean(
-      sender: ParticipantReference,
-      receiver: ParticipantReference,
+      sender: ParticipantReferenceCommon,
+      receiver: ParticipantReferenceCommon,
       timeoutMillis: Long = 20000,
       workflowId: String = "",
       id: String = "",

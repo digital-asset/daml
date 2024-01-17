@@ -63,7 +63,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
           Batch(
             List(
               ClosedEnvelope
-                .tryCreate(message, Recipients.cc(member), Seq.empty, testedProtocolVersion)
+                .create(message, Recipients.cc(member), Seq.empty, testedProtocolVersion)
             ),
             testedProtocolVersion,
           ),
@@ -80,7 +80,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
 
     private def toSubscriptionResponseV0(event: OrdinarySerializedEvent) =
       v0.SubscriptionResponse(
-        signedSequencedEvent = Some(event.signedEvent.toProtoV0),
+        signedSequencedEvent = Some(event.signedEvent.toProtoV1),
         Some(SerializableTraceContext(event.traceContext).toProtoV0),
       )
 

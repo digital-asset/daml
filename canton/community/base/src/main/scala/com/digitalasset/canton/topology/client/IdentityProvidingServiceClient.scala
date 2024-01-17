@@ -31,7 +31,6 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessingSubscriberCommon,
   TopologyTransactionProcessingSubscriberX,
 }
-import com.digitalasset.canton.topology.transaction.LegalIdentityClaimEvidence.X509Cert
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -328,23 +327,23 @@ trait KeyTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
   /** returns newest signing public key */
-  def signingKey(owner: KeyOwner): Future[Option[SigningPublicKey]]
+  def signingKey(owner: Member): Future[Option[SigningPublicKey]]
 
   /** returns all signing keys */
-  def signingKeys(owner: KeyOwner): Future[Seq[SigningPublicKey]]
+  def signingKeys(owner: Member): Future[Seq[SigningPublicKey]]
 
   /** returns newest encryption public key */
-  def encryptionKey(owner: KeyOwner): Future[Option[EncryptionPublicKey]]
+  def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]]
 
   /** returns all encryption keys */
-  def encryptionKeys(owner: KeyOwner): Future[Seq[EncryptionPublicKey]]
+  def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]]
 
   /** Returns a list of all known parties on this domain */
   def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]]
+  ): Future[Map[Member, KeyCollection]]
 
 }
 
@@ -360,16 +359,20 @@ trait ParticipantTopologySnapshotClient {
   /** Checks whether the provided participant exists and is active */
   def isParticipantActive(participantId: ParticipantId): Future[Boolean]
 
+  /** Checks whether the provided participant exists, is active and can login at the given point in time
+    *
+    * (loginAfter is before timestamp)
+    */
+  def isParticipantActiveAndCanLoginAt(
+      participantId: ParticipantId,
+      timestamp: CantonTimestamp,
+  ): Future[Boolean]
+
 }
 
 /** The subset of the topology client providing mediator state information */
 trait MediatorDomainStateClient {
   this: BaseTopologySnapshotClient =>
-
-  /** returns the list of currently known mediators */
-  @deprecated(since = "2.7", message = "Use mediatorGroups instead.")
-  final def mediators(): Future[Seq[MediatorId]] =
-    mediatorGroups().map(_.flatMap(mg => mg.active ++ mg.passive))
 
   def mediatorGroups(): Future[Seq[MediatorGroup]]
 
@@ -421,25 +424,6 @@ trait SequencerDomainStateClient {
 
   /** returns the sequencer group */
   def sequencerGroup(): Future[Option[SequencerGroup]]
-}
-
-// this can be removed with 3.0
-@Deprecated(since = "3.0")
-trait CertificateSnapshotClient {
-
-  this: BaseTopologySnapshotClient =>
-
-  @Deprecated(since = "3.0.0")
-  def hasParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    findParticipantCertificate(participantId).map(_.isDefined)
-
-  @Deprecated(since = "3.0.0")
-  def findParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[X509Cert]]
-
 }
 
 trait VettedPackagesSnapshotClient {
@@ -513,7 +497,6 @@ trait TopologySnapshot
     with BaseTopologySnapshotClient
     with ParticipantTopologySnapshotClient
     with KeyTopologySnapshotClient
-    with CertificateSnapshotClient
     with VettedPackagesSnapshotClient
     with MediatorDomainStateClient
     with SequencerDomainStateClient
@@ -619,18 +602,18 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
   this: BaseTopologySnapshotClient =>
 
   /** abstract loading function used to obtain the full key collection for a key owner */
-  def allKeys(owner: KeyOwner): Future[KeyCollection]
+  def allKeys(owner: Member): Future[KeyCollection]
 
-  override def signingKey(owner: KeyOwner): Future[Option[SigningPublicKey]] =
+  override def signingKey(owner: Member): Future[Option[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys.lastOption)
 
-  override def signingKeys(owner: KeyOwner): Future[Seq[SigningPublicKey]] =
+  override def signingKeys(owner: Member): Future[Seq[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys)
 
-  override def encryptionKey(owner: KeyOwner): Future[Option[EncryptionPublicKey]] =
+  override def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys.lastOption)
 
-  override def encryptionKeys(owner: KeyOwner): Future[Seq[EncryptionPublicKey]] =
+  override def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys)
 
 }
@@ -643,11 +626,25 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   override def isParticipantActive(participantId: ParticipantId): Future[Boolean] =
     participantState(participantId).map(_.permission.isActive)
 
+  override def isParticipantActiveAndCanLoginAt(
+      participantId: ParticipantId,
+      timestamp: CantonTimestamp,
+  ): Future[Boolean] =
+    participantState(participantId).map { attributes =>
+      attributes.permission.isActive && attributes.loginAfter.forall(_ <= timestamp)
+    }
+
   def findParticipantState(participantId: ParticipantId): Future[Option[ParticipantAttributes]]
 
   def participantState(participantId: ParticipantId): Future[ParticipantAttributes] =
     findParticipantState(participantId).map(
-      _.getOrElse(ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary))
+      _.getOrElse(
+        ParticipantAttributes(
+          ParticipantPermission.Disabled,
+          TrustLevel.Ordinary,
+          loginAfter = None,
+        )
+      )
     )
 
   /** abstract loading function used to load the participant state for the given set of participant-ids */

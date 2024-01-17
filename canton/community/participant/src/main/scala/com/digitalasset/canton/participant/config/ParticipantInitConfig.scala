@@ -9,19 +9,14 @@ import com.digitalasset.canton.config.{
   InitConfigBase,
   NonNegativeFiniteDuration,
 }
-import com.digitalasset.canton.participant.config.ParticipantInitConfig.{
-  ParticipantLedgerApiInitConfig,
-  ParticipantParametersInitConfig,
-}
+import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 
 /** Init configuration specific to participant nodes
   * @param ledgerApi ledgerApi related init config
-  * @param parameters participant init config parameters
   */
 final case class ParticipantInitConfig(
     identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
     ledgerApi: ParticipantLedgerApiInitConfig = ParticipantLedgerApiInitConfig(),
-    parameters: ParticipantParametersInitConfig = ParticipantParametersInitConfig(),
 ) extends InitConfigBase
 
 object ParticipantInitConfig {
@@ -39,11 +34,6 @@ object ParticipantInitConfig {
             "identity.generate-legal-identity-certificate",
           )
         )
-
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("parameters.unique-contract-keys", "2.7.0")
-        )
       }
   }
 
@@ -53,13 +43,5 @@ object ParticipantInitConfig {
     */
   final case class ParticipantLedgerApiInitConfig(
       maxDeduplicationDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7L)
-  )
-
-  /** Init configuration of the ledger API for participant nodes
-    * @param uniqueContractKeys Whether the participant can connect only to a single domain that has [[com.digitalasset.canton.protocol.StaticDomainParameters.uniqueContractKeys]] set
-    *                           This parameter is now deprecated and ignored for service versions targeting the next major version
-    */
-  final case class ParticipantParametersInitConfig(
-      uniqueContractKeys: Boolean = true
   )
 }

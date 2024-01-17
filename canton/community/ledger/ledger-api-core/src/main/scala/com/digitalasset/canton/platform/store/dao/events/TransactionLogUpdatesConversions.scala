@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.event as apiEvent
 import com.daml.ledger.api.v2.reassignment.{
@@ -41,7 +40,7 @@ import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] object TransactionLogUpdatesConversions {
+private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def filter(
         wildcardParties: Set[Party],

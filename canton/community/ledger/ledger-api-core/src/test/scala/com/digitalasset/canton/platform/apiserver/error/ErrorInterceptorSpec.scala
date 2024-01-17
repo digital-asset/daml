@@ -5,21 +5,19 @@ package com.digitalasset.canton.platform.apiserver.error
 
 import com.daml.error.*
 import com.daml.error.utils.ErrorDetails
-import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.*
 import io.grpc.stub.StreamObserver
-import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.scalatest.*
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
@@ -106,7 +104,7 @@ final class ErrorInterceptorSpec
       }
     }
 
-    "for an server streaming Pekko endpoint" - {
+    "for a server streaming endpoint" - {
 
       "signal server shutting down" in {
         val service =
@@ -116,7 +114,7 @@ final class ErrorInterceptorSpec
             loggerFactory = loggerFactory,
           )
         service.close()
-        exerciseStreamingPekkoEndpoint(service)
+        exerciseStreamingEndpoint(service)
           .map { t =>
             assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
           }
@@ -126,7 +124,7 @@ final class ErrorInterceptorSpec
         "inside a Stream" in {
           loggerFactory.assertLogs(
             within = {
-              exerciseStreamingPekkoEndpoint(
+              exerciseStreamingEndpoint(
                 new HelloServiceFailing(
                   useSelfService = false,
                   errorInsideFutureOrStream = true,
@@ -141,7 +139,7 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingPekkoEndpoint(
+          exerciseStreamingEndpoint(
             new HelloServiceFailing(
               useSelfService = false,
               errorInsideFutureOrStream = false,
@@ -152,7 +150,7 @@ final class ErrorInterceptorSpec
 
         "outside a Stream by directly calling stream-observer.onError" in {
           loggerFactory.assertLogs(
-            exerciseStreamingPekkoEndpoint(
+            exerciseStreamingEndpoint(
               new HelloServiceFailingDirectlyObserverOnError
             ).map(assertSecuritySanitizedError)
             // the transformed error is expected to not be logged
@@ -163,7 +161,7 @@ final class ErrorInterceptorSpec
 
       "when signalling with a self-service error should NOT SANITIZE the server response when arising" - {
         "inside a Stream" in {
-          exerciseStreamingPekkoEndpoint(
+          exerciseStreamingEndpoint(
             new HelloServiceFailing(
               useSelfService = true,
               errorInsideFutureOrStream = true,
@@ -179,7 +177,7 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingPekkoEndpoint(
+          exerciseStreamingEndpoint(
             new HelloServiceFailing(
               useSelfService = true,
               errorInsideFutureOrStream = false,
@@ -229,26 +227,26 @@ final class ErrorInterceptorSpec
   private def exerciseUnaryFutureEndpoint(
       helloService: BindableService
   ): Future[StatusRuntimeException] = {
-    val response: Future[HelloResponse] = server(
+    val response: Future[v0.Hello.Response] = server(
       tested = new ErrorInterceptor(loggerFactory),
       service = helloService,
     ).use { channel =>
-      HelloServiceGrpc.stub(channel).single(HelloRequest(1))
+      v0.HelloServiceGrpc.stub(channel).hello(v0.Hello.Request("foo"))
     }
     recoverToExceptionIf[StatusRuntimeException] {
       response
     }
   }
 
-  private def exerciseStreamingPekkoEndpoint(
+  private def exerciseStreamingEndpoint(
       helloService: BindableService
   ): Future[StatusRuntimeException] = {
-    val response: Future[Vector[HelloResponse]] = server(
+    val response: Future[Vector[v0.Hello.Response]] = server(
       tested = new ErrorInterceptor(loggerFactory),
       service = helloService,
     ).use { channel =>
-      val streamConsumer = new StreamConsumer[HelloResponse](observer =>
-        HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(1), observer)
+      val streamConsumer = new StreamConsumer[v0.Hello.Response](observer =>
+        v0.HelloServiceGrpc.stub(channel).helloStreamed(v0.Hello.Request("foo"), observer)
       )
       streamConsumer.all()
     }
@@ -287,15 +285,6 @@ final class ErrorInterceptorSpec
     Assertions.succeed
   }
 
-  trait HelloServiceBase extends BindableService {
-    self: HelloService =>
-
-    override def bindService(): ServerServiceDefinition =
-      HelloServiceGrpc.bindService(this, parallelExecutionContext)
-
-    override def fails(request: HelloRequest): Future[HelloResponse] = ??? // not used in this test
-  }
-
   /** @param useSelfService            - whether to use self service error codes or "rogue" exceptions
     * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
@@ -303,15 +292,13 @@ final class ErrorInterceptorSpec
       useSelfService: Boolean,
       errorInsideFutureOrStream: Boolean,
       val loggerFactory: NamedLoggerFactory,
-  ) extends HelloService
+  ) extends HelloServiceReferenceImplementation
       with StreamingServiceLifecycleManagement
-      with HelloServiceResponding
-      with HelloServiceBase
       with NamedLogging {
 
-    override def serverStreaming(
-        request: HelloRequest,
-        responseObserver: StreamObserver[HelloResponse],
+    override def helloStreamed(
+        request: v0.Hello.Request,
+        responseObserver: StreamObserver[v0.Hello.Response],
     ): Unit = registerStream(responseObserver) {
       implicit val traceContext: TraceContext = TraceContext.empty
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
@@ -325,13 +312,13 @@ final class ErrorInterceptorSpec
       if (errorInsideFutureOrStream) {
         Source
           .single(request)
-          .via(Flow[HelloRequest].mapConcat(_ => throw t))
+          .via(Flow[v0.Hello.Request].mapConcat(_ => throw t))
       } else {
         throw t
       }
     }
 
-    override def single(request: HelloRequest): Future[HelloResponse] = {
+    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] = {
       implicit val traceContext: TraceContext = TraceContext.empty
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
@@ -349,15 +336,11 @@ final class ErrorInterceptorSpec
     }
   }
 
-  class HelloServiceFailingDirectlyObserverOnError(implicit
-      protected val esf: ExecutionSequencerFactory,
-      protected val mat: Materializer,
-  ) extends HelloServiceResponding
-      with HelloServiceBase {
+  class HelloServiceFailingDirectlyObserverOnError extends HelloServiceReferenceImplementation {
 
-    override def serverStreaming(
-        request: HelloRequest,
-        responseObserver: StreamObserver[HelloResponse],
+    override def helloStreamed(
+        request: v0.Hello.Request,
+        responseObserver: StreamObserver[v0.Hello.Response],
     ): Unit =
       responseObserver.onError(
         new IllegalArgumentException(
@@ -365,7 +348,7 @@ final class ErrorInterceptorSpec
         )
       )
 
-    override def single(request: HelloRequest): Future[HelloResponse] =
+    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] =
       Assertions.fail("This class is not intended to test unary endpoints")
   }
 }

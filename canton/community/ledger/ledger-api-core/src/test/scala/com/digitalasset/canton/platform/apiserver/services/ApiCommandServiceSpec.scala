@@ -17,18 +17,14 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.services.CommandService
-import com.digitalasset.canton.ledger.api.validation.{
-  CommandsValidator,
-  ValidateDisclosedContracts,
-  ValidateUpgradingPackageResolutions,
-}
+import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, ValidateDisclosedContracts}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.google.protobuf.empty.Empty
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, Assertions}
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
@@ -188,15 +184,15 @@ object ApiCommandServiceSpec {
     )
   )
 
-  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
-    commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
+  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequestV1.copy(
+    commands = Some(commandsV1.copy(commands = Seq(aCommand), submissionId = ""))
   )
 
   private val submissionIdPrefix = "submissionId-"
 
   private val commandsValidator = new CommandsValidator(
     ledgerId = LedgerId(ledgerId),
-    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
+    resolveToTemplateId = _ => Assertions.fail("should not be called"),
     upgradingEnabled = false,
     validateDisclosedContracts = new ValidateDisclosedContracts(false),
   )

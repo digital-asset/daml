@@ -114,12 +114,8 @@ object MemoizedEvidenceSUT
 
   val name: String = "MemoizedEvidenceSUT"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter.raw(
-      ProtocolVersion.v3,
-      (),
-      _ => throw new NotImplementedError("Serialization is not implemented"),
-    )
+  val supportedProtoVersions: MemoizedEvidenceSUT.SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(0) -> UnsupportedProtoCodec(ProtocolVersion.v30)
   )
 
   private val defaultProtocolVersionRepresentative = protocolVersionRepresentativeFor(

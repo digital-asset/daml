@@ -7,7 +7,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegationX, TopologyMappingX}
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeysX}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTestWordSpec, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -35,7 +34,7 @@ class AuthorizationGraphXTest
     }
 
     def mkNs(namespace: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
-      NamespaceDelegationX.create(namespace, key, isRootDelegation).fold(sys.error, identity)
+      NamespaceDelegationX.tryCreate(namespace, key, isRootDelegation)
 
     val nsk1k1 = mkAuth(mkNs(namespace, key1, isRootDelegation = true), key1)
     val nsk2k1 = mkAuth(mkNs(namespace, key2, isRootDelegation = true), key1)
@@ -70,7 +69,7 @@ class AuthorizationGraphXTest
     graph.areValidAuthorizationKeys(Set(key.fingerprint), requireRoot = requireRoot) shouldBe valid
   }
 
-  "authorization graph" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet when {
+  "authorization graph" when {
     import fixture.*
     import fixture.factory.SigningKeys.*
 

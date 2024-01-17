@@ -3,10 +3,8 @@
 
 package com.digitalasset.canton.domain
 
-import better.files.*
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.traverse.*
 import com.daml.error.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nameof.NameOf.functionFullName
@@ -37,7 +35,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRate
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerVersionService
 import com.digitalasset.canton.domain.sequencing.{SequencerRuntime, SequencerRuntimeFactory}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.domain.topology.*
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.error.CantonError
@@ -124,8 +121,6 @@ class DomainNodeBootstrap(
     )
   private val settingsStore = DomainNodeSettingsStore.create(
     storage,
-    staticDomainParametersFromConfig,
-    config.init.domainParameters.resetStoredStaticConfig,
     timeouts,
     loggerFactory,
   )
@@ -190,7 +185,7 @@ class DomainNodeBootstrap(
       maxRequestSize,
       parameters,
       config.publicApi,
-      arguments.metrics.metricsFactory,
+      arguments.metrics.openTelemetryMetricsFactory,
       arguments.metrics.grpcMetrics,
       healthReporter,
       domainApiServiceHealth,
@@ -484,21 +479,6 @@ class DomainNodeBootstrap(
             .tryForDomain(domainId)
         }
 
-        // Setup the service agreement manager and its storage
-        agreementManager <- config.serviceAgreement
-          .traverse { agreementFile =>
-            ServiceAgreementManager
-              .create(
-                agreementFile.toScala,
-                storage,
-                crypto.value.pureCrypto,
-                staticDomainParameters.protocolVersion,
-                timeouts,
-                loggerFactory,
-              )
-          }
-          .toEitherT[Future]
-
         memberAuthFactory = MemberAuthenticationServiceFactory.forOld(
           domainId,
           clock,
@@ -522,7 +502,6 @@ class DomainNodeBootstrap(
             staticDomainParameters,
             arguments.testingConfig,
             parameters.processingTimeouts,
-            agreementManager,
             memberAuthFactory,
             parameters,
             arguments.metrics.sequencer,
@@ -612,7 +591,6 @@ class DomainNodeBootstrap(
             staticDomainParameters,
             adminServerRegistry,
             manager,
-            agreementManager,
             topologyManagementArtefacts,
             storage,
             sequencerRuntime,
@@ -704,7 +682,6 @@ class Domain(
     staticDomainParameters: StaticDomainParameters,
     adminApiRegistry: CantonMutableHandlerRegistry,
     val domainTopologyManager: DomainTopologyManager,
-    val agreementManager: Option[ServiceAgreementManager],
     topologyManagementArtefacts: TopologyManagementComponents,
     storage: Storage,
     sequencerRuntime: SequencerRuntime,
@@ -775,8 +752,7 @@ class Domain(
         DomainServiceGrpc
           .bindService(
             new admingrpc.GrpcDomainService(
-              staticDomainParameters,
-              agreementManager,
+              staticDomainParameters
             ),
             executionContext,
           )

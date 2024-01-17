@@ -22,7 +22,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -215,33 +214,6 @@ private final class MigrateContracts(
       }
     }
 
-  private def adjustContractKeys(
-      request: RepairRequest,
-      timeOfChange: MigrateContracts.Data[MigratedContract] => TimeOfChange,
-      contracts: List[MigrateContracts.Data[MigratedContract]],
-      newStatus: ContractKeyJournal.Status,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
-    if (!request.domain.parameters.uniqueContractKeys)
-      EitherT.rightT(())
-    else
-      for {
-        keys <- EitherT.right(
-          contracts.parTraverseFilter(contract =>
-            getKeyIfOneMaintainerIsLocal(
-              request.domain.topologySnapshot,
-              contract.payload.contract.metadata.maybeKeyWithMaintainers,
-              participantId,
-            ).map(_.map(_ -> timeOfChange(contract)))
-          )
-        )
-        _ <- request.domain.persistentState.contractKeyJournal
-          .addKeyStateUpdates(keys.map { case (key, toc) => key -> (newStatus, toc) }.toMap)
-          .leftMap(_.toString)
-      } yield ()
-
   private def persistContracts(
       transactionId: TransactionId,
       contracts: List[MigrateContracts.Data[MigratedContract]],
@@ -250,18 +222,6 @@ private final class MigrateContracts(
       traceContext: TraceContext,
   ): EitherT[Future, String, Unit] =
     for {
-      _ <- adjustContractKeys(
-        repairSource,
-        _.sourceTimeOfChange,
-        contracts,
-        ContractKeyJournal.Unassigned,
-      )
-      _ <- adjustContractKeys(
-        repairTarget,
-        _.targetTimeOfChange,
-        contracts,
-        ContractKeyJournal.Assigned,
-      )
       _ <- EitherT.right {
         contracts.parTraverse_ { contract =>
           if (contract.payload.isNew)
@@ -283,16 +243,13 @@ private final class MigrateContracts(
       traceContext: TraceContext,
   ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] = {
 
-    def whenTransferCounterIsSupported(r: RepairRequest)(tc: TransferCounter): TransferCounterO =
-      Option.when(r.domain.parameters.protocolVersion >= ProtocolVersion.CNTestNet)(tc)
-
     val outF = repairSource.domain.persistentState.activeContractStore
       .transferOutContracts(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
             targetDomainId,
-            whenTransferCounterIsSupported(repairSource)(contract.payload.transferCounter),
+            Some(contract.payload.transferCounter),
             contract.sourceTimeOfChange,
           )
         }
@@ -305,7 +262,7 @@ private final class MigrateContracts(
           (
             contract.payload.contract.contractId,
             sourceDomainId,
-            whenTransferCounterIsSupported(repairTarget)(contract.payload.transferCounter),
+            Some(contract.payload.transferCounter),
             contract.targetTimeOfChange,
           )
         }

@@ -99,16 +99,10 @@ class DomainTopologyManagerEventHandler(
         request.participant,
         request.transactions,
       )
-      pendingResponseE = RegisterTopologyTransactionResponse.create(
+      pendingResponse = RegisterTopologyTransactionResponse.create(
         request,
         responseResults,
         protocolVersion,
-      )
-      pendingResponse <- pendingResponseE.fold(
-        { case e @ RegisterTopologyTransactionResponse.ResultVersionsMixture =>
-          FutureUnlessShutdown.failed(new IllegalStateException(e.message))
-        },
-        FutureUnlessShutdown.pure,
       )
       _ <- FutureUnlessShutdown.outcomeF(store.savePendingResponse(pendingResponse))
       result <- sendResponse(pendingResponse)
@@ -116,7 +110,7 @@ class DomainTopologyManagerEventHandler(
   }
 
   private def sendResponse(
-      response: RegisterTopologyTransactionResponse.Result
+      response: RegisterTopologyTransactionResponse
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val envelope = OpenEnvelope(response, Recipients.cc(response.requestedBy))(protocolVersion)
     SequencerClient

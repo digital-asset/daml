@@ -143,12 +143,17 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
       domain: DomainAlias
   )(implicit traceContext: TraceContext): Unit = {
     domains.remove(domain) match {
-      case Some(outbox) =>
-        outbox.foreach(_.close())
+      case Some(outboxes) =>
+        state.domainIdForAlias(domain).foreach(disconnectOutboxXes)
+        outboxes.foreach(_.close())
       case None =>
         logger.debug(s"Topology pusher already disconnected from $domain")
     }
   }
+
+  protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit
 
   override def awaitIdle(domain: DomainAlias, timeout: Duration)(implicit
       traceContext: TraceContext
@@ -308,6 +313,10 @@ class ParticipantTopologyDispatcher(
       )).run()
     }
   }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = ()
 }
 
 class ParticipantTopologyDispatcherX(
@@ -343,14 +352,14 @@ class ParticipantTopologyDispatcherX(
   override def trustDomain(domainId: DomainId, parameters: StaticDomainParameters)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    def alreadyTrusted(
-        state: SyncDomainPersistentStateX
+    def alreadyTrustedInStore(
+        store: TopologyStoreX[?]
     ): EitherT[FutureUnlessShutdown, String, Boolean] =
       for {
         alreadyTrusted <- EitherT
           .right[String](
             performUnlessClosingF(functionFullName)(
-              state.topologyStore
+              store
                 .findPositiveTransactions(
                   asOf = CantonTimestamp.MaxValue,
                   asOfInclusive = true,
@@ -369,32 +378,34 @@ class ParticipantTopologyDispatcherX(
     def trustDomain(
         state: SyncDomainPersistentStateX
     ): EitherT[FutureUnlessShutdown, String, Unit] =
-      performUnlessClosingEitherUSF(functionFullName)(
-        manager
-          .proposeAndAuthorize(
-            TopologyChangeOpX.Replace,
-            DomainTrustCertificateX(
-              participantId,
-              domainId,
-              transferOnlyToGivenTargetDomains = false,
-              targetDomains = Seq.empty,
-            ),
-            serial = None,
-            // TODO(#12390) auto-determine signing keys
-            signingKeys = Seq(participantId.uid.namespace.fingerprint),
-            protocolVersion = state.protocolVersion,
-            expectFullAuthorization = true,
-            force = false,
-          )
-          // TODO(#14048) improve error handling
-          .leftMap(_.cause)
-      ).map(_ => ())
-    // check if cert already exists
+      performUnlessClosingEitherUSF(functionFullName) {
+        MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
+          manager
+            .proposeAndAuthorize(
+              TopologyChangeOpX.Replace,
+              DomainTrustCertificateX(
+                participantId,
+                domainId,
+                transferOnlyToGivenTargetDomains = false,
+                targetDomains = Seq.empty,
+              ),
+              serial = None,
+              // TODO(#12390) auto-determine signing keys
+              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              protocolVersion = state.protocolVersion,
+              expectFullAuthorization = true,
+              force = false,
+            )
+            // TODO(#14048) improve error handling
+            .leftMap(_.cause)
+        }
+      }
+    // check if cert already exists in the domain store
     val ret = for {
       state <- getState(domainId).leftMap(_.cause)
-      have <- alreadyTrusted(state)
+      alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
       _ <-
-        if (have) EitherT.rightT[FutureUnlessShutdown, String](())
+        if (alreadyTrustedInDomainStore) EitherT.rightT[FutureUnlessShutdown, String](())
         else trustDomain(state)
     } yield ()
     ret
@@ -516,6 +527,13 @@ class ParticipantTopologyDispatcherX(
       override def processor: EnvelopeHandler = handle.processor
 
     }
+  }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    logger.debug("Clearing domain topology manager observers")
+    state.get(domainId).foreach(_.topologyManager.clearObservers())
   }
 
 }

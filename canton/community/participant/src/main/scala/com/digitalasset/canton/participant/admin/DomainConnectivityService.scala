@@ -6,18 +6,16 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
-import com.digitalasset.canton.common.domain.ServiceAgreementId
+import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.domain.AgreementService.AgreementServiceError
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
-import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -30,7 +28,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class DomainConnectivityService(
     sync: CantonSyncService,
     aliasManager: DomainAliasManager,
-    agreementService: AgreementService,
     timeouts: ProcessingTimeout,
     sequencerInfoLoader: SequencerInfoLoader,
     protected val loggerFactory: NamedLoggerFactory,
@@ -153,36 +150,6 @@ class DomainConnectivityService(
     EitherTUtil.toFuture(resp)
   }
 
-  /** Get the service agreement from the domain's domain service */
-  def getAgreement(
-      domainAlias: String
-  )(implicit traceContext: TraceContext): Future[v0.GetAgreementResponse] = {
-    val res = for {
-      sequencerAggregatedInfo <- getSequencerAggregatedInfo(domainAlias)
-      SequencerAggregatedInfo(domainId, staticDomainParameters, _, sequencerConnections) =
-        sequencerAggregatedInfo
-      optAgreement <- mapErr(
-        if (sequencerConnections.nonBftSetup) {
-          sequencerConnections.default match {
-            case grpc: GrpcSequencerConnection =>
-              agreementService.getAgreement(
-                sequencerAggregatedInfo.domainId,
-                grpc,
-                staticDomainParameters.protocolVersion,
-              )
-          }
-        } else EitherT.pure[Future, AgreementServiceError](None)
-      )
-      accepted <- optAgreement.fold(EitherT.rightT[Future, StatusRuntimeException](false))(ag =>
-        mapErrNewET(EitherT.right(agreementService.hasAcceptedAgreement(domainId, ag.id)))
-      )
-      agreement = optAgreement.map(ag =>
-        v0.Agreement(ag.id.toProtoPrimitive, ag.text.toProtoPrimitive)
-      )
-    } yield v0.GetAgreementResponse(domainId = domainId.toProtoPrimitive, agreement, accepted)
-    EitherTUtil.toFuture(res)
-  }
-
   private def getSequencerAggregatedInfo(domainAlias: String)(implicit
       traceContext: TraceContext
   ): EitherT[Future, StatusRuntimeException, SequencerAggregatedInfo] = {
@@ -206,18 +173,6 @@ class DomainConnectivityService(
         .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
         .leftMap(_.asGrpcError)
     } yield result
-  }
-
-  /** Accept the agreement for the domain */
-  def acceptAgreement(domainAlias: String, agreementId: String)(implicit
-      traceContext: TraceContext
-  ): Future[v0.AcceptAgreementResponse] = {
-    val res = for {
-      domainId <- getSequencerAggregatedInfo(domainAlias).map(_.domainId)
-      agreementId <- mapErr(ServiceAgreementId.create(agreementId))
-      _ <- mapErr(agreementService.acceptAgreement(domainId, agreementId))
-    } yield v0.AcceptAgreementResponse()
-    EitherTUtil.toFuture(res)
   }
 
   def reconnectDomains(ignoreFailures: Boolean): Future[Unit] = {

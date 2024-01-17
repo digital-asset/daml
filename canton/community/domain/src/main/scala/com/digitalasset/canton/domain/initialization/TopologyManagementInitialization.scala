@@ -27,6 +27,7 @@ import com.digitalasset.canton.protocol.messages.DomainTopologyTransactionMessag
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
+  RichSequencerClient,
   SendAsyncClientError,
   SendType,
   SequencerClient,
@@ -63,7 +64,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 final case class TopologyManagementComponents(
     domainTopologyServiceHandler: DomainTopologyManagerEventHandler,
     client: DomainTopologyClientWithInit,
-    sequencerClient: SequencerClient,
+    sequencerClient: RichSequencerClient,
     processor: TopologyTransactionProcessor,
     dispatcher: DomainTopologyDispatcher,
     timeouts: ProcessingTimeout,
@@ -100,7 +101,7 @@ object TopologyManagementInitialization {
           callback => {
             val maxSequencingTime = client.generateMaxSequencingTime
             logger.info(
-              s"Sending initial topology transactions to domain members $domainMembers as ${recentSnapshot.owner}"
+              s"Sending initial topology transactions to domain members $domainMembers as ${recentSnapshot.member}"
             )
             for {
               content <-
@@ -109,7 +110,7 @@ object TopologyManagementInitialization {
                     transactions.toList,
                     recentSnapshot,
                     id,
-                    Some(maxSequencingTime),
+                    maxSequencingTime,
                     protocolVersion,
                   )
                   .leftMap(SendAsyncClientError.RequestInvalid)
@@ -151,7 +152,7 @@ object TopologyManagementInitialization {
       topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore,
       topologyProcessor: TopologyTransactionProcessor,
       topologyClient: DomainTopologyClientWithInit,
-      initialKeys: Map[KeyOwner, Seq[PublicKey]],
+      initialKeys: Map[Member, Seq[PublicKey]],
       sequencerClientFactory: SequencerClientFactory,
       parameters: CantonNodeParameters,
       futureSupervisor: FutureSupervisor,
@@ -165,7 +166,6 @@ object TopologyManagementInitialization {
       loggingContext: ErrorLoggingContext,
   ): EitherT[Future, String, TopologyManagementComponents] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-
     val managerId: DomainTopologyManagerId = domainTopologyManager.id
     val timeouts = parameters.processingTimeouts
     val protocolVersion = domainTopologyManager.protocolVersion
@@ -256,7 +256,6 @@ object TopologyManagementInitialization {
           mustHaveActiveMediator = isEmbedded,
           timeouts,
           loggerFactory,
-          protocolVersion,
         )
       )
       // before starting the domain identity dispatcher, we need to make sure the initial topology transactions

@@ -8,20 +8,20 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
+import com.digitalasset.canton.admin.participant.v0.*
+import com.digitalasset.canton.admin.pruning.v0
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NonHexOffset
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantPruningSchedule,
   ParticipantPruningScheduler,
 }
 import com.digitalasset.canton.participant.sync.{CantonSyncService, UpstreamOffsetConvert}
 import com.digitalasset.canton.participant.{GlobalOffset, Pruning}
-import com.digitalasset.canton.pruning.admin.v0
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}

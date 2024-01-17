@@ -26,6 +26,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
@@ -346,10 +347,31 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       environment.config.remoteDomainsByString.keys.map(createRemoteDomainReference).toSeq,
     )
 
+  lazy val sequencersX: NodeReferences[
+    SequencerNodeReferenceX,
+    RemoteSequencerNodeReferenceX,
+    LocalSequencerNodeReferenceX,
+  ] =
+    NodeReferences(
+      environment.config.sequencersByStringX.keys.map(createSequencerReferenceX).toSeq,
+      environment.config.remoteSequencersByStringX.keys.map(createRemoteSequencerReferenceX).toSeq,
+    )
+
+  lazy val mediatorsX
+      : NodeReferences[MediatorReferenceX, RemoteMediatorReferenceX, LocalMediatorReferenceX] =
+    NodeReferences(
+      environment.config.mediatorsByStringX.keys.map(createMediatorReferenceX).toSeq,
+      environment.config.remoteMediatorsByStringX.keys.map(createRemoteMediatorReferenceX).toSeq,
+    )
+
   // the scala compiler / wartremover gets confused here if I use ++ directly
   def mergeLocalInstances(
       locals: Seq[LocalInstanceReferenceCommon]*
   ): Seq[LocalInstanceReferenceCommon] =
+    locals.flatten
+  def mergeLocalInstancesX(
+      locals: Seq[LocalInstanceReferenceX]*
+  ): Seq[LocalInstanceReferenceX] =
     locals.flatten
   def mergeRemoteInstances(remotes: Seq[InstanceReferenceCommon]*): Seq[InstanceReferenceCommon] =
     remotes.flatten
@@ -360,8 +382,20 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     LocalInstanceReferenceCommon,
   ] = {
     NodeReferences(
-      mergeLocalInstances(participants.local, participantsX.local, domains.local),
-      mergeRemoteInstances(participants.remote, participantsX.remote, domains.remote),
+      mergeLocalInstances(
+        participants.local,
+        participantsX.local,
+        domains.local,
+        sequencersX.local,
+        mediatorsX.local,
+      ),
+      mergeRemoteInstances(
+        participants.remote,
+        participantsX.remote,
+        domains.remote,
+        sequencersX.remote,
+        mediatorsX.remote,
+      ),
     )
   }
 
@@ -423,6 +457,22 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
           d,
         )
       )
+    val localMediatorXBinds: Seq[TopLevelValue[_]] =
+      mediatorsX.local.map(d =>
+        TopLevelValue(d.name, helpText("local mediator-x", d.name), d, nodeTopic)
+      )
+    val remoteMediatorXBinds: Seq[TopLevelValue[_]] =
+      mediatorsX.remote.map(d =>
+        TopLevelValue(d.name, helpText("remote mediator-x", d.name), d, nodeTopic)
+      )
+    val localSequencerXBinds: Seq[TopLevelValue[_]] =
+      sequencersX.local.map(d =>
+        TopLevelValue(d.name, helpText("local sequencer-x", d.name), d, nodeTopic)
+      )
+    val remoteSequencerXBinds: Seq[TopLevelValue[_]] =
+      sequencersX.remote.map(d =>
+        TopLevelValue(d.name, helpText("remote sequencer-x", d.name), d, nodeTopic)
+      )
     val clockBinds: Option[TopLevelValue[_]] =
       environment.simClock.map(cl =>
         TopLevelValue("clock", "Simulated time", new SimClockCommand(cl))
@@ -430,7 +480,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     val referencesTopic = Seq(topicGenericNodeReferences)
     localParticipantBinds ++ remoteParticipantBinds ++
       localParticipantXBinds ++ remoteParticipantXBinds ++
-      localDomainBinds ++ remoteDomainBinds ++ clockBinds.toList :+
+      localDomainBinds ++ remoteDomainBinds ++ localSequencerXBinds ++ remoteSequencerXBinds ++ localMediatorXBinds ++ remoteMediatorXBinds ++ clockBinds.toList :+
       TopLevelValue(
         "participants",
         "All participant nodes" + genericNodeReferencesDoc,
@@ -447,6 +497,18 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         TopLevelValue
           .Partial("domains", "All domain nodes" + genericNodeReferencesDoc, referencesTopic),
         domains,
+      ) :+
+      TopLevelValue(
+        "mediatorsX",
+        "All mediator-x nodes" + genericNodeReferencesDoc,
+        mediatorsX,
+        referencesTopic,
+      ) :+
+      TopLevelValue(
+        "sequencersX",
+        "All sequencer-x nodes" + genericNodeReferencesDoc,
+        sequencersX,
+        referencesTopic,
       ) :+
       TopLevelValue("nodes", "All nodes" + genericNodeReferencesDoc, nodes, referencesTopic)
   }
@@ -490,6 +552,18 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def createDomainReference(name: String): DomainLocalRef
   protected def createRemoteDomainReference(name: String): DomainRemoteRef
 
+  private def createSequencerReferenceX(name: String): LocalSequencerNodeReferenceX =
+    new LocalSequencerNodeReferenceX(this, name)
+
+  private def createRemoteSequencerReferenceX(name: String): RemoteSequencerNodeReferenceX =
+    new RemoteSequencerNodeReferenceX(this, name)
+
+  private def createMediatorReferenceX(name: String): LocalMediatorReferenceX =
+    new LocalMediatorReferenceX(this, name)
+
+  private def createRemoteMediatorReferenceX(name: String): RemoteMediatorReferenceX =
+    new RemoteMediatorReferenceX(this, name)
+
   /** So we can we make this available
     */
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
@@ -518,7 +592,7 @@ object ConsoleEnvironment {
 
     implicit def toInstanceReferenceExtensions(
         instances: Seq[LocalInstanceReferenceCommon]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalInstanceReferenceCommon] =
       new LocalInstancesExtensions.Impl(instances)
 
     /** Implicit maps an LfPartyId to a PartyId */
@@ -528,19 +602,23 @@ object ConsoleEnvironment {
       */
     implicit def toLocalDomainExtensions(
         instances: Seq[LocalDomainReference]
-    ): LocalInstancesExtensions =
+    ): LocalInstancesExtensions[LocalDomainReference] =
       new LocalDomainReferencesExtensions(instances)
 
     /** Extensions for many participant references
       */
-    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
-        consoleEnvironment: ConsoleEnvironment
+    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReferenceCommon])(
+        implicit consoleEnvironment: ConsoleEnvironment
     ): ParticipantReferencesExtensions =
       new ParticipantReferencesExtensions(participants)
 
-    implicit def toLocalParticipantReferencesExtensions(
-        participants: Seq[LocalParticipantReference]
-    )(implicit consoleEnvironment: ConsoleEnvironment): LocalParticipantReferencesExtensions =
+    implicit def toLocalParticipantReferencesExtensions[ParticipantNodeT <: ParticipantNodeCommon](
+        participants: Seq[LocalParticipantReferenceCommon[ParticipantNodeT]]
+    )(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): LocalParticipantReferencesExtensions[ParticipantNodeT, LocalParticipantReferenceCommon[
+      ParticipantNodeT
+    ]] =
       new LocalParticipantReferencesExtensions(participants)
 
     /** Implicitly map strings to DomainAlias, Fingerprint and Identifier

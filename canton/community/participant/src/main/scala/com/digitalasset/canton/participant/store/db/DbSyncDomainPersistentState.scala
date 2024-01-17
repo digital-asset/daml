@@ -29,7 +29,6 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.db.{DbTopologyStore, DbTopologyStoreX}
 import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManagerX}
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 
 import scala.concurrent.ExecutionContext
@@ -68,15 +67,15 @@ abstract class DbSyncDomainPersistentStateCommon(
       protocolVersion,
       batching.maxItemsInSqlClause,
       caching.contractStore,
-      dbQueryBatcherConfig = parameters.dbBatchAggregationConfig,
-      insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+      dbQueryBatcherConfig = batching.aggregator,
+      insertBatchAggregatorConfig = batching.aggregator,
       timeouts,
       loggerFactory,
     )
   val transferStore: DbTransferStore = new DbTransferStore(
     storage,
     TargetDomainId(domainId.item),
-    TargetProtocolVersion(protocolVersion),
+    protocolVersion,
     pureCryptoApi,
     futureSupervisor,
     timeouts,
@@ -114,8 +113,8 @@ abstract class DbSyncDomainPersistentStateCommon(
     domainId,
     storage,
     batching.maxItemsInSqlClause,
-    insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
-    replaceBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+    insertBatchAggregatorConfig = batching.aggregator,
+    replaceBatchAggregatorConfig = batching.aggregator,
     timeouts,
     loggerFactory,
   )

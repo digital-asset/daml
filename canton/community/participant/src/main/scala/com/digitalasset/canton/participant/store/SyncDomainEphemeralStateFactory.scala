@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionKeyCacheConfig}
+import com.digitalasset.canton.config.{CacheConfigWithTimeout, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
@@ -39,7 +39,7 @@ trait SyncDomainEphemeralStateFactory {
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
       metrics: SyncDomainMetrics,
-      sessionKeyCacheConfig: SessionKeyCacheConfig,
+      sessionKeyCacheConfig: CacheConfigWithTimeout,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -61,7 +61,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
       metrics: SyncDomainMetrics,
-      sessionKeyCacheConfig: SessionKeyCacheConfig,
+      sessionKeyCacheConfig: CacheConfigWithTimeout,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext,
@@ -158,8 +158,9 @@ object SyncDomainEphemeralStateFactory {
       (MessageProcessingStartingPoint, Option[SequencerCounterCursorPrehead])
     ] = {
       val firstDirtyRc = cleanRequestPreheadO.fold(RequestCounter.Genesis)(_.counter + 1)
-
-      val cleanRequestPreheadRequestCounterO = cleanRequestPreheadO.map(_.counter)
+      val cleanRequestPreheadLocalOffsetO = cleanRequestPreheadO.map { case CursorPrehead(rc, ts) =>
+        RequestOffset(ts, rc)
+      }
 
       // Cap the rewound sequencer counter prehead by the clean sequencer counter prehead
       // so that we do not skip dirty sequencer counters.
@@ -193,7 +194,7 @@ object SyncDomainEphemeralStateFactory {
               case Some(CursorPrehead(preheadSc, preheadScTs)) =>
                 val processingStartingPoint =
                   MessageProcessingStartingPoint(
-                    cleanRequestPreheadO.map(_.counter),
+                    cleanRequestPreheadLocalOffsetO,
                     firstDirtyRc,
                     preheadSc + 1L,
                     preheadScTs,
@@ -201,9 +202,9 @@ object SyncDomainEphemeralStateFactory {
                 Future.successful(processingStartingPoint -> cleanSequencerCounterPreheadO)
             }
 
-          cleanRequestPreheadO match {
+          cleanRequestPreheadLocalOffsetO match {
             case None => startAtCleanSequencerCounterPrehead
-            case Some(CursorPrehead(rcPrehead, requestTimestampPrehead)) =>
+            case Some(lastCleanOffset @ RequestOffset(requestTimestampPrehead, rcPrehead)) =>
               if (cleanSequencerCounterPreheadO.exists(_.timestamp >= requestTimestampPrehead)) {
                 startAtCleanSequencerCounterPrehead
               } else {
@@ -225,7 +226,7 @@ object SyncDomainEphemeralStateFactory {
                   requestDataForRcPreheadF.map { requestData =>
                     if (isRepairOnEmptyDomain(requestData))
                       MessageProcessingStartingPoint(
-                        cleanRequestPrehead = Some(rcPrehead),
+                        cleanRequestPrehead = Some(lastCleanOffset),
                         nextRequestCounter = rcPrehead + 1L,
                         nextSequencerCounter = SequencerCounter.Genesis,
                         prenextTimestamp = CantonTimestamp.MinValue,
@@ -248,10 +249,10 @@ object SyncDomainEphemeralStateFactory {
                   val sequencerCounter = tracedEvent.counter
                   val processingStartingPoint =
                     MessageProcessingStartingPoint(
-                      cleanRequestPrehead = Some(rcPrehead),
-                      nextRequestCounter = rcPrehead + 1L,
-                      nextSequencerCounter = sequencerCounter + 1L,
-                      prenextTimestamp = requestTimestampPrehead,
+                      Some(lastCleanOffset),
+                      rcPrehead + 1L,
+                      sequencerCounter + 1L,
+                      requestTimestampPrehead,
                     )
                   Future.successful(processingStartingPoint -> cleanSequencerCounterPreheadO)
                 }
@@ -270,7 +271,7 @@ object SyncDomainEphemeralStateFactory {
             logger.debug(show"First dirty request is repair request $rcProcess on an empty domain.")
             Future.successful(
               MessageProcessingStartingPoint(
-                cleanRequestPreheadRequestCounterO,
+                cleanRequestPreheadLocalOffsetO,
                 rcProcess,
                 SequencerCounter.Genesis,
                 RepairService.RepairTimestampOnEmptyDomain,
@@ -298,14 +299,14 @@ object SyncDomainEphemeralStateFactory {
                   preStartingEventF.map {
                     case None =>
                       MessageProcessingStartingPoint(
-                        cleanRequestPreheadRequestCounterO,
+                        cleanRequestPreheadLocalOffsetO,
                         rcProcess,
                         SequencerCounter.Genesis,
                         CantonTimestamp.MinValue,
                       ) -> None
                     case Some(preStartingEvent) =>
                       val startingPoint = MessageProcessingStartingPoint(
-                        cleanRequestPreheadRequestCounterO,
+                        cleanRequestPreheadLocalOffsetO,
                         rcProcess,
                         startingEvent.counter,
                         preStartingEvent.timestamp,
@@ -319,7 +320,7 @@ object SyncDomainEphemeralStateFactory {
                   // as there is no dirty request since the clean request prehead.
                   val startingPoint =
                     MessageProcessingStartingPoint(
-                      cleanRequestPreheadRequestCounterO,
+                      cleanRequestPreheadLocalOffsetO,
                       rcProcess,
                       startingEvent.counter + 1L,
                       startingEvent.timestamp,
@@ -337,7 +338,7 @@ object SyncDomainEphemeralStateFactory {
 
     logger.debug(s"Computing starting points for $domainId")
     for {
-      lastPublishedLocalOffsetO <- multiDomainEventLog.lastLocalOffset(
+      lastPublishedRequestOffsetO <- multiDomainEventLog.lastRequestOffset(
         DomainEventLogId(domainId)
       )
       cleanSequencerCounterPrehead <- sequencerCounterTrackerStore.preheadSequencerCounter
@@ -358,7 +359,7 @@ object SyncDomainEphemeralStateFactory {
               ProcessingStartingPoints.tryCreate(
                 cleanReplay = processingStartingPoint.toMessageCleanReplayStartingPoint,
                 processing = processingStartingPoint,
-                lastPublishedLocalOffset = lastPublishedLocalOffsetO,
+                lastPublishedRequestOffset = lastPublishedRequestOffsetO,
                 rewoundSequencerCounterPrehead = rewoundCleanSequencerCounterPrehead,
               )
             )
@@ -412,7 +413,7 @@ object SyncDomainEphemeralStateFactory {
               .tryCreate(
                 replayStartingPoint,
                 processingStartingPoint,
-                lastPublishedLocalOffsetO,
+                lastPublishedRequestOffsetO,
                 rewoundSequencerCounterPrehead,
               )
           )
@@ -478,12 +479,12 @@ object SyncDomainEphemeralStateFactory {
       processingStartingPoint = startingPoints.processing
       unpublishedOffsetAfterCleanPreheadO =
         if (startingPoints.processingAfterPublished) {
-          processingStartingPoint.cleanRequestPrehead.map(LocalOffset(_))
+          processingStartingPoint.cleanRequestPrehead
         } else {
           logger.warn(
-            s"The clean request prehead ${processingStartingPoint.cleanRequestPrehead} precedes the last published event at ${startingPoints.lastPublishedLocalOffset}. Has the clean request prehead been manipulated?"
+            s"The clean request prehead ${processingStartingPoint.cleanRequestPrehead} precedes the last published event at ${startingPoints.lastPublishedRequestOffset}. Has the clean request prehead been manipulated?"
           )
-          startingPoints.lastPublishedLocalOffset
+          startingPoints.lastPublishedRequestOffset
         }
       _ <- unpublishedOffsetAfterCleanPreheadO.fold(Future.unit) {
         unpublishedOffsetAfterCleanPrehead =>

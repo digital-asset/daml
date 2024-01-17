@@ -153,7 +153,6 @@ final case class CommunityParticipantConfig(
     override val testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topologyX: TopologyXConfig = TopologyXConfig(),
 ) extends LocalParticipantConfig
@@ -236,8 +235,6 @@ final case class LedgerApiServerConfig(
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
-    unsafeEnableEventsByContractKeyCache: EnableEventsByContractKeyCache =
-      EnableEventsByContractKeyCache.Disabled,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
@@ -465,7 +462,7 @@ object TestingTimeServiceConfig {
   *                                available through at least one domain.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
   * @param batching Various parameters that control batching related behavior
-  * @param ledgerApiServerParameters ledger api server parameters
+  * @param ledgerApiServer ledger api server parameters
   *
   * The following specialized participant node performance tuning parameters may be grouped once a more final set of configs emerges.
   * @param transferTimeProofFreshnessProportion Proportion of the target domain exclusivity timeout that is used as a freshness bound when
@@ -488,23 +485,22 @@ final case class ParticipantNodeParameterConfig(
     partyChangeNotification: PartyNotificationConfig = PartyNotificationConfig.ViaDomain,
     maxUnzippedDarSize: Int = 1024 * 1024 * 1024,
     batching: BatchingConfig = BatchingConfig(),
+    caching: CachingConfigs = CachingConfigs(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     transferTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(
-        ProtocolVersion.v3
-      )
+      ParticipantProtocolVersion(ProtocolVersion.v30)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    devVersionSupport: Boolean = false,
+    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+    devVersionSupport: Boolean = true,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)
     ),
-    // TODO(#15221) rename this to ledger-api-server
-    ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
+    ledgerApiServer: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
     enableContractUpgrading: Boolean = false,
@@ -514,27 +510,13 @@ final case class ParticipantNodeParameterConfig(
 
 /** Parameters for the participant node's stores
   *
-  * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
-  * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
-  *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
-  *                                   whereas ledger-api-server index-db pruning needs sufficiently large batches to amortize the database overhead of
-  *                                   "skipping over" active contracts.
   * @param pruningMetricUpdateInterval  How frequently to update the `max-event-age` pruning progress metric in the background.
   *                                     A setting of None disables background metric updating.
-  * @param dbBatchAggregationConfig Batching configuration for Db queries
   */
 final case class ParticipantStoreConfig(
-    // TODO(#15221) move all batching related parameters into `BatchingConfig`
-    maxPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000),
-    ledgerApiPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(50000),
     pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
-    // TODO(#15221) remove unused config parameter
-    acsPruningInterval: config.NonNegativeFiniteDuration =
-      config.NonNegativeFiniteDuration.ofSeconds(60),
     journalPruning: JournalPruningConfig = JournalPruningConfig(),
-    // TODO(#15221) move to BatchingConfig and rename to `aggregator`
-    dbBatchAggregationConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
 )
 
 /** Control background journal pruning
@@ -600,19 +582,4 @@ object ContractLoaderConfig {
   private val defaultMaxQueueSize: PositiveInt = PositiveInt.tryCreate(10000)
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
-}
-
-/** Parameters to enable and configure the cache in the event_query_service.GetEventsByContractKey
-  *
-  * `Note` This feature is an early-stage (Alpha) performance optimization.
-  * Use it in production only if you know what you're doing.
-  */
-final case class EnableEventsByContractKeyCache(
-    enabled: Boolean = false,
-    cacheSize: PositiveInt = EnableEventsByContractKeyCache.defaultCacheSize,
-)
-
-object EnableEventsByContractKeyCache {
-  val defaultCacheSize: PositiveInt = PositiveInt.tryCreate(10000)
-  val Disabled: EnableEventsByContractKeyCache = EnableEventsByContractKeyCache()
 }

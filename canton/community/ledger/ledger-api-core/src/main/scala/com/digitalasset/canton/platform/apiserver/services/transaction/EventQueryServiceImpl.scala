@@ -87,7 +87,7 @@ private[apiserver] final class EventQueryServiceImpl private (
       logging.contractKey(request.contractKey),
       logging.templateId(request.templateId),
       logging.parties(request.requestingParties),
-      logging.keyContinuationToken(request.keyContinuationToken),
+      logging.eventSequentialId(request.endExclusiveSeqId),
     ) { implicit loggingContext =>
       logger.info(s"Received request for events by contract key, ${loggingContext
           .serializeFiltered("contractKey", "templateId", "parties", "eventSequentialId")}.")
@@ -99,7 +99,7 @@ private[apiserver] final class EventQueryServiceImpl private (
         request.contractKey,
         request.templateId,
         request.requestingParties,
-        request.keyContinuationToken,
+        request.endExclusiveSeqId,
       )
       .andThen(logger.logErrorsOnCall[GetEventsByContractKeyResponse])
   }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.admin.domain.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -30,25 +30,6 @@ sealed trait SequencerConnection extends PrettyPrinting {
   def withAlias(alias: SequencerAlias): SequencerConnection
 
   def toProtoV0: v0.SequencerConnection
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: String,
-      additionalConnections: String*
-  ): SequencerConnection =
-    addEndpoints(connection, additionalConnections *)
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: URI,
-      additionalConnections: URI*
-  ): SequencerConnection = addEndpoints(connection, additionalConnections *)
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: SequencerConnection,
-      additionalConnections: SequencerConnection*
-  ): SequencerConnection = addEndpoints(connection, additionalConnections *)
 
   def addEndpoints(
       connection: String,
@@ -156,7 +137,6 @@ object GrpcSequencerConnection {
 }
 
 object SequencerConnection {
-
   def fromProtoV0(
       configP: v0.SequencerConnection
   ): ParsingResult[SequencerConnection] =

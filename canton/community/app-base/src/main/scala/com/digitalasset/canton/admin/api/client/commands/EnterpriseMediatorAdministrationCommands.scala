@@ -9,6 +9,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   TimeoutType,
 }
+import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -21,7 +22,6 @@ import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorResponseX,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp

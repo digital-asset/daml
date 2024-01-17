@@ -6,7 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.lf.data.Ref.PackageId
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
   GetParticipantScheduleCommand,
@@ -27,6 +27,9 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
+import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -42,21 +45,19 @@ import com.digitalasset.canton.console.{
   Helpful,
   InstanceReferenceWithSequencerConnection,
   LedgerApiCommandRunner,
-  ParticipantReference,
   ParticipantReferenceCommon,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.ParticipantNode
+import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.TimestampedEvent
+import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -338,7 +339,7 @@ class ParticipantTestingGroup(
 }
 
 class LocalParticipantTestingGroup(
-    participantRef: ParticipantReference with BaseInspection[ParticipantNode],
+    participantRef: ParticipantReferenceCommon with BaseInspection[ParticipantNodeCommon],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
 ) extends ParticipantTestingGroup(participantRef, consoleEnvironment, loggerFactory)
@@ -557,16 +558,18 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[LedgerOffset] = {
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
         ledgerApiCommand(LedgerApiCommands.TransactionService.GetLedgerEnd())
       )
-      consoleEnvironment.run(
-        adminCommand(
-          ParticipantAdminCommands.Pruning.GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
+      consoleEnvironment
+        .run(
+          adminCommand(
+            ParticipantAdminCommands.Pruning.GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
+          )
         )
-      )
+        .map(ledgerOffset => ApiConversions.toV2(ledgerOffset))
     }
   }
 
@@ -671,7 +674,7 @@ class ParticipantPruningAdministrationGroup(
 }
 
 class LocalCommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
+    runner: AdminCommandRunner with BaseInspection[ParticipantNodeCommon],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -773,7 +776,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
   def id: ParticipantId
 
-  protected def vettedPackagesOfParticipant(): Set[PackageId]
+  protected def waitPackagesVetted(
+      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+  ): Unit
+
   protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,
@@ -851,6 +857,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -861,6 +870,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
+        synchronize.foreach { timeout =>
+          ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+        }
       }
       res
     }
@@ -960,7 +972,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def synchronize_vetting(
         timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
-      val connected = domains.list_connected().map(_.domainId).toSet
 
       // ensure that the ledger api server has seen all packages
       try {
@@ -985,61 +996,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           )
       }
 
-      def waitForPackages(
-          topology: TopologyAdministrationGroup,
-          observer: String,
-          domainId: DomainId,
-      ): Unit = {
-        try {
-          AdminCommandRunner
-            .retryUntilTrue(timeout) {
-              // ensure that vetted packages on the domain match the ones in the authorized store
-              val onDomain = topology.vetted_packages
-                .list(filterStore = domainId.filterString, filterParticipant = id.filterString)
-                .flatMap(_.item.packageIds)
-                .toSet
-              val vetted = vettedPackagesOfParticipant()
-              val ret = vetted == onDomain
-              if (!ret) {
-                logger.debug(
-                  show"Still waiting for package vetting updates to be observed by $observer on $domainId: vetted - onDomain is ${vetted -- onDomain} while onDomain -- vetted is ${onDomain -- vetted}"
-                )
-              }
-              ret
-            }
-            .discard
-        } catch {
-          case _: TimeoutException =>
-            logger.error(
-              show"$observer has not observed all vetting txs of $id on domain $domainId within the given timeout."
-            )
-        }
-      }
-
-      // for every domain this participant is connected to
-      consoleEnvironment.domains.all
-        .filter(d => d.health.running() && d.health.initialized() && connected.contains(d.id))
-        .foreach { domain =>
-          waitForPackages(domain.topology, s"Domain ${domain.name}", domain.id)
-        }
-
-      // for every participant
-      consoleEnvironment.participants.all
-        .filter(p => p.health.running() && p.health.initialized())
-        .foreach { participant =>
-          // for every domain this participant is connected to as well
-          participant.domains.list_connected().foreach {
-            case item if connected.contains(item.domainId) =>
-              waitForPackages(
-                participant.topology,
-                s"Participant ${participant.name}",
-                item.domainId,
-              )
-            case _ =>
-          }
-        }
+      waitPackagesVetted(timeout)
     }
-
   }
 
   @Help.Summary("Manage domain connections")
@@ -1100,28 +1058,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def is_connected(reference: DomainAdministration): Boolean =
       list_connected().exists(_.domainId == reference.id)
 
-    private def confirm_agreement(domainAlias: DomainAlias): Unit = {
-
-      val response = get_agreement(domainAlias)
-
-      val autoApprove =
-        sys.env.getOrElse("CANTON_AUTO_APPROVE_AGREEMENTS", "no").toLowerCase == "yes"
-      response.foreach {
-        case (agreement, accepted) if !accepted =>
-          if (autoApprove) {
-            accept_agreement(domainAlias.unwrap, agreement.id)
-          } else {
-            println(s"Service Agreement for `$domainAlias`:")
-            println(agreement.text)
-            println("Do you accept the license? yes/no")
-            print("> ")
-            val answer = Option(scala.io.StdIn.readLine())
-            if (answer.exists(_.toLowerCase == "yes"))
-              accept_agreement(domainAlias.unwrap, agreement.id)
-          }
-        case _ => () // Don't do anything if the license has already been accepted
-      }
-    }
+    @Help.Summary(
+      "Test whether a participant is connected to a domain reference"
+    )
+    def is_connected(domainId: DomainId): Boolean =
+      list_connected().exists(_.domainId == domainId)
 
     @Help.Summary(
       "Macro to connect a participant to a locally configured domain given by reference"
@@ -1192,6 +1133,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       connectFromConfig(config, None)
     }
 
+    @Help.Summary("Macro to connect a participant to a domain given by instance")
+    @Help.Description("""This variant of connect expects an instance with a sequencer connection.
+        |Otherwise the behaviour is equivalent to the connect command with explicit
+        |arguments. If the domain is already configured, the domain connection
+        |will be attempted. If however the domain is offline, the command will fail.
+        |Generally, this macro should only be used to setup a new domain. However, for
+        |convenience, we support idempotent invocations where subsequent calls just ensure
+        |that the participant reconnects to the domain.
+        |""")
+    def connect(
+        instance: InstanceReferenceWithSequencerConnection,
+        domainAlias: DomainAlias,
+    ): Unit =
+      connect(
+        DomainConnectionConfig(
+          domainAlias,
+          SequencerConnections.single(instance.sequencerConnection),
+        )
+      )
+
     private def connectFromConfig(
         config: DomainConnectionConfig,
         synchronize: Option[NonNegativeDuration],
@@ -1201,12 +1162,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
         // register the domain configuration
-        register(config.copy(manualConnect = true))
+        consoleEnvironment.run {
+          ParticipantCommands.domains.register(runner, config)
+        }
         if (!config.manualConnect) {
-          // fetch and confirm domain agreement
-          if (config.sequencerConnections.nonBftSetup) { // agreement is removed with the introduction of BFT domain.
-            confirm_agreement(config.domain.unwrap)
-          }
           reconnect(config.domain.unwrap, retry = false).discard
           // now update the domain settings to auto-connect
           modify(config.domain.unwrap, _.copy(manualConnect = false))
@@ -1226,9 +1185,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |First, `register` will be invoked with the given arguments, but first registered
         |with manualConnect = true. If you already set manualConnect = true, then nothing else
         |will happen and you will have to do the remaining steps yourselves.
-        |Otherwise, if the domain requires an agreement, it is fetched and presented to the user for evaluation.
-        |If the user is fine with it, the agreement is confirmed. If you want to auto-confirm,
-        |then set the environment variable CANTON_AUTO_APPROVE_AGREEMENTS=yes.
         |Finally, the command will invoke `reconnect` to startup the connection.
         |If the reconnect succeeded, the registered configuration will be updated
         |with manualStart = true. If anything fails, the domain will remain registered with `manualConnect = true` and
@@ -1265,26 +1221,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         timeTrackerConfig = timeTrackerConfig,
       )
       connectFromConfig(config, synchronize)
-      config
-    }
-
-    @Help.Summary(
-      "Deprecated macro to connect a participant to a domain that supports connecting via many endpoints"
-    )
-    @Help.Description("""Use the command connect_ha with the updated arguments list""")
-    @Deprecated(since = "2.2.0")
-    def connect_ha(
-        domainAlias: DomainAlias,
-        firstConnection: SequencerConnection,
-        additionalConnections: SequencerConnection*
-    ): DomainConnectionConfig = {
-      val sequencerConnection = SequencerConnection
-        .merge(firstConnection +: additionalConnections)
-        .getOrElse(sys.error("Invalid sequencer connection"))
-      val sequencerConnections =
-        SequencerConnections.single(sequencerConnection)
-      val config = DomainConnectionConfig(domainAlias, sequencerConnections)
-      connect(config)
       config
     }
 
@@ -1366,12 +1302,25 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
-        ref: DomainReference,
+        ref: InstanceReferenceWithSequencerConnection
+    ): Boolean = reconnect(ref.name)
+
+    @Help.Summary("Reconnect this participant to the given local domain")
+    @Help.Description("""Idempotent attempts to re-establish a connection to the given local domain.
+        |Same behaviour as generic reconnect.
+
+        The arguments are:
+          domainAlias - The domain alias to connect to
+          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisly if the connection attempt fails.
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def reconnect_local(
+        domainAlias: DomainAlias,
         retry: Boolean = true,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): Boolean = reconnect(ref.name, retry, synchronize)
+    ): Boolean = reconnect(domainAlias, retry, synchronize)
 
     @Help.Summary("Reconnect this participant to all domains which are not marked as manual start")
     @Help.Description("""
@@ -1408,8 +1357,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("Disconnect this participant from the given local domain")
-    def disconnect_local(domain: DomainReference): Unit = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain.name))
+    def disconnect_local(domain: DomainReference): Unit = disconnect_local(domain.name)
+
+    @Help.Summary("Disconnect this participant from the given local domain")
+    def disconnect_local(domain: DomainAlias): Unit = consoleEnvironment.run {
+      adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain))
     }
 
     @Help.Summary("List the connected domains of this participant")
@@ -1429,17 +1381,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Summary("Returns the current configuration of a given domain")
     def config(domain: DomainAlias): Option[DomainConnectionConfig] =
       list_registered().map(_._1).find(_.domain == domain)
-
-    @Help.Summary("Register new domain connection")
-    @Help.Description("""When connecting to a domain, we need to register the domain connection and eventually
-        |accept the terms of service of the domain before we can connect. The registration process is therefore
-        |a subset of the operation. Therefore, register is equivalent to connect if the domain does not require
-        |a service agreement. However, you would usually call register only in advanced scripts.""")
-    def register(config: DomainConnectionConfig): Unit = {
-      consoleEnvironment.run {
-        ParticipantCommands.domains.register(runner, config)
-      }
-    }
 
     @Help.Summary("Modify existing domain connection")
     def modify(
@@ -1465,21 +1406,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } yield ()
       }
     }
-
-    @Help.Summary(
-      "Get the service agreement of the given domain alias and if it has been accepted already."
-    )
-    def get_agreement(domainAlias: DomainAlias): Option[(v0.Agreement, Boolean)] =
-      consoleEnvironment.run {
-        adminCommand(ParticipantAdminCommands.DomainConnectivity.GetAgreement(domainAlias))
-      }
-    @Help.Summary("Accept the service agreement of the given domain alias")
-    def accept_agreement(domainAlias: DomainAlias, agreementId: String): Unit =
-      consoleEnvironment.run {
-        adminCommand(
-          ParticipantAdminCommands.DomainConnectivity.AcceptAgreement(domainAlias, agreementId)
-        )
-      }
 
   }
 
@@ -1549,7 +1475,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ParticipantAdminCommands.Transfer
             .TransferIn(
               submittingParty,
-              transferId.toProtoV0,
+              transferId.toAdminProto,
               targetDomain,
               applicationId = applicationId,
               submissionId = submissionId,

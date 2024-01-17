@@ -5,8 +5,8 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.admin.domain.{v0, v1}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.domain.api.{v0, v1}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
@@ -143,7 +143,7 @@ object SequencerConnections
     )
   }
 
-  private def fromProtoV0V1(
+  private def fromProtoV0(
       fieldName: String,
       connections: Seq[v0.SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
@@ -167,49 +167,27 @@ object SequencerConnections
   } yield sequencerConnections
 
   def fromProtoV0(
-      sequencerConnection: v0.SequencerConnection
-  ): ParsingResult[SequencerConnections] =
-    fromProtoV0V1("sequencer_connection", Seq(sequencerConnection), PositiveInt.tryCreate(1))
-
-  def fromProtoV0(
       sequencerConnection: Seq[v0.SequencerConnection],
       sequencerTrustThreshold: Int,
   ): ParsingResult[SequencerConnections] =
     ProtoConverter
       .parsePositiveInt(sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnection, _))
-
-  def fromLegacyProtoV0(
-      sequencerConnection: Seq[v0.SequencerConnection],
-      providedSequencerTrustThreshold: Int,
-  ): ParsingResult[SequencerConnections] = {
-    val sequencerTrustThreshold =
-      if (providedSequencerTrustThreshold == 0) sequencerConnection.size
-      else providedSequencerTrustThreshold
-    ProtoConverter
-      .parsePositiveInt(sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnection, _))
-  }
+      .flatMap(fromProtoV0("sequencer_connections", sequencerConnection, _))
 
   def fromProtoV1(
       sequencerConnections: v1.SequencerConnections
   ): ParsingResult[SequencerConnections] =
     ProtoConverter
       .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnections.sequencerConnections, _))
+      .flatMap(fromProtoV0("sequencer_connections", sequencerConnections.sequencerConnections, _))
 
   override def name: String = "sequencer connections"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.SequencerConnection)(fromProtoV0),
-      _.default.toProtoV0.toByteString,
-    ),
     ProtoVersion(1) -> ProtoCodec(
-      ProtocolVersion.CNTestNet,
+      ProtocolVersion.v30,
       supportedProtoVersion(v1.SequencerConnections)(fromProtoV1),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
 }

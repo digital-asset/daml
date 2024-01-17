@@ -7,7 +7,6 @@ package com.digitalasset.canton.protocol.v1;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/sequencing.proto";
-import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
@@ -16,27 +15,12 @@ import "scalapb/scalapb.proto";
 message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
-  bool unique_contract_keys = 1;
   repeated com.digitalasset.canton.crypto.v0.SigningKeyScheme required_signing_key_schemes = 2;
   repeated com.digitalasset.canton.crypto.v0.EncryptionKeyScheme required_encryption_key_schemes = 3;
   repeated com.digitalasset.canton.crypto.v0.SymmetricKeyScheme required_symmetric_key_schemes = 4;
   repeated com.digitalasset.canton.crypto.v0.HashAlgorithm required_hash_algorithms = 5;
   repeated com.digitalasset.canton.crypto.v0.CryptoKeyFormat required_crypto_key_formats = 6;
   int32 protocol_version = 7;
-}
-
-message DynamicDomainParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  google.protobuf.Duration participant_response_timeout = 1;
-  google.protobuf.Duration mediator_reaction_timeout = 2;
-  google.protobuf.Duration transfer_exclusivity_timeout = 3;
-  google.protobuf.Duration topology_change_delay = 4;
-  google.protobuf.Duration ledger_time_record_time_tolerance = 5;
-  google.protobuf.Duration reconciliation_interval = 6;
-  google.protobuf.Duration mediator_deduplication_timeout = 7;
-  uint32 max_rate_per_participant = 8;
-  uint32 max_request_size = 9;
 }
 
 message Envelope {
@@ -74,15 +58,6 @@ message SequencedEvent {
   // Changed in v1 from v0.CompressedBatch to v1.CompressedBatch
   CompressedBatch batch = 5; // Optional: Present for Deliver, absent for DeliverError
   google.rpc.Status deliver_error_reason = 6; // Optional: Present for DeliverError, absent for other events
-}
-
-message SignedContent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  google.protobuf.BytesValue content = 1;
-  // now repeated, was not repeated in v0
-  repeated com.digitalasset.canton.crypto.v0.Signature signatures = 2;
-  google.protobuf.Timestamp timestamp_of_signing_key = 3;
 }
 
 // Messages used for synchronization between sequencer nodes

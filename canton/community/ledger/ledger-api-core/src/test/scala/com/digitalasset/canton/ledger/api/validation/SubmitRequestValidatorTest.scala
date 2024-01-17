@@ -9,7 +9,6 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List as ApiList, Map as ApiMap, Optional as ApiOptional, *}
 import com.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
-import com.daml.lf.data.Ref.TypeConRef
 import com.daml.lf.data.*
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.Value as Lf
@@ -21,12 +20,12 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
 }
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, LedgerId}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.ResolveToTemplateId
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
-import io.grpc.StatusRuntimeException
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -34,7 +33,6 @@ import scalaz.syntax.tag.*
 
 import java.time.{Duration as JDuration, Instant}
 import scala.annotation.nowarn
-import scala.collection.immutable.Map
 
 @nowarn("msg=deprecated")
 class SubmitRequestValidatorTest
@@ -73,7 +71,12 @@ class SubmitRequestValidatorTest
       )
 
     val command = commandDef(packageId)
-    val commandWithPackageNameScoping = commandDef(Ref.PackageRef.Name(packageName).toString)
+    val commandWithoutPackageId = commandDef("")
+    val commandWithInvalidQualifiedName = commandDef("", "invalid")
+
+    val templateQualifiedName = Ref.QualifiedName.assertFromString(moduleName + ":" + entityName)
+    val templateId =
+      Ref.Identifier(Ref.PackageId.assertFromString(packageId), templateQualifiedName)
 
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
@@ -86,7 +89,6 @@ class SubmitRequestValidatorTest
       deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationDuration),
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
-      packageIdSelectionPreference = Seq.empty,
     )
   }
 
@@ -122,12 +124,7 @@ class SubmitRequestValidatorTest
       )
     )
 
-    val emptyCommands: ApiCommands = emptyCommandsBuilder(Ref.PackageRef.Id(templateId.packageId))
-    def emptyCommandsBuilder(
-        packageRef: Ref.PackageRef,
-        packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
-        packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
-    ) = ApiCommands(
+    val emptyCommands = ApiCommands(
       ledgerId = Some(ledgerId),
       workflowId = Some(workflowId),
       applicationId = applicationId,
@@ -140,7 +137,7 @@ class SubmitRequestValidatorTest
       commands = LfCommands(
         ImmArray(
           LfCommand.Create(
-            TypeConRef(packageRef, templateId.qualifiedName),
+            templateId,
             Lf.ValueRecord(
               Option(
                 templateId
@@ -153,8 +150,6 @@ class SubmitRequestValidatorTest
         workflowId.unwrap,
       ),
       disclosedContracts,
-      packagePreferenceSet = packagePreferenceSet,
-      packageMap = packageMap,
     )
   }
 
@@ -167,20 +162,31 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
-  private val testedCommandValidator = {
-    val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
+  private val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-    when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
-      .thenReturn(Right(internal.disclosedContracts))
+  when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+    .thenReturn(Right(internal.disclosedContracts))
 
+  private val resolveToTemplateIdMock: ResolveToTemplateId = {
+    case api.`templateQualifiedName` => _ => Right(api.templateId)
+    case _ =>
+      _ =>
+        Left(
+          io.grpc.Status.INVALID_ARGUMENT
+            .augmentDescription("invalid qualified name")
+            .asRuntimeException()
+        )
+  }
+
+  private val failsIfCalled: ResolveToTemplateId = _ => fail("Should not be called")
+
+  private val testedCommandValidator =
     new CommandsValidator(
       ledgerId = ledgerId,
-      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
+      resolveToTemplateId = failsIfCalled,
       upgradingEnabled = false,
       validateDisclosedContracts = validateDisclosedContractsMock,
     )
-  }
-
   private val testedValueValidator = ValueValidator
 
   "CommandSubmissionRequestValidator" when {
@@ -467,8 +473,6 @@ class SubmitRequestValidatorTest
       }
 
       "fail when disclosed contracts validation fails" in {
-        val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
-
         when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
           .thenReturn(
             Left(
@@ -477,15 +481,8 @@ class SubmitRequestValidatorTest
                 .asGrpcError
             )
           )
-
-        val failingDisclosedContractsValidator = new CommandsValidator(
-          ledgerId = ledgerId,
-          upgradingEnabled = false,
-          validateDisclosedContracts = validateDisclosedContractsMock,
-        )
-
         requestMustFailWith(
-          request = failingDisclosedContractsValidator
+          request = testedCommandValidator
             .validateCommands(
               api.commands,
               internal.ledgerTime,
@@ -503,30 +500,14 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           request = testedCommandValidator
             .validateCommands(
-              api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
+              api.commands.copy(commands = Seq(api.commandWithoutPackageId)),
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationDuration),
             ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package-name scoping for requests is only possible when smart contract upgrading feature is enabled",
-          metadata = Map.empty,
-        )
-      }
-
-      "not allow population of package_id_selection_preference (if upgrading disabled)" in {
-        requestMustFailWith(
-          request = testedCommandValidator
-            .validateCommands(
-              api.commands.copy(packageIdSelectionPreference = Seq("some-package-id")),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package_id_selection_preference can only be set with smart contract upgrading feature enabled",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
           metadata = Map.empty,
         )
       }
@@ -537,57 +518,35 @@ class SubmitRequestValidatorTest
         when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
           .thenReturn(Right(internal.disclosedContracts))
 
-        val packageMap = Map(packageId -> (packageName, Ref.PackageVersion.assertFromString("1.0")))
-        val validateUpgradingPackageResolutions = new ValidateUpgradingPackageResolutions {
-          override def apply(userPackageIdPreferences: Seq[String])(implicit
-              contextualizedErrorLogger: ContextualizedErrorLogger
-          ): Either[
-            StatusRuntimeException,
-            ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot,
-          ] =
-            Right(
-              ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot(
-                packagePreferenceSet =
-                  userPackageIdPreferences.toSet.map(Ref.PackageId.assertFromString),
-                packageMap = packageMap,
-              )
-            )
-        }
-
         val commandsValidatorWithUpgradingEnabled = new CommandsValidator(
           ledgerId = ledgerId,
+          resolveToTemplateId = resolveToTemplateIdMock,
           upgradingEnabled = true,
-          validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )
 
-        "allow package name reference instead of package id" in {
+        "allow missing packageId and resolve to template id" in {
           commandsValidatorWithUpgradingEnabled
             .validateCommands(
-              api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
+              api.commands.copy(commands = Seq(api.commandWithoutPackageId)),
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationDuration),
-            ) shouldBe Right(
-            internal.emptyCommandsBuilder(Ref.PackageRef.Name(packageName), packageMap = packageMap)
-          )
+            ) shouldBe Right(internal.emptyCommands)
         }
 
-        "allow correctly specifying the package_id_selection_preference" in {
-          val userPackageIdPreference = Seq("validPackageId", "anotherPackageId")
-          commandsValidatorWithUpgradingEnabled
-            .validateCommands(
-              api.commands.copy(packageIdSelectionPreference = userPackageIdPreference),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ) shouldBe Right(
-            internal.emptyCommandsBuilder(
-              Ref.PackageRef.Id(internal.templateId.packageId),
-              packageMap = packageMap,
-              packagePreferenceSet =
-                userPackageIdPreference.map(Ref.PackageId.assertFromString).toSet,
-            )
+        "forward error on templateId resolution failure" in {
+          requestMustFailWith(
+            request = commandsValidatorWithUpgradingEnabled
+              .validateCommands(
+                api.commands.copy(commands = Seq(api.commandWithInvalidQualifiedName)),
+                internal.ledgerTime,
+                internal.submittedAt,
+                Some(internal.maxDeduplicationDuration),
+              ),
+            code = INVALID_ARGUMENT,
+            description = "invalid qualified name",
+            metadata = Map.empty,
           )
         }
       }

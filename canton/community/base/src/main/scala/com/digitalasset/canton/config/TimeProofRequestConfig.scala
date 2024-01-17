@@ -4,10 +4,10 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.option.*
+import com.digitalasset.canton.admin.time.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.admin.v0
 
 /** @param initialRetryDelay The initial retry delay if the request to send a sequenced event fails
   * @param maxRetryDelay The max retry delay if the request to send a sequenced event fails

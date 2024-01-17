@@ -28,5 +28,8 @@ trait SequencerClientTransportPekko extends SequencerClientTransportCommon {
 
   /** The transport can decide which errors will cause the sequencer client to not try to reestablish a subscription */
   def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError]
+}
 
+object SequencerClientTransportPekko {
+  type Aux[E] = SequencerClientTransportPekko { type SubscriptionError = E }
 }

@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/domain/admin/v0/sequencer_initialization_snapshot.proto";
-import "com/digitalasset/canton/pruning/admin/v0/pruning.proto";
+import "com/digitalasset/canton/admin/pruning/v0/pruning.proto";
+import "com/digitalasset/canton/domain/admin/v1/sequencer_initialization_snapshot.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -29,22 +29,22 @@ service EnterpriseSequencerAdministrationService {
   //   or duration.
   // - ``FAILED_PRECONDITION``: if automatic background pruning has not been enabled
   //   or if invoked on a participant running the Community Edition.
-  rpc SetSchedule(com.digitalasset.canton.pruning.admin.v0.SetSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetSchedule.Response);
+  rpc SetSchedule(com.digitalasset.canton.admin.pruning.v0.SetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v0.SetSchedule.Response);
 
   // Modify individual pruning schedule parameters.
   // - ``INVALID_ARGUMENT``: if the payload is malformed or no schedule is configured
-  rpc SetCron(com.digitalasset.canton.pruning.admin.v0.SetCron.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetCron.Response);
-  rpc SetMaxDuration(com.digitalasset.canton.pruning.admin.v0.SetMaxDuration.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetMaxDuration.Response);
-  rpc SetRetention(com.digitalasset.canton.pruning.admin.v0.SetRetention.Request) returns (com.digitalasset.canton.pruning.admin.v0.SetRetention.Response);
+  rpc SetCron(com.digitalasset.canton.admin.pruning.v0.SetCron.Request) returns (com.digitalasset.canton.admin.pruning.v0.SetCron.Response);
+  rpc SetMaxDuration(com.digitalasset.canton.admin.pruning.v0.SetMaxDuration.Request) returns (com.digitalasset.canton.admin.pruning.v0.SetMaxDuration.Response);
+  rpc SetRetention(com.digitalasset.canton.admin.pruning.v0.SetRetention.Request) returns (com.digitalasset.canton.admin.pruning.v0.SetRetention.Response);
 
   // Disable automatic pruning and remove the persisted schedule configuration.
-  rpc ClearSchedule(com.digitalasset.canton.pruning.admin.v0.ClearSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.ClearSchedule.Response);
+  rpc ClearSchedule(com.digitalasset.canton.admin.pruning.v0.ClearSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v0.ClearSchedule.Response);
 
   // Retrieve the automatic pruning configuration.
-  rpc GetSchedule(com.digitalasset.canton.pruning.admin.v0.GetSchedule.Request) returns (com.digitalasset.canton.pruning.admin.v0.GetSchedule.Response);
+  rpc GetSchedule(com.digitalasset.canton.admin.pruning.v0.GetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v0.GetSchedule.Response);
 
   // Retrieve pruning timestamp at or near the "beginning" of events.
-  rpc LocatePruningTimestamp(com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp.Response);
+  rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp.Response);
 }
 
 message EthereumAccount {
@@ -96,7 +96,7 @@ message Snapshot {
     }
   }
   message Success {
-    com.digitalasset.canton.domain.admin.v0.SequencerSnapshot state = 1;
+    com.digitalasset.canton.domain.admin.v1.SequencerSnapshot state = 1;
   }
   message Failure {
     string reason = 1;

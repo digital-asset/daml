@@ -410,14 +410,7 @@ class StoreBackedCommandExecutorSpec
     }
 
     "disallow archived contracts" in {
-      doTest(
-        Some(archivedContractId),
-        Some(
-          Some(
-            s"Contract with $archivedContractId was not found or it refers to a divulged contract."
-          )
-        ),
-      )
+      doTest(Some(archivedContractId), Some(Some("Contract archived")))
     }
 
     "disallow unauthorized disclosed contracts" in {

@@ -47,7 +47,5 @@ object MockedNodeParameters {
     override def initialProtocolVersion: ProtocolVersion = ???
 
     override def dbMigrateAndStart: Boolean = false
-
-    override def skipTopologyManagerSignatureValidation: Boolean = false
   }
 }

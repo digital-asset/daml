@@ -29,48 +29,14 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
   val party2 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
   val participant6 = ParticipantId(uid6)
-  val ns1k1_k1 = mkAdd(
-    NamespaceDelegationX
-      .create(ns1, key1, isRootDelegation = true)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key1,
-  )
-  val ns1k2_k1 = mkAdd(
-    NamespaceDelegationX
-      .create(ns1, key2, isRootDelegation = true)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key1,
-  )
-  val ns1k2_k1p = mkAdd(
-    NamespaceDelegationX
-      .create(ns1, key2, isRootDelegation = true)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key1,
-  )
-  val ns1k3_k2 = mkAdd(
-    NamespaceDelegationX
-      .create(ns1, key3, isRootDelegation = false)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key2,
-  )
-  val ns1k8_k3_fail = mkAdd(
-    NamespaceDelegationX
-      .create(ns1, key8, isRootDelegation = false)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key3,
-  )
-  val ns6k3_k6 = mkAdd(
-    NamespaceDelegationX
-      .create(ns6, key3, isRootDelegation = false)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key6,
-  )
-  val ns6k6_k6 = mkAdd(
-    NamespaceDelegationX
-      .create(ns6, key6, isRootDelegation = true)
-      .getOrElse(sys.error("NamespaceDelegationX.create should not have failed")),
-    key6,
-  )
+  val ns1k1_k1 = mkAdd(NamespaceDelegationX.tryCreate(ns1, key1, isRootDelegation = true), key1)
+  val ns1k2_k1 = mkAdd(NamespaceDelegationX.tryCreate(ns1, key2, isRootDelegation = true), key1)
+  val ns1k2_k1p = mkAdd(NamespaceDelegationX.tryCreate(ns1, key2, isRootDelegation = true), key1)
+  val ns1k3_k2 = mkAdd(NamespaceDelegationX.tryCreate(ns1, key3, isRootDelegation = false), key2)
+  val ns1k8_k3_fail =
+    mkAdd(NamespaceDelegationX.tryCreate(ns1, key8, isRootDelegation = false), key3)
+  val ns6k3_k6 = mkAdd(NamespaceDelegationX.tryCreate(ns6, key3, isRootDelegation = false), key6)
+  val ns6k6_k6 = mkAdd(NamespaceDelegationX.tryCreate(ns6, key6, isRootDelegation = true), key6)
   val id1ak4_k2 = mkAdd(IdentifierDelegationX(uid1a, key4), key2)
   val id1ak4_k2p = mkAdd(IdentifierDelegationX(uid1a, key4), key2)
   val id1ak4_k1 = mkAdd(IdentifierDelegationX(uid1a, key4), key1)

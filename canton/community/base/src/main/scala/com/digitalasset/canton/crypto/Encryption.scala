@@ -27,10 +27,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -304,7 +301,7 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.SymmetricKey)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -348,15 +345,6 @@ object EncryptionKeyPair {
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
-  @VisibleForTesting
-  def wrongEncryptionKeyPairWithPublicKeyUnsafe(
-      publicKey: EncryptionPublicKey
-  ): EncryptionKeyPair = {
-    val privateKey =
-      new EncryptionPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
-    new EncryptionKeyPair(publicKey, privateKey)
-  }
-
   def fromProtoV0(
       encryptionKeyPairP: v0.EncryptionKeyPair
   ): ParsingResult[EncryptionKeyPair] =
@@ -381,19 +369,10 @@ final case class EncryptionPublicKey private[crypto] (
     scheme: EncryptionKeyScheme,
 ) extends PublicKey
     with PrettyPrinting
-    with HasVersionedWrapper[EncryptionPublicKey] {
+    with HasVersionedWrapper[EncryptionPublicKey]
+    with NoCopy {
 
   override protected def companionObj = EncryptionPublicKey
-
-  // TODO(#15649): Make EncryptionPublicKey object invariant
-  protected def validated
-      : Either[ProtoDeserializationError.CryptoKeyDeserializationError, this.type] =
-    CryptoPureApiHelper
-      .parseAndValidatePublicKey(
-        this,
-        ProtoDeserializationError.CryptoKeyDeserializationError,
-      )
-      .map(_ => this)
 
   val purpose: KeyPurpose = KeyPurpose.Encryption
 
@@ -415,26 +394,23 @@ final case class EncryptionPublicKey private[crypto] (
 object EncryptionPublicKey
     extends HasVersionedMessageCompanion[EncryptionPublicKey]
     with HasVersionedMessageCompanionDbHelpers[EncryptionPublicKey] {
-  override def name: String = "encryption public key"
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.EncryptionPublicKey)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
   )
 
-  private[crypto] def create(
+  override def name: String = "encryption public key"
+
+  private[this] def apply(
       id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: EncryptionKeyScheme,
-  ): Either[ProtoDeserializationError.CryptoKeyDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(id, format, key, scheme).validated
-
-  @VisibleForTesting
-  val idUnsafe: Lens[EncryptionPublicKey, Fingerprint] =
-    GenLens[EncryptionPublicKey](_.id)
+  ): EncryptionPrivateKey =
+    throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   def fromProtoV0(
       publicKeyP: v0.EncryptionPublicKey
@@ -443,13 +419,7 @@ object EncryptionPublicKey
       id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- EncryptionKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
-      encryptionPublicKey <- EncryptionPublicKey.create(
-        id,
-        format,
-        publicKeyP.publicKey,
-        scheme,
-      )
-    } yield encryptionPublicKey
+    } yield new EncryptionPublicKey(id, format, publicKeyP.publicKey, scheme)
 }
 
 final case class EncryptionPublicKeyWithName(
@@ -496,13 +466,21 @@ final case class EncryptionPrivateKey private[crypto] (
 object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.EncryptionPrivateKey)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
   )
 
   override def name: String = "encryption private key"
+
+  private[this] def apply(
+      id: Fingerprint,
+      format: CryptoKeyFormat,
+      key: ByteString,
+      scheme: EncryptionKeyScheme,
+  ): EncryptionPrivateKey =
+    throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   def fromProtoV0(
       privateKeyP: v0.EncryptionPrivateKey

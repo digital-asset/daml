@@ -16,6 +16,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
+import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -34,6 +35,10 @@ import com.digitalasset.canton.platform.store.cache.{
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+  TemplateIdWithPriority,
+  TemplatesForQualifiedName,
+}
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
@@ -153,11 +158,11 @@ class InMemoryStateUpdaterSpec
   }
 
   "prepare" should "append package metadata" in new Scope {
-    def metadata: DamlLf.Archive => PackageMetadata = {
-      case archive if archive.getHash == "00001" =>
-        PackageMetadata(templates = Set(templateId))
-      case archive if archive.getHash == "00002" =>
-        PackageMetadata(templates = Set(templateId2))
+    def metadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata = {
+      case (archive, _) if archive.getHash == "00001" =>
+        PackageMetadata(templates = Map(templatesForQn1))
+      case (archive, _) if archive.getHash == "00002" =>
+        PackageMetadata(templates = Map(templatesForQn2))
       case _ => fail("unexpected archive hash")
     }
 
@@ -169,7 +174,7 @@ class InMemoryStateUpdaterSpec
       offset(6L),
       0L,
       update6._2.traceContext,
-      PackageMetadata(templates = Set(templateId, templateId2)),
+      PackageMetadata(templates = Map(templatesForQn1, templatesForQn2)),
     )
   }
 
@@ -221,7 +226,8 @@ object InMemoryStateUpdaterSpec {
 
     override def handleFailure(message: String) = fail(message)
 
-    val emptyArchiveToMetadata: DamlLf.Archive => PackageMetadata = _ => PackageMetadata()
+    val emptyArchiveToMetadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata = (_, _) =>
+      PackageMetadata()
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
@@ -247,7 +253,7 @@ object InMemoryStateUpdaterSpec {
         offset = offset(1L),
         events = Vector(),
         completionDetails = None,
-        domainId = None,
+        domainId = Some(domainId1.toProtoPrimitive),
       )
     )(emptyTraceContext)
 
@@ -324,7 +330,6 @@ object InMemoryStateUpdaterSpec {
 
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
-    val eventsByContractKeyCache = None
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
@@ -348,7 +353,6 @@ object InMemoryStateUpdaterSpec {
     val inMemoryState = new InMemoryState(
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
-      eventsByContractKeyCache = eventsByContractKeyCache,
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
@@ -425,7 +429,7 @@ object InMemoryStateUpdaterSpec {
           completionDetails = tx_rejected_completionDetails,
         )
       )(emptyTraceContext)
-    val packageMetadata: PackageMetadata = PackageMetadata(templates = Set(templateId))
+    val packageMetadata: PackageMetadata = PackageMetadata(templates = Map(templatesForQn1))
 
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
@@ -481,6 +485,17 @@ object InMemoryStateUpdaterSpec {
   private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
 
+  private val templatesForQn1 = templateQualifiedName1 ->
+    TemplatesForQualifiedName(
+      NonEmptyUtil.fromUnsafe(Set(templateId)),
+      TemplateIdWithPriority(templateId, Time.Timestamp.Epoch),
+    )
+  private val templatesForQn2 = templateQualifiedName2 ->
+    TemplatesForQualifiedName(
+      NonEmptyUtil.fromUnsafe(Set(templateId2)),
+      TemplateIdWithPriority(templateId2, Time.Timestamp.Epoch),
+    )
+
   private val someCreateNode = {
     val contractId = TransactionBuilder.newCid
     TestNodeBuilder
@@ -507,7 +522,6 @@ object InMemoryStateUpdaterSpec {
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,
-    optDomainId = None,
   )
 
   private val update1 = offset(1L) -> Traced(
@@ -521,6 +535,7 @@ object InMemoryStateUpdaterSpec {
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = domainId1,
     )
   )
   private val rawMetadataChangedUpdate = offset(2L) -> Update.ConfigurationChanged(
@@ -541,6 +556,7 @@ object InMemoryStateUpdaterSpec {
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = DomainId.tryFromString("da::default"),
     )
   )
   private val update4 = offset(4L) -> Traced[Update](
@@ -555,7 +571,7 @@ object InMemoryStateUpdaterSpec {
         statistics = None,
       ),
       reasonTemplate = FinalReason(new Status()),
-      domainId = None,
+      domainId = DomainId.tryFromString("da::default"),
     )
   )
   private val archive = DamlLf.Archive.newBuilder

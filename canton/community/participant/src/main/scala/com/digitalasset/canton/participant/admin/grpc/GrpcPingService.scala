@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.participant.admin.PingService
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.tracing.Spanning
 import io.opentelemetry.api.trace.Tracer
 

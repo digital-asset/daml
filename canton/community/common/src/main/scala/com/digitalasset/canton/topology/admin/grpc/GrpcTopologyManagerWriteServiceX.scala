@@ -27,7 +27,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,8 +87,8 @@ class GrpcTopologyManagerWriteServiceX(
           signingKeys <-
             request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
           validatedMapping <- mapping.mapping match {
-            case Mapping.UnionspaceDefinition(mapping) =>
-              UnionspaceDefinitionX.fromProtoV2(mapping)
+            case Mapping.DecentralizedNamespaceDefinition(mapping) =>
+              DecentralizedNamespaceDefinitionX.fromProtoV2(mapping)
             case Mapping.NamespaceDelegation(mapping) =>
               NamespaceDelegationX.fromProtoV2(mapping)
             case Mapping.IdentifierDelegation(mapping) =>
@@ -155,9 +155,7 @@ class GrpcTopologyManagerWriteServiceX(
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
-          .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
-          )
+          .traverse(SignedTopologyTransactionX.fromProtoV2)
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signingKeys <-
@@ -186,9 +184,7 @@ class GrpcTopologyManagerWriteServiceX(
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
-          .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
-          )
+          .traverse(SignedTopologyTransactionX.fromProtoV2)
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       manager <- targetManagerET(request.store)

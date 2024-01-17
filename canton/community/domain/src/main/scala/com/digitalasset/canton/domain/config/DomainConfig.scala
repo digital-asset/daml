@@ -18,8 +18,6 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
-import java.io.File
-
 /** The public server configuration ServerConfig used by the domain.
   *
   * TODO(i4056): Client authentication over TLS is currently unsupported,
@@ -137,9 +135,6 @@ trait DomainConfig extends DomainBaseConfig {
   /** parameters of the interface used to communicate with participants */
   def publicApi: PublicServerConfig
 
-  /** location of the service agreement of the domain (if any) */
-  def serviceAgreement: Option[File]
-
   def sequencerConnectionConfig: SequencerConnectionConfig.Grpc =
     publicApi.toSequencerConnectionConfig
 
@@ -160,6 +155,7 @@ trait DomainConfig extends DomainBaseConfig {
 final case class DomainNodeParametersConfig(
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     batching: BatchingConfig = BatchingConfig(),
+    caching: CachingConfigs = CachingConfigs(),
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
@@ -171,10 +167,8 @@ final case class CommunityDomainConfig(
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
     sequencer: CommunitySequencerConfig.Database = CommunitySequencerConfig.Database(),
-    override val serviceAgreement: Option[File] = None,
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
     override val parameters: DomainNodeParametersConfig = DomainNodeParametersConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
 ) extends DomainConfig
@@ -194,7 +188,7 @@ final case class CommunityDomainConfig(
   *
   * @param adminApi the client settings used to connect to the admin api of the remote process.
   * @param publicApi these details are provided to other nodes to use for how they should
-  *                  connect to the sequencer if the domain node has an embedded sequencer
+  *                            connect to the sequencer if the domain node has an embedded sequencer
   */
 final case class RemoteDomainConfig(
     adminApi: ClientConfig,
@@ -205,13 +199,11 @@ final case class RemoteDomainConfig(
 
 /** Configuration parameters for the domain topology manager.
   *
-  * @param requireParticipantCertificate requires a participant to provide a certificate of its identity before being added to the domain.
   * @param open if set to true (default), the domain is open. Anyone who is able to connect to a sequencer node
   *             can join. If false, new participants are only accepted if their ParticipantState has already been
   *             registered (equivalent to allow-listing).
   */
 final case class TopologyConfig(
-    requireParticipantCertificate: Boolean = false,
     // TODO(i4933) make false default for distributed enterprise deployments and move permissioning to enterprise
-    open: Boolean = true,
+    open: Boolean = true
 )

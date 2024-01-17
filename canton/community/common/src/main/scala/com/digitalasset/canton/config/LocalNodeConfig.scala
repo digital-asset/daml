@@ -56,16 +56,15 @@ trait LocalNodeConfig extends NodeConfig {
   def monitoring: NodeMonitoringConfig
   def topologyX: TopologyXConfig
 
-  /** Various cache sizes */
-  // TODO(#15221) move into parameters
-  def caching: CachingConfigs
-
   def parameters: LocalNodeParametersConfig
 
 }
 
 trait LocalNodeParametersConfig {
   def batching: BatchingConfig
+
+  /** Various cache sizes */
+  def caching: CachingConfigs
 }
 
 trait CommunityLocalNodeConfig extends LocalNodeConfig {

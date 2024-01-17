@@ -51,8 +51,6 @@ abstract class TopologyManager[E <: CantonError](
     with NamedLogging
     with FlagCloseableAsync {
 
-  def isAuthorizedStore: Boolean = store.storeId.isAuthorizedStore
-
   protected val validator =
     new IncomingTopologyTransactionAuthorizationValidator(
       crypto.pureCrypto,
@@ -104,7 +102,7 @@ abstract class TopologyManager[E <: CantonError](
     }
 
   protected def keyRevocationIsNotDangerous(
-      owner: KeyOwner,
+      owner: Member,
       key: PublicKey,
       elementId: TopologyElementId,
       force: Boolean,
