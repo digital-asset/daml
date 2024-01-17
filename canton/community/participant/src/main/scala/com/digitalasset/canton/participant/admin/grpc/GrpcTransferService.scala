@@ -7,9 +7,9 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.participant.admin.TransferService
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferData
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{LfContractId, TransferId}
@@ -68,7 +68,7 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
           targetDomain,
         )
       )
-    } yield AdminTransferOutResponse(transferId = Some(transferId.toProtoV0))
+    } yield AdminTransferOutResponse(transferId = Some(transferId.toAdminProto))
     EitherTUtil.toFuture(res)
   }
 
@@ -87,7 +87,7 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
       targetDomain <- mapErr(DomainAlias.create(targetDomainP))
       submittingParty <- mapErr(ProtoConverter.parseLfPartyId(submittingPartyIdP))
       transferId <- transferIdP
-        .map(id => mapErr(TransferId.fromProtoV0(id)))
+        .map(id => mapErr(TransferId.fromAdminProtoV0(id)))
         .getOrElse(mapErr(Left(invalidArgument("TransferId not set in transfer-in request"))))
 
       applicationId <- mapErr(ProtoConverter.parseLFApplicationId(applicationIdP))
@@ -168,7 +168,7 @@ final case class TransferSearchResult(
   def toProtoV0: AdminTransferSearchResponse.TransferSearchResult =
     AdminTransferSearchResponse.TransferSearchResult(
       contractId = contractId.toProtoPrimitive,
-      transferId = Some(transferId.toProtoV0),
+      transferId = Some(transferId.toAdminProto),
       originDomain = sourceDomain,
       targetDomain = targetDomain,
       submittingParty = submittingParty,
@@ -197,7 +197,7 @@ object TransferSearchResult {
           contractId <- ProtoConverter.parseLfContractId(contractIdP)
           transferId <- ProtoConverter
             .required("transferId", transferIdP)
-            .flatMap(TransferId.fromProtoV0)
+            .flatMap(TransferId.fromAdminProtoV0)
           targetTimeProofO <- targetTimeProofOP.traverse(CantonTimestamp.fromProtoPrimitive)
           _ <- Either.cond(sourceDomain.nonEmpty, (), FieldNotSet("originDomain"))
           _ <- Either.cond(targetDomain.nonEmpty, (), FieldNotSet("targetDomain"))

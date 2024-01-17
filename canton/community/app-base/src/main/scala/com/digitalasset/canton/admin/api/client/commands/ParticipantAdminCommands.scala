@@ -16,29 +16,30 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
+import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v0.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
+import com.digitalasset.canton.admin.participant.v0.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
+import com.digitalasset.canton.admin.participant.v0.InspectionServiceGrpc.InspectionServiceStub
+import com.digitalasset.canton.admin.participant.v0.PackageServiceGrpc.PackageServiceStub
+import com.digitalasset.canton.admin.participant.v0.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
+import com.digitalasset.canton.admin.participant.v0.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
+import com.digitalasset.canton.admin.participant.v0.PingServiceGrpc.PingServiceStub
+import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
+import com.digitalasset.canton.admin.participant.v0.ResourceManagementServiceGrpc.ResourceManagementServiceStub
+import com.digitalasset.canton.admin.participant.v0.TransferServiceGrpc.TransferServiceStub
+import com.digitalasset.canton.admin.participant.v0.{ResourceLimits as _, *}
+import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.{
   GrpcParticipantRepairService,
   TransferSearchResult,
 }
-import com.digitalasset.canton.participant.admin.v0.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
-import com.digitalasset.canton.participant.admin.v0.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
-import com.digitalasset.canton.participant.admin.v0.InspectionServiceGrpc.InspectionServiceStub
-import com.digitalasset.canton.participant.admin.v0.PackageServiceGrpc.PackageServiceStub
-import com.digitalasset.canton.participant.admin.v0.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
-import com.digitalasset.canton.participant.admin.v0.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
-import com.digitalasset.canton.participant.admin.v0.PingServiceGrpc.PingServiceStub
-import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
-import com.digitalasset.canton.participant.admin.v0.ResourceManagementServiceGrpc.ResourceManagementServiceStub
-import com.digitalasset.canton.participant.admin.v0.TransferServiceGrpc.TransferServiceStub
-import com.digitalasset.canton.participant.admin.v0.{ResourceLimits as _, *}
-import com.digitalasset.canton.participant.admin.{ResourceLimits, v0}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
-import com.digitalasset.canton.protocol.{LfContractId, TransferId, v0 as v0proto}
-import com.digitalasset.canton.pruning.admin
+import com.digitalasset.canton.protocol.{LfContractId, TransferId}
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -336,59 +337,6 @@ object ParticipantAdminCommands {
 
   object ParticipantRepairManagement {
 
-    // TODO(i14441): Remove deprecated ACS download / upload functionality
-    @deprecated("Use ExportAcs", since = "2.8.0")
-    final case class Download(
-        parties: Set[PartyId],
-        filterDomainId: String,
-        timestamp: Option[Instant],
-        protocolVersion: Option[ProtocolVersion],
-        chunkSize: Option[PositiveInt],
-        observer: StreamObserver[AcsSnapshotChunk],
-        gzipFormat: Boolean,
-        contractDomainRenames: Map[DomainId, DomainId],
-    ) extends GrpcAdminCommand[
-          DownloadRequest,
-          CancellableContext,
-          CancellableContext,
-        ] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        ParticipantRepairServiceGrpc.stub(channel)
-
-      override def createRequest(): Either[String, DownloadRequest] = {
-        Right(
-          DownloadRequest(
-            parties.map(_.toLf).toSeq,
-            filterDomainId,
-            timestamp.map(Timestamp.apply),
-            protocolVersion.map(_.toProtoPrimitiveS).getOrElse(""),
-            chunkSize.map(_.value),
-            gzipFormat,
-            contractDomainRenames.map { case (source, target) =>
-              (source.toProtoPrimitive, target.toProtoPrimitive)
-            },
-          )
-        )
-      }
-
-      override def submitRequest(
-          service: ParticipantRepairServiceStub,
-          request: DownloadRequest,
-      ): Future[CancellableContext] = {
-        val context = Context.current().withCancellation()
-        context.run(() => service.download(request, observer))
-        Future.successful(context)
-      }
-
-      override def handleResponse(
-          response: CancellableContext
-      ): Either[String, CancellableContext] = Right(response)
-
-    }
-
     sealed trait StreamingMachinery[Req, Resp] {
       def stream(
           load: StreamObserver[Resp] => StreamObserver[Req],
@@ -429,37 +377,6 @@ object ParticipantAdminCommands {
           }
         requestObserver.onCompleted()
         requestComplete.future
-      }
-    }
-
-    // TODO(i14441): Remove deprecated ACS download / upload functionality
-    @deprecated("Use ImportAcs", since = "2.8.0")
-    final case class Upload(acsChunk: ByteString, gzip: Boolean)
-        extends GrpcAdminCommand[UploadRequest, UploadResponse, Unit]
-        with StreamingMachinery[UploadRequest, UploadResponse] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        ParticipantRepairServiceGrpc.stub(channel)
-
-      override def createRequest(): Either[String, UploadRequest] = {
-        Right(UploadRequest(acsChunk, gzip))
-      }
-
-      override def submitRequest(
-          service: ParticipantRepairServiceStub,
-          request: UploadRequest,
-      ): Future[UploadResponse] = {
-        stream(
-          service.upload,
-          (bytes: Array[Byte]) => UploadRequest(ByteString.copyFrom(bytes), gzip),
-          request.acsSnapshot,
-        )
-      }
-
-      override def handleResponse(response: UploadResponse): Either[String, Unit] = {
-        Right(())
       }
     }
 
@@ -800,9 +717,8 @@ object ParticipantAdminCommands {
       ): Future[RegisterDomainResponse] =
         service.registerDomain(request)
 
-      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] = Right(
-        ()
-      )
+      override def handleResponse(response: RegisterDomainResponse): Either[String, Unit] =
+        Right(())
 
       // can take long if we need to wait to become active
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -823,42 +739,6 @@ object ParticipantAdminCommands {
 
       override def handleResponse(response: ModifyDomainResponse): Either[String, Unit] = Right(())
 
-    }
-
-    final case class GetAgreement(domainAlias: DomainAlias)
-        extends Base[GetAgreementRequest, GetAgreementResponse, Option[(Agreement, Boolean)]] {
-
-      override def createRequest(): Either[String, GetAgreementRequest] = Right(
-        GetAgreementRequest(domainAlias.unwrap)
-      )
-
-      override def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: GetAgreementRequest,
-      ): Future[GetAgreementResponse] =
-        service.getAgreement(request)
-
-      override def handleResponse(
-          response: GetAgreementResponse
-      ): Either[String, Option[(Agreement, Boolean)]] =
-        Right(response.agreement.map(ag => (ag, response.accepted)))
-    }
-
-    final case class AcceptAgreement(domainAlias: DomainAlias, agreementId: String)
-        extends Base[AcceptAgreementRequest, AcceptAgreementResponse, Unit] {
-
-      override def createRequest(): Either[String, AcceptAgreementRequest] =
-        Right(AcceptAgreementRequest(domainAlias.unwrap, agreementId))
-
-      override def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: AcceptAgreementRequest,
-      ): Future[AcceptAgreementResponse] =
-        service.acceptAgreement(request)
-
-      override def handleResponse(response: AcceptAgreementResponse): Either[String, Unit] = Right(
-        ()
-      )
     }
 
   }
@@ -905,14 +785,14 @@ object ParticipantAdminCommands {
       override def handleResponse(response: AdminTransferOutResponse): Either[String, TransferId] =
         response match {
           case AdminTransferOutResponse(Some(transferIdP)) =>
-            TransferId.fromProtoV0(transferIdP).leftMap(_.toString)
+            TransferId.fromAdminProtoV0(transferIdP).leftMap(_.toString)
           case AdminTransferOutResponse(None) => Left("Empty TransferOutResponse")
         }
     }
 
     final case class TransferIn(
         submittingParty: PartyId,
-        transferId: v0proto.TransferId,
+        transferId: v0.TransferId,
         targetDomain: DomainAlias,
         applicationId: LedgerApplicationId,
         submissionId: String,
@@ -1179,17 +1059,17 @@ object ParticipantAdminCommands {
         retention: config.PositiveDurationSeconds,
         pruneInternallyOnly: Boolean,
     ) extends Base[
-          admin.v0.SetParticipantSchedule.Request,
-          admin.v0.SetParticipantSchedule.Response,
+          pruning.v0.SetParticipantSchedule.Request,
+          pruning.v0.SetParticipantSchedule.Response,
           Unit,
         ] {
-      override def createRequest(): Right[String, admin.v0.SetParticipantSchedule.Request] =
+      override def createRequest(): Right[String, pruning.v0.SetParticipantSchedule.Request] =
         Right(
-          admin.v0.SetParticipantSchedule.Request(
+          pruning.v0.SetParticipantSchedule.Request(
             Some(
-              admin.v0.ParticipantPruningSchedule(
+              pruning.v0.ParticipantPruningSchedule(
                 Some(
-                  admin.v0.PruningSchedule(
+                  pruning.v0.PruningSchedule(
                     cron,
                     Some(maxDuration.toProtoPrimitive),
                     Some(retention.toProtoPrimitive),
@@ -1203,35 +1083,37 @@ object ParticipantAdminCommands {
 
       override def submitRequest(
           service: Svc,
-          request: admin.v0.SetParticipantSchedule.Request,
-      ): Future[admin.v0.SetParticipantSchedule.Response] = service.setParticipantSchedule(request)
+          request: pruning.v0.SetParticipantSchedule.Request,
+      ): Future[pruning.v0.SetParticipantSchedule.Response] =
+        service.setParticipantSchedule(request)
 
       override def handleResponse(
-          response: admin.v0.SetParticipantSchedule.Response
+          response: pruning.v0.SetParticipantSchedule.Response
       ): Either[String, Unit] =
         response match {
-          case admin.v0.SetParticipantSchedule.Response() => Right(())
+          case pruning.v0.SetParticipantSchedule.Response() => Right(())
         }
     }
 
     final case class GetParticipantScheduleCommand()
         extends Base[
-          admin.v0.GetParticipantSchedule.Request,
-          admin.v0.GetParticipantSchedule.Response,
+          pruning.v0.GetParticipantSchedule.Request,
+          pruning.v0.GetParticipantSchedule.Response,
           Option[ParticipantPruningSchedule],
         ] {
-      override def createRequest(): Right[String, admin.v0.GetParticipantSchedule.Request] =
+      override def createRequest(): Right[String, pruning.v0.GetParticipantSchedule.Request] =
         Right(
-          admin.v0.GetParticipantSchedule.Request()
+          pruning.v0.GetParticipantSchedule.Request()
         )
 
       override def submitRequest(
           service: Svc,
-          request: admin.v0.GetParticipantSchedule.Request,
-      ): Future[admin.v0.GetParticipantSchedule.Response] = service.getParticipantSchedule(request)
+          request: pruning.v0.GetParticipantSchedule.Request,
+      ): Future[pruning.v0.GetParticipantSchedule.Response] =
+        service.getParticipantSchedule(request)
 
       override def handleResponse(
-          response: admin.v0.GetParticipantSchedule.Response
+          response: pruning.v0.GetParticipantSchedule.Response
       ): Either[String, Option[ParticipantPruningSchedule]] =
         response.schedule.fold(
           Right(None): Either[String, Option[ParticipantPruningSchedule]]

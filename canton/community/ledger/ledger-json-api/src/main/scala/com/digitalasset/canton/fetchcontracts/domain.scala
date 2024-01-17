@@ -8,7 +8,6 @@ import com.daml.ledger.api.v1 as lav1
 import com.daml.lf
 import util.ClientUtil.boxedRecord
 import com.daml.nonempty.NonEmpty
-import scalaz.std.list.*
 import scalaz.std.option.*
 import scalaz.std.string.*
 import scalaz.syntax.std.option.*
@@ -57,11 +56,6 @@ package domain {
     def unwrap(x: Offset): String = tag.unwrap(x)
 
     def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
-    ): Option[Offset] =
-      Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
-
-    def fromLedgerApi(
         gler: lav1.transaction_service.GetLedgerEndResponse
     ): Option[Offset] =
       gler.offset.flatMap(_.value.absolute).filter(_.nonEmpty).map(x => Offset(x))
@@ -89,15 +83,6 @@ package domain {
     type ResolvedCtTyId[+LfV] = ActiveContract[ContractTypeId.Resolved, LfV]
 
     case object IgnoreInterface
-
-    def fromLedgerApi[RQ, CtTyId](
-        resolvedQuery: RQ,
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    )(implicit
-        RQ: ForQuery[RQ, CtTyId]
-    ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
-    }
 
     def fromLedgerApi[RQ, CtTyId](
         resolvedQuery: RQ,

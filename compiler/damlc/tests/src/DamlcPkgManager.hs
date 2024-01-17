@@ -39,6 +39,9 @@ tests :: SdkVersioned => FilePath -> FilePath -> TestTree
 tests damlc dar =
     testGroup "damlc package manager" $ map (\f -> f damlc dar) [testsForRemoteDataDependencies]
 
+lfVersion :: LF.Version
+lfVersion = LF.defaultOrLatestStable LF.V2
+
 testsForRemoteDataDependencies :: SdkVersioned => FilePath -> FilePath -> TestTree
 testsForRemoteDataDependencies damlc dar =
     testGroup "Remote dependencies"
@@ -55,6 +58,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
+                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [" ++ mainPkgId ++ "]"
@@ -83,6 +87,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
+                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [pkg-manager-test:1.0.0]"
@@ -131,6 +136,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
+                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [pkg-manager-test:1.0.0]"
@@ -174,6 +180,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
+                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [" ++ mainPkgId ++ "]"

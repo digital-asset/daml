@@ -65,7 +65,7 @@ trait LedgerApiCommandRunner {
 }
 
 /** Support for inspecting the instance */
-trait BaseInspection[I <: CantonNode] {
+trait BaseInspection[+I <: CantonNode] {
 
   def underlying: Option[I] = {
     runningNode.flatMap(_.getNode)

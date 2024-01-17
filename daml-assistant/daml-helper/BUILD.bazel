@@ -228,4 +228,6 @@ da_haskell_test(
 daml_compile(
     name = "test",
     srcs = glob(["test-data/Test.daml"]),
+    # TODO(#14706): remove explicit target once the default major version is 2
+    target = "2.1",
 )

@@ -236,7 +236,7 @@ object CachingDomainTopologyClient {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       store: TopologyStore[TopologyStoreId.DomainStore],
-      initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
+      initKeys: Map[Member, Seq[SigningPublicKey]],
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
@@ -335,7 +335,7 @@ private class ForwardingTopologySnapshotClient(
   override def referenceTime: CantonTimestamp = parent.timestamp
   override def participants(): Future[Seq[(ParticipantId, ParticipantPermission)]] =
     parent.participants()
-  override def allKeys(owner: KeyOwner): Future[KeyCollection] = parent.allKeys(owner)
+  override def allKeys(owner: Member): Future[KeyCollection] = parent.allKeys(owner)
   override def findParticipantState(
       participantId: ParticipantId
   ): Future[Option[ParticipantAttributes]] = parent.findParticipantState(participantId)
@@ -347,16 +347,12 @@ private class ForwardingTopologySnapshotClient(
       participantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
   ): Future[PartyInfo] =
     parent.loadActiveParticipantsOf(party, participantStates)
-  override def findParticipantCertificate(participantId: ParticipantId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[LegalIdentityClaimEvidence.X509Cert]] =
-    parent.findParticipantCertificate(participantId)
 
   override def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] =
+  ): Future[Map[Member, KeyCollection]] =
     parent.inspectKeys(filterOwner, filterOwnerType, limit)
   override def inspectKnownParties(
       filterParty: String,
@@ -444,7 +440,7 @@ class CachingTopologySnapshot(
       .buildAsyncFuture[ParticipantId, Option[ParticipantAttributes]](parent.findParticipantState)
   private val keyCache = cachingConfigs.keyCache
     .buildScaffeine()
-    .buildAsyncFuture[KeyOwner, KeyCollection](parent.allKeys)
+    .buildAsyncFuture[Member, KeyCollection](parent.allKeys)
 
   private val packageVettingCache = cachingConfigs.packageVettingCache
     .buildScaffeine()
@@ -489,7 +485,7 @@ class CachingTopologySnapshot(
   override def participants(): Future[Seq[(ParticipantId, ParticipantPermission)]] =
     parent.participants()
 
-  override def allKeys(owner: KeyOwner): Future[KeyCollection] = keyCache.get(owner)
+  override def allKeys(owner: Member): Future[KeyCollection] = keyCache.get(owner)
 
   override def findParticipantState(
       participantId: ParticipantId
@@ -524,13 +520,6 @@ class CachingTopologySnapshot(
       .parTraverse(participant => participantState(participant).map((participant, _)))
       .map(_.toMap)
 
-  override def findParticipantCertificate(
-      participantId: ParticipantId
-  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] = {
-    // This one is not cached as we don't need during processing
-    parent.findParticipantCertificate(participantId)
-  }
-
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
@@ -549,9 +538,9 @@ class CachingTopologySnapshot(
 
   override def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] =
+  ): Future[Map[Member, KeyCollection]] =
     parent.inspectKeys(filterOwner, filterOwnerType, limit)
 
   override def inspectKnownParties(

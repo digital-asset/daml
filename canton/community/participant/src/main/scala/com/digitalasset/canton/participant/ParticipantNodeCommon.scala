@@ -10,6 +10,7 @@ import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.Engine
 import com.digitalasset.canton.LedgerParticipantId
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
@@ -17,7 +18,7 @@ import com.digitalasset.canton.concurrent.{
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{DbConfig, H2DbConfig}
-import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
 import com.digitalasset.canton.environment.{CantonNode, CantonNodeBootstrapCommon}
 import com.digitalasset.canton.health.MutableHealthComponent
@@ -26,7 +27,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
 import com.digitalasset.canton.participant.admin.grpc.*
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.admin.{
   DomainConnectivityService,
   PackageDependencyResolver,
@@ -36,11 +36,7 @@ import com.digitalasset.canton.participant.admin.{
 }
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
-import com.digitalasset.canton.participant.domain.{
-  AgreementService,
-  DomainAliasManager,
-  DomainAliasResolution,
-}
+import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.{
   IndexerLockIds,
   LedgerApiServerState,
@@ -252,7 +248,6 @@ trait ParticipantNodeBootstrapCommon {
       packageDependencyResolver: PackageDependencyResolver,
       componentFactory: ParticipantComponentBootstrapFactory,
       skipRecipientsCheck: Boolean,
-      overrideKeyUniqueness: Option[Boolean] = None, // TODO(i13235) remove when UCK is gone
   )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
     FutureUnlessShutdown,
     String,
@@ -270,20 +265,13 @@ trait ParticipantNodeBootstrapCommon {
       participantId,
       ips,
       crypto,
-      config.caching,
+      config.parameters.caching,
       timeouts,
       futureSupervisor,
       loggerFactory,
     )
     // closed in DomainAliasManager
     val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
-
-    // closed in grpc domain registry
-    val agreementService = {
-      // store is cleaned up as part of the agreement service
-      val acceptedAgreements = ServiceAgreementStore(storage, timeouts, loggerFactory)
-      new AgreementService(acceptedAgreements, parameterConfig, loggerFactory)
-    }
 
     for {
       domainConnectionConfigStore <- EitherT
@@ -315,9 +303,7 @@ trait ParticipantNodeBootstrapCommon {
           storage,
           clock,
           config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
-          overrideKeyUniqueness.orElse(config.init.parameters.uniqueContractKeys.some),
           parameterConfig.batchingConfig,
-          parameterConfig.stores,
           ReleaseProtocolVersion.latest,
           arguments.metrics,
           indexedStringStore,
@@ -370,7 +356,6 @@ trait ParticipantNodeBootstrapCommon {
         participantId,
         syncDomainPersistentStateManager,
         persistentState.map(_.settingsStore),
-        agreementService,
         topologyDispatcher,
         syncCrypto,
         config.crypto,
@@ -423,6 +408,7 @@ trait ParticipantNodeBootstrapCommon {
                 storage,
                 adminToken,
                 parameterConfig.stores,
+                parameterConfig.batchingConfig,
               )
             )
           )
@@ -506,7 +492,6 @@ trait ParticipantNodeBootstrapCommon {
       val stateService = new DomainConnectivityService(
         sync,
         domainAliasManager,
-        agreementService,
         parameterConfig.processingTimeouts,
         sequencerInfoLoader,
         loggerFactory,
@@ -601,6 +586,11 @@ abstract class ParticipantNodeCommon(
 ) extends CantonNode
     with NamedLogging
     with HasUptime {
+
+  def cryptoPureApi: CryptoPureApi
+
+  override def loggerFactory: NamedLoggerFactory
+
   def reconnectDomainsIgnoreFailures()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

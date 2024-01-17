@@ -5,31 +5,19 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protocol.v0;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v1/signed_content.proto";
 import "com/digitalasset/canton/v0/trace_context.proto";
-import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 // Messages for sequencing
-message SequencedEvent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  int64 counter = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  string domain_id = 3;
-  google.protobuf.StringValue message_id = 4; // Optional: Present for DeliverError, present for the sender of a Deliver.
-  CompressedBatch batch = 5; // Optional: Present for Deliver, absent for DeliverError
-  DeliverErrorReason deliver_error_reason = 6; // Optional: Present for DeliverError, absent for other events
-}
-
 message PossiblyIgnoredSequencedEvent {
   int64 counter = 1;
   google.protobuf.Timestamp timestamp = 2;
   com.digitalasset.canton.v0.TraceContext trace_context = 3;
   bool is_ignored = 4;
-  SignedContent underlying = 5; // Optional if is_ignored == true, required otherwise
+  v1.SignedContent underlying = 5; // Optional if is_ignored == true, required otherwise
 }
 
 // Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit
@@ -43,75 +31,16 @@ message Recipients {
   repeated RecipientsTree recipients_tree = 1;
 }
 
-message Envelope {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  bytes content = 1;
-  com.digitalasset.canton.protocol.v0.Recipients recipients = 2;
-}
-
 message CompressedBatch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
   enum CompressionAlgorithm {
     None = 0;
     Gzip = 1;
-  }
-
-  CompressionAlgorithm algorithm = 1;
-  bytes compressed_batch = 2;
-}
-
-message Batch {
-  repeated Envelope envelopes = 1;
-}
-
-message SignedContent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  google.protobuf.BytesValue content = 1;
-  com.digitalasset.canton.crypto.v0.Signature signatures = 2;
-  google.protobuf.Timestamp timestamp_of_signing_key = 3;
-}
-
-message DeliverErrorReason {
-  oneof reason {
-    // The batch content could not be read, likely caused by a serialization or versioning issue.
-    string batch_invalid = 1;
-    // The batch was content was readable but the sequencer application decided the request was not correct,
-    // examples could be recipients not being registered or values in the request being incorrect.
-    string batch_refused = 2;
   }
 }
 
 message ServiceAgreement {
   string id = 1; // A unique identifier of an agreement within a domain, which must change when the legal text changes
   string legal_text = 2;
-}
-
-message StaticDomainParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  google.protobuf.Duration reconciliation_interval = 1;
-  uint32 max_rate_per_participant = 2;
-  uint32 max_inbound_message_size = 3;
-  bool unique_contract_keys = 4;
-  repeated com.digitalasset.canton.crypto.v0.SigningKeyScheme required_signing_key_schemes = 5;
-  repeated com.digitalasset.canton.crypto.v0.EncryptionKeyScheme required_encryption_key_schemes = 6;
-  repeated com.digitalasset.canton.crypto.v0.SymmetricKeyScheme required_symmetric_key_schemes = 7;
-  repeated com.digitalasset.canton.crypto.v0.HashAlgorithm required_hash_algorithms = 8;
-  repeated com.digitalasset.canton.crypto.v0.CryptoKeyFormat required_crypto_key_formats = 9;
-  string protocol_version = 10;
-}
-
-message DynamicDomainParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  google.protobuf.Duration participant_response_timeout = 1;
-  google.protobuf.Duration mediator_reaction_timeout = 2;
-  google.protobuf.Duration transfer_exclusivity_timeout = 3;
-  google.protobuf.Duration topology_change_delay = 4;
-  google.protobuf.Duration ledger_time_record_time_tolerance = 5;
 }
 
 // Messages for performing a version handshake with a sequencer service
@@ -140,17 +69,6 @@ message Handshake {
 }
 
 // Messages used for synchronization between sequencer nodes
-
-message SubmissionRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  string sender = 1;
-  string message_id = 2;
-  bool is_request = 3;
-  com.digitalasset.canton.protocol.v0.CompressedBatch batch = 4;
-  google.protobuf.Timestamp max_sequencing_time = 5;
-  google.protobuf.Timestamp timestamp_of_signing_key = 6;
-}
 
 message AggregationRule {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";

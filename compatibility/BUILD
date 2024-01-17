@@ -18,14 +18,35 @@ load("//bazel_tools:versions.bzl", "versions")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
 
+# This dummy tests ensure that bazel won't fail with "No test targets were
+# found, yet testing was requested" when no target matches the test filter.
+genrule(
+    name = "dummy_test",
+    outs = ["dummy_test_result.sh"],
+    cmd = "touch $(OUTS)",
+)
+
+[
+    sh_test(
+        name = "dummy_test_sh{}".format(suffix),
+        srcs = ["dummy_test_result.sh"],
+        tags = tags,
+    )
+    for (tags, suffix) in [
+        (
+            ["head-quick"],
+            "_head_quick",
+        ),
+        ([], ""),
+    ]
+]
+
 config_setting(
     name = "ghci_data",
     define_values = {
         "ghci_data": "True",
     },
 )
-
-last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
 
 [
     sh_test(
@@ -39,7 +60,7 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for sdk_version in sdk_versions
-    if versions.is_at_least("2.7.6", sdk_version)
+    if versions.is_at_least("3.0.0", sdk_version)
 ] if not is_windows else None
 
 # Instead of testing the full cartesian product of all SDK versions with
@@ -121,30 +142,22 @@ head = "0.0.0"
     if old_sdk_version != "0.0.0"
     # These tests use data-dependency reexports (#11147), so the earliest
     # supported SDK is 1.18.0
-    if versions.is_at_least("1.18.0", old_sdk_version)
+    if versions.is_at_least("3.0.0", old_sdk_version)
 ]
 
 os_name = "linux" if not is_windows else "windows"
 
 command_targets = {
     "install_from_version": [
-        "2.8.0-snapshot.20231109.2",
         "0.0.0",
-        "latest",
-        "2.7.1",
     ],
     "build_from_version": [
-        "2.8.0-snapshot.20231109.2",
-        "2.7.1",
         "0.0.0",
     ],
     "install_with_custom_version_and_build": [
         "0.0.0",
     ],
     "install_and_build_from_tarball": [
-        "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-{}.tar.gz".format(os_name),
-        "v2.7.5/daml-sdk-2.7.5-{}.tar.gz".format(os_name),
-        "v2.7.1/daml-sdk-2.7.1-{}.tar.gz".format(os_name),
     ],
 }
 
@@ -187,10 +200,6 @@ command_post_failure_behaviours = {
             ":new_cache",
             ":old_cache",
             ":releases-github-api.json",
-            "@daml-sdk-2.7.1-tarball//file",
-            "@daml-sdk-2.7.4-tarball//file",
-            "@daml-sdk-2.7.5-tarball//file",
-            "@daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball//file",
             "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
         ],

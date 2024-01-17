@@ -70,26 +70,8 @@ def daml_ledger_test(
 #
 # The proper fix is to use the appropriate version of Daml-LF for every SDK/platform pair.
 
-def daml_lf_compatible(sdk_version, platform_version):
-    return (
-        # any platform supports any pre 1.11 SDK
-        not in_range(sdk_version, {"start": "1.11.0-snapshot"})
-    ) or (
-        # any post 1.10.0 platform supports any pre 1.12 SDK
-        in_range(platform_version, {"start": "1.10.0-snapshot"}) and not in_range(sdk_version, {"start": "1.12.0-snapshot"})
-    ) or (
-        # any post 1.10.0 platform supports any pre 1.14 SDK
-        in_range(platform_version, {"start": "1.11.0-snapshot"}) and not in_range(sdk_version, {"start": "1.14.0-snapshot"})
-    ) or (
-        # any post 1.14.0 platform supports any pre 1.16 SDK
-        in_range(platform_version, {"start": "1.14.0-snapshot"}) and not in_range(sdk_version, {"start": "1.16.0-snapshot"})
-    ) or (
-        # any post 1.15.0 platform supports any pre 2.6 SDK
-        in_range(platform_version, {"start": "1.15.0-snapshot"}) and not in_range(sdk_version, {"start": "2.5.0-snapshot"})
-    ) or (
-        # any post 2.5.0 platform supports any SDK
-        in_range(platform_version, {"start": "2.5.0-snapshot"})
-    )
+def daml_lf_compatible(_sdk_version, platform_version):
+    return in_range(platform_version, {"start": "3.0.0-snapshot"})
 
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
@@ -116,8 +98,7 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = version_to_name(platform_version),
     )
 
-    # Canton does not support LF<=1.8 found in earlier versions
-    if versions.is_at_least("1.16.0", sdk_version):
+    if versions.is_at_least("3.0.0", sdk_version):
         daml_ledger_test(
             name = name,
             sdk_version = sdk_version,

@@ -33,14 +33,11 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
+import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
   UserManagementStore,
-}
-import com.digitalasset.canton.platform.localstore.{
-  IdentityProviderManagementConfig,
-  PackageMetadataStore,
 }
 import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.tracing.TraceContext
@@ -81,7 +78,6 @@ object ApiServiceOwner {
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
-      packageMetadataStore: PackageMetadataStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
@@ -159,7 +155,6 @@ object ApiServiceOwner {
         managementServiceTimeout = managementServiceTimeout.underlying,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
-        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
@@ -169,10 +164,10 @@ object ApiServiceOwner {
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
+        multiDomainEnabled = multiDomainEnabled,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

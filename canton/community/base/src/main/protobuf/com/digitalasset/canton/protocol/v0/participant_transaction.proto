@@ -7,7 +7,6 @@ package com.digitalasset.canton.protocol.v0;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/common.proto";
-import "com/digitalasset/canton/protocol/v0/merkle.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
@@ -16,48 +15,11 @@ import "scalapb/scalapb.proto";
 
 // EncryptedViewMessage
 
-message EncryptedViewMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  bytes view_tree = 1;
-  com.digitalasset.canton.crypto.v0.Signature submitter_participant_signature = 2; // optional
-  bytes view_hash = 3;
-  repeated ParticipantRandomnessLookup randomness = 4;
-  string domain_id = 5;
-  ViewType view_type = 6;
-}
-
-message LightTransactionViewTree {
-  GenTransactionTree tree = 1;
-}
-
-message SubmitterMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  repeated string act_as = 2;
-  string application_id = 3;
-  string command_id = 4;
-  string submitter_participant = 5;
-  string submission_id = 6; // optional; absent if not specified by submitter
-  DeduplicationPeriod dedup_period = 7;
-}
-
 message DeduplicationPeriod {
   oneof period {
     google.protobuf.Duration duration = 1;
     bytes offset = 2;
   }
-}
-
-message CommonMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  bytes confirmation_policy = 2;
-  string domain_id = 3;
-  string uuid = 4;
-  string mediator_id = 5;
 }
 
 message ParticipantMetadata {
@@ -67,128 +29,6 @@ message ParticipantMetadata {
   google.protobuf.Timestamp ledger_time = 2;
   google.protobuf.Timestamp submission_time = 3;
   string workflow_id = 4; // optional
-}
-
-message ViewNode {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  BlindableNode view_common_data = 1;
-  BlindableNode view_participant_data = 2;
-  repeated BlindableNode subviews = 3;
-}
-
-message ViewCommonData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  repeated Informee informees = 2;
-  int32 threshold = 3;
-}
-
-message Informee {
-  string party = 1;
-  int32 weight = 2; // optional: only set if party is confirming
-}
-
-message ViewParticipantData {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  com.digitalasset.canton.crypto.v0.Salt salt = 1;
-  repeated InputContract core_inputs = 2;
-  repeated CreatedContract created_core = 3;
-  repeated string created_in_subview_archived_in_core = 4; // ids of contracts created in a subview and archived in the core
-  repeated ResolvedKey resolved_keys = 5;
-  ActionDescription action_description = 6;
-  RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
-
-  message CreatedContract {
-    SerializableContract contract = 1;
-    bool consumed_in_core = 2;
-    bool rolled_back = 3;
-  }
-
-  message InputContract {
-    SerializableContract contract = 1;
-    bool consumed = 2;
-  }
-
-  message ResolvedKey {
-    GlobalKey key = 1;
-    oneof resolution {
-      string contract_id = 2; // the key resolves to a contract
-      FreeKey free = 3; // the key is free and these are the maintainers
-    }
-  }
-
-  message FreeKey {
-    repeated string maintainers = 1;
-  }
-
-  message RollbackContext {
-    repeated int32 rollback_scope = 1;
-    int32 next_child = 2;
-  }
-}
-
-message ActionDescription {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  oneof description {
-    CreateActionDescription create = 1;
-    ExerciseActionDescription exercise = 2;
-    FetchActionDescription fetch = 3;
-    LookupByKeyActionDescription lookup_by_key = 4;
-  }
-
-  message CreateActionDescription {
-    string contract_id = 1;
-    bytes node_seed = 2;
-    string version = 3;
-  }
-
-  message ExerciseActionDescription {
-    string input_contract_id = 1;
-    string choice = 2;
-    bytes chosen_value = 3;
-    repeated string actors = 4;
-    bool by_key = 5;
-    bytes node_seed = 6;
-    string version = 7;
-    bool failed = 8;
-  }
-
-  message FetchActionDescription {
-    string input_contract_id = 1;
-    repeated string actors = 2;
-    bool by_key = 3;
-    string version = 4;
-  }
-
-  message LookupByKeyActionDescription {
-    GlobalKey key = 1;
-  }
-}
-
-message ParticipantRandomnessLookup {
-  string participant = 1;
-
-  // An encrypted random bytestring. After decryption, used in HKDF to derive the encryption keys for the view and
-  // its subviews
-  bytes randomness = 2;
-}
-
-// InformeeMessage
-
-message InformeeMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  FullInformeeTree full_informee_tree = 1;
-}
-
-message FullInformeeTree {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  GenTransactionTree tree = 1;
 }
 
 // RootHashMessage

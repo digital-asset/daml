@@ -3,13 +3,14 @@
 
 package com.daml.ledger.javaapi.data
 
-import java.time.{Instant, LocalDate}
-import com.daml.ledger.api.v1._
+import com.daml.ledger.api.v1.*
 import com.google.protobuf.{ByteString, Empty}
 import org.scalacheck.{Arbitrary, Gen}
-import Arbitrary.arbitrary
 
-import scala.jdk.CollectionConverters._
+import java.time.{Instant, LocalDate}
+import scala.jdk.CollectionConverters.*
+
+import Arbitrary.arbitrary
 
 // Allows using deprecated Protobuf fields for testing
 @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")

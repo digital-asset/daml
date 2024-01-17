@@ -34,7 +34,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.Passiv
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.TopologyManagerError.NoAppropriateSigningKeyInStore
+import com.digitalasset.canton.topology.TopologyManagerError.{
+  NoAppropriateSigningKeyInStore,
+  SecretKeyNotInStore,
+}
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, Spanning, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -135,7 +138,7 @@ class AdminWorkflowServices(
       .leftSubflatMap(res) {
         case CantonPackageServiceError.IdentityManagerParentError(
               ParticipantTopologyManagerError.IdentityManagerParentError(
-                NoAppropriateSigningKeyInStore.Failure(_)
+                NoAppropriateSigningKeyInStore.Failure(_) | SecretKeyNotInStore.Failure(_)
               )
             ) =>
           // Log error by creating error object, but continue processing.
@@ -373,7 +376,7 @@ private[admin] class ResilientTransactionsSubscription(
           logger.warn(s"$name finished with an error", error)
           ()
         },
-        timeouts.closing.duration,
+        timeouts.closing,
       )
     )
   }

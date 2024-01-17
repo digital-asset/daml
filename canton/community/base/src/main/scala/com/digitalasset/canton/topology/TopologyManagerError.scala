@@ -90,7 +90,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends Alarm(cause)
         with TopologyManagerError {
-      override lazy val logOnCreation: Boolean = false
+      override def logOnCreation: Boolean = false
     }
   }
 

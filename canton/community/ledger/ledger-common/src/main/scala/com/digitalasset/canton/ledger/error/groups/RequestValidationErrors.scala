@@ -143,20 +143,21 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
-      "The queried package name does not match a package uploaded on this participant."
+      "The queried template qualified name could not be resolved to a fully-qualified template id."
     )
     @Resolution(
-      "Use a valid package name or ask the participant operator to upload the necessary package."
+      "Use a valid template qualified name or ask the participant operator to upload the package containing the necessary interfaces/templates."
     )
     object TemplateQualifiedNameNotFound
         extends ErrorCode(
-          id = "PACKAGE_NAME_NOT_FOUND",
+          id = "TEMPLATE_NAME_NOT_KNOWN",
           category = ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Reject(packageName: Ref.PackageName)(implicit
+      final case class Reject(unknownQualifiedName: Ref.QualifiedName)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"Could not resolve any package with the requested packageName: $packageName"
+            cause =
+              s"Could not resolve a fully-qualified template id from the specified template qualified name $unknownQualifiedName"
           )
     }
   }

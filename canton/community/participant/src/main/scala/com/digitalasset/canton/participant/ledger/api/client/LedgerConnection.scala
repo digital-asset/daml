@@ -10,9 +10,10 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.GetPackageStatusResponse
-import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -23,7 +24,6 @@ import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
@@ -47,7 +47,6 @@ import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.{Done, NotUsed}
 import org.slf4j.event.Level
-import scalaz.syntax.tag.*
 
 import java.time.Duration
 import java.util.UUID
@@ -93,36 +92,8 @@ trait LedgerConnection extends LedgerSubmit with LedgerAcs {
       offset: LedgerOffset,
       filter: TransactionFilter = LedgerConnection.transactionFilter(sender),
   )(f: Transaction => Unit): LedgerSubscription
-  def subscribeAsync(
-      subscriptionName: String,
-      offset: LedgerOffset,
-      filter: TransactionFilter = LedgerConnection.transactionFilter(sender),
-  )(f: Transaction => Future[Unit]): LedgerSubscription
-  def subscription[T](
-      subscriptionName: String,
-      offset: LedgerOffset,
-      filter: TransactionFilter = LedgerConnection.transactionFilter(sender),
-  )(mapOperator: Flow[Transaction, Any, _]): LedgerSubscription
-
-  def subscribeTree(
-      subscriptionName: String,
-      offset: LedgerOffset,
-      filter: Seq[Any] = Seq(sender),
-  )(f: TransactionTree => Unit): LedgerSubscription
-  def subscribeAsyncTree(
-      subscriptionName: String,
-      offset: LedgerOffset,
-      filter: Seq[Any] = Seq(sender),
-  )(f: TransactionTree => Future[Unit]): LedgerSubscription
-  def subscriptionTree[T](
-      subscriptionName: String,
-      offset: LedgerOffset,
-      filter: Seq[Any] = Seq(sender),
-  )(mapOperator: Flow[TransactionTree, Any, _]): LedgerSubscription
 
   def transactionById(id: String): Future[Option[Transaction]]
-
-  def allocatePartyViaLedgerApi(hint: Option[String], displayName: Option[String]): Future[PartyId]
 
 }
 
@@ -140,7 +111,6 @@ object LedgerConnection {
   ): Future[LedgerClient] = {
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement(None),
       commandClient = commandClientConfiguration,
       token = token,
     )
@@ -178,7 +148,7 @@ object LedgerConnection {
       ec: ExecutionContextExecutor,
       as: ActorSystem,
       sequencerPool: ExecutionSequencerFactory,
-  ): LedgerConnection with NamedLogging =
+  ): LedgerConnection & NamedLogging =
     new LedgerConnection with NamedLogging {
       protected val loggerFactory: NamedLoggerFactory = loggerFactoryForLedgerConnectionOverride
 
@@ -200,7 +170,6 @@ object LedgerConnection {
           )
         )
       }
-      private val ledgerId = client.ledgerId
       private val commandClient = client.commandClient
 
       private val transactionClient = client.transactionClient
@@ -215,7 +184,7 @@ object LedgerConnection {
           overrideRetryable,
         )
 
-      override def sender = senderParty
+      override def sender: Party = senderParty
 
       override def ledgerEnd: Future[LedgerOffset] =
         transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
@@ -312,7 +281,6 @@ object LedgerConnection {
           seq: Seq[Command],
       ): Commands =
         Commands(
-          ledgerId = ledgerId.unwrap,
           workflowId = WorkflowId.unwrap(workflowId),
           applicationId = ApplicationId.unwrap(applicationId),
           commandId = commandId.getOrElse(uniqueId),
@@ -332,15 +300,6 @@ object LedgerConnection {
           Flow[Transaction].map(f)
         })
 
-      override def subscribeAsync(
-          subscriptionName: String,
-          offset: LedgerOffset,
-          filter: TransactionFilter = transactionFilter(sender),
-      )(f: Transaction => Future[Unit]): LedgerSubscription =
-        subscription(subscriptionName, offset, filter)({
-          Flow[Transaction].mapAsync(1)(f)
-        })
-
       override def transactionById(id: String): Future[Option[Transaction]] =
         client.transactionClient.getFlatTransactionById(id, Seq(sender.getValue), token).map {
           resp =>
@@ -352,49 +311,20 @@ object LedgerConnection {
         SyncCloseable("ledgerClient", client.close()),
       )
 
-      override def subscription[T](
+      private def subscription[_T](
           subscriptionName: String,
           offset: LedgerOffset,
           filter: TransactionFilter = transactionFilter(sender),
-      )(mapOperator: Flow[Transaction, Any, _]): LedgerSubscription =
+      )(mapOperator: Flow[Transaction, Any, ?]): LedgerSubscription =
         makeSubscription(
           transactionClient.getTransactions(offset, None, filter),
           mapOperator,
           subscriptionName,
         )
 
-      override def subscribeTree(
-          subscriptionName: String,
-          offset: LedgerOffset,
-          filterParty: Seq[Any] = Seq(sender),
-      )(f: TransactionTree => Unit): LedgerSubscription =
-        subscriptionTree(subscriptionName, offset, filterParty)({
-          Flow[TransactionTree].map(f)
-        })
-
-      override def subscribeAsyncTree(
-          subscriptionName: String,
-          offset: LedgerOffset,
-          filterParty: Seq[Any] = Seq(sender),
-      )(f: TransactionTree => Future[Unit]): LedgerSubscription =
-        subscriptionTree(subscriptionName, offset, filterParty)({
-          Flow[TransactionTree].mapAsync(1)(f)
-        })
-
-      override def subscriptionTree[T](
-          subscriptionName: String,
-          offset: LedgerOffset,
-          filterParty: Seq[Any] = Seq(sender),
-      )(mapOperator: Flow[TransactionTree, Any, _]): LedgerSubscription =
-        makeSubscription(
-          transactionClient.getTransactionTrees(offset, None, transactionFilter(sender)),
-          mapOperator,
-          subscriptionName,
-        )
-
       private def makeSubscription[S, T](
           source: Source[S, NotUsed],
-          mapOperator: Flow[S, T, _],
+          mapOperator: Flow[S, T, ?],
           subscriptionName: String,
       ): LedgerSubscription =
         new LedgerSubscription {
@@ -411,7 +341,7 @@ object LedgerConnection {
               // was processed
               .toMat(Sink.ignore)(Keep.both),
           )
-          override val loggerFactory =
+          override val loggerFactory: NamedLoggerFactory =
             if (subscriptionName.isEmpty)
               loggerFactoryForLedgerConnectionOverride
             else
@@ -428,24 +358,16 @@ object LedgerConnection {
                 s"graph.completed $subscriptionName",
                 completed.transform {
                   case Success(v) => Success(v)
-                  case Failure(ex: StatusRuntimeException) =>
+                  case Failure(_: StatusRuntimeException) =>
                     // don't fail to close if there was a grpc status runtime exception
                     // this can happen (i.e. server not available etc.)
                     Success(Done)
                   case Failure(ex) => Failure(ex)
                 },
-                processingTimeouts.shutdownShort.unwrap,
+                processingTimeouts.shutdownShort,
               ),
             )
           }
-        }
-
-      override def allocatePartyViaLedgerApi(
-          hint: Option[String],
-          displayName: Option[String],
-      ): Future[PartyId] =
-        client.partyManagementClient.allocateParty(hint, displayName, token).map { details =>
-          PartyId.tryFromLfParty(details.party)
         }
 
       override def getPackageStatus(packageId: String): Future[GetPackageStatusResponse] =
@@ -462,6 +384,12 @@ object LedgerConnection {
       case (p, ts) => p.toParty.getValue -> Filters(Some(InclusiveFilters(ts)))
     })
 
+  def transactionFilterByPartyV2(filter: Map[PartyId, Seq[Identifier]]): TransactionFilterV2 =
+    TransactionFilterV2(filter.map {
+      case (p, Nil) => p.toParty.getValue -> Filters.defaultInstance
+      case (p, ts) => p.toParty.getValue -> Filters(Some(InclusiveFilters(ts)))
+    })
+
   def mapTemplateIds(id: javaapi.data.Identifier): Identifier =
     Identifier(
       packageId = id.getPackageId,
@@ -469,7 +397,7 @@ object LedgerConnection {
       entityName = id.getEntityName,
     )
 
-  val ledgerBegin = LedgerOffset(
+  val ledgerBegin: LedgerOffset = LedgerOffset(
     LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
   )
 

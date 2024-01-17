@@ -165,11 +165,10 @@ object TopologyTransactionX
   type GenericTopologyTransactionX = TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.minimum),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v2.TopologyTransactionX)(
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.TopologyTransactionX)(
       supportedProtoVersionMemoized(_)(fromProtoV2),
       _.toProtoV2.toByteString,
-    ),
+    )
   )
 
   def apply[Op <: TopologyChangeOpX, M <: TopologyMappingX](

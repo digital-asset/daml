@@ -12,7 +12,6 @@ import com.digitalasset.canton.topology.{
   TestingIdentityFactoryX,
   TestingTopologyX,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 
 abstract class BftDomainSequencerApiTest extends SequencerApiTest {
 
@@ -41,5 +40,5 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
 
   override protected final def createEnv(): FixtureParam = new BftEnv
 
-  "BFT Domain" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet when runSequencerApiTests()
+  "BFT Domain" when runSequencerApiTests()
 }

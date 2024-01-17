@@ -46,7 +46,6 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
       factory.domainId,
       version,
       factory.cryptoOps,
-      uniqueContractKeys = true,
       loggerFactory,
     )
 

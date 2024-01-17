@@ -18,7 +18,7 @@ message LedgerSyncEvent {
 
   oneof value {
     ConfigurationChanged configuration_changed = 1;
-    ConfigurationChangeRejected configuration_change_rejected = 2;
+    ConfigurationChangeRejected configuration_change_rejected = 2; // this message has never been produced by canton
     PartyAddedToParticipant party_added_to_participant = 3;
     PublicPackageUpload public_package_upload = 4;
     TransactionAccepted transaction_accepted = 5;
@@ -29,6 +29,8 @@ message LedgerSyncEvent {
     TransferredIn transferred_in = 10;
     ContractsAdded contracts_added = 11;
     ContractsPurged contracts_purged = 12;
+    PartiesAddedToParticipant parties_added = 13;
+    PartiesRemovedFromParticipant parties_removed = 14;
   }
 }
 
@@ -97,6 +99,7 @@ message TransactionAccepted {
   BlindingInfo blinding_info = 7; // optional
   map<string, bytes> contract_metadata = 8; //optional
   repeated string hosted_witnesses = 9; // not empty in case multi-domain deployment, empty otherwise
+  string domain_id = 10;
 }
 
 message CompletionInfo {
@@ -115,7 +118,6 @@ message TransactionMeta {
   repeated string used_packages = 5;
   repeated NodeSeed node_seeds = 6;
   ByKeyNodes by_key_nodes = 7; // optional
-  google.protobuf.StringValue domain_id = 8; // TODO(#13173) optional for backwards compatibility
 
   message ByKeyNodes {
     repeated int32 by_key_node = 1;
@@ -156,7 +158,7 @@ message CommandRejected {
     bytes status = 1;
   }
   CommandKind command_kind = 4;
-  google.protobuf.StringValue domain_id = 5; // TODO(#13173) optional for backwards compatibility
+  string domain_id = 5;
 }
 
 message TransferredOut {
@@ -211,4 +213,18 @@ message ContractsPurged {
   string domain_id = 3;
   google.protobuf.Timestamp record_time = 4;
   repeated string hosted_witnesses = 5;
+}
+
+message PartiesAddedToParticipant {
+  repeated string parties = 1;
+  string participant_id = 2;
+  google.protobuf.Timestamp record_time = 3;
+  google.protobuf.Timestamp effective_time = 4;
+}
+
+message PartiesRemovedFromParticipant {
+  repeated string parties = 1;
+  string participant_id = 2;
+  google.protobuf.Timestamp record_time = 3;
+  google.protobuf.Timestamp effective_time = 4;
 }

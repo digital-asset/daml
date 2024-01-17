@@ -4,11 +4,15 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
 import com.digitalasset.canton.time.Clock
+import pureconfig.ConfigCursor
 
 import scala.concurrent.ExecutionContext
 
-trait SequencerConfig
+trait SequencerConfig {
+  def supportsReplicas: Boolean
+}
 
 /** Unsealed trait so the database sequencer config can be reused between community and enterprise */
 trait DatabaseSequencerConfig {
@@ -18,6 +22,8 @@ trait DatabaseSequencerConfig {
   val reader: SequencerReaderConfig
   val testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor]
   def highAvailabilityEnabled: Boolean
+
+  override def supportsReplicas: Boolean = highAvailabilityEnabled
 }
 
 object DatabaseSequencerConfig {
@@ -39,6 +45,7 @@ final case class CommunitySequencerReaderConfig(
 ) extends SequencerReaderConfig
 
 object CommunitySequencerConfig {
+
   final case class Database(
       writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
       reader: CommunitySequencerReaderConfig = CommunitySequencerReaderConfig(),
@@ -46,6 +53,14 @@ object CommunitySequencerConfig {
   ) extends CommunitySequencerConfig
       with DatabaseSequencerConfig {
     override def highAvailabilityEnabled: Boolean = false
+  }
+
+  final case class External(
+      sequencerType: String,
+      config: ConfigCursor,
+      testingInterceptor: Option[TestingInterceptor],
+  ) extends CommunitySequencerConfig {
+    override def supportsReplicas: Boolean = false
   }
 }
 

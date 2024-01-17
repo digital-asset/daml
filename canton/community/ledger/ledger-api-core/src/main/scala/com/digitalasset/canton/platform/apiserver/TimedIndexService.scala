@@ -30,7 +30,6 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
@@ -38,6 +37,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.R
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -261,7 +261,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       contractKey: Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      keyContinuationToken: KeyContinuationToken,
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
     Timed.future(
       metrics.daml.services.index.getEventsByContractKey,
@@ -269,12 +269,12 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
         contractKey,
         templateId,
         requestingParties,
-        keyContinuationToken,
+        endExclusiveSeqId,
       ),
     )
 
-  override def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
+  override def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Set[Ref.PackageId]] =
-    delegate.resolveUpgradablePackagesForName(packageName)
+  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName] =
+    delegate.resolveToTemplateIds(templateQualifiedName)
 }

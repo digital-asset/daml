@@ -4,10 +4,10 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.option.*
+import com.digitalasset.canton.admin.time.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.admin.v0
 
 /** Configuration for the domain time tracker.
   * @param observationLatency Even if the host and domain clocks are perfectly synchronized there will always be some latency

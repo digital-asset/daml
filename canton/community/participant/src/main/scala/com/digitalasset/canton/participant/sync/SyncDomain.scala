@@ -23,6 +23,7 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
@@ -68,12 +69,11 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatche
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements
+import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
 import com.digitalasset.canton.store.SequencedEventStore
@@ -150,7 +150,7 @@ class SyncDomain(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from domain")
 
-  private[canton] val sequencerClient = domainHandle.sequencerClient
+  private[canton] val sequencerClient: RichSequencerClient = domainHandle.sequencerClient
   val timeTracker: DomainTimeTracker = ephemeral.timeTracker
   val staticDomainParameters: StaticDomainParameters = domainHandle.staticParameters
 
@@ -162,7 +162,6 @@ class SyncDomain(
       domainCrypto.crypto.pureCrypto,
       seedGenerator,
       parameters.loggingConfig,
-      staticDomainParameters.uniqueContractKeys,
       loggerFactory,
     )
 
@@ -227,8 +226,7 @@ class SyncDomain(
     skipRecipientsCheck = skipRecipientsCheck,
   )
 
-  private val sortedReconciliationIntervalsProvider = SortedReconciliationIntervalsProvider(
-    staticDomainParameters,
+  private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
     topologyClient,
     futureSupervisor,
     loggerFactory,
@@ -256,10 +254,9 @@ class SyncDomain(
       domainCrypto,
       sortedReconciliationIntervalsProvider,
       persistent.acsCommitmentStore,
-      journalGarbageCollector.observer(_),
+      journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.catchUpParameters,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,
@@ -297,13 +294,12 @@ class SyncDomain(
     domainId,
     staticDomainParameters.protocolVersion,
     domainHandle.topologyClient,
-    domainHandle.sequencerClient,
+    sequencerClient,
   )
 
   private val messageDispatcher: MessageDispatcher =
     messageDispatcherFactory.create(
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.uniqueContractKeys,
       domainId,
       participantId,
       ephemeral.requestTracker,
@@ -519,12 +515,12 @@ class SyncDomain(
       // the multi-domain event log before the crash
       pending <- cleanPreHeadO.fold(
         EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
-      ) { lastProcessedCounter =>
+      ) { lastProcessedOffset =>
         EitherT.right(
           participantNodePersistentState.value.multiDomainEventLog
             .fetchUnpublished(
               id = persistent.eventLog.id,
-              upToInclusiveO = Some(LocalOffset(lastProcessedCounter)),
+              upToInclusiveO = Some(lastProcessedOffset),
             )
         )
       }
@@ -707,7 +703,7 @@ class SyncDomain(
     }).value
   }
 
-  def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
+  private def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val fetchLimit = 1000
 
@@ -897,7 +893,7 @@ class SyncDomain(
           domainCrypto,
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
-          domainHandle.sequencerClient,
+          sequencerClient,
           journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,

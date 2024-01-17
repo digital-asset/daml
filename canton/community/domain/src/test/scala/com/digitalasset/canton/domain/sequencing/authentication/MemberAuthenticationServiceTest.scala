@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   MissingToken,
   NonMatchingDomainId,
-  ParticipantDisabled,
+  ParticipantAccessDisabled,
 }
 import com.digitalasset.canton.sequencing.authentication.{AuthenticationToken, MemberAuthentication}
 import com.digitalasset.canton.time.SimClock
@@ -44,7 +44,6 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       domainId,
       syncCrypto,
       store,
-      None,
       clock,
       nonceDuration,
       tokenDuration,
@@ -69,7 +68,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
         challenge <- sut.generateNonce(p1)
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
-          .signDomainNonce(p1, nonce, domainId, fingerprints, None, syncCrypto.crypto)
+          .signDomainNonce(p1, nonce, domainId, fingerprints, syncCrypto.crypto)
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry.token
 
@@ -97,8 +96,8 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
           "token validation should fail"
         )
       } yield {
-        generateNonceError shouldBe ParticipantDisabled(p1)
-        validateSignatureError shouldBe ParticipantDisabled(p1)
+        generateNonceError shouldBe ParticipantAccessDisabled(p1)
+        validateSignatureError shouldBe ParticipantAccessDisabled(p1)
         validateTokenError shouldBe MissingToken(p1)
       }
     }

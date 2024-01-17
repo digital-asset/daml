@@ -30,7 +30,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
         ts3 -> (tx3_IDD_Removal, ts3.some),
         ts3 -> (tx3_NSD, None),
         ts3 -> (tx3_PTP_Proposal, ts5.some),
-        ts4 -> (tx4_USD, None),
+        ts4 -> (tx4_DND, None),
         ts4 -> (tx4_OTK_Proposal, None),
         ts5 -> (tx5_PTP, None),
         ts5 -> (tx5_DTC, ts6.some),
@@ -62,11 +62,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             retrievedTx <- store.findStored(tx1_NSD_Proposal)
             txProtocolVersion <- store.findStoredForVersion(
               tx1_NSD_Proposal.transaction,
-              ProtocolVersion.CNTestNet,
-            )
-            txBadProtocolVersion <- store.findStoredForVersion(
-              tx1_NSD_Proposal.transaction,
-              ProtocolVersion.v4,
+              ProtocolVersion.v30,
             )
 
             proposalTransactions <- inspect(
@@ -111,7 +107,6 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             assert(maxTs.contains((SequencedTime(ts6), EffectiveTime(ts6))))
             retrievedTx.map(_.transaction) shouldBe Some(tx1_NSD_Proposal)
             txProtocolVersion.map(_.transaction) shouldBe Some(tx1_NSD_Proposal)
-            txBadProtocolVersion shouldBe None
 
             expectTransactions(
               proposalTransactions,
@@ -149,10 +144,10 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               store,
               TimeQueryX.Snapshot(ts3),
             )
-            unionspaceTransactions <- inspect(
+            decentralizedNamespaceTransactions <- inspect(
               store,
               TimeQueryX.Range(ts1.some, ts4.some),
-              typ = UnionspaceDefinitionX.code.some,
+              typ = DecentralizedNamespaceDefinitionX.code.some,
             )
             removalTransactions <- inspect(
               store,
@@ -167,7 +162,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             idNamespaceTransactions <- inspect(
               store,
               timeQuery = TimeQueryX.Range(ts1.some, ts4.some),
-              idFilter = "unionspace",
+              idFilter = "decentralized-namespace",
               namespaceOnly = true,
             )
             bothParties <- inspectKnownParties(store, ts6)
@@ -183,7 +178,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
           } yield {
             expectTransactions(
               headStateTransactions,
-              Seq(tx3_NSD, tx4_USD, tx5_PTP, tx6_DTC_Update),
+              Seq(tx3_NSD, tx4_DND, tx5_PTP, tx6_DTC_Update),
             )
             expectTransactions(
               rangeBetweenTs2AndTs3Transactions,
@@ -193,10 +188,10 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               snapshotAtTs3Transactions,
               Seq(tx2_OTK), // tx2 include as until is inclusive, tx3 missing as from exclusive
             )
-            expectTransactions(unionspaceTransactions, Seq(tx4_USD))
+            expectTransactions(decentralizedNamespaceTransactions, Seq(tx4_DND))
             expectTransactions(removalTransactions, Seq(tx3_IDD_Removal))
             expectTransactions(idDaTransactions, Seq(tx3_IDD_Removal))
-            expectTransactions(idNamespaceTransactions, Seq(tx4_USD))
+            expectTransactions(idNamespaceTransactions, Seq(tx4_DND))
 
             bothParties shouldBe Set(
               tx5_PTP.transaction.mapping.partyId,
@@ -227,8 +222,11 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             selectiveMappingTransactions <- findPositiveTransactions(
               store,
               ts6,
-              types =
-                Seq(UnionspaceDefinitionX.code, OwnerToKeyMappingX.code, PartyToParticipantX.code),
+              types = Seq(
+                DecentralizedNamespaceDefinitionX.code,
+                OwnerToKeyMappingX.code,
+                PartyToParticipantX.code,
+              ),
             )
             uidFilterTransactions <- findPositiveTransactions(
               store,
@@ -244,7 +242,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               store,
               ts6,
               filterNamespace = Some(
-                Seq(tx4_USD.transaction.mapping.namespace, tx5_DTC.transaction.mapping.namespace)
+                Seq(tx4_DND.transaction.mapping.namespace, tx5_DTC.transaction.mapping.namespace)
               ),
             )
 
@@ -267,18 +265,18 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               )
               .unwrap // FutureUnlessShutdown[_] -> Future[UnlessShutdown[_]]
           } yield {
-            expectTransactions(positiveTransactions, Seq(tx3_NSD, tx4_USD, tx5_PTP, tx5_DTC))
-            expectTransactions(positiveTransactionsExclusive, Seq(tx3_NSD, tx4_USD))
+            expectTransactions(positiveTransactions, Seq(tx3_NSD, tx4_DND, tx5_PTP, tx5_DTC))
+            expectTransactions(positiveTransactionsExclusive, Seq(tx3_NSD, tx4_DND))
             expectTransactions(
               positiveTransactionsInclusive,
               positiveTransactions.result.map(_.transaction),
             )
             expectTransactions(
               selectiveMappingTransactions,
-              Seq( /* tx2_OKM only valid until ts3 */ tx4_USD, tx5_PTP),
+              Seq( /* tx2_OKM only valid until ts3 */ tx4_DND, tx5_PTP),
             )
             expectTransactions(uidFilterTransactions, Seq(tx5_PTP, tx5_DTC))
-            expectTransactions(namespaceFilterTransactions, Seq(tx4_USD, tx5_DTC))
+            expectTransactions(namespaceFilterTransactions, Seq(tx4_DND, tx5_DTC))
 
             // Essential state currently encompasses all transactions at the specified time
             expectTransactions(
@@ -289,7 +287,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
                 tx3_IDD_Removal,
                 tx3_NSD,
                 tx3_PTP_Proposal,
-                tx4_USD,
+                tx4_DND,
                 tx4_OTK_Proposal,
                 tx5_PTP,
                 tx5_DTC,
@@ -307,7 +305,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
                 tx2_OTK,
                 tx3_IDD_Removal,
                 tx3_NSD,
-                tx4_USD,
+                tx4_DND,
                 tx4_OTK_Proposal,
                 tx5_PTP,
                 tx5_DTC,
@@ -316,7 +314,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             )
 
             onboardingTransactionUnlessShutdown.onShutdown(fail()) shouldBe Seq(
-              tx4_USD,
+              tx4_DND,
               tx5_DTC,
               tx6_DTC_Update,
             )

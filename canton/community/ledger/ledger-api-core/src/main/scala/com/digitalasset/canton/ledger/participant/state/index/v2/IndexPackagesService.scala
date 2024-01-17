@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -31,7 +32,7 @@ trait IndexPackagesService {
       startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PackageEntry, NotUsed]
 
-  def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
+  def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Set[Ref.PackageId]]
+  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName]
 }

@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.http.Generators.{genDomainTemplateId, genDuplicateModuleEntityTemplateIds, nonEmptySetOf}
+import com.digitalasset.canton.http.Generators.{
+  genDomainTemplateId,
+  genDuplicateModuleEntityTemplateIds,
+  nonEmptySetOf,
+}
 import com.digitalasset.canton.http.PackageService.TemplateIdMap
 import com.daml.ledger.api.v1 as lav1
 import org.scalacheck.Shrink
@@ -115,7 +119,7 @@ class PackageServiceTest
 
     "should return None for unknown Template ID" in forAll(
       Generators.genDomainTemplateIdO: org.scalacheck.Gen[domain.ContractTypeId.OptionalPkg]
-    ) { templateId: domain.ContractTypeId.OptionalPkg =>
+    ) { (templateId: domain.ContractTypeId.OptionalPkg) =>
       val map = TemplateIdMap.Empty[domain.ContractTypeId]
       map resolve templateId shouldBe None
     }

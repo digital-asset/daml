@@ -6,8 +6,8 @@ package com.digitalasset.canton.admin.grpc
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
+import com.digitalasset.canton.admin.pruning.v0
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.pruning.admin.v0
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule, PruningScheduler}
 import com.digitalasset.canton.serialization.ProtoConverter

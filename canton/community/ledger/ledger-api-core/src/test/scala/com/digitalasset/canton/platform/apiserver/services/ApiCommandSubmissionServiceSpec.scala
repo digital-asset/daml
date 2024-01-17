@@ -12,11 +12,7 @@ import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
-import com.digitalasset.canton.ledger.api.validation.{
-  CommandsValidator,
-  ValidateDisclosedContracts,
-  ValidateUpgradingPackageResolutions,
-}
+import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, ValidateDisclosedContracts}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.TestTelemetrySetup
@@ -155,7 +151,7 @@ class ApiCommandSubmissionServiceSpec
       loggerFactory = loggerFactory,
       commandsValidator = new CommandsValidator(
         ledgerId = LedgerId(ledgerId),
-        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
+        resolveToTemplateId = _ => fail("should not be called"),
         upgradingEnabled = false,
         validateDisclosedContracts = new ValidateDisclosedContracts(false),
       ),
@@ -177,7 +173,7 @@ object ApiCommandSubmissionServiceSpec {
     )
   )
 
-  private val aSubmitRequest = submitRequest.copy(
-    commands = Some(commands.copy(commands = Seq(aCommand)))
+  private val aSubmitRequest = submitRequestV1.copy(
+    commands = Some(commandsV1.copy(commands = Seq(aCommand)))
   )
 }

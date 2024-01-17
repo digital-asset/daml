@@ -22,8 +22,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val includedTemplate = "includedTemplate"
   protected val expectedLedgerId = "expectedLedgerId"
   protected val expectedApplicationId = "expectedApplicationId"
-  protected val packageName = Ref.PackageName.assertFromString("somePackageName")
-  protected val packageNameRefEncoded = Ref.PackageRef.Name(packageName).toString
   protected val templateQualifiedName =
     Ref.QualifiedName.assertFromString(s"$includedModule:$includedTemplate")
   protected val packageId = Ref.PackageId.assertFromString("packageId")
@@ -87,7 +85,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
       request: Either[StatusRuntimeException, _],
       code: Code,
       description: String,
-      metadata: Map[String, String] = Map.empty,
+      metadata: Map[String, String],
   ): Assertion = {
     inside(request)(isError(code, description, metadata))
   }

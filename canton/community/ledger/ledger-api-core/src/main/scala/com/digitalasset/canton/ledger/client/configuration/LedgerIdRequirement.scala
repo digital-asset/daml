@@ -17,18 +17,10 @@ final case class LedgerIdRequirement(optionalLedgerId: Option[String]) {
 
   def copy(ledgerId: Option[String]): LedgerIdRequirement =
     LedgerIdRequirement(optionalLedgerId = ledgerId)
-
-  @deprecated("Use Option-based copy", "1.3.0")
-  def copy(ledgerId: String): LedgerIdRequirement =
-    LedgerIdRequirement(this.optionalLedgerId.map(_ => ledgerId))
 }
 
 object LedgerIdRequirement {
 
   val none: LedgerIdRequirement = LedgerIdRequirement(None)
   def matching(ledgerId: String): LedgerIdRequirement = LedgerIdRequirement(Some(ledgerId))
-
-  @deprecated("Use Option-based constructor", "1.3.0")
-  def apply(ledgerId: String, enabled: Boolean): LedgerIdRequirement =
-    LedgerIdRequirement(if (enabled) Some(ledgerId) else None)
 }

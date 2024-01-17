@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.localstore
 
-import com.daml.ledger.resources.TestResourceContext
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderConfig
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, AsyncTestSuite, EitherValues, OptionValues}

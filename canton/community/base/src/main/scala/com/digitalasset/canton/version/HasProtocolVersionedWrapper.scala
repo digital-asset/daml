@@ -13,7 +13,6 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.ProtocolVersion.ProtocolVersionWithStatus
 import com.digitalasset.canton.{DiscardOps, ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
@@ -157,7 +156,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   /** Serializes this instance to a message together with a delimiter (the message length) to the given output stream.
     *
     * This method works in conjunction with
-    *  [[com.digitalasset.canton.version.HasProtocolVersionedCompanion2.parseDelimitedFromUnsafe]] which deserializes the
+    *  [[com.digitalasset.canton.version.HasProtocolVersionedCompanion2.parseDelimitedFrom]] which deserializes the
     *  message again. It is useful for serializing multiple messages to a single output stream through multiple
     *  invocations.
     *
@@ -404,7 +403,7 @@ trait HasSupportedProtoVersions[ValueClass] {
   }
 
   object VersionedProtoConverter {
-    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersion.Status](
+    def apply[ProtoClass <: scalapb.GeneratedMessage, Status <: ProtocolVersionAnnotation.Status](
         fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[Status]
     )(
         protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status
@@ -428,49 +427,6 @@ trait HasSupportedProtoVersions[ValueClass] {
         deserializer: Deserializer,
         serializer: Serializer,
     ): VersionedProtoConverter = VersionedProtoConverter(
-      new RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type](fromInclusive) {},
-      deserializer,
-      serializer,
-    )
-  }
-
-  /** Used to (de)serialize classes which for legacy reasons where not wrapped in VersionedMessage
-    * Chances are this is NOT the class you want to use, use VersionedProtoConverter instead when adding serialization
-    * to a new class
-    */
-  protected[this] case class LegacyProtoConverter private (
-      fromInclusive: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type],
-      deserializer: Deserializer,
-      serializer: Serializer,
-  ) extends ProtoCodec
-      with PrettyPrinting {
-    override val isVersioned: Boolean = false
-    override val isSupported: Boolean = true
-
-    override def pretty: Pretty[this.type] = prettyOfClass(
-      unnamedParam(_ => HasSupportedProtoVersions.this.getClass.getSimpleName.unquoted),
-      param("fromInclusive", _.fromInclusive),
-    )
-  }
-
-  object LegacyProtoConverter {
-    def apply[ProtoClass <: scalapb.GeneratedMessage](
-        fromInclusive: ProtocolVersion.ProtocolVersionWithStatus[ProtocolVersion.Stable]
-    )(
-        // A legacy converter should not be used for an unstable Protobuf message.
-        protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & ProtocolVersion.Stable
-    )(
-        parser: scalapb.GeneratedMessageCompanion[ProtoClass] => Deserializer,
-        serializer: Serializer,
-    ): LegacyProtoConverter =
-      LegacyProtoConverter.raw(fromInclusive, parser(protoCompanion), serializer)
-
-    @VisibleForTesting
-    def raw(
-        fromInclusive: ProtocolVersionWithStatus[ProtocolVersion.Stable],
-        deserializer: Deserializer,
-        serializer: Serializer,
-    ): LegacyProtoConverter = LegacyProtoConverter(
       new RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type](fromInclusive) {},
       deserializer,
       serializer,
@@ -534,6 +490,7 @@ trait HasSupportedProtoVersions[ValueClass] {
       }
       .getOrElse(higherProtoVersion)
 
+    // TODO(#15628) We should not have a fallback here. Change return type to an either and propagate
     def protocolVersionRepresentativeFor(
         protoVersion: ProtoVersion
     ): RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type] =
@@ -626,7 +583,7 @@ trait HasSupportedProtoVersions[ValueClass] {
     }
   }
 
-  /** Proto versions that are supported by `fromByteString`
+  /** Proto versions that are supported by `fromProtoVersioned` and `fromByteString`
     * See the helper `supportedProtoVersion` below to define a `Parser`.
     */
   def supportedProtoVersions: SupportedProtoVersions
@@ -654,42 +611,40 @@ trait HasProtocolVersionedWrapperCompanion[
 
   protected def deserializeForVersion(
       rpv: RepresentativeProtocolVersion[this.type],
-      deserializeLegacyProto: Deserializer => ParsingResult[DeserializedValueClass],
       deserializeVersionedProto: => ParsingResult[DeserializedValueClass],
   ): ParsingResult[DeserializedValueClass] = {
     val converter =
       supportedProtoVersions.converterFor(rpv.representative)
 
     converter match {
-      case LegacyProtoConverter(_, deserializer, _) => deserializeLegacyProto(deserializer)
       case _: VersionedProtoConverter => deserializeVersionedProto
       case unsupported: UnsupportedProtoCodec =>
         Left(unsupported.deserializationError)
     }
   }
 
-  /** Checks whether the representative protocol version originating from a deserialized proto
-    * message version field value is compatible with the passed in expected protocol version.
+  /** Checks whether the representative protocol version originating from a deserialized proto message field
+    *  is compatible with the protocol version of the domain.
     *
-    * To skip this validation use [[ProtocolVersionValidation.NoValidation]].
+    * To skip this validation use [[None]] as the expected value, that is the domain protocol version.
     *
-    * @param expectedProtocolVersion the protocol version the sync domain is running on
-    * @param deserializedRepresentativeProtocolVersion the representative protocol version which originates from a proto message version field
+    * @param domainProtocolVersion the protocol version the domain is running on
+    * @param deserializedRepresentativeProtocolVersion the representative protocol version which originates from a proto message field
     * @return Unit when the validation succeeds, parsing error otherwise
     */
   private[version] def validateDeserialization(
-      expectedProtocolVersion: ProtocolVersionValidation,
+      domainProtocolVersion: Option[ProtocolVersion],
       deserializedRepresentativeProtocolVersion: ProtocolVersion,
   ): ParsingResult[Unit] = {
-    expectedProtocolVersion match {
-      case ProtocolVersionValidation.PV(pv) =>
+    domainProtocolVersion match {
+      case Some(pv) =>
         val expected = protocolVersionRepresentativeFor(pv).representative
         Either.cond(
           expected == deserializedRepresentativeProtocolVersion,
           (),
           unexpectedProtoVersionError(expected, deserializedRepresentativeProtocolVersion),
         )
-      case ProtocolVersionValidation.NoValidation =>
+      case None =>
         Right(())
     }
   }
@@ -710,36 +665,26 @@ trait HasProtocolVersionedWrapperWithoutContextCompanion[
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
 ] extends HasProtocolVersionedWrapperCompanion[ValueClass, DeserializedValueClass] {
 
-  /** Deserializes the given bytes and checks that the therein embedded proto version matches
-    * the `expectedProtocolVersion`.
+  /** Deserializes the given bytes and checks that the therein embedded proto version matches the
+    * domain's protocol version.
     *
     * Use this method whenever the origin of the given bytes cannot be trusted, and for example the
     * proto version message field may be set maliciously. This should be your default choice for
     * deserialization.
     *
-    * @param expectedProtocolVersion the protocol version on which the sync domain is running on
+    * @param domainProtocolVersion the protocol version on which the domain is running on
     * @param bytes                 an untrusted byte string with an embedded proto version
     */
   def fromByteString(
-      expectedProtocolVersion: ProtocolVersion
+      domainProtocolVersion: ProtocolVersion
   )(
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass]
 
-  /** Variation of `fromByteString` that takes a `ProtocolVersionValidation` instead of a `ProtocolVersion`.
+  /** Deserializes the given bytes without checking that the embedded proto version actually
+    * matches the protocol version which the domain is running on.
     *
-    * Use this method when sometimes no protocol version can be passed for the `expectedProtocolVersion`.
-    * For these cases use `ProtocolVersionValidation.NoValidation`.
-    */
-  def fromByteString(
-      expectedProtocolVersion: ProtocolVersionValidation
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass]
-
-  /** Deserializes the given bytes without validation.
-    *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
+    * Do NOT use this method unless you can justify that the given bytes originate from a trusted
     * source.
     *
     * @param bytes                 a trusted byte string with an embedded proto version
@@ -774,21 +719,14 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(_)(original))
 
   override def fromByteString(
-      expectedProtocolVersion: ProtocolVersion
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass] =
-    fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(bytes)
-
-  override def fromByteString(
-      expectedProtocolVersion: ProtocolVersionValidation
+      domainProtocolVersion: ProtocolVersion
   )(
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass] =
     for {
       valueClass <- fromByteStringUnsafe(bytes)
       _ <- validateDeserialization(
-        expectedProtocolVersion,
+        Some(domainProtocolVersion),
         valueClass.representativeProtocolVersion.representative,
       )
     } yield valueClass
@@ -814,7 +752,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protoVersion),
-      _(bytes, bytes),
       fromByteStringUnsafe(bytes),
     )
   }
@@ -823,67 +760,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
       error: ProtoDeserializationError
   ): (OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass] =
     (_, _) => Left(error)
-}
-
-trait HasProtocolVersionedWrapperWithContextCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    DeserializedValueClass <: HasRepresentativeProtocolVersion,
-    Context,
-] extends HasProtocolVersionedWrapperCompanion[ValueClass, DeserializedValueClass] {
-
-  /** Deserializes the given bytes and checks that the therein embedded proto version matches the
-    * `expectedProtocolVersion`.
-    *
-    * Use this method whenever the origin of the given bytes cannot be trusted, and for example the
-    * proto version message field may be set maliciously. This should be your default choice for
-    * deserialization.
-    *
-    * Hint: If the `ValueClass` requires the domain protocol version for its implementation, pass it
-    * as part of the deserialization context and consider using one of the traits suffixed with
-    * `ValidationCompanion` to avoid possibly confusing argument duplication of the domain protocol version.
-    *
-    * @param expectedProtocolVersion the protocol version on which the sync domain is running on
-    * @param context               additional information which is required for the deserialization
-    * @param bytes                 an untrusted byte string with an embedded proto version
-    */
-  def fromByteString(
-      expectedProtocolVersion: ProtocolVersion
-  )(
-      context: Context
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass]
-
-  /** Variation of `fromByteString` that takes a `ProtocolVersionValidation` instead of a `ProtocolVersion`.
-    *
-    * Use this method when sometimes no protocol version can be passed for the `expectedProtocolVersion`.
-    * For these cases use `ProtocolVersionValidation.NoValidation`.
-    */
-  def fromByteString(
-      expectedProtocolVersion: ProtocolVersionValidation
-  )(
-      context: Context
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass]
-
-  /** Deserializes the given bytes without validation!
-    *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
-    * source.
-    *
-    * Hint: If the `ValueClass` requires the domain protocol version for its implementation, pass it
-    * as part of the deserialization context and consider using one of the traits suffixed with
-    * `ValidationCompanion` to avoid possibly confusing argument duplication of the domain protocol version.
-    *
-    * @param context additional information which required for the deserialization
-    * @param bytes   a trusted byte string with an embedded proto version
-    */
-  def fromByteStringUnsafe(
-      context: Context
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass]
 }
 
 /** Trait for companion objects of serializable classes with memoization and a (de)serialization context.
@@ -897,11 +773,7 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
-] extends HasProtocolVersionedWrapperWithContextCompanion[
-      ValueClass,
-      DeserializedValueClass,
-      Context,
-    ] {
+] extends HasProtocolVersionedWrapperCompanion[ValueClass, DeserializedValueClass] {
   override type Deserializer =
     (Context, OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass]
 
@@ -913,13 +785,19 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
     (ctx: Context, original: OriginalByteString, data: DataByteString) =>
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(ctx, _)(original))
 
-  override def fromByteString(expectedProtocolVersion: ProtocolVersion)(
-      context: Context
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
-    fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(context)(bytes)
-
-  override def fromByteString(
-      expectedProtocolVersion: ProtocolVersionValidation
+  /** Deserializes the given bytes and checks that the therein embedded proto version matches the
+    * domain's protocol version.
+    *
+    * Use this method whenever the origin of the given bytes cannot be trusted, and for example the
+    * proto version message field may be set maliciously. This should be your default choice for
+    * deserialization.
+    *
+    * @param domainProtocolVersion the protocol version on which the domain is running on
+    * @param context additional information which is required for the deserialization
+    * @param bytes                 an untrusted byte string with an embedded proto version
+    */
+  def fromByteString(
+      domainProtocolVersion: ProtocolVersion
   )(
       context: Context
   )(
@@ -927,12 +805,21 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
   ): ParsingResult[DeserializedValueClass] = for {
     valueClass <- fromByteStringUnsafe(context)(bytes)
     _ <- validateDeserialization(
-      expectedProtocolVersion,
+      Some(domainProtocolVersion),
       valueClass.representativeProtocolVersion.representative,
     )
   } yield valueClass
 
-  override def fromByteStringUnsafe(
+  /** Deserializes the given bytes without checking that the embedded proto version actually
+    * matches the protocol version which the domain is running on.
+    *
+    * Do NOT use this method unless you can justify that the given bytes originate from a trusted
+    * source.
+    *
+    * @param context additional information which required for the deserialization
+    * @param bytes a trusted byte string with an embedded proto version
+    */
+  def fromByteStringUnsafe(
       context: Context
   )(
       bytes: OriginalByteString
@@ -969,9 +856,10 @@ trait HasProtocolVersionedCompanion2[
   ): Deserializer =
     (data: DataByteString) => ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto)
 
-  /** Deserializes the given bytes without validation.
+  /** Deserializes the given bytes without checking that the embedded proto version actually
+    * matches the protocol version which the domain is running on.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
+    * Do NOT use this method unless you can justify that the given bytes originate from a trusted
     * source. For example, this should be the case for deserialization of data that originates a
     * database.
     *
@@ -980,11 +868,10 @@ trait HasProtocolVersionedCompanion2[
   def fromByteArrayUnsafe(bytes: Array[Byte]): ParsingResult[DeserializedValueClass] =
     for {
       proto <- ProtoConverter.protoParserArray(UntypedVersionedMessage.parseFrom)(bytes)
-      valueClass <- fromProtoVersionedUnsafe(VersionedMessage(proto))
+      valueClass <- fromProtoVersioned(VersionedMessage(proto))
     } yield valueClass
 
-  /** '''Unsafe!''' No deserialization validation is performed. Use `fromByteString` instead. */
-  private def fromProtoVersionedUnsafe(
+  def fromProtoVersioned(
       proto: VersionedMessage[DeserializedValueClass]
   ): ParsingResult[DeserializedValueClass] =
     proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data")).flatMap {
@@ -992,21 +879,14 @@ trait HasProtocolVersionedCompanion2[
     }
 
   override def fromByteString(
-      expectedProtocolVersion: ProtocolVersion
-  )(
-      bytes: OriginalByteString
-  ): ParsingResult[DeserializedValueClass] =
-    fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(bytes)
-
-  override def fromByteString(
-      expectedProtocolVersion: ProtocolVersionValidation
+      domainProtocolVersion: ProtocolVersion
   )(
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass] =
     for {
       valueClass <- fromByteStringUnsafe(bytes)
       _ <- validateDeserialization(
-        expectedProtocolVersion,
+        Some(domainProtocolVersion),
         valueClass.representativeProtocolVersion.representative,
       )
     } yield valueClass
@@ -1016,15 +896,10 @@ trait HasProtocolVersionedCompanion2[
   ): ParsingResult[DeserializedValueClass] =
     for {
       proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
-      valueClass <- fromProtoVersionedUnsafe(VersionedMessage(proto))
+      valueClass <- fromProtoVersioned(VersionedMessage(proto))
     } yield valueClass
 
   /** Deserializes a message using a delimiter (the message length) from the given input stream.
-    *
-    * '''Unsafe!''' No deserialization validation is performed.
-    *
-    * Do NOT use this method unless you can justify that the given bytes originate from a trusted
-    * source.
     *
     * This method works in conjunction with
     *  [[com.digitalasset.canton.version.HasProtocolVersionedWrapper.writeDelimitedTo]] which should have been used to
@@ -1038,14 +913,12 @@ trait HasProtocolVersionedCompanion2[
     *         where left represents a deserialization error (exception) and right represents the successfully
     *         deserialized message
     */
-  def parseDelimitedFromUnsafe(
-      input: InputStream
-  ): Option[ParsingResult[DeserializedValueClass]] = {
+  def parseDelimitedFrom(input: InputStream): Option[ParsingResult[DeserializedValueClass]] = {
     try {
       UntypedVersionedMessage
         .parseDelimitedFrom(input)
         .map(VersionedMessage[DeserializedValueClass])
-        .map(fromProtoVersionedUnsafe)
+        .map(fromProtoVersioned)
     } catch {
       case protoBuffException: InvalidProtocolBufferException =>
         Some(Left(ProtoDeserializationError.BufferException(protoBuffException)))
@@ -1065,14 +938,14 @@ trait HasProtocolVersionedCompanion2[
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
-      _(bytes),
       fromByteStringUnsafe(bytes),
     )
   }
 
-  /** Deserializes the data from the given file without validation.
+  /** Deserializes the data from the given file without checking that the embedded proto version actually
+    * matches the protocol version which the domain is running on.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the data originates from a trusted
+    * Do NOT use this method unless you can justify that the data originates from a trusted
     * source.
     */
   def readFromFileUnsafe(
@@ -1084,9 +957,10 @@ trait HasProtocolVersionedCompanion2[
     } yield value
   }
 
-  /** Deserializes the data from the given file without validation.
+  /** Deserializes the data from the given file without checking that the embedded proto version actually
+    * matches the protocol version which the domain is running on.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the data originates from a trusted
+    * Do NOT use this method unless you can justify that the data originates from a trusted
     * source.
     */
   def tryReadFromFileUnsafe(inputFile: String): DeserializedValueClass =
@@ -1121,7 +995,7 @@ trait HasProtocolVersionedCompanion2[
 trait HasProtocolVersionedWithContextCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     Context,
-] extends HasProtocolVersionedWrapperWithContextCompanion[ValueClass, ValueClass, Context] {
+] extends HasProtocolVersionedWrapperCompanion[ValueClass, ValueClass] {
   override type Deserializer = (Context, DataByteString) => ParsingResult[ValueClass]
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
@@ -1132,35 +1006,18 @@ trait HasProtocolVersionedWithContextCompanion[
     (ctx: Context, data: DataByteString) =>
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(ctx, _))
 
-  /** '''Unsafe!''' No deserialization validation is performed. Use `fromByteString` instead.
-    */
-  private def fromProtoVersionedUnsafe(
+  private def fromProtoVersioned(
       context: Context
   )(proto: VersionedMessage[ValueClass]): ParsingResult[ValueClass] =
     proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data")).flatMap {
       supportedProtoVersions.deserializerFor(ProtoVersion(proto.version))(context, _)
     }
 
-  override def fromByteString(expectedProtocolVersion: ProtocolVersion)(
-      context: Context
-  )(bytes: OriginalByteString): ParsingResult[ValueClass] =
-    fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(context)(bytes)
-
-  override def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
-      context: Context
-  )(bytes: OriginalByteString): ParsingResult[ValueClass] = for {
-    valueClass <- fromByteStringUnsafe(context)(bytes)
-    _ <- validateDeserialization(
-      expectedProtocolVersion,
-      valueClass.representativeProtocolVersion.representative,
-    )
-  } yield valueClass
-
-  override def fromByteStringUnsafe(
+  def fromByteStringUnsafe(
       context: Context
   )(bytes: OriginalByteString): ParsingResult[ValueClass] = for {
     proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
-    valueClass <- fromProtoVersionedUnsafe(context)(VersionedMessage(proto))
+    valueClass <- fromProtoVersioned(context)(VersionedMessage(proto))
   } yield valueClass
 
   /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
@@ -1174,7 +1031,6 @@ trait HasProtocolVersionedWithContextCompanion[
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protoVersion),
-      _(context, bytes),
       fromByteStringUnsafe(context)(bytes),
     )
   }
@@ -1190,7 +1046,6 @@ trait HasProtocolVersionedWithContextCompanion[
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
-      _(context, bytes),
       fromByteStringUnsafe(context)(bytes),
     )
   }
@@ -1210,89 +1065,4 @@ trait ProtocolVersionedCompanionDbHelpers[ValueClass <: HasProtocolVersionedWrap
   def getVersionedSetParameterO(implicit
       setParameterByteArrayO: SetParameter[Option[Array[Byte]]]
   ): SetParameter[Option[ValueClass]] = (valueO, pp) => pp >> valueO.map(_.toByteArray)
-}
-
-/** Represents the domain protocol version for the deserialization validation such that
-  * cases where no protocol version is defined can be clearly expressed with
-  * [[ProtocolVersionValidation.NoValidation]].
-  */
-sealed trait ProtocolVersionValidation extends Product with Serializable
-
-object ProtocolVersionValidation {
-
-  final case class PV(pv: ProtocolVersion) extends ProtocolVersionValidation
-  final case object NoValidation extends ProtocolVersionValidation
-
-  def apply(pv: ProtocolVersion): ProtocolVersionValidation = ProtocolVersionValidation.PV(pv)
-
-  def when(cond: Boolean)(pv: ProtocolVersion): ProtocolVersionValidation =
-    if (cond) ProtocolVersionValidation(pv) else ProtocolVersionValidation.NoValidation
-
-  def unless(cond: Boolean)(pv: ProtocolVersion): ProtocolVersionValidation =
-    when(!cond)(pv)
-
-}
-
-/** For readability, replaces the deserialization methods for value classes that require
-  * the protocol version for the deserialization validation to be passed in as part of
-  * the deserialization context.
-  *
-  * Replaces `.fromByteString(protocolVersion)((context, protocolVersion))(bytes)` with
-  * `.fromByteString(context, protocolVersion)(bytes)`.
-  */
-trait HasProtocolVersionedWithContextAndValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    RawContext,
-] extends HasProtocolVersionedWithContextCompanion[ValueClass, (RawContext, ProtocolVersion)] {
-  def fromByteString(context: RawContext, expectedProtocolVersion: ProtocolVersion)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)((context, expectedProtocolVersion))(bytes)
-}
-
-/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
-  * context contains '''only''' the protocol version which may or may not be available for validation.
-  */
-trait HasProtocolVersionedWithOptionalValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion
-] extends HasProtocolVersionedWithContextCompanion[ValueClass, ProtocolVersionValidation] {
-  def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
-
-  def fromByteStringUnsafe(bytes: OriginalByteString): ParsingResult[ValueClass] =
-    super.fromByteStringUnsafe(ProtocolVersionValidation.NoValidation)(bytes)
-}
-
-/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but with memoization. */
-trait HasMemoizedProtocolVersionedWithContextAndValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    RawContext,
-] extends HasMemoizedProtocolVersionedWithContextCompanion2[
-      ValueClass,
-      ValueClass,
-      (RawContext, ProtocolVersion),
-    ] {
-  def fromByteString(context: RawContext, expectedProtocolVersion: ProtocolVersion)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)((context, expectedProtocolVersion))(bytes)
-}
-
-/** Similar to [[HasProtocolVersionedWithOptionalValidationCompanion]] but with memoization. */
-trait HasMemoizedProtocolVersionedWithOptionalValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion
-] extends HasMemoizedProtocolVersionedWithContextCompanion2[
-      ValueClass,
-      ValueClass,
-      ProtocolVersionValidation,
-    ] {
-  def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
-
-  def fromByteStringUnsafe(bytes: OriginalByteString): ParsingResult[ValueClass] =
-    super.fromByteStringUnsafe(ProtocolVersionValidation.NoValidation)(bytes)
 }

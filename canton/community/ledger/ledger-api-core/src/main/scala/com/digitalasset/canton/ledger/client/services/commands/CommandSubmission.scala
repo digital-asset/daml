@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v2.commands.Commands
 
 import java.time.Duration
 

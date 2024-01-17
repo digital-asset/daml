@@ -82,7 +82,7 @@ object HashPurpose {
   val AcsCommitmentDb = HashPurpose(34, "AcsCommitmentDb")
   val SubmissionRequestSignature = HashPurpose(35, "SubmissionRequestSignature")
   val AcknowledgementSignature = HashPurpose(36, "AcknowledgementSignature")
-  val UnionspaceNamespace = HashPurpose(37, "UnionspaceNamespace")
+  val DecentralizedNamespaceNamespace = HashPurpose(37, "DecentralizedNamespace")
   val SignedProtocolMessageSignature = HashPurpose(38, "SignedProtocolMessageSignature")
   val AggregationId = HashPurpose(39, "AggregationId")
 

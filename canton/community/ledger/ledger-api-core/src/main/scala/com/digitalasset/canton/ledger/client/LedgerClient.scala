@@ -6,32 +6,38 @@ package com.digitalasset.canton.ledger.client
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
+import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc as CommandServiceGrpcV1
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
+import com.daml.ledger.api.v2.command_service.CommandServiceGrpc as CommandServiceGrpcV2
+import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc
+import com.daml.ledger.api.v2.state_service.StateServiceGrpc
+import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
 import com.digitalasset.canton.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
 }
+import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.admin.*
 import com.digitalasset.canton.ledger.client.services.commands.{
-  CommandClient,
+  CommandClientV1,
+  CommandServiceClient,
   SynchronousCommandClient,
 }
-import com.digitalasset.canton.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
+import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
+import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.Channel
@@ -39,69 +45,87 @@ import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.Closeable
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
-    val ledgerId: LedgerId,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {
 
-  val activeContractSetClient =
-    new ActiveContractSetClient(
-      ledgerId,
-      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token),
+  object v2 {
+    lazy val commandService = new CommandServiceClient(
+      LedgerClient.stub(CommandServiceGrpcV2.stub(channel), config.token)
+    )
+    lazy val updateService = new UpdateServiceClient(
+      LedgerClient.stub(UpdateServiceGrpc.stub(channel), config.token)
+    )
+    lazy val stateService = new StateServiceClient(
+      LedgerClient.stub(StateServiceGrpc.stub(channel), config.token)
+    )
+    lazy val eventQueryService = new EventQueryServiceClient(
+      LedgerClient.stub(EventQueryServiceGrpc.stub(channel), config.token)
     )
 
-  val commandClient: CommandClient =
-    new CommandClient(
+  }
+
+  lazy val activeContractSetClient =
+    new ActiveContractSetClient(
+      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token)
+    )
+
+  lazy val commandClient: CommandClientV1 =
+    new CommandClientV1(
       LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
       LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
-      ledgerId,
       config.applicationId,
       config.commandClient,
       loggerFactory,
     )
 
-  val commandServiceClient: SynchronousCommandClient =
-    new SynchronousCommandClient(LedgerClient.stub(CommandServiceGrpc.stub(channel), config.token))
+  lazy val commandServiceClient: SynchronousCommandClient =
+    new SynchronousCommandClient(
+      LedgerClient.stub(CommandServiceGrpcV1.stub(channel), config.token)
+    )
 
-  val identityProviderConfigClient: IdentityProviderConfigClient =
+  lazy val identityProviderConfigClient: IdentityProviderConfigClient =
     new IdentityProviderConfigClient(
       LedgerClient.stub(IdentityProviderConfigServiceGrpc.stub(channel), config.token)
     )
 
-  val packageClient: PackageClient =
-    new PackageClient(ledgerId, LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token))
+  lazy val packageClient: PackageClient =
+    new PackageClient(LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token))
 
-  val packageManagementClient: PackageManagementClient =
+  lazy val meteringReportClient: MeteringReportClient =
+    new MeteringReportClient(
+      LedgerClient.stub(MeteringReportServiceGrpc.stub(channel), config.token)
+    )
+
+  lazy val packageManagementClient: PackageManagementClient =
     new PackageManagementClient(
       LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token)
     )
 
-  val partyManagementClient: PartyManagementClient =
+  lazy val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
       LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
     )
 
-  val transactionClient: TransactionClient =
+  lazy val transactionClient: TransactionClient =
     new TransactionClient(
-      ledgerId,
-      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token),
+      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token)
     )
 
-  val versionClient: VersionClient =
-    new VersionClient(ledgerId, LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
+  lazy val versionClient: VersionClient =
+    new VersionClient(LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
 
-  val userManagementClient: UserManagementClient =
+  lazy val userManagementClient: UserManagementClient =
     new UserManagementClient(
       LedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
     )
 
-  val participantPruningManagementClient: ParticipantPruningManagementClient =
+  lazy val participantPruningManagementClient: ParticipantPruningManagementClient =
     new ParticipantPruningManagementClient(
       LedgerClient.stub(ParticipantPruningServiceGrpc.stub(channel), config.token)
     )
@@ -117,15 +141,18 @@ object LedgerClient {
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     for {
-      ledgerId <- new LedgerIdentityClient(
-        LedgerClient.stub(
-          LedgerIdentityServiceGrpc.stub(channel): @nowarn(
-            "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
-          ),
-          config.token,
-        )
-      ).satisfies(config.ledgerIdRequirement)
-    } yield new LedgerClient(channel, config, ledgerId, loggerFactory)
+      // requesting ledger end validates the token, thus guaranteeing that the client is operable
+      _ <- new TransactionClient(
+        TransactionServiceGrpc.stub(channel)
+      ).getLedgerEnd(config.token)
+    } yield new LedgerClient(channel, config, loggerFactory)
+
+  def withoutToken(
+      channel: Channel,
+      config: LedgerClientConfiguration,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
+    new LedgerClient(channel, config, loggerFactory)
 
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(authenticatingStub(stub, _))
@@ -179,4 +206,5 @@ object LedgerClient {
       loggerFactory,
     )
   }
+
 }

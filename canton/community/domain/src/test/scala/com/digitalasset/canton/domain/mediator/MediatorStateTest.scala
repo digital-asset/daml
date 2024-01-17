@@ -71,7 +71,6 @@ class MediatorStateTest
           s(5417),
           new UUID(0, 0),
         )
-        .value
       FullInformeeTree.tryCreate(
         GenTransactionTree.tryCreate(hashOps)(
           BlindedNode(rh(11)),
@@ -92,7 +91,6 @@ class MediatorStateTest
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           mockTopologySnapshot,
         )(anyTraceContext, executorService)
         .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext

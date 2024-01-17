@@ -36,17 +36,17 @@ import org.scalatest.wordspec.AnyWordSpec
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class MerkleTreeTest extends AnyWordSpec with BaseTest {
 
-  val fullyBlindedTreeHash: RootHash = RootHash(TestHash.digest("test"))
-  val fullyBlindedTree: BlindedNode[Nothing] = BlindedNode(fullyBlindedTreeHash)
+  private val fullyBlindedTreeHash: RootHash = RootHash(TestHash.digest("test"))
+  private val fullyBlindedTree: BlindedNode[Nothing] = BlindedNode(fullyBlindedTreeHash)
 
-  val singletonLeaf1: Leaf1 =
+  private val singletonLeaf1: Leaf1 =
     Leaf1(1)(AbstractLeaf.protocolVersionRepresentativeFor(testedProtocolVersion))
-  val singletonLeaf2: Leaf2 =
+  private val singletonLeaf2: Leaf2 =
     Leaf2(2)(AbstractLeaf.protocolVersionRepresentativeFor(testedProtocolVersion))
-  val singletonLeaf3: Leaf3 =
+  private val singletonLeaf3: Leaf3 =
     Leaf3(3)(AbstractLeaf.protocolVersionRepresentativeFor(testedProtocolVersion))
 
-  def singletonLeafHash(index: Int): RootHash = RootHash {
+  private def singletonLeafHash(index: Int): RootHash = RootHash {
     val salt = TestSalt.generateSalt(index)
     val data = DeterministicEncoding.encodeInt(index)
     val hashBuilder = TestHash.build
@@ -56,14 +56,14 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
       .finish()
   }
 
-  val singletonInnerNode: InnerNode1 = InnerNode1()
-  val singletonInnerNodeHash: RootHash = RootHash {
+  private val singletonInnerNode: InnerNode1 = InnerNode1()
+  private val singletonInnerNodeHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder.add(0).finish()
   }
 
-  val innerNodeWithSingleChild: InnerNode1 = InnerNode1(singletonLeaf1)
-  val innerNodeWithSingleChildHash: RootHash = RootHash {
+  private val innerNodeWithSingleChild: InnerNode1 = InnerNode1(singletonLeaf1)
+  private val innerNodeWithSingleChildHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
       .add(1)
@@ -71,8 +71,8 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
       .finish()
   }
 
-  val innerNodeWithTwoChildren: InnerNode2 = InnerNode2(singletonLeaf2, singletonLeaf3)
-  val innerNodeWithTwoChildrenHash: RootHash = RootHash {
+  private val innerNodeWithTwoChildren: InnerNode2 = InnerNode2(singletonLeaf2, singletonLeaf3)
+  private val innerNodeWithTwoChildrenHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
       .add(2)
@@ -81,8 +81,8 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
       .finish()
   }
 
-  val threeLevelTree: InnerNode1 = InnerNode1(singletonLeaf1, innerNodeWithTwoChildren)
-  val threeLevelTreeHash: RootHash = RootHash {
+  private val threeLevelTree: InnerNode1 = InnerNode1(singletonLeaf1, innerNodeWithTwoChildren)
+  private val threeLevelTreeHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
       .add(2)
@@ -91,7 +91,7 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
       .finish()
   }
 
-  val threeLevelTreePartiallyBlinded: InnerNode1 =
+  private val threeLevelTreePartiallyBlinded: InnerNode1 =
     InnerNode1(BlindedNode(singletonLeafHash(1)), innerNodeWithTwoChildren)
 
   "Every Merkle tree" must {
@@ -208,16 +208,11 @@ object MerkleTreeTest {
     override def name: String = "AbstractLeaf"
     override def supportedProtoVersions: data.MerkleTreeTest.AbstractLeaf.SupportedProtoVersions =
       SupportedProtoVersions(
-        ProtoVersion(0) -> LegacyProtoConverter.raw(
-          ProtocolVersion.v3,
-          fromProto(0),
-          _.getCryptographicEvidence,
-        ),
         ProtoVersion(1) -> VersionedProtoConverter.raw(
-          ProtocolVersion.v4,
+          ProtocolVersion.v30,
           fromProto(1),
           _.getCryptographicEvidence,
-        ),
+        )
       )
 
     def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] = {

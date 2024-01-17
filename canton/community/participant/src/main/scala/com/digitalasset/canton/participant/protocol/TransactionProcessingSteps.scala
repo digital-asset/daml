@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -68,8 +68,8 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{LfTransactionErrors, *}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
@@ -81,7 +81,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,
@@ -208,7 +207,7 @@ class TransactionProcessingSteps(
       views: Seq[FullView]
   ): Option[SubmissionTracker.SubmissionData] =
     views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) =>
-      SubmissionTracker.SubmissionData(meta.submitterParticipant, meta.maxSequencingTimeO)
+      SubmissionTracker.SubmissionData(meta.submitterParticipant, meta.maxSequencingTime)
     }
 
   override def participantResponseDeadlineFor(
@@ -284,7 +283,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo().copy(optDeduplicationPeriod = dedupInfo.some),
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
     }
@@ -314,44 +313,6 @@ class TransactionProcessingSteps(
         )
 
       val result = for {
-        _ <-
-          if (staticDomainParameters.uniqueContractKeys) {
-            val result = wfTransaction.withoutVersion.contractKeyInputs match {
-              case Left(
-                    LfTransactionErrors.DuplicateContractIdKIError(
-                      LfTransactionErrors.DuplicateContractId(contractId)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract ID semantics",
-                  ContractIdDuplicateError(contractId),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.DuplicateContractKeyKIError(
-                      LfTransactionErrors.DuplicateContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyDuplicateError(key),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.InconsistentContractKeyKIError(
-                      LfTransactionErrors.InconsistentContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyConsistencyError(key),
-                ).asLeft
-
-              case Right(_) => ().asRight
-            }
-
-            EitherT.fromEither[Future](result)
-          } else EitherT.pure[Future, TransactionSubmissionTrackingData.RejectionCause](())
         confirmationPolicy <- EitherT(
           ConfirmationPolicy
             .choose(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
@@ -441,7 +402,7 @@ class TransactionProcessingSteps(
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo(),
           rejectionCause,
-          Some(domainId),
+          domainId,
           protocolVersion,
         )
         Success(Left(trackingData))
@@ -471,7 +432,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo().copy(optDeduplicationPeriod = None),
         TransactionSubmissionTrackingData.TimeoutCause,
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
 
@@ -526,7 +487,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         rejectionCause,
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
     }
@@ -563,7 +524,7 @@ class TransactionProcessingSteps(
           bytes: ByteString
       ): Either[DefaultDeserializationError, LightTransactionViewTree] =
         LightTransactionViewTree
-          .fromByteString((pureCrypto, protocolVersion))(bytes)
+          .fromByteString(pureCrypto)(bytes)
           .leftMap(err => DefaultDeserializationError(err.message))
 
       def decryptTree(
@@ -575,7 +536,6 @@ class TransactionProcessingSteps(
           sessionKeyStore,
           vt,
           participantId,
-          protocolVersion,
           optRandomness,
         )(
           lightTransactionViewTreeDeserializer
@@ -683,7 +643,7 @@ class TransactionProcessingSteps(
           ltvt <- decryptTree(viewMessage, Some(randomness))
           _ <- EitherT.fromEither[Future](
             ltvt.subviewHashes
-              .zip(TransactionSubviews.indices(protocolVersion, ltvt.subviewHashes.length))
+              .zip(TransactionSubviews.indices(ltvt.subviewHashes.length))
               .traverse(
                 deriveRandomnessForSubviews(viewMessage, randomness)
               )
@@ -837,7 +797,6 @@ class TransactionProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
@@ -1164,9 +1123,9 @@ class TransactionProcessingSteps(
             completionInfo,
             rejection,
             requestType,
-            Some(domainId),
+            domainId,
           ),
-          LocalOffset(rc),
+          RequestOffset(ts, rc),
           Some(sc),
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1225,8 +1184,8 @@ class TransactionProcessingSteps(
     val tseO = completionInfoO.map(info =>
       TimestampedEvent(
         LedgerSyncEvent
-          .CommandRejected(requestTime.toLf, info, rejection, requestType, Some(domainId)),
-        LocalOffset(requestCounter),
+          .CommandRejected(requestTime.toLf, info, rejection, requestType, domainId),
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     )
@@ -1240,19 +1199,14 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
-    if (protocolVersion < ProtocolVersion.v4)
-      EitherT.rightT(())
-    else
-      EitherT.fromEither(
-        inputContracts.toList
-          .traverse_ { case (contractId, contract) =>
-            serializableContractAuthenticator
-              .authenticate(contract)
-              .leftMap(message =>
-                ContractAuthenticationFailed.Error(contractId, message).reported()
-              )
-          }
-      )
+    EitherT.fromEither(
+      inputContracts.toList
+        .traverse_ { case (contractId, contract) =>
+          serializableContractAuthenticator
+            .authenticate(contract)
+            .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
+        }
+    )
 
   private def completionInfoFromSubmitterMetadataO(
       meta: SubmitterMetadata,
@@ -1391,7 +1345,6 @@ class TransactionProcessingSteps(
           optUsedPackages = None,
           optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
           optByKeyNodes = None, // optByKeyNodes is unused by the indexer
-          optDomainId = Option(domainId),
         ),
         transaction = LfCommittedTransaction(lfTx.unwrap),
         transactionId = lfTxId,
@@ -1402,11 +1355,12 @@ class TransactionProcessingSteps(
         blindingInfoO = None,
         hostedWitnesses = hostedWitnesses.toList,
         contractMetadata = contractMetadata,
+        domainId = domainId,
       )
 
       timestampedEvent = TimestampedEvent(
         acceptedEvent,
-        LocalOffset(requestCounter),
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     } yield CommitAndStoreContractsAndPublishEvent(

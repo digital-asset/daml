@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthoriza
 import com.digitalasset.canton.topology.admin.v0.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -87,7 +87,7 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
   ): Future[AuthorizationSuccess] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val itemEitherT: EitherT[Future, CantonError, OwnerToKeyMapping] = for {
-      owner <- KeyOwner
+      owner <- Member
         .fromProtoPrimitive(request.keyOwner, "keyOwner")
         .leftMap(ProtoDeserializationFailure.Wrap(_))
         .toEitherT[Future]
@@ -163,12 +163,13 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
       request: SignedTopologyTransactionAddition
   ): Future[AdditionSuccess] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val pvv = ProtocolVersionValidation.unless(manager.isAuthorizedStore)(protocolVersion)
     for {
       parsed <- mapErrNew(
         EitherT
           .fromEither[Future](
-            SignedTopologyTransaction.fromByteString(pvv)(request.serialized)
+            SignedTopologyTransaction.fromByteString(protocolVersion)(
+              request.serialized
+            )
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
@@ -237,10 +238,8 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
 
       domainParameters <- request.parameters match {
         case Parameters.Empty => Left(ProtoDeserializationError.FieldNotSet("domainParameters"))
-        case Parameters.ParametersV0(parametersV0) =>
-          DynamicDomainParameters.fromProtoV0(parametersV0)
-        case Parameters.ParametersV1(parametersV1) =>
-          DynamicDomainParameters.fromProtoV1(parametersV1)
+        case Parameters.ParametersV1(ddpX) =>
+          DynamicDomainParameters.fromProtoV2(ddpX)
       }
 
     } yield DomainParametersChange(DomainId(uid), domainParameters)

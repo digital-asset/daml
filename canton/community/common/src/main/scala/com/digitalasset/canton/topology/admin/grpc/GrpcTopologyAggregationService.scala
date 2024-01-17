@@ -20,11 +20,10 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreX,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, KeyOwnerCode, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
-import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -151,8 +150,8 @@ abstract class GrpcTopologyAggregationServiceCommon[
       keyOwnerTypeO <- wrapErr(
         OptionUtil
           .emptyStringAsNone(request.filterKeyOwnerType)
-          .traverse(code => KeyOwnerCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
-      ): EitherT[Future, CantonError, Option[KeyOwnerCode]]
+          .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
+      ): EitherT[Future, CantonError, Option[MemberCode]]
       matched <- snapshots(request.filterDomain, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>
         client.inspectKeys(request.filterKeyOwnerUid, keyOwnerTypeO, request.limit).map { res =>
@@ -202,7 +201,6 @@ class GrpcTopologyAggregationService(
     useStateTxs = true,
     StoreBasedDomainTopologyClient.NoPackageDependencies,
     loggerFactory,
-    ProtocolVersionValidation.NoValidation,
   )
 }
 

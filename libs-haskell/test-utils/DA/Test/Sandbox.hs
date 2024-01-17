@@ -133,11 +133,11 @@ getParticipantName = Maybe.fromMaybe "participant" . mbLedgerId
 
 createCantonSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
 createCantonSandbox dir sandboxOutput conf = do
-    lockedPorts <- replicateM 4 FreePort.getAvailablePort
-    [ledgerPort, adminPort, domainPublicPort, domainAdminPort] <- pure $ FreePort.port <$> lockedPorts
+    lockedPorts <- replicateM 5 FreePort.getAvailablePort
+    [ledgerPort, adminPort, sequencerPublicPort, sequencerAdminPort, mediatorAdminPort] <- pure $ FreePort.port <$> lockedPorts
     mCerts <- whenMaybe (enableTls conf) getCerts
     let portFile = dir </> "sandbox-portfile"
-        configStr = getCantonConfig conf portFile mCerts (ledgerPort, adminPort, domainPublicPort, domainAdminPort)
+        configStr = getCantonConfig conf portFile mCerts (ledgerPort, adminPort, sequencerPublicPort, sequencerAdminPort, mediatorAdminPort)
         configPath = dir </> "canton-config.conf"
         bootstrapStr = getCantonBootstrap conf portFile
         bootstrapPath = dir </> "canton-bootstrap.canton"
@@ -153,15 +153,21 @@ createCantonSandbox dir sandboxOutput conf = do
         unmask (waitForStart `onException` cleanupProcess ph)
 
 getCantonBootstrap :: SandboxConfig -> FilePath -> String
-getCantonBootstrap conf portFile = unlines $ (upload <$> dars conf) <> [cpPortFile]
+getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars conf) <> [cpPortFile]
   where
-    upload dar = "participants.all.dars.upload(" <> show dar <> ")"
+    domainBootstrap =
+        [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
+        , "val domainOwners = Seq(sequencer1, mediator1)"
+        , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
+        , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1)"
+        ]
+    upload dar = "participantsX.all.dars.upload(" <> show dar <> ")"
     -- We copy out the port file after bootstrap is finished to get a true setup marker
     -- As the normal portfile is created before the bootstrap command is run
     cpPortFile = "os.copy(os.Path(" <> show portFile <> "), os.Path(" <> show (portFile <> "-bootstrapped") <> "))"
 
-getCantonConfig :: SandboxConfig -> FilePath -> Maybe Certs -> (Int, Int, Int, Int) -> BSL.ByteString
-getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, domainPublicPort, domainAdminPort) =
+getCantonConfig :: SandboxConfig -> FilePath -> Maybe Certs -> (Int, Int, Int, Int, Int) -> BSL.ByteString
+getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, sequencerPublicPort, sequencerAdminPort, mediatorAdminPort) =
     Aeson.encode $ Aeson.object
         [ "canton" Aeson..= Aeson.object
             [ "parameters" Aeson..= Aeson.object ( concat
@@ -169,10 +175,8 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
-                , [ "dev-version-support" Aeson..= devVersionSupport]
-                , [ "non-standard-config" Aeson..= devVersionSupport]
                 ] )
-            , "participants" Aeson..= Aeson.object
+            , "participants-x" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
                     (
                      [ storage
@@ -189,27 +193,27 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
-                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | Static <- [timeMode]
                      ]
                     )
-                ]
-            , "domains" Aeson..= Aeson.object
-                [ "domain" Aeson..= Aeson.object
-                    (
-                        [ storage
-                        , "public-api" Aeson..= port domainPublicPort
-                        , "admin-api" Aeson..= port domainAdminPort
-                        ] <>
-                        [ "init" Aeson..= Aeson.object
-                              [ "domain-parameters" Aeson..= Aeson.object
-                                  [ "protocol-version" Aeson..= ("dev" :: T.Text) ]
-                              ]
-                        | devVersionSupport
+                 ]
+            , "sequencers-x" Aeson..= Aeson.object
+                [ "sequencer1" Aeson..= Aeson.object
+                    [ "sequencer" Aeson..= Aeson.object
+                        [ "config" Aeson..= Aeson.object [ storage ]
+                        , "type" Aeson..= ("community-reference" :: T.Text)
                         ]
-                    )
+                    , storage
+                    , "public-api" Aeson..= port sequencerPublicPort
+                    , "admin-api" Aeson..= port sequencerAdminPort
+                    ]
+                ]
+            , "mediators-x" Aeson..= Aeson.object
+                [ "mediator1" Aeson..= Aeson.object
+                     [ "admin-api" Aeson..= port mediatorAdminPort
+                     ]
                 ]
             ]
         ]
@@ -243,7 +247,6 @@ getCantonSandboxProc configPath bootstrapPath = do
       , ["daemon"]
       , ["-c", configPath]
       , ["--bootstrap", bootstrapPath]
-      , ["--auto-connect-local"]
       ]
 
 getJava :: IO FilePath

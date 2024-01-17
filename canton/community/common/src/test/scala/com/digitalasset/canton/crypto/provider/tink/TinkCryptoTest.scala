@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto.provider.tink
 import com.digitalasset.canton.config.CommunityCryptoConfig
 import com.digitalasset.canton.config.CommunityCryptoProvider.{Jce, Tink}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.format.JceJavaConverter
+import com.digitalasset.canton.crypto.provider.jce.JceJavaConverter
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
@@ -21,12 +21,11 @@ class TinkCryptoTest
     with PrivateKeySerializationTest
     with HkdfTest
     with RandomTest
-    with JavaPublicKeyConverterTest
-    with PublicKeyValidationTest {
+    with JavaPublicKeyConverterTest {
 
   "TinkCrypto" can {
 
-    def tinkCrypto(): Future[Crypto] =
+    def tinkCrypto(): Future[Crypto] = {
       new CommunityCryptoFactory()
         .create(
           CommunityCryptoConfig(provider = Tink),
@@ -38,6 +37,7 @@ class TinkCryptoTest
           NoReportingTracerProvider,
         )
         .valueOrFail("create crypto")
+    }
 
     behave like signingProvider(Tink.signing.supported, tinkCrypto())
     behave like encryptionProvider(
@@ -67,13 +67,6 @@ class TinkCryptoTest
       "JCE",
       new JceJavaConverter(Jce.signing.supported, Jce.encryption.supported),
     )
-
-    behave like publicKeyValidationProvider(
-      Tink.signing.supported,
-      Tink.encryption.supported,
-      tinkCrypto(),
-    )
-
   }
 
 }

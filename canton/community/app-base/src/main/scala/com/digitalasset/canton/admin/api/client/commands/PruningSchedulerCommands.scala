@@ -5,9 +5,9 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.data.PruningSchedule
+import com.digitalasset.canton.admin.pruning.v0
+import com.digitalasset.canton.admin.pruning.v0.{PruningSchedule as PruningScheduleP, *}
 import com.digitalasset.canton.config.PositiveDurationSeconds
-import com.digitalasset.canton.pruning.admin.v0
-import com.digitalasset.canton.pruning.admin.v0.{PruningSchedule as PruningScheduleP, *}
 import io.grpc.ManagedChannel
 import io.grpc.stub.AbstractStub
 

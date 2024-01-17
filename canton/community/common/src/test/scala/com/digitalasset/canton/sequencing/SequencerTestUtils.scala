@@ -13,7 +13,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencedEvent,
   SignedContent,
 }
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
@@ -24,10 +23,6 @@ object SequencerTestUtils extends BaseTest {
   object MockMessageContent {
     private val bytes = ByteString.copyFromUtf8("serialized-mock-message")
     def toByteString: ByteString = bytes
-    def fromByteString(
-        bytes: ByteString
-    ): ParsingResult[MockMessageContent.type] =
-      Right(MockMessageContent)
   }
 
   def sign[M <: ProtocolVersionedMemoizedEvidence](content: M): SignedContent[M] =
@@ -56,7 +51,7 @@ object SequencerTestUtils extends BaseTest {
       case Some(bytes) =>
         // Somehow ugly way to tweak the `deserializedFrom` attribute of Deliver
         SequencedEvent
-          .fromProtoV0(deliver.toProtoV0)(bytes)
+          .fromProtoV1(deliver.toProtoV1)(bytes)
           .value
           .asInstanceOf[Deliver[ClosedEnvelope]]
 

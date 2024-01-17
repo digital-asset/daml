@@ -5,9 +5,9 @@ package com.digitalasset.canton.topology.processing
 
 import cats.Monoid
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransactionX.{
+  AuthorizedDecentralizedNamespaceDefinitionX,
   AuthorizedIdentifierDelegationX,
   AuthorizedNamespaceDelegationX,
-  AuthorizedUnionspaceDefinitionX,
 }
 
 import scala.collection.mutable
@@ -22,7 +22,7 @@ import scala.collection.mutable
 final case class AuthorizationChainX(
     identifierDelegation: Seq[AuthorizedIdentifierDelegationX],
     namespaceDelegations: Seq[AuthorizedNamespaceDelegationX],
-    unionspaceDefinitions: Seq[AuthorizedUnionspaceDefinitionX],
+    decentralizedNamespaceDefinitions: Seq[AuthorizedDecentralizedNamespaceDefinitionX],
 ) {
 
   def addIdentifierDelegation(aid: AuthorizedIdentifierDelegationX): AuthorizationChainX =
@@ -32,7 +32,7 @@ final case class AuthorizationChainX(
     AuthorizationChainX(
       mergeUnique(this.identifierDelegation, other.identifierDelegation),
       mergeUnique(this.namespaceDelegations, other.namespaceDelegations),
-      mergeUnique(this.unionspaceDefinitions, other.unionspaceDefinitions),
+      mergeUnique(this.decentralizedNamespaceDefinitions, other.decentralizedNamespaceDefinitions),
     )
   }
 

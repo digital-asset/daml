@@ -55,14 +55,19 @@ object CantonRunner {
       darFiles: Seq[Path],
       files: CantonFiles,
   )(implicit ec: ExecutionContext): Future[
-    ((PortLock.Locked, PortLock.Locked), Vector[(PortLock.Locked, PortLock.Locked)], Process)
+    (
+        (PortLock.Locked, PortLock.Locked, PortLock.Locked),
+        Vector[(PortLock.Locked, PortLock.Locked)],
+        Process,
+    )
   ] = {
     def info(s: String) = if (config.debug) logger.info(s)
 
     val ports =
       Vector.fill(config.nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
-    val domainPublicApi = LockedFreePort.find()
-    val domainAdminApi = LockedFreePort.find()
+    val sequencerPublicApi = LockedFreePort.find()
+    val sequencerAdminApi = LockedFreePort.find()
+    val mediatorAdminApi = LockedFreePort.find()
     val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
     val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
     val (timeType, clockType) = config.timeProviderType match {
@@ -104,32 +109,45 @@ object CantonRunner {
       (0 until config.nParticipants).map(participantConfig).mkString("\n")
     val cantonConfig =
       s"""canton {
-         |  parameters{
+         |  parameters {
          |    non-standard-config = yes
          |    dev-version-support = yes
          |    ports-file = ${toJson(files.portsFile)}
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
          |
-         |  domains {
-         |    local {
-         |      storage.type = memory
-         |      public-api.port = ${domainPublicApi.port}
-         |      admin-api.port = ${domainAdminApi.port}
-         |      init.domain-parameters.protocol-version = ${if (config.devMode) "dev"
-        else "4"}
+         |  sequencers-x {
+         |    sequencer1 {
+         |        admin-api.port = ${sequencerAdminApi.port}
+         |        public-api.port = ${sequencerPublicApi.port}
+         |        sequencer {
+         |          config.storage.type = memory
+         |          type = community-reference
+         |        }
+         |        storage.type = memory
          |    }
          |  }
-         |  participants {
+         |
+         |  mediators-x {
+         |    mediator1 {
+         |        admin-api.port = ${mediatorAdminApi.port}
+         |    }
+         |  }
+         |
+         |  participants-x {
          |    ${participantsConfig}
          |  }
          |}
           """.stripMargin
     discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
 
+    val bootstrapConnectParticipants =
+      config.participantIds
+        .map(id => s"$id.domains.connect_local(sequencer1)")
+        .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
-        s"participants.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", true, true)"
+        s"participantsX.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", true, true)"
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
@@ -139,6 +157,11 @@ object CantonRunner {
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
+         |
+         |val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)
+         |val domainOwners = Seq(sequencer1, mediator1)
+         |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)
+         |${bootstrapConnectParticipants}
          |${config.bootstrapScript.getOrElse("")}
          |$bootstrapUploadDar
          |Files.write(Paths.get("$completionFile"), "Completed".getBytes(StandardCharsets.UTF_8))
@@ -163,7 +186,6 @@ object CantonRunner {
       "-jar" ::
       config.jarPath.toString ::
       "daemon" ::
-      "--auto-connect-local" ::
       "-c" ::
       files.configFile.toString ::
       "--bootstrap" ::
@@ -196,7 +218,7 @@ object CantonRunner {
           Future.successful(info(s"${darFiles.size} packages loaded to ${ports.size} participants"))
         else
           Future.failed(new Error("Canton failed expectedly with logs:\n" + outputBuffer))
-    } yield ((domainAdminApi, domainPublicApi), ports, proc)
+    } yield ((sequencerAdminApi, sequencerPublicApi, mediatorAdminApi), ports, proc)
   }
 
   private def waitForFile(proc: Process, path: Path)(implicit
@@ -213,16 +235,17 @@ object CantonRunner {
 
   def stop(
       r: (
-          (PortLock.Locked, PortLock.Locked),
+          (PortLock.Locked, PortLock.Locked, PortLock.Locked),
           Vector[(PortLock.Locked, PortLock.Locked)],
           Process,
       )
   ): Future[Unit] = {
-    val ((domainAdminApi, domainPublicApi), ports, process) = r
+    val ((sequencerAdminApi, sequencerPublicApi, mediatorAdminApi), ports, process) = r
     process.destroy()
     discard(process.exitValue())
-    domainAdminApi.unlock()
-    domainPublicApi.unlock()
+    sequencerAdminApi.unlock()
+    sequencerPublicApi.unlock()
+    mediatorAdminApi.unlock()
     ports.foreach { case (p1, p2) =>
       p1.unlock()
       p2.unlock()

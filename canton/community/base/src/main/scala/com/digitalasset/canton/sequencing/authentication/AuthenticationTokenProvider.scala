@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.common.domain.ServiceAgreementId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Nonce}
@@ -50,7 +49,6 @@ object AuthenticationTokenManagerConfig {
 class AuthenticationTokenProvider(
     domainId: DomainId,
     member: Member,
-    agreementId: Option[ServiceAgreementId],
     crypto: Crypto,
     supportedProtocolVersions: Seq[ProtocolVersion],
     config: AuthenticationTokenManagerConfig,
@@ -138,7 +136,6 @@ class AuthenticationTokenProvider(
           nonce,
           domainId,
           fingerprintsNel,
-          agreementId,
           crypto,
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))

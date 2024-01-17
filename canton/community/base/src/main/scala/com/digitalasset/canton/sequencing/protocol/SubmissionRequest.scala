@@ -8,7 +8,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt}
 import com.digitalasset.canton.crypto.{HashOps, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.{v0, v1}
+import com.digitalasset.canton.protocol.v1
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   DeterministicEncoding,
@@ -50,22 +50,10 @@ final case class SubmissionRequest private (
   // Ensures the invariants related to default values hold
   validateInstance().valueOr(err => throw new IllegalArgumentException(err))
 
-  private lazy val batchProtoV0: v0.CompressedBatch = batch.toProtoV0
-
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
   // Caches the serialized request to be able to do checks on its size without re-serializing
-  lazy val toProtoV0: v0.SubmissionRequest = v0.SubmissionRequest(
-    sender = sender.toProtoPrimitive,
-    messageId = messageId.toProtoPrimitive,
-    isRequest = isRequest,
-    batch = Some(batchProtoV0),
-    maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
-    timestampOfSigningKey = timestampOfSigningKey.map(_.toProtoPrimitive),
-  )
-
-  // No need to cache V1 because this is private and therefore properly memoized
-  private def toProtoV1: v1.SubmissionRequest = v1.SubmissionRequest(
+  lazy val toProtoV1: v1.SubmissionRequest = v1.SubmissionRequest(
     sender = sender.toProtoPrimitive,
     messageId = messageId.toProtoPrimitive,
     isRequest = isRequest,
@@ -177,18 +165,12 @@ object SubmissionRequest
       MaxRequestSizeToDeserialize,
     ] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SubmissionRequest)(
-      supportedProtoVersionMemoized(_) { (maxRequestSize, req) => bytes =>
-        fromProtoV0(maxRequestSize)(req, Some(bytes))
-      },
-      _.toProtoV0.toByteString,
-    ),
     ProtoVersion(1) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
+      ProtocolVersion.v30
     )(v1.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV1),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
 
   override def name: String = "submission request"
@@ -260,47 +242,7 @@ object SubmissionRequest
       protocolVersionRepresentativeFor(protocolVersion),
     ).valueOr(err => throw new IllegalArgumentException(err.message))
 
-  def fromProtoV0(
-      requestP: v0.SubmissionRequest,
-      maxRequestSize: MaxRequestSizeToDeserialize,
-  ): ParsingResult[SubmissionRequest] =
-    fromProtoV0(maxRequestSize)(requestP, None)
-
-  private def fromProtoV0(maxRequestSize: MaxRequestSizeToDeserialize)(
-      requestP: v0.SubmissionRequest,
-      bytes: Option[ByteString],
-  ): ParsingResult[SubmissionRequest] = {
-    val v0.SubmissionRequest(
-      senderP,
-      messageIdP,
-      isRequest,
-      batchP,
-      maxSequencingTimeP,
-      timestampOfSigningKey,
-    ) = requestP
-
-    for {
-      sender <- Member.fromProtoPrimitive(senderP, "sender")
-      messageId <- MessageId.fromProtoPrimitive(messageIdP)
-      maxSequencingTime <- ProtoConverter
-        .required("SubmissionRequest.maxSequencingTime", maxSequencingTimeP)
-        .flatMap(CantonTimestamp.fromProtoPrimitive)
-      batch <- ProtoConverter
-        .required("SubmissionRequest.batch", batchP)
-        .flatMap(Batch.fromProtoV0(_, maxRequestSize))
-      ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
-    } yield new SubmissionRequest(
-      sender,
-      messageId,
-      isRequest,
-      batch,
-      maxSequencingTime,
-      ts,
-      None,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)), bytes)
-  }
-
-  private def fromProtoV1(
+  def fromProtoV1(
       maxRequestSize: MaxRequestSizeToDeserialize,
       requestP: v1.SubmissionRequest,
   )(bytes: ByteString): ParsingResult[SubmissionRequest] = {
@@ -339,10 +281,4 @@ object SubmissionRequest
       aggregationRule,
     )(protocolVersionRepresentativeFor(ProtoVersion(1)), Some(bytes))
   }
-
-  def usingSignedSubmissionRequest(protocolVersion: ProtocolVersion): Boolean =
-    protocolVersion >= ProtocolVersion.v4
-
-  def usingVersionedSubmissionRequest(protocolVersion: ProtocolVersion): Boolean =
-    protocolVersion >= ProtocolVersion.v5
 }

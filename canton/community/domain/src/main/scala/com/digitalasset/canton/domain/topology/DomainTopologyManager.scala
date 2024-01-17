@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.client.{
   StoreBasedTopologySnapshot,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   TopologyStore,
@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,7 +62,6 @@ object DomainTopologyManager {
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -80,14 +79,7 @@ object DomainTopologyManager {
           )
       )
       .flatMap { _ =>
-        isInitializedAt(
-          id,
-          store,
-          ts.immediateSuccessor,
-          mustHaveActiveMediator,
-          loggerFactory,
-          protocolVersion,
-        )
+        isInitializedAt(id, store, ts.immediateSuccessor, mustHaveActiveMediator, loggerFactory)
       }
   }
 
@@ -97,12 +89,14 @@ object DomainTopologyManager {
       timestamp: CantonTimestamp,
       mustHaveActiveMediator: Boolean,
       loggerFactory: NamedLoggerFactory,
-      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): EitherT[Future, String, Unit] = {
-    val useStateStore = store.storeId.isDomainStore
+    val useStateStore = store.storeId match {
+      case AuthorizedStore => false
+      case DomainStore(_, _) => true
+    }
     val dbSnapshot = new StoreBasedTopologySnapshot(
       timestamp,
       store,
@@ -111,9 +105,8 @@ object DomainTopologyManager {
       useStateTxs = useStateStore,
       packageDependencies = StoreBasedDomainTopologyClient.NoPackageDependencies,
       loggerFactory,
-      ProtocolVersionValidation(protocolVersion),
     )
-    def hasSigningKey(owner: KeyOwner): EitherT[Future, String, SigningPublicKey] = EitherT(
+    def hasSigningKey(owner: Member): EitherT[Future, String, SigningPublicKey] = EitherT(
       dbSnapshot
         .signingKey(owner)
         .map(_.toRight(s"$owner signing key is missing"))
@@ -217,7 +210,7 @@ class DomainTopologyManager(
   /** Return a set of initial keys we can use before the sequenced store has seen any topology transaction */
   def getKeysForBootstrapping()(implicit
       traceContext: TraceContext
-  ): Future[Map[KeyOwner, Seq[PublicKey]]] =
+  ): Future[Map[Member, Seq[PublicKey]]] =
     store.findInitialState(id)
 
   private def checkTransactionIsNotForAlienDomainEntities(
@@ -290,8 +283,7 @@ class DomainTopologyManager(
       transaction.transaction.element.mapping match {
         // in v5, the domain topology message validator expects to get the From before the To
         // and no Both. so we need to ensure that at no point, a Both is added to the domain manager
-        case ParticipantState(RequestSide.Both, _, participant, _, _)
-            if protocolVersion >= ProtocolVersion.v5 =>
+        case ParticipantState(RequestSide.Both, _, participant, _, _) =>
           EitherT.leftT(
             DomainTopologyManagerError.InvalidOrFaultyOnboardingRequest
               .Failure(
@@ -359,7 +351,7 @@ class DomainTopologyManager(
       .foreach {
         case ParticipantState(side, _, participant, permission, trustLevel)
             if side != RequestSide.To =>
-          val attributes = ParticipantAttributes(permission, trustLevel)
+          val attributes = ParticipantAttributes(permission, trustLevel, None)
           sendToObservers(_.willChangeTheParticipantState(participant, attributes))
           logger.info(s"Setting participant $participant state to $attributes")
         case _ => ()
@@ -395,7 +387,6 @@ class DomainTopologyManager(
         CantonTimestamp.MaxValue,
         mustHaveActiveMediator,
         loggerFactory,
-        protocolVersion,
       )
 
   override def issueParticipantStateForDomain(participantId: ParticipantId)(implicit

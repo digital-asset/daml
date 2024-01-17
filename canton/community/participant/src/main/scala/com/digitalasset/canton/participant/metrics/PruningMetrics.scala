@@ -4,14 +4,13 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Gauge, MetricsFactory, Timer}
+import com.daml.metrics.api.MetricHandle.{Gauge, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-
-import scala.annotation.nowarn
+import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
 
 class PruningMetrics(
     val prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") metricsFactory: MetricsFactory,
+    metricsFactory: LabeledMetricsFactory,
 ) {
 
   object commitments {
@@ -25,7 +24,6 @@ class PruningMetrics(
         |starts to exceed the commitment intervals, this likely indicates a problem.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val compute: Timer = metricsFactory.timer(prefix :+ "compute")
   }
 
@@ -38,7 +36,6 @@ class PruningMetrics(
         """This timer exposes the duration of pruning requests from the Canton portion of the ledger.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val overall: Timer = metricsFactory.timer(prefix)
 
     @MetricDoc.Tag(
@@ -48,7 +45,6 @@ class PruningMetrics(
           |pruning backlog.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val maxEventAge: Gauge[Long] =
       metricsFactory.gauge[Long](MetricName(prefix :+ "max-event-age"), 0L)(MetricsContext.Empty)
 

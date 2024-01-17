@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.RootHashMessage.RootHashMessagePayloadCast
-import com.digitalasset.canton.protocol.{RootHash, v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.{RootHash, v0, v4}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -34,25 +34,8 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     viewType: ViewType,
     payload: Payload,
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type])
-    extends ProtocolMessage
-    with ProtocolMessageV0
-    with ProtocolMessageV1
-    with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4
+    extends UnsignedProtocolMessage
     with PrettyPrinting {
-
-  override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
-    v0.EnvelopeContent(v0.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
-
-  override def toProtoEnvelopeContentV1: v1.EnvelopeContent =
-    v1.EnvelopeContent(v1.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
-
-  override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
-    v2.EnvelopeContent(v2.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
-
-  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
-    v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0))
 
   override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
     v4.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV0)
@@ -107,7 +90,7 @@ object RootHashMessage
     ], ByteString => ParsingResult[RootHashMessagePayload]] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.RootHashMessage)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.RootHashMessage)(
       supportedProtoVersion(_)((deserializer, proto) => fromProtoV0(deserializer)(proto)),
       _.toProtoV0.toByteString,
     )

@@ -74,68 +74,6 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.createdAt = createdAt;
   }
 
-  /**
-   * @deprecated You should pass {@code createArgumentsBlob} and {@code contractMetadata} arguments
-   *     as well. Since Daml 2.6.0
-   */
-  @Deprecated
-  public CreatedEvent(
-      @NonNull List<@NonNull String> witnessParties,
-      @NonNull String eventId,
-      @NonNull Identifier templateId,
-      @NonNull String contractId,
-      @NonNull DamlRecord arguments,
-      @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
-      @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
-      @NonNull Optional<String> agreementText,
-      @NonNull Optional<Value> contractKey,
-      @NonNull Collection<@NonNull String> signatories,
-      @NonNull Collection<@NonNull String> observers) {
-    this(
-        witnessParties,
-        eventId,
-        templateId,
-        contractId,
-        arguments,
-        ByteString.EMPTY,
-        interfaceViews,
-        failedInterfaceViews,
-        agreementText,
-        contractKey,
-        signatories,
-        observers,
-        Instant.EPOCH);
-  }
-
-  /**
-   * @deprecated Pass {@code interfaceViews} and {@code failedInterfaceViews} arguments; empty maps
-   *     are reasonable defaults. Since Daml 2.4.0
-   */
-  @Deprecated
-  public CreatedEvent(
-      @NonNull List<@NonNull String> witnessParties,
-      @NonNull String eventId,
-      @NonNull Identifier templateId,
-      @NonNull String contractId,
-      @NonNull DamlRecord arguments,
-      @NonNull Optional<String> agreementText,
-      @NonNull Optional<Value> contractKey,
-      @NonNull Collection<@NonNull String> signatories,
-      @NonNull Collection<@NonNull String> observers) {
-    this(
-        witnessParties,
-        eventId,
-        templateId,
-        contractId,
-        arguments,
-        Collections.emptyMap(),
-        Collections.emptyMap(),
-        agreementText,
-        contractKey,
-        signatories,
-        observers);
-  }
-
   @NonNull
   @Override
   public List<@NonNull String> getWitnessParties() {

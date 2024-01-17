@@ -139,8 +139,8 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \DarMeta
     pids <- listPackages lid
     liftIO $ do
         -- Canton loads the `AdminWorkflowsWithVacuuming` package at boot, which adds a bunch of deps
-        -- In this case, `AdminWorkflowsWithVacuuming` has 7 deps that we don't already pull in, thus the + 7
-        assertEqual "#packages" (length (dalfPaths manifest) + 7) (length pids)
+        -- In this case, `AdminWorkflowsWithVacuuming` has 3 deps that we don't already pull in, thus the + 3
+        assertEqual "#packages" (length (dalfPaths manifest) + 3) (length pids)
         assertBool "The pid is listed" (mainPackageId `elem` pids)
 
 tGetPackage :: SandboxTest

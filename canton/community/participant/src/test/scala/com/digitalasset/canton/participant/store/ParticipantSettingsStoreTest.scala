@@ -117,13 +117,6 @@ trait ParticipantSettingsStoreTest
       )
     }
 
-    "unique contract keys" should {
-      behave like singleInsertion(false, true)(
-        _.insertUniqueContractKeysMode(_).failOnShutdown,
-        GenLens[Settings](_.uniqueContractKeys),
-      )
-    }
-
     "eventually reach a consistent cache after concurrent updates" in {
       val store = mk()
       store.refreshCache().failOnShutdown.futureValue

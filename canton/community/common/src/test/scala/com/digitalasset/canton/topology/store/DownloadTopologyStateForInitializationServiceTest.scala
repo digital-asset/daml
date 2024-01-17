@@ -26,7 +26,7 @@ trait DownloadTopologyStateForInitializationServiceTest
     Seq[
       (CantonTimestamp, (GenericSignedTopologyTransactionX, Option[CantonTimestamp]))
     ](
-      ts4 -> (tx4_USD, None),
+      ts4 -> (tx4_DND, None),
       ts5 -> (tx5_PTP, None),
       ts5 -> (tx5_DTC, None),
       ts6 -> (tx6_MDS, None),
@@ -45,7 +45,7 @@ trait DownloadTopologyStateForInitializationServiceTest
     Seq[
       (CantonTimestamp, (GenericSignedTopologyTransactionX, Option[CantonTimestamp]))
     ](
-      ts4 -> (tx4_USD, None),
+      ts4 -> (tx4_DND, None),
       ts5 -> (tx5_PTP, None),
       ts5 -> (tx5_DTC, ts6.some),
       ts6 -> (tx6_DTC_Update, None),
@@ -82,7 +82,7 @@ trait DownloadTopologyStateForInitializationServiceTest
           import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
-          result.map(_.transaction) shouldBe Seq(tx4_USD, tx5_PTP, tx5_DTC)
+          result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC)
         }
       }
     }
@@ -95,7 +95,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         import storedTxs.result
         // all transactions should be valid and not expired
         result.foreach(_.validUntil shouldBe empty)
-        result.map(_.transaction) shouldBe Seq(tx4_USD, tx5_PTP, tx5_DTC)
+        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC)
         result.last.validUntil shouldBe None
       }
     }
@@ -109,7 +109,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         import storedTxs.result
         // all transactions should be valid and not expired
         result.foreach(_.validUntil shouldBe empty)
-        result.map(_.transaction) shouldBe Seq(tx4_USD, tx5_PTP, tx5_DTC, tx6_MDS)
+        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_MDS)
       }
     }
 
@@ -122,7 +122,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         import storedTxs.result
         // all transactions should be valid and not expired
         result.foreach(_.validUntil.foreach(_.value should be < ts7))
-        result.map(_.transaction) shouldBe Seq(tx4_USD, tx5_PTP, tx5_DTC, tx6_DTC_Update, tx6_MDS)
+        result.map(_.transaction) shouldBe Seq(tx4_DND, tx5_PTP, tx5_DTC, tx6_DTC_Update, tx6_MDS)
         result.last.validUntil shouldBe None
       }
     }

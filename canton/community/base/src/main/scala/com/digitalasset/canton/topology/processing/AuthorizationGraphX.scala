@@ -29,7 +29,8 @@ object AuthorizedTopologyTransactionX {
 
   type AuthorizedNamespaceDelegationX = AuthorizedTopologyTransactionX[NamespaceDelegationX]
   type AuthorizedIdentifierDelegationX = AuthorizedTopologyTransactionX[IdentifierDelegationX]
-  type AuthorizedUnionspaceDefinitionX = AuthorizedTopologyTransactionX[UnionspaceDefinitionX]
+  type AuthorizedDecentralizedNamespaceDefinitionX =
+    AuthorizedTopologyTransactionX[DecentralizedNamespaceDefinitionX]
 
   /** Returns true if the namespace delegation is a root certificate
     *
@@ -419,8 +420,8 @@ object AuthorizationCheckX {
   }
 }
 
-final case class UnionspaceAuthorizationGraphX(
-    us: UnionspaceDefinitionX,
+final case class DecentralizedNamespaceAuthorizationGraphX(
+    dnd: DecentralizedNamespaceDefinitionX,
     direct: AuthorizationGraphX,
     ownerGraphs: Seq[AuthorizationGraphX],
 ) extends AuthorizationCheckX {
@@ -430,7 +431,7 @@ final case class UnionspaceAuthorizationGraphX(
   ): Boolean = {
     val viaNamespaceDelegation = direct.areValidAuthorizationKeys(authKeys, requireRoot)
     val viaCollective =
-      ownerGraphs.count(_.areValidAuthorizationKeys(authKeys, requireRoot)) >= us.threshold.value
+      ownerGraphs.count(_.areValidAuthorizationKeys(authKeys, requireRoot)) >= dnd.threshold.value
     viaNamespaceDelegation || viaCollective
   }
 

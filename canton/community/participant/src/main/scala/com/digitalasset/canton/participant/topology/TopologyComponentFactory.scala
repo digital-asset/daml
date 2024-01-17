@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTickerX
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   TrafficStateController,
@@ -34,7 +35,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreX}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,7 +88,6 @@ class TopologyComponentFactoryOld(
     participantId: ParticipantId,
     domainId: DomainId,
     clock: Clock,
-    skipTopologyManagerSignatureValidation: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
@@ -147,7 +147,6 @@ class TopologyComponentFactoryOld(
       useStateTxs = true,
       packageDependencies,
       loggerFactory,
-      ProtocolVersionValidation.NoValidation,
     )
     if (preferCaching) {
       new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
@@ -173,7 +172,6 @@ class TopologyComponentFactoryOld(
           domainId,
           DomainTopologyTransactionMessageValidator
             .create(
-              skipTopologyManagerSignatureValidation,
               syncCrypto,
               participantId,
               protocolVersion,
@@ -231,11 +229,17 @@ class TopologyComponentFactoryX(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
 
+      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingTickerX(
+        recordOrderPublisher,
+        loggerFactory,
+      )
+
       val processor = new TopologyTransactionProcessorX(
         domainId,
         crypto,
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
+        terminateTopologyProcessing,
         topologyXConfig.enableTopologyTransactionValidation,
         futureSupervisor,
         timeouts,

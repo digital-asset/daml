@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionKeyCacheConfig}
+import com.digitalasset.canton.config.{CacheConfigWithTimeout, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -59,7 +59,7 @@ class SyncDomainEphemeralState(
     val startingPoints: ProcessingStartingPoints,
     createTimeTracker: NamedLoggerFactory => DomainTimeTracker,
     metrics: SyncDomainMetrics,
-    sessionKeyCacheConfig: SessionKeyCacheConfig,
+    sessionKeyCacheConfig: CacheConfigWithTimeout,
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -80,7 +80,8 @@ class SyncDomainEphemeralState(
   val pendingTransferInSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]
 
-  val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)
+  val sessionKeyStore: SessionKeyStore =
+    SessionKeyStore(sessionKeyCacheConfig)
 
   val requestJournal =
     new RequestJournal(
@@ -125,7 +126,7 @@ class SyncDomainEphemeralState(
     )
   }
 
-  val recordOrderPublisher = {
+  val recordOrderPublisher: RecordOrderPublisher = {
     import TraceContext.Implicits.Empty.emptyTraceContext
     new RecordOrderPublisher(
       persistentState.domainId.item,
@@ -175,7 +176,7 @@ class SyncDomainEphemeralState(
   lazy val inFlightSubmissionTrackerDomainState: InFlightSubmissionTrackerDomainState =
     InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, this)
 
-  val timelyRejectNotifier = TimelyRejectNotifier(
+  val timelyRejectNotifier: TimelyRejectNotifier = TimelyRejectNotifier(
     inFlightSubmissionTracker,
     persistentState.domainId.item,
     startingPoints.rewoundSequencerCounterPrehead.map(_.timestamp),
@@ -192,7 +193,7 @@ class SyncDomainEphemeralState(
       AsyncCloseable(
         "request-journal-flush",
         requestJournal.flush(),
-        timeouts.shutdownProcessing.unwrap,
+        timeouts.shutdownProcessing,
       ),
     )(logger)
   }

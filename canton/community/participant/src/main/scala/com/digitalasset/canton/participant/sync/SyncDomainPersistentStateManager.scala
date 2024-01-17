@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -33,7 +32,6 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.concurrent
@@ -143,7 +141,7 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
         _ = logger.debug(s"Discovered existing state for $alias")
       } yield put(persistentState)
 
-      resultE.valueOr(error => logger.debug(s"No state for $alias discovered: ${error}"))
+      resultE.valueOr(error => logger.debug(s"No state for $alias discovered: $error"))
     }
   }
 
@@ -167,12 +165,6 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
         domainAlias,
         persistentState.parameterStore,
         domainParameters,
-      )
-      _ <- checkUniqueContractKeys(
-        domainAlias,
-        domainParameters.uniqueContractKeys,
-        domainId.domainId,
-        participantSettings,
       )
     } yield {
       // TODO(#14048) potentially delete putIfAbsent
@@ -218,44 +210,6 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
             DomainRegistryError.ConfigurationErrors.DomainParametersChanged
               .Error(oldParametersO, newParameters): DomainRegistryError,
           )
-      }
-    } yield ()
-  }
-
-  private def checkUniqueContractKeys(
-      domainAlias: DomainAlias,
-      connectToUniqueContractKeys: Boolean,
-      domainId: DomainId,
-      participantSettings: Eval[ParticipantSettingsLookup],
-  )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] = {
-    val uckMode = participantSettings.value.settings.uniqueContractKeys
-      .getOrElse(
-        ErrorUtil.internalError(
-          new IllegalStateException("unique-contract-keys setting is undefined")
-        )
-      )
-    for {
-      _ <- EitherTUtil.condUnitET[Future](
-        uckMode == connectToUniqueContractKeys,
-        DomainRegistryError.ConfigurationErrors.IncompatibleUniqueContractKeysMode.Error(
-          s"Cannot connect to domain ${domainAlias.unwrap} with${if (!connectToUniqueContractKeys) "out"
-            else ""} unique contract keys semantics as the participant has set unique-contract-keys=$uckMode"
-        ),
-      )
-      _ <- EitherT.cond[Future](!uckMode, (), ()).leftFlatMap { _ =>
-        // If we're connecting to a UCK domain,
-        // make sure that we haven't been connected to a different domain before (unless we are doing a migration here)
-        val allActiveDomains = getAll.keySet
-          .filter(getStatusOf(_).exists(_.isActive))
-        EitherTUtil
-          .condUnitET[Future](
-            allActiveDomains.forall(_ == domainId),
-            DomainRegistryError.ConfigurationErrors.IncompatibleUniqueContractKeysMode.Error(
-              s"Cannot connect to domain ${domainAlias.unwrap} as the participant has UCK semantics enabled and has already been connected to other domains: ${allActiveDomains
-                  .mkString(", ")}"
-            ),
-          )
-          .leftWiden[DomainRegistryError]
       }
     } yield ()
   }
@@ -344,7 +298,6 @@ class SyncDomainPersistentStateManagerOld(
         participantId,
         domainId,
         clock,
-        parameters.skipTopologyManagerSignatureValidation,
         parameters.processingTimeouts,
         futureSupervisor,
         parameters.cachingConfigs,

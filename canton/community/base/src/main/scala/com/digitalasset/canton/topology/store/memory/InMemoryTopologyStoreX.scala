@@ -54,12 +54,15 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] = findFilter(
-    asOfExclusive,
-    entry => hashes.contains(entry.transaction.transaction.hash),
-  )
+  ): Future[Seq[GenericSignedTopologyTransactionX]] =
+    if (hashes.isEmpty) Future.successful(Seq.empty)
+    else
+      findFilter(
+        asOfExclusive,
+        entry => hashes.contains(entry.transaction.transaction.hash),
+      )
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
@@ -199,6 +202,10 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
       // not rejected
       entry.rejected.isEmpty &&
+      // is not a proposal
+      !entry.transaction.isProposal &&
+      // is of type Replace
+      entry.transaction.operation == TopologyChangeOpX.Replace &&
       // matches a party to participant mapping (with appropriate filters)
       (entry.transaction.transaction.mapping match {
         case ptp: PartyToParticipantX =>
@@ -476,13 +483,15 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]] =
+  ): Future[Option[GenericStoredTopologyTransactionX]] = {
+    val rpv = TopologyTransactionX.protocolVersionRepresentativeFor(protocolVersion)
+
     allTransactions().map(
       _.result.findLast(tx =>
-        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == TopologyTransactionX
-          .protocolVersionRepresentativeFor(protocolVersion)
+        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == rpv
       )
     )
+  }
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,

@@ -30,7 +30,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
            |Daml3ScriptTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
            |Daml3ScriptTrySubmit:createEmptyContractKeyMaintainers SUCCESS
            |Daml3ScriptTrySubmit:devError SUCCESS
-           |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
            |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
            |Daml3ScriptTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
            |Daml3ScriptTrySubmit:unhandledException SUCCESS

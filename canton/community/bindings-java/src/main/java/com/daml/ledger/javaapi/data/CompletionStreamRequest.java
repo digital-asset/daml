@@ -84,15 +84,6 @@ public final class CompletionStreamRequest {
     return parties;
   }
 
-  /**
-   * @deprecated Legacy, nullable version of {@link #getLedgerOffset()}, which should be used
-   *     instead.
-   */
-  @Deprecated
-  public LedgerOffset getOffset() {
-    return offset.orElse(null);
-  }
-
   public Optional<LedgerOffset> getLedgerOffset() {
     return offset;
   }

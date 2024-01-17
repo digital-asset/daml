@@ -241,7 +241,7 @@ class ParticipantNodeBootstrapX(
 
     }
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNodeX]]] = {
       val indexedStringStore =
@@ -295,7 +295,6 @@ class ParticipantNodeBootstrapX(
         packageDependencyResolver,
         componentFactory,
         skipRecipientsCheck,
-        overrideKeyUniqueness = Some(false),
       ).map {
         case (
               partyNotifier,
@@ -367,9 +366,8 @@ object ParticipantNodeBootstrapX {
   object CommunityParticipantFactory
       extends CommunityParticipantFactoryCommon[ParticipantNodeBootstrapX] {
 
-    override protected def createEngine(arguments: Arguments): Engine = super.createEngine(
-      arguments.copy(parameterConfig = arguments.parameterConfig.copy(uniqueContractKeys = false))
-    )
+    override protected def createEngine(arguments: Arguments): Engine =
+      super.createEngine(arguments)
 
     override protected def createNode(
         arguments: Arguments,
@@ -405,7 +403,7 @@ class ParticipantNodeX(
     val nodeParameters: ParticipantNodeParameters,
     storage: Storage,
     override protected val clock: Clock,
-    val cryptoPureApi: CryptoPureApi,
+    override val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcherCommon,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,

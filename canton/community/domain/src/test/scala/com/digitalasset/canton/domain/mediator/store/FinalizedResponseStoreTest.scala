@@ -72,7 +72,6 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
         s(5417),
         new UUID(0L, 0L),
       )
-      .value
     FullInformeeTree.tryCreate(
       GenTransactionTree.tryCreate(hashOps)(
         BlindedNode(rh(11)),

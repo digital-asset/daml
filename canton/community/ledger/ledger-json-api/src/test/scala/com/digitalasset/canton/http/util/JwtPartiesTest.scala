@@ -26,16 +26,16 @@ class JwtPartiesTest
     with ScalaFutures
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
-  import JwtPartiesTest._
+  import JwtPartiesTest.*
 
   "ensureReadAsAllowedByJwt" should {
     import JwtParties.{ensureReadAsAllowedByJwt, EnsureReadAsDisallowedError}
 
-    "always allow missing readAs" in forAll { jp: JwtPayload =>
+    "always allow missing readAs" in forAll { (jp: JwtPayload) =>
       ensureReadAsAllowedByJwt(None, jp) should ===(\/-(()))
     }
 
-    "allow any subset" in forAll { jp: JwtPayload =>
+    "allow any subset" in forAll { (jp: JwtPayload) =>
       val NonEmpty(half) = jp.parties take (1 max (jp.parties.size / 2))
       ensureReadAsAllowedByJwt(Some(half.toNEF.toNel), jp) should ===(\/-(()))
     }
@@ -53,7 +53,7 @@ class JwtPartiesTest
     import JwtParties.resolveRefParties
 
     // ensures compatibility with old behavior
-    "use Jwt if explicit spec is absent" in forAll { jwp: JwtWritePayload =>
+    "use Jwt if explicit spec is absent" in forAll { (jwp: JwtWritePayload) =>
       discard(resolveRefParties(None, jwp) should ===(jwp.parties))
       resolveRefParties(
         Some(domain.CommandMeta(None, None, None, None, None, None, None)),
@@ -74,7 +74,6 @@ class JwtPartiesTest
 }
 
 object JwtPartiesTest {
-  private val irrelevantLedgerId = domain.LedgerId("foo")
   private val irrelevantAppId = domain.ApplicationId("bar")
 
   private implicit val arbParty: Arbitrary[domain.Party] = Arbitrary(
@@ -86,7 +85,6 @@ object JwtPartiesTest {
       case (neAct, extra, actAs, readAs) =>
         domain
           .JwtPayload(
-            irrelevantLedgerId,
             irrelevantAppId,
             actAs = if (neAct) extra :: actAs else actAs,
             readAs = if (!neAct) extra :: readAs else readAs,
@@ -98,7 +96,6 @@ object JwtPartiesTest {
     Arbitrary(
       arbitrary[(NonEmptyList[domain.Party], List[domain.Party])].map { case (submitter, readAs) =>
         JwtWritePayload(
-          irrelevantLedgerId,
           irrelevantAppId,
           submitter = submitter,
           readAs = readAs,

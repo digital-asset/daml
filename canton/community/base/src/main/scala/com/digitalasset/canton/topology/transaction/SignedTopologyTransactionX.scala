@@ -119,8 +119,8 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
 }
 
 object SignedTopologyTransactionX
-    extends HasProtocolVersionedWithOptionalValidationCompanion[
-      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+    extends HasProtocolVersionedCompanion[
+      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
     ] {
   override val name: String = "SignedTopologyTransactionX"
 
@@ -131,13 +131,12 @@ object SignedTopologyTransactionX
     SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.minimum),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v2.SignedTopologyTransactionX
     )(
       supportedProtoVersion(_)(fromProtoV2),
       _.toProtoV2.toByteString,
-    ),
+    )
   )
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
@@ -200,12 +199,13 @@ object SignedTopologyTransactionX
   }
 
   def fromProtoV2(
-      protocolVersionValidation: ProtocolVersionValidation,
-      transactionP: v2.SignedTopologyTransactionX,
+      transactionP: v2.SignedTopologyTransactionX
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
     val v2.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
     for {
-      transaction <- TopologyTransactionX.fromByteString(protocolVersionValidation)(txBytes)
+      transaction <- TopologyTransactionX.fromByteStringUnsafe(
+        txBytes
+      ) // TODO(#12626) - try with context
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "SignedTopologyTransactionX.signatures",
@@ -219,11 +219,12 @@ object SignedTopologyTransactionX
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =
     GetResult { r =>
-      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
-        throw new DbSerializationException(
-          s"Failed to deserialize SignedTopologyTransactionX: $err"
+      fromByteStringUnsafe(r.<<[ByteString])
+        .valueOr(err =>
+          throw new DbSerializationException(
+            s"Failed to deserialize SignedTopologyTransactionX: $err"
+          )
         )
-      )
     }
 
   implicit def setParameterTopologyTransaction(implicit
