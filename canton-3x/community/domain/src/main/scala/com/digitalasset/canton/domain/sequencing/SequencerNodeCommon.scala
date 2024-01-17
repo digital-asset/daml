@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import better.files.*
 import cats.data.EitherT
-import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
@@ -18,7 +16,6 @@ import com.digitalasset.canton.domain.sequencing.config.{
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerFactory}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
 import com.digitalasset.canton.health.{
@@ -129,17 +126,6 @@ trait SequencerNodeBootstrapCommon[
       domainLoggerFactory: NamedLoggerFactory,
   ): EitherT[Future, String, SequencerRuntime] = {
     for {
-      agreementManager <- EitherT.fromEither[Future](config.serviceAgreement.traverse {
-        agreementFile =>
-          ServiceAgreementManager.create(
-            agreementFile.toScala,
-            storage,
-            crypto.pureCrypto,
-            staticDomainParameters.protocolVersion,
-            parameters.processingTimeouts,
-            domainLoggerFactory,
-          )
-      })
       clientDiscriminator <- EitherT.right(
         SequencerClientDiscriminator.fromDomainMember(sequencerId, indexedStringStore)
       )
@@ -188,14 +174,12 @@ trait SequencerNodeBootstrapCommon[
         storage,
         clock,
         SequencerAuthenticationConfig(
-          agreementManager,
           config.publicApi.nonceExpirationTime,
           config.publicApi.tokenExpirationTime,
         ),
         createEnterpriseAdminService(_, domainLoggerFactory),
         staticMembersToRegister,
         futureSupervisor,
-        agreementManager,
         memberAuthServiceFactory,
         topologyStateForInitializationService,
         maybeDomainOutboxFactory,

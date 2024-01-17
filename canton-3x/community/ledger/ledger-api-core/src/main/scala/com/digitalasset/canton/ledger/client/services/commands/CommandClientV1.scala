@@ -4,18 +4,22 @@
 package com.digitalasset.canton.ledger.client.services.commands
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest
-import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
-import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateServiceStub
-import com.daml.ledger.api.v2.state_service.{GetLedgerEndRequest, GetLedgerEndResponse}
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
+import com.daml.ledger.api.v1.command_completion_service.{
+  CompletionEndRequest,
+  CompletionEndResponse,
+  CompletionStreamRequest,
+}
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
+import com.digitalasset.canton.ledger.client.services.commands.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.util.Ctx
+import com.google.protobuf.empty.Empty
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 
@@ -29,10 +33,9 @@ import scala.util.Try
   * @param applicationId            Will be applied to submitted commands.
   * @param config                   Options for changing behavior.
   */
-final class CommandClient(
+final class CommandClientV1(
     commandSubmissionService: CommandSubmissionServiceStub,
     commandCompletionService: CommandCompletionServiceStub,
-    stateService: StateServiceStub,
     applicationId: String,
     config: CommandClientConfiguration,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -47,12 +50,10 @@ final class CommandClient(
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None,
-  ): Future[SubmitResponse] =
+  ): Future[Empty] =
     submit(token)(submitRequest)
 
-  private def submit(
-      token: Option[String]
-  )(submitRequest: SubmitRequest): Future[SubmitResponse] = {
+  private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
     noTracingLogger.debug(
       "Invoking grpc-submission on commandId={}",
       submitRequest.commands.map(_.commandId).getOrElse("no-command-id"),
@@ -64,19 +65,19 @@ final class CommandClient(
 
   def completionSource(
       parties: Seq[String],
-      offset: ParticipantOffset,
+      offset: LedgerOffset,
       token: Option[String] = None,
-  ): Source[CompletionStreamElement, NotUsed] = {
+  ): Source[CompletionStreamElementV1, NotUsed] = {
     noTracingLogger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
       parties,
       offset: Any,
     )
-    CommandCompletionSource(
+    CommandCompletionSourceV1(
       CompletionStreamRequest(
         applicationId = applicationId,
         parties = parties,
-        beginExclusive = Some(offset),
+        offset = Some(offset),
       ),
       LedgerClient.stub(commandCompletionService, token).completionStream,
     )
@@ -84,11 +85,11 @@ final class CommandClient(
 
   def submissionFlow[Context](
       token: Option[String] = None
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[SubmitResponse]], NotUsed] = {
-    Flow[Ctx[Context, CommandSubmission]]
-      .via(CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId))
+  ): Flow[Ctx[Context, CommandSubmissionV1], Ctx[Context, Try[Empty]], NotUsed] = {
+    Flow[Ctx[Context, CommandSubmissionV1]]
+      .via(CommandUpdaterFlowV1[Context](config, submissionIdGenerator, applicationId))
       .via(
-        CommandSubmissionFlow[Context](
+        CommandSubmissionFlowV1[Context](
           submit(token),
           config.maxParallelSubmissions,
           loggerFactory,
@@ -96,12 +97,12 @@ final class CommandClient(
       )
   }
 
-  def getLedgerEnd(
+  def getCompletionEnd(
       token: Option[String] = None
-  ): Future[GetLedgerEndResponse] =
+  ): Future[CompletionEndResponse] =
     LedgerClient
-      .stub(stateService, token)
-      .getLedgerEnd(
-        GetLedgerEndRequest()
+      .stub(commandCompletionService, token)
+      .completionEnd(
+        CompletionEndRequest()
       )
 }

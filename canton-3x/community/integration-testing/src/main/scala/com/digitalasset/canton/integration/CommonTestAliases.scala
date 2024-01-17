@@ -14,6 +14,7 @@ import com.digitalasset.canton.console.{
   ParticipantReferenceX,
   RemoteMediatorReferenceX,
   RemoteSequencerNodeReferenceX,
+  SequencerNodeReferenceX,
 }
 
 /** Aliases used by our typical single domain and multi domain tests.
@@ -34,12 +35,12 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val participant4x: LocalParticipantReferenceX = lpx("participant4")
   lazy val participant5x: LocalParticipantReferenceX = lpx("participant5")
   lazy val da: CE#DomainLocalRef = d("da")
-  lazy val acme: CE#DomainLocalRef = d("acme")
 
-  lazy val sequencer1x: LocalSequencerNodeReferenceX = sx("sequencer1")
-  lazy val sequencer2x: LocalSequencerNodeReferenceX = sx("sequencer2")
-  lazy val sequencer3x: LocalSequencerNodeReferenceX = sx("sequencer3")
-  lazy val sequencer4x: LocalSequencerNodeReferenceX = sx("sequencer4")
+  lazy val sequencer1x: LocalSequencerNodeReferenceX = lsx("sequencer1")
+  lazy val sequencer1x_ : SequencerNodeReferenceX = sx("sequencer1")
+  lazy val sequencer2x: LocalSequencerNodeReferenceX = lsx("sequencer2")
+  lazy val sequencer3x: LocalSequencerNodeReferenceX = lsx("sequencer3")
+  lazy val sequencer4x: LocalSequencerNodeReferenceX = lsx("sequencer4")
 
   // Remote
   lazy val remoteSequencer1x: RemoteSequencerNodeReferenceX = rsx("sequencer1")
@@ -47,9 +48,9 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val remoteSequencer3x: RemoteSequencerNodeReferenceX = rsx("sequencer3")
   lazy val remoteMediator1x: RemoteMediatorReferenceX = rmx("mediator1")
 
-  lazy val mediator1x: LocalMediatorReferenceX = mx("mediator1")
-  lazy val mediator2x: LocalMediatorReferenceX = mx("mediator2")
-  lazy val mediator3x: LocalMediatorReferenceX = mx("mediator3")
-  lazy val mediator4x: LocalMediatorReferenceX = mx("mediator4")
+  lazy val mediator1x: LocalMediatorReferenceX = lmx("mediator1")
+  lazy val mediator2x: LocalMediatorReferenceX = lmx("mediator2")
+  lazy val mediator3x: LocalMediatorReferenceX = lmx("mediator3")
+  lazy val mediator4x: LocalMediatorReferenceX = lmx("mediator4")
 
 }

@@ -88,7 +88,6 @@ class TopologyComponentFactoryOld(
     participantId: ParticipantId,
     domainId: DomainId,
     clock: Clock,
-    skipTopologyManagerSignatureValidation: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
@@ -173,7 +172,6 @@ class TopologyComponentFactoryOld(
           domainId,
           DomainTopologyTransactionMessageValidator
             .create(
-              skipTopologyManagerSignatureValidation,
               syncCrypto,
               participantId,
               protocolVersion,

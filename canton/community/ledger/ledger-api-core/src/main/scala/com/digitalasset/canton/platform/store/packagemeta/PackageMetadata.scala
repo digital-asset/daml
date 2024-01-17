@@ -8,7 +8,7 @@ import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.LanguageVersion
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
@@ -38,9 +38,7 @@ object PackageMetadata {
   )
 
   def from(archive: DamlLf.Archive): PackageMetadata = {
-    val (packageId, pkg): (Ref.PackageId, Ast.Package) = Decode.assertDecodeArchive(archive)
-    // TODO(#16362): Do not decode the archive twice
-    val packageInfo = Decode.assertDecodeInfoPackage(archive)._2
+    val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
 
     val packageLanguageVersion = pkg.languageVersion
     val nonUpgradablePackageMetadata = PackageMetadata(

@@ -4,17 +4,14 @@
 package com.digitalasset.canton.common.domain.grpc
 
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.traverse.*
+import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.SequencerConnectClient.{
   DomainClientBootstrapInfo,
   Error,
 }
-import com.digitalasset.canton.common.domain.{SequencerConnectClient, ServiceAgreement}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.GetServiceAgreementRequest
 import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameters.Response.Parameters
 import com.digitalasset.canton.domain.api.v0.SequencerConnect.VerifyActive
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
@@ -160,31 +157,6 @@ class GrpcSequencerConnectClient(
           handshakeResponse.serverProtocolVersion,
         )
     } yield handshakeResponse
-
-  override def getAgreement(
-      domainId: DomainId
-  )(implicit traceContext: TraceContext): EitherT[Future, Error, Option[ServiceAgreement]] = for {
-    response <- CantonGrpcUtil
-      .sendSingleGrpcRequest(
-        domainId.toString,
-        "getting service agreement from remote domain",
-        channel = builder.build(),
-        stubFactory = v0.SequencerConnectServiceGrpc.stub,
-        timeout = timeouts.network.unwrap,
-        logger = logger,
-        logPolicy = CantonGrpcUtil.silentLogPolicy,
-        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
-      )(_.getServiceAgreement(GetServiceAgreementRequest()))
-      .leftMap(e => Error.Transport(e.toString))
-    optAgreement <- EitherT
-      .fromEither[Future](
-        response.agreement
-          .traverse(ag =>
-            ServiceAgreement.fromProtoV0(ag).leftMap(e => Error.DeserializationFailure(e.toString))
-          )
-      )
-      .leftWiden[Error]
-  } yield optAgreement
 
   def isActive(participantId: ParticipantId, waitForActive: Boolean)(implicit
       traceContext: TraceContext

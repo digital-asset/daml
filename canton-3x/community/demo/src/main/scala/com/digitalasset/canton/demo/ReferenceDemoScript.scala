@@ -185,28 +185,18 @@ class ReferenceDemoScript(
     Await.result(seq, 120.seconds)
   }
 
-  private def registerDomain(
+  private def connectDomain(
       participant: ParticipantReferenceX,
       name: String,
       connection: SequencerConnection,
   ): Unit = {
-    val autoApprove = sys.env.getOrElse("CANTON_AUTO_APPROVE_AGREEMENTS", "no").toLowerCase == "yes"
-    participant.domains.register(
+    participant.domains.connect(
       DomainConnectionConfig(
         name,
         SequencerConnections.single(connection),
-        manualConnect = autoApprove,
       )
     )
-    if (autoApprove) {
-      val response = participant.domains.get_agreement(name)
-      response.foreach {
-        case (agreement, accepted) if !accepted =>
-          participant.domains.accept_agreement(name, agreement.id)
-        case _ => ()
-      }
-      participant.domains.reconnect(name).discard
-    }
+    participant.domains.reconnect(name).discard
   }
 
   private val pruningOffset = new AtomicReference[Option[(ParticipantOffset, Instant)]](None)
@@ -249,7 +239,7 @@ class ReferenceDemoScript(
             domains.map { case (name, connection) =>
               Future {
                 blocking {
-                  registerDomain(participant, name, connection)
+                  connectDomain(participant, name, connection)
                 }
               }
             }
@@ -514,7 +504,7 @@ class ReferenceDemoScript(
         () => {
           val registerDomainF = Future {
             blocking {
-              registerDomain(participant6, SequencerMedical, medicalConnection)
+              connectDomain(participant6, SequencerMedical, medicalConnection)
             }
           }
           val filename = darFile("ai-analysis")

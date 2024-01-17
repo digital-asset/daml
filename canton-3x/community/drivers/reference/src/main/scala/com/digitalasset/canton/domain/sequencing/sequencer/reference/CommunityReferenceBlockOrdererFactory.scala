@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
 import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
   BatchingConfig,
   CommunityDbConfig,
   CommunityStorageConfig,
@@ -41,10 +42,14 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
   @nowarn("cat=unused")
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   override def configParser: ConfigReader[ConfigType] = {
-    // TODO(#15221) deduplicate with general config readers / writers
-    //     we have these twice: once for the app, once for the reference sequencer, which is bad
     import pureconfig.generic.semiauto.*
 
+    lazy implicit val batchAggregatorConfigReader: ConfigReader[BatchAggregatorConfig] = {
+      implicit val batching = deriveReader[BatchAggregatorConfig.Batching]
+      implicit val noBatching = deriveReader[BatchAggregatorConfig.NoBatching.type]
+
+      deriveReader[BatchAggregatorConfig]
+    }
     lazy implicit val batchingReader: ConfigReader[BatchingConfig] =
       deriveReader[BatchingConfig]
     lazy implicit val connectionAllocationReader: ConfigReader[ConnectionAllocation] =
@@ -66,6 +71,15 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   override def configWriter(confidential: Boolean): ConfigWriter[ConfigType] = {
     import pureconfig.generic.semiauto.*
+    lazy implicit val batchAggregatorConfigWriter: ConfigWriter[BatchAggregatorConfig] = {
+      @nowarn("cat=unused") implicit val batching: ConfigWriter[BatchAggregatorConfig.Batching] =
+        deriveWriter[BatchAggregatorConfig.Batching]
+      @nowarn("cat=unused") implicit val noBatching
+          : ConfigWriter[BatchAggregatorConfig.NoBatching.type] =
+        deriveWriter[BatchAggregatorConfig.NoBatching.type]
+
+      deriveWriter[BatchAggregatorConfig]
+    }
     lazy implicit val batchingWriter: ConfigWriter[BatchingConfig] =
       deriveWriter[BatchingConfig]
     lazy implicit val connectionAllocationWriter: ConfigWriter[ConnectionAllocation] =

@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
-import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -326,6 +325,7 @@ class StoreBasedTopologySnapshotX(
                     participantId -> ParticipantAttributes(
                       reducedPermission,
                       participantAttributes.trustLevel,
+                      None,
                     )
                   }
             }.toMap
@@ -497,102 +497,103 @@ class StoreBasedTopologySnapshotX(
     loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
   private def loadParticipantStatesHelper(
-      participantsFilter: Option[Seq[ParticipantId]] // None means fetch all participants
-  ): Future[Map[ParticipantId, ParticipantDomainPermissionX]] = for {
-    // Looks up domain parameters for default rate limits.
-    domainParametersState <- findTransactions(
-      asOfInclusive = false,
-      types = Seq(
-        TopologyMappingX.Code.DomainParametersStateX
-      ),
-      filterUid = None,
-      filterNamespace = None,
-    ).map(transactions =>
-      collectLatestMapping(
-        TopologyMappingX.Code.DomainParametersStateX,
-        transactions.collectOfMapping[DomainParametersStateX].result,
-      ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
-    )
-    // 1. Participant needs to have requested access to domain by issuing a domain trust certificate
-    participantsWithCertificates <- findTransactions(
-      asOfInclusive = false,
-      types = Seq(
-        TopologyMappingX.Code.DomainTrustCertificateX
-      ),
-      filterUid = None,
-      filterNamespace = None,
-    ).map(
-      _.collectOfMapping[DomainTrustCertificateX].result
-        .groupBy(_.transaction.transaction.mapping.participantId)
-        .collect {
-          case (pid, seq) if participantsFilter.forall(_.contains(pid)) =>
+      participantsFilter: Seq[ParticipantId]
+  ): Future[Map[ParticipantId, ParticipantDomainPermissionX]] = {
+    for {
+      // Looks up domain parameters for default rate limits.
+      domainParametersState <- findTransactions(
+        asOfInclusive = false,
+        types = Seq(
+          TopologyMappingX.Code.DomainParametersStateX
+        ),
+        filterUid = None,
+        filterNamespace = None,
+      ).map(transactions =>
+        collectLatestMapping(
+          TopologyMappingX.Code.DomainParametersStateX,
+          transactions.collectOfMapping[DomainParametersStateX].result,
+        ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
+      )
+      // 1. Participant needs to have requested access to domain by issuing a domain trust certificate
+      participantsWithCertificates <- findTransactions(
+        asOfInclusive = false,
+        types = Seq(
+          TopologyMappingX.Code.DomainTrustCertificateX
+        ),
+        filterUid = Some(participantsFilter.map(_.uid)),
+        filterNamespace = None,
+      ).map(
+        _.collectOfMapping[DomainTrustCertificateX].result
+          .groupBy(_.transaction.transaction.mapping.participantId)
+          .collect { case (pid, seq) =>
             // invoke collectLatestMapping only to warn in case a participantId's domain trust certificate is not unique
             collectLatestMapping(
               TopologyMappingX.Code.DomainTrustCertificateX,
               seq.sortBy(_.validFrom),
             ).discard
             pid
-        }
-        .toSeq
-    )
-    // 2. Participant needs to have keys registered on the domain
-    participantsWithCertAndKeys <- findTransactions(
-      asOfInclusive = false,
-      types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
-      filterUid = Some(participantsWithCertificates.map(_.uid)),
-      filterNamespace = None,
-    ).map(
-      _.collectOfMapping[OwnerToKeyMappingX].result
-        .groupBy(_.transaction.transaction.mapping.member)
-        .collect {
-          case (pid: ParticipantId, seq)
-              if collectLatestMapping(
-                TopologyMappingX.Code.OwnerToKeyMappingX,
-                seq.sortBy(_.validFrom),
-              ).nonEmpty =>
-            pid
-        }
-    )
-    // Warn about participants with cert but no keys
-    _ = (participantsWithCertificates.toSet -- participantsWithCertAndKeys.toSet).foreach { pid =>
-      logger.warn(
-        s"Participant ${pid} has a domain trust certificate, but no keys on domain ${domainParametersState.domain}"
+          }
+          .toSeq
       )
-    }
-    // 3. Attempt to look up permissions/trust from participant domain permission
-    participantDomainPermissions <- findTransactions(
-      asOfInclusive = false,
-      types = Seq(
-        TopologyMappingX.Code.ParticipantDomainPermissionX
-      ),
-      filterUid = None,
-      filterNamespace = None,
-    ).map(
-      _.collectOfMapping[ParticipantDomainPermissionX].result
-        .groupBy(_.transaction.transaction.mapping.participantId)
-        .map { case (pid, seq) =>
-          val mapping =
-            collectLatestMapping(
-              TopologyMappingX.Code.ParticipantDomainPermissionX,
-              seq.sortBy(_.validFrom),
-            )
-              .getOrElse(
-                throw new IllegalStateException("Group-by would not have produced empty seq")
-              )
-          pid -> mapping
-        }
-    )
-    // 4. Apply default permissions/trust of submission/ordinary if missing participant domain permission and
-    // grab rate limits from dynamic domain parameters if not specified
-    participantIdDomainPermissionsMap = participantsWithCertAndKeys.map { pid =>
-      pid -> participantDomainPermissions
-        .getOrElse(
-          pid,
-          ParticipantDomainPermissionX.default(domainParametersState.domain, pid),
+      // 2. Participant needs to have keys registered on the domain
+      participantsWithCertAndKeys <- findTransactions(
+        asOfInclusive = false,
+        types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
+        filterUid = Some(participantsWithCertificates.map(_.uid)),
+        filterNamespace = None,
+      ).map(
+        _.collectOfMapping[OwnerToKeyMappingX].result
+          .groupBy(_.transaction.transaction.mapping.member)
+          .collect {
+            case (pid: ParticipantId, seq)
+                if collectLatestMapping(
+                  TopologyMappingX.Code.OwnerToKeyMappingX,
+                  seq.sortBy(_.validFrom),
+                ).nonEmpty =>
+              pid
+          }
+      )
+      // Warn about participants with cert but no keys
+      _ = (participantsWithCertificates.toSet -- participantsWithCertAndKeys.toSet).foreach { pid =>
+        logger.warn(
+          s"Participant ${pid} has a domain trust certificate, but no keys on domain ${domainParametersState.domain}"
         )
-        .setDefaultLimitIfNotSet(domainParametersState.parameters.v2DefaultParticipantLimits)
-    }.toMap
-  } yield participantIdDomainPermissionsMap
+      }
+      // 3. Attempt to look up permissions/trust from participant domain permission
+      participantDomainPermissions <- findTransactions(
+        asOfInclusive = false,
+        types = Seq(
+          TopologyMappingX.Code.ParticipantDomainPermissionX
+        ),
+        filterUid = Some(participantsWithCertAndKeys.map(_.uid).toSeq),
+        filterNamespace = None,
+      ).map(
+        _.collectOfMapping[ParticipantDomainPermissionX].result
+          .groupBy(_.transaction.transaction.mapping.participantId)
+          .map { case (pid, seq) =>
+            val mapping =
+              collectLatestMapping(
+                TopologyMappingX.Code.ParticipantDomainPermissionX,
+                seq.sortBy(_.validFrom),
+              )
+                .getOrElse(
+                  throw new IllegalStateException("Group-by would not have produced empty seq")
+                )
+            pid -> mapping
+          }
+      )
+      // 4. Apply default permissions/trust of submission/ordinary if missing participant domain permission and
+      // grab rate limits from dynamic domain parameters if not specified
+      participantIdDomainPermissionsMap = participantsWithCertAndKeys.map { pid =>
+        pid -> participantDomainPermissions
+          .getOrElse(
+            pid,
+            ParticipantDomainPermissionX.default(domainParametersState.domain, pid),
+          )
+          .setDefaultLimitIfNotSet(domainParametersState.parameters.v2DefaultParticipantLimits)
+      }.toMap
+    } yield participantIdDomainPermissionsMap
+  }
 
   /** abstract loading function used to load the participant state for the given set of participant-ids */
   override def loadParticipantStates(
@@ -601,7 +602,7 @@ class StoreBasedTopologySnapshotX(
     if (participants.isEmpty)
       Future.successful(Map())
     else
-      loadParticipantStatesHelper(participants.some).map(_.map { case (pid, pdp) =>
+      loadParticipantStatesHelper(participants).map(_.map { case (pid, pdp) =>
         pid -> pdp.toParticipantAttributes
       })
 
@@ -715,4 +716,5 @@ class StoreBasedTopologySnapshotX(
     }
     transactions.lastOption
   }
+
 }

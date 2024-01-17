@@ -119,7 +119,6 @@ class DomainNodeSequencerClientFactory(
       id,
       sequencerClientSyncCrypto,
       crypto,
-      None,
       cantonNodeParameters.sequencerClient,
       cantonNodeParameters.tracing.propagation,
       testingConfig,

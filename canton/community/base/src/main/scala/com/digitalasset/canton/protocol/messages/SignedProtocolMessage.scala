@@ -296,7 +296,10 @@ object SignedProtocolMessage
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
+          // No validation because the TransferResult had a deserialization bug which would deserialize ProtoV1 with
+          // ProtoVersion(0) instead of ProtoVersion(1); which then also resulted in data dumps that fail the
+          // deserialization validation.
+          TransferResult.fromByteStringUnsafe(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
           AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>

@@ -278,23 +278,24 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       with NamedLogging {
     private case class State(
         startedAt: CantonTimestamp,
-        lastEventAt: CantonTimestamp,
+        lastEventAt: Option[CantonTimestamp],
         eventCounter: Int,
         lastCounter: SequencerCounter,
     )
 
-    private val lastDeliverRef: AtomicReference[Option[State]] = new AtomicReference(None)
+    private val stateRef: AtomicReference[State] = new AtomicReference(
+      State(
+        startedAt = CantonTimestamp.now(),
+        lastEventAt = None,
+        eventCounter = 0,
+        lastCounter = readFrom,
+      )
+    )
     private val idleP = Promise[EventsReceivedReport]()
 
     private def scheduleCheck(): Unit = {
       performUnlessClosing(functionFullName) {
-        val elapsed = lastDeliverRef
-          .get()
-          .map(_.lastEventAt.toInstant)
-          .map(java.time.Duration.between(_, Instant.now()))
-          .getOrElse(java.time.Duration.ZERO)
-        val nextCheckDuration = idlenessDuration.toJava.minus(elapsed)
-
+        val nextCheckDuration = idlenessDuration.toJava.minus(elapsed(stateRef.get()))
         val _ = materializer.scheduleOnce(nextCheckDuration.toScala, () => checkIfIdle())
       }.onShutdown(())
     }
@@ -302,50 +303,38 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     scheduleCheck() // kick off checks
 
     private def updateLastDeliver(counter: SequencerCounter): Unit = {
-      val _ = lastDeliverRef.updateAndGet {
-        case None =>
-          Some(
-            State(
-              startedAt = CantonTimestamp.now(),
-              lastEventAt = CantonTimestamp.now(),
-              eventCounter = 1,
-              lastCounter = counter,
-            )
-          )
-        case Some(state @ State(_, _, eventCounter, _)) =>
-          Some(
-            state.copy(
-              lastEventAt = CantonTimestamp.now(),
-              lastCounter = counter,
-              eventCounter = eventCounter + 1,
-            )
-          )
+      val _ = stateRef.updateAndGet { case state @ State(_, _, eventCounter, _) =>
+        state.copy(
+          lastEventAt = Some(CantonTimestamp.now()),
+          lastCounter = counter,
+          eventCounter = eventCounter + 1,
+        )
       }
     }
 
     private def checkIfIdle(): Unit = {
-      val isIdle = lastDeliverRef.get() exists {
-        case State(_startedAt, lastEventAt, eventCounter, lastCounter) =>
-          val elapsed =
-            java.time.Duration.between(lastEventAt.toInstant, CantonTimestamp.now().toInstant)
-          val isIdle = elapsed.compareTo(idlenessDuration.toJava) >= 0
+      val stateSnapshot = stateRef.get()
+      val elapsedDuration = elapsed(stateSnapshot)
+      val isIdle = elapsedDuration.compareTo(idlenessDuration.toJava) >= 0
 
-          if (isIdle) {
-            idleP
-              .trySuccess(
-                EventsReceivedReport(
-                  elapsed.toScala,
-                  totalEventsReceived = eventCounter,
-                  finishedAtCounter = lastCounter,
-                )
-              )
-              .discard
-          }
-
-          isIdle
+      if (isIdle) {
+        idleP
+          .trySuccess(
+            EventsReceivedReport(
+              elapsedDuration.toScala,
+              totalEventsReceived = stateSnapshot.eventCounter,
+              finishedAtCounter = stateSnapshot.lastCounter,
+            )
+          )
+          .discard
+      } else {
+        scheduleCheck() // schedule the next check
       }
+    }
 
-      if (!isIdle) scheduleCheck() // schedule the next check
+    private def elapsed(stateSnapshot: State) = {
+      val from = stateSnapshot.lastEventAt.getOrElse(stateSnapshot.startedAt)
+      java.time.Duration.between(from.toInstant, Instant.now())
     }
 
     private def updateMetrics(event: SequencedEvent[ClosedEnvelope]): Unit =

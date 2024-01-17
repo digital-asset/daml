@@ -171,7 +171,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     sequencerId = sequencerId,
     staticDomainParameters = BaseTest.defaultStaticDomainParameters,
     cryptoApi = cryptoApi,
-    agreementManager = None,
     loggerFactory = loggerFactory,
   )
 
@@ -234,7 +233,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         domainId,
         cryptoApi,
         cryptoApi.crypto,
-        agreedAgreementId = None,
         SequencerClientConfig(),
         TracingConfig.Propagation.Disabled,
         TestingConfigInternal(),

@@ -351,7 +351,7 @@ class DomainTopologyManager(
       .foreach {
         case ParticipantState(side, _, participant, permission, trustLevel)
             if side != RequestSide.To =>
-          val attributes = ParticipantAttributes(permission, trustLevel)
+          val attributes = ParticipantAttributes(permission, trustLevel, None)
           sendToObservers(_.willChangeTheParticipantState(participant, attributes))
           logger.info(s"Setting participant $participant state to $attributes")
         case _ => ()

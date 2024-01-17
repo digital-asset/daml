@@ -191,7 +191,6 @@ trait MediatorNodeBootstrapCommon[
         domainId,
         syncCryptoApi,
         crypto,
-        None,
         parameters.sequencerClient,
         parameters.tracing.propagation,
         arguments.testingConfig,

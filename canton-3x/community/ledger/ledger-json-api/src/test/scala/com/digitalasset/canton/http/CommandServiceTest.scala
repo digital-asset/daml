@@ -64,8 +64,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
         overridden shouldBe a[\/-[_]]
         inside(txns) {
           case sc.Seq(
-                SubmitAndWaitRequest(Some(normalC), _),
-                SubmitAndWaitRequest(Some(overriddenC), _),
+                SubmitAndWaitRequest(Some(normalC)),
+                SubmitAndWaitRequest(Some(overriddenC)),
               ) =>
             normalC.actAs should ===(multiPartyJwp.actAs)
             normalC.readAs should ===(multiPartyJwp.readAs)

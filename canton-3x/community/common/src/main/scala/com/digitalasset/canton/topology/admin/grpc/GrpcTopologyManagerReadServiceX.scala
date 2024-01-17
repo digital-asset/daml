@@ -528,7 +528,7 @@ class GrpcTopologyManagerReadServiceX(
               if x.partyId.toProtoPrimitive.startsWith(
                 request.filterParty
               ) && (request.filterParticipant.isEmpty || x.participantIds.exists(
-                _.toProtoPrimitive.startsWith(request.filterParticipant)
+                _.toProtoPrimitive.contains(request.filterParticipant)
               )) =>
             (result, x)
         }

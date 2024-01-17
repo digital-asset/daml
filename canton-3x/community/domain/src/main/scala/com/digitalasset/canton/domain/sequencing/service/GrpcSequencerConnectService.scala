@@ -10,10 +10,8 @@ import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameter
 import com.digitalasset.canton.domain.api.v0.SequencerConnect.{GetDomainId, GetDomainParameters}
 import com.digitalasset.canton.domain.api.v0 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.protocol.v0.ServiceAgreement as protoServiceAgreement
 import com.digitalasset.canton.sequencing.protocol.VerifyActiveResponse
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -28,7 +26,6 @@ class GrpcSequencerConnectService(
     sequencerId: SequencerId,
     staticDomainParameters: StaticDomainParameters,
     cryptoApi: DomainSyncCryptoClient,
-    agreementManager: Option[ServiceAgreementManager],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService
@@ -60,19 +57,6 @@ class GrpcSequencerConnectService(
     }
 
     response.map(GetDomainParameters.Response(_))
-  }
-
-  override def getServiceAgreement(
-      request: proto.GetServiceAgreementRequest
-  ): Future[proto.GetServiceAgreementResponse] = {
-    val agreement =
-      agreementManager.map(manager =>
-        protoServiceAgreement(
-          manager.agreement.id.toProtoPrimitive,
-          manager.agreement.text.toProtoPrimitive,
-        )
-      )
-    Future.successful(proto.GetServiceAgreementResponse(agreement))
   }
 
   def verifyActive(

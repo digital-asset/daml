@@ -36,11 +36,7 @@ import com.digitalasset.canton.participant.admin.{
 }
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
-import com.digitalasset.canton.participant.domain.{
-  AgreementService,
-  DomainAliasManager,
-  DomainAliasResolution,
-}
+import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.{
   IndexerLockIds,
   LedgerApiServerState,
@@ -269,20 +265,13 @@ trait ParticipantNodeBootstrapCommon {
       participantId,
       ips,
       crypto,
-      config.caching,
+      config.parameters.caching,
       timeouts,
       futureSupervisor,
       loggerFactory,
     )
     // closed in DomainAliasManager
     val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
-
-    // closed in grpc domain registry
-    val agreementService = {
-      // store is cleaned up as part of the agreement service
-      val acceptedAgreements = ServiceAgreementStore(storage, timeouts, loggerFactory)
-      new AgreementService(acceptedAgreements, parameterConfig, loggerFactory)
-    }
 
     for {
       domainConnectionConfigStore <- EitherT
@@ -315,7 +304,6 @@ trait ParticipantNodeBootstrapCommon {
           clock,
           config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
           parameterConfig.batchingConfig,
-          parameterConfig.stores,
           ReleaseProtocolVersion.latest,
           arguments.metrics,
           indexedStringStore,
@@ -368,7 +356,6 @@ trait ParticipantNodeBootstrapCommon {
         participantId,
         syncDomainPersistentStateManager,
         persistentState.map(_.settingsStore),
-        agreementService,
         topologyDispatcher,
         syncCrypto,
         config.crypto,
@@ -421,6 +408,7 @@ trait ParticipantNodeBootstrapCommon {
                 storage,
                 adminToken,
                 parameterConfig.stores,
+                parameterConfig.batchingConfig,
               )
             )
           )
@@ -504,7 +492,6 @@ trait ParticipantNodeBootstrapCommon {
       val stateService = new DomainConnectivityService(
         sync,
         domainAliasManager,
-        agreementService,
         parameterConfig.processingTimeouts,
         sequencerInfoLoader,
         loggerFactory,

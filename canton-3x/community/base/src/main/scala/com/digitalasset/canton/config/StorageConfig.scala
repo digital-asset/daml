@@ -75,16 +75,29 @@ final case class DbParametersConfig(
 /** Various settings to control batching behaviour related to db queries
   *
   * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
+  * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
+  * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
+  *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
+  *                                   whereas ledger-api-server index-db pruning needs sufficiently large batches to amortize the database overhead of
+  *                                   "skipping over" active contracts.
   * @param parallelism            number of parallel queries to the db. defaults to 8
+  * @param aggregator             batching configuration for DB queries
   */
 final case class BatchingConfig(
     maxItemsInSqlClause: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsInSqlClause,
+    maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
+    ledgerApiPruningBatchSize: PositiveNumeric[Int] =
+      BatchingConfig.defaultLedgerApiPruningBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
+    aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
 )
 
 object BatchingConfig {
-  private val defaultMaxItemsInSqlClause: PositiveNumeric[Int] = PositiveNumeric.tryCreate(100)
-  private val defaultBatchingParallelism: PositiveNumeric[Int] = PositiveNumeric.tryCreate(8)
+  private val defaultMaxItemsInSqlClause: PositiveInt = PositiveNumeric.tryCreate(100)
+  private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
+  private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
+  private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
+  private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
 }
 
 final case class ConnectionAllocation(

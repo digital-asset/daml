@@ -30,10 +30,6 @@ service DomainConnectivityService {
   rpc ListConnectedDomains(ListConnectedDomainsRequest) returns (ListConnectedDomainsResponse);
   // list configured domains
   rpc ListConfiguredDomains(ListConfiguredDomainsRequest) returns (ListConfiguredDomainsResponse);
-  // Get the service agreement for the domain
-  rpc GetAgreement(GetAgreementRequest) returns (GetAgreementResponse);
-  // Accept the agreement of the domain
-  rpc AcceptAgreement(AcceptAgreementRequest) returns (AcceptAgreementResponse);
   // Get the domain id of the given domain alias
   rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
 }
@@ -121,28 +117,6 @@ message ListConnectedDomainsResponse {
   }
   repeated Result connected_domains = 1;
 }
-
-message GetAgreementRequest {
-  string domain_alias = 1;
-}
-
-message GetAgreementResponse {
-  string domain_id = 1;
-  Agreement agreement = 2;
-  bool accepted = 3;
-}
-
-message Agreement {
-  string id = 1;
-  string text = 2;
-}
-
-message AcceptAgreementRequest {
-  string domain_alias = 1;
-  string agreement_id = 2;
-}
-
-message AcceptAgreementResponse {}
 
 message GetDomainIdRequest {
   string domain_alias = 1;

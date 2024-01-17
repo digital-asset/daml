@@ -117,7 +117,9 @@ final case class TestingTopology(
   ): TestingTopology =
     this.copy(participants =
       participants
-        .map(_ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary))
+        .map(
+          _ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary, None)
+        )
         .toMap
     )
 
@@ -357,7 +359,7 @@ class TestingIdentityFactory(
         )
       val attributes = topology.participants.getOrElse(
         participantId,
-        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary),
+        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary, None),
       )
       genKeyCollection(participantId) :+ mkAdd(
         ParticipantState(

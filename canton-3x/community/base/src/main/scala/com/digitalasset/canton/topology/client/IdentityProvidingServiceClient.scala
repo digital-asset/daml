@@ -359,6 +359,15 @@ trait ParticipantTopologySnapshotClient {
   /** Checks whether the provided participant exists and is active */
   def isParticipantActive(participantId: ParticipantId): Future[Boolean]
 
+  /** Checks whether the provided participant exists, is active and can login at the given point in time
+    *
+    * (loginAfter is before timestamp)
+    */
+  def isParticipantActiveAndCanLoginAt(
+      participantId: ParticipantId,
+      timestamp: CantonTimestamp,
+  ): Future[Boolean]
+
 }
 
 /** The subset of the topology client providing mediator state information */
@@ -617,11 +626,25 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   override def isParticipantActive(participantId: ParticipantId): Future[Boolean] =
     participantState(participantId).map(_.permission.isActive)
 
+  override def isParticipantActiveAndCanLoginAt(
+      participantId: ParticipantId,
+      timestamp: CantonTimestamp,
+  ): Future[Boolean] =
+    participantState(participantId).map { attributes =>
+      attributes.permission.isActive && attributes.loginAfter.forall(_ <= timestamp)
+    }
+
   def findParticipantState(participantId: ParticipantId): Future[Option[ParticipantAttributes]]
 
   def participantState(participantId: ParticipantId): Future[ParticipantAttributes] =
     findParticipantState(participantId).map(
-      _.getOrElse(ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary))
+      _.getOrElse(
+        ParticipantAttributes(
+          ParticipantPermission.Disabled,
+          TrustLevel.Ordinary,
+          loginAfter = None,
+        )
+      )
     )
 
   /** abstract loading function used to load the participant state for the given set of participant-ids */

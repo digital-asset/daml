@@ -30,7 +30,7 @@ import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.admin.*
 import com.digitalasset.canton.ledger.client.services.commands.{
-  CommandClient,
+  CommandClientV1,
   CommandServiceClient,
   SynchronousCommandClient,
 }
@@ -75,8 +75,8 @@ final class LedgerClient private (
       LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token)
     )
 
-  lazy val commandClient: CommandClient =
-    new CommandClient(
+  lazy val commandClient: CommandClientV1 =
+    new CommandClientV1(
       LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
       LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
       config.applicationId,

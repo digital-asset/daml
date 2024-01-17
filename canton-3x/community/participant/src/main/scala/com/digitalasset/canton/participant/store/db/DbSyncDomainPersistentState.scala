@@ -67,8 +67,8 @@ abstract class DbSyncDomainPersistentStateCommon(
       protocolVersion,
       batching.maxItemsInSqlClause,
       caching.contractStore,
-      dbQueryBatcherConfig = parameters.dbBatchAggregationConfig,
-      insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+      dbQueryBatcherConfig = batching.aggregator,
+      insertBatchAggregatorConfig = batching.aggregator,
       timeouts,
       loggerFactory,
     )
@@ -113,8 +113,8 @@ abstract class DbSyncDomainPersistentStateCommon(
     domainId,
     storage,
     batching.maxItemsInSqlClause,
-    insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
-    replaceBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+    insertBatchAggregatorConfig = batching.aggregator,
+    replaceBatchAggregatorConfig = batching.aggregator,
     timeouts,
     loggerFactory,
   )

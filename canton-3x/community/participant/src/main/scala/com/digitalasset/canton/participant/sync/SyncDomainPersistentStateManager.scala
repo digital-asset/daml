@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -299,7 +298,6 @@ class SyncDomainPersistentStateManagerOld(
         participantId,
         domainId,
         clock,
-        parameters.skipTopologyManagerSignatureValidation,
         parameters.processingTimeouts,
         futureSupervisor,
         parameters.cachingConfigs,

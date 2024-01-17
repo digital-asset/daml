@@ -13,7 +13,6 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriverHealthStatus,
   TransactionSignature,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.ReferenceBlockOrderer.storeRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v0.{
   TracedBatchedBlockOrderingRequests,
@@ -78,7 +77,6 @@ class ReferenceBlockOrderer(
         (),
       )
       .viaMat(KillSwitches.single)(Keep.right)
-      .filterNot(_ => isClosing)
       .mapAsync(1)(_ => store.countBlocks().map(_ - 1L))
       .scanAsync(
         (fromHeight - 1L, Seq[BlockOrderer.Block]())
@@ -135,6 +133,33 @@ class ReferenceBlockOrderer(
     )
   }
 
+  private[sequencer] def storeRequest(
+      timeProvider: TimeProvider,
+      sendQueue: SimpleExecutionQueue,
+      store: ReferenceBlockOrderingStore,
+      tag: String,
+      body: ByteString,
+  )(implicit
+      executionContext: ExecutionContext,
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): Future[Unit] = {
+    val microsecondsSinceEpoch = timeProvider.nowInMicrosecondsSinceEpoch
+    sendQueue
+      .execute(
+        store.insertRequest(
+          BlockOrderer.OrderedRequest(microsecondsSinceEpoch, tag, body)
+        ),
+        s"send request at $microsecondsSinceEpoch",
+      )
+      .unwrap
+      .map(_ =>
+        logger.debug(
+          s"Successfully executed a request sent at $microsecondsSinceEpoch with tag $tag"
+        )
+      )
+  }
+
   // The BFT ordering service must assign strictly monotonically increasing timestamps to events,
   //  thus `BlockUpdateGenerator` process them in "validate-only" mode.
   //  However, the current reference-based fake doesn't generate strictly monotonically increasing
@@ -172,29 +197,6 @@ object ReferenceBlockOrderer {
         config.NonNegativeFiniteDuration.ofMillis(100),
   )
 
-  private[sequencer] def storeRequest(
-      timeProvider: TimeProvider,
-      sendQueue: SimpleExecutionQueue,
-      store: ReferenceBlockOrderingStore,
-      tag: String,
-      body: ByteString,
-  )(implicit
-      executionContext: ExecutionContext,
-      errorLoggingContext: ErrorLoggingContext,
-      traceContext: TraceContext,
-  ): Future[Unit] = {
-    val microsecondsSinceEpoch = timeProvider.nowInMicrosecondsSinceEpoch
-    sendQueue
-      .execute(
-        store.insertRequest(
-          BlockOrderer.OrderedRequest(microsecondsSinceEpoch, tag, body)
-        ),
-        s"send request at $microsecondsSinceEpoch",
-      )
-      .unwrap
-      .map(_ => ())
-  }
-
   private[sequencer] def storeMultipleRequest(
       blockHeight: Long,
       timestamp: CantonTimestamp,
@@ -207,7 +209,7 @@ object ReferenceBlockOrderer {
       traceContext: TraceContext,
   ): Future[Unit] = {
     val (tag, body) = requests.headOption
-      .filter(_ => requests.size == 1)
+      .filter(_ => requests.sizeIs == 1)
       .map { head =>
         head.value
       }

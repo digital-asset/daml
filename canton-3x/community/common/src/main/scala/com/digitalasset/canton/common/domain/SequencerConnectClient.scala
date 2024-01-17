@@ -51,10 +51,6 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, Error, Boolean]
 
-  def getAgreement(domainId: DomainId)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, Error, Option[ServiceAgreement]]
-
   protected def handleVerifyActiveResponse(
       response: v0.SequencerConnect.VerifyActive.Response
   ): Either[Error, Boolean] = response.value match {

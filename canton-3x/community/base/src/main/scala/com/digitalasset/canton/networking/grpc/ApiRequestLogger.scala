@@ -217,20 +217,20 @@ class ApiRequestLoggerBase(
 
   @SuppressWarnings(Array("org.wartremover.warts.Product"))
   protected def cutMessage(message: Any): String = {
-    if (config.logMessagePayloads) {
+    if (config.messagePayloads) {
       printer.printAdHoc(message)
     } else ""
   }
 
   protected def stringOfTrailers(trailers: Metadata): String =
-    if (!config.logMessagePayloads || trailers == null || trailers.keys().isEmpty) {
+    if (!config.messagePayloads || trailers == null || trailers.keys().isEmpty) {
       ""
     } else {
       s"\n  Trailers: ${stringOfMetadata(trailers)}"
     }
 
   protected def stringOfMetadata(metadata: Metadata): String =
-    if (!config.logMessagePayloads || metadata == null) {
+    if (!config.messagePayloads || metadata == null) {
       ""
     } else {
       metadata.toString.limit(config.maxMetadataSize).toString

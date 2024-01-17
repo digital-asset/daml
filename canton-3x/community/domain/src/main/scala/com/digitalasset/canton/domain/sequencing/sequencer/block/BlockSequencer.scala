@@ -136,7 +136,6 @@ class BlockSequencer(
             .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
             .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
         )(Merge(_))(Keep.both)
-        .filterNot(_ => isClosing)
         .mapAsync(
           // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
           parallelism = 1

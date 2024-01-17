@@ -10,11 +10,9 @@ import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.common.domain.ServiceAgreementId
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -53,7 +51,6 @@ class MemberAuthenticationService(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
-    agreementManager: Option[ServiceAgreementManager],
     clock: Clock,
     nonceExpirationTime: Duration,
     tokenExpirationTime: Duration,
@@ -130,18 +127,13 @@ class MemberAuthenticationService(
           .map(ignoreExpired)
           .subflatMap(_.toRight(MissingNonce(member): AuthenticationError))
       StoredNonce(_, nonce, generatedAt, _expireAt) = value
-      agreementId = agreementManager.map(_.agreement.id)
       authentication <- EitherT.fromEither(MemberAuthentication(member))
-      hash = authentication.hashDomainNonce(nonce, domain, agreementId, cryptoApi.pureCrypto)
+      hash = authentication.hashDomainNonce(nonce, domain, cryptoApi.pureCrypto)
       snapshot = cryptoApi.currentSnapshotApproximation
 
       _ <- snapshot.verifySignature(hash, member, signature).leftMap { err =>
         logger.warn(s"Member $member provided invalid signature: $err")
         InvalidSignature(member)
-      }
-      // If an agreement manager is set, we store the acceptance
-      _ <- agreementManager.fold(EitherT.rightT[Future, AuthenticationError](())) { manager =>
-        storeAcceptedAgreement(member, manager, manager.agreement.id, signature, generatedAt)
       }
       token = AuthenticationToken.generate(cryptoApi.pureCrypto)
       tokenExpiry = clock.now.add(tokenExpirationTime)
@@ -193,30 +185,15 @@ class MemberAuthenticationService(
     member match {
       case participant: ParticipantId =>
         EitherT(isParticipantActive(participant).map {
-          if (_) Right(()) else Left(ParticipantDisabled(participant))
+          if (_) Right(()) else Left(ParticipantAccessDisabled(participant))
         })
       case mediator: MediatorId =>
         EitherT(isMediatorActive(mediator).map {
-          if (_) Right(()) else Left(MediatorDisabled(mediator))
+          if (_) Right(()) else Left(MediatorAccessDisabled(mediator))
         })
       case _ =>
         // TODO(#4933) check if sequencer is active
         EitherT.rightT(())
-    }
-
-  private def storeAcceptedAgreement(
-      member: Member,
-      agreementManager: ServiceAgreementManager,
-      agreementId: ServiceAgreementId,
-      signature: Signature,
-      timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): EitherT[Future, AuthenticationError, Unit] =
-    member match {
-      case participant: ParticipantId =>
-        agreementManager
-          .insertAcceptance(agreementId, participant, signature, timestamp)
-          .leftMap(err => ServiceAgreementAcceptanceError(member, err.toString))
-      case _ => EitherT.rightT(())
     }
 
   private def correctDomain(
@@ -238,18 +215,37 @@ class MemberAuthenticationService(
 
   protected def isParticipantActive(participant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[Boolean] = isMemberActive(_.isParticipantActive(participant))
+  ): Future[Boolean] = isMemberActive(_.isParticipantActiveAndCanLoginAt(participant, clock.now))
 
   protected def isMediatorActive(mediator: MediatorId)(implicit
       traceContext: TraceContext
   ): Future[Boolean] = isMemberActive(_.isMediatorActive(mediator))
+
+  protected def invalidateAndExpire[T <: Member](
+      isActiveCheck: T => Future[Boolean]
+  )(memberId: T)(implicit traceContext: TraceContext): Unit = {
+    val invalidateF = isActiveCheck(memberId).flatMap { isActive =>
+      if (!isActive) {
+        logger.debug(s"Expiring all auth-tokens of ${memberId}")
+        tokenCache
+          // first, remove all auth tokens
+          .invalidateAllTokensForMember(memberId)
+          // second, ensure the sequencer client gets disconnected
+          .map(_ => invalidateMemberCallback(Traced(memberId)))
+      } else Future.unit
+    }
+    FutureUtil.doNotAwait(
+      invalidateF,
+      s"Invalidating authentication for $memberId",
+    )
+  }
+
 }
 
 class MemberAuthenticationServiceOld(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
-    agreementManager: Option[ServiceAgreementManager],
     clock: Clock,
     nonceExpirationTime: Duration,
     tokenExpirationTime: Duration,
@@ -262,7 +258,6 @@ class MemberAuthenticationServiceOld(
       domain,
       cryptoApi,
       store,
-      agreementManager,
       clock,
       nonceExpirationTime = nonceExpirationTime,
       tokenExpirationTime = tokenExpirationTime,
@@ -283,22 +278,7 @@ class MemberAuthenticationServiceOld(
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
       transactions.map(_.transaction.element.mapping).foreach {
         case ParticipantState(_, _, participant, ParticipantPermission.Disabled, _) =>
-          def invalidateAndExpire: Future[Unit] = {
-            isParticipantActive(participant).flatMap { isActive =>
-              if (!isActive) {
-                logger.debug(s"Expiring all auth-tokens of ${participant}")
-                tokenCache
-                  // first, remove all auth tokens
-                  .invalidateAllTokensForMember(participant)
-                  // second, ensure the sequencer client gets disconnected
-                  .map(_ => invalidateMemberCallback(Traced(participant)))
-              } else Future.unit
-            }
-          }
-          FutureUtil.doNotAwait(
-            invalidateAndExpire,
-            s"Invalidating participant authentication for $participant",
-          )
+          invalidateAndExpire(isParticipantActive)(participant)
         case _ =>
       }
     })
@@ -310,7 +290,6 @@ class MemberAuthenticationServiceX(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
-    agreementManager: Option[ServiceAgreementManager],
     clock: Clock,
     nonceExpirationTime: Duration,
     tokenExpirationTime: Duration,
@@ -323,7 +302,6 @@ class MemberAuthenticationServiceX(
       domain,
       cryptoApi,
       store,
-      agreementManager,
       clock,
       nonceExpirationTime = nonceExpirationTime,
       tokenExpirationTime = tokenExpirationTime,
@@ -342,29 +320,27 @@ class MemberAuthenticationServiceX(
       transactions: Seq[GenericSignedTopologyTransactionX],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
-      transactions.flatMap(_.transaction.selectMapping[DomainTrustCertificateX]).foreach {
+      transactions.map(_.transaction).foreach {
         case TopologyTransactionX(
               TopologyChangeOpX.Remove,
               _serial,
               cert: DomainTrustCertificateX,
             ) =>
           val participant = cert.participantId
-          def invalidateAndExpire: Future[Unit] = {
-            isParticipantActive(participant).flatMap { isActive =>
-              if (!isActive) {
-                logger.debug(s"Expiring all auth-tokens of ${participant}")
-                tokenCache
-                  // first, remove all auth tokens
-                  .invalidateAllTokensForMember(participant)
-                  // second, ensure the sequencer client gets disconnected
-                  .map(_ => invalidateMemberCallback(Traced(participant)))
-              } else Future.unit
-            }
-          }
-          FutureUtil.doNotAwait(
-            invalidateAndExpire,
-            s"Invalidating participant authentication for $participant",
+          logger.info(
+            s"Domain trust certificate of ${participant} was removed, forcefully disconnecting the participant."
           )
+          invalidateAndExpire(isParticipantActive)(participant)
+        case TopologyTransactionX(
+              TopologyChangeOpX.Replace,
+              _serial,
+              cert: ParticipantDomainPermissionX,
+            ) if cert.loginAfter.exists(_ > clock.now) =>
+          val participant = cert.participantId
+          logger.info(
+            s"${participant} is disabled until ${cert.loginAfter}. Removing any token and booting the participant"
+          )
+          invalidateAndExpire(isParticipantActive)(participant)
         case _ =>
       }
     })
@@ -376,7 +352,6 @@ trait MemberAuthenticationServiceFactory {
   def createAndSubscribe(
       syncCrypto: DomainSyncCryptoClient,
       store: MemberAuthenticationStore,
-      agreementManager: Option[ServiceAgreementManager],
       invalidateMemberCallback: Traced[Member] => Unit,
       isTopologyInitialized: Future[Unit],
   )(implicit ec: ExecutionContext): MemberAuthenticationService
@@ -396,7 +371,6 @@ object MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
           syncCrypto: DomainSyncCryptoClient,
           store: MemberAuthenticationStore,
-          agreementManager: Option[ServiceAgreementManager],
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: Future[Unit],
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
@@ -404,7 +378,6 @@ object MemberAuthenticationServiceFactory {
           domain,
           syncCrypto,
           store,
-          agreementManager,
           clock,
           nonceExpirationTime = nonceExpirationTime,
           tokenExpirationTime = tokenExpirationTime,
@@ -431,7 +404,6 @@ object MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
           syncCrypto: DomainSyncCryptoClient,
           store: MemberAuthenticationStore,
-          agreementManager: Option[ServiceAgreementManager],
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: Future[Unit],
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
@@ -439,7 +411,6 @@ object MemberAuthenticationServiceFactory {
           domain,
           syncCrypto,
           store,
-          agreementManager,
           clock,
           nonceExpirationTime = nonceExpirationTime,
           tokenExpirationTime = tokenExpirationTime,

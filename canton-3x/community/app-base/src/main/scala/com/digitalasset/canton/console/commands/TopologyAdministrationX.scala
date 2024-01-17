@@ -496,6 +496,7 @@ class TopologyAdministrationGroupX(
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
+        signedBy: Seq[Fingerprint] = Seq(instance.id.uid.namespace.fingerprint),
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -503,7 +504,7 @@ class TopologyAdministrationGroupX(
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommandsX.Write.Propose(
           NamespaceDelegationX.create(namespace, targetKey, isRootDelegation),
-          signedBy = Seq(instance.id.uid.namespace.fingerprint),
+          signedBy = signedBy,
           store = store,
           serial = serial,
           change = TopologyChangeOpX.Replace,
@@ -542,6 +543,7 @@ class TopologyAdministrationGroupX(
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
+        signedBy: Seq[Fingerprint] = Seq(instance.id.uid.namespace.fingerprint),
         force: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -556,7 +558,7 @@ class TopologyAdministrationGroupX(
           synchronisation.runAdminCommand(synchronize)(
             TopologyAdminCommandsX.Write.Propose(
               nsd.item,
-              signedBy = Seq(instance.id.uid.namespace.fingerprint),
+              signedBy = signedBy,
               store = store,
               serial = serial,
               change = TopologyChangeOpX.Remove,
@@ -1250,8 +1252,8 @@ class TopologyAdministrationGroupX(
     def propose(
         participantId: ParticipantId,
         domainId: DomainId,
-        transferOnlyToGivenTargetDomains: Boolean,
-        targetDomains: Seq[DomainId],
+        transferOnlyToGivenTargetDomains: Boolean = false,
+        targetDomains: Seq[DomainId] = Seq.empty,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),

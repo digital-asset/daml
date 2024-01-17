@@ -73,7 +73,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       topologyDispatcher: ParticipantTopologyDispatcherCommon,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       metrics: DomainAlias => SyncDomainMetrics,
-      agreementClient: AgreementClient,
       participantSettings: Eval[ParticipantSettingsLookup],
   )(implicit
       traceContext: TraceContext
@@ -92,13 +91,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
       _ <- EitherT
         .fromEither[Future](verifyDomainId(config, domainId))
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      acceptedAgreement <- agreementClient
-        .isRequiredAgreementAccepted(domainId)
-        .leftMap(e =>
-          DomainRegistryError.HandshakeErrors.ServiceAgreementAcceptanceFailed.Error(e.reason)
-        )
         .mapK(FutureUnlessShutdown.outcomeK)
 
       // fetch or create persistent state for the domain
@@ -183,7 +175,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           domainId,
           domainCryptoApi,
           cryptoApiProvider.crypto,
-          acceptedAgreement.map(_.id),
           sequencerClientConfig,
           participantNodeParameters.tracing.propagation,
           testingConfig,

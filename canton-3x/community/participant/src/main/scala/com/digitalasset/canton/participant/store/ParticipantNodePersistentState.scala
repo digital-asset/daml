@@ -20,7 +20,6 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
-import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.resource.Storage
@@ -69,7 +68,6 @@ trait ParticipantNodePersistentStateFactory {
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
-      parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
       indexedStringStore: IndexedStringStore,
@@ -90,7 +88,6 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
-      parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
       indexedStringStore: IndexedStringStore,
@@ -108,7 +105,6 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       clock,
       maxDeduplicationDurationO,
       batching,
-      parameters,
       releaseProtocolVersion,
       metrics,
       indexedStringStore,
@@ -129,7 +125,6 @@ object ParticipantNodePersistentState extends HasLoggerName {
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
-      parameters: ParticipantStoreConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
       indexedStringStore: IndexedStringStore,
@@ -153,7 +148,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     val inFlightSubmissionStore = InFlightSubmissionStore(
       storage,
       batching.maxItemsInSqlClause,
-      parameters.dbBatchAggregationConfig,
+      batching.aggregator,
       releaseProtocolVersion,
       timeouts,
       loggerFactory,

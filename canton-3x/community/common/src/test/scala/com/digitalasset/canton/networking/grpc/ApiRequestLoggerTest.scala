@@ -176,7 +176,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
       new ApiRequestLogger(
         capturingLogger,
         config = ApiLoggingConfig(
-          messagePayloads = Some(logMessagePayloads),
+          messagePayloads = logMessagePayloads,
           maxStringLength = maxStringLength,
           maxMetadataSize = maxMetadataSize,
         ),

@@ -73,6 +73,8 @@ sealed trait Member extends Identity with Product with Serializable {
 
   def code: MemberCode
 
+  def description: String
+
   def isAuthenticated: Boolean
 
   override def toProtoPrimitive: String = toLengthLimitedString.unwrap
@@ -146,6 +148,7 @@ object Member {
         .valueOr(err => throw new DbDeserializationException(err))
     })
   }
+
 }
 
 sealed trait AuthenticatedMember extends Member {
@@ -157,6 +160,7 @@ sealed trait AuthenticatedMemberCode extends MemberCode
 
 final case class UnauthenticatedMemberId(uid: UniqueIdentifier) extends Member {
   override def code: MemberCode = UnauthenticatedMemberId.Code
+  override val description: String = "unauthenticated member"
   override def isAuthenticated: Boolean = false
 }
 
@@ -221,6 +225,8 @@ final case class ParticipantId(uid: UniqueIdentifier)
     with NodeIdentity {
 
   override def code: AuthenticatedMemberCode = ParticipantId.Code
+
+  override val description: String = "participant"
 
   def adminParty: PartyId = PartyId(uid)
   def toLf: LedgerParticipantId = LedgerParticipantId.assertFromString(uid.toProtoPrimitive)
@@ -360,7 +366,7 @@ object MediatorGroup {
 
 final case class MediatorId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
   override def code: AuthenticatedMemberCode = MediatorId.Code
-
+  override val description: String = "mediator"
   override def member: Member = this
 }
 
@@ -395,6 +401,7 @@ object MediatorId {
   */
 final case class DomainTopologyManagerId(uid: UniqueIdentifier) extends DomainMember {
   override def code: AuthenticatedMemberCode = DomainTopologyManagerId.Code
+  override val description: String = "domain topology manager"
   lazy val domainId: DomainId = DomainId(uid)
 }
 
@@ -418,7 +425,7 @@ final case class SequencerGroup(
 
 final case class SequencerId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
   override def code: AuthenticatedMemberCode = SequencerId.Code
-
+  override val description: String = "sequencer"
   override def member: Member = this
 }
 

@@ -20,7 +20,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommunitySequencerConfig,
   Sequencer,
 }
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
@@ -59,7 +58,6 @@ trait SequencerRuntimeFactory {
       staticDomainParameters: StaticDomainParameters,
       testingConfig: TestingConfigInternal,
       processingTimeout: ProcessingTimeout,
-      agreementManager: Option[ServiceAgreementManager],
       memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
       localParameters: CantonNodeWithSequencerParameters,
       metrics: SequencerMetrics,
@@ -95,7 +93,6 @@ object SequencerRuntimeFactory {
         staticDomainParameters: StaticDomainParameters,
         testingConfig: TestingConfigInternal,
         processingTimeout: ProcessingTimeout,
-        agreementManager: Option[ServiceAgreementManager],
         memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
         localParameters: CantonNodeWithSequencerParameters,
         metrics: SequencerMetrics,
@@ -165,7 +162,6 @@ object SequencerRuntimeFactory {
           storage,
           clock,
           SequencerAuthenticationConfig(
-            agreementManager,
             domainConfig.publicApi.nonceExpirationTime,
             domainConfig.publicApi.tokenExpirationTime,
           ),
@@ -177,7 +173,6 @@ object SequencerRuntimeFactory {
             .list(domainId, includeSequencer = false)
             .toList, // the community sequencer is always an embedded single sequencer
           futureSupervisor,
-          agreementManager,
           memberAuthenticationServiceFactory,
           topologyStateForInitializationService,
           loggerFactory,
