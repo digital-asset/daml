@@ -108,31 +108,6 @@ jobs:
           targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
           artifactName: perf-speedy
 
-  - job: check_releases
-    timeoutInMinutes: 600
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    condition: eq(variables['Build.SourceBranchName'], 'main')
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          source $(bash_lib)
-
-          export AUTH="$(get_gh_auth_header)"
-
-          wrap_gcloud "$GCRED" "ci/cron/check-releases.sh"
-        displayName: check releases
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-
   - template: ../blackduck.yml
 
   - job: run_notices_pr_build
@@ -330,9 +305,13 @@ jobs:
         fi
 
   - job: report
-    dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
-                perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, update_canton,
+    dependsOn: [compatibility_ts_libs,
+                compatibility_linux,
+                compatibility_windows,
+                perf_speedy,
+                blackduck_scan,
+                run_notices_pr_build,
+                update_canton,
                 compat_versions_pr]
     condition: and(succeededOrFailed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
@@ -346,7 +325,6 @@ jobs:
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
-      check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
       update_canton: $[ dependencies.update_canton.result ]
@@ -368,7 +346,6 @@ jobs:
            && "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
            && "$(perf_speedy)" == "Succeeded"
-           && "$(check_releases)" == "Succeeded"
            && "$(update_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
