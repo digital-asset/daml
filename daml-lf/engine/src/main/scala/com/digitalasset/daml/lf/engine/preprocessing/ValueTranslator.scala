@@ -6,7 +6,6 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -25,13 +24,13 @@ private[lf] final class ValueTranslator(
 
   @throws[Error.Preprocessing.Error]
   private def labeledRecordToMap(
-      fields: ImmArray[(Option[Name], Value)]
-  ): Either[String, Option[Map[Name, Value]]] = {
+      fields: ImmArray[(Option[Ref.Name], Value)]
+  ): Either[String, Option[Map[Ref.Name, Value]]] = {
     @tailrec
     def go(
-        fields: FrontStack[(Option[Name], Value)],
-        map: Map[Name, Value],
-    ): Either[String, Option[Map[Name, Value]]] = {
+        fields: FrontStack[(Option[Ref.Name], Value)],
+        map: Map[Ref.Name, Value],
+    ): Either[String, Option[Map[Ref.Name, Value]]] = {
       fields.pop match {
         case None => Right(Some(map))
         case Some(((None, _), _)) => Right(None)
@@ -199,7 +198,7 @@ private[lf] final class ValueTranslator(
                 val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
 
-                def addMissingField(lbl: Name, ty: Type): (Option[Name], Value) =
+                def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
                   ty match {
                     // If missing field is optional, fill it with None
                     case TApp(TBuiltin(BTOptional), _) => (Some(lbl), Value.ValueOptional(None))
@@ -219,8 +218,8 @@ private[lf] final class ValueTranslator(
                   //   filled with Nones when type is Optional
                   // extraFields: Unknown additional fields with name and value
                   val (correctFields, extraFields): (
-                      Seq[(Name, Value, Type)],
-                      ImmArray[(Option[Name], Value)],
+                      Seq[(Ref.Name, Value, Type)],
+                      ImmArray[(Option[Ref.Name], Value)],
                   ) =
                     oLabeledFlds match {
                       // Not fully labelled (or reordering disabled), so order dependent
@@ -255,7 +254,7 @@ private[lf] final class ValueTranslator(
                         // iterate the expected fields, replace any missing with none
                         //   while iterating, remove from remaining
 
-                        val initialState: (Seq[(Name, Value, Type)], Map[Name, Value]) =
+                        val initialState: (Seq[(Ref.Name, Value, Type)], Map[Ref.Name, Value]) =
                           (Seq(), labeledFlds)
 
                         val (backwardsCorrectFields, remaining) =
