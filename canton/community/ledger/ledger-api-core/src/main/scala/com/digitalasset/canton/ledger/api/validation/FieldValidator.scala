@@ -5,9 +5,8 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Bytes, Ref, Time}
+import com.daml.lf.data.Ref.{PackageRef, Party, TypeConRef}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
@@ -17,25 +16,20 @@ import com.digitalasset.canton.ledger.api.domain.{
   TemplateFilter,
 }
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
+  AnnotationsSizeExceededError,
+  EmptyAnnotationsValueError,
+  InvalidAnnotationsKeyError,
+}
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.DomainId
-import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
 import scala.util.{Failure, Success, Try}
 
-import ResourceAnnotationValidator.{
-  AnnotationsSizeExceededError,
-  EmptyAnnotationsValueError,
-  InvalidAnnotationsKeyError,
-}
-
 object FieldValidator {
-  type ResolveToTemplateId =
-    Ref.QualifiedName => ContextualizedErrorLogger => Either[StatusRuntimeException, Ref.Identifier]
-
   def matchLedgerId(
       ledgerId: LedgerId
   )(receivedO: Option[LedgerId])(implicit
@@ -171,16 +165,6 @@ object FieldValidator {
     }
   }
 
-  def optionalEventSequentialId(
-      s: String,
-      fieldName: String,
-      message: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[Long]] = optionalString(s) { s =>
-    eventSequentialId(s, fieldName, message)
-  }
-
   def requireIdentityProviderId(
       s: String,
       fieldName: String,
@@ -292,58 +276,53 @@ object FieldValidator {
       packageId <- requirePackageId(identifier.packageId, "package_id")
     } yield Ref.Identifier(packageId, qualifiedName)
 
-  def validateIdentifierWithOptionalPackageId(resolve: ResolveToTemplateId)(
-      identifier: Identifier
-  )(implicit
+  def validateTypeConRef(identifier: Identifier)(upgradingEnabled: Boolean)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.Identifier] =
-    if (identifier.packageId.nonEmpty) validateIdentifier(identifier)
-    else
-      for {
-        qn <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
-        validatedIdentifier <- resolve(qn)(contextualizedErrorLogger)
-      } yield validatedIdentifier
+  ): Either[StatusRuntimeException, TypeConRef] =
+    for {
+      qualifiedName <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
+      pkgRef <- Ref.PackageRef
+        .fromString(identifier.packageId)
+        .left
+        .map(invalidField("package reference", _))
+      _ <- pkgRef match {
+        case PackageRef.Name(_) if !upgradingEnabled =>
+          Left(
+            invalidArgument(
+              "package-name scoping for requests is only possible when smart contract upgrading feature is enabled"
+            )
+          )
+        case _ => Right(())
+      }
+    } yield Ref.TypeConRef(pkgRef, qualifiedName)
 
-  def validatedTemplateIdWithPackageIdResolutionFallback(
+  def validateIdentifierWithPackageUpgrading(
       identifier: Identifier,
       includeCreatedEventBlob: Boolean,
-      resolveTemplateIds: Ref.QualifiedName => Either[StatusRuntimeException, Iterable[
-        Ref.Identifier
-      ]],
+      resolveAllUpgradablePackagesForName: Ref.PackageName => Either[
+        StatusRuntimeException,
+        Iterable[Ref.PackageId],
+      ],
   )(upgradingEnabled: Boolean)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Iterable[TemplateFilter]] =
     for {
-      qualifiedName <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
-      templateIds <-
-        if (identifier.packageId.isEmpty && upgradingEnabled) resolveTemplateIds(qualifiedName)
-        else
-          requirePackageId(identifier.packageId, "package_id")
-            .map(pkgId => Iterable(Ref.Identifier(pkgId, qualifiedName)))
-    } yield templateIds.map(TemplateFilter(_, includeCreatedEventBlob))
+      typeRef <- validateTypeConRef(identifier)(upgradingEnabled)
+      qn = typeRef.qName
+      pkgIds <- typeRef.pkgRef match {
+        case PackageRef.Name(name) => resolveAllUpgradablePackagesForName(name)
+        case PackageRef.Id(id) => requirePackageId(id, "package_id").map(Seq(_))
+      }
+      // TODO(#16362): We assume that all versions of the same package-name redefine
+      //               the same entities, hence it's safe to blindly construct
+      //               an identifier from the resolved package-ids and the qualified name
+    } yield pkgIds.map(pkgId => TemplateFilter(Ref.Identifier(pkgId, qn), includeCreatedEventBlob))
 
   def optionalString[T](s: String)(
       someValidation: String => Either[StatusRuntimeException, T]
   ): Either[StatusRuntimeException, Option[T]] =
     if (s.isEmpty) Right(None)
     else someValidation(s).map(Option(_))
-
-  def validateHash(
-      value: ByteString,
-      fieldName: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[Hash]] =
-    if (value.isEmpty) {
-      Right(None)
-    } else {
-      val bytes = Bytes.fromByteString(value)
-      Hash
-        .fromBytes(bytes)
-        .map(Some(_))
-        .left
-        .map(invalidField(fieldName, _))
-    }
 
   def requireEmptyString(s: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger

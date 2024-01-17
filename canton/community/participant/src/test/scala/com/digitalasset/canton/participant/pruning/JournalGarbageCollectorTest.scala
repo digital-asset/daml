@@ -57,7 +57,7 @@ class JournalGarbageCollectorTest extends BaseTestWordSpec with HasExecutionCont
         val cur = t.runningPromise.get()
         cur should not be empty
         // should be next run
-        cur shouldNot contain(promise)
+        cur should not be promise
       }
       // shut down in background
       t.runningPromise.get().value.success(())

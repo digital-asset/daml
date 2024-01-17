@@ -16,7 +16,11 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.ledger.api.domain.LedgerId
-import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, ValidateDisclosedContracts}
+import com.digitalasset.canton.ledger.api.validation.{
+  CommandsValidator,
+  ValidateDisclosedContracts,
+  ValidateUpgradingPackageResolutions,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
@@ -249,7 +253,7 @@ class CommandServiceImplSpec
   ): ResourceOwner[CommandServiceGrpc.CommandServiceStub] = {
     val commandsValidator = new CommandsValidator(
       ledgerId = ledgerId,
-      resolveToTemplateId = _ => fail("should not be called"),
+      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
       upgradingEnabled = false,
       validateDisclosedContracts = new ValidateDisclosedContracts(false),
     )
