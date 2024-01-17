@@ -8,8 +8,6 @@ import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.{SequencerConfig, SequencerHealthConfig}
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 
-import java.io.File
-
 abstract class SequencerNodeConfigCommon(
     override val init: SequencerNodeInitConfigCommon,
     val publicApi: PublicServerConfig,
@@ -18,10 +16,8 @@ abstract class SequencerNodeConfigCommon(
     override val crypto: CryptoConfig,
     val sequencer: SequencerConfig,
     val auditLogging: Boolean,
-    val serviceAgreement: Option[File],
     val timeTracker: DomainTimeTrackerConfig,
     override val sequencerClient: SequencerClientConfig,
-    override val caching: CachingConfigs,
     override val parameters: SequencerNodeParameterConfig,
     val health: SequencerHealthConfig,
     override val monitoring: NodeMonitoringConfig,

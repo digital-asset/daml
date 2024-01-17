@@ -461,7 +461,6 @@ object TopologyTransactionProcessor {
       val topologyProcessor = new TopologyTransactionProcessor(
         domainId = domainId,
         validator = DomainTopologyTransactionMessageValidator.create(
-          parameters.skipTopologyManagerSignatureValidation,
           cryptoClient,
           owner,
           protocolVersion,

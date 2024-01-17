@@ -6,6 +6,9 @@ package com.digitalasset.canton.participant.protocol
 import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
+import com.daml.test.evidence.tag.EvidenceTag
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
@@ -31,7 +34,6 @@ import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.RequestOffset
-import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.*
@@ -47,6 +49,7 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.sync.{
   ParticipantEventPublisher,
   SyncDomainPersistentStateLookup,
@@ -81,6 +84,7 @@ import com.digitalasset.canton.{
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.Materializer
 import org.mockito.ArgumentMatchers.eq as isEq
+import org.scalatest.Tag
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
@@ -89,12 +93,17 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.implicitConversions
 
 class ProtocolProcessorTest
     extends AnyWordSpec
     with BaseTest
+    with SecurityTestSuite
     with HasExecutionContext
     with HasTestCloseContext {
+  // Workaround to avoid false errors reported by IDEA.
+  private implicit def tagToContainer(tag: EvidenceTag): Tag = new TagContainer(tag)
+
   private val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("participant::participant")
   )
@@ -236,7 +245,6 @@ class ProtocolProcessorTest
           clock,
           None,
           BatchingConfig(),
-          ParticipantStoreConfig(),
           testedReleaseProtocolVersion,
           ParticipantTestMetrics,
           indexedStringStore,
@@ -694,6 +702,38 @@ class ProtocolProcessorTest
         )
         .futureValue
 
+    }
+
+    "check that the mediator is active" taggedAs {
+      SecurityTest(SecurityTest.Property.Authenticity, "virtual shared ledger")
+        .setAttack(
+          Attack(
+            actor = "a malicious network participant",
+            threat = "the mediator in the common metadata is not active",
+            mitigation = "all honest participants roll back the request",
+          )
+        )
+    } in {
+      // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
+
+      val testCrypto = TestingIdentityFactory(
+        topology.copy(mediators = Set.empty), // Topology without any mediator active
+        loggerFactory,
+        parameters.parameters,
+      ).forOwnerAndDomain(participant, domain)
+
+      val (sut, _persistent, _ephemeral) = testProcessingSteps(crypto = testCrypto)
+      loggerFactory
+        .assertLogs(
+          sut
+            .processRequest(requestId.unwrap, rc, requestSc, someRequestBatch)
+            .onShutdown(fail()),
+          _.shouldBeCantonError(
+            SyncServiceAlarm,
+            _ shouldBe s"Request $rc: Chosen mediator ${DefaultTestIdentities.mediator} is inactive at ${requestId.unwrap}. Skipping this request.",
+          ),
+        )
+        .futureValue
     }
 
     "notify the in-flight submission tracker with the root hash when necessary" in {

@@ -27,6 +27,7 @@ import com.digitalasset.canton.util.retry.RetryUtil.{
 import org.postgresql.util.PSQLException
 import slick.jdbc.{GetResult, SetParameter, TransactionIsolation}
 
+import java.util.UUID
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -91,10 +92,14 @@ class DbReferenceBlockOrderingStore(
   override def insertRequest(request: BlockOrderer.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    val uuid = LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent
+    val uuid =
+      LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent and for logging
     val tracedRequest = Traced(request)
 
-    def insertBlock =
+    // Logging the UUID to be able to correlate the block on the read side.
+    logger.debug(s"Storing an ordered request with UUID: $uuid")
+
+    def insertBlock() =
       storage.update_(
         (profile match {
           case _: Postgres =>
@@ -129,7 +134,7 @@ class DbReferenceBlockOrderingStore(
         operationName = "insert block",
       )
       .apply(
-        insertBlock,
+        insertBlock(),
         new ExceptionRetryable {
           override def retryOK(
               outcome: Try[_],
@@ -168,8 +173,8 @@ class DbReferenceBlockOrderingStore(
   ): Future[Seq[BlockOrderer.Block]] =
     storage
       .query(
-        sql"""select id, request from blocks where id >= $initialHeight order by id"""
-          .as[(Long, Traced[BlockOrderer.OrderedRequest])]
+        sql"""select id, request, uuid from blocks where id >= $initialHeight order by id"""
+          .as[(Long, Traced[BlockOrderer.OrderedRequest], String)]
           .transactionally
           // Serializable isolation level to prevent skipping over blocks producing gaps
           .withTransactionIsolation(TransactionIsolation.Serializable),
@@ -180,14 +185,14 @@ class DbReferenceBlockOrderingStore(
         // never return a sequence of blocks with a gap
         val requestsUntilFirstGap = requests
           .foldLeft(
-            (initialHeight - 1, List[(Long, Traced[BlockOrderer.OrderedRequest])]())
-          ) { case ((previousHeight, list), (currentHeight, element)) =>
+            (initialHeight - 1, List[(Long, Traced[BlockOrderer.OrderedRequest], UUID)]())
+          ) { case ((previousHeight, list), (currentHeight, element, uuid)) =>
             if (currentHeight == previousHeight + 1)
-              (currentHeight, list :+ (currentHeight, element))
+              (currentHeight, list :+ (currentHeight, element, UUID.fromString(uuid)))
             else (previousHeight, list)
           }
           ._2
-        requestsUntilFirstGap.map { case (height, tracedRequest) =>
+        requestsUntilFirstGap.map { case (height, tracedRequest, uuid) =>
           val blockRequests =
             if (tracedRequest.value.tag == BatchTag)
               proto.TracedBatchedBlockOrderingRequests
@@ -197,6 +202,8 @@ class DbReferenceBlockOrderingStore(
                 .requests
                 .map(DbReferenceBlockOrderingStore.fromProto)
             else Seq(tracedRequest)
+          // Logging the UUID to be able to correlate the block on the write side.
+          logger.debug(s"Retrieved block at height $height with UUID: $uuid")
           BlockOrderer.Block(
             height,
             blockRequests,

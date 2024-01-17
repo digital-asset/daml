@@ -38,6 +38,8 @@ import scala.reflect.ClassTag
 
 sealed trait TopologyMappingX extends Product with Serializable with PrettyPrinting {
 
+  require(maybeUid.forall(_.namespace == namespace), "namespace is inconsistent")
+
   override def pretty: Pretty[this.type] = adHocPrettyInstance
 
   /** Returns the code used to store & index this mapping */
@@ -832,7 +834,7 @@ final case class ParticipantDomainPermissionX(
 ) extends TopologyMappingX {
 
   def toParticipantAttributes: ParticipantAttributes =
-    ParticipantAttributes(permission.toNonX, trustLevel.toNonX)
+    ParticipantAttributes(permission.toNonX, trustLevel.toNonX, loginAfter)
 
   def toProto: v2.ParticipantDomainPermissionX =
     v2.ParticipantDomainPermissionX(
@@ -853,8 +855,8 @@ final case class ParticipantDomainPermissionX(
 
   override def code: Code = Code.ParticipantDomainPermissionX
 
-  override def namespace: Namespace = domainId.uid.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(domainId.uid)
+  override def namespace: Namespace = participantId.uid.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
 
   override def restrictedToDomain: Option[DomainId] = Some(domainId)
 

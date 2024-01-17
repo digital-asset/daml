@@ -90,7 +90,6 @@ import com.typesafe.config.{
   ConfigValueFactory,
 }
 import com.typesafe.scalalogging.LazyLogging
-import monocle.macros.syntax.lens.*
 import org.apache.pekko.stream.ThrottleMode
 import pureconfig.*
 import pureconfig.error.CannotConvert
@@ -187,21 +186,7 @@ final case class MonitoringConfig(
     logSlowFutures: Boolean = false,
     logging: LoggingConfig = LoggingConfig(),
     dumpNumRollingLogFiles: NonNegativeInt = MonitoringConfig.defaultDumpNumRollingLogFiles,
-) extends LazyLogging {
-
-  // merge in backwards compatible config options
-  def getLoggingConfig: LoggingConfig =
-    (logging.api.messagePayloads, logging.api.messagePayloads) match {
-      case (Some(fst), _) =>
-        if (!logging.api.messagePayloads.forall(_ == fst))
-          logger.error(
-            "Broken config validation: logging.api.message-payloads differs from logMessagePayloads"
-          )
-        logging.focus(_.api.messagePayloads).replace(Some(fst))
-      case _ => logging
-    }
-
-}
+) extends LazyLogging
 
 object MonitoringConfig {
   private val defaultDelayLoggingThreshold = NonNegativeFiniteDuration.ofSeconds(20)
@@ -318,14 +303,11 @@ final case class CantonParameters(
   * @param enablePreviewCommands         Feature flag to enable the set of commands that use functionality which we don't deem stable.
   * @param enableTestingCommands         Feature flag to enable the set of commands used by Canton developers for testing purposes.
   * @param enableRepairCommands          Feature flag to enable the set of commands used by Canton operators for manual repair purposes.
-  * @param skipTopologyManagerSignatureValidation If true, the signature validation of the domain topology transaction messages (2.x) will be skipped
   */
 final case class CantonFeatures(
     enablePreviewCommands: Boolean = false,
     enableTestingCommands: Boolean = false,
     enableRepairCommands: Boolean = false,
-    // TODO(#15221) remove for x-nodes
-    skipTopologyManagerSignatureValidation: Boolean = false,
 ) {
   def featureFlags: Set[FeatureFlag] = {
     (Seq(FeatureFlag.Stable)
@@ -492,7 +474,7 @@ trait CantonConfig {
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
           initialProtocolVersion = participantParameters.initialProtocolVersion.unwrap,
         ),
-        ledgerApiServerParameters = participantParameters.ledgerApiServerParameters,
+        ledgerApiServerParameters = participantParameters.ledgerApiServer,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
@@ -614,16 +596,15 @@ private[config] object CantonNodeParameterConverter {
       parent.monitoring.tracing,
       parent.monitoring.delayLoggingThreshold.toInternal,
       parent.monitoring.logQueryCost,
-      parent.monitoring.getLoggingConfig,
+      parent.monitoring.logging,
       parent.parameters.enableAdditionalConsistencyChecks,
       parent.features.enablePreviewCommands,
       parent.parameters.timeouts.processing,
       node.sequencerClient,
-      node.caching,
+      node.parameters.caching,
       node.parameters.batching,
       parent.parameters.nonStandardConfig,
       node.storage.parameters.migrateAndStart,
-      parent.features.skipTopologyManagerSignatureValidation,
     )
   }
 

@@ -498,7 +498,7 @@ class StoreBasedTopologySnapshot(
             val participantState =
               participantStateMap.getOrElse(
                 participantId,
-                ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary),
+                ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary, None),
               )
             // using the lowest permission available
             val reducedPerm = ParticipantPermission.lowerOf(
@@ -509,7 +509,7 @@ class StoreBasedTopologySnapshot(
                   participantState.permission,
                 ),
             )
-            (participantId, ParticipantAttributes(reducedPerm, participantState.trustLevel))
+            (participantId, ParticipantAttributes(reducedPerm, participantState.trustLevel, None))
           }
           // filter out in-active
           .filter(_._2.permission.isActive)
@@ -578,7 +578,7 @@ class StoreBasedTopologySnapshot(
         ps: ParticipantState,
     ): (Option[ParticipantAttributes], Option[ParticipantAttributes]) = {
       val (from, to) = current
-      val rel = ParticipantAttributes(ps.permission, ps.trustLevel)
+      val rel = ParticipantAttributes(ps.permission, ps.trustLevel, None)
 
       def mix(cur: Option[ParticipantAttributes]) = Some(cur.getOrElse(rel).merge(rel))
 
@@ -620,6 +620,7 @@ class StoreBasedTopologySnapshot(
                   ParticipantAttributes(
                     ParticipantPermission.lowerOf(lft.permission, rght.permission),
                     lft.trustLevel,
+                    None,
                   )
                 )
               case (None, None) => None

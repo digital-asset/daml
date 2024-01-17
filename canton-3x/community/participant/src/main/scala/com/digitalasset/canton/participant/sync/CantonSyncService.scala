@@ -1417,7 +1417,7 @@ class CantonSyncService(
   }
 
   private val emitWarningOnDetailLoggingAndHighLoad =
-    (parameters.general.loggingConfig.eventDetails || parameters.general.loggingConfig.api.logMessagePayloads) && parameters.general.loggingConfig.api.warnBeyondLoad.nonEmpty
+    (parameters.general.loggingConfig.eventDetails || parameters.general.loggingConfig.api.messagePayloads) && parameters.general.loggingConfig.api.warnBeyondLoad.nonEmpty
 
   def checkOverloaded(traceContext: TraceContext): Option[state.v2.SubmissionResult] = {
     implicit val errorLogger: ErrorLoggingContext =
@@ -1839,9 +1839,11 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   @Explanation(
-    "This error is logged when the synchronization service shuts down because the remote domain has disabled this participant."
+    "This error is logged when the synchronization service shuts down because the remote sequencer API is denying access."
   )
-  @Resolution("Contact the domain operator and inquire why you have been booted out.")
+  @Resolution(
+    "Contact the sequencer operator and inquire why you are not allowed to connect anymore."
+  )
   object SyncServiceDomainDisabledUs
       extends ErrorCode(
         "SYNC_SERVICE_DOMAIN_DISABLED_US",

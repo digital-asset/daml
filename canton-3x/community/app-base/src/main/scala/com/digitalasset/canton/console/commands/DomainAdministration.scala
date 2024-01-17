@@ -5,10 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.admin.api.client.commands.DomainAdminCommands.GetDomainParameters
-import com.digitalasset.canton.admin.api.client.commands.{
-  DomainAdminCommands,
-  TopologyAdminCommands,
-}
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands
 import com.digitalasset.canton.admin.api.client.data.{
   DynamicDomainParameters,
   ListParticipantDomainStateResult,
@@ -29,7 +26,6 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
-import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.NamedLogging
@@ -130,10 +126,6 @@ trait DomainAdministration {
   @Help.Summary("Domain service commands")
   @Help.Group("Service")
   object service extends Helpful {
-
-    @Help.Summary("List the accepted service agreements")
-    def list_accepted_agreements(): Seq[ServiceAgreementAcceptance] =
-      consoleEnvironment.run(adminCommand(DomainAdminCommands.ListAcceptedServiceAgreements))
 
     @Help.Summary("Get the Static Domain Parameters configured for the domain")
     def get_static_domain_parameters: StaticDomainParameters =

@@ -55,7 +55,6 @@ class GrpcDomainRegistry(
     val participantId: ParticipantId,
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     participantSettings: Eval[ParticipantSettingsLookup],
-    agreementService: AgreementService,
     topologyDispatcher: ParticipantTopologyDispatcherCommon,
     cryptoApiProvider: SyncCryptoApiProvider,
     cryptoConfig: CryptoConfig,
@@ -106,7 +105,6 @@ class GrpcDomainRegistry(
           "topologyOutbox",
           topologyDispatcher.domainDisconnected(domainAlias),
         ),
-        SyncCloseable("agreementService", agreementService.close()),
         SyncCloseable("sequencerClient", sequencerClient.close()),
       )
     }
@@ -120,12 +118,6 @@ class GrpcDomainRegistry(
 
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
-
-    val agreementClient = new AgreementClient(
-      agreementService,
-      sequencerConnections,
-      loggerFactory,
-    )
 
     val runE = for {
       info <- sequencerInfoLoader
@@ -159,7 +151,6 @@ class GrpcDomainRegistry(
         topologyDispatcher,
         packageDependencies,
         metrics,
-        agreementClient,
         participantSettings,
       )
     } yield new GrpcDomainHandle(

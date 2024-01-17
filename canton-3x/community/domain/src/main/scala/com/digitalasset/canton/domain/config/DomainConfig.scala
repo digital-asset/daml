@@ -18,8 +18,6 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
-import java.io.File
-
 /** The public server configuration ServerConfig used by the domain.
   *
   * TODO(i4056): Client authentication over TLS is currently unsupported,
@@ -137,9 +135,6 @@ trait DomainConfig extends DomainBaseConfig {
   /** parameters of the interface used to communicate with participants */
   def publicApi: PublicServerConfig
 
-  /** location of the service agreement of the domain (if any) */
-  def serviceAgreement: Option[File]
-
   def sequencerConnectionConfig: SequencerConnectionConfig.Grpc =
     publicApi.toSequencerConnectionConfig
 
@@ -160,6 +155,7 @@ trait DomainConfig extends DomainBaseConfig {
 final case class DomainNodeParametersConfig(
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     batching: BatchingConfig = BatchingConfig(),
+    caching: CachingConfigs = CachingConfigs(),
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
@@ -171,10 +167,8 @@ final case class CommunityDomainConfig(
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
     sequencer: CommunitySequencerConfig.Database = CommunitySequencerConfig.Database(),
-    override val serviceAgreement: Option[File] = None,
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
     override val parameters: DomainNodeParametersConfig = DomainNodeParametersConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
 ) extends DomainConfig

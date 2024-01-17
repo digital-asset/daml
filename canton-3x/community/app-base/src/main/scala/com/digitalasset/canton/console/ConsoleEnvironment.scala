@@ -369,6 +369,10 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       locals: Seq[LocalInstanceReferenceCommon]*
   ): Seq[LocalInstanceReferenceCommon] =
     locals.flatten
+  def mergeLocalInstancesX(
+      locals: Seq[LocalInstanceReferenceX]*
+  ): Seq[LocalInstanceReferenceX] =
+    locals.flatten
   def mergeRemoteInstances(remotes: Seq[InstanceReferenceCommon]*): Seq[InstanceReferenceCommon] =
     remotes.flatten
 

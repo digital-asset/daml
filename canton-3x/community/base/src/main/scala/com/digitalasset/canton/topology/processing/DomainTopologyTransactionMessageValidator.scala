@@ -52,6 +52,7 @@ import scala.concurrent.ExecutionContext
   * Replay attacks are prevented using a max-sequencing timestamp which prevents that a message is replayed to different
   * recipients at a later point in time.
   */
+// TODO(#15208) Remove
 trait DomainTopologyTransactionMessageValidator {
 
   def initLastMessageTimestamp(lastMessageTs: Option[CantonTimestamp]): Unit = {}
@@ -69,18 +70,14 @@ trait DomainTopologyTransactionMessageValidator {
 object DomainTopologyTransactionMessageValidator {
 
   def create(
-      skipTopologyManagerSignatureValidation: Boolean,
       client: SyncCryptoClient[SyncCryptoApi],
       member: Member,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): DomainTopologyTransactionMessageValidator = if (
-    skipTopologyManagerSignatureValidation
-  )
-    NoValidation
-  else new Impl(client, member, protocolVersion, timeouts, futureSupervisor, loggerFactory)
+  )(implicit executionContext: ExecutionContext): DomainTopologyTransactionMessageValidator =
+    new Impl(client, member, protocolVersion, timeouts, futureSupervisor, loggerFactory)
 
   object NoValidation extends DomainTopologyTransactionMessageValidator {
 

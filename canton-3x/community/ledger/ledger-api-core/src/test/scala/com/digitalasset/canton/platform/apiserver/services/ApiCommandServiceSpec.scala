@@ -184,8 +184,8 @@ object ApiCommandServiceSpec {
     )
   )
 
-  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
-    commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
+  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequestV1.copy(
+    commands = Some(commandsV1.copy(commands = Seq(aCommand), submissionId = ""))
   )
 
   private val submissionIdPrefix = "submissionId-"

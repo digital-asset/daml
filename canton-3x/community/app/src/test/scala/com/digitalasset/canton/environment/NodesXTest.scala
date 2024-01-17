@@ -60,7 +60,6 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
     override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory()
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
-    override val caching: CachingConfigs = CachingConfigs()
     override val nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
     override def withDefaults(ports: DefaultPorts): TestNodeConfig = this
@@ -68,6 +67,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
     override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
+      override def caching: CachingConfigs = CachingConfigs()
     }
   }
 
@@ -84,7 +84,6 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       batchingConfig: BatchingConfig = BatchingConfig(),
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
-      skipTopologyManagerSignatureValidation: Boolean = false,
       devVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,

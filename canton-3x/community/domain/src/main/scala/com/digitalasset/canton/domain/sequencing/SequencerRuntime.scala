@@ -32,7 +32,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.service.*
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
@@ -58,7 +57,6 @@ import org.apache.pekko.actor.ActorSystem
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class SequencerAuthenticationConfig(
-    agreementManager: Option[ServiceAgreementManager],
     nonceExpirationTime: config.NonNegativeFiniteDuration,
     tokenExpirationTime: config.NonNegativeFiniteDuration,
 ) {
@@ -92,7 +90,6 @@ class SequencerRuntime(
     additionalAdminServiceFactory: Sequencer => Option[ServerServiceDefinition],
     staticMembersToRegister: Seq[Member],
     futureSupervisor: FutureSupervisor,
-    agreementManager: Option[ServiceAgreementManager],
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     protected val loggerFactory: NamedLoggerFactory,
@@ -216,7 +213,6 @@ class SequencerRuntime(
     val authenticationService = memberAuthenticationServiceFactory.createAndSubscribe(
       syncCrypto,
       MemberAuthenticationStore(storage, timeouts, loggerFactory, closeContext),
-      agreementManager,
       // closing the subscription when the token expires will force the client to try to reconnect
       // immediately and notice it is unauthenticated, which will cause it to also start reauthenticating
       // it's important to disconnect the member AFTER we expired the token, as otherwise, the member
@@ -280,7 +276,6 @@ class SequencerRuntime(
             sequencerId,
             staticDomainParameters,
             syncCrypto,
-            agreementManager,
             loggerFactory,
           )(
             ec

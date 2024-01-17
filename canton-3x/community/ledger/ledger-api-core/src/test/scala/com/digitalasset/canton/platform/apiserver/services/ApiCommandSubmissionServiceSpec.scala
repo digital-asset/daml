@@ -173,7 +173,7 @@ object ApiCommandSubmissionServiceSpec {
     )
   )
 
-  private val aSubmitRequest = submitRequest.copy(
-    commands = Some(commands.copy(commands = Seq(aCommand)))
+  private val aSubmitRequest = submitRequestV1.copy(
+    commands = Some(commandsV1.copy(commands = Seq(aCommand)))
   )
 }

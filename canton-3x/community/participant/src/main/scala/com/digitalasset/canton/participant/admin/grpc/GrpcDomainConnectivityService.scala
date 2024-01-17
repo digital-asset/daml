@@ -50,16 +50,6 @@ class GrpcDomainConnectivityService(service: DomainConnectivityService)(implicit
     nonEmptyProcess(request.add, service.registerDomain)
   }
 
-  override def getAgreement(request: GetAgreementRequest): Future[GetAgreementResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    service.getAgreement(request.domainAlias)
-  }
-
-  override def acceptAgreement(request: AcceptAgreementRequest): Future[AcceptAgreementResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    service.acceptAgreement(request.domainAlias, request.agreementId)
-  }
-
   /** reconfigure a domain connection
     */
   override def modifyDomain(request: ModifyDomainRequest): Future[ModifyDomainResponse] = {

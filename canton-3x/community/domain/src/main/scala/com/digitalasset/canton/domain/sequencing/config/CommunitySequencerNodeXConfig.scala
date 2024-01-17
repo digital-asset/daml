@@ -12,8 +12,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import monocle.macros.syntax.lens.*
 
-import java.io.File
-
 /** CommunitySequencerNodeXConfig supports and defaults to auto-init as compared to the "classic" SequencerNodeConfig
   */
 final case class CommunitySequencerNodeXConfig(
@@ -24,10 +22,8 @@ final case class CommunitySequencerNodeXConfig(
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.Database(),
     override val auditLogging: Boolean = false,
-    override val serviceAgreement: Option[File] = None,
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
@@ -40,10 +36,8 @@ final case class CommunitySequencerNodeXConfig(
       crypto,
       sequencer,
       auditLogging,
-      serviceAgreement,
       timeTracker,
       sequencerClient,
-      caching,
       parameters,
       health,
       monitoring,

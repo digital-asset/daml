@@ -125,6 +125,7 @@ final case class MediatorNodeParameterConfig(
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val initialProtocolVersion: ProtocolVersion = ProtocolVersion.latest,
     batching: BatchingConfig = BatchingConfig(),
+    caching: CachingConfigs = CachingConfigs(),
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
 

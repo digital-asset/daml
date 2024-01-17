@@ -409,7 +409,8 @@ final case class ParticipantState(
   )
   // architecture-handbook-entry-end: ParticipantState
 
-  def toParticipantAttributes: ParticipantAttributes = ParticipantAttributes(permission, trustLevel)
+  def toParticipantAttributes: ParticipantAttributes =
+    ParticipantAttributes(permission, trustLevel, None)
 
   def toProtoV0: v0.ParticipantState = {
     v0.ParticipantState(

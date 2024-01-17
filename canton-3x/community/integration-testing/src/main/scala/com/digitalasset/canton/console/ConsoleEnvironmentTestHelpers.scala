@@ -52,15 +52,15 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
       .find(_.name == name)
       .getOrElse(sys.error(s"domain [$name] not configured"))
 
-  def rd(name: String): CE#DomainRemoteRef =
-    domains.remote
-      .find(_.name == name)
-      .getOrElse(sys.error(s"remote domain [$name] not configured"))
-
-  def sx(name: String): LocalSequencerNodeReferenceX =
-    sequencersX.local
+  def sx(name: String): SequencerNodeReferenceX =
+    sequencersX.all
       .find(_.name == name)
       .getOrElse(sys.error(s"sequencer-x [$name] not configured"))
+
+  def lsx(name: String): LocalSequencerNodeReferenceX =
+    sequencersX.local
+      .find(_.name == name)
+      .getOrElse(sys.error(s"local sequencer-x [$name] not configured"))
 
   def rsx(name: String): RemoteSequencerNodeReferenceX =
     sequencersX.remote
@@ -71,6 +71,11 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     mediatorsX.local
       .find(_.name == name)
       .getOrElse(sys.error(s"mediator-x [$name] not configured"))
+
+  def lmx(name: String): LocalMediatorReferenceX =
+    mediatorsX.local
+      .find(_.name == name)
+      .getOrElse(sys.error(s"local mediator-x [$name] not configured"))
 
   def rmx(name: String): RemoteMediatorReferenceX =
     mediatorsX.remote

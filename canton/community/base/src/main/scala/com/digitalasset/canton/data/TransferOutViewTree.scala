@@ -928,7 +928,16 @@ object FullTransferOutTree {
       sourceProtocolVersion: SourceProtocolVersion,
   )(bytes: ByteString): ParsingResult[FullTransferOutTree] =
     for {
-      tree <- TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion.v)(bytes)
+      tree <- {
+        // No validation because of wrongly serialized GenTransferViewTree (used protoV0 for pv <= 5 in the past);
+        // thus resulting in data dumps that fail deserialization validation (which expects protoV0 for pv <= 3, protoV1
+        // otherwise).
+        if (sourceProtocolVersion.v <= ProtocolVersion.v5) {
+          TransferOutViewTree.fromByteStringUnsafe((crypto, sourceProtocolVersion.v))(bytes)
+        } else {
+          TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion.v)(bytes)
+        }
+      }
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
         OtherError(s"Transfer-out request ${tree.rootHash} is not fully unblinded"),

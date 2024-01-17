@@ -394,7 +394,9 @@ class BlockSequencerStateManager(
     * Unlike for resolutions of other requests, we resolve also all earlier acknowledgements,
     * because this mimics the effect of the acknowledgement: all earlier acknowledgements are irrelevant now.
     */
-  private def resolveAcknowledgements(member: Member, upToInclusive: CantonTimestamp): Unit = {
+  private def resolveAcknowledgements(member: Member, upToInclusive: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): Unit = {
     // Use a `var` here to obtain the previous value associated with the `member`,
     // as `updateWith` returns the new value. We could implement our own version of `updateWith` instead,
     // but we'd rely on internal Scala collections API for this.
@@ -403,13 +405,14 @@ class BlockSequencerStateManager(
     // as this is a side effect and the function may be evaluated several times.
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var previousPromises: Option[SortedMap[CantonTimestamp, Traced[Promise[Unit]]]] = None
+    logger.debug(s"Resolving an acknowledgment for member $member")
     memberAcknowledgementPromises
       .updateWith(member) { previous =>
         previousPromises = previous
         previous match {
           case None => None
           case Some(promises) =>
-            val remaining = promises.dropWhile { case (timestamp, _promise) =>
+            val remaining = promises.dropWhile { case (timestamp, _) =>
               timestamp <= upToInclusive
             }
             NonEmpty.from(remaining)
@@ -418,8 +421,8 @@ class BlockSequencerStateManager(
       .discard
     previousPromises
       .getOrElse(SortedMap.empty[CantonTimestamp, Traced[Promise[Unit]]])
-      .takeWhile { case (timestamp, _promise) => timestamp <= upToInclusive }
-      .foreach { case (_timestamp, tracedPromise) =>
+      .takeWhile { case (timestamp, _) => timestamp <= upToInclusive }
+      .foreach { case (_, tracedPromise) =>
         tracedPromise.value.success(())
       }
   }
