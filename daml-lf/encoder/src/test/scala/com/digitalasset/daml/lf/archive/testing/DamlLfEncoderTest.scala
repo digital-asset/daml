@@ -62,16 +62,12 @@ class DamlLfEncoderTest
       val modules_1_14 = modules_1_13 + "ExceptionMod"
       val modules_1_15 = modules_1_14 + "InterfaceMod" + "InterfaceMod0"
       val modules_1_dev = modules_1_15 + "InterfaceExtMod"
-      val modules_2_dev = modules_1_dev
+      val modules_2_1 = modules_1_dev
+      val modules_2_dev = modules_2_1
 
       val versions = Table(
         "versions" -> "modules",
-        "1.8" -> modules_1_8,
-        "1.11" -> modules_1_11,
-        "1.13" -> modules_1_13,
-        "1.14" -> modules_1_14,
-        "1.15" -> modules_1_15,
-        "1.dev" -> modules_1_dev,
+        "2.1" -> modules_2_1,
         "2.dev" -> modules_2_dev,
       )
 
@@ -148,7 +144,7 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v1_13 <= _): _*)) {
+      forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v2_1 <= _): _*)) {
         // We do not check package older that 1.11 as they are used for stable packages only
         version =>
           val Right(dar) =
