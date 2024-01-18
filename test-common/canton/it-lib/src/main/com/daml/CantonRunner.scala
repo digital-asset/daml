@@ -10,7 +10,7 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy

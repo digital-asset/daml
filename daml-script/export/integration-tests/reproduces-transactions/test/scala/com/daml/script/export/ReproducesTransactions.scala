@@ -24,7 +24,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
 import com.daml.lf.engine.script.{Participants, Runner, ScriptTimeMode}
 import com.daml.lf.language.Ast.Package
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.services.time.TimeProviderType
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers

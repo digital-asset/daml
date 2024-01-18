@@ -43,7 +43,6 @@ da_scala_test(
         "//daml-script/export/transaction-eq",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
