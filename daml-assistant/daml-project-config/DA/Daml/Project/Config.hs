@@ -26,15 +26,22 @@ module DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
+import Data.Aeson (Result (..), fromJSON)
 import qualified Data.Aeson.Key as A
+import Data.Bifunctor (bimap)
+import Data.Generics.Uniplate.Data (transformM)
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Yaml as Y
 import Data.Yaml ((.:?))
 import Data.Either.Extra
 import Data.Foldable
+import System.Environment
 import System.FilePath
 import Control.Exception.Safe
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Except
+import Text.Regex.TDFA
 
 -- | Read daml config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -44,7 +51,7 @@ readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 -- | Read project config file.
 -- Throws a ConfigError if reading or parsing fails.
 readProjectConfig :: ProjectPath -> IO ProjectConfig
-readProjectConfig (ProjectPath path) = readConfig "project" (path </> projectConfigName)
+readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -54,7 +61,7 @@ readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
 -- | Read multi package config file.
 -- Throws a ConfigError if reading or parsing fails.
 readMultiPackageConfig :: ProjectPath -> IO MultiPackageConfig
-readMultiPackageConfig (ProjectPath path) = readConfig "multi-package" (path </> multiPackageConfigName)
+readMultiPackageConfig (ProjectPath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
@@ -62,6 +69,45 @@ readConfig :: Y.FromJSON b => Text -> FilePath -> IO b
 readConfig name path = do
     configE <- Y.decodeFileEither path
     fromRightM (throwIO . ConfigFileInvalid name) configE
+
+-- Substring for text (inclusive start, exclusive end)
+textSub :: Int -> Int -> Text -> Text
+textSub start end = T.take (end - start) . T.drop start
+
+-- Finds any ${a-zA-Z_0-9+} where the dollar isn't preceeded by \
+-- Replaces the inner name with the value provided by the below mapping
+interpolateEnvVariables :: [(String, String)] -> T.Text -> Either String T.Text
+interpolateEnvVariables env str = do
+  let matchPositions :: [(Int, Int)] = getAllMatches (str =~ ("\\${[a-zA-Z0-9_]+}" :: String))
+      replaceWithPrefix (s, start) (matchStart, matchLength) =
+        if matchStart > 0 && T.index str (matchStart - 1) == '\\'
+          then pure (s <> textSub start (matchStart + matchLength) str, matchStart + matchLength)
+          else do
+            let envVarName = T.unpack $ textSub (matchStart + 2) (matchStart + matchLength - 1) str
+                prefix = textSub start matchStart str
+                mEnvVar = lookup envVarName env
+            envVarValue <- maybeToEither ("Couldn't find environment variable " <> envVarName <> " in value " <> T.unpack str) mEnvVar
+            pure (s <> prefix <> T.pack envVarValue, matchStart + matchLength)
+  (replacedPrefix, prefixEnd) <- foldlM replaceWithPrefix ("" :: Text, 0) matchPositions
+  pure $ replacedPrefix <> textSub prefixEnd (T.length str) str
+
+-- | (internal) Helper function for defining 'readXConfig' functions.
+-- Throws a ConfigError if reading or parsing fails.
+-- Also performs environment variable interpolation on all string fields in the form of ${ENV_VAR}.
+-- TODO: ensure everything that reads the daml.yaml uses this, e.g. assistant for daml.yaml, multi-package for dependencies, etc.
+readConfigWithEnv :: Y.FromJSON b => Text -> FilePath -> IO b
+readConfigWithEnv name path = do
+  configE <- runExceptT $ do
+    (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
+    env <- liftIO getEnvironment
+    configValueTransformed <- 
+      except $ flip transformM configValue $ \case
+        Y.String str -> bimap Y.AesonException Y.String $ interpolateEnvVariables env str
+        v -> pure v
+    case fromJSON configValueTransformed of
+      Success x -> pure x
+      Error str -> throwE $ Y.AesonException str
+  fromRightM (throwIO . ConfigFileInvalid name) configE
 
 -- | Determine pinned sdk version from project config, if it exists.
 releaseVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)

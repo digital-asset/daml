@@ -1768,7 +1768,7 @@ onDamlYaml def f mbProjectOpts = do
     mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
     let mbProjectPath = projectRoot =<< mbProjectOpts
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
-    handle (\(_ :: ConfigError) -> pure def) $ do
+    handle (\(e :: ConfigError) -> print e >> pure def) $ do
         project <- readProjectConfig projectPath
         pure $ f project
 
