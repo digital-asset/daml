@@ -773,7 +773,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               basicUseSharedKeys,
             )
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1609,7 +1608,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           GlobalKeyWithMaintainers
             .assertBuild(templateId, usedContractKey, Set(alice), basicUseSharedKeys)
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1660,7 +1658,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        agreementText = s"'$alice'", // agreement show party
         version = transactionVersion,
       )
 

@@ -850,7 +850,6 @@ object Ast {
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
       signatories: E, // Parties agreeing to the contract.
-      agreementText: E, // Text the parties agree to.
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
@@ -865,7 +864,6 @@ object Ast {
         param: ExprVarName,
         precond: E,
         signatories: E,
-        agreementText: E,
         choices: Iterable[GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
@@ -875,7 +873,6 @@ object Ast {
         param = param,
         precond = precond,
         signatories = signatories,
-        agreementText = agreementText,
         choices = toMapWithoutDuplicate(
           choices.view.map(c => c.name -> c),
           (choiceName: ChoiceName) => PackageError(s"collision on choice name $choiceName"),
@@ -893,7 +890,6 @@ object Ast {
         param: ExprVarName,
         precond: E,
         signatories: E,
-        agreementText: E,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
@@ -902,7 +898,6 @@ object Ast {
       param = param,
       precond = precond,
       signatories = signatories,
-      agreementText = agreementText,
       choices = choices,
       observers = observers,
       key = key,
@@ -912,7 +907,6 @@ object Ast {
     def unapply(arg: GenTemplate[E]): Some[
       (
           ExprVarName,
-          E,
           E,
           E,
           Map[ChoiceName, GenTemplateChoice[E]],
@@ -925,7 +919,6 @@ object Ast {
         arg.param,
         arg.precond,
         arg.signatories,
-        arg.agreementText,
         arg.choices,
         arg.observers,
         arg.key,

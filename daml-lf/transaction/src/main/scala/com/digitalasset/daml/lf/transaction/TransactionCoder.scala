@@ -101,7 +101,6 @@ object TransactionCoder {
       .setPackageName(pkgName)
       .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
       .setArgVersioned(value)
-      .setAgreement(coinst.unversioned.agreementText)
       .build()
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
@@ -262,7 +261,7 @@ object TransactionCoder {
 
           node match {
 
-            case nc @ Node.Create(_, _, _, _, _, _, _, _, _) =>
+            case nc @ Node.Create(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
@@ -272,7 +271,6 @@ object TransactionCoder {
                   builder
                     .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                     .setArgUnversioned(arg)
-                    .setAgreement(nc.agreementText)
                 )
                 encodedPkgName <- encodePackageName(nc.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
@@ -507,7 +505,6 @@ object TransactionCoder {
           packageName = pkgName,
           templateId = tmplId,
           arg = arg,
-          agreementText = protoCreate.getAgreement,
           signatories = signatories,
           stakeholders = stakeholders,
           keyOpt = keyOpt,

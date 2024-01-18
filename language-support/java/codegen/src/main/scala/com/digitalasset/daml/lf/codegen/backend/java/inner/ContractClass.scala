@@ -46,7 +46,6 @@ object ContractClass {
   object Builder {
     private val idFieldName = "id"
     private val dataFieldName = "data"
-    private val agreementFieldName = "agreementText"
     private val contractKeyFieldName = "key"
     private val signatoriesFieldName = "signatories"
     private val observersFieldName = "observers"
@@ -68,7 +67,6 @@ object ContractClass {
       val methodParameters = Seq(
         (ClassName get classOf[String], "contractId"),
         (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
-        (optionalString, agreementFieldName),
       ) ++ maybeContractKeyClassName
         .map(name => (optional(name), contractKeyFieldName))
         .toList ++ Iterable(

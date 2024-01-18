@@ -55,8 +55,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samBool1 = true
   private val samBool2 = false
 
-  private val samText1 = "some text"
-
   private val somePkgName = PackageName.assertFromString("package-name")
 
   private val samContractId1 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid1"))
@@ -114,7 +112,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       templateId = samTemplateId1,
       arg = samValue1,
-      agreementText = samText1,
       signatories = samParties1,
       stakeholders = samParties2,
       keyOpt = key,
@@ -285,9 +282,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakCreateArg = Tweak.single[Node] { case nc: Node.Create =>
     nc.copy(arg = changeValue(nc.arg))
   }
-  private val tweakCreateAgreementText = Tweak.single[Node] { case nc: Node.Create =>
-    nc.copy(agreementText = changeText(nc.agreementText))
-  }
   private val tweakCreateSignatories = Tweak[Node] { case nc: Node.Create =>
     tweakPartySet.run(nc.signatories).map { x => nc.copy(signatories = x) }
   }
@@ -307,7 +301,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakCreateCoid" -> tweakCreateCoid,
       "tweakCreateTemplateId" -> tweakCreateTemplateId,
       "tweakCreateArg" -> tweakCreateArg,
-      "tweakCreateAgreementText" -> tweakCreateAgreementText,
       "tweakCreateSignatories" -> tweakCreateSignatories,
       "tweakCreateStakeholders" -> tweakCreateStakeholders,
       "tweakCreateKey" -> tweakCreateKey(tweakOptKeyMaintainers),

@@ -800,7 +800,6 @@ describe("interfaces", () => {
       contractId: Asset.toInterface(Token, contract.contractId),
       signatories: [ALICE_PARTY],
       observers: [],
-      agreementText: "",
       payload: expectedView,
     };
     expect(acs).toContainEqual(expectedAc);

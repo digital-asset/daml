@@ -90,7 +90,6 @@ object Node {
       override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       arg: Value,
-      agreementText: String,
       signatories: Set[Party],
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],

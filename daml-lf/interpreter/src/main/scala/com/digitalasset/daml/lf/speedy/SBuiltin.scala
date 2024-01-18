@@ -2097,7 +2097,7 @@ private[lf] object SBuiltin {
     }
 
   private[this] val contractInfoStructFieldNames =
-    List("type", "value", "agreementText", "signatories", "observers", "mbKey").map(
+    List("type", "value", "signatories", "observers", "mbKey").map(
       Ref.Name.assertFromString
     )
 
@@ -2107,7 +2107,6 @@ private[lf] object SBuiltin {
   private[this] val List(
     contractInfoStructTypeFieldIdx,
     contractInfoStructArgIdx,
-    contractInfoStructAgreementTextIdx,
     contractInfoStructSignatoriesIdx,
     contractInfoStructObserversIdx,
     contractInfoStructKeyIdx,
@@ -2151,10 +2150,6 @@ private[lf] object SBuiltin {
           packageName = pkgName,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
-          agreementText = extractText(
-            NameOf.qualifiedNameOfCurrentFunc,
-            vals.get(contractInfoStructAgreementTextIdx),
-          ),
           signatories = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(contractInfoStructSignatoriesIdx),

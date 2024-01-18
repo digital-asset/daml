@@ -89,7 +89,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       packageName = pkgName,
       templateId = templateId,
       arg = unit,
-      agreementText = "",
       signatories = aliceS,
       stakeholders = aliceS,
       keyOpt = toOptKeyWithMaintainers(templateId, key),
