@@ -192,7 +192,10 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         "1.10" -> ImmArray(1, 10),
         Int.MaxValue.toString -> ImmArray(Int.MaxValue),
         "1.0.2" -> ImmArray(1, 0, 2),
-        "0" + ".123" * 255 + ".12" -> ImmArray.from(Seq(0) ++ Seq.fill(255)(123) ++ Seq(12)),
+        // Max size (255)
+        "0" + ".123" * 63 + ".1" -> ImmArray.from(Seq(0) ++ Seq.fill(63)(123) ++ Seq(1)),
+        // Max size - 1 (254)
+        "0" + ".123" * 62 + ".1234" -> ImmArray.from(Seq(0) ++ Seq.fill(62)(123) ++ Seq(1234)),
       )
 
       testCases.forEvery { (input, expected) =>
@@ -212,6 +215,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         "0.-1",
         "+1.0",
         "beef.0",
+        "0.1.beef",
       )
 
       testCases.forEvery(input =>
@@ -226,11 +230,34 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         s"Failed parsing $tooBigForInt as an integer"
       )
 
-      PackageVersion.fromString("0" + ".123" * 255 + ".123") shouldBe Left(
-        "Package version string length (1025) exceeds the maximum supported length (1024)"
+      // Correct format, but length over limit
+      PackageVersion.fromString("0" + ".123" * 63 + ".12") shouldBe Left(
+        "Package version string length (256) exceeds the maximum supported length (255)"
+      )
+
+      // Invalid format, but length over limit
+      // This checks that first the length is checked, and then the regex conformance
+      PackageVersion.fromString("abcd" * 64) shouldBe Left(
+        "Package version string length (256) exceeds the maximum supported length (255)"
       )
     }
   }
+
+  private[this] val packageVersionsInOrder = List(
+    // Lowest possible package version
+    PackageVersion.assertFromString("0"),
+    PackageVersion.assertFromString("0.1"),
+    PackageVersion.assertFromString("0.11"),
+    PackageVersion.assertFromString("1.0"),
+    PackageVersion.assertFromString("2"),
+    PackageVersion.assertFromString("10"),
+    PackageVersion.assertFromString(s"${Int.MaxValue}"),
+    PackageVersion.assertFromString(s"${Int.MaxValue}.3"),
+    // Highest possible package version
+    PackageVersion.assertFromString(s"${Int.MaxValue}." * 23 + "99"),
+  )
+
+  testOrdered("PackageVersion", packageVersionsInOrder)
 
   private[this] val qualifiedNamesInOrder =
     for {
@@ -448,20 +475,20 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         } ((x compare y) == 0) shouldBe (x == y)
       }
 
-      "is reflexive" - {
+      "is reflexive" in {
         for {
           x <- elems
         } (x compare x) shouldBe 0
       }
 
-      "is symmetric" - {
+      "is symmetric" in {
         for {
           x <- elems
           y <- elems
         } (x compare y) shouldBe -(y compare x)
       }
 
-      "is transitive on comparable values" - {
+      "is transitive on comparable values" in {
         for {
           x <- elems
           y <- elems

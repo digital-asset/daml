@@ -380,7 +380,7 @@ object Ref {
   }
 
   object PackageVersion {
-    private val MaxPackageVersionLength = 1024
+    private val MaxPackageVersionLength = 255
     final def fromString(s: String): Either[String, PackageVersion] = for {
       _ <- Either.cond(
         s.length <= MaxPackageVersionLength,
