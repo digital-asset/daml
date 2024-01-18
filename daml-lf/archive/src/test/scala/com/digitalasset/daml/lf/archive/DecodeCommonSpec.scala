@@ -10,7 +10,7 @@ import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.daml_lf_dev.DamlLf1
+import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -1465,7 +1465,7 @@ class DecodeCommonSpec
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
-      val dalf1 = dalfProto.getDamlLf1
+      val dalf1 = dalfProto.getDamlLf2
       val iix = dalf1
         .getModules(0)
         .getValuesList
@@ -1479,7 +1479,7 @@ class DecodeCommonSpec
                 .lastOption
                 .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
-            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
+            pr.getSumCase shouldBe DamlLf2.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
             pr.getPackageIdInternedStr
         }
         .value
@@ -1487,7 +1487,7 @@ class DecodeCommonSpec
     }
 
     "take a dalf with interned IDs" in {
-      version.major should ===(LV.Major.V1)
+      version.major should ===(LV.Major.V2)
 
       version.minor should !==("dev")
 
@@ -1496,8 +1496,8 @@ class DecodeCommonSpec
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = new DecodeCommon(version)
-      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
+      val decoder = new DecodeV2(version.minor)
+      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf2, false)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
