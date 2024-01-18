@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF 1.8 2.0
+-- @SINCE-LF 2.1
 -- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$minimalFoo"]) ] | length == 1
 -- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$minimalBar"]) ] | length == 0
 -- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$minimalBaz"]) ] | length == 0

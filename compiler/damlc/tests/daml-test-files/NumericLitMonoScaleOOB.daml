@@ -4,7 +4,7 @@
 -- Ensure numeric literal cannot be out of bounds thanks to
 -- `NumericScale` constraint.
 --
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 -- @ERROR range=16:12-16:19; Possible Daml-specific reason for the following type error: Tried to define a Numeric with a scale of 38, but only scales between 0 and 37 are supported.
 
 

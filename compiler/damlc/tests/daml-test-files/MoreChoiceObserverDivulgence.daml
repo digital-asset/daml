@@ -6,7 +6,7 @@ module MoreChoiceObserverDivulgence where
 import Daml.Script
 import DA.Assert
 
--- @SINCE-LF 1.11 2.0
+-- @SINCE-LF 2.1
 
 -- This example is a small modification of `DiscloseViaChoiceObserver`, but now the divulgence is achieved using a separate `Divulger` template, with a `Divulge` choice, which does a `fetch` on the given `id`, in the view of a choice-observer.
 
