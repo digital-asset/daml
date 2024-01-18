@@ -205,7 +205,7 @@ private[lf] final class ValueTranslator(
                     // Else, throw error
                     case _ =>
                       typeError(
-                        s"Missing non-optional field $lbl, cannot upgrade non-optional fields."
+                        s"Missing non-optional field \"$lbl\", cannot upgrade non-optional fields."
                       )
                   }
 

@@ -63,6 +63,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           record @serializable Template = { field : Int64 };
           record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
 
+          record @serializable Upgradeable = { field: Int64, extraField: (Option Text), anotherExtraField: (Option Text) };
         }
     """
 
@@ -165,6 +166,159 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         Try(
           unsafeTranslateValue(typ, testCase, Config.Strict)
         ) shouldBe Success(svalue)
+      )
+    }
+
+    "handle different representation of the same static record with upgrades enabled" in {
+      val typ = t"Mod:Tuple Int64 Text"
+      val testCases = Table(
+        "record",
+        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
+        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
+      )
+      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
+
+      forEvery(testCases)(testCase =>
+        Try(
+          unsafeTranslateValue(typ, testCase, Config.Upgradeable)
+        ) shouldBe Success(svalue)
+      )
+    }
+
+    "handle different representation of the same upgraded/downgraded record" in {
+      val typ = t"Mod:Upgradeable"
+      def sValue(extraFieldDefined: Boolean, anotherExtraFieldDefined: Boolean) =
+        SRecord(
+          "Mod:Upgradeable",
+          ImmArray("field", "extraField", "anotherExtraField"),
+          ArrayList(
+            SInt64(1),
+            SOptional(Some(SText("a")).filter(Function.const(extraFieldDefined))),
+            SOptional(Some(SText("b")).filter(Function.const(anotherExtraFieldDefined))),
+          ),
+        )
+      def upgradeCaseSuccess(
+          extraFieldDefined: Boolean,
+          anotherExtraFieldDefined: Boolean,
+          value: Value,
+      ) =
+        (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
+      def upgradeCaseFailure(s: String, value: Value) =
+        (Failure(Error.Preprocessing.TypeMismatch(typ, value, s)), value)
+      val testCases = Table(
+        ("svalue", "record"),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(None),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "extraField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(None),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "An optional contract field (\"bonusField\") with a value of Some may not be dropped during downgrading.",
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(Some(ValueText("bad"))),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "Found non-optional extra field \"bonusField\", cannot remove for downgrading.",
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueText("bad"),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "Missing non-optional field \"field\", cannot upgrade non-optional fields.",
+          ValueRecord("Mod:Upgradeable", ImmArray()),
+        ),
+      )
+
+      forEvery(testCases)((result, value) =>
+        Try(
+          unsafeTranslateValue(typ, value, Config.Upgradeable)
+        ) shouldBe result
       )
     }
 
