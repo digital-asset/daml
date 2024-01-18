@@ -42,7 +42,6 @@ write_scalatest_runpath(
         ],
         runtime_deps = [
             "//ledger/error:error-test-lib",
-            "//libs-scala/flyway-testing",
             "//libs-scala/jwt",
             "//libs-scala/scalatest-utils",
         ],
