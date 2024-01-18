@@ -151,11 +151,6 @@ private[validation] class ExtractUsedAndCreated(
 
     UsedAndCreated(
       contracts = usedAndCreatedContracts(createdContracts, inputContracts, transientContracts),
-      keys = InputAndUpdatedKeysV3(
-        // UCK is not supported anymore
-        uckFreeKeysOfHostedMaintainers = Set.empty,
-        uckUpdatedKeysOfHostedMaintainers = Map.empty,
-      ),
       hostedWitnesses = hostedParties.filter(_._2).keySet,
     )
   }

@@ -257,6 +257,7 @@ abstract class CantonNodeBootstrapX[
               clock,
               this,
               crypto.cryptoPublicStore,
+              loggerFactory,
             ),
             executionContext,
           )

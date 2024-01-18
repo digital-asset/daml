@@ -406,6 +406,13 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
+
+      @Help.Summary("Get the domain that a transaction was committed over.")
+      @Help.Description(
+        """Get the domain that a transaction was committed over. Throws an error if the transaction is not (yet) known
+          |to the participant or if the transaction has been pruned via `pruning.prune`."""
+      )
+      def domain_of(transactionId: String): DomainId = domainOfTransaction(transactionId)
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -3694,7 +3701,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
         (
           participant,
           party,
-          participant.ledger_api.transactions.by_id(Set(party), transactionId).isDefined,
+          participant.ledger_api_v2.updates.by_id(Set(party), transactionId).isDefined,
         )
       }
     }
@@ -3712,7 +3719,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   private[console] def involvedParticipants(
       transactionId: String
   ): Map[ParticipantReferenceCommon, PartyId] = {
-    val txDomain = ledger_api.transactions.domain_of(transactionId)
+    val txDomain = ledger_api_v2.updates.domain_of(transactionId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
     // changes during the command's execution. We'll have to live with it for the moment, as there's no convenient
@@ -3734,7 +3741,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     // Read the transaction under the authority of all parties on the domain, in order to get the witness_parties
     // to be all the actual witnesses of the transaction. There's no other convenient way to get the full witnesses,
     // as the Exercise events don't contain the informees of the Exercise action.
-    val tree = ledger_api.transactions
+    val tree = ledger_api_v2.updates
       .by_id(domainParties, transactionId)
       .getOrElse(
         throw new IllegalStateException(

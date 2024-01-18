@@ -14,7 +14,6 @@ import com.digitalasset.canton.config.{ProcessingTimeout, TopologyXConfig}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErr
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -204,7 +203,9 @@ class DomainTopologyService(
     val responseF = getResponse(request)
     for {
       _ <- performUnlessClosingF(functionFullName)(
-        EitherTUtil.toFuture(mapErr(sendRequest(request)))
+        sendRequest(request).valueOr(err =>
+          throw SendAsyncClientError.ErrorCode.Wrap(err).asGrpcError
+        )
       )
       response <- responseF
     } yield response

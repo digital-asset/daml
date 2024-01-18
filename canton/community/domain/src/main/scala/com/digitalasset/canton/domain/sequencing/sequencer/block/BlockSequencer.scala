@@ -35,7 +35,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   BaseSequencer,
-  LedgerIdentity,
   PruningError,
   PruningSupportError,
   SequencerHealthConfig,
@@ -422,18 +421,6 @@ class BlockSequencer(
       .readStateForBlockContainingTimestamp(timestamp)
       .map(_.toSequencerSnapshot(protocolVersion))
       .leftMap(_ => s"Provided timestamp $timestamp is not linked to a block")
-
-  override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] = Future.successful(stateManager.isAuthorized(identity))
-
-  override def authorizeLedgerIdentity(
-      identity: LedgerIdentity
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
-    // Functionality was only implemented by the ethereum sequencer and has been removed for now.
-    // Might be reintroduced once a sequencer governance api is defined.
-    EitherT.leftT(s"authorizeLedgerIdentity is not implemented for $name sequencers")
-  }
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))

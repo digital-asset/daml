@@ -82,7 +82,10 @@ sealed abstract case class LightTransactionViewTree private[data] (
 }
 
 object LightTransactionViewTree
-    extends HasVersionedMessageWithContextCompanion[LightTransactionViewTree, HashOps] {
+    extends HasVersionedMessageWithContextCompanion[
+      LightTransactionViewTree,
+      (HashOps, ProtocolVersion),
+    ] {
   override val name: String = "LightTransactionViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -111,12 +114,12 @@ object LightTransactionViewTree
     new LightTransactionViewTree(tree, subviewHashes) {}.validated
 
   private def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoT: v1.LightTransactionViewTree,
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
-      tree <- GenTransactionTree.fromProtoV1(hashOps, protoTree)
+      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
       subviewHashes <- protoT.subviewHashes.traverse(ViewHash.fromProtoPrimitive)
       result <- LightTransactionViewTree
         .create(tree, subviewHashes)

@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.config
 
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.LocalNodeConfig.LocalNodeConfigDeprecationImplicits
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.http.HttpApiConfig
@@ -36,42 +34,6 @@ import monocle.macros.syntax.lens.*
 /** Base for all participant configs - both local and remote */
 trait BaseParticipantConfig extends NodeConfig {
   def clientLedgerApi: ClientConfig
-}
-
-object LocalParticipantConfig {
-
-  // TODO(i10108): remove when backwards compatibility can be discarded
-  /** Adds deprecations specific to LocalParticipantConfig
-    * We need to manually combine it with the upstream deprecations from LocalNodeConfig
-    * in order to not lose them.
-    */
-  trait LocalParticipantDeprecationsImplicits extends LocalNodeConfigDeprecationImplicits {
-    implicit def deprecatedLocalParticipantConfig[X <: LocalParticipantConfig]
-        : DeprecatedFieldsFor[X] =
-      new DeprecatedFieldsFor[LocalParticipantConfig] {
-        override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-          DeprecatedConfigUtils.MovedConfigPath(
-            "ledger-api.max-deduplication-duration",
-            "init.ledger-api.max-deduplication-duration",
-          ),
-          DeprecatedConfigUtils.MovedConfigPath(
-            "parameters.unique-contract-keys",
-            "init.parameters.unique-contract-keys",
-          ),
-          DeprecatedConfigUtils.MovedConfigPath(
-            "parameters.stores.max-items-in-sql-clause",
-            "init.parameters.unique-contract-keys",
-          ),
-        ) ++ deprecatedLocalNodeConfig.movedFields
-
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("parameters.unique-contract-keys", "2.7.0"),
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("init.parameters.unique-contract-keys", "2.7.0"),
-        )
-      }
-  }
 }
 
 /** Base for local participant configurations */
@@ -268,105 +230,6 @@ object LedgerApiServerConfig {
       maxUsedHeapSpacePercentage = 100,
       minFreeHeapSpaceBytes = 0,
     )
-
-  trait LedgerApiServerConfigDeprecationsImplicits {
-    implicit def deprecatedLedgerApiServerConfig[X <: LedgerApiServerConfig]
-        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[LedgerApiServerConfig] {
-      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-global-parallelism",
-          "index-service.active-contracts-service-streams.global-max-event-payload-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "events-page-size",
-          "index-service.active-contracts-service-streams.max-payloads-per-payloads-page",
-          "index-service.transaction-flat-streams.max-payloads-per-payloads-page",
-          "index-service.transaction-tree-streams.max-payloads-per-payloads-page",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "events-processing-parallelism",
-          "index-service.buffered-events-processing-parallelism",
-          "index-service.active-contracts-service-streams.contract-processing-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "buffered-events-processing-parallelism",
-          "index-service.buffered-events-processing-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "buffered-streams-page-size",
-          "index-service.buffered-streams-page-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-contract-state-cache-size",
-          "index-service.max-contract-state-cache-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-contract-key-state-cache-size",
-          "index-service.max-contract-key-state-cache-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-transactions-in-memory-fan-out-buffer-size",
-          "index-service.max-transactions-in-memory-fan-out-buffer-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "in-memory-state-updater-parallelism",
-          "index-service.in-memory-state-updater-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "in-memory-fan-out-thread-pool-size",
-          "index-service.in-memory-fan-out-thread-pool-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "prepare-package-metadata-time-out-warning",
-          "index-service.prepare-package-metadata-time-out-warning",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "completions-page-size",
-          "index-service.completions-page-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service",
-          "index-service.active-contracts-service-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-id-page-size",
-          "index-service.active-contracts-service-streams.max-ids-per-id-page",
-        ),
-        DeprecatedConfigUtils
-          .MovedConfigPath(
-            "active-contracts-service.acs-id-page-buffer-size",
-            "index-service.active-contracts-service-streams.max-pages-per-id-pages-buffer",
-          ),
-        DeprecatedConfigUtils
-          .MovedConfigPath(
-            "active-contracts-service.acs-id-fetching-parallelism",
-            "index-service.active-contracts-service-streams.max-parallel-id-create-queries",
-          ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-contract-fetching-parallelism",
-          "index-service.active-contracts-service-streams.max-parallel-payload-create-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "transaction-flat-streams",
-          "index-service.transaction-flat-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "transaction-tree-streams",
-          "index-service.transaction-tree-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "global-max-event-id-queries",
-          "index-service.global-max-event-id-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "global-max-event-payload-queries",
-          "index-service.global-max-event-payload-queries",
-        ),
-      )
-    }
-  }
-
-  object DeprecatedImplicits extends LedgerApiServerConfigDeprecationsImplicits
 
   /** the following case class match will help us detect any additional configuration options added.
     * If the below match fails because there are more config options, add them to our "LedgerApiServerConfig".

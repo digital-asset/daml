@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.store.{ActiveContractStore, ContractKeyJournal}
-import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, TransferId}
+import com.digitalasset.canton.participant.store.ActiveContractStore
+import com.digitalasset.canton.protocol.{LfContractId, TransferId}
 
 /** The result of the activeness check for an [[ActivenessSet]].
   * If all sets are empty, the activeness check was successful.
@@ -16,20 +16,17 @@ import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, TransferId}
 final case class ActivenessResult(
     contracts: ActivenessCheckResult[LfContractId, ActiveContractStore.Status],
     inactiveTransfers: Set[TransferId],
-    keys: ActivenessCheckResult[LfGlobalKey, ContractKeyJournal.Status],
 ) extends PrettyPrinting {
 
   def isSuccessful: Boolean =
-    contracts.isSuccessful && inactiveTransfers.isEmpty && keys.isSuccessful
+    contracts.isSuccessful && inactiveTransfers.isEmpty
 
   override def pretty: Pretty[ActivenessResult] = {
     prettyOfClass(
       param("contracts", _.contracts, !_.contracts.isEmpty),
       paramIfNonEmpty("inactiveTransfers", _.inactiveTransfers),
-      param("keys", _.keys, !_.keys.isEmpty),
     )
   }
-
 }
 
 /** The result of the activeness check for an [[ActivenessCheck]].

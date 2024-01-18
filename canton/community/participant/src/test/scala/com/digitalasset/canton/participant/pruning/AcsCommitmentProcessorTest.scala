@@ -312,11 +312,11 @@ sealed trait AcsCommitmentProcessorBaseTest
     (acsCommitmentProcessor, store, sequencerClient)
   }
 
-  val testHash = ExampleTransactionFactory.lfHash(0)
+  val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
 
-  protected def withTestHash[A] = WithContractHash[A](_, testHash)
+  protected def withTestHash[A]: A => WithContractHash[A] = WithContractHash[A](_, testHash)
 
-  protected def rt(timestamp: Int, tieBreaker: Int) =
+  protected def rt(timestamp: Int, tieBreaker: Int): RecordTime =
     RecordTime(ts(timestamp).forgetRefinement, tieBreaker.toLong)
 
   val coid = (txId, discriminator) => ExampleTransactionFactory.suffixedId(txId, discriminator)
@@ -1420,7 +1420,6 @@ class AcsCommitmentProcessorTest
             hash3,
           )
         ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
 
       // Omitting "cid3 -> None" to test that the code considers the missing cid to have transfer counter None
@@ -1531,7 +1530,6 @@ class AcsCommitmentProcessorTest
         archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
         transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
         transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
       rc.update(rt(2, 0), acs2)
@@ -1558,7 +1556,6 @@ class AcsCommitmentProcessorTest
           )
         ),
         transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs4 = AcsChange.fromCommitSet(
         cs4,
@@ -1589,7 +1586,6 @@ class AcsCommitmentProcessorTest
             )
           )
         ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs7 = AcsChange.fromCommitSet(cs7, Map.empty[LfContractId, TransferCounterO])
       rc.update(rt(7, 0), acs7)
@@ -1616,7 +1612,6 @@ class AcsCommitmentProcessorTest
           )
         ),
         transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs8 =
         AcsChange.fromCommitSet(cs8, Map[LfContractId, TransferCounterO](coid(1, 0) -> tc2))
@@ -1643,7 +1638,6 @@ class AcsCommitmentProcessorTest
         ),
         transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
         transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs9 = AcsChange.fromCommitSet(
         cs9,
@@ -1667,7 +1661,6 @@ class AcsCommitmentProcessorTest
             )
           )
         ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs10 = AcsChange.fromCommitSet(cs10, Map.empty[LfContractId, TransferCounterO])
       rc.update(rt(10, 0), acs10)
@@ -1688,7 +1681,6 @@ class AcsCommitmentProcessorTest
           )
         ),
         transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
       val acs12 = AcsChange.fromCommitSet(cs12, Map.empty[LfContractId, TransferCounterO])
       rc.update(rt(12, 0), acs12)

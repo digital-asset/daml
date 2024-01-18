@@ -4,7 +4,7 @@
 package com.digitalasset.canton.fetchcontracts
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.logging.TracedLogger
 import org.scalatest.wordspec.AsyncWordSpec
@@ -33,7 +33,6 @@ class AcsTxStreamsTest extends AsyncWordSpec with BaseTest with PekkoBeforeAndAf
       }
 
       "propagate cancellation of tx stream" in {
-        val (_, _) = (liveBegin, txEnd)
         val (acs, futx, out, off) = probeAcsFollowingAndBoundary(logger)
         acs.sendNext(liveBegin).sendComplete()
         off.expectSubscription()
@@ -52,7 +51,6 @@ object AcsTxStreamsTest {
   import org.apache.pekko.{NotUsed, stream as aks}
   import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
   import aks.testkit as tk
-  import com.daml.ledger.api.v1 as lav1
   import com.daml.ledger.api.v2 as lav2
   import com.daml.logging.LoggingContextOf
   import tk.TestPublisher.Probe as InProbe
@@ -60,7 +58,6 @@ object AcsTxStreamsTest {
   import tk.scaladsl.{TestSink, TestSource}
 
   private val liveBegin = lav2.state_service.GetActiveContractsResponse(offset = "42")
-  private val txEnd = lav1.transaction.Transaction(offset = "84")
 
   private implicit val `log ctx`: LoggingContextOf[Any] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Any])(identity)
@@ -71,7 +68,7 @@ object AcsTxStreamsTest {
   ) =
     probeFOS2PlusContinuation(
       AcsTxStreams.acsFollowingAndBoundary(
-        _: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
+        _: lav2.participant_offset.ParticipantOffset => Source[Transaction, NotUsed],
         logger,
       )
     ).run()

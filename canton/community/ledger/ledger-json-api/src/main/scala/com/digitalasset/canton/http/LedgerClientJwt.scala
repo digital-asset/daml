@@ -7,21 +7,16 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.admin.metering_report_service.{
-  GetMeteringReportRequest,
-  GetMeteringReportResponse,
-}
-import com.daml.ledger.api.v2.command_service.{
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
-}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse}
+import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.package_service
-import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_filter.TransactionFilter as TransactionFilterV1
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Boundary
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
@@ -31,11 +26,7 @@ import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.canton.ledger.client.services.admin.{
-  MeteringReportClient,
-  PackageManagementClient,
-  PartyManagementClient,
-}
+import com.digitalasset.canton.ledger.client.services.admin.{MeteringReportClient, PackageManagementClient, PartyManagementClient}
 import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
@@ -104,14 +95,18 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
           Source.empty[Transaction]
         else {
           log(GetTransactionsLog) {
-            client.transactionClient
-              .getTransactions(
-                offset,
-                terminates.toOffset,
-                filter,
+            client.v2.updateService
+              .getUpdatesSource(
+                begin = offset,
+                filter = filter,
                 verbose = true,
+                end = end,
                 token = bearer(jwt),
-              )
+              ).collect { response =>
+                response.update match {
+                  case Update.Transaction(t) => t
+                }
+              }
           }
         }
       }
@@ -152,10 +147,10 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
 //      }
 //  }
 
-  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
-    import com.digitalasset.canton.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
+  private def skipRequest(start: ParticipantOffset, end: Option[ParticipantOffset]): Boolean = {
+    import com.digitalasset.canton.http.util.ParticipantOffsetUtil.AbsoluteOffsetOrdering
     (start.value, end.map(_.value)) match {
-      case (s: LedgerOffset.Value.Absolute, Some(e: LedgerOffset.Value.Absolute)) =>
+      case (s: ParticipantOffset.Value.Absolute, Some(e: ParticipantOffset.Value.Absolute)) =>
         AbsoluteOffsetOrdering.gteq(s, e)
       case _ => false
     }
@@ -210,7 +205,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logger.trace(s"sending list packages request to ledger, ${lc.makeString}")
         logFuture(ListPackagesLog) {
-          client.packageClient.listPackages(bearer(jwt))
+          client.v2.packageService.listPackages(bearer(jwt))
         }
       }
 
@@ -221,7 +216,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logger.trace(s"sending get packages request to ledger, ${lc.makeString}")
         logFuture(GetPackageLog) {
-          client.packageClient.getPackage(packageId, token = bearer(jwt))
+          client.v2.packageService.getPackage(packageId, token = bearer(jwt))
         }
       }
 
@@ -307,8 +302,8 @@ object LedgerClientJwt {
   type GetCreatesAndArchivesSince =
     (
         Jwt,
-        TransactionFilterV1,
-        LedgerOffset,
+        TransactionFilter,
+        ParticipantOffset,
         Terminates,
     ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
 
@@ -376,26 +371,20 @@ object LedgerClientJwt {
 
   sealed abstract class Terminates extends Product with Serializable {
     import Terminates.*
-    def toOffset: Option[LedgerOffset] = this match {
-      case AtLedgerEnd => Some(ledgerEndOffset)
+    def toOffset: Option[ParticipantOffset] = this match {
+      case AtParticipantEnd => Some(participantEndOffset)
       case Never => None
-      case AtAbsolute(off) => Some(LedgerOffset(off))
+      case AtAbsolute(off) => Some(ParticipantOffset(off))
     }
   }
   object Terminates {
-    case object AtLedgerEnd extends Terminates
+    case object AtParticipantEnd extends Terminates
     case object Never extends Terminates
-    final case class AtAbsolute(off: LedgerOffset.Value.Absolute) extends Terminates {
-      def toDomain: domain.Offset = domain.Offset(off.value)
-    }
-    def fromDomain(o: domain.Offset): AtAbsolute =
-      AtAbsolute(
-        LedgerOffset.Value.Absolute(domain.Offset unwrap o)
-      )
+    final case class AtAbsolute(off: ParticipantOffset.Value.Absolute) extends Terminates
   }
 
-  private val ledgerEndOffset =
-    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+  private val participantEndOffset =
+    ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_END))
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
   object Grpc {
@@ -463,8 +452,9 @@ object LedgerClientJwt {
     case object GetTransactionsLog extends RequestLog(classOf[TransactionClient], "getTransactions")
     case object GetContractByContractIdLog
         extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractId")
-    case object GetContractByContractKeyLog
-        extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractKey")
+//    TODO(#16065)
+//    case object GetContractByContractKeyLog
+//        extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractKey")
 
     private[LedgerClientJwt] def logMessage(startTime: Long, requestLog: RequestLog): String = {
       s"Ledger client request ${requestLog.className} ${requestLog.requestName} executed, elapsed time: " +

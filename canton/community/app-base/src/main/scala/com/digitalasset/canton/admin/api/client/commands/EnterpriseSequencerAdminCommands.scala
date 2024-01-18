@@ -21,7 +21,7 @@ import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerResponse,
   InitializeSequencerResponseX,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.{LedgerIdentity, SequencerSnapshot}
+import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
@@ -32,6 +32,7 @@ import io.grpc.ManagedChannel
 import scala.concurrent.Future
 
 object EnterpriseSequencerAdminCommands {
+
   abstract class BaseSequencerInitializationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc = v0.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
@@ -44,11 +45,21 @@ object EnterpriseSequencerAdminCommands {
   abstract class BaseSequencerAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub
+      v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub =
-      v0.EnterpriseSequencerAdministrationServiceGrpc.stub(channel)
+    ): v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub =
+      v0.SequencerAdministrationServiceGrpc.stub(channel)
+  }
+
+  abstract class BaseSequencerPruningAdministrationCommand[Req, Rep, Res]
+      extends GrpcAdminCommand[Req, Rep, Res] {
+    override type Svc =
+      v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
+    override def createService(
+        channel: ManagedChannel
+    ): v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub =
+      v0.SequencerPruningAdministrationServiceGrpc.stub(channel)
   }
 
   abstract class BaseSequencerTopologyBootstrapCommand[Req, Rep, Res]
@@ -169,7 +180,7 @@ object EnterpriseSequencerAdminCommands {
     }
 
     override def submitRequest(
-        service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,
+        service: v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
         request: v0.Snapshot.Request,
     ): Future[v0.Snapshot.Response] = service.snapshot(request)
 
@@ -191,12 +202,16 @@ object EnterpriseSequencerAdminCommands {
   }
 
   final case class Prune(timestamp: CantonTimestamp)
-      extends BaseSequencerAdministrationCommand[v0.Pruning.Request, v0.Pruning.Response, String] {
+      extends BaseSequencerPruningAdministrationCommand[
+        v0.Pruning.Request,
+        v0.Pruning.Response,
+        String,
+      ] {
     override def createRequest(): Either[String, v0.Pruning.Request] =
       Right(v0.Pruning.Request(timestamp.toProtoPrimitive.some))
 
     override def submitRequest(
-        service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,
+        service: v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
         request: v0.Pruning.Request,
     ): Future[v0.Pruning.Response] =
       service.prune(request)
@@ -213,7 +228,7 @@ object EnterpriseSequencerAdminCommands {
   }
 
   final case class LocatePruningTimestampCommand(index: PositiveInt)
-      extends BaseSequencerAdministrationCommand[
+      extends BaseSequencerPruningAdministrationCommand[
         LocatePruningTimestamp.Request,
         LocatePruningTimestamp.Response,
         Option[CantonTimestamp],
@@ -223,7 +238,7 @@ object EnterpriseSequencerAdminCommands {
     )
 
     override def submitRequest(
-        service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,
+        service: v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
         request: LocatePruningTimestamp.Request,
     ): Future[LocatePruningTimestamp.Response] =
       service.locatePruningTimestamp(request)
@@ -241,33 +256,10 @@ object EnterpriseSequencerAdminCommands {
     override def createRequest(): Either[String, v0.DisableMemberRequest] =
       Right(v0.DisableMemberRequest(member.toProtoPrimitive))
     override def submitRequest(
-        service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,
+        service: v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
         request: v0.DisableMemberRequest,
     ): Future[Empty] = service.disableMember(request)
     override def handleResponse(response: Empty): Either[String, Unit] = Right(())
-  }
-
-  final case class AuthorizeLedgerIdentity(ledgerIdentity: LedgerIdentity)
-      extends BaseSequencerAdministrationCommand[
-        v0.LedgerIdentity.AuthorizeRequest,
-        v0.LedgerIdentity.AuthorizeResponse,
-        Unit,
-      ] {
-    override def createRequest(): Either[String, v0.LedgerIdentity.AuthorizeRequest] =
-      Right(v0.LedgerIdentity.AuthorizeRequest(Some(ledgerIdentity.toProtoV0)))
-    override def submitRequest(
-        service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,
-        request: v0.LedgerIdentity.AuthorizeRequest,
-    ): Future[v0.LedgerIdentity.AuthorizeResponse] = service.authorizeLedgerIdentity(request)
-    override def handleResponse(
-        response: v0.LedgerIdentity.AuthorizeResponse
-    ): Either[String, Unit] = response.value match {
-      case v0.LedgerIdentity.AuthorizeResponse.Value.Failure(v0.LedgerIdentity.Failure(reason)) =>
-        Left(reason)
-      case v0.LedgerIdentity.AuthorizeResponse.Value.Success(v0.LedgerIdentity.Success()) =>
-        Right(())
-      case other => Left(s"Empty response: $other")
-    }
   }
 
   final case class BootstrapTopology(
@@ -286,6 +278,5 @@ object EnterpriseSequencerAdminCommands {
 
     //  command will potentially take a long time
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
   }
 }

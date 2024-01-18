@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, Pa
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -201,6 +202,7 @@ class GrpcTopologyAggregationService(
     useStateTxs = true,
     StoreBasedDomainTopologyClient.NoPackageDependencies,
     loggerFactory,
+    ProtocolVersionValidation.NoValidation,
   )
 }
 

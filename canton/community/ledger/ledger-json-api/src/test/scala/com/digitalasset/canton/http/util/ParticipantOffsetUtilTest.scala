@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.http.util
 
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.scalatest.FlatSpecCheckLaws
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.canton.http.Generators
-import com.digitalasset.canton.http.util.LedgerOffsetUtil
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.scalacheck.ScalazProperties
 
-class LedgerOffsetUtilTest
+class ParticipantOffsetUtilTest
     extends AnyFlatSpec
     with Matchers
     with FlatSpecCheckLaws
@@ -21,20 +20,20 @@ class LedgerOffsetUtilTest
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  import LedgerOffsetUtilTest._
+  import ParticipantOffsetUtilTest.*
 
-  behavior of LedgerOffsetUtil.AbsoluteOffsetOrdering.getClass.getSimpleName
+  behavior of ParticipantOffsetUtil.AbsoluteOffsetOrdering.getClass.getSimpleName
 
-  checkLaws(ScalazProperties.order.laws[LedgerOffset.Value.Absolute])
+  checkLaws(ScalazProperties.order.laws[ParticipantOffset.Value.Absolute])
 }
 
-object LedgerOffsetUtilTest {
+object ParticipantOffsetUtilTest {
   import org.scalacheck.Arbitrary
 
-  implicit val arbAbsoluteOffset: Arbitrary[LedgerOffset.Value.Absolute] = Arbitrary(
-    Generators.absoluteLedgerOffsetVal
+  implicit val arbAbsoluteOffset: Arbitrary[ParticipantOffset.Value.Absolute] = Arbitrary(
+    Generators.absoluteParticipantOffsetVal
   )
 
-  implicit val scalazOrder: scalaz.Order[LedgerOffset.Value.Absolute] =
-    scalaz.Order.fromScalaOrdering(LedgerOffsetUtil.AbsoluteOffsetOrdering)
+  implicit val scalazOrder: scalaz.Order[ParticipantOffset.Value.Absolute] =
+    scalaz.Order.fromScalaOrdering(ParticipantOffsetUtil.AbsoluteOffsetOrdering)
 }

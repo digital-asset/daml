@@ -36,7 +36,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.G
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{DiscardOps, LfPartyId, SequencerCounter}
 
 import java.time.Duration as JDuration
@@ -341,6 +341,7 @@ class StoreBasedDomainTopologyClient(
       useStateTxs = useStateTxs,
       packageDependencies,
       loggerFactory,
+      ProtocolVersionValidation(protocolVersion),
     )
   }
 
@@ -368,6 +369,7 @@ class StoreBasedTopologySnapshot(
     useStateTxs: Boolean,
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     val loggerFactory: NamedLoggerFactory,
+    protocolVersionValidation: ProtocolVersionValidation,
 )(implicit val executionContext: ExecutionContext)
     extends TopologySnapshotLoader
     with NamedLogging
@@ -882,6 +884,7 @@ object StoreBasedTopologySnapshot {
       useStateTxs = false,
       packageDependencies = StoreBasedDomainTopologyClient.NoPackageDependencies,
       loggerFactory,
+      ProtocolVersionValidation.NoValidation,
     )
   }
 }

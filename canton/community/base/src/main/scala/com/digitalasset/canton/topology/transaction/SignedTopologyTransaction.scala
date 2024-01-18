@@ -15,10 +15,11 @@ import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion,
+  HasMemoizedProtocolVersionedWithOptionalValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 import com.google.common.annotations.VisibleForTesting
@@ -90,9 +91,11 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
 }
 
 object SignedTopologyTransaction
-    extends HasMemoizedProtocolVersionedWrapperCompanion[SignedTopologyTransaction[
-      TopologyChangeOp
-    ]] {
+    extends HasMemoizedProtocolVersionedWithOptionalValidationCompanion[
+      SignedTopologyTransaction[
+        TopologyChangeOp
+      ]
+    ] {
   override val name: String = "SignedTopologyTransaction"
 
   type GenericSignedTopologyTransaction = SignedTopologyTransaction[TopologyChangeOp]
@@ -164,13 +167,17 @@ object SignedTopologyTransaction
       EitherT.rightT(signedTx)
   }
 
-  private def fromProtoV0(transactionP: v0.SignedTopologyTransaction)(
+  private def fromProtoV0(
+      protocolVersionValidation: ProtocolVersionValidation,
+      transactionP: v0.SignedTopologyTransaction,
+  )(
       bytes: ByteString
   ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
     for {
-      transaction <- TopologyTransaction.fromByteStringUnsafe(
-        transactionP.transaction
-      ) // TODO(#12626) – try with context
+      transaction <-
+        TopologyTransaction.fromByteString(protocolVersionValidation)(
+          transactionP.transaction
+        )
       publicKey <- ProtoConverter.parseRequired(
         SigningPublicKey.fromProtoV0,
         "key",
@@ -191,12 +198,9 @@ object SignedTopologyTransaction
   def createGetResultDomainTopologyTransaction
       : GetResult[SignedTopologyTransaction[TopologyChangeOp]] =
     GetResult { r =>
-      fromByteStringUnsafe(
-        r.<<[ByteString]
+      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
+        throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
       )
-        .valueOr(err =>
-          throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
-        )
     }
 
   implicit def setParameterTopologyTransaction(implicit

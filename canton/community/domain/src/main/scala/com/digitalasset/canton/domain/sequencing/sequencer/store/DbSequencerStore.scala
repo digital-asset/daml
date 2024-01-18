@@ -908,7 +908,6 @@ class DbSequencerStore(
       Map(): InFlightAggregations,
       statusAtTimestamp.toInternal,
       checkpointsAtTimestamp.toMap,
-      Set(),
       Map(),
     )
   }

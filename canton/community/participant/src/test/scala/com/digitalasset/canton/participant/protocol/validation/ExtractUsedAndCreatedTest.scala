@@ -10,7 +10,6 @@ import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCre
   InputContractPrep,
   ViewData,
 }
-import com.digitalasset.canton.participant.store.ContractKeyJournal
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, LfPartyId}
 
@@ -25,11 +24,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     used = Map.empty[LfContractId, SerializableContract],
     maybeCreated = Map.empty[LfContractId, Option[SerializableContract]],
     transient = Map.empty[LfContractId, WithContractHash[Set[LfPartyId]]],
-  )
-
-  private val emptyInputAndUpdateKeys = InputAndUpdatedKeysV3(
-    uckFreeKeysOfHostedMaintainers = Set.empty[LfGlobalKey],
-    uckUpdatedKeysOfHostedMaintainers = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
   )
 
   private val singleExercise = etf.SingleExercise(etf.deriveNodeSeed(1))
@@ -60,7 +54,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
       contracts = emptyUsedAndCreatedContracts.copy(maybeCreated =
         Map(singleCreate.contractId -> singleCreate.created.headOption)
       ),
-      keys = emptyInputAndUpdateKeys,
       hostedWitnesses = informeeParties,
     )
 

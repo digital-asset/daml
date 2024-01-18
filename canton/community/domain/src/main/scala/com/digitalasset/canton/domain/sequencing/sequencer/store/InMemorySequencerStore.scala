@@ -498,7 +498,6 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
         Map(): InFlightAggregations,
         internalStatus(timestamp).toInternal,
         memberCheckpoints,
-        Set(),
         Map(),
       )
     )

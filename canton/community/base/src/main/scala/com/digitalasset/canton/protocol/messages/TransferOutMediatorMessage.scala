@@ -100,24 +100,27 @@ final case class TransferOutMediatorMessage(
 }
 
 object TransferOutMediatorMessage
-    extends HasProtocolVersionedWithContextCompanion[TransferOutMediatorMessage, HashOps] {
+    extends HasProtocolVersionedWithContextCompanion[
+      TransferOutMediatorMessage,
+      (HashOps, ProtocolVersion),
+    ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v1.TransferOutMediatorMessage
     )(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV1(hashOps)(proto)),
+      supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
       _.toProtoV1.toByteString,
     )
   )
 
-  def fromProtoV1(hashOps: HashOps)(
+  def fromProtoV1(context: (HashOps, ProtocolVersion))(
       transferOutMediatorMessageP: v1.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] =
     for {
       tree <- ProtoConverter
         .required("TransferOutMediatorMessage.tree", transferOutMediatorMessageP.tree)
-        .flatMap(TransferOutViewTree.fromProtoV1(hashOps))
+        .flatMap(TransferOutViewTree.fromProtoV1(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-out common data is blinded in request ${tree.rootHash}"),

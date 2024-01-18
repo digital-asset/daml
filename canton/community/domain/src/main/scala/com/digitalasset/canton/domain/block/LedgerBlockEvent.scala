@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.block
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent
-import com.digitalasset.canton.domain.sequencing.sequencer.EthereumAccount
 import com.digitalasset.canton.logging.HasLoggerName
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -34,7 +33,6 @@ object LedgerBlockEvent extends HasLoggerName {
       signedSubmissionRequest: SignedContent[SubmissionRequest],
   ) extends LedgerBlockEvent
   final case class AddMember(member: Member) extends LedgerBlockEvent
-  final case class AuthorizedAccount(account: EthereumAccount) extends LedgerBlockEvent
   final case class DisableMember(member: Member) extends LedgerBlockEvent
   final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent

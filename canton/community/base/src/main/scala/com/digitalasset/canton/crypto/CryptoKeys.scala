@@ -90,7 +90,9 @@ trait CryptoKeyPairKey extends CryptoKey {
 }
 
 trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
-    extends HasVersionedWrapper[CryptoKeyPair[PublicKey, PrivateKey]] {
+    extends HasVersionedWrapper[CryptoKeyPair[PublicKey, PrivateKey]]
+    with Product
+    with Serializable {
 
   require(
     publicKey.id == privateKey.id,

@@ -68,6 +68,7 @@ import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerT
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
 
@@ -286,6 +287,7 @@ class ParticipantNodeBootstrap(
             useStateTxs = true,
             StoreBasedDomainTopologyClient.NoPackageDependencies,
             loggerFactory,
+            ProtocolVersionValidation.NoValidation,
           )
           new PackageOpsImpl(
             participantId,

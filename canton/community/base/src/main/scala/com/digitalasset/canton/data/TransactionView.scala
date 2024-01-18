@@ -384,7 +384,7 @@ final case class TransactionView private (
 object TransactionView
     extends HasProtocolVersionedWithContextCompanion[
       TransactionView,
-      (HashOps, ConfirmationPolicy),
+      (HashOps, ConfirmationPolicy, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
@@ -471,20 +471,19 @@ object TransactionView
   val viewParticipantDataUnsafe: Lens[TransactionView, MerkleTree[ViewParticipantData]] =
     GenLens[TransactionView](_.viewParticipantData)
 
-  // TODO(#12626) – try with context
   private def fromProtoV1(
-      context: (HashOps, ConfirmationPolicy),
+      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
       protoView: v1.ViewNode,
   ): ParsingResult[TransactionView] = {
-    val (hashOps, _) = context
+    val (hashOps, confirmationPolicy, expectedProtocolVersion) = context
     for {
       commonData <- MerkleTree.fromProtoOptionV1(
         protoView.viewCommonData,
-        ViewCommonData.fromByteStringUnsafe(context),
+        ViewCommonData.fromByteString(expectedProtocolVersion)((hashOps, confirmationPolicy)),
       )
       participantData <- MerkleTree.fromProtoOptionV1(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteStringUnsafe(hashOps),
+        ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV1(context, protoView.subviews)
       view <- createFromRepresentativePV(hashOps)(

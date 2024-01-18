@@ -35,9 +35,9 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
     def fromByteString(
         bytes: ByteString,
         protoVersion: Int,
-        domainProtocolVersion: ProtocolVersion,
+        expectedProtocolVersion: ProtocolVersion,
     ): ParsingResult[Message] = Message
-      .fromByteString(domainProtocolVersion)(
+      .fromByteString(expectedProtocolVersion)(
         VersionedMessage[Message](bytes, protoVersion).toByteString
       )
 
@@ -89,17 +89,17 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
     "validate proto version against expected (representative) protocol version" in {
       Message
-        .validateDeserialization(Some(basePV + 2), basePV + 2)
+        .validateDeserialization(ProtocolVersionValidation(basePV + 2), basePV + 2)
         .value shouldBe ()
       Message
-        .validateDeserialization(Some(basePV + 3), basePV + 2)
+        .validateDeserialization(ProtocolVersionValidation(basePV + 3), basePV + 2)
         .left
         .value should have message Message
         .unexpectedProtoVersionError(basePV + 3, basePV + 2)
         .message
       Message
         .validateDeserialization(
-          None, // skips expected protocol version check
+          ProtocolVersionValidation.NoValidation,
           basePV,
         )
         .value shouldBe ()

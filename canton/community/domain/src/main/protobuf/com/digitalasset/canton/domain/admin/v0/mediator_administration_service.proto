@@ -10,7 +10,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // administration service for mediator instances
-service EnterpriseMediatorAdministrationService {
+service MediatorAdministrationService {
   // Remove unnecessary data from the Mediator
   rpc Prune(MediatorPruningRequest) returns (google.protobuf.Empty);
 

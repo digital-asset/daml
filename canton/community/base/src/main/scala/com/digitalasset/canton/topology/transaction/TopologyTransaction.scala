@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.transaction
 
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.*
 import com.digitalasset.canton.config.CantonRequireTypes.{
   LengthLimitedStringWrapper,
@@ -237,7 +236,9 @@ sealed trait TopologyTransaction[+Op <: TopologyChangeOp]
 }
 
 object TopologyTransaction
-    extends HasMemoizedProtocolVersionedWrapperCompanion[TopologyTransaction[TopologyChangeOp]] {
+    extends HasMemoizedProtocolVersionedWithOptionalValidationCompanion[TopologyTransaction[
+      TopologyChangeOp
+    ]] {
   override val name: String = "TopologyTransaction"
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -247,13 +248,16 @@ object TopologyTransaction
     )
   )
 
-  private def fromProtoV1(transactionP: v1.TopologyTransaction)(
+  private def fromProtoV1(
+      protocolVersionValidation: ProtocolVersionValidation,
+      transactionP: v1.TopologyTransaction,
+  )(
       bytes: ByteString
   ): ParsingResult[TopologyTransaction[TopologyChangeOp]] = transactionP.transaction match {
     case v1.TopologyTransaction.Transaction.Empty =>
       Left(FieldNotSet("TopologyTransaction.transaction.version"))
     case v1.TopologyTransaction.Transaction.StateUpdate(stateUpdate) =>
-      TopologyStateUpdate.fromProtoV1(stateUpdate, bytes)
+      TopologyStateUpdate.fromProtoV1(protocolVersionValidation, stateUpdate, bytes)
     case v1.TopologyTransaction.Transaction.DomainGovernance(domainGovernance) =>
       DomainGovernanceTransaction.fromProtoV1(domainGovernance, bytes)
   }
@@ -341,24 +345,8 @@ object TopologyStateUpdate {
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def fromByteString(bytes: ByteString): ParsingResult[TopologyStateUpdate[AddRemoveChangeOp]] =
-    for {
-      converted <- TopologyTransaction.fromByteStringUnsafe(
-        bytes
-      ) // TODO(#12626) – use fromByteString
-      result <- converted match {
-        case topologyStateUpdate: TopologyStateUpdate[_] =>
-          Right(topologyStateUpdate)
-        case _: DomainGovernanceTransaction =>
-          Left(
-            ProtoDeserializationError.TransactionDeserialization(
-              "Expecting TopologyStateUpdate, found DomainGovernanceTransaction"
-            )
-          )
-      }
-    } yield result
-
   private[transaction] def fromProtoV1(
+      protocolVersionValidation: ProtocolVersionValidation,
       protoTopologyTransaction: v1.TopologyStateUpdate,
       bytes: ByteString,
   ): ParsingResult[TopologyStateUpdate[AddRemoveChangeOp]] = {
@@ -378,7 +366,7 @@ object TopologyStateUpdate {
           PartyToParticipant.fromProtoV0(value)
 
         case v1.TopologyStateUpdate.Mapping.SignedLegalIdentityClaim(value) =>
-          SignedLegalIdentityClaim.fromProtoV0(value)
+          SignedLegalIdentityClaim.fromProtoV0(protocolVersionValidation, value)
 
         case v1.TopologyStateUpdate.Mapping.ParticipantState(value) =>
           ParticipantState.fromProtoV0(value)

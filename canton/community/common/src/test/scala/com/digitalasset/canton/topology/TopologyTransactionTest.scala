@@ -54,7 +54,9 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       val ns2 = NamespaceDelegation(Namespace(fingerprint2), pubKey2, true)
       testConversion(
         TopologyStateUpdate.createAdd,
-        TopologyTransaction.fromByteString(testedProtocolVersion),
+        TopologyTransaction.fromByteString(
+          testedProtocolVersionValidation
+        ),
       )(
         ns1,
         Some(ns2),
@@ -63,7 +65,9 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     "identifier delegation" should {
       testConversion(
         TopologyStateUpdate.createAdd,
-        TopologyTransaction.fromByteString(testedProtocolVersion),
+        TopologyTransaction.fromByteString(
+          testedProtocolVersionValidation
+        ),
       )(
         IdentifierDelegation(uid, pubKey),
         Some(IdentifierDelegation(uid2, pubKey2)),
@@ -79,7 +83,9 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       owners.foreach(owner =>
         testConversion(
           TopologyStateUpdate.createAdd,
-          TopologyTransaction.fromByteString(testedProtocolVersion),
+          TopologyTransaction.fromByteString(
+            testedProtocolVersionValidation
+          ),
         )(
           OwnerToKeyMapping(owner, pubKey),
           Some(OwnerToKeyMapping(owner, pubKey2)),
@@ -96,7 +102,9 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       sides.foreach { case (side, permission) =>
         testConversion(
           TopologyStateUpdate.createAdd,
-          TopologyTransaction.fromByteString(testedProtocolVersion),
+          TopologyTransaction.fromByteString(
+            testedProtocolVersionValidation
+          ),
         )(
           PartyToParticipant(side, PartyId(uid), ParticipantId(uid2), permission),
           Some(PartyToParticipant(side, PartyId(uid2), ParticipantId(uid), permission)),
@@ -109,7 +117,9 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
       def fromByteString(bytes: ByteString): ParsingResult[DomainGovernanceTransaction] =
         for {
-          converted <- TopologyTransaction.fromByteStringUnsafe(
+          converted <- TopologyTransaction.fromByteString(
+            testedProtocolVersionValidation
+          )(
             bytes
           )
           result <- converted match {

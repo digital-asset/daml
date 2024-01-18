@@ -7,12 +7,10 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.*
-import com.digitalasset.canton.participant.store.ContractKeyJournal
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
-  LfGlobalKey,
   RequestId,
   SerializableContract,
   TargetDomainId,
@@ -35,7 +33,6 @@ import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
   * @param transferOuts The contracts to be transferred out, along with their target domains and stakeholders.
   *                     Must not contain contracts in [[archivals]].
   * @param transferIns The contracts to be transferred in, along with their transfer IDs.
-  * @param keyUpdates The contract keys with their new state.
   * @throws java.lang.IllegalArgumentException if `transferOuts` overlap with `archivals`
   *                                            or `creations` overlaps with `transferIns`.
   */
@@ -44,7 +41,6 @@ final case class CommitSet(
     creations: Map[LfContractId, WithContractHash[CreationCommit]],
     transferOuts: Map[LfContractId, WithContractHash[TransferOutCommit]],
     transferIns: Map[LfContractId, WithContractHash[TransferInCommit]],
-    keyUpdates: Map[LfGlobalKey, ContractKeyJournal.Status],
 ) extends PrettyPrinting {
   requireDisjoint(transferOuts.keySet -> "Transfer-outs", archivals.keySet -> "archivals")
   requireDisjoint(transferIns.keySet -> "Transfer-ins", creations.keySet -> "creations")
@@ -54,12 +50,12 @@ final case class CommitSet(
     paramIfNonEmpty("creations", _.creations),
     paramIfNonEmpty("transfer outs", _.transferOuts),
     paramIfNonEmpty("transfer ins", _.transferIns),
-    paramIfNonEmpty("key updates", _.keyUpdates),
   )
 }
 
 object CommitSet {
-  val empty = CommitSet(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
+
+  val empty: CommitSet = CommitSet(Map.empty, Map.empty, Map.empty, Map.empty)
 
   final case class CreationCommit(
       contractMetadata: ContractMetadata,
@@ -107,7 +103,6 @@ object CommitSet {
       consumedInputsOfHostedParties: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       createdContracts: Map[LfContractId, SerializableContract],
-      keyUpdates: Map[LfGlobalKey, ContractKeyJournal.Status],
   )(protocolVersion: ProtocolVersion)(implicit loggingContext: ErrorLoggingContext): CommitSet = {
     if (successfulActivenessCheck) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {
@@ -129,7 +124,6 @@ object CommitSet {
         creations = creations,
         transferOuts = Map.empty,
         transferIns = Map.empty,
-        keyUpdates = keyUpdates,
       )
     } else {
       SyncServiceAlarm

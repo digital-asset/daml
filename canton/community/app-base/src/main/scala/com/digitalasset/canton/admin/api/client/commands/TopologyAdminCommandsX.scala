@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOpX,
   TopologyMappingX,
 }
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -611,7 +612,11 @@ object TopologyAdminCommandsX {
       override def handleResponse(
           response: SignTransactionsResponse
       ): Either[String, Seq[GenericSignedTopologyTransactionX]] =
-        response.transactions.traverse(SignedTopologyTransactionX.fromProtoV2).leftMap(_.message)
+        response.transactions
+          .traverse(tx =>
+            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation.NoValidation, tx)
+          )
+          .leftMap(_.message)
     }
 
     final case class Propose[M <: TopologyMappingX: ClassTag](
@@ -654,7 +659,7 @@ object TopologyAdminCommandsX {
         .toRight("no transaction in response")
         .flatMap(
           SignedTopologyTransactionX
-            .fromProtoV2(_)
+            .fromProtoV2(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>
               tx.selectMapping[M]
@@ -710,7 +715,7 @@ object TopologyAdminCommandsX {
         .toRight("no transaction in response")
         .flatMap(
           SignedTopologyTransactionX
-            .fromProtoV2(_)
+            .fromProtoV2(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>
               tx.selectMapping[M]

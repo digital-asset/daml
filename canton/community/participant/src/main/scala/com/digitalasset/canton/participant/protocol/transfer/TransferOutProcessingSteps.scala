@@ -274,7 +274,7 @@ class TransferOutProcessingSteps(
         participantId,
       ) { bytes =>
         FullTransferOutTree
-          .fromByteString(sourceSnapshot.pureCrypto)(bytes)
+          .fromByteString(sourceSnapshot.pureCrypto, sourceDomainProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
@@ -329,8 +329,6 @@ class TransferOutProcessingSteps(
       activenessSet = ActivenessSet(
         contracts = contractsCheck,
         transferIds = Set.empty,
-        // We check keys on only domains with unique contract key semantics and there cannot be transfers on such domains
-        keys = ActivenessCheck.empty,
       )
     } yield CheckActivenessAndWritePendingContracts(
       activenessSet,
@@ -569,7 +567,6 @@ class TransferOutProcessingSteps(
             )
           ),
           transferIns = Map.empty,
-          keyUpdates = Map.empty,
         )
         val commitSetFO = Some(Future.successful(commitSet))
         for {

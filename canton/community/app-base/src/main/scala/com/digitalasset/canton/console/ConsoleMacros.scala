@@ -1062,7 +1062,7 @@ object DebuggingHelpers extends LazyLogging {
       }
       .toMap
     val lapiAcs =
-      ref.ledger_api.acs.of_all().map(ev => (ev.event.contractId, ev.templateId)).toMap
+      ref.ledger_api_v2.state.acs.of_all().map(ev => (ev.event.contractId, ev.templateId)).toMap
     (syncAcs, lapiAcs)
   }
 

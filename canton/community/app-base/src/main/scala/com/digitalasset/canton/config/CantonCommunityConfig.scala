@@ -8,11 +8,7 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.domain.config.{
-  CommunityDomainConfig,
-  DomainBaseConfig,
-  RemoteDomainConfig,
-}
+import com.digitalasset.canton.domain.config.{CommunityDomainConfig, RemoteDomainConfig}
 import com.digitalasset.canton.domain.mediator.{CommunityMediatorNodeXConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.domain.sequencing.config.{
   CommunitySequencerNodeXConfig,
@@ -21,7 +17,6 @@ import com.digitalasset.canton.domain.sequencing.config.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
-  LocalParticipantConfig,
   RemoteParticipantConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -74,18 +69,6 @@ final case class CantonCommunityConfig(
 @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object CantonCommunityConfig {
 
-  /** Combine together deprecated implicits for types that define them
-    * This setup allows the compiler to pick the implicit for the most specific type when applying deprecations.
-    * For instance,
-    *   ConfigReader[LocalParticipantConfig].applyDeprecations will pick up the deprecations implicit defined in
-    *   LocalParticipantConfig instead of LocalNodeConfig
-    *   despite LocalParticipantConfig being a subtype of LocalNodeConfig.
-    */
-  object CantonDeprecationImplicits
-      extends LocalNodeConfig.LocalNodeConfigDeprecationImplicits
-      with LocalParticipantConfig.LocalParticipantDeprecationsImplicits
-      with DomainBaseConfig.DomainBaseConfigDeprecationImplicits
-
   private val logger: Logger = LoggerFactory.getLogger(classOf[CantonCommunityConfig])
   private val elc = ErrorLoggingContext(
     TracedLogger(logger),
@@ -97,18 +80,14 @@ object CantonCommunityConfig {
 
   // Implemented as a def so we can pass the ErrorLoggingContext to be used during parsing
   @nowarn("cat=unused")
-  private implicit def cantonCommunityConfigReader(implicit
-      elc: ErrorLoggingContext
-  ): ConfigReader[CantonCommunityConfig] = { // memoize it so we get the same instance every time
-    val configReaders: ConfigReaders = new ConfigReaders()
-    import configReaders.*
+  private implicit val cantonCommunityConfigReader: ConfigReader[CantonCommunityConfig] = {
+    import ConfigReaders.*
     import DeprecatedConfigUtils.*
-    import CantonDeprecationImplicits.*
 
     implicit val communityDomainConfigReader: ConfigReader[CommunityDomainConfig] =
-      deriveReader[CommunityDomainConfig].applyDeprecations
+      deriveReader[CommunityDomainConfig]
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
-      deriveReader[CommunityParticipantConfig].applyDeprecations
+      deriveReader[CommunityParticipantConfig]
     implicit val communitySequencerNodeXConfigReader: ConfigReader[CommunitySequencerNodeXConfig] =
       deriveReader[CommunitySequencerNodeXConfig]
     implicit val communityMediatorNodeXConfigReader: ConfigReader[CommunityMediatorNodeXConfig] =

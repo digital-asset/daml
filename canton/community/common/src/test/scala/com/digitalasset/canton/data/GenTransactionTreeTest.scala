@@ -108,19 +108,19 @@ class GenTransactionTreeTest
 
       "be serialized and deserialized" in {
         val fullInformeeTree = example.fullInformeeTree
-        FullInformeeTree.fromByteStringUnsafe(factory.cryptoOps)(
+        FullInformeeTree.fromByteString(factory.cryptoOps, testedProtocolVersion)(
           fullInformeeTree.toByteString
         ) shouldEqual Right(fullInformeeTree)
 
         val (_, informeeTree) = example.informeeTreeBlindedFor
-        InformeeTree.fromByteStringUnsafe(factory.cryptoOps)(
+        InformeeTree.fromByteString(factory.cryptoOps, testedProtocolVersion)(
           informeeTree.toByteString
         ) shouldEqual Right(
           informeeTree
         )
 
         forAll(example.transactionTree.allLightTransactionViewTrees()) { lt =>
-          LightTransactionViewTree.fromByteString(example.cryptoOps)(
+          LightTransactionViewTree.fromByteString((example.cryptoOps, testedProtocolVersion))(
             lt.toByteString(testedProtocolVersion)
           ) shouldBe Right(lt)
         }
@@ -188,7 +188,7 @@ class GenTransactionTreeTest
       "correctly report missing subviews" in {
         val allLightTrees =
           example.transactionTree.allLightTransactionViewTrees()
-        val removedLightTreeO = allLightTrees.find(_.viewPosition.position.size > 1)
+        val removedLightTreeO = allLightTrees.find(_.viewPosition.position.sizeIs > 1)
         val inputLightTrees = allLightTrees.filterNot(removedLightTreeO.contains)
         val badLightTrees = inputLightTrees.filter(tree =>
           ViewPosition.isDescendant(

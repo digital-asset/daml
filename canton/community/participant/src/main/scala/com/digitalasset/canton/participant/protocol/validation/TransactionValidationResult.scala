@@ -9,7 +9,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
-import com.digitalasset.canton.participant.store.ContractKeyJournal
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
@@ -31,7 +30,6 @@ final case class TransactionValidationResult(
     witnessedAndDivulged: Map[LfContractId, SerializableContract],
     createdContracts: Map[LfContractId, SerializableContract],
     transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
-    keyUpdates: Map[LfGlobalKey, ContractKeyJournal.Status],
     successfulActivenessCheck: Boolean,
     viewValidationResults: Map[ViewPosition, ViewValidationResult],
     timeValidationResultE: Either[TimeCheckFailure, Unit],
@@ -48,6 +46,5 @@ final case class TransactionValidationResult(
       consumedInputsOfHostedParties,
       transient,
       createdContracts,
-      keyUpdates,
     )(protocolVersion)
 }

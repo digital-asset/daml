@@ -4,8 +4,10 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.admin.participant.v0
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
@@ -73,26 +75,28 @@ class DomainConnectivityService(
 
   def connectDomain(domainAlias: String, keepRetrying: Boolean)(implicit
       traceContext: TraceContext
-  ): Future[v0.ConnectDomainResponse] = {
-    val resp = for {
-      alias <- mapErr(DomainAlias.create(domainAlias))
-      success <- mapErrNewETUS(sync.connectDomain(alias, keepRetrying))
-      _ <- waitUntilActiveIfSuccess(success, alias)
+  ): Future[v0.ConnectDomainResponse] =
+    for {
+      alias <- Future(
+        DomainAlias
+          .create(domainAlias)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      success <- mapErrNewETUS(sync.connectDomain(alias, keepRetrying)).valueOr(throw _)
+      _ <- waitUntilActiveIfSuccess(success, alias).valueOr(throw _)
     } yield v0.ConnectDomainResponse(connectedSuccessfully = success)
-    EitherTUtil.toFuture(resp)
-  }
 
   def disconnectDomain(
       domainAlias: String
-  )(implicit traceContext: TraceContext): Future[v0.DisconnectDomainResponse] = {
-    val res = for {
-      alias <- mapErr(DomainAlias.create(domainAlias))
-      disconnect <- mapErrNewETUS(sync.disconnectDomain(alias))
-    } yield disconnect
-    EitherTUtil
-      .toFuture(res)
-      .map(_ => v0.DisconnectDomainResponse())
-  }
+  )(implicit traceContext: TraceContext): Future[v0.DisconnectDomainResponse] =
+    for {
+      alias <- Future(
+        DomainAlias
+          .create(domainAlias)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      _ <- mapErrNewETUS(sync.disconnectDomain(alias)).valueOr(throw _)
+    } yield v0.DisconnectDomainResponse()
 
   def listConnectedDomains(): Future[v0.ListConnectedDomainsResponse] =
     Future.successful(v0.ListConnectedDomainsResponse(sync.readyDomains.map {
@@ -126,52 +130,62 @@ class DomainConnectivityService(
       request: v0.DomainConnectionConfig
   )(implicit traceContext: TraceContext): Future[v0.RegisterDomainResponse] = {
 
-    val resp = for {
-      conf <- mapErr(DomainConnectionConfig.fromProtoV0(request))
+    for {
+      conf <- Future(
+        DomainConnectionConfig
+          .fromProtoV0(request)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
       _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
-      _ <- mapErrNewET(sync.addDomain(conf))
+      _ <- mapErrNewET(sync.addDomain(conf)).valueOr(throw _)
       _ <-
         if (!conf.manualConnect) for {
           success <- mapErrNewETUS(sync.connectDomain(conf.domain, keepRetrying = false))
-          _ <- waitUntilActiveIfSuccess(success, conf.domain)
+            .valueOr(throw _)
+          _ <- waitUntilActiveIfSuccess(success, conf.domain).valueOr(throw _)
         } yield ()
-        else EitherT.rightT[Future, StatusRuntimeException](())
+        else Future.unit
     } yield v0.RegisterDomainResponse()
-    EitherTUtil.toFuture(resp)
   }
 
   def modifyDomain(
       request: v0.DomainConnectionConfig
-  )(implicit traceContext: TraceContext): Future[v0.ModifyDomainResponse] = {
-    val resp = for {
-      conf <- mapErr(DomainConnectionConfig.fromProtoV0(request))
-      _ <- mapErrNewET(sync.modifyDomain(conf))
+  )(implicit traceContext: TraceContext): Future[v0.ModifyDomainResponse] =
+    for {
+      conf <- Future(
+        DomainConnectionConfig
+          .fromProtoV0(request)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      _ <- mapErrNewET(sync.modifyDomain(conf)).valueOr(throw _)
     } yield v0.ModifyDomainResponse()
-    EitherTUtil.toFuture(resp)
-  }
 
   private def getSequencerAggregatedInfo(domainAlias: String)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, StatusRuntimeException, SequencerAggregatedInfo] = {
+  ): Future[SequencerAggregatedInfo] = {
     for {
-      alias <- mapErr(DomainAlias.create(domainAlias))
+      alias <- Future(
+        DomainAlias
+          .create(domainAlias)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
       connectionConfig <- mapErrNewET(
         sync
           .domainConnectionConfigByAlias(alias)
           .leftMap(_ => SyncServiceUnknownDomain.Error(alias))
           .map(_.config)
-      )
+      ).valueOr(throw _)
       result <-
         sequencerInfoLoader
           .loadSequencerEndpoints(connectionConfig.domain, connectionConfig.sequencerConnections)(
             traceContext,
             CloseContext(sync),
           )
-          .leftMap(DomainRegistryError.fromSequencerInfoLoaderError(_).asGrpcError)
+          .valueOr(err => throw DomainRegistryError.fromSequencerInfoLoaderError(err).asGrpcError)
       _ <- aliasManager
         .processHandshake(connectionConfig.domain, result.domainId)
         .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
-        .leftMap(_.asGrpcError)
+        .valueOr(err => throw err.asGrpcError)
     } yield result
   }
 
@@ -185,6 +199,6 @@ class DomainConnectivityService(
   }
 
   def getDomainId(domainAlias: String)(implicit traceContext: TraceContext): Future[DomainId] =
-    EitherTUtil.toFuture(getSequencerAggregatedInfo(domainAlias).map(_.domainId))
+    getSequencerAggregatedInfo(domainAlias).map(_.domainId)
 
 }

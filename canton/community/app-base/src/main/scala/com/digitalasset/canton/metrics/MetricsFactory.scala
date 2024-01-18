@@ -15,8 +15,7 @@ import com.daml.metrics.{
 }
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.buildinfo.BuildInfo
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.{DeprecatedConfigUtils, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.domain.metrics.{
   DomainMetrics,
   EnvMetrics,
@@ -45,21 +44,6 @@ final case class MetricsConfig(
     reportExecutionContextMetrics: Boolean = false,
     histograms: Seq[HistogramDefinition] = Seq.empty,
 )
-
-object MetricsReporterConfig {
-  object DeprecatedImplicits {
-    implicit def deprecatedDomainBaseConfig[X <: MetricsReporterConfig]: DeprecatedFieldsFor[X] =
-      new DeprecatedFieldsFor[MetricsReporterConfig] {
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
-          DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("jmx")),
-          DeprecatedConfigUtils.DeprecatedConfigPath[String]("type", since = "2.6.0", Some("csv")),
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[String]("type", since = "2.6.0", Some("graphite")),
-          DeprecatedConfigUtils.DeprecatedConfigPath[String]("filters", since = "2.6.0"),
-        )
-      }
-  }
-}
 
 sealed trait MetricsReporterConfig {
   def filters: Seq[MetricsFilterConfig]
