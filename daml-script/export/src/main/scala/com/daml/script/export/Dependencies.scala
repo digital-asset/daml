@@ -8,7 +8,7 @@ import java.nio.file.Path
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.{VersionRange, archive}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId

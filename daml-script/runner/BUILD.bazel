@@ -120,11 +120,11 @@ da_scala_test(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-api-core",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",

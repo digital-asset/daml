@@ -10,13 +10,13 @@ import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.{value => api}
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
@@ -28,7 +28,6 @@ import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import scalaz.syntax.tag._
 import spray.json._
 
 import scala.concurrent.Future
@@ -61,7 +60,6 @@ final class ReproducesTransactions
       SubmitAndWaitRequest(
         Some(
           Commands(
-            ledgerId = client.ledgerId.unwrap,
             applicationId = applicationId.getOrElse(""),
             commandId = UUID.randomUUID().toString(),
             party = p,

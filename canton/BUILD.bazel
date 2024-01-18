@@ -72,7 +72,10 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
@@ -154,7 +157,10 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":daml-common-staging_daml-errors",
         ":pekko-stream-minus-patched-classes",
@@ -240,7 +246,11 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//compiler/repl-service:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",
@@ -567,7 +577,10 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":bindings-java",
         ":community_base",

@@ -4,22 +4,22 @@
 package com.daml.script.export
 
 import org.apache.pekko.actor.ActorSystem
-
 import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerMainConfig, RunnerMain, ParticipantMode}
-import com.daml.ledger.client.configuration.{
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.daml.lf.engine.script.{ParticipantMode, RunnerMain, RunnerMainConfig}
+import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
-import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{Await, ExecutionContext}
@@ -137,14 +137,16 @@ object ExampleExportClient {
       port,
       configuration = LedgerClientConfiguration(
         applicationId = "admin-client",
-        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = None,
       ),
       channelConfig = LedgerClientChannelConfiguration(None),
+      loggerFactory = NamedLoggerFactory.root,
     )
-    adminClient.packageManagementClient.uploadDarFile(
-      ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
+    adminClient.foreach(
+      _.packageManagementClient.uploadDarFile(
+        ByteString.copyFrom(Files.readAllBytes(config.darPath.toPath))
+      )
     )
     RunnerMain.main(config)
     withTemporaryDirectory { outputPath =>

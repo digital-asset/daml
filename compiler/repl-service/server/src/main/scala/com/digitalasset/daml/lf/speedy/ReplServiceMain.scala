@@ -22,7 +22,7 @@ import com.daml.lf.language.{
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyServerBuilder

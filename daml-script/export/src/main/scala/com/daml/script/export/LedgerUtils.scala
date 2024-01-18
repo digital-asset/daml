@@ -6,14 +6,14 @@ package com.daml.script.export
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.auth.TokenHolder
-import com.daml.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
 

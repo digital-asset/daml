@@ -8,7 +8,7 @@ import java.io.File
 
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 final case class Config(
