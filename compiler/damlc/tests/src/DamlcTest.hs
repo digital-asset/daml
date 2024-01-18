@@ -106,7 +106,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
         [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -132,7 +131,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
         [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -170,7 +168,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
         [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
