@@ -143,7 +143,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition True;
         signatories Cons @Party [M:Dummy {signatory} this] (Nil @Party);
         observers Nil @Party;
-        agreement "";
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
           to upure @Unit ();
@@ -245,7 +244,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition True;
         signatories Cons @Party [Test:Helper {sig} this] (Nil @Party);
         observers Nil @Party;
-        agreement "";
         choice CreateNonvisibleKey (self) (arg: Unit): ContractId M:T,
           controllers Cons @Party [Test:Helper {obs} this] (Nil @Party),
           observers Nil @Party

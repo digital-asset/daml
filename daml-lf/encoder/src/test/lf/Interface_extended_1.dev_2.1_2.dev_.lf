@@ -23,7 +23,6 @@ module InterfaceExtMod {
     precondition True;
     signatories Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
     observers Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
-    agreement "Lorem ipsum, dolor sit amet";
 
     implements InterfaceExtMod:Root {
       view = RecordMod:MyUnit {};

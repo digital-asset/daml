@@ -41,7 +41,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [M:T {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "";
             choice Ch1 (self) (i : Unit) : Unit,
               controllers Cons @Party [M:T {party} this] (Nil @Party)
               to

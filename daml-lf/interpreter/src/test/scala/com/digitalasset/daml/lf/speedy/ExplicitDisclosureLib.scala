@@ -42,7 +42,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:House {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:House";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:House {owner} this)),
@@ -59,7 +58,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:Cave {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:Cave";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:Cave {owner} this)),

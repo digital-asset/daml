@@ -504,7 +504,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Module:Record {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
           };
 
           record @serializable PreCondRecord = { precond: Bool, party: Party };
@@ -512,7 +511,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition Module:PreCondRecord {precond} this;
             signatories Cons @Party [Module:PreCondRecord {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
           };
 
           record @serializable Key = { label: Text, party: Party };
@@ -521,7 +519,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Module:RecordKey {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
             key @Module:Key
               (Module:Key { label = Module:RecordKey {label} this, party = Module:RecordKey {party} this })
               (\(key: Module:Key) -> (Cons @Party [Module:Key {party} key] (Nil @Party)));

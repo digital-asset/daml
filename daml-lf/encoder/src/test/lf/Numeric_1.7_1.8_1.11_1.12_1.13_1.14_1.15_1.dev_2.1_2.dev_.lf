@@ -15,7 +15,6 @@ module NumericMod {
     precondition True;
     signatories (PartyMod:one (NumericMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for NumericMod:Box";
   };
 
   val build0: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {

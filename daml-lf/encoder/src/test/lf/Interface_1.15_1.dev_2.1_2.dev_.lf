@@ -8,7 +8,6 @@ module InterfaceMod0 {
     precondition True;
     signatories Cons @Party [InterfaceMod0:Parcel {party} this] (Nil @Party);
     observers Cons @Party [InterfaceMod0:Parcel {party} this] (Nil @Party);
-    agreement "";
   };
 }
 
@@ -40,7 +39,6 @@ module InterfaceMod {
     precondition True;
     signatories Cons @Party [InterfaceMod:Box {party} this] (Nil @Party);
     observers Cons @Party [InterfaceMod:Box {party} this] (Nil @Party);
-    agreement "Lorem ipsum, dolor sit amet";
 
     implements InterfaceMod:Root {
       view = RecordMod:MyUnit {};

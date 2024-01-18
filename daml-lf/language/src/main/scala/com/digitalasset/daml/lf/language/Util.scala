@@ -103,6 +103,8 @@ object Util {
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
 
+  val EEmptyString = EPrimLit(PLText(""))
+
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
   val CPUnit = CPPrimCon(PCUnit)

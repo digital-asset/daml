@@ -36,7 +36,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
        }
     """
@@ -53,7 +52,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
               implements 'pkgB':ModB:IB { view = Mod0:MyUnit {}; };
             };
@@ -65,7 +63,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
               implements 'pkgC':ModC:IC { view = Mod0:MyUnit {}; };
             };
@@ -120,7 +117,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
             implements '-pkg1-':Mod11:I11 {
               view = Mod0:MyUnit {};
             };
@@ -139,7 +135,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements '-pkg3-':Mod32:I32 { view = Mod0:MyUnit {}; };
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
             };

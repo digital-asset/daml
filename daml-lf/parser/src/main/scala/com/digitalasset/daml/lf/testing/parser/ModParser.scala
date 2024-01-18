@@ -6,6 +6,8 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
+
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -153,7 +155,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (Id("precondition") ~> expr <~ `;`) ~
       (Id("signatories") ~> expr <~ `;`) ~
       (Id("observers") ~> expr <~ `;`) ~
-      (Id("agreement") ~> expr <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(implements <~ `;`) ~
       opt(Id("key") ~> templateKey <~ `;`) <~
@@ -162,7 +163,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           precon ~
           signatories ~
           observers ~
-          agreement ~
           choices ~
           implements ~
           key =>
@@ -172,7 +172,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             param = x,
             precond = precon,
             signatories = signatories,
-            agreementText = agreement,
+            agreementText = AstUtil.EEmptyString,
             choices = choices,
             observers = observers,
             key = key,
