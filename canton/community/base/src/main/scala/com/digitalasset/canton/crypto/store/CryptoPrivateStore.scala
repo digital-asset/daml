@@ -4,10 +4,12 @@
 package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
 import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore
+import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -105,7 +107,21 @@ object CryptoPrivateStore {
 }
 
 sealed trait CryptoPrivateStoreError extends Product with Serializable with PrettyPrinting
-object CryptoPrivateStoreError {
+object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that a key could not be stored.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "CRYPTO_PRIVATE_STORE_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Wrap(reason: CryptoPrivateStoreError)
+        extends BaseCantonError.Impl(cause = "An error occurred with the private crypto store")
+
+    final case class WrapStr(reason: String)
+        extends BaseCantonError.Impl(cause = "An error occurred with the private crypto store")
+  }
 
   final case class FailedToListKeys(reason: String) extends CryptoPrivateStoreError {
     override def pretty: Pretty[FailedToListKeys] = prettyOfClass(unnamedParam(_.reason.unquoted))

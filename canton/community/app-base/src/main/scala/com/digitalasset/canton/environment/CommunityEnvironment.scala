@@ -34,7 +34,7 @@ import com.digitalasset.canton.crypto.CommunityCryptoFactory
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.domain.DomainNodeBootstrap
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.domain.mediator.*
 import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
@@ -118,7 +118,7 @@ class CommunityEnvironment(
       CommunitySequencerFactory,
       (_, _) =>
         StaticGrpcServices
-          .notSupportedByCommunity(EnterpriseSequencerAdministrationServiceGrpc.SERVICE, logger)
+          .notSupportedByCommunity(SequencerPruningAdministrationServiceGrpc.SERVICE, logger)
           .some,
     )
   }

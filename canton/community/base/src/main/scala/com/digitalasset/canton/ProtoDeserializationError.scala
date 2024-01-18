@@ -5,8 +5,8 @@ package com.digitalasset.canton
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.RequireTypes.InvariantViolation as PureInvariantViolation
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ProtoDeserializationErrorGroup
+import com.digitalasset.canton.error.{BaseCantonError, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.serialization.DeserializationError
 import com.google.protobuf.InvalidProtocolBufferException
@@ -72,12 +72,23 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
         id = "PROTO_DESERIALIZATION_FAILURE",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
+
     final case class Wrap(reason: ProtoDeserializationError)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Deserialization of protobuf message failed"
         )
         with CantonError
+
+    final case class WrapNoLogging(reason: ProtoDeserializationError)
+        extends BaseCantonError.Impl(
+          cause = "Deserialization of protobuf message failed"
+        )
+
+    final case class WrapNoLoggingStr(reason: String)
+        extends BaseCantonError.Impl(
+          cause = "Deserialization of protobuf message failed"
+        )
   }
 
   object InvariantViolation {

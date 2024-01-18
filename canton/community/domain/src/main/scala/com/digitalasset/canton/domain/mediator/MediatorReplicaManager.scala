@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
@@ -73,7 +73,7 @@ class CommunityMediatorReplicaManager(
 
   val enterpriseAdminService =
     new GrpcDynamicService(
-      EnterpriseMediatorAdministrationServiceGrpc.SERVICE,
+      MediatorAdministrationServiceGrpc.SERVICE,
       serviceUnavailableMessage,
       loggerFactory,
     )

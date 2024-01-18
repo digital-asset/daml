@@ -45,7 +45,8 @@ final case class InformeeTree private (tree: GenTransactionTree)(
   def toProtoV1: v1.InformeeTree = v1.InformeeTree(tree = Some(tree.toProtoV1))
 }
 
-object InformeeTree extends HasProtocolVersionedWithContextCompanion[InformeeTree, HashOps] {
+object InformeeTree
+    extends HasProtocolVersionedWithContextAndValidationCompanion[InformeeTree, HashOps] {
   override val name: String = "InformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -164,12 +165,12 @@ object InformeeTree extends HasProtocolVersionedWithContextCompanion[InformeeTre
   final case class InvalidInformeeTree(message: String) extends RuntimeException(message) {}
 
   private def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoInformeeTree: v1.InformeeTree,
   ): ParsingResult[InformeeTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV1(hashOps, protoTree)
+      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
       informeeTree <- InformeeTree
         .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
         .leftMap(e => ProtoDeserializationError.OtherError(s"Unable to create informee tree: $e"))

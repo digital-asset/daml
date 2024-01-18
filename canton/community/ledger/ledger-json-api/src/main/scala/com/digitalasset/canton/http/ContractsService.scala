@@ -16,7 +16,7 @@ import com.digitalasset.canton.http.domain.{
   JwtPayload,
 }
 import util.ApiValueToLfValueConverter
-import com.digitalasset.canton.fetchcontracts.AcsTxStreams.{transactionFilter, transactionFilterV1}
+import com.digitalasset.canton.fetchcontracts.AcsTxStreams.transactionFilter
 import com.digitalasset.canton.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.http.Endpoints.ET
@@ -25,9 +25,10 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1 as api
+import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
@@ -422,23 +423,24 @@ class ContractsService(
       parties: domain.PartySet,
       templateIds: List[domain.ContractTypeId.Resolved],
       startOffset: Option[domain.StartingOffset] = None,
-      terminates: Terminates = Terminates.AtLedgerEnd,
+      terminates: Terminates = Terminates.AtParticipantEnd,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = transactionFilter(parties, templateIds)
-    val txnFilterV1 = transactionFilterV1(parties, templateIds)
     def source =
       (getActiveContracts(jwt, txnFilter, true)(lc)
         via logTermination(logger, "ACS upstream"))
 
-    val transactionsSince
-        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+    val transactionsSince: lav2.participant_offset.ParticipantOffset => Source[
+      lav2.transaction.Transaction,
+      NotUsed,
+    ] =
       getCreatesAndArchivesSince(
         jwt,
-        txnFilterV1,
-        _: api.ledger_offset.LedgerOffset,
+        txnFilter,
+        _: lav2.participant_offset.ParticipantOffset,
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")
 
@@ -501,7 +503,7 @@ class ContractsService(
 }
 
 object ContractsService {
-  private type ApiValue = api.value.Value
+  private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value
 

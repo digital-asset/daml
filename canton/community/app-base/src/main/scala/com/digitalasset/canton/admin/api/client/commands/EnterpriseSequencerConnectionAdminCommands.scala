@@ -17,12 +17,12 @@ object EnterpriseSequencerConnectionAdminCommands {
   abstract class BaseSequencerConnectionAdminCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionServiceStub
+      v0.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub
 
     override def createService(
         channel: ManagedChannel
-    ): v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionServiceStub =
-      v0.EnterpriseSequencerConnectionServiceGrpc.stub(channel)
+    ): v0.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub =
+      v0.SequencerConnectionServiceGrpc.stub(channel)
   }
 
   final case class GetConnection()
@@ -32,7 +32,7 @@ object EnterpriseSequencerConnectionAdminCommands {
         Option[SequencerConnections],
       ] {
     override def submitRequest(
-        service: v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionServiceStub,
+        service: v0.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v0.GetConnectionRequest,
     ): Future[v0.GetConnectionResponse] = service.getConnection(request)
 
@@ -60,7 +60,7 @@ object EnterpriseSequencerConnectionAdminCommands {
         Unit,
       ] {
     override def submitRequest(
-        service: v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionServiceStub,
+        service: v0.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v0.SetConnectionRequest,
     ): Future[Empty] = service.setConnection(request)
 

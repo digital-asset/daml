@@ -3,22 +3,13 @@
 
 package com.digitalasset.canton.ledger.client.services.pkg
 
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  ListPackagesResponse,
-}
-import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageServiceStub
-import com.daml.ledger.api.v2.package_service.{
-  GetPackageRequest,
-  GetPackageStatusRequest,
-  ListPackagesRequest,
-}
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
+import com.daml.ledger.api.v1.package_service.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
 
-final class PackageClient(service: PackageServiceStub) {
+final class PackageClientV1(service: PackageServiceStub) {
 
   def listPackages(
       token: Option[String] = None

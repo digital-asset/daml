@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.domain.config
 
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.LocalNodeConfig.LocalNodeConfigDeprecationImplicits
 import com.digitalasset.canton.config.RequireTypes.{
   ExistingFile,
   NonNegativeInt,
@@ -71,33 +69,6 @@ final case class CommunityPublicServerConfig(
     override val overrideMaxRequestSize: Option[NonNegativeInt] = None,
 ) extends PublicServerConfig
     with CommunityServerConfig
-
-object DomainBaseConfig {
-
-  // TODO(i10108): remove when backwards compatibility can be discarded
-  /** Adds deprecations specific to DomainBaseConfig
-    * We need to manually combine it with the upstream deprecations from LocalNodeConfig
-    * in order to not lose them.
-    */
-  trait DomainBaseConfigDeprecationImplicits extends LocalNodeConfigDeprecationImplicits {
-    implicit def deprecatedDomainBaseConfig[X <: DomainBaseConfig]: DeprecatedFieldsFor[X] =
-      new DeprecatedFieldsFor[DomainBaseConfig] {
-        override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-          DeprecatedConfigUtils.MovedConfigPath(
-            "domain-parameters",
-            "init.domain-parameters",
-          )
-        ) ++ deprecatedLocalNodeConfig.movedFields
-
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("domain-parameters.unique-contract-keys", "2.7.0"),
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("init.domain-parameters.unique-contract-keys", "2.7.0"),
-        )
-      }
-  }
-}
 
 trait DomainBaseConfig extends LocalNodeConfig {
 

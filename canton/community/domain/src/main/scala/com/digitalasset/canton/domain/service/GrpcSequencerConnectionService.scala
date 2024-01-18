@@ -10,7 +10,7 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.domain.admin.v0
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionService
+import com.digitalasset.canton.domain.admin.v0.SequencerConnectionServiceGrpc.SequencerConnectionService
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
@@ -52,7 +52,7 @@ class GrpcSequencerConnectionService(
       Unit,
     ],
 )(implicit ec: ExecutionContext)
-    extends v0.EnterpriseSequencerConnectionServiceGrpc.EnterpriseSequencerConnectionService {
+    extends v0.SequencerConnectionServiceGrpc.SequencerConnectionService {
   override def getConnection(request: v0.GetConnectionRequest): Future[v0.GetConnectionResponse] =
     EitherTUtil.toFuture(
       fetchConnection()
@@ -145,7 +145,7 @@ object GrpcSequencerConnectionService {
   ): UpdateSequencerClient = {
     val clientO = new AtomicReference[Option[RichSequencerClient]](None)
     registry.addServiceU(
-      EnterpriseSequencerConnectionService.bindService(
+      SequencerConnectionService.bindService(
         new GrpcSequencerConnectionService(
           fetchConnection = () => fetchConfig().map(_.map(sequencerConnectionLens.get)),
           setConnection = newSequencerConnection =>

@@ -1,4 +1,4 @@
-sdk-version: 3.0.0-snapshot.20240112.12573.0.v1168e354
+sdk-version: 3.0.0-snapshot.20240116.12589.0.v73f4cdd5
 name: benchtool-tests
 source: .
 version: 3.0.0

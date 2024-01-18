@@ -3,12 +3,7 @@
 
 package com.digitalasset.canton.participant.config
 
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.{
-  DeprecatedConfigUtils,
-  InitConfigBase,
-  NonNegativeFiniteDuration,
-}
+import com.digitalasset.canton.config.{InitConfigBase, NonNegativeFiniteDuration}
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 
 /** Init configuration specific to participant nodes
@@ -20,22 +15,6 @@ final case class ParticipantInitConfig(
 ) extends InitConfigBase
 
 object ParticipantInitConfig {
-
-  // TODO(i10108): remove when backwards compatibility can be discarded
-  /** Adds deprecations specific to DomainBaseConfig
-    */
-  object DeprecatedImplicits {
-    implicit def deprecatedParticipantInitConfig[X <: ParticipantInitConfig]
-        : DeprecatedFieldsFor[X] =
-      new DeprecatedFieldsFor[ParticipantInitConfig] {
-        override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-          DeprecatedConfigUtils.MovedConfigPath(
-            "generate-legal-identity-certificate",
-            "identity.generate-legal-identity-certificate",
-          )
-        )
-      }
-  }
 
   /** Init configuration of the ledger API for participant nodes
     * @param maxDeduplicationDuration The max deduplication duration reported by the participant's ledger configuration service.

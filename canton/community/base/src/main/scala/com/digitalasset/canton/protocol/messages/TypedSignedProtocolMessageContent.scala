@@ -58,7 +58,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends HasMemoizedProtocolVersionedWithValidationCompanion[
       TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
@@ -87,8 +87,10 @@ object TypedSignedProtocolMessageContent
   ): TypedSignedProtocolMessageContent[M] =
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
-  // TODO(#12626) – try with context
-  private def fromProtoV0(proto: v0.TypedSignedProtocolMessageContent)(
+  private def fromProtoV0(
+      expectedProtocolVersion: ProtocolVersion,
+      proto: v0.TypedSignedProtocolMessageContent,
+  )(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
     import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
@@ -96,15 +98,17 @@ object TypedSignedProtocolMessageContent
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteStringUnsafe(mediatorResponseBytes)
+          MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteStringUnsafe(transactionResultMessageBytes)
+          TransactionResultMessage.fromByteString(expectedProtocolVersion)(
+            transactionResultMessageBytes
+          )
         case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteStringUnsafe(transferResultBytes)
+          TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteStringUnsafe(acsCommitmentBytes)
+          AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteStringUnsafe(
+          MalformedMediatorRequestResult.fromByteString(expectedProtocolVersion)(
             malformedMediatorRequestResultBytes
           )
         case Sm.Empty =>

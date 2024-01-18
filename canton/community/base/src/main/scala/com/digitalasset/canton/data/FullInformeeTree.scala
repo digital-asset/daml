@@ -95,7 +95,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
 }
 
 object FullInformeeTree
-    extends HasProtocolVersionedWithContextCompanion[FullInformeeTree, HashOps] {
+    extends HasProtocolVersionedWithContextAndValidationCompanion[FullInformeeTree, HashOps] {
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -136,12 +136,12 @@ object FullInformeeTree
     )
 
   def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoInformeeTree: v1.FullInformeeTree,
   ): ParsingResult[FullInformeeTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV1(hashOps, protoTree)
+      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
       fullInformeeTree <- FullInformeeTree
         .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
         .leftMap(e =>

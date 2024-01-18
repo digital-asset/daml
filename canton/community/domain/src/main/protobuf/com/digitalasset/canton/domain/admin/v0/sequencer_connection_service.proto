@@ -10,7 +10,7 @@ import "google/protobuf/empty.proto";
 
 // service used by sequencer clients to manage connection to the sequencer
 // used by the mediator and domain manager nodes
-service EnterpriseSequencerConnectionService {
+service SequencerConnectionService {
   rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   rpc SetConnection(SetConnectionRequest) returns (google.protobuf.Empty);
 }

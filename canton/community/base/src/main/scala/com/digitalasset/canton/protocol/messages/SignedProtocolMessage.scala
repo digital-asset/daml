@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
+  HasProtocolVersionedWithValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
@@ -127,7 +127,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedCompanion[SignedProtocolMessage[
+    extends HasProtocolVersionedWithValidationCompanion[SignedProtocolMessage[
       SignedProtocolMessageContent
     ]] {
   override val name: String = "SignedProtocolMessage"
@@ -202,12 +202,15 @@ object SignedProtocolMessage
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )
 
-  private def fromProtoV1( // TODO(#12626) – try with context
-      signedMessageP: v1.SignedProtocolMessage
+  private def fromProtoV1(
+      expectedProtocolVersion: ProtocolVersion,
+      signedMessageP: v1.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteStringUnsafe(typedMessageBytes)
+      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
+        typedMessageBytes
+      )
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV0,
         "signatures",

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{GetUpdatesRequest, GetUpdatesResponse}
+import com.digitalasset.canton.ledger.client.LedgerClient
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -20,6 +21,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
       filter: TransactionFilter,
       verbose: Boolean = false,
       end: Option[ParticipantOffset] = None,
+      token: Option[String] = None,
   ): Source[GetUpdatesResponse, NotUsed] = {
     ClientAdapter
       .serverStreaming(
@@ -29,7 +31,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
           filter = Some(filter),
           verbose = verbose,
         ),
-        service.getUpdates,
+        LedgerClient.stub(service, token).getUpdates,
       )
   }
 

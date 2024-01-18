@@ -164,7 +164,7 @@ abstract class CantonNodeBootstrapBase[
     .addService(
       InitializationServiceGrpc
         .bindService(
-          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore),
+          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore, loggerFactory),
           executionContext,
         )
     )

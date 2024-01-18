@@ -13,9 +13,10 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
+  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 
@@ -60,7 +61,10 @@ final case class RegisterTopologyTransactionRequest private (
 }
 
 object RegisterTopologyTransactionRequest
-    extends HasProtocolVersionedCompanion[RegisterTopologyTransactionRequest] {
+    extends HasProtocolVersionedWithContextCompanion[
+      RegisterTopologyTransactionRequest,
+      ProtocolVersion,
+    ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(
@@ -89,13 +93,16 @@ object RegisterTopologyTransactionRequest
   )
 
   def fromProtoV0(
-      message: v0.RegisterTopologyTransactionRequest
+      expectedProtocolVersion: ProtocolVersion,
+      message: v0.RegisterTopologyTransactionRequest,
   ): ParsingResult[RegisterTopologyTransactionRequest] = {
     for {
       requestedBy <- Member.fromProtoPrimitive(message.requestedBy, "requestedBy")
       participantUid <- UniqueIdentifier.fromProtoPrimitive(message.participant, "participant")
       transactions <- message.signedTopologyTransactions.toList.traverse(elem =>
-        SignedTopologyTransaction.fromByteStringUnsafe(elem) // TODO(#12626) – try with context
+        SignedTopologyTransaction.fromByteString(
+          ProtocolVersionValidation(expectedProtocolVersion)
+        )(elem)
       )
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
       requestId <- String255.fromProtoPrimitive(message.requestId, "requestId")

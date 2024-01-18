@@ -77,13 +77,12 @@ message BaseQuery {
 
 message BaseResult {
   string store = 1;
-  // TODO(#15223) reorder once we break the admin api
-  google.protobuf.Timestamp sequenced = 7;
   google.protobuf.Timestamp valid_from = 2;
   google.protobuf.Timestamp valid_until = 3;
   com.digitalasset.canton.protocol.v0.TopologyChangeOp operation = 4;
   bytes serialized = 5;
   string signed_by_fingerprint = 6;
+  google.protobuf.Timestamp sequenced = 7;
 }
 
 message ListPartyToParticipantResult {

@@ -71,6 +71,7 @@ object ParticipantPermission {
     val toProtoEnum: v0.ParticipantPermission = v0.ParticipantPermission.Observation
   }
   // in 3.0, participants can't be disabled anymore. they can be purged for good
+  // The permission may still be used in the old topology management, but should not be used from the new topology management.
   @Deprecated(since = "3.0.0")
   case object Disabled extends ParticipantPermission {
     override def isActive = false

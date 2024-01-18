@@ -16,6 +16,7 @@ import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.admin.v0.ListDomainParametersChangesResult.Result.Parameters
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 
 import java.time.Instant
@@ -181,7 +182,10 @@ object ListSignedLegalIdentityClaimResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SignedLegalIdentityClaim.fromProtoV0(itemProto)
+      item <- SignedLegalIdentityClaim.fromProtoV0(
+        ProtocolVersionValidation.NoValidation,
+        itemProto,
+      )
       claim <- LegalIdentityClaim.fromByteStringUnsafe(
         item.claim
       )

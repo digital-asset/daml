@@ -258,6 +258,7 @@ class TestingIdentityFactory(
       useStateTxs = true,
       packageDependencies,
       loggerFactory,
+      BaseTest.testedProtocolVersionValidation,
     )
   }
 

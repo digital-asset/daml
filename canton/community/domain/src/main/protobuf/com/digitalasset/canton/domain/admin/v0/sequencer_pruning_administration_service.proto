@@ -6,22 +6,13 @@ syntax = "proto3";
 package com.digitalasset.canton.domain.admin.v0;
 
 import "com/digitalasset/canton/admin/pruning/v0/pruning.proto";
-import "com/digitalasset/canton/domain/admin/v1/sequencer_initialization_snapshot.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // administration service for enterprise feature supporting sequencer instances
-service EnterpriseSequencerAdministrationService {
+service SequencerPruningAdministrationService {
   // Remove data from the Sequencer
   rpc Prune(Pruning.Request) returns (Pruning.Response);
-
-  // fetch a snapshot of the sequencer state based on the given timestamp
-  rpc Snapshot(Snapshot.Request) returns (Snapshot.Response);
-
-  // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
-  rpc DisableMember(DisableMemberRequest) returns (google.protobuf.Empty);
-
-  rpc AuthorizeLedgerIdentity(LedgerIdentity.AuthorizeRequest) returns (LedgerIdentity.AuthorizeResponse);
 
   // Enable automatic pruning using the specified schedule parameters
   // The following errors may occur on the SetSchedule or Update commands:
@@ -47,30 +38,6 @@ service EnterpriseSequencerAdministrationService {
   rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp.Response);
 }
 
-message EthereumAccount {
-  string address = 1;
-}
-
-message LedgerIdentity {
-  oneof identifier {
-    EthereumAccount ethereum_account = 1;
-  }
-
-  message AuthorizeRequest {
-    LedgerIdentity identify = 1;
-  }
-  message AuthorizeResponse {
-    oneof value {
-      Success success = 1;
-      Failure failure = 2;
-    }
-  }
-  message Success {}
-  message Failure {
-    string reason = 1;
-  }
-}
-
 message Pruning {
   message Request {
     google.protobuf.Timestamp timestamp = 1;
@@ -82,31 +49,3 @@ message Pruning {
   }
 }
 
-message Snapshot {
-  message Request {
-    google.protobuf.Timestamp timestamp = 1;
-  }
-  message Response {
-    oneof value {
-      // Used for sequencers running protocol versions up to v5
-      Success success = 1;
-      Failure failure = 2;
-      // Used for sequencers running protocol version CNTestNet or higher.
-      VersionedSuccess versionedSuccess = 3;
-    }
-  }
-  message Success {
-    com.digitalasset.canton.domain.admin.v1.SequencerSnapshot state = 1;
-  }
-  message Failure {
-    string reason = 1;
-  }
-  message VersionedSuccess {
-    // Contains a versioned SequencerSnapshot of version v1 or higher
-    bytes snapshot = 1;
-  }
-}
-
-message DisableMemberRequest {
-  string member = 1;
-}

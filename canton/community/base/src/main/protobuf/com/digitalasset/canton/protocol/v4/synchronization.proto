@@ -23,12 +23,12 @@ message EnvelopeContent {
     v1.InformeeMessage informee_message = 1;
     // Removed field signed_message in v2
     v2.EncryptedViewMessage encrypted_view_message = 3;
-    // TODO(#15223) remove once we move to 3.0
+    // TODO(#15208) remove once the legacy topology management is removed
     v1.DomainTopologyTransactionMessage domain_topology_transaction_message = 5;
     v1.TransferOutMediatorMessage transfer_out_mediator_message = 6;
     v1.TransferInMediatorMessage transfer_in_mediator_message = 7;
     v0.RootHashMessage root_hash_message = 8;
-    // TODO(#15223) remove once we move to 3.0
+    // TODO(#15208) remove once the legacy topology management is removed
     v0.RegisterTopologyTransactionRequest register_topology_transaction_request = 9;
     v1.RegisterTopologyTransactionResponse register_topology_transaction_response = 10;
     // Removed field causality_update in v2

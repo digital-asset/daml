@@ -133,6 +133,8 @@ sealed trait TopologyStoreId extends PrettyPrinting {
   def filterName: String = dbString.unwrap
   def dbString: LengthLimitedString
   def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString
+  def isAuthorizedStore: Boolean
+  def isDomainStore: Boolean
 }
 
 object TopologyStoreId {
@@ -172,6 +174,9 @@ object TopologyStoreId {
         .tryCreate(discriminator + uniquifier + "::", discriminator.length + uniquifier.length + 2)
         .tryConcatenate(dbStringWithoutDiscriminator)
     }
+
+    override def isAuthorizedStore: Boolean = false
+    override def isDomainStore: Boolean = true
   }
 
   // authorized transactions (the topology managers store)
@@ -188,6 +193,9 @@ object TopologyStoreId {
     override def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
       _.dbString.unwrap
     )
+
+    override def isAuthorizedStore: Boolean = true
+    override def isDomainStore: Boolean = false
   }
 
   def apply(fName: String): TopologyStoreId = fName match {
@@ -200,10 +208,7 @@ object TopologyStoreId {
   }
 
   implicit val domainTypeChecker: IdTypeChecker[DomainStore] = new IdTypeChecker[DomainStore] {
-    override def isOfType(id: TopologyStoreId): Boolean = id match {
-      case DomainStore(_, _) => true
-      case AuthorizedStore => false
-    }
+    override def isOfType(id: TopologyStoreId): Boolean = id.isDomainStore
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

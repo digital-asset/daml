@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto
 import cats.Order
 import cats.data.EitherT
 import cats.instances.future.*
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String68
@@ -14,6 +15,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPrivateStoreExtended,
   CryptoPublicStoreError,
 }
+import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DeserializationError, ProtoConverter}
@@ -544,7 +546,18 @@ object DecryptionError {
 }
 
 sealed trait EncryptionKeyGenerationError extends Product with Serializable with PrettyPrinting
-object EncryptionKeyGenerationError {
+object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that an encryption key could not be created.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "ENCRYPTION_KEY_GENERATION_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Wrap(reason: EncryptionKeyGenerationError)
+        extends BaseCantonError.Impl(cause = "Unable to create encryption key")
+  }
 
   final case class GeneralError(error: Exception) extends EncryptionKeyGenerationError {
     override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))

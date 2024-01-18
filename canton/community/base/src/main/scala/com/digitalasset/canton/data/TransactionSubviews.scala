@@ -97,10 +97,10 @@ final case class TransactionSubviews private[data] (
 
 object TransactionSubviews {
   private[data] def fromProtoV1(
-      context: (HashOps, ConfirmationPolicy),
+      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
       subviewsPO: Option[v1.MerkleSeq],
   ): ParsingResult[TransactionSubviews] = {
-    val (hashOps, _) = context
+    val (hashOps, _, _) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
       tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(1))(context)

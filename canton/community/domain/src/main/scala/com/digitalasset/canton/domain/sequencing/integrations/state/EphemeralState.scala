@@ -10,7 +10,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoi
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
   InternalSequencerPruningStatus,
-  LedgerIdentity,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.TrafficState
@@ -23,14 +22,12 @@ import com.digitalasset.canton.topology.Member
   * @param inFlightAggregations All aggregatable submission requests by their [[com.digitalasset.canton.sequencing.protocol.AggregationId]]
   *                             whose [[com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.maxSequencingTimestamp]] has not yet elapsed.
   * @param status Pruning status, which includes members info and relevant timestamps
-  * @param authorization Tracks which ledger identities are authorized to interact with the Sequencer smart contract
   * @param trafficState The traffic state for each member
   */
 final case class EphemeralState(
     inFlightAggregations: InFlightAggregations,
     status: InternalSequencerPruningStatus,
     checkpoints: Map[Member, CounterCheckpoint],
-    authorization: Set[LedgerIdentity],
     trafficState: Map[Member, TrafficState],
 ) extends PrettyPrinting {
   val registeredMembers: Set[Member] = status.members.map(_.member).toSet
@@ -69,7 +66,6 @@ final case class EphemeralState(
     param("heads", _.heads),
     param("in-flight aggregations", _.inFlightAggregations),
     param("status", _.status),
-    param("authorization", _.authorization.map(_.toString.unquoted)),
   )
 }
 
@@ -82,14 +78,12 @@ object EphemeralState {
       heads: Map[Member, SequencerCounter],
       inFlightAggregations: InFlightAggregations,
       status: InternalSequencerPruningStatus = InternalSequencerPruningStatus.Unimplemented,
-      authorization: Set[LedgerIdentity] = Set(),
       trafficState: Map[Member, TrafficState] = Map.empty,
   ): EphemeralState =
     EphemeralState(
       inFlightAggregations,
       status,
       heads.fmap(c => CounterCheckpoint(c, CantonTimestamp.MinValue, None)),
-      authorization,
       trafficState,
     )
 }

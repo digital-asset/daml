@@ -20,9 +20,9 @@ import com.digitalasset.canton.domain.block.data.{
 }
 import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.domain.sequencing.sequencer.{LedgerIdentity, Sequencer}
 import com.digitalasset.canton.error.SequencerBaseError
 import com.digitalasset.canton.lifecycle.{AsyncCloseable, AsyncOrSyncCloseable, FlagCloseableAsync}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -69,7 +69,6 @@ class BlockSequencerStateManager(
 
   import BlockSequencerStateManager.*
 
-  private val authorizationPromises = TrieMap[LedgerIdentity, Promise[Unit]]()
   private val memberRegistrationPromises = TrieMap[Member, Promise[CantonTimestamp]]()
   private val memberDisablementPromises = TrieMap[Member, Promise[Unit]]()
   private val sequencerPruningPromises = TrieMap[CantonTimestamp, Promise[String]]()
@@ -100,10 +99,6 @@ class BlockSequencerStateManager(
   /** Check whether a member is currently enabled based on the latest state. */
   def isMemberEnabled(member: Member): Boolean =
     headState.get().chunk.ephemeral.status.members.exists(s => s.enabled && s.member == member)
-
-  /** Check whether a ledger identity is currently registered based on the latest state. */
-  def isAuthorized(account: LedgerIdentity): Boolean =
-    headState.get().chunk.ephemeral.authorization.contains(account)
 
   private val dispatchers: TrieMap[Member, Dispatcher[SequencerCounter]] = TrieMap.empty
 
@@ -280,7 +275,6 @@ class BlockSequencerStateManager(
       signalMemberCountersToDispatchers(newState.ephemeral)
       resolveWaitingForNewMembers(newState.ephemeral)
       resolveWaitingForMemberDisablement(newState.ephemeral)
-      resolveLedgerAuthorization(newState.ephemeral)
       update.acknowledgements.foreach { case (member, timestamp) =>
         resolveAcknowledgements(member, timestamp)
       }
@@ -365,13 +359,6 @@ class BlockSequencerStateManager(
       memberRegistrationPromises.remove(registeredMember.member) foreach { promise =>
         promise.success(registeredMember.registeredAt)
       }
-    }
-  }
-
-  private def resolveLedgerAuthorization(newState: EphemeralState): Unit = {
-    // if any members that we're waiting to see are now registered members, complete those promises.
-    newState.authorization foreach { authorizedIdentity =>
-      authorizationPromises.remove(authorizedIdentity) foreach { promise => promise.success(()) }
     }
   }
 

@@ -43,20 +43,21 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
 import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 class DbTransferStore(
     override protected val storage: DbStorage,
     domain: TargetDomainId,
-    protocolVersion: ProtocolVersion,
+    targetDomainProtocolVersion: TargetProtocolVersion,
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
     override protected val timeouts: ProcessingTimeout,
@@ -72,22 +73,31 @@ class DbTransferStore(
   private val processingTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("transfer-store")
 
-  implicit val getResultFullTransferOutTree: GetResult[FullTransferOutTree] = GetResult(r =>
-    FullTransferOutTree
-      .fromByteString(cryptoApi)(ByteString.copyFrom(r.<<[Array[Byte]]))
-      .fold[FullTransferOutTree](
-        error =>
-          throw new DbDeserializationException(s"Error deserializing transfer out request $error"),
-        Predef.identity,
-      )
-  )
+  private def getResultFullTransferOutTree(
+      sourceDomainProtocolVersion: SourceProtocolVersion
+  ): GetResult[FullTransferOutTree] =
+    GetResult(r =>
+      FullTransferOutTree
+        .fromByteString(cryptoApi, sourceDomainProtocolVersion)(
+          ByteString.copyFrom(r.<<[Array[Byte]])
+        )
+        .fold[FullTransferOutTree](
+          error =>
+            throw new DbDeserializationException(
+              s"Error deserializing transfer out request $error"
+            ),
+          Predef.identity,
+        )
+    )
 
-  private implicit val setParameterFullTransferOutTree: SetParameter[FullTransferOutTree] =
+  private def setResultFullTransferOutTree(
+      sourceProtocolVersion: SourceProtocolVersion
+  ): SetParameter[FullTransferOutTree] =
     (r: FullTransferOutTree, pp: PositionedParameters) =>
-      pp >> r.toByteString(protocolVersion).toByteArray
+      pp >> r.toByteString(sourceProtocolVersion.v).toByteArray
 
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
-    SerializableContract.getVersionedSetParameter(protocolVersion)
+    SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.v)
 
   private implicit val getResultOptionRawDeliveredTransferOutResult
       : GetResult[Option[RawDeliveredTransferOutResult]] = GetResult { r =>
@@ -121,7 +131,7 @@ class DbTransferStore(
       sourceProtocolVersion = sourceProtocolVersion,
       transferOutTimestamp = GetResult[CantonTimestamp].apply(r),
       transferOutRequestCounter = GetResult[RequestCounter].apply(r),
-      transferOutRequest = getResultFullTransferOutTree(r),
+      transferOutRequest = getResultFullTransferOutTree(sourceProtocolVersion).apply(r),
       transferOutDecisionTime = GetResult[CantonTimestamp].apply(r),
       contract = GetResult[SerializableContract].apply(r),
       creatingTransactionId = GetResult[TransactionId].apply(r),
@@ -158,6 +168,9 @@ class DbTransferStore(
       transferData: TransferData
   )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] =
     processingTime.eitherTEvent {
+      @unused implicit val setParameterFullTransferOutTree =
+        setResultFullTransferOutTree(transferData.sourceProtocolVersion)
+
       ErrorUtil.requireArgument(
         transferData.targetDomain == domain,
         s"Domain ${domain.unwrap}: Transfer store cannot store transfer for domain ${transferData.targetDomain.unwrap}",
@@ -191,6 +204,9 @@ class DbTransferStore(
       def insertExisting(
           existingEntry: TransferEntry
       ): Checked[TransferStoreError, TransferAlreadyCompleted, Option[DBIO[Int]]] = {
+        @unused implicit val setParameterFullTransferOutTree =
+          setResultFullTransferOutTree(existingEntry.transferData.sourceProtocolVersion)
+
         def update(entry: TransferEntry): DBIO[Int] = {
           val id = entry.transferData.transferId
           val data = entry.transferData

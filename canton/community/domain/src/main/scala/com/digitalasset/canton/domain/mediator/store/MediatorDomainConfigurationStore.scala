@@ -17,6 +17,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class MediatorDomainConfiguration(
+    // Ok to use in the old topology management.
+    // Do not use from the new topology management.
     @Deprecated(since = "3.0.0, x-nodes do not need to return the initial key")
     initialKeyFingerprint: Fingerprint,
     domainId: DomainId,

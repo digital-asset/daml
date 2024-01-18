@@ -18,8 +18,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v0.SequencerPruningAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerClients,
   SequencerPruningStatus,
@@ -40,8 +40,8 @@ trait SequencerAdministrationGroupCommon extends ConsoleCommandGroup {
       extends PruningSchedulerAdministration(
         runner,
         consoleEnvironment,
-        new PruningSchedulerCommands[EnterpriseSequencerAdministrationServiceStub](
-          EnterpriseSequencerAdministrationServiceGrpc.stub,
+        new PruningSchedulerCommands[SequencerPruningAdministrationServiceStub](
+          SequencerPruningAdministrationServiceGrpc.stub,
           _.setSchedule(_),
           _.clearSchedule(_),
           _.setCron(_),

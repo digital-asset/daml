@@ -88,7 +88,7 @@ object DeprecatedConfigUtils {
                     // Adding the deprecated value to its new location(s)
                     case (config, toPath) => config.withFallback(deprecated.atPath(toPath))
                   })
-                  // Deleting the deprecated value from the config, so that we don't get an "Unkown key" error later
+                  // Deleting the deprecated value from the config, so that we don't get an "Unknown key" error later
                   .withoutPath(from)
                   .root()
               }
@@ -101,7 +101,7 @@ object DeprecatedConfigUtils {
 
     /** Log a deprecation message for config values that are deprecated
       */
-    def deprecateConfigPath[V](deprecated: DeprecatedConfigPath[_])(implicit
+    def deprecateConfigPath(deprecated: DeprecatedConfigPath[_])(implicit
         elc: ErrorLoggingContext
     ): ConfigReader[T] = {
       val fromPathSegment =

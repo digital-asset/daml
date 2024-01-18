@@ -92,7 +92,8 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
   @transient override protected lazy val companionObj: InformeeMessage.type = InformeeMessage
 }
 
-object InformeeMessage extends HasProtocolVersionedWithContextCompanion[InformeeMessage, HashOps] {
+object InformeeMessage
+    extends HasProtocolVersionedWithContextCompanion[InformeeMessage, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.InformeeMessage)(
@@ -112,7 +113,7 @@ object InformeeMessage extends HasProtocolVersionedWithContextCompanion[Informee
   // but other classes use something else (e.g. "String").
   // In the end, it is most important that the errors are informative and this can be achieved in different ways.
   private[messages] def fromProtoV1(
-      hashOps: HashOps
+      context: (HashOps, ProtocolVersion)
   )(informeeMessageP: v1.InformeeMessage): ParsingResult[InformeeMessage] = {
     // Use pattern matching to access the fields of v0.InformeeMessage,
     // because this will break if a field is forgotten.
@@ -123,7 +124,7 @@ object InformeeMessage extends HasProtocolVersionedWithContextCompanion[Informee
         "InformeeMessage.informeeTree",
         maybeFullInformeeTreeP,
       )
-      fullInformeeTree <- FullInformeeTree.fromProtoV1(hashOps, fullInformeeTreeP)
+      fullInformeeTree <- FullInformeeTree.fromProtoV1(context, fullInformeeTreeP)
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield new InformeeMessage(fullInformeeTree)(protocolVersion)
   }

@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
 import com.digitalasset.canton.domain.mediator.store.{
   FinalizedResponseStore,
@@ -79,7 +79,7 @@ private[mediator] class CommunityMediatorRuntime(
   )
   override val enterpriseAdministrationService: ServerServiceDefinition =
     StaticGrpcServices.notSupportedByCommunity(
-      EnterpriseMediatorAdministrationServiceGrpc.SERVICE,
+      MediatorAdministrationServiceGrpc.SERVICE,
       logger,
     )
 }

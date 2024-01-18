@@ -29,7 +29,6 @@ import com.digitalasset.canton.config.ConfigErrors.{
   NoConfigFiles,
   SubstitutionError,
 }
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
 import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
@@ -120,21 +119,6 @@ object CheckConfig {
       interval: NonNegativeFiniteDuration,
       timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
   ) extends CheckConfig
-
-  object IsActive {
-    trait IsActiveConfigDeprecationsImplicits {
-      implicit def deprecatedHealthConfig[X <: IsActive]: DeprecatedFieldsFor[X] =
-        new DeprecatedFieldsFor[IsActive] {
-          override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-            DeprecatedConfigUtils.MovedConfigPath(
-              "participant",
-              "node",
-            )
-          )
-        }
-    }
-    object DeprecatedImplicits extends IsActiveConfigDeprecationsImplicits
-  }
 
   /** Returns the isActive state of a node.
     * Intended for a HA node where only one of potentially many replicas will be active concurrently.
@@ -636,14 +620,8 @@ object CantonConfig {
     allowUnknownKeys = false,
   )
 
-  class ConfigReaders(implicit private val elc: ErrorLoggingContext) {
+  object ConfigReaders {
     import CantonConfigUtil.*
-    import DeprecatedConfigUtils.*
-    import ParticipantInitConfig.DeprecatedImplicits.*
-    import com.digitalasset.canton.config.CheckConfig.IsActive.DeprecatedImplicits.*
-    import com.digitalasset.canton.metrics.MetricsReporterConfig.DeprecatedImplicits.*
-    import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig.DeprecatedImplicits.*
-    import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DeprecatedImplicits.*
 
     lazy implicit val lengthLimitedStringReader: ConfigReader[LengthLimitedString] = {
       ConfigReader.fromString[LengthLimitedString] { str =>
@@ -794,7 +772,7 @@ object CantonConfig {
     lazy implicit val nodeNameReader: ConfigReader[NodeIdentifierConfig] =
       deriveReader[NodeIdentifierConfig]
     lazy implicit val participantInitConfigReader: ConfigReader[ParticipantInitConfig] =
-      deriveReader[ParticipantInitConfig].applyDeprecations
+      deriveReader[ParticipantInitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
     lazy implicit val domainInitConfigReader: ConfigReader[DomainInitConfig] =
       deriveReader[DomainInitConfig]
@@ -886,7 +864,7 @@ object CantonConfig {
     lazy implicit val rateLimitConfigReader: ConfigReader[RateLimitingConfig] =
       deriveReader[RateLimitingConfig]
     lazy implicit val ledgerApiServerConfigReader: ConfigReader[LedgerApiServerConfig] =
-      deriveReader[LedgerApiServerConfig].applyDeprecations
+      deriveReader[LedgerApiServerConfig]
 
     implicit val throttleModeCfgReader: ConfigReader[ThrottleMode] =
       ConfigReader.fromString[ThrottleMode](catchConvertError { s =>
@@ -911,7 +889,7 @@ object CantonConfig {
       deriveReader[HttpApiConfig]
     lazy implicit val activeContractsServiceConfigReader
         : ConfigReader[ActiveContractsServiceStreamsConfig] =
-      deriveReader[ActiveContractsServiceStreamsConfig].applyDeprecations
+      deriveReader[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
       deriveReader[PackageMetadataViewConfig]
     lazy implicit val identityConfigReader: ConfigReader[TopologyConfig] =
@@ -1000,7 +978,7 @@ object CantonConfig {
     lazy implicit val checkConfigPingReader: ConfigReader[CheckConfig.Ping] =
       deriveReader[CheckConfig.Ping]
     lazy implicit val checkConfigIsActiveReader: ConfigReader[CheckConfig.IsActive] =
-      deriveReader[CheckConfig.IsActive].applyDeprecations
+      deriveReader[CheckConfig.IsActive]
     lazy implicit val checkConfigReader: ConfigReader[CheckConfig] = deriveReader[CheckConfig]
 
     lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
@@ -1024,7 +1002,7 @@ object CantonConfig {
     lazy implicit val metricsConfigJMXReader: ConfigReader[MetricsConfig.JMX] =
       deriveReader[MetricsConfig.JMX]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
-      deriveReader[MetricsReporterConfig].applyDeprecations
+      deriveReader[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
       deriveReader[HistogramDefinition]
     lazy implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]

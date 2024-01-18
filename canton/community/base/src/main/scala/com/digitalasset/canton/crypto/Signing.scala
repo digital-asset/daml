@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.data.EitherT
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.store.{
@@ -12,6 +13,7 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPrivateStoreExtended,
   CryptoPublicStoreError,
 }
+import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -470,7 +472,18 @@ object SigningError {
 }
 
 sealed trait SigningKeyGenerationError extends Product with Serializable with PrettyPrinting
-object SigningKeyGenerationError {
+object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that a signing key could not be created.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "SIGNING_KEY_GENERATION_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Wrap(reason: SigningKeyGenerationError)
+        extends BaseCantonError.Impl(cause = "Unable to create signing key")
+  }
 
   final case class GeneralError(error: Exception) extends SigningKeyGenerationError {
     override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))

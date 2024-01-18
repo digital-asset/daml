@@ -27,7 +27,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -155,7 +155,9 @@ class GrpcTopologyManagerWriteServiceX(
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
-          .traverse(SignedTopologyTransactionX.fromProtoV2)
+          .traverse(tx =>
+            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+          )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signingKeys <-
@@ -184,7 +186,9 @@ class GrpcTopologyManagerWriteServiceX(
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
-          .traverse(SignedTopologyTransactionX.fromProtoV2)
+          .traverse(tx =>
+            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+          )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       manager <- targetManagerET(request.store)

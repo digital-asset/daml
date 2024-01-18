@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.SequencerAdministrationServiceGrpc
 import com.digitalasset.canton.domain.config.DomainConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
@@ -167,7 +167,7 @@ object SequencerRuntimeFactory {
           ),
           _ =>
             StaticGrpcServices
-              .notSupportedByCommunity(EnterpriseSequencerAdministrationServiceGrpc.SERVICE, logger)
+              .notSupportedByCommunity(SequencerAdministrationServiceGrpc.SERVICE, logger)
               .some,
           DomainMember
             .list(domainId, includeSequencer = false)

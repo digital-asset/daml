@@ -4,10 +4,8 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, TransferId}
+import com.digitalasset.canton.protocol.{LfContractId, TransferId}
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
-
-import scala.collection.immutable.Set
 
 /** Defines the contracts and transfers for conflict detection.
   * Transfers are not locked because the transferred contracts are already being locked.
@@ -15,13 +13,11 @@ import scala.collection.immutable.Set
 final case class ActivenessSet(
     contracts: ActivenessCheck[LfContractId],
     transferIds: Set[TransferId],
-    keys: ActivenessCheck[LfGlobalKey],
 ) extends PrettyPrinting {
 
   override def pretty: Pretty[ActivenessSet] = prettyOfClass(
     param("contracts", _.contracts),
     paramIfNonEmpty("transferIds", _.transferIds),
-    param("keys", _.keys),
   )
 }
 
@@ -30,7 +26,6 @@ object ActivenessSet {
     ActivenessSet(
       ActivenessCheck.empty[LfContractId],
       Set.empty,
-      ActivenessCheck.empty[LfGlobalKey],
     )
 }
 

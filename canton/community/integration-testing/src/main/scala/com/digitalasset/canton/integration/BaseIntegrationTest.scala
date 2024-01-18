@@ -114,7 +114,7 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     eventually() {
       import com.digitalasset.canton.participant.admin.workflows.java as W
       forEvery(Seq(sender, receiver)) { p =>
-        p.ledger_api.acs
+        p.ledger_api_v2.state.acs
           .of_party(
             p.id.adminParty,
             filterTemplates = templateIdsFromJava(W.pingpong.Pong.TEMPLATE_ID),

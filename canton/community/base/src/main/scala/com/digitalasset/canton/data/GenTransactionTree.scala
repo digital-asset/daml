@@ -281,21 +281,21 @@ object GenTransactionTree {
   val rootViewsUnsafe: Lens[GenTransactionTree, MerkleSeq[TransactionView]] =
     GenLens[GenTransactionTree](_.rootViews)
 
-  // TODO(#12626) – try with context
   def fromProtoV1(
-      hashOps: HashOps,
+      context: (HashOps, ProtocolVersion),
       protoTransactionTree: v1.GenTransactionTree,
-  ): ParsingResult[GenTransactionTree] =
+  ): ParsingResult[GenTransactionTree] = {
+    val (hashOps, expectedProtocolVersion) = context
     for {
       submitterMetadata <- MerkleTree
         .fromProtoOptionV1(
           protoTransactionTree.submitterMetadata,
-          SubmitterMetadata.fromByteStringUnsafe(hashOps),
+          SubmitterMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       commonMetadata <- MerkleTree
         .fromProtoOptionV1(
           protoTransactionTree.commonMetadata,
-          CommonMetadata.fromByteStringUnsafe(hashOps),
+          CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
         InvariantViolation("GenTransactionTree.commonMetadata is blinded")
@@ -303,7 +303,7 @@ object GenTransactionTree {
       participantMetadata <- MerkleTree
         .fromProtoOptionV1(
           protoTransactionTree.participantMetadata,
-          ParticipantMetadata.fromByteStringUnsafe(hashOps),
+          ParticipantMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       rootViewsP <- ProtoConverter
         .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
@@ -311,7 +311,7 @@ object GenTransactionTree {
         (
           hashOps,
           TransactionView.fromByteStringLegacy(ProtoVersion(1))(
-            (hashOps, commonMetadataUnblinded.confirmationPolicy)
+            (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
           ),
         ),
         rootViewsP,
@@ -324,6 +324,7 @@ object GenTransactionTree {
         rootViews,
       )
     } yield genTransactionTree
+  }
 
   def createGenTransactionTreeV0V1(
       hashOps: HashOps,

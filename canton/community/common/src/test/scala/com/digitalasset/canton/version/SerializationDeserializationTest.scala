@@ -77,13 +77,13 @@ class SerializationDeserializationTest
         testProtocolVersioned(AcsCommitment)
         testProtocolVersioned(Verdict)
         testProtocolVersioned(MediatorResponse)
-        testMemoizedProtocolVersioned(TypedSignedProtocolMessageContent)
-        testProtocolVersioned(SignedProtocolMessage)
+        testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
+        testProtocolVersionedWithCtx(SignedProtocolMessage, version)
 
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
         testProtocolVersioned(MalformedMediatorRequestResult)
-        testProtocolVersionedWithCtx(EnvelopeContent, TestHash)
+        testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
         testMemoizedProtocolVersioned(TransactionResultMessage)
 
         testProtocolVersioned(AcknowledgeRequest)
@@ -115,7 +115,10 @@ class SerializationDeserializationTest
           )
         }
 
-        testMemoizedProtocolVersioned(SignedTopologyTransaction)
+        testMemoizedProtocolVersionedWithCtx(
+          SignedTopologyTransaction,
+          ProtocolVersionValidation(version),
+        )
         testMemoizedProtocolVersioned(LegalIdentityClaim)
 
         testMemoizedProtocolVersionedWithCtx(

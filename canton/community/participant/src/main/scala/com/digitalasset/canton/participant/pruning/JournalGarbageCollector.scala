@@ -32,7 +32,6 @@ private[participant] class JournalGarbageCollector(
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
-    keyJournal: ContractKeyJournal,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
     domainId: DomainId,
@@ -66,21 +65,13 @@ private[participant] class JournalGarbageCollector(
   private def prune(pruneTs: CantonTimestampSecond)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    logger.debug(s"Starting periodic background pruning of journals up to ${pruneTs}")
+    logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
     val acsDescription = s"Periodic ACS prune at $pruneTs:"
     // Clean unused entries from the ACS
     val acsF = performUnlessClosingF(acsDescription)(
       FutureUtil.logOnFailure(
         acs.prune(pruneTs.forgetRefinement),
         acsDescription,
-      )
-    )
-    val journalFDescription = s"Periodic contract key journal prune at $pruneTs: "
-    // clean unused contract key journal entries
-    val journalF = performUnlessClosingF(journalFDescription)(
-      FutureUtil.logOnFailure(
-        keyJournal.prune(pruneTs.forgetRefinement),
-        journalFDescription,
       )
     )
     val submissionTrackerStoreDescription =
@@ -92,7 +83,7 @@ private[participant] class JournalGarbageCollector(
         submissionTrackerStoreDescription,
       )
     )
-    Seq(acsF, journalF, submissionTrackerStoreF).sequence_.onShutdown(())
+    Seq(acsF, submissionTrackerStoreF).sequence_.onShutdown(())
   }
 }
 

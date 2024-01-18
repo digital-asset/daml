@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
-import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.DomainAlias
-import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
+import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
 import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.TransferService
 import com.digitalasset.canton.participant.protocol.transfer.TransferData
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -17,15 +18,19 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
+import com.digitalasset.canton.util.OptionUtil
+import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTransferService(service: TransferService, participantId: ParticipantId)(implicit
+class GrpcTransferService(
+    service: TransferService,
+    participantId: ParticipantId,
+    override protected val loggerFactory: NamedLoggerFactory,
+)(implicit
     ec: ExecutionContext
-) extends TransferServiceGrpc.TransferService {
-
-  import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+) extends TransferServiceGrpc.TransferService
+    with NamedLogging {
 
   override def transferOut(request: AdminTransferOutRequest): Future[AdminTransferOutResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
@@ -39,18 +44,48 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
       workflowIdP,
       commandIdP,
     ) = request
-    val res = for {
-      sourceDomain <- mapErr(DomainAlias.create(sourceDomainP))
-      targetDomain <- mapErr(DomainAlias.create(targetDomainP))
-      contractId <- mapErr(ProtoConverter.parseLfContractId(contractIdP))
-      submittingParty <- mapErr(
-        EitherT.fromEither[Future](ProtoConverter.parseLfPartyId(submittingPartyP))
+    for {
+      sourceDomain <- Future(
+        DomainAlias
+          .create(sourceDomainP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      targetDomain <- Future(
+        DomainAlias
+          .create(targetDomainP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      contractId <- Future(
+        ProtoConverter
+          .parseLfContractId(contractIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      submittingParty <- Future(
+        ProtoConverter
+          .parseLfPartyId(submittingPartyP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
 
-      applicationId <- mapErr(ProtoConverter.parseLFApplicationId(applicationIdP))
-      submissionId <- mapErr(ProtoConverter.parseLFSubmissionIdO(submissionIdP))
-      workflowId <- mapErr(ProtoConverter.parseLFWorkflowIdO(workflowIdP))
-      commandId <- mapErr(ProtoConverter.parseCommandId(commandIdP))
+      applicationId <- Future(
+        ProtoConverter
+          .parseLFApplicationId(applicationIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      submissionId <- Future(
+        ProtoConverter
+          .parseLFSubmissionIdO(submissionIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      workflowId <- Future(
+        ProtoConverter
+          .parseLFWorkflowIdO(workflowIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      commandId <- Future(
+        ProtoConverter
+          .parseCommandId(commandIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
 
       submitterMetadata = TransferSubmitterMetadata(
         submittingParty,
@@ -60,16 +95,16 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
         submissionId,
         workflowId,
       )
-      transferId <- mapErr(
-        service.transferOut(
-          submitterMetadata,
-          contractId,
-          sourceDomain,
-          targetDomain,
-        )
-      )
+      transferId <-
+        service
+          .transferOut(
+            submitterMetadata,
+            contractId,
+            sourceDomain,
+            targetDomain,
+          )
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
     } yield AdminTransferOutResponse(transferId = Some(transferId.toAdminProto))
-    EitherTUtil.toFuture(res)
   }
 
   override def transferIn(request: AdminTransferInRequest): Future[AdminTransferInResponse] = {
@@ -83,17 +118,43 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
       workflowIdP,
       commandIdP,
     ) = request
-    val res = for {
-      targetDomain <- mapErr(DomainAlias.create(targetDomainP))
-      submittingParty <- mapErr(ProtoConverter.parseLfPartyId(submittingPartyIdP))
-      transferId <- transferIdP
-        .map(id => mapErr(TransferId.fromAdminProtoV0(id)))
-        .getOrElse(mapErr(Left(invalidArgument("TransferId not set in transfer-in request"))))
-
-      applicationId <- mapErr(ProtoConverter.parseLFApplicationId(applicationIdP))
-      submissionId <- mapErr(ProtoConverter.parseLFSubmissionIdO(submissionIdP))
-      workflowId <- mapErr(ProtoConverter.parseLFWorkflowIdO(workflowIdP))
-      commandId <- mapErr(ProtoConverter.parseCommandId(commandIdP))
+    for {
+      targetDomain <- Future(
+        DomainAlias
+          .create(targetDomainP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      submittingParty <- Future(
+        ProtoConverter
+          .parseLfPartyId(submittingPartyIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      transferId <- Future(
+        ProtoConverter
+          .required("transferId", transferIdP)
+          .flatMap(TransferId.fromAdminProtoV0)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      applicationId <- Future(
+        ProtoConverter
+          .parseLFApplicationId(applicationIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      submissionId <- Future(
+        ProtoConverter
+          .parseLFSubmissionIdO(submissionIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      workflowId <- Future(
+        ProtoConverter
+          .parseLFWorkflowIdO(workflowIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
+      commandId <- Future(
+        ProtoConverter
+          .parseCommandId(commandIdP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
       submitterMetadata = TransferSubmitterMetadata(
         submittingParty,
         applicationId,
@@ -102,15 +163,17 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
         submissionId,
         workflowId,
       )
-      _result <- mapErr(
-        service.transferIn(
-          submitterMetadata,
-          targetDomain,
-          transferId,
-        )
-      )
+      _result <-
+        service
+          .transferIn(
+            submitterMetadata,
+            targetDomain,
+            transferId,
+          )
+          .valueOr(err =>
+            throw Status.FAILED_PRECONDITION.withDescription(err).asRuntimeException()
+          )
     } yield AdminTransferInResponse()
-    EitherTUtil.toFuture(res)
   }
 
   override def transferSearch(
@@ -126,33 +189,45 @@ class GrpcTransferService(service: TransferService, participantId: ParticipantId
       limit,
     ) = searchRequest
 
-    val res = for {
-      filterSourceDomain <- mapErr(DomainAlias.create(filterSourceDomainP))
+    for {
+      filterSourceDomain <- Future(
+        DomainAlias
+          .create(filterSourceDomainP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
       filterDomain = if (filterSourceDomainP == "") None else Some(filterSourceDomain)
-      searchDomain <- mapErr(DomainAlias.create(searchDomainP))
-      filterSubmitterO <- mapErr(
+      searchDomain <- Future(
+        DomainAlias
+          .create(searchDomainP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      filterSubmitterO <- Future(
         OptionUtil
           .emptyStringAsNone(filterSubmitterP)
           .map(ProtoConverter.parseLfPartyId)
           .sequence
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
-      filterTimestampO <- mapErr(
-        filterTimestampP.map(CantonTimestamp.fromProtoPrimitive).sequence
+      filterTimestampO <- Future(
+        filterTimestampP
+          .map(CantonTimestamp.fromProtoPrimitive)
+          .sequence
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
-      transferData <- mapErr(
-        service.transferSearch(
-          searchDomain,
-          filterDomain,
-          filterTimestampO,
-          filterSubmitterO,
-          limit.toInt,
-        )
-      )
+      transferData <-
+        service
+          .transferSearch(
+            searchDomain,
+            filterDomain,
+            filterTimestampO,
+            filterSubmitterO,
+            limit.toInt,
+          )
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
     } yield {
       val searchResultsP = transferData.map(TransferSearchResult(_).toProtoV0)
       AdminTransferSearchResponse(results = searchResultsP)
     }
-    EitherTUtil.toFuture(res)
   }
 }
 

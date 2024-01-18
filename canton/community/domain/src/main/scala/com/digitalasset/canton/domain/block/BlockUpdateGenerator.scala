@@ -243,11 +243,6 @@ class BlockUpdateGenerator(
       lastTsAndFixedTsChanges <- lastTsAndFixedTsChangesF
       (lastTs, fixedTsChanges) = lastTsAndFixedTsChanges
 
-      newAuthorizations = fixedTsChanges.collect {
-        case (_, Traced(AuthorizedAccount(account)), _)
-            if !state.ephemeral.authorization.contains(account) =>
-          account
-      }
       membersToDisable = fixedTsChanges.collect { case (_, Traced(DisableMember(member)), _) =>
         member
       }
@@ -354,8 +349,6 @@ class BlockUpdateGenerator(
         state
           .focus(_.ephemeral.status.membersMap)
           .replace(newMembersWithDisablementsAndAcknowledgements)
-          .focus(_.ephemeral.authorization)
-          .modify(_ ++ newAuthorizations)
           .focus(_.ephemeral.trafficState)
           .modify(_ ++ newMembersTraffic)
       }

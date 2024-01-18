@@ -17,6 +17,7 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.PruningNotSupportedInCommunityEdition
+import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 
 sealed trait EnterpriseFeatureInCommunityXIntegrationTest
     extends CommunityIntegrationTest
@@ -61,7 +62,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
       // logged at the server
       logentry =>
         logentry.warningMessage should include(
-          "This Community edition of canton does not support the operation: EnterpriseSequencerAdministrationService.Prune."
+          "This Community edition of canton does not support the operation: SequencerPruningAdministrationService.Prune."
         ),
       // logged at the client
       logentry =>
@@ -75,7 +76,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
       // logged at the server
       logentry =>
         logentry.warningMessage should include(
-          "This Community edition of canton does not support the operation: EnterpriseMediatorAdministrationService.Prune."
+          "This Community edition of canton does not support the operation: MediatorAdministrationService.Prune."
         ),
       // logged at the client
       logentry =>
@@ -94,7 +95,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
       alias = Some(DomainAlias.tryCreate(domainAlias)),
     )
 
-    val startOffset = participant1x.ledger_api.completions.end()
+    val startOffset = ApiConversions.toV1(participant1x.ledger_api_v2.state.end())
     // Generate some data after the pruning point
     participant1x.health.ping(participant1x)
 

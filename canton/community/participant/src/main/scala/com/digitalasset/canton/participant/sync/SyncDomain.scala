@@ -238,7 +238,6 @@ class SyncDomain(
     sortedReconciliationIntervalsProvider,
     persistent.acsCommitmentStore,
     persistent.activeContractStore,
-    persistent.contractKeyJournal,
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,

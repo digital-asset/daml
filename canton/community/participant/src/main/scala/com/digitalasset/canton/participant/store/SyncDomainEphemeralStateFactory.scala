@@ -15,7 +15,6 @@ import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
-import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.sequencing.PossiblyIgnoredSerializedEvent
 import com.digitalasset.canton.store.CursorPrehead.{
   RequestCounterCursorPrehead,
@@ -505,15 +504,6 @@ object SyncDomainEphemeralStateFactory {
       _ <- persistentState.transferStore.deleteCompletionsSince(
         processingStartingPoint.nextRequestCounter
       )
-      _ = logger.debug("Deleting contract key changes")
-      _ <- persistentState.contractKeyJournal
-        .deleteSince(
-          TimeOfChange(
-            processingStartingPoint.nextRequestCounter,
-            processingStartingPoint.prenextTimestamp,
-          )
-        )
-        .valueOr(err => throw err.asThrowable)
       _ = logger.debug("Deleting registered fresh requests")
       _ <- persistentState.submissionTrackerStore.deleteSince(
         processingStartingPoint.prenextTimestamp.immediateSuccessor
