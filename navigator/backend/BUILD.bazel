@@ -123,6 +123,7 @@ da_scala_library(
         ":navigator-library",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-service/lf-value-json",
