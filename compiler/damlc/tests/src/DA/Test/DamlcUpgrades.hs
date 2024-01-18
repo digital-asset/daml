@@ -731,7 +731,7 @@ tests damlc =
                 renderVersion
                   (fromMaybe
                     (error "DamlcUpgrades: featureMinVersion should be defined over featurePackageUpgrades")
-                    (featureMinVersion featurePackageUpgrades V1))
+                    (featureMinVersion featurePackageUpgrades V2))
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
 

@@ -17,38 +17,6 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
-allV1StablePackages :: MS.Map PackageId Package
-allV1StablePackages =
-    MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg))
-    [ ghcTypes version1_6
-    , ghcPrim version1_6
-    , ghcTuple version1_6
-    , daTypes version1_6
-    , daInternalTemplate version1_6
-    , daInternalAny version1_7
-    , daTimeTypes version1_6
-    , daNonEmptyTypes version1_6
-    , daDateTypes version1_6
-    , daSemigroupTypes version1_6
-    , daMonoidTypes version1_6
-    , daLogicTypes version1_6
-    , daValidationTypes version1_6 (encodePackageHash (daNonEmptyTypes version1_6))
-    , daInternalDown version1_6
-    , daInternalErased version1_6
-    , daInternalNatSyn version1_14
-    , daInternalPromotedText version1_6
-    , daSetTypes version1_11
-    , daExceptionGeneralError version1_14
-    , daExceptionArithmeticError version1_14
-    , daExceptionAssertionFailed version1_14
-    , daExceptionPreconditionFailed version1_14
-    , daInternalInterfaceAnyViewTypes version1_15
-    , daActionStateType version1_14 (encodePackageHash (daTypes version1_6))
-    , daRandomTypes version1_14
-    , daStackTypes version1_14
-    ]
-
 allV2StablePackages :: MS.Map PackageId Package
 allV2StablePackages =
     MS.fromList $
@@ -82,18 +50,10 @@ allV2StablePackages =
       ]
 
 allStablePackages :: MS.Map PackageId Package
-allStablePackages =
-    MS.unionWithKey
-        duplicatePackageIdError
-        allV1StablePackages
-        allV2StablePackages
-  where
-    duplicatePackageIdError pkgId _ _ =
-        error $ "duplicate package ID among stable packages: " <> show pkgId
+allStablePackages = allV2StablePackages
 
 allStablePackagesForMajorVersion :: MajorVersion -> MS.Map PackageId Package
 allStablePackagesForMajorVersion = \case
-    V1 -> allV1StablePackages
     V2 -> allV2StablePackages
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
