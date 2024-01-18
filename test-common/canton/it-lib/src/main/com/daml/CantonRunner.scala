@@ -90,8 +90,8 @@ object CantonRunner {
       val participantId = config.participantIds(i)
       s"""${participantId} {
          |      admin-api.port = ${adminPort.port}
+         |      init.ledger-api.max-deduplication-duration = 0s
          |      ledger-api{
-         |        max-deduplication-duration = 0s
          |        port = ${ledgerApiPort.port}
          |        ${authConfig}
          |        ${tls}
