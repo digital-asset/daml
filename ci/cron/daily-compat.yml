@@ -370,7 +370,6 @@ jobs:
            && "$(perf_speedy)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
            && "$(update_canton)" == "Succeeded"
-           && "$(update_canton_2x)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
