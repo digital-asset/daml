@@ -141,7 +141,7 @@ private[daml] object AcsTxStreams {
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
-    val (templateIds, interfaceIds) = domain.ResolvedQuery.partitionR(contractTypeIds)
+    val (templateIds, interfaceIds) = domain.ResolvedQuery.partition(contractTypeIds)
     val filters = Filters(
       Some(
         lav1.transaction_filter.InclusiveFilters(

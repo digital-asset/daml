@@ -76,7 +76,7 @@ object ResolvedQuery {
       resolved: Set[(ContractTypeId.Resolved, LanguageVersion)]
   ): Unsupported \/ ResolvedQuery = {
     import com.daml.nonempty.{NonEmpty, Singleton}
-    val (templateIds, interfaceIds) = partition(resolved)
+    val (templateIds, interfaceIds) = partitionLV(resolved)
     templateIds match {
       case NonEmpty(templateIds) =>
         interfaceIds match {
@@ -92,7 +92,7 @@ object ResolvedQuery {
     }
   }
 
-  def partitionR[CC[_], C](
+  def partition[CC[_], C](
       resolved: IterableOps[ContractTypeId.Resolved, CC, C]
   ): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
     resolved.partitionMap {
@@ -100,7 +100,7 @@ object ResolvedQuery {
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
-  def partition[CC[_], C](
+  private def partitionLV[CC[_], C](
       resolved: IterableOps[(ContractTypeId.Resolved, LanguageVersion), CC, C]
   ): (
       CC[(ContractTypeId.Template.Resolved, LanguageVersion)],

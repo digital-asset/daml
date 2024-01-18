@@ -79,7 +79,7 @@ private class PackageService(
           .get(pkId)
           .map((_, { newSig: typesig.PackageSignature => packageStore.updated(pkId, newSig) }))
 
-      val (packageStore2: PackageStore, diffElems) =
+      val (packageStore2, diffElems) =
         typesig.PackageSignature.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
       packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
     }

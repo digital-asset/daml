@@ -48,7 +48,7 @@ import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
 import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
-import com.daml.http.ContractsService.RR
+import com.daml.http.ContractsService.RLV
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -300,7 +300,7 @@ object WebSocketService {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[(Set[RR], Set[domain.ContractTypeId.OptionalPkg])] =
+        ): Future[(Set[RLV], Set[domain.ContractTypeId.OptionalPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
@@ -308,7 +308,7 @@ object WebSocketService {
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[RR, domain.ContractTypeId.OptionalPkg]
+                  Either[RLV, domain.ContractTypeId.OptionalPkg]
                 ]
               )
             )
@@ -538,7 +538,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[Map[RR, NonEmpty[Set[V]]]],
+      q: NonEmpty[Map[RLV, NonEmpty[Set[V]]]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
@@ -654,7 +654,7 @@ object WebSocketService {
           }
       }
       def dbQueries(
-          q: NonEmpty[Map[RR, NonEmpty[Set[LfV]]]]
+          q: NonEmpty[Map[RLV, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]] =
@@ -683,9 +683,9 @@ object WebSocketService {
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
             selectContractsMultiTemplate(
-              parties = parties,
-              predicates = dbQueries(resolvedRequest.q),
-              trackMatchIndices = MatchedQueryMarker.Unused,
+              parties,
+              dbQueries(resolvedRequest.q),
+              MatchedQueryMarker.Unused,
             )
           },
         )

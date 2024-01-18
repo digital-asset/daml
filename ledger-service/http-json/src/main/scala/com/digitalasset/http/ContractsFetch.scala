@@ -72,7 +72,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      _templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
+      templateLvs: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -83,12 +83,12 @@ private class ContractsFetch(
     import ContractDao.laggingOffsets
     val initTries = 10
     val fetchContext = FetchContext(jwt, ledgerId, parties)
-    val templateLV = _templateIds.toMap
-    val templateIds = _templateIds.map(_._1)
+    val templateLvMap = templateLvs.toMap
+    val templateIds = templateLvs.map(_._1)
     def tlv(
         l: List[domain.ContractTypeId.Resolved]
     ): List[(domain.ContractTypeId.Resolved, LanguageVersion)] = {
-      l.flatMap(t => templateLV.get(t).map(l => (t, l)))
+      l.flatMap(t => templateLvMap.get(t).map(l => (t, l)))
     }
     def go(
         maxAttempts: Int,

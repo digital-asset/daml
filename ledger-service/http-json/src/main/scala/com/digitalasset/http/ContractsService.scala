@@ -214,9 +214,9 @@ class ContractsService(
           templateId.cata(
             x =>
               resolveContractTypeId(jwt, ledgerId)(x)
-                .map(_.toOption.flatten.map({ r: RR => Set(r) })),
+                .map(_.toOption.flatten.map({ r => Set(r) })),
             // ignoring interface IDs for all-templates query
-            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[RR].some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.toSet[RLV].some),
           )
         )
         resolvedQuery <- OptionT(
@@ -382,7 +382,7 @@ class ContractsService(
           // TODO query store support for interface query/fetch #14819
           // we need a template ID to update the database
           def doSearchInMemory = OptionT(SearchInMemory.toFinal.findByContractId(ctx, contractId))
-          def doSearchInDb(resolved: RR) =
+          def doSearchInDb(resolved: RLV) =
             OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
@@ -688,14 +688,14 @@ class ContractsService(
       xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[RR], Set[Tid])] = {
+  ): Future[(Set[RLV], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.list._, scalaz.std.scalaFuture._
 
     xs.toList.toNEF
       .traverse { x =>
         resolveContractTypeId(jwt, ledgerId)(x)
-          .map(_.toOption.flatten.toLeft(x)): Future[Either[RR, Tid]]
+          .map(_.toOption.flatten.toLeft(x)): Future[Either[RLV, Tid]]
       }
       .map(_.toSet.partitionMap(a => a))
   }
@@ -809,6 +809,5 @@ object ContractsService {
 
   type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
 
-  // Rename
-  type RR = (domain.ContractTypeId.Resolved, LanguageVersion)
+  type RLV = (domain.ContractTypeId.Resolved, LanguageVersion)
 }
