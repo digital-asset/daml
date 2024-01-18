@@ -1218,18 +1218,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             } ;
           }
 
-          module PositiveTestCase_AgreementShouldBeText {
-            record @serializable T = {};
-
-            template (this : T) =  {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              agreement ();                                 // should be of type Text
-              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
-            } ;
-          }
-
           module PositiveTestCase4 {
             record @serializable T = {};
 
@@ -1400,7 +1388,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         "PositiveTestCase_ObserversShouldBeListParty",
         "PositiveTestCase_ControllersMustBeListParty",
         "PositiveTestCase_ChoiceObserversMustBeListParty",
-        "PositiveTestCase_AgreementShouldBeText",
         "PositiveTestCase_KeyBodyShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeListParty",
