@@ -7,14 +7,13 @@ package transaction
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.IdString
-import com.daml.lf.data.Ref.{Party, Identifier, PackageName}
+import com.daml.lf.data.Ref.{PackageName, Party, Identifier}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
 import com.daml.lf.value.{Value, ValueCoder}
 import com.google.protobuf
-import com.google.protobuf.{Message, ByteString}
+import com.google.protobuf.{ByteString, Message}
 import org.scalacheck.{Gen, Arbitrary}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -1171,7 +1170,7 @@ class TransactionCoderSpec
     )
   }
 
-  private[this] def makePartyFresh(party: Party, create: Node.Create): IdString.Party = {
+  private[this] def makePartyFresh(party: Party, create: Node.Create): Party = {
     val contractParties = create.stakeholders ++ create.keyOpt.fold(Set.empty[Party])(_.maintainers)
     Iterator.iterate(party)(p => Party.assertFromString(p + "_")).filterNot(contractParties).next()
   }
