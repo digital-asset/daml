@@ -334,6 +334,8 @@ class StartableStoppableLedgerApiServer(
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
+        tokenExpiryGracePeriodForStreams =
+          config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
         meteringReportKey = config.meteringReportKey,
         enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
         telemetry = telemetry,

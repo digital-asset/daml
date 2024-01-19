@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.util.HexString
 import com.google.protobuf.ByteString
 
 import java.nio.{ByteBuffer, ByteOrder, ShortBuffer}
@@ -61,6 +62,8 @@ class LtHash16 private (private val buffer: Array[Byte]) {
   def isEmpty: Boolean = blockSync {
     buffer.forall(_ == 0)
   }
+
+  def hexString(): String = HexString.toHexString(buffer)
 }
 
 object LtHash16 {
