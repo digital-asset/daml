@@ -7,14 +7,14 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.auth.TokenHolder
 import com.digitalasset.canton.ledger.api.domain
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
-import com.daml.ledger.api.v2.update_service.{GetUpdatesResponse, GetUpdateTreesResponse}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event.Event.Event
+import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
-import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.update_service.{GetUpdatesResponse, GetUpdateTreesResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
