@@ -48,6 +48,17 @@ daml_test(
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
+daml_compile(
+    name = "interface-choices",
+    srcs = [
+        ":interface-choices/InterfaceChoices.daml",
+        ":interface-choices/InterfaceChoices/Asset.daml",
+        ":interface-choices/InterfaceChoices/Token.daml",
+    ],
+    dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
+    target = "2.1",
+)
+
 daml_ledger_export_test(
     name = "interface-choices-test",
     dar = ":interface-choices.dar",
