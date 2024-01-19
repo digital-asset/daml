@@ -6,7 +6,8 @@ package engine
 package script
 package v2
 
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._

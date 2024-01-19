@@ -8,22 +8,21 @@ import java.util.UUID
 import java.time.Instant
 
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
+import com.daml.ledger.api.v1.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
-  TransactionFilter,
 }
 import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -99,35 +98,34 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map(acsPages =>
-      acsPages.toVector.flatMap(page =>
-        page.activeContracts.toVector.map(createdEvent => {
-          val argument =
-            NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
-          val key: Option[Value] = createdEvent.contractKey.map { key =>
-            NoLoggingValueValidator.validateValue(key) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.map(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val argument =
+          NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
           }
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          val blob = Bytes.fromByteString(createdEvent.createdEventBlob)
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
-        })
-      )
+        val key: Option[Value] = createdEvent.contractKey.map { key =>
+          NoLoggingValueValidator.validateValue(key) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
+          }
+        }
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        val blob = Bytes.fromByteString(createdEvent.createdEventBlob)
+        (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
+      })
     )
   }
 
@@ -156,33 +154,32 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map { acsPages: Seq[GetActiveContractsResponse] =>
-      acsPages.toVector.flatMap { page: GetActiveContractsResponse =>
-        page.activeContracts.toVector.flatMap { createdEvent: CreatedEvent =>
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          createdEvent.interfaceViews.map { iv: InterfaceView =>
-            val viewValue: Value.ValueRecord =
-              NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
-                case Left(err) => throw new ConverterException(err.toString)
-                case Right(argument) => argument
-              }
-            // Because we filter for a specific interfaceId,
-            // we will get at most one view for a given cid.
-            (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
-          }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.flatMap(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        createdEvent.interfaceViews.map { iv: InterfaceView =>
+          val viewValue: Value.ValueRecord =
+            NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(argument) => argument
+            }
+          // Because we filter for a specific interfaceId,
+          // we will get at most one view for a given cid.
+          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
         }
-      }
-    }
+      })
+    )
   }
 
   override def queryInterfaceContractId(
@@ -277,7 +274,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       commandId = UUID.randomUUID.toString,
     )
     val request = SubmitAndWaitRequest(Some(apiCommands))
-    val transactionTreeF = grpcClient.commandServiceClient
+    val transactionTreeF = grpcClient.v2.commandService
       .submitAndWaitForTransactionTree(request)
       .map(Right(_))
       .recoverWith({
@@ -333,7 +330,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
         commandId = UUID.randomUUID.toString,
       )
       request = SubmitAndWaitRequest(Some(apiCommands))
-      resp <- grpcClient.commandServiceClient
+      resp <- grpcClient.v2.commandService
         .submitAndWaitForTransactionTree(request)
       converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))
     } yield converted
