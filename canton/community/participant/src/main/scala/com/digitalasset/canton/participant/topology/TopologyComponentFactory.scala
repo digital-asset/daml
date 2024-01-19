@@ -237,7 +237,7 @@ class TopologyComponentFactoryX(
 
       val processor = new TopologyTransactionProcessorX(
         domainId,
-        crypto,
+        crypto.pureCrypto,
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
         terminateTopologyProcessing,

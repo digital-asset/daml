@@ -20,6 +20,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -252,6 +253,21 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
       TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
+    }
+  }
+
+  final case class OnboardingRestrictionInPlace(
+      participant: ParticipantId,
+      restriction: OnboardingRestriction,
+      loginAfter: Option[CantonTimestamp],
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Participant ${participant} onboarding rejected as restrictions ${restriction} are in place."
+
+    override def pretty: Pretty[OnboardingRestrictionInPlace] = prettyOfString(_ => asString)
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
+      TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
     }
   }
 

@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
@@ -186,17 +187,96 @@ class ValidatingTopologyMappingXChecksTest
             groupAddressing = false,
           )
         )
-        addToStore(store, ptp)
+        addToStore(
+          store,
+          ptp,
+        )
+        val prior = factory.mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
 
         val dtc =
           factory.mkRemove(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
 
-        val result = checks.checkTransaction(EffectiveTime.MaxValue, dtc, None)
+        val result = checks.checkTransaction(EffectiveTime.MaxValue, dtc, Some(prior))
         result.value.futureValue shouldBe Left(
           TopologyTransactionRejection.ParticipantStillHostsParties(participant1, Seq(party1))
         )
 
       }
+
+      "reject the addition if the domain is locked" in {
+        Seq(OnboardingRestriction.RestrictedLocked, OnboardingRestriction.UnrestrictedLocked)
+          .foreach { restriction =>
+            val (checks, store) = mk()
+            val ptp = factory.mkAdd(
+              DomainParametersStateX(
+                domainId,
+                DynamicDomainParameters
+                  .defaultValues(testedProtocolVersion)
+                  .tryUpdate(onboardingRestriction = restriction),
+              )
+            )
+            addToStore(store, ptp)
+
+            val dtc =
+              factory.mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
+
+            val result = checks.checkTransaction(EffectiveTime.MaxValue, dtc, None)
+            result.value.futureValue shouldBe Left(
+              TopologyTransactionRejection.OnboardingRestrictionInPlace(
+                participant1,
+                restriction,
+                None,
+              )
+            )
+          }
+      }
+
+      "reject the addition if the domain is restricted" in {
+        val (checks, store) = mk()
+        val ptp = factory.mkAdd(
+          DomainParametersStateX(
+            domainId,
+            DynamicDomainParameters
+              .defaultValues(testedProtocolVersion)
+              .tryUpdate(onboardingRestriction = OnboardingRestriction.RestrictedOpen),
+          )
+        )
+        addToStore(
+          store,
+          ptp,
+          factory.mkAdd(
+            ParticipantDomainPermissionX(
+              domainId,
+              participant1,
+              ParticipantPermissionX.Submission,
+              TrustLevelX.Ordinary,
+              None,
+              None,
+            )
+          ),
+        )
+
+        val dtc =
+          factory.mkAdd(DomainTrustCertificateX(participant2, domainId, false, Seq.empty))
+
+        val result1 = checks.checkTransaction(EffectiveTime.MaxValue, dtc, None)
+        result1.value.futureValue shouldBe Left(
+          TopologyTransactionRejection.OnboardingRestrictionInPlace(
+            participant2,
+            OnboardingRestriction.RestrictedOpen,
+            None,
+          )
+        )
+
+        val result2 = checks.checkTransaction(
+          EffectiveTime.MaxValue,
+          factory.mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty)),
+          None,
+        )
+        result2.value.futureValue shouldBe Right(())
+
+      }
+
     }
 
     "validating TrafficControlStateX" should {

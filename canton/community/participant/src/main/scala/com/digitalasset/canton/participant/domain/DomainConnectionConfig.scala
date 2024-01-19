@@ -109,14 +109,13 @@ final case class DomainConnectionConfig(
   def toProtoV0: v0.DomainConnectionConfig =
     v0.DomainConnectionConfig(
       domainAlias = domain.unwrap,
-      sequencerConnections = sequencerConnections.toProtoV0,
+      sequencerConnections = Some(sequencerConnections.toProtoV1),
       manualConnect = manualConnect,
       domainId = domainId.fold("")(_.toProtoPrimitive),
       priority = priority,
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
       timeTracker = timeTracker.toProtoV0.some,
-      sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold.unwrap,
       initializeFromTrustedDomain = initializeFromTrustedDomain,
     )
 }
@@ -165,14 +164,13 @@ object DomainConnectionConfig
   ): ParsingResult[DomainConnectionConfig] = {
     val v0.DomainConnectionConfig(
       domainAlias,
-      sequencerConnectionP,
+      sequencerConnectionsPO,
       manualConnect,
       domainId,
       priority,
       initialRetryDelayP,
       maxRetryDelayP,
       timeTrackerP,
-      sequencerTrustThreshold,
       initializeFromTrustedDomain,
     ) =
       domainConnectionConfigP
@@ -180,10 +178,9 @@ object DomainConnectionConfig
       alias <- DomainAlias
         .create(domainAlias)
         .leftMap(err => InvariantViolation(s"DomainConnectionConfig.DomainAlias: $err"))
-      sequencerConnections <- SequencerConnections.fromProtoV0(
-        sequencerConnectionP,
-        sequencerTrustThreshold,
-      )
+      sequencerConnections <- ProtoConverter
+        .required("sequencerConnections", sequencerConnectionsPO)
+        .flatMap(SequencerConnections.fromProtoV1)
       domainId <- OptionUtil
         .emptyStringAsNone(domainId)
         .traverse(DomainId.fromProtoPrimitive(_, "domain_id"))

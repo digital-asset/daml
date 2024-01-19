@@ -30,6 +30,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnection,
   SequencerConnections,
 }
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
@@ -57,11 +58,11 @@ class GrpcSequencerConnectionService(
     EitherTUtil.toFuture(
       fetchConnection()
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
-        .map { optSequencerConnections =>
-          v0.GetConnectionResponse(
-            optSequencerConnections.toList.flatMap(_.toProtoV0),
-            optSequencerConnections.map(_.sequencerTrustThreshold.unwrap).getOrElse(0),
-          )
+        .map {
+          case Some(sequencerConnections) =>
+            v0.GetConnectionResponse(Some(sequencerConnections.toProtoV1))
+
+          case None => v0.GetConnectionResponse(None)
         }
     )
 
@@ -92,14 +93,15 @@ class GrpcSequencerConnectionService(
 
   private def parseConnection(
       request: v0.SetConnectionRequest
-  ): EitherT[Future, StatusException, SequencerConnections] =
-    SequencerConnections
-      .fromProtoV0(
-        request.sequencerConnections,
-        request.sequencerTrustThreshold,
-      )
+  ): EitherT[Future, StatusException, SequencerConnections] = {
+    val v0.SetConnectionRequest(sequencerConnectionsPO) = request
+
+    ProtoConverter
+      .required("sequencerConnections", sequencerConnectionsPO)
+      .flatMap(SequencerConnections.fromProtoV1)
       .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.message).asException())
       .toEitherT[Future]
+  }
 
   private def validateReplacement(
       existing: SequencerConnections,

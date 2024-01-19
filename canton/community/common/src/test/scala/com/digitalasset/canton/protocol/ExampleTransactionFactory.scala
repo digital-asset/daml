@@ -1085,6 +1085,43 @@ class ExampleTransactionFactory(
     override def consuming: Boolean = true
   }
 
+  /** Single consuming exercise without children without any acting party or signatory, and
+    * [[observer]] as observer.
+    *
+    * @param lfContractId id of the exercised contract
+    * @param contractId id of the exercised contract
+    * @param inputContractInstance instance of the used contract.
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
+  case class SingleExerciseWithoutConfirmingParties(
+      seed: LfHash,
+      override val nodeId: LfNodeId = LfNodeId(0),
+      lfContractId: LfContractId = suffixedId(-1, 0),
+      contractId: LfContractId = suffixedId(-1, 0),
+      inputContractInstance: LfContractInst = contractInstance(),
+      inputContractAgreementText: String = "single exercise",
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+  ) extends SingleNode(Some(seed)) {
+    override def toString: String = "single exercise"
+
+    override val contractInstance: LfContractInst = inputContractInstance
+    override val agreementText: String = inputContractAgreementText
+
+    private def genNode(id: LfContractId): LfNodeExercises =
+      exerciseNodeWithoutChildren(
+        targetCoid = id,
+        actingParties = Set.empty,
+        signatories = Set.empty,
+        observers = Set(observer),
+      )
+
+    override def node: LfNodeExercises = genNode(contractId)
+    override def lfNode: LfNodeExercises = genNode(lfContractId)
+    override def reinterpretedNode: LfNodeExercises = node
+
+    override def consuming: Boolean = true
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   case class UpgradedSingleExercise(
       seed: LfHash,

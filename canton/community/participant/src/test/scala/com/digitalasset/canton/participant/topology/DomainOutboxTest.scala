@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -181,6 +182,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
       timeouts,
       loggerFactory,
       crypto,
+      futureSupervisor = FutureSupervisor.Noop,
     )
     domainOutbox
       .startup()

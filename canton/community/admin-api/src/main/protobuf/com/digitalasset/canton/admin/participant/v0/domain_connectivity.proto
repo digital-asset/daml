@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.participant.v0;
 
 import "com/digitalasset/canton/admin/time/v0/time_tracker_config.proto";
-import "com/digitalasset/canton/admin/domain/v0/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/domain/v1/sequencer_connection.proto";
 import "google/protobuf/duration.proto";
 
 /**
@@ -38,7 +38,7 @@ message DomainConnectionConfig {
   // participant local identifier of the target domain
   string domain_alias = 1;
   // connection information to sequencer
-  repeated com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencerConnections = 2;
+  com.digitalasset.canton.admin.domain.v1.SequencerConnections sequencerConnections = 2; // required
   // if false, then domain needs to be manually connected to (default false)
   bool manual_connect = 3;
   // optional domainId (if TLS isn't to be trusted)
@@ -51,11 +51,6 @@ message DomainConnectionConfig {
   google.protobuf.Duration maxRetryDelay = 7;
   // configuration for how time is tracked and requested on this domain
   com.digitalasset.canton.admin.time.v0.DomainTimeTrackerConfig timeTracker = 8;
-  // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
-  // is considered reliable and accepted by the system.
-  // The value set here should not be zero. However, to maintain backward compatibility with older clients, a zero value
-  // is interpreted as equivalent to the size of sequencer_connections.
-  uint32 sequencerTrustThreshold = 9;
   // If true, allows a participant to connect to a domain that it was previously connected to,
   // without issuing a new domain trust certificate.
   bool initializeFromTrustedDomain = 10;

@@ -271,6 +271,7 @@ class ParticipantNodeBootstrap(
               crypto.value,
               clock,
               parameterConfig.processingTimeouts,
+              futureSupervisor,
               loggerFactory,
             )
           (manager, topologyDispatcher)

@@ -19,6 +19,7 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   DomainTimeCommands,
   LedgerApiCommands,
+  LedgerApiV2Commands,
   ParticipantAdminCommands,
   PruningSchedulerCommands,
 }
@@ -561,12 +562,13 @@ class ParticipantPruningAdministrationGroup(
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiCommands.TransactionService.GetLedgerEnd())
+        ledgerApiCommand(LedgerApiV2Commands.StateService.LedgerEnd())
       )
       consoleEnvironment
         .run(
           adminCommand(
-            ParticipantAdminCommands.Pruning.GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
+            ParticipantAdminCommands.Pruning
+              .GetSafePruningOffsetCommand(beforeOrAt, ApiConversions.toV1(ledgerEnd))
           )
         )
         .map(ledgerOffset => ApiConversions.toV2(ledgerOffset))

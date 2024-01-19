@@ -62,7 +62,7 @@ class DomainTopologyManagerX(
       Some(outboxQueue),
       enableTopologyTransactionValidation,
       new ValidatingTopologyMappingXChecks(store, loggerFactory),
-      crypto,
+      crypto.pureCrypto,
       loggerFactory,
     )
 
@@ -95,7 +95,7 @@ class AuthorizedTopologyManagerX(
       None,
       enableTopologyTransactionValidation,
       NoopTopologyMappingXChecks,
-      crypto,
+      crypto.pureCrypto,
       loggerFactory,
     )
 

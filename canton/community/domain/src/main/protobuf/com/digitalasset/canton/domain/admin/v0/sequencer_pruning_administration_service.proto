@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.domain.admin.v0;
 
 import "com/digitalasset/canton/admin/pruning/v0/pruning.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // administration service for enterprise feature supporting sequencer instances
