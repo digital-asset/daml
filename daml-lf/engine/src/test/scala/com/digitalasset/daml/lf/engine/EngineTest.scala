@@ -58,7 +58,6 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 
-class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
 @SuppressWarnings(

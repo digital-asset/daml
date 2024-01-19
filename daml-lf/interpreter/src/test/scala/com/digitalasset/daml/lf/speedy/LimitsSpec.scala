@@ -16,7 +16,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class LimitsSpecV1 extends LimitsSpec(LanguageMajorVersion.V1)
 class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
 
 class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)

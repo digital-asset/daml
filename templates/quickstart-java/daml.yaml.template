@@ -6,7 +6,7 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
+  - daml3-script
 codegen:
   java:
     package-prefix: com.daml.quickstart.model

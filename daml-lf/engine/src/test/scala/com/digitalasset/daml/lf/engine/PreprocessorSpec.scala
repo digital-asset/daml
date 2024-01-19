@@ -22,7 +22,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.transaction.Util
 
-class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
 class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)

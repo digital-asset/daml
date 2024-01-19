@@ -17,7 +17,6 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
 
-class SBuiltinBigNumericTestV1 extends SBuiltinBigNumericTest(LanguageMajorVersion.V1)
 class SBuiltinBigNumericTestV2 extends SBuiltinBigNumericTest(LanguageMajorVersion.V2)
 
 class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
