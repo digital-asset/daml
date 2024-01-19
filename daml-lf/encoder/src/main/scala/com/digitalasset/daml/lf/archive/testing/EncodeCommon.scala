@@ -56,7 +56,7 @@ private[daml] class EncodeCommon(languageVersion: LV) {
         pkg.metadata.foreach { metadata =>
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
-          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
+          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version.toString))
           metadata.upgradedPackageId match {
             case None =>
             case Some(pid) =>
