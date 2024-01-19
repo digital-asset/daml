@@ -63,6 +63,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           record @serializable Template = { field : Int64 };
           record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
 
+          record @serializable Upgradeable = { field: Int64, extraField: (Option Text), anotherExtraField: (Option Text) };
         }
     """
 
@@ -145,7 +146,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value, svalue) =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       }
     }
@@ -163,8 +164,161 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases)(testCase =>
         Try(
-          unsafeTranslateValue(typ, testCase, Config.Legacy)
+          unsafeTranslateValue(typ, testCase, Config.Strict)
         ) shouldBe Success(svalue)
+      )
+    }
+
+    "handle different representation of the same static record with upgrades enabled" in {
+      val typ = t"Mod:Tuple Int64 Text"
+      val testCases = Table(
+        "record",
+        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
+        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
+      )
+      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
+
+      forEvery(testCases)(testCase =>
+        Try(
+          unsafeTranslateValue(typ, testCase, Config.Upgradeable)
+        ) shouldBe Success(svalue)
+      )
+    }
+
+    "handle different representation of the same upgraded/downgraded record" in {
+      val typ = t"Mod:Upgradeable"
+      def sValue(extraFieldDefined: Boolean, anotherExtraFieldDefined: Boolean) =
+        SRecord(
+          "Mod:Upgradeable",
+          ImmArray("field", "extraField", "anotherExtraField"),
+          ArrayList(
+            SInt64(1),
+            SOptional(Some(SText("a")).filter(Function.const(extraFieldDefined))),
+            SOptional(Some(SText("b")).filter(Function.const(anotherExtraFieldDefined))),
+          ),
+        )
+      def upgradeCaseSuccess(
+          extraFieldDefined: Boolean,
+          anotherExtraFieldDefined: Boolean,
+          value: Value,
+      ) =
+        (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
+      def upgradeCaseFailure(s: String, value: Value) =
+        (Failure(Error.Preprocessing.TypeMismatch(typ, value, s)), value)
+      val testCases = Table(
+        ("svalue", "record"),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(None),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "extraField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(None),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "An optional contract field (\"bonusField\") with a value of Some may not be dropped during downgrading.",
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueOptional(Some(ValueText("bad"))),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "Found non-optional extra field \"bonusField\", cannot remove for downgrading.",
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "bonusField" -> ValueText("bad"),
+            ),
+          ),
+        ),
+        upgradeCaseFailure(
+          "Missing non-optional field \"field\", cannot upgrade non-optional fields.",
+          ValueRecord("Mod:Upgradeable", ImmArray()),
+        ),
+      )
+
+      forEvery(testCases)((result, value) =>
+        Try(
+          unsafeTranslateValue(typ, value, Config.Upgradeable)
+        ) shouldBe result
       )
     }
 
@@ -179,7 +333,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases)(value =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       )
     }
@@ -190,7 +344,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val svalue = SEnum("Mod:Color", "green", 1)
       forEvery(testCases)(value =>
         Try(
-          unsafeTranslateValue(typ, value, Config.Legacy)
+          unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
       )
     }
@@ -206,7 +360,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
             ),
           ),
-          Config.Legacy,
+          Config.Strict,
         )
       )
       inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
@@ -220,7 +374,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2, Config.Legacy)
+              unsafeTranslateValue(typ1, value2, Config.Strict)
             )
           }
         }
@@ -245,14 +399,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         unsafeTranslateValue(
           t"Mod:MyList",
           notTooBig,
-          Config.Legacy,
+          Config.Strict,
         )
       ) shouldBe a[Success[_]]
       Try(
         unsafeTranslateValue(
           t"Mod:MyList",
           tooBig,
-          Config.Legacy,
+          Config.Strict,
         )
       ) shouldBe failure
     }
@@ -301,7 +455,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
             valueTranslator.unsafeTranslateValue(
               typ,
               value,
-              Config.Legacy,
+              Config.Strict,
             )
           ) shouldBe a[Success[_]]
         )
@@ -328,7 +482,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           valueTranslator.unsafeTranslateValue(
             typ,
             value,
-            Config.Legacy,
+            Config.Strict,
           )
         ) shouldBe a[Success[_]]
       )
@@ -337,7 +491,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           valueTranslator.unsafeTranslateValue(
             typ,
             value,
-            Config.Legacy,
+            Config.Strict,
           )
         ) shouldBe failure
       )
