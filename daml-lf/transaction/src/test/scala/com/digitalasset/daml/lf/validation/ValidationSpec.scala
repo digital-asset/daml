@@ -112,6 +112,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
       templateId = samTemplateId1,
       arg = samValue1,
+      agreementText = "", // to be removed
       signatories = samParties1,
       stakeholders = samParties2,
       keyOpt = key,
