@@ -11,10 +11,14 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.ledger.api.v1.{value => api}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.testing.utils.TransactionEq
@@ -56,7 +60,7 @@ final class ReproducesTransactions
     api.Identifier(mainPkg, moduleName = "Iou", s)
 
   private def submit(client: LedgerClient, p: Ref.Party, cmd: Command) =
-    client.commandServiceClient.submitAndWaitForTransaction(
+    client.v2.commandService.submitAndWaitForTransaction(
       SubmitAndWaitRequest(
         Some(
           Commands(
@@ -70,13 +74,22 @@ final class ReproducesTransactions
     )
 
   private def collectTrees(client: LedgerClient, parties: List[Ref.Party]) =
-    client.transactionClient
-      .getTransactionTrees(
-        LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
-        Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-        transactionFilter(parties: _*),
+    client.v2.updateService
+      .getUpdateTreesSource(
+        begin =
+          ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN),
+        end = Some(
+          ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_END)
+        ),
+        filter = transactionFilter(parties: _*),
       )
       .runWith(Sink.seq)
+      .map(
+        _.map(_.update)
+          .collect { case GetUpdateTreesResponse.Update.TransactionTree(tree) =>
+            tree
+          }
+      )
 
   private def allocateParties(client: LedgerClient, numParties: Int): Future[List[Ref.Party]] =
     for {
