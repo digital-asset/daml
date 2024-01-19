@@ -3,7 +3,7 @@ name: script-example
 source: src
 version: 0.0.1
 # script-build-options-begin
-￼build-options:
+build-options:
   - --target=2.1
 # script-build-options-end
 # script-dependencies-begin
