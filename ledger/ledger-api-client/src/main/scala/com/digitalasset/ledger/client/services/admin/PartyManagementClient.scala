@@ -20,22 +20,9 @@ import com.daml.ledger.client.LedgerClient
 import com.google.protobuf.field_mask.FieldMask
 import scalaz.OneAnd
 
-import java.util.concurrent.{Executors, ScheduledExecutorService}
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 object PartyManagementClient {
-
-  /** A scheduled service executor used by [[sleep]]. */
-  private val scheduledExecutorService: ScheduledExecutorService =
-    Executors.newScheduledThreadPool(0)
-
-  /** Returns a future that completes after the provided delay. */
-  private def sleep(delay: FiniteDuration): Future[Unit] = {
-    val promise = Promise[Unit]()
-    val _ = scheduledExecutorService.schedule(() => promise.success(()), delay.length, delay.unit)
-    promise.future
-  }
 
   private def details(proto: ApiPartyDetails): PartyDetails =
     PartyDetails(
@@ -130,9 +117,6 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       )
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
       .map(PartyManagementClient.details)
-      // TODO(https://github.com/DACH-NY/canton/issues/16401): remove the sleep call once we have a
-      //  better way of synchronizing after a party allocation.
-      .flatMap(details => PartyManagementClient.sleep(250.millis).map(_ => details))
 
   def updatePartyDetails(
       partyDetails: Option[PartyDetails],

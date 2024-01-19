@@ -158,9 +158,6 @@ beforeAll(async () => {
       displayName: partyName,
       identifierHint: partyName,
     });
-    // TODO(https://github.com/DACH-NY/canton/issues/16401): remove once we have
-    //  a better way of synchronizing after a party allocation.
-    await new Promise(resolve => setTimeout(resolve, 250));
     return party.identifier;
   }
 
