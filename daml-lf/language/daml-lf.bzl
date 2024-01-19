@@ -14,6 +14,9 @@ def _to_major_minor_str(v):
 def _major_str(v):
     return _to_major_minor_str(v)[0]
 
+def _minor_str(v):
+    return _to_major_minor_str(v)[1]
+
 def _cmp_int(a, b):
     if a == b:
         return 0
@@ -112,8 +115,20 @@ LF_VERSIONS = [
     "2.1",
 ] + LF_DEV_VERSIONS
 
+# All LF versions suported by the engine
+ENGINE_LF_VERSIONS = [
+    "1.8",
+    "1.11",
+    "1.13",
+    "1.14",
+    "1.15",
+    "1.dev",
+    "2.1",
+    "2.dev",
+]
+
 def lf_version_is_dev(versionStr):
-    return versionStr in LF_DEV_VERSIONS
+    return _minor_str(versionStr) == "dev"
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
 # TODO(#17366): add 2.1 once it is released, remove 1.14 and 1.15
