@@ -56,7 +56,6 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Mod:T {signatories} this;
       observers Mod:T {observers} this;
-      agreement "Agreement";
       choice @nonConsuming NoOp (self) (arg: Mod:NoOpArg): Unit,
         controllers Mod:NoOpArg {controllers} arg,
         observers Mod:NoOpArg {observers} arg

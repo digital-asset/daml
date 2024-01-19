@@ -6,6 +6,7 @@ package com.daml.lf.testing.parser
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 
 import scala.{PartialFunction => PF}
 
@@ -278,7 +279,7 @@ private[daml] class AstRewriter(
             param,
             precond,
             signatories,
-            agreementText,
+            _agreementText @ _,
             choices,
             observers,
             key,
@@ -288,7 +289,7 @@ private[daml] class AstRewriter(
           param,
           apply(precond),
           apply(signatories),
-          apply(agreementText),
+          AstUtil.EEmptyString,
           choices.transform { (_, x) =>
             apply(x)
           },

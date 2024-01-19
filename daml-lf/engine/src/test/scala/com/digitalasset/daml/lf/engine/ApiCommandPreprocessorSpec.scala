@@ -52,7 +52,6 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Mod:Record {owners} this;
             observers Mod:Record {owners} this;
-            agreement "Agreement";
             choice Transfer (self) (box: Mod:Box (List Party)) : ContractId Mod:Record,
                 controllers Mod:Record {owners} this,
                 observers Nil @Party
@@ -74,7 +73,6 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Mod:RecordRef {owners} this;
             observers Mod:RecordRef {owners} this;
-            agreement "Agreement";
             choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
                 controllers Mod:RecordRef {owners} this,
                 observers Nil @Party

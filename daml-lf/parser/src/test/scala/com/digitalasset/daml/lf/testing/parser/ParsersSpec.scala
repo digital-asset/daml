@@ -646,7 +646,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [person] (Nil @Party);
             observers Cons @Party [Mod:Person {person} this] (Nil @Party);
-            agreement "Agreement";
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
               , controllers Cons @Party [person] (Nil @Party)
               to upure @(ContractId Mod:Person) self;
@@ -681,7 +680,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "Agreement" """,
+          agreementText = e""" "" """,
           choices = Map(
             n"Sleep" ->
               TemplateChoice(
@@ -782,7 +781,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Unit;
               observers Nil @Unit;
-              agreement "Agreement";
             } ;
           }
         """
@@ -792,7 +790,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
-          agreementText = e""" "Agreement" """,
+          agreementText = e""" "" """,
           choices = List.empty,
           observers = e"Nil @Unit",
           key = None,

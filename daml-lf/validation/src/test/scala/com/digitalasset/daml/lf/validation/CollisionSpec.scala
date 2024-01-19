@@ -351,7 +351,6 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
             choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice1"
               , controllers Nil @Party
               to upure @Unit ();
@@ -371,7 +370,6 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
             choice Choice (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice"
               , controllers Nil @Party
               to upure @Unit ();
@@ -458,7 +456,6 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
             choice Choice (self) (u:Unit) : Unit
               , controllers Nil @Party
               to upure @Unit ();

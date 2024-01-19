@@ -61,7 +61,6 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T1 {party} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
       choice Ch1 (self) (i : Unit) : Unit,
         controllers Cons @Party [M:T1 {party} record] (Nil @Party)
         to

@@ -151,7 +151,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
             observers Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
-            agreement "";
           };
         }
 
@@ -162,7 +161,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
             observers Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
-            agreement "";
           };
         }
 
@@ -181,7 +179,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
-            agreement "";
             implements I0:I0 { view = Mod:MyUnit {}; };
           };
         }
@@ -193,7 +190,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
-            agreement "";
             implements I0:I0 { view = Mod:MyUnit {}; };
           };
         }
@@ -221,7 +217,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
             observers Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
-            agreement "";
             implements I0:I0 { view = Mod:MyUnit {}; };
             implements I1:I1 {
               view = Mod:MyUnit {};
@@ -258,7 +253,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
-            agreement "Agreement";
             implements Mod:Iface { view = Mod:MyUnit {}; };
           };
 
@@ -297,7 +291,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
-            agreement "Agreement";
             implements '$basePkgId':Mod:Iface { view = '$basePkgId':Mod:MyUnit {} ; };
           };
 

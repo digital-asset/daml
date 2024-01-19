@@ -41,18 +41,6 @@ class TransactionCoderSpec
 
   "encode-decode" should {
 
-    "do contractInstance" in {
-      forAll(versionedContraactInstanceWithAgreement)(coinst =>
-        TransactionCoder.decodeVersionedContractInstance(
-          ValueCoder.CidDecoder,
-          TransactionCoder
-            .encodeContractInstance(ValueCoder.CidEncoder, coinst)
-            .toOption
-            .get,
-        ) shouldBe Right(normalizeContract(coinst))
-      )
-    }
-
     "do Node.Create" in {
       forAll(malformedCreateNodeGen(), versionInIncreasingOrder()) {
         case (createNode, (nodeVersion, txVersion)) =>
@@ -810,6 +798,7 @@ class TransactionCoderSpec
           }
         }
       }
+
     }
 
     "reject FatContractInstance with nonSignatoryStakeholders containing nonMaintainerSignatories" in {
@@ -826,8 +815,10 @@ class TransactionCoderSpec
           time,
           data.Bytes.fromByteString(salt),
         )
-        val nonMaintainerSignatories = instance.nonMaintainerSignatories + party
-        val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party
+        val party_ = makePartyFresh(party, create)
+
+        val nonMaintainerSignatories = instance.nonMaintainerSignatories + party_
+        val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party_
 
         val bytes = hackProto(
           instance,
@@ -1179,6 +1170,11 @@ class TransactionCoderSpec
     )
   }
 
+  private[this] def makePartyFresh(party: Party, create: Node.Create): Party = {
+    val contractParties = create.stakeholders ++ create.keyOpt.fold(Set.empty[Party])(_.maintainers)
+    Iterator.iterate(party)(p => Party.assertFromString(p + "_")).filterNot(contractParties).next()
+  }
+
   private[this] val dummyPackageName = Some(PackageName.assertFromString("package-name"))
 
   private[this] def normalizeCreate(
@@ -1257,15 +1253,6 @@ class TransactionCoderSpec
         key.globalKey.templateId,
         normalize(key.value, version),
         GlobalKey.isShared(key.globalKey),
-      )
-    )
-
-  private[this] def normalizeContract(contract: Versioned[Value.ContractInstanceWithAgreement]) =
-    contract.map(
-      _.copy(contractInstance =
-        contract.unversioned.contractInstance.copy(
-          arg = normalize(contract.unversioned.contractInstance.arg, contract.version)
-        )
       )
     )
 

@@ -78,7 +78,6 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
              precondition True;
              signatories Mod:contractParties this;
              observers Mod:contractParties this;
-             agreement "Agreement";
              choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
                controllers
                  Mod:contractParties this

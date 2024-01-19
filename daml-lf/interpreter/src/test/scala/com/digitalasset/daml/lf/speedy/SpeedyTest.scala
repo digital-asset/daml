@@ -53,7 +53,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record @serializable T2 = { party: Party };
@@ -61,7 +60,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record T3 (a: *) = { party: Party };

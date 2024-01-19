@@ -9,7 +9,6 @@ module TextMod {
     precondition True;
     signatories (PartyMod:one (TextMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for TextMod:Box";
   };
 
   val build: Party -> TextMod:Box = \(p : Party) ->

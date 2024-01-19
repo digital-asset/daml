@@ -9,7 +9,6 @@ module BoolMod {
     precondition True;
     signatories (PartyMod:one (BoolMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for BoolMod:Box";
   };
 
 }

@@ -305,7 +305,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithoutKey {owners} this;
             observers Mod:WithoutKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithoutKey {owners} this),
               observers Nil @Party
@@ -318,7 +317,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithKey {owners} this;
             observers Mod:WithKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithKey {owners} this),
               observers Nil @Party

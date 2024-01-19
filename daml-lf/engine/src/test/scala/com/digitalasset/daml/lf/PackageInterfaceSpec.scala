@@ -50,7 +50,6 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
 
        }

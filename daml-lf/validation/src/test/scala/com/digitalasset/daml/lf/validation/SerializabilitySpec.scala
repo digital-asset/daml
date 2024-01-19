@@ -165,7 +165,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers ${partiesAlice(
             "NegativeTestCase:SerializableRecord"
           )} to upure @Mod:SerializableType (Mod:SerializableType {});
@@ -179,7 +178,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:SerializableType, controllers ${partiesAlice(
             "PositiveTestCase1:UnserializableRecord"
@@ -195,7 +193,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
                Unit, controllers ${partiesAlice("PositiveTestCase2:SerializableRecord")} to
                    upure @Unit ();
@@ -209,7 +206,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:UnserializableType, controllers ${partiesAlice(
             "PositiveTestCase3:SerializableRecord"
@@ -276,7 +272,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             } ;
 
             record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
@@ -436,7 +431,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [bob] (Nil @Party);
             observers Cons @Party [alice] (Nil @Party);
-            agreement "Agreement";
             choice Ch (self) (x: Int64) : Decimal, controllers bob to upure @Int64 (DECIMAL_TO_INT64 x);
           } ;
 

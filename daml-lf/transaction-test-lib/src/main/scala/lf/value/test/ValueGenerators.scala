@@ -288,12 +288,6 @@ object ValueGenerators {
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
 
-  val versionedContraactInstanceWithAgreement: Gen[Versioned[Value.ContractInstanceWithAgreement]] =
-    for {
-      coinst <- versionedContractInstanceGen
-      agrement <- Arbitrary.arbitrary[String]
-    } yield coinst.map(Value.ContractInstanceWithAgreement(_, agrement))
-
   /** Makes create nodes that violate the rules:
     *
     * 1. stakeholders may not be a superset of signatories
@@ -321,7 +315,6 @@ object ValueGenerators {
       packageName <- pkgNameGen(version)
       templateId <- idGen
       arg <- valueGen()
-      agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen(templateId, version))
@@ -330,7 +323,7 @@ object ValueGenerators {
       packageName = packageName,
       templateId = templateId,
       arg = arg,
-      agreementText = agreement,
+      agreementText = "",
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,

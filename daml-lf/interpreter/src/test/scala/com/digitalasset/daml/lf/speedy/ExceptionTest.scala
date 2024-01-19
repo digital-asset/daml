@@ -552,7 +552,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
        precondition True;
        signatories Cons @Party [M:T {party} this] Nil @Party;
        observers Nil @Party;
-       agreement "Agreement";
        choice BodyCrash (self) (u: Unit) : Unit,
          controllers Cons @Party [M:T {party} this] Nil @Party,
          observers Nil @Party
@@ -691,7 +690,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T1 {party} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
       choice MyChoice (self) (i : Unit) : Unit,
         controllers Cons @Party [M:T1 {party} record] (Nil @Party)
         to
@@ -741,7 +739,6 @@ template (record : OldT) = {
   precondition True;
   signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
   observers Nil @Party;
-  agreement "Agreement";
 };
 } """ (parserParameters)
       }
@@ -762,7 +759,6 @@ template (record : NewT) = {
   precondition True;
   signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
   observers Nil @Party;
-  agreement "Agreement";
   choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
     controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
     to
