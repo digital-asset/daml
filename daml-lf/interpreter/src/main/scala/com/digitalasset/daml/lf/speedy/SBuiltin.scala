@@ -2055,12 +2055,6 @@ private[lf] object SBuiltin {
         throw SErrorCrash(where, s"value not a list of parties or party: $v")
     }
 
-  private[this] def extractText(where: String, v: SValue): String =
-    v match {
-      case SText(text) => text
-      case _ => throw SErrorCrash(where, s"value not a text: $v")
-    }
-
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
     Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.maintainersFieldName))
 

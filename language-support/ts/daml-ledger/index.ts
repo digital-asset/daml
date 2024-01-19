@@ -9,7 +9,6 @@ import {
   Party,
   Template,
   TemplateOrInterface,
-  Text,
   lookupTemplate,
 } from "@daml/types";
 import * as jtv from "@mojotech/json-type-validation";

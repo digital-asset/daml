@@ -5,7 +5,7 @@ package com.daml.ledger.client.binding
 
 import com.daml.ledger.api.v1.{value => rpcvalue}
 
-/** A class representing a Daml contract of specific type (Daml template) with assigned contract ID and agreement text.
+/** A class representing a Daml contract of specific type (Daml template) with assigned contract ID.
   *
   * @param contractId     Contract ID.
   * @param value          Contract instance as defined in Daml template (without `contractId`).
