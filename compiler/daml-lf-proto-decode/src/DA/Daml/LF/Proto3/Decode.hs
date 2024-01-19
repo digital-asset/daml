@@ -22,9 +22,6 @@ decodeLfVersion :: LF.MajorVersion -> LF.PackageId -> T.Text -> Either Error LF.
 decodeLfVersion major pkgId minorText = do
   let unsupported :: Either Error a
       unsupported = throwError (UnsupportedMinorVersion minorText)
-  -- For LF v1, We translate "no version" to minor version 0, since we
-  -- introduced minor versions once v1 was already out, and we want to be able
-  -- to parse packages that were compiled before minor versions were a thing.
   minor <- if
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
