@@ -74,7 +74,6 @@ private[lf] final case class FatContractInstanceImpl(
     packageName,
     templateId,
     createArg,
-    "",
     signatories,
     stakeholders,
     contractKeyWithMaintainers,
