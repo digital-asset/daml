@@ -142,7 +142,6 @@ object ContractClass {
         .addModifiers(Modifier.PUBLIC)
         .addParameter(contractIdClassName(templateClassName), idFieldName)
         .addParameter(templateClassName, dataFieldName)
-        .addParameter(optionalString, agreementFieldName)
 
       contractKeyClassName.foreach { name =>
         constructorBuilder.addParameter(optional(name), contractKeyFieldName)
@@ -156,7 +155,7 @@ object ContractClass {
       constructorBuilder.addStatement(
         "super($L)",
         CodeBlock.join(
-          (Seq(idFieldName, dataFieldName, agreementFieldName)
+          (Seq(idFieldName, dataFieldName)
             ++ superCtorKeyArgs
             ++ Seq(signatoriesFieldName, observersFieldName)).map(CodeBlock.of("$L", _)).asJava,
           ",$W",

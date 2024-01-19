@@ -18,7 +18,6 @@ r2 = MyNestedRec{ bar = "foo"; nested = r }
 template Simple
   with p: Party
   where
-    agreement show p
     signatory p
 
     choice Hello : Text
@@ -30,7 +29,6 @@ template SimpleMultiParty
     p1: Party
     p2: Party
   where
-    agreement show p1 <> show p2
     signatory p1, p2
 
     choice HelloMultiParty : Text
@@ -55,9 +53,6 @@ template PayOut
   where
     signatory receiver
     signatory giver
-    agreement
-      (show giver) <> " must pay to " <>
-      (show receiver) <> " the sum of five pounds."
 
 
 template CallablePayout

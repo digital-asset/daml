@@ -31,7 +31,7 @@ message ContractInstance {
    string package_name = 4; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
-    string agreement = 3;
+    reserved 3; // was agreement
 }
 // architecture-handbook-entry-end: Contract
 
@@ -65,7 +65,7 @@ message NodeCreate {
     string package_name = 10; // required *since dev*
     com.daml.lf.value.Identifier template_id = 7;
     bytes arg_unversioned = 8;
-    string agreement = 9;
+    reserved 9; // was agreement
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     KeyWithMaintainers key_with_maintainers = 5;

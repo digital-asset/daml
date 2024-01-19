@@ -33,7 +33,7 @@ message Transaction {
 message ContractInstance {
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
-    string agreement = 3;
+    reserved 3; // was agreement
 }
 // architecture-handbook-entry-end: Contract
 
@@ -66,7 +66,7 @@ message NodeCreate {
     ContractInstance contract_instance = 2;  // *until version 11*
     com.daml.lf.value.Identifier template_id = 7; // *since version 12*
     bytes arg_unversioned = 8; // *since version 12*
-    string agreement = 9; // *since version 12*
+    reserved 9; // was agreement
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     KeyWithMaintainers key_with_maintainers = 5;

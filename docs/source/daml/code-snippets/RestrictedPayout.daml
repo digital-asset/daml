@@ -16,11 +16,6 @@ template Payout
   where
     signatory receiver, giver
 
-    agreement
-      show giver <> " promise to pay the " <>
-      show receiver <> " on demand the sum of" <>
-      show qty <> " pounds."
-
 template RestrictedPayout
   with
     receiver : Party
