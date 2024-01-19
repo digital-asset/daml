@@ -9,8 +9,8 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
@@ -70,6 +70,7 @@ object ApiServiceOwner {
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
@@ -120,6 +121,8 @@ object ApiServiceOwner {
       userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
       pekkoScheduler = actorSystem.scheduler,
       jwtTimestampLeeway = jwtTimestampLeeway,
+      tokenExpiryGracePeriodForStreams =
+        tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )
