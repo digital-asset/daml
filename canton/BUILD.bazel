@@ -265,6 +265,7 @@ da_scala_library(
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//ledger-service/utils:__subpackages__"
     ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
