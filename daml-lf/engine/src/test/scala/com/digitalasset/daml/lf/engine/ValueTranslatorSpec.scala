@@ -21,7 +21,6 @@ import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecV1 extends ValueTranslatorSpec(LanguageMajorVersion.V1)
 class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
 
 class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)

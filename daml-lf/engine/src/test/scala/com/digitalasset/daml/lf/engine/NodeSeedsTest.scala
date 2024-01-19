@@ -17,7 +17,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
 
-class NodeSeedsTestV1 extends NodeSeedsTest(LanguageMajorVersion.V1)
 class NodeSeedsTestV2 extends NodeSeedsTest(LanguageMajorVersion.V2)
 
 class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {

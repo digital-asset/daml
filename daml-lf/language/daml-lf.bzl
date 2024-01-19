@@ -57,7 +57,6 @@ def version_in(
 
 # The lastest stable version for each major LF version.
 lf_version_latest = {
-    "1": "1.15",
     "2": "2.1",
 }
 
@@ -72,8 +71,8 @@ lf_version_latest = {
 # make a new LF release, we bump latest and once we make it the compiler default
 # we bump default.
 lf_version_configuration = {
-    "default": "1.15",
-    "latest": lf_version_latest.get("1"),
+    "default": "2.1",
+    "latest": lf_version_latest.get("2"),
     # "preview": "",
     # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
 }
@@ -105,18 +104,11 @@ lf_docs_version = lf_version_configuration.get("preview", lf_version_configurati
 
 # All LF dev versions
 LF_DEV_VERSIONS = [
-    "1.dev",
     "2.dev",
 ]
 
 # All LF versions
 LF_VERSIONS = [
-    "1.8",
-    "1.11",
-    "1.12",
-    "1.13",
-    "1.14",
-    "1.15",
     "2.1",
 ] + LF_DEV_VERSIONS
 
@@ -125,11 +117,11 @@ def lf_version_is_dev(versionStr):
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
 # TODO(#17366): add 2.1 once it is released
-SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
+SUPPORTED_PROTO_STABLE_LF_VERSIONS = []
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["1.14", "1.15", "2.1"] + LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["2.1"] + LF_DEV_VERSIONS
 
 # The subset of COMPILER_LF_VERSIONS with major version 2.
 COMPILER_LF2_VERSIONS = [

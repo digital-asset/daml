@@ -10,7 +10,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class RecursionSpecV1 extends RecursionSpec(LanguageMajorVersion.V1)
 class RecursionSpecV2 extends RecursionSpec(LanguageMajorVersion.V2)
 
 class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
