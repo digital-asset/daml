@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class TopologyTransactionProcessorX(
     domainId: DomainId,
-    crypto: Crypto,
+    pureCrypto: CryptoPureApi,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     terminateProcessing: TerminateProcessing,
@@ -65,7 +65,7 @@ class TopologyTransactionProcessorX(
     None,
     enableTopologyTransactionValidation,
     new ValidatingTopologyMappingXChecks(store, loggerFactory),
-    crypto,
+    pureCrypto,
     loggerFactory,
   )
 
@@ -200,7 +200,7 @@ object TopologyTransactionProcessorX {
       topologyStore: TopologyStoreX[TopologyStoreId.DomainStore],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      crypto: Crypto,
+      pureCrypto: CryptoPureApi,
       parameters: CantonNodeParameters,
       enableTopologyTransactionValidation: Boolean,
       clock: Clock,
@@ -212,7 +212,7 @@ object TopologyTransactionProcessorX {
 
     val processor = new TopologyTransactionProcessorX(
       domainId,
-      crypto,
+      pureCrypto,
       topologyStore,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,

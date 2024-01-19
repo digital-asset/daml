@@ -166,14 +166,6 @@ object SequencerConnections
     )
   } yield sequencerConnections
 
-  def fromProtoV0(
-      sequencerConnection: Seq[v0.SequencerConnection],
-      sequencerTrustThreshold: Int,
-  ): ParsingResult[SequencerConnections] =
-    ProtoConverter
-      .parsePositiveInt(sequencerTrustThreshold)
-      .flatMap(fromProtoV0("sequencer_connections", sequencerConnection, _))
-
   def fromProtoV1(
       sequencerConnections: v1.SequencerConnections
   ): ParsingResult[SequencerConnections] =

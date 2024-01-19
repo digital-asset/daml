@@ -281,7 +281,7 @@ class MediatorNodeBootstrapX(
             domainTopologyStore,
             domainId,
             protocolVersion,
-            crypto,
+            crypto.pureCrypto,
             arguments.parameterConfig,
             config.topologyX.enableTopologyTransactionValidation,
             arguments.clock,
@@ -299,6 +299,7 @@ class MediatorNodeBootstrapX(
         topologyXConfig = config.topologyX,
         timeouts = timeouts,
         loggerFactory = domainLoggerFactory,
+        futureSupervisor = arguments.futureSupervisor,
       )
       performUnlessClosingEitherU("starting up mediator node") {
         val indexedStringStore = IndexedStringStore.create(

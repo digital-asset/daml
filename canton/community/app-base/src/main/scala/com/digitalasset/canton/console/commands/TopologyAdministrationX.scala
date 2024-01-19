@@ -33,6 +33,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
@@ -2129,6 +2130,12 @@ class TopologyAdministrationGroupX(
         domainId: DomainId,
         delay: config.NonNegativeFiniteDuration,
     ): Unit = propose_update(domainId, _.update(topologyChangeDelay = delay))
+
+    @Help.Summary("Update the onboarding restrictions")
+    def set_onboarding_restrictions(
+        domainId: DomainId,
+        restriction: OnboardingRestriction,
+    ): Unit = propose_update(domainId, _.update(onboardingRestriction = restriction))
 
     @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
     @Help.Description(

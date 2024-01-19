@@ -172,6 +172,53 @@ object StaticDomainParameters
   }
 }
 
+/** Onboarding restrictions for new participants joining a domain
+  *
+  * The domain administrators can set onboarding restrictions to control
+  * which participant can join the domain.
+  */
+sealed trait OnboardingRestriction extends Product with Serializable {
+  def toProtoV0: protoV2.OnboardingRestriction
+}
+object OnboardingRestriction {
+  def fromProtoV0(
+      onboardingRestrictionP: v2.OnboardingRestriction
+  ): ParsingResult[OnboardingRestriction] = onboardingRestrictionP match {
+    case v2.OnboardingRestriction.UnrestrictedOpen => Right(UnrestrictedOpen)
+    case v2.OnboardingRestriction.UnrestrictedLocked => Right(UnrestrictedLocked)
+    case v2.OnboardingRestriction.RestrictedOpen => Right(RestrictedOpen)
+    case v2.OnboardingRestriction.RestrictedLocked => Right(RestrictedLocked)
+    case v2.OnboardingRestriction.Unrecognized(value) =>
+      Left(ProtoDeserializationError.UnrecognizedEnum("onboarding_restriction", value))
+    case v2.OnboardingRestriction.MissingDomainPermissioning =>
+      Left(ProtoDeserializationError.FieldNotSet("onboarding_restriction"))
+  }
+
+  /** Anyone can join */
+  final case object UnrestrictedOpen extends OnboardingRestriction {
+    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.UnrestrictedOpen
+  }
+
+  /** In theory, anyone can join, except now, the registration procedure is closed */
+  final case object UnrestrictedLocked extends OnboardingRestriction {
+    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.UnrestrictedLocked
+  }
+
+  /** Only participants on the allowlist can join
+    *
+    * Requires the domain owners to issue a valid ParticipantDomainPermission transaction
+    */
+  final case object RestrictedOpen extends OnboardingRestriction {
+    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.RestrictedOpen
+  }
+
+  /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
+  final case object RestrictedLocked extends OnboardingRestriction {
+    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.RestrictedLocked
+  }
+
+}
+
 /** @param participantResponseTimeout the amount of time (w.r.t. the sequencer clock) that a participant may take
   *                                   to validate a command and send a response.
   *                                   Once the timeout has elapsed for a request,
@@ -222,6 +269,7 @@ object StaticDomainParameters
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.
   *                                            Must be at least `participantResponseTimeout` + `mediatorReactionTimeout` in a practical system.
+  * @param onboardingRestrictions current onboarding restrictions for participants
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
   */
@@ -237,6 +285,7 @@ final case class DynamicDomainParameters private (
     maxRequestSize: MaxRequestSize,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
+    onboardingRestriction: OnboardingRestriction,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       DynamicDomainParameters.type
@@ -294,6 +343,7 @@ final case class DynamicDomainParameters private (
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
+      onboardingRestriction: OnboardingRestriction = onboardingRestriction,
   ): DynamicDomainParameters = DynamicDomainParameters.tryCreate(
     participantResponseTimeout = participantResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -306,6 +356,7 @@ final case class DynamicDomainParameters private (
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
+    onboardingRestriction = onboardingRestriction,
   )(representativeProtocolVersion)
 
   def toProtoV2: protoV2.DynamicDomainParameters = protoV2.DynamicDomainParameters(
@@ -317,8 +368,7 @@ final case class DynamicDomainParameters private (
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
     reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
     maxRequestSize = maxRequestSize.unwrap,
-    // TODO(#14053) add permissioned domain mode
-    permissionedDomain = false,
+    onboardingRestriction = onboardingRestriction.toProtoV0,
     // TODO(#14054) add restricted packages mode
     requiredPackages = Seq.empty,
     // TODO(#14054) add only restricted packages supported
@@ -418,6 +468,9 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private val defaultSequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMinutes(5)
 
+  private val defaultOnboardingRestriction: OnboardingRestriction =
+    OnboardingRestriction.UnrestrictedOpen
+
   /** Safely creates DynamicDomainParameters.
     *
     * @return `Left(...)` if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
@@ -434,6 +487,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
       trafficControlConfig: Option[TrafficControlParameters],
+      onboardingRestriction: OnboardingRestriction,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): Either[InvalidDynamicDomainParameters, DynamicDomainParameters] =
@@ -450,6 +504,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
+        onboardingRestriction,
       )(representativeProtocolVersion)
     )
 
@@ -469,6 +524,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
       trafficControlParameters: Option[TrafficControlParameters],
+      onboardingRestriction: OnboardingRestriction,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): DynamicDomainParameters = {
@@ -484,6 +540,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSize,
       sequencerAggregateSubmissionTimeout,
       trafficControlParameters,
+      onboardingRestriction,
     )(representativeProtocolVersion)
   }
 
@@ -520,6 +577,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize,
       sequencerAggregateSubmissionTimeout = defaultSequencerAggregateSubmissionTimeout,
       trafficControlParameters = defaultTrafficControlParameters,
+      onboardingRestriction = defaultOnboardingRestriction,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -548,6 +606,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
       trafficControlParameters = defaultTrafficControlParameters,
+      onboardingRestriction = defaultOnboardingRestriction,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -575,7 +634,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       reconciliationIntervalP,
       mediatorDeduplicationTimeoutP,
       maxRequestSizeP,
-      _permissionedDomain,
+      onboardingRestrictionP,
       _requiredPackages,
       _onlyRequiredPackagesPermitted,
       defaultLimitsP,
@@ -643,6 +702,8 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
       trafficControlConfig <- trafficControlConfigP.traverse(TrafficControlParameters.fromProtoV0)
 
+      onboardingRestriction <- OnboardingRestriction.fromProtoV0(onboardingRestrictionP)
+
       domainParameters <-
         create(
           participantResponseTimeout = participantResponseTimeout,
@@ -656,6 +717,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
           maxRequestSize = maxRequestSize,
           sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
           trafficControlConfig = trafficControlConfig,
+          onboardingRestriction = onboardingRestriction,
         )(protocolVersionRepresentativeFor(ProtoVersion(2)))
           .leftMap(_.toProtoDeserializationError)
     } yield domainParameters

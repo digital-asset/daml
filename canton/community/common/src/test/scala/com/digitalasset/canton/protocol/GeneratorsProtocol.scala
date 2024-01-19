@@ -76,6 +76,7 @@ final class GeneratorsProtocol(
         .tryCreate(2) + mediatorDeduplicationMargin
 
       sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         participantResponseTimeout,
@@ -89,6 +90,7 @@ final class GeneratorsProtocol(
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
+        onboardingRestriction,
       )(representativePV)
 
     } yield dynamicDomainParameters

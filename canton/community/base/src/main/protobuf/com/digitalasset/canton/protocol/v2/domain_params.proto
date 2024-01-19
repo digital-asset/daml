@@ -29,6 +29,21 @@ message ParticipantDomainLimits {
   uint32 max_num_packages = 3;
 }
 
+// Controls how participants can join the domain
+// Note that currently, only transitions from restricted to unrestricted are supported, but not
+// the other way around.
+enum OnboardingRestriction {
+  MissingDomainPermissioning = 0;
+  // Any participant can join the domain
+  UnrestrictedOpen = 1;
+  // No participant can currently join the domain
+  UnrestrictedLocked = 2;
+  // Only participants with a valid participant domain state can join the domain (allowlisting)
+  RestrictedOpen = 3;
+  // No participant can currently join the restricted domain
+  RestrictedLocked = 4;
+}
+
 message DynamicDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
@@ -42,9 +57,8 @@ message DynamicDomainParameters {
   uint32 max_request_size = 8;
   // topology related validation parameters
   // permissioned domain: if true, only participants which have been explicitly
-  // whitelisted are allowed on the domain
-  // TODO(#14053) re-enable this feature and turn on the PermissionedDomainIntegrationTest
-  bool permissioned_domain = 9;
+  // put on the allow list can onboard to the domain
+  OnboardingRestriction onboarding_restriction = 9;
   // required packages are the default packages that must be supported by all participants on a domain
   // TODO(#14054) enable this feature (necessary for canton network such that an SVC can't do a rug-pull)
   repeated string required_packages = 11;

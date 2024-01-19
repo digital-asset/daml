@@ -12,9 +12,8 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   submitterParticipant,
   templateId,
 }
-import com.digitalasset.canton.protocol.LfGlobalKeyWithMaintainers
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, TrustLevel}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
@@ -31,6 +30,56 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
   private lazy val david: LfPartyId = LfPartyId.assertFromString("david")
 
   "Choice of a confirmation policy" when {
+    "nodes with a signatory without confirming participant" should {
+      "fail to provide a valid confirming policy" in {
+        val topologySnapshot = mock[TopologySnapshot]
+        val tx = gen
+          .SingleExerciseWithNonstakeholderActor(ExampleTransactionFactory.lfHash(0))
+          .versionedUnsuffixedTransaction
+
+        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
+          .thenAnswer[LfPartyId] {
+            case ExampleTransactionFactory.signatory =>
+              Future.successful(
+                // Give the signatory Observation permission, which shouldn't be enough to get a valid confirmation policy
+                Map(signatoryParticipant -> ParticipantAttributes(Observation, TrustLevel.Ordinary))
+              )
+            case _ =>
+              Future.successful(
+                Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              )
+          }
+
+        val policies = ConfirmationPolicy
+          .choose(tx, topologySnapshot)
+          .futureValue
+
+        assert(policies == Seq.empty)
+      }
+    }
+
+    "nodes without confirming parties" should {
+      "fail to provide a valid confirming policy" in {
+        val topologySnapshot = mock[TopologySnapshot]
+        val tx = gen
+          .SingleExerciseWithoutConfirmingParties(ExampleTransactionFactory.lfHash(0))
+          .versionedUnsuffixedTransaction
+
+        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
+          .thenReturn(
+            Future.successful(
+              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+            )
+          )
+
+        val policies = ConfirmationPolicy
+          .choose(tx, topologySnapshot)
+          .futureValue
+
+        assert(policies == Seq.empty)
+      }
+    }
+
     "all views have at least one Vip participant" should {
       "favor the VIP policy" in {
         val topologySnapshot = mock[TopologySnapshot]

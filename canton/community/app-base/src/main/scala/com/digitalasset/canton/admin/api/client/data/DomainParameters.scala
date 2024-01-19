@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters.{
 }
 import com.digitalasset.canton.protocol.{
   DynamicDomainParameters as DynamicDomainParametersInternal,
+  OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
   v2 as protocolV2,
 }
@@ -145,6 +146,7 @@ final case class DynamicDomainParameters(
     maxRequestSize: NonNegativeInt,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
+    onboardingRestriction: OnboardingRestriction,
 ) {
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
@@ -177,6 +179,7 @@ final case class DynamicDomainParameters(
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
+      onboardingRestriction: OnboardingRestriction = onboardingRestriction,
   ): DynamicDomainParameters = this.copy(
     participantResponseTimeout = participantResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -189,6 +192,7 @@ final case class DynamicDomainParameters(
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
+    onboardingRestriction = onboardingRestriction,
   )
 
   def toProto: DomainParametersChangeAuthorization.Parameters =
@@ -209,7 +213,7 @@ final case class DynamicDomainParameters(
           )
         ),
         maxRequestSize = maxRequestSize.unwrap,
-        permissionedDomain = false,
+        onboardingRestriction = onboardingRestriction.toProtoV0,
         requiredPackages = Nil,
         onlyRequiredPackagesPermitted = false,
         defaultMaxHostingParticipantsPerParty = 0,
@@ -238,6 +242,7 @@ final case class DynamicDomainParameters(
       sequencerAggregateSubmissionTimeout =
         InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
       trafficControlParameters = trafficControlParameters.map(_.toInternal),
+      onboardingRestriction = onboardingRestriction,
     )(protocolVersionRepresentativeFor(ProtoVersion(0)))
 }
 

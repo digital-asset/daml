@@ -173,6 +173,7 @@ class ParticipantNodeBootstrapX(
             clock,
             config,
             parameterConfig.processingTimeouts,
+            futureSupervisor,
             loggerFactory,
           )
 

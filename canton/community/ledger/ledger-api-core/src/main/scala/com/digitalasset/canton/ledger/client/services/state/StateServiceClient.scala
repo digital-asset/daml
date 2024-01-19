@@ -80,8 +80,8 @@ class StateServiceClient(service: StateServiceStub)(implicit
   }
 
   /** Get the current participant offset */
-  def getLedgerEnd: Future[ParticipantOffset] = {
-    service.getLedgerEnd(GetLedgerEndRequest()).map { response =>
+  def getLedgerEnd(token: Option[String] = None): Future[ParticipantOffset] = {
+    LedgerClient.stub(service, token).getLedgerEnd(GetLedgerEndRequest()).map { response =>
       response.offset.getOrElse(
         throw new IllegalStateException("Invalid empty getLedgerEnd response from server")
       )
