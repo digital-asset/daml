@@ -21,7 +21,7 @@ import Test.Tasty.HUnit
 assertOnlyMyLedger :: String -> Assertion
 assertOnlyMyLedger out = do
   assertBool ("Expected 1 party but got " <> show (length ls - 1)) $ length ls == 2
-  -- TODO(https://github.com/DACH-NY/canton/issues/16401): reset expecting "MyLedger" once the issue
+  -- TODO(https://github.com/DACH-NY/canton/issues/16073): reset expecting "MyLedger" once the issue
   --  is fixed.
   -- assertBool "Expected only party to be MyLedger" $ "MyLedger" `isInfixOf` (ls !! 1)
   assertBool "Expected 'no parties are known'" $ "no parties are known" `isInfixOf` (ls !! 1)
