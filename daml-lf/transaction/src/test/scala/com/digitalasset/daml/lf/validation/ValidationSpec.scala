@@ -236,10 +236,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     if (x != samVersion1) samVersion1 else samVersion2
   }
 
-  private def changeText(x: String): String = {
-    x + "_XXX"
-  }
-
   // --[predicates]--
   // Some tweaks have version dependant significance.
 
