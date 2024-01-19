@@ -9,7 +9,7 @@ import java.io.File
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 
 final case class Config(
     ledgerHost: String,
@@ -17,8 +17,8 @@ final case class Config(
     tlsConfig: TlsConfiguration,
     accessToken: Option[TokenHolder],
     partyConfig: PartyConfig,
-    start: LedgerOffset,
-    end: LedgerOffset,
+    start: ParticipantOffset,
+    end: ParticipantOffset,
     exportType: Option[ExportType],
     maxInboundMessageSize: Int,
 )
@@ -46,12 +46,13 @@ object Config {
   def parse(args: Array[String]): Option[Config] =
     parser.parse(args, Empty)
 
-  private def parseLedgerOffset(s: String): LedgerOffset = LedgerOffset {
+  private def parseParticipantOffset(s: String): ParticipantOffset = {
     s match {
       case s if s == "begin" =>
-        LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-      case s if s == "end" => LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)
-      case s => LedgerOffset.Value.Absolute(s)
+        ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+      case s if s == "end" =>
+        ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_END)
+      case s => ParticipantOffset.of(ParticipantOffset.Value.Absolute(s))
     }
   }
 
@@ -94,13 +95,13 @@ object Config {
       )
     opt[String]("start")
       .optional()
-      .action((x, c) => c.copy(start = parseLedgerOffset(x)))
+      .action((x, c) => c.copy(start = parseParticipantOffset(x)))
       .text(
         "The transaction offset (exclusive) for the start position of the export. Optional, by default the export includes the beginning of the ledger."
       )
     opt[String]("end")
       .optional()
-      .action((x, c) => c.copy(end = parseLedgerOffset(x)))
+      .action((x, c) => c.copy(end = parseParticipantOffset(x)))
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
       )
@@ -179,8 +180,9 @@ object Config {
     tlsConfig = TlsConfiguration(false, None, None, None),
     accessToken = None,
     partyConfig = PartyConfig(parties = Seq.empty[Party], allParties = false),
-    start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-    end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+    start =
+      ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN),
+    end = ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_END),
     exportType = None,
     maxInboundMessageSize = DefaultMaxInboundMessageSize,
   )

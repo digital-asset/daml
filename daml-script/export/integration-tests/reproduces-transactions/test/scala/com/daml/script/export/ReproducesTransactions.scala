@@ -14,7 +14,6 @@ import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
@@ -106,17 +105,16 @@ final class ReproducesTransactions
       _ = logger.debug("Allocated parties")
     } yield ps
 
-  private val ledgerBegin = LedgerOffset(
-    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-  )
-  private val ledgerEnd = LedgerOffset(
-    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)
-  )
-  private def ledgerOffset(offset: String) = LedgerOffset(LedgerOffset.Value.Absolute(offset))
+  private val participantBegin =
+    ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+  private val participantEnd =
+    ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_END)
+  private def participantOffset(offset: String) =
+    ParticipantOffset.of(ParticipantOffset.Value.Absolute(offset))
 
   private def createScriptExport(
       parties: List[Ref.Party],
-      offset: LedgerOffset,
+      offset: ParticipantOffset,
       dir: Path,
   ): Future[Dar[(PackageId, Package)]] = for {
     // build script export
@@ -131,7 +129,7 @@ final class ReproducesTransactions
           allParties = false,
         ),
         start = offset,
-        end = ledgerEnd,
+        end = participantEnd,
         maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
         exportType = Some(
           ExportScript(
@@ -195,8 +193,8 @@ final class ReproducesTransactions
       before <- collectTrees(client, parties)
       // Reproduce ACS up to offset and transaction trees after offset.
       offset =
-        if (skip == 0) { ledgerBegin }
-        else { ledgerOffset(before(skip - 1).offset) }
+        if (skip == 0) { participantBegin }
+        else { participantOffset(before(skip - 1).offset) }
       beforeCmp = before.drop(skip)
       // reproduce from export
       dar <- createScriptExport(parties, offset, dir)

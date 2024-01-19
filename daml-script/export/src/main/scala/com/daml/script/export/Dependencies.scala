@@ -32,7 +32,7 @@ object Dependencies {
         case Nil => Future.successful(acc)
         case p :: todo if acc.contains(p) => go(todo, acc)
         case p :: todo =>
-          client.packageClient.getPackage(p).flatMap { pkgResp =>
+          client.v2.packageService.getPackage(p).flatMap { pkgResp =>
             val pkgId = PackageId.assertFromString(pkgResp.hash)
             val pkg =
               archive.archivePayloadDecoder(pkgId).assertFromByteString(pkgResp.archivePayload)._2
