@@ -561,7 +561,7 @@ object TopologyAdminCommandsX {
           .fold[Either[String, GenericStoredTopologyTransactionsX]](
             Right(StoredTopologyTransactionsX.empty)
           ) { collection =>
-            StoredTopologyTransactionsX.fromProtoV0(collection).leftMap(_.toString)
+            StoredTopologyTransactionsX.fromProtoV30(collection).leftMap(_.toString)
           }
     }
   }
@@ -582,7 +582,7 @@ object TopologyAdminCommandsX {
         store: String,
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
       override def createRequest(): Either[String, AddTransactionsRequest] = {
-        Right(AddTransactionsRequest(transactions.map(_.toProtoV2), forceChange = false, store))
+        Right(AddTransactionsRequest(transactions.map(_.toProtoV30), forceChange = false, store))
       }
       override def submitRequest(
           service: TopologyManagerWriteServiceXStub,
@@ -600,7 +600,7 @@ object TopologyAdminCommandsX {
         ]] {
       override def createRequest(): Either[String, SignTransactionsRequest] = {
         Right(
-          SignTransactionsRequest(transactions.map(_.toProtoV2), signedBy.map(_.toProtoPrimitive))
+          SignTransactionsRequest(transactions.map(_.toProtoV30), signedBy.map(_.toProtoPrimitive))
         )
       }
 
@@ -614,7 +614,7 @@ object TopologyAdminCommandsX {
       ): Either[String, Seq[GenericSignedTopologyTransactionX]] =
         response.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation.NoValidation, tx)
+            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation.NoValidation, tx)
           )
           .leftMap(_.message)
     }
@@ -639,7 +639,7 @@ object TopologyAdminCommandsX {
             AuthorizeRequest.Proposal(
               change.toProto,
               serial.map(_.value).getOrElse(0),
-              Some(m.toProtoV2),
+              Some(m.toProtoV30),
             )
           ),
           mustFullyAuthorize = mustFullyAuthorize,
@@ -659,7 +659,7 @@ object TopologyAdminCommandsX {
         .toRight("no transaction in response")
         .flatMap(
           SignedTopologyTransactionX
-            .fromProtoV2(ProtocolVersionValidation.NoValidation, _)
+            .fromProtoV30(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>
               tx.selectMapping[M]
@@ -715,7 +715,7 @@ object TopologyAdminCommandsX {
         .toRight("no transaction in response")
         .flatMap(
           SignedTopologyTransactionX
-            .fromProtoV2(ProtocolVersionValidation.NoValidation, _)
+            .fromProtoV30(ProtocolVersionValidation.NoValidation, _)
             .leftMap(_.message)
             .flatMap(tx =>
               tx.selectMapping[M]

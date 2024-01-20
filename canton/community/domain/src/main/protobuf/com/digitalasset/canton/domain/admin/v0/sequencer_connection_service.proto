@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/admin/domain/v1/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
 import "google/protobuf/empty.proto";
 
 // service used by sequencer clients to manage connection to the sequencer
@@ -18,8 +18,9 @@ service SequencerConnectionService {
 message GetConnectionRequest {}
 
 message GetConnectionResponse {
-  com.digitalasset.canton.admin.domain.v1.SequencerConnections sequencer_connections = 1; // optional
+  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 1; // optional
 }
+
 message SetConnectionRequest {
-  com.digitalasset.canton.admin.domain.v1.SequencerConnections sequencer_connections = 1; // required
+  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 1; // required
 }

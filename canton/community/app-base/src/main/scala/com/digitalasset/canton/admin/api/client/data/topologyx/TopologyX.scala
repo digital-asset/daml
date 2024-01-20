@@ -51,7 +51,7 @@ object BaseResult {
       protoValidFrom <- ProtoConverter.required("valid_from", value.validFrom)
       validFrom <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoValidFrom)
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
-      operation <- TopologyChangeOpX.fromProtoV2(value.operation)
+      operation <- TopologyChangeOpX.fromProtoV30(value.operation)
       serial <- PositiveInt
         .create(value.serial)
         .leftMap(e => RefinedDurationConversionError("serial", e.message))
@@ -91,7 +91,7 @@ object ListNamespaceDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- NamespaceDelegationX.fromProtoV2(itemProto)
+      item <- NamespaceDelegationX.fromProtoV30(itemProto)
     } yield ListNamespaceDelegationResult(context, item)
 }
 
@@ -108,7 +108,7 @@ object ListDecentralizedNamespaceDefinitionResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DecentralizedNamespaceDefinitionX.fromProtoV2(itemProto)
+      item <- DecentralizedNamespaceDefinitionX.fromProtoV30(itemProto)
     } yield ListDecentralizedNamespaceDefinitionResult(context, item)
 }
 
@@ -125,7 +125,7 @@ object ListIdentifierDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- IdentifierDelegationX.fromProtoV2(itemProto)
+      item <- IdentifierDelegationX.fromProtoV30(itemProto)
     } yield ListIdentifierDelegationResult(context, item)
 }
 
@@ -142,7 +142,7 @@ object ListOwnerToKeyMappingResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- OwnerToKeyMappingX.fromProtoV2(itemProto)
+      item <- OwnerToKeyMappingX.fromProtoV30(itemProto)
     } yield ListOwnerToKeyMappingResult(context, item)
 }
 
@@ -159,7 +159,7 @@ object ListDomainTrustCertificateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DomainTrustCertificateX.fromProtoV2(itemProto)
+      item <- DomainTrustCertificateX.fromProtoV30(itemProto)
     } yield ListDomainTrustCertificateResult(context, item)
 }
 
@@ -176,7 +176,7 @@ object ListParticipantDomainPermissionResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- ParticipantDomainPermissionX.fromProtoV2(itemProto)
+      item <- ParticipantDomainPermissionX.fromProtoV30(itemProto)
     } yield ListParticipantDomainPermissionResult(context, item)
 }
 
@@ -193,7 +193,7 @@ object ListPartyHostingLimitsResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyHostingLimitsX.fromProtoV2(itemProto)
+      item <- PartyHostingLimitsX.fromProtoV30(itemProto)
     } yield ListPartyHostingLimitsResult(context, item)
 }
 
@@ -210,7 +210,7 @@ object ListVettedPackagesResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- VettedPackagesX.fromProtoV2(itemProto)
+      item <- VettedPackagesX.fromProtoV30(itemProto)
     } yield ListVettedPackagesResult(context, item)
 }
 
@@ -227,7 +227,7 @@ object ListPartyToParticipantResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyToParticipantX.fromProtoV2(itemProto)
+      item <- PartyToParticipantX.fromProtoV30(itemProto)
     } yield ListPartyToParticipantResult(context, item)
 }
 
@@ -244,7 +244,7 @@ object ListAuthorityOfResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- AuthorityOfX.fromProtoV2(itemProto)
+      item <- AuthorityOfX.fromProtoV30(itemProto)
     } yield ListAuthorityOfResult(context, item)
 }
 
@@ -278,7 +278,7 @@ object ListMediatorDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- MediatorDomainStateX.fromProtoV2(itemProto)
+      item <- MediatorDomainStateX.fromProtoV30(itemProto)
     } yield ListMediatorDomainStateResult(context, item)
 }
 
@@ -295,7 +295,7 @@ object ListSequencerDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SequencerDomainStateX.fromProtoV2(itemProto)
+      item <- SequencerDomainStateX.fromProtoV30(itemProto)
     } yield ListSequencerDomainStateResult(context, item)
 }
 
@@ -312,7 +312,7 @@ object ListPurgeTopologyTransactionXResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV1(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PurgeTopologyTransactionX.fromProtoV2(itemProto)
+      item <- PurgeTopologyTransactionX.fromProtoV30(itemProto)
     } yield ListPurgeTopologyTransactionXResult(context, item)
 }
 
@@ -327,6 +327,6 @@ object ListTrafficStateResult {
   ): ParsingResult[ListTrafficStateResult] =
     for {
       context <- ProtoConverter.parseRequired(BaseResult.fromProtoV1, "context", value.context)
-      item <- ProtoConverter.parseRequired(TrafficControlStateX.fromProtoV2, "item", value.item)
+      item <- ProtoConverter.parseRequired(TrafficControlStateX.fromProtoV30, "item", value.item)
     } yield ListTrafficStateResult(context, item)
 }

@@ -13,7 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeNumeric, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.{DynamicDomainParametersLookup, v1 as protocolV1}
+import com.digitalasset.canton.protocol.{DynamicDomainParametersLookup, v30 as protocolV30}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -65,8 +65,10 @@ private[sequencing] trait AuthenticationCheck {
 }
 
 object AuthenticationCheck {
+
   @VisibleForTesting
   private[service] trait MatchesAuthenticatedMember extends AuthenticationCheck {
+
     override def authenticate(
         member: Member,
         authenticatedMember: Option[Member],
@@ -92,15 +94,18 @@ object AuthenticationCheck {
 
   /** No authentication check is performed */
   object Disabled extends AuthenticationCheck {
+
     override def authenticate(
         member: Member,
         authenticatedMember: Option[Member],
     ): Either[String, Unit] = Right(())
+
     override def lookupCurrentMember(): Option[Member] = None
   }
 }
 
 object GrpcSequencerService {
+
   def apply(
       sequencer: Sequencer,
       metrics: SequencerMetrics,
@@ -161,11 +166,12 @@ object GrpcSequencerService {
   }
 
   private object VersionedSignedSubmissionRequestProcessing
-      extends SubmissionRequestProcessing[v0.SendAsyncVersionedRequest] {
+      extends SubmissionRequestProcessing[v30.SendAsyncVersionedRequest] {
+
     override type ValueClass = SignedContent[SubmissionRequest]
 
     override def parse(
-        requestP: v0.SendAsyncVersionedRequest,
+        requestP: v30.SendAsyncVersionedRequest,
         maxRequestSize: MaxRequestSize,
         protocolVersion: ProtocolVersion,
     ): ParsingResult[SignedContent[SubmissionRequest]] = {
@@ -191,11 +197,12 @@ object GrpcSequencerService {
   }
 
   private object VersionedUnsignedSubmissionRequestProcessing
-      extends SubmissionRequestProcessing[v0.SendAsyncUnauthenticatedVersionedRequest] {
+      extends SubmissionRequestProcessing[v30.SendAsyncUnauthenticatedVersionedRequest] {
+
     override type ValueClass = SubmissionRequest
 
     override def parse(
-        requestP: v0.SendAsyncUnauthenticatedVersionedRequest,
+        requestP: v30.SendAsyncUnauthenticatedVersionedRequest,
         maxRequestSize: MaxRequestSize,
         protocolVersion: ProtocolVersion,
     ): ParsingResult[SubmissionRequest] =
@@ -224,7 +231,6 @@ object GrpcSequencerService {
   ) extends WrappedAcknowledgeRequest {
     override def unwrap: AcknowledgeRequest = signedRequest.content
   }
-
 }
 
 /** Service providing a GRPC connection to the [[sequencer.Sequencer]] instance.
@@ -246,7 +252,7 @@ class GrpcSequencerService(
     enableBroadcastOfUnauthenticatedMessages: Boolean,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),
 )(implicit ec: ExecutionContext)
-    extends v0.SequencerServiceGrpc.SequencerService
+    extends v30.SequencerServiceGrpc.SequencerService
     with NamedLogging
     with FlagCloseable {
 
@@ -262,8 +268,8 @@ class GrpcSequencerService(
     subscriptionPool.closeAllSubscriptions()
 
   override def sendAsyncVersioned(
-      requestP: v0.SendAsyncVersionedRequest
-  ): Future[v0.SendAsyncSignedResponse] =
+      requestP: v30.SendAsyncVersionedRequest
+  ): Future[v30.SendAsyncSignedResponse] =
     validateAndSend(
       requestP,
       VersionedSignedSubmissionRequestProcessing,
@@ -271,8 +277,8 @@ class GrpcSequencerService(
     ).map(_.toSendAsyncSignedResponseProto)
 
   override def sendAsyncUnauthenticatedVersioned(
-      requestP: v0.SendAsyncUnauthenticatedVersionedRequest
-  ): Future[v0.SendAsyncResponse] =
+      requestP: v30.SendAsyncUnauthenticatedVersionedRequest
+  ): Future[v30.SendAsyncResponse] =
     validateAndSend(
       requestP,
       VersionedUnsignedSubmissionRequestProcessing,
@@ -319,7 +325,6 @@ class GrpcSequencerService(
       toSendAsyncResponse(res)
     })
       .onShutdown(SendAsyncResponse(error = Some(SendAsyncError.ShuttingDown())))
-
   }
 
   private def toSendAsyncResponse(result: Either[SendAsyncError, Unit]): SendAsyncResponse =
@@ -450,11 +455,10 @@ class GrpcSequencerService(
       sender: Member,
       messageId: MessageId,
       aggregationRule: AggregationRule,
-  )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] =
     SequencerValidations
       .wellformedAggregationRule(sender, aggregationRule)
       .leftMap(message => invalid(messageId.toProtoPrimitive, sender)(message))
-  }
 
   private def invalid(messageIdP: String, senderPO: String)(
       message: String
@@ -568,6 +572,7 @@ class GrpcSequencerService(
         EitherT.rightT[Future, SendAsyncError](())
     }
   }
+
   private def getOrUpdateRateLimiter(
       participantId: ParticipantId,
       maxRatePerParticipant: NonNegativeInt,
@@ -595,21 +600,21 @@ class GrpcSequencerService(
   }
 
   private def toSubscriptionResponseV0(event: OrdinarySerializedEvent) =
-    v0.SubscriptionResponse(
-      signedSequencedEvent = Some(event.signedEvent.toProtoV1),
-      Some(SerializableTraceContext(event.traceContext).toProtoV0),
+    v30.SubscriptionResponse(
+      signedSequencedEvent = Some(event.signedEvent.toProtoV30),
+      Some(SerializableTraceContext(event.traceContext).toProtoV30),
     )
 
   private def toVersionSubscriptionResponseV0(event: OrdinarySerializedEvent) =
-    v0.VersionedSubscriptionResponse(
+    v30.VersionedSubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
-      Some(SerializableTraceContext(event.traceContext).toProtoV0),
+      Some(SerializableTraceContext(event.traceContext).toProtoV30),
       event.trafficState.map(_.toProtoV0),
     )
 
   override def subscribe(
-      request: v0.SubscriptionRequest,
-      responseObserver: StreamObserver[v0.SubscriptionResponse],
+      request: v30.SubscriptionRequest,
+      responseObserver: StreamObserver[v30.SubscriptionResponse],
   ): Unit =
     responseObserver.onError(
       wrongProtocolVersion(
@@ -618,8 +623,8 @@ class GrpcSequencerService(
     )
 
   override def subscribeUnauthenticated(
-      request: v0.SubscriptionRequest,
-      responseObserver: StreamObserver[v0.SubscriptionResponse],
+      request: v30.SubscriptionRequest,
+      responseObserver: StreamObserver[v30.SubscriptionResponse],
   ): Unit = responseObserver.onError(
     wrongProtocolVersion(
       s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
@@ -627,10 +632,10 @@ class GrpcSequencerService(
   )
 
   override def subscribeVersioned(
-      request: v0.SubscriptionRequest,
-      responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
+      request: v30.SubscriptionRequest,
+      responseObserver: StreamObserver[v30.VersionedSubscriptionResponse],
   ): Unit =
-    subscribeInternal[v0.VersionedSubscriptionResponse](
+    subscribeInternal[v30.VersionedSubscriptionResponse](
       request,
       responseObserver,
       requiresAuthentication = true,
@@ -638,10 +643,10 @@ class GrpcSequencerService(
     )
 
   override def subscribeUnauthenticatedVersioned(
-      request: v0.SubscriptionRequest,
-      responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
+      request: v30.SubscriptionRequest,
+      responseObserver: StreamObserver[v30.VersionedSubscriptionResponse],
   ): Unit =
-    subscribeInternal[v0.VersionedSubscriptionResponse](
+    subscribeInternal[v30.VersionedSubscriptionResponse](
       request,
       responseObserver,
       requiresAuthentication = false,
@@ -649,7 +654,7 @@ class GrpcSequencerService(
     )
 
   private def subscribeInternal[T](
-      request: v0.SubscriptionRequest,
+      request: v30.SubscriptionRequest,
       responseObserver: StreamObserver[T],
       requiresAuthentication: Boolean,
       toSubscriptionResponse: OrdinarySerializedEvent => T,
@@ -658,7 +663,7 @@ class GrpcSequencerService(
     withServerCallStreamObserver(responseObserver) { observer =>
       val result = for {
         subscriptionRequest <- SubscriptionRequest
-          .fromProtoV0(request)
+          .fromProtoV30(request)
           .left
           .map(err => invalidRequest(err.toString))
         SubscriptionRequest(member, offset) = subscriptionRequest
@@ -712,16 +717,16 @@ class GrpcSequencerService(
         )
     }
 
-  override def acknowledge(requestP: v0.AcknowledgeRequest): Future[Empty] =
+  override def acknowledge(requestP: v30.AcknowledgeRequest): Future[Empty] =
     Future.failed(
       wrongProtocolVersion(
         s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
       ).asException
     )
 
-  override def acknowledgeSigned(request: protocolV1.SignedContent): Future[Empty] = {
+  override def acknowledgeSigned(request: protocolV30.SignedContent): Future[Empty] = {
     val acknowledgeRequestE = SignedContent
-      .fromProtoV1(request)
+      .fromProtoV30(request)
       .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }
@@ -810,14 +815,14 @@ class GrpcSequencerService(
       }
 
   override def downloadTopologyStateForInit(
-      requestP: v0.TopologyStateForInitRequest,
-      responseObserver: StreamObserver[v0.TopologyStateForInitResponse],
+      requestP: v30.TopologyStateForInitRequest,
+      responseObserver: StreamObserver[v30.TopologyStateForInitResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     topologyStateForInitializationService match {
       case Some(topologyStateForInitializationService) =>
         TopologyStateForInitRequest
-          .fromProtoV0(requestP)
+          .fromProtoV30(requestP)
           .traverse(request =>
             topologyStateForInitializationService
               .initialSnapshot(request.member)
@@ -830,7 +835,7 @@ class GrpcSequencerService(
               initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
                 val response =
                   TopologyStateForInitResponse(Traced(StoredTopologyTransactionsX(batch)))
-                responseObserver.onNext(response.toProtoV0)
+                responseObserver.onNext(response.toProtoV30)
               }
               responseObserver.onCompleted()
 
@@ -864,8 +869,6 @@ class GrpcSequencerService(
     case _ => false
   }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     subscriptionPool.close()
-  }
-
 }

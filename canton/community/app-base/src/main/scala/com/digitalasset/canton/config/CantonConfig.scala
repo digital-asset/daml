@@ -33,7 +33,6 @@ import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.domain.DomainNodeParameters
 import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.domain.config.*
 import com.digitalasset.canton.domain.mediator.{
@@ -304,23 +303,12 @@ final case class CantonFeatures(
 /** Root configuration parameters for a single Canton process. */
 trait CantonConfig {
 
-  type DomainConfigType <: DomainConfig & ConfigDefaults[DefaultPorts, DomainConfigType]
   type ParticipantConfigType <: LocalParticipantConfig & ConfigDefaults[
     DefaultPorts,
     ParticipantConfigType,
   ]
   type MediatorNodeXConfigType <: MediatorNodeConfigCommon
   type SequencerNodeXConfigType <: SequencerNodeConfigCommon
-
-  /** all domains that this Canton process can operate
-    *
-    * domains are grouped by their alias, which is used to identify domains locally
-    */
-  def domains: Map[InstanceName, DomainConfigType]
-
-  /** Use `domains` instead!
-    */
-  def domainsByString: Map[String, DomainConfigType] = domains.map { case (n, c) => n.unwrap -> c }
 
   /** all participants that this Canton process can operate or connect to
     *
@@ -334,77 +322,46 @@ trait CantonConfig {
     n.unwrap -> c
   }
 
-  /** all participants that this Canton process can operate or connect to
-    *
-    * participants are grouped by their local name
-    */
-  def participantsX: Map[InstanceName, ParticipantConfigType]
+  def sequencers: Map[InstanceName, SequencerNodeXConfigType]
 
-  /** Use `participantsX` instead!
+  /** Use `sequencers` instead!
     */
-  def participantsByStringX: Map[String, ParticipantConfigType] = participantsX.map { case (n, c) =>
+  def sequencersByString: Map[String, SequencerNodeXConfigType] = sequencers.map { case (n, c) =>
     n.unwrap -> c
   }
 
-  def sequencersX: Map[InstanceName, SequencerNodeXConfigType]
+  def remoteSequencers: Map[InstanceName, RemoteSequencerConfig]
 
-  /** Use `sequencersX` instead!
+  /** Use `remoteSequencers` instead!
     */
-  def sequencersByStringX: Map[String, SequencerNodeXConfigType] = sequencersX.map { case (n, c) =>
-    n.unwrap -> c
-  }
-
-  def remoteSequencersX: Map[InstanceName, RemoteSequencerConfig]
-
-  /** Use `remoteSequencersX` instead!
-    */
-  def remoteSequencersByStringX: Map[String, RemoteSequencerConfig] = remoteSequencersX.map {
+  def remoteSequencersByString: Map[String, RemoteSequencerConfig] = remoteSequencers.map {
     case (n, c) =>
       n.unwrap -> c
   }
 
-  def mediatorsX: Map[InstanceName, MediatorNodeXConfigType]
+  def mediators: Map[InstanceName, MediatorNodeXConfigType]
 
-  /** Use `mediatorsX` instead!
+  /** Use `mediators` instead!
     */
-  def mediatorsByStringX: Map[String, MediatorNodeXConfigType] = mediatorsX.map { case (n, c) =>
+  def mediatorsByString: Map[String, MediatorNodeXConfigType] = mediators.map { case (n, c) =>
     n.unwrap -> c
   }
 
-  def remoteMediatorsX: Map[InstanceName, RemoteMediatorConfig]
+  def remoteMediators: Map[InstanceName, RemoteMediatorConfig]
 
   /** Use `remoteMediators` instead!
     */
-  def remoteMediatorsByStringX: Map[String, RemoteMediatorConfig] = remoteMediatorsX.map {
+  def remoteMediatorsByString: Map[String, RemoteMediatorConfig] = remoteMediators.map {
     case (n, c) =>
       n.unwrap -> c
-  }
-
-  /** all remotely running domains to which the console can connect and operate on */
-  def remoteDomains: Map[InstanceName, RemoteDomainConfig]
-
-  /** Use `remoteDomains` instead!
-    */
-  def remoteDomainsByString: Map[String, RemoteDomainConfig] = remoteDomains.map { case (n, c) =>
-    n.unwrap -> c
   }
 
   /** all remotely running participants to which the console can connect and operate on */
   def remoteParticipants: Map[InstanceName, RemoteParticipantConfig]
 
-  /** all remotely running participants to which the console can connect and operate on */
-  def remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig]
-
   /** Use `remoteParticipants` instead!
     */
   def remoteParticipantsByString: Map[String, RemoteParticipantConfig] = remoteParticipants.map {
-    case (n, c) =>
-      n.unwrap -> c
-  }
-
-  /** Use `remoteParticipantsX` instead!
-    */
-  def remoteParticipantsByStringX: Map[String, RemoteParticipantConfig] = remoteParticipantsX.map {
     case (n, c) =>
       n.unwrap -> c
   }
@@ -424,25 +381,8 @@ trait CantonConfig {
   /** run a validation on the current config and return possible warning messages */
   def validate: Validated[NonEmpty[Seq[String]], Unit]
 
-  private lazy val domainNodeParameters_ : Map[InstanceName, DomainNodeParameters] = domains.fmap {
-    domainConfig =>
-      DomainNodeParameters(
-        general = CantonNodeParameterConverter.general(this, domainConfig),
-        protocol = CantonNodeParameterConverter.protocol(this, domainConfig.init.domainParameters),
-        maxBurstFactor = domainConfig.parameters.maxBurstFactor,
-      )
-  }
-
-  private[canton] def domainNodeParameters(name: InstanceName): DomainNodeParameters =
-    nodeParametersFor(domainNodeParameters_, "domain", name)
-
-  /** Use `domainNodeParameters` instead!
-    */
-  private[canton] def domainNodeParametersByString(name: String): DomainNodeParameters =
-    domainNodeParameters(InstanceName.tryCreate(name))
-
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
-    (participants ++ participantsX).fmap { participantConfig =>
+    participants.fmap { participantConfig =>
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
@@ -478,7 +418,7 @@ trait CantonConfig {
   )
 
   private lazy val sequencerNodeParametersX_ : Map[InstanceName, SequencerNodeParameters] =
-    sequencersX.fmap { sequencerNodeXConfig =>
+    sequencers.fmap { sequencerNodeXConfig =>
       SequencerNodeParameters(
         general = CantonNodeParameterConverter.general(this, sequencerNodeXConfig),
         protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeXConfig.parameters),
@@ -493,7 +433,7 @@ trait CantonConfig {
     sequencerNodeParametersX(InstanceName.tryCreate(name))
 
   private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
-    mediatorsX.fmap { mediatorNodeConfig =>
+    mediators.fmap { mediatorNodeConfig =>
       MediatorNodeParameters(
         general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
         protocol = CantonNodeParameterConverter.protocol(this, mediatorNodeConfig.parameters),
@@ -528,9 +468,6 @@ trait CantonConfig {
     def participant(config: LocalParticipantConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("ledger-api", _.ledgerApi)))
 
-    def domain(config: DomainConfig): Seq[String] =
-      portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
-
     def sequencer(config: SequencerNodeConfigCommon): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
 
@@ -538,11 +475,9 @@ trait CantonConfig {
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi)))
 
     Seq(
-      domains.fmap(domain),
       participants.fmap(participant),
-      participantsX.fmap(participant),
-      sequencersX.fmap(sequencer),
-      mediatorsX.fmap(mediator),
+      sequencers.fmap(sequencer),
+      mediators.fmap(mediator),
     )
       .flatMap(_.map { case (name, ports) =>
         nodePortsDescription(name, ports)

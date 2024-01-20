@@ -264,11 +264,11 @@ class ApiRequestLoggerBase(
     for {
       maybeTraceContextP <- Try(
         message
-          .asInstanceOf[{ def traceContext: Option[com.digitalasset.canton.v0.TraceContext] }]
+          .asInstanceOf[{ def traceContext: Option[com.digitalasset.canton.v30.TraceContext] }]
           .traceContext
       ).toOption
       tc <- ProtoConverter.required("traceContextOfMessage", maybeTraceContextP).toOption
-      traceContext <- SerializableTraceContext.fromProtoV0(tc).toOption
+      traceContext <- SerializableTraceContext.fromProtoV30(tc).toOption
     } yield traceContext.unwrap
   }
 }

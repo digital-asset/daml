@@ -10,8 +10,8 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc.DomainTimeServiceStub
+import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.domain.api.v30.DomainTimeServiceGrpc.DomainTimeServiceStub
 import com.digitalasset.canton.time.{
   AwaitTimeRequest,
   FetchTimeRequest,
@@ -29,14 +29,14 @@ object DomainTimeCommands {
   abstract class BaseDomainTimeCommand[Req, Rep, Res] extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc = DomainTimeServiceStub
     override def createService(channel: ManagedChannel): DomainTimeServiceStub =
-      v0.DomainTimeServiceGrpc.stub(channel)
+      v30.DomainTimeServiceGrpc.stub(channel)
   }
 
   final case class FetchTime(
       domainIdO: Option[DomainId],
       freshnessBound: NonNegativeFiniteDuration,
       timeout: NonNegativeDuration,
-  ) extends BaseDomainTimeCommand[FetchTimeRequest, v0.FetchTimeResponse, FetchTimeResponse] {
+  ) extends BaseDomainTimeCommand[FetchTimeRequest, v30.FetchTimeResponse, FetchTimeResponse] {
 
     override def createRequest(): Either[String, FetchTimeRequest] =
       Right(FetchTimeRequest(domainIdO, freshnessBound))
@@ -44,10 +44,12 @@ object DomainTimeCommands {
     override def submitRequest(
         service: DomainTimeServiceStub,
         request: FetchTimeRequest,
-    ): Future[v0.FetchTimeResponse] =
-      service.fetchTime(request.toProtoV0)
+    ): Future[v30.FetchTimeResponse] =
+      service.fetchTime(request.toProtoV30)
 
-    override def handleResponse(response: v0.FetchTimeResponse): Either[String, FetchTimeResponse] =
+    override def handleResponse(
+        response: v30.FetchTimeResponse
+    ): Either[String, FetchTimeResponse] =
       FetchTimeResponse.fromProto(response).leftMap(_.toString)
 
     override def timeoutType: TimeoutType = CustomClientTimeout(timeout)
@@ -66,7 +68,7 @@ object DomainTimeCommands {
         service: DomainTimeServiceStub,
         request: AwaitTimeRequest,
     ): Future[Empty] =
-      service.awaitTime(request.toProtoV0)
+      service.awaitTime(request.toProtoV30)
 
     override def handleResponse(response: Empty): Either[String, Unit] = Right(())
 

@@ -59,16 +59,4 @@ final case class CommunitySequencerNodeXConfig(
   */
 final case class SequencerNodeInitXConfig(
     identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity())
-) extends SequencerNodeInitConfigCommon() {
-
-  /** the following case class match will help us detect any additional configuration options added
-    * for "classic" non-X nodes that may apply to X-nodes as well.
-    */
-  private def _completenessCheck(
-      classicConfig: CommunitySequencerNodeInitConfig
-  ): SequencerNodeInitXConfig =
-    classicConfig match {
-      case CommunitySequencerNodeInitConfig() =>
-        SequencerNodeInitXConfig( /* identity */ )
-    }
-}
+) extends SequencerNodeInitConfigCommon()

@@ -20,7 +20,7 @@ object InitializeMediatorResponse {
       v0.InitializeMediatorResponse(
         v0.InitializeMediatorResponse.Value.Success(
           v0.InitializeMediatorResponse.Success(
-            Some(mediatorKey.toProtoV0)
+            Some(mediatorKey.toProtoV30)
           )
         )
       )
@@ -49,7 +49,7 @@ object InitializeMediatorResponse {
     ): ParsingResult[InitializeMediatorResponse] =
       for {
         mediatorKey <- ProtoConverter.parseRequired(
-          SigningPublicKey.fromProtoV0,
+          SigningPublicKey.fromProtoV30,
           "mediator_key",
           successP.mediatorKey,
         )

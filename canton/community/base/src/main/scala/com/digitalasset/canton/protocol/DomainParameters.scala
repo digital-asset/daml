@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
-import com.digitalasset.canton.protocol.{v1 as protoV1, v2 as protoV2}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -75,8 +75,8 @@ final case class StaticDomainParameters private (
   @transient override protected lazy val companionObj: StaticDomainParameters.type =
     StaticDomainParameters
 
-  def toProtoV1: protoV1.StaticDomainParameters =
-    protoV1.StaticDomainParameters(
+  def toProtoV30: v30.StaticDomainParameters =
+    v30.StaticDomainParameters(
       requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
       requiredEncryptionKeySchemes = requiredEncryptionKeySchemes.toSeq.map(_.toProtoEnum),
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
@@ -90,10 +90,10 @@ object StaticDomainParameters
     with ProtocolVersionedCompanionDbHelpers[StaticDomainParameters] {
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      protoV1.StaticDomainParameters
+      v30.StaticDomainParameters
     )(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -122,10 +122,10 @@ object StaticDomainParameters
   ): ParsingResult[NonEmpty[Set[A]]] =
     ProtoConverter.parseRequiredNonEmpty(parse(field, _), field, content).map(_.toSet)
 
-  def fromProtoV1(
-      domainParametersP: protoV1.StaticDomainParameters
+  def fromProtoV30(
+      domainParametersP: v30.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
-    val protoV1.StaticDomainParameters(
+    val v30.StaticDomainParameters(
       requiredSigningKeySchemesP,
       requiredEncryptionKeySchemesP,
       requiredSymmetricKeySchemesP,
@@ -178,30 +178,31 @@ object StaticDomainParameters
   * which participant can join the domain.
   */
 sealed trait OnboardingRestriction extends Product with Serializable {
-  def toProtoV0: protoV2.OnboardingRestriction
+  def toProtoV30: v30.OnboardingRestriction
 }
 object OnboardingRestriction {
-  def fromProtoV0(
-      onboardingRestrictionP: v2.OnboardingRestriction
+  def fromProtoV30(
+      onboardingRestrictionP: v30.OnboardingRestriction
   ): ParsingResult[OnboardingRestriction] = onboardingRestrictionP match {
-    case v2.OnboardingRestriction.UnrestrictedOpen => Right(UnrestrictedOpen)
-    case v2.OnboardingRestriction.UnrestrictedLocked => Right(UnrestrictedLocked)
-    case v2.OnboardingRestriction.RestrictedOpen => Right(RestrictedOpen)
-    case v2.OnboardingRestriction.RestrictedLocked => Right(RestrictedLocked)
-    case v2.OnboardingRestriction.Unrecognized(value) =>
+    case v30.OnboardingRestriction.UnrestrictedOpen => Right(UnrestrictedOpen)
+    case v30.OnboardingRestriction.UnrestrictedLocked => Right(UnrestrictedLocked)
+    case v30.OnboardingRestriction.RestrictedOpen => Right(RestrictedOpen)
+    case v30.OnboardingRestriction.RestrictedLocked => Right(RestrictedLocked)
+    case v30.OnboardingRestriction.Unrecognized(value) =>
       Left(ProtoDeserializationError.UnrecognizedEnum("onboarding_restriction", value))
-    case v2.OnboardingRestriction.MissingDomainPermissioning =>
+    case v30.OnboardingRestriction.MissingDomainPermissioning =>
       Left(ProtoDeserializationError.FieldNotSet("onboarding_restriction"))
   }
 
   /** Anyone can join */
   final case object UnrestrictedOpen extends OnboardingRestriction {
-    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.UnrestrictedOpen
+    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.UnrestrictedOpen
   }
 
   /** In theory, anyone can join, except now, the registration procedure is closed */
   final case object UnrestrictedLocked extends OnboardingRestriction {
-    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.UnrestrictedLocked
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.UnrestrictedLocked
   }
 
   /** Only participants on the allowlist can join
@@ -209,12 +210,12 @@ object OnboardingRestriction {
     * Requires the domain owners to issue a valid ParticipantDomainPermission transaction
     */
   final case object RestrictedOpen extends OnboardingRestriction {
-    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.RestrictedOpen
+    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.RestrictedOpen
   }
 
   /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
   final case object RestrictedLocked extends OnboardingRestriction {
-    override def toProtoV0: v2.OnboardingRestriction = v2.OnboardingRestriction.RestrictedLocked
+    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.RestrictedLocked
   }
 
 }
@@ -359,7 +360,7 @@ final case class DynamicDomainParameters private (
     onboardingRestriction = onboardingRestriction,
   )(representativeProtocolVersion)
 
-  def toProtoV2: protoV2.DynamicDomainParameters = protoV2.DynamicDomainParameters(
+  def toProtoV30: v30.DynamicDomainParameters = v30.DynamicDomainParameters(
     participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
     mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
     transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
@@ -368,7 +369,7 @@ final case class DynamicDomainParameters private (
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
     reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
     maxRequestSize = maxRequestSize.unwrap,
-    onboardingRestriction = onboardingRestriction.toProtoV0,
+    onboardingRestriction = onboardingRestriction.toProtoV30,
     // TODO(#14054) add restricted packages mode
     requiredPackages = Seq.empty,
     // TODO(#14054) add only restricted packages supported
@@ -378,7 +379,7 @@ final case class DynamicDomainParameters private (
     defaultMaxHostingParticipantsPerParty = 0,
     sequencerAggregateSubmissionTimeout =
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
-    trafficControlParameters = trafficControlParameters.map(_.toProtoV0),
+    trafficControlParameters = trafficControlParameters.map(_.toProtoV30),
   )
 
   // TODO(#14052) add topology limits
@@ -427,10 +428,10 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      protoV2.DynamicDomainParameters
+      v30.DynamicDomainParameters
     )(
       supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -623,9 +624,9 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   val topologyChangeDelayIfAbsent: NonNegativeFiniteDuration = NonNegativeFiniteDuration.Zero
 
   def fromProtoV2(
-      domainParametersP: protoV2.DynamicDomainParameters
+      domainParametersP: v30.DynamicDomainParameters
   ): ParsingResult[DynamicDomainParameters] = {
-    val protoV2.DynamicDomainParameters(
+    val v30.DynamicDomainParameters(
       participantResponseTimeoutP,
       mediatorReactionTimeoutP,
       transferExclusivityTimeoutP,
@@ -679,7 +680,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         mediatorDeduplicationTimeoutP
       )
 
-      maxRatePerParticipantP <- ProtoConverter.parseRequired[Int, v2.ParticipantDomainLimits](
+      maxRatePerParticipantP <- ProtoConverter.parseRequired[Int, v30.ParticipantDomainLimits](
         item => Right(item.maxRate),
         "default_limits",
         defaultLimitsP,
@@ -700,9 +701,9 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         sequencerAggregateSubmissionTimeoutP
       )
 
-      trafficControlConfig <- trafficControlConfigP.traverse(TrafficControlParameters.fromProtoV0)
+      trafficControlConfig <- trafficControlConfigP.traverse(TrafficControlParameters.fromProtoV30)
 
-      onboardingRestriction <- OnboardingRestriction.fromProtoV0(onboardingRestrictionP)
+      onboardingRestriction <- OnboardingRestriction.fromProtoV30(onboardingRestrictionP)
 
       domainParameters <-
         create(

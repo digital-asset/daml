@@ -10,11 +10,11 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
-import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.{v0, v2, v30}
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerRequestX,
@@ -55,11 +55,11 @@ object EnterpriseSequencerAdminCommands {
   abstract class BaseSequencerPruningAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
+      v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub =
-      v0.SequencerPruningAdministrationServiceGrpc.stub(channel)
+    ): v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub =
+      v30.SequencerPruningAdministrationServiceGrpc.stub(channel)
   }
 
   abstract class BaseSequencerTopologyBootstrapCommand[Req, Rep, Res]
@@ -203,19 +203,19 @@ object EnterpriseSequencerAdminCommands {
 
   final case class Prune(timestamp: CantonTimestamp)
       extends BaseSequencerPruningAdministrationCommand[
-        v0.Pruning.Request,
-        v0.Pruning.Response,
+        v30.Pruning.Request,
+        v30.Pruning.Response,
         String,
       ] {
-    override def createRequest(): Either[String, v0.Pruning.Request] =
-      Right(v0.Pruning.Request(timestamp.toProtoPrimitive.some))
+    override def createRequest(): Either[String, v30.Pruning.Request] =
+      Right(v30.Pruning.Request(timestamp.toProtoPrimitive.some))
 
     override def submitRequest(
-        service: v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
-        request: v0.Pruning.Request,
-    ): Future[v0.Pruning.Response] =
+        service: v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
+        request: v30.Pruning.Request,
+    ): Future[v30.Pruning.Response] =
       service.prune(request)
-    override def handleResponse(response: v0.Pruning.Response): Either[String, String] =
+    override def handleResponse(response: v30.Pruning.Response): Either[String, String] =
       Either.cond(
         response.details.nonEmpty,
         response.details,
@@ -238,7 +238,7 @@ object EnterpriseSequencerAdminCommands {
     )
 
     override def submitRequest(
-        service: v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
+        service: v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
         request: LocatePruningTimestamp.Request,
     ): Future[LocatePruningTimestamp.Response] =
       service.locatePruningTimestamp(request)
@@ -266,7 +266,7 @@ object EnterpriseSequencerAdminCommands {
       topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive]
   ) extends BaseSequencerTopologyBootstrapCommand[v0.TopologyBootstrapRequest, Empty, Unit] {
     override def createRequest(): Either[String, v0.TopologyBootstrapRequest] =
-      Right(v0.TopologyBootstrapRequest(Some(topologySnapshot.toProtoV0)))
+      Right(v0.TopologyBootstrapRequest(Some(topologySnapshot.toProtoV30)))
 
     override def submitRequest(
         service: v0.TopologyBootstrapServiceGrpc.TopologyBootstrapServiceStub,

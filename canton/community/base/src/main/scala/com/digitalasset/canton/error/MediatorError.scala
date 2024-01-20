@@ -6,7 +6,7 @@ package com.digitalasset.canton.error
 import com.daml.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import org.slf4j.event.Level
 
 sealed trait MediatorError extends Product with Serializable with PrettyPrinting
@@ -63,7 +63,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
     ) extends BaseCantonError.Impl(cause)
         with MediatorError {
       override def pretty: Pretty[Reject] = prettyOfClass(
@@ -83,7 +83,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
     ) extends Alarm(cause)
         with MediatorError
         with BaseCantonError {

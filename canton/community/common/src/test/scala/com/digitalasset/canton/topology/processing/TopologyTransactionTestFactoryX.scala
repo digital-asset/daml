@@ -63,7 +63,9 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
 
   val dtcp1_k1 = mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty), key1)
 
-  val defaultDomainParameters = TestDomainParameters.defaultDynamic
+  val defaultDomainParameters = TestDomainParameters.defaultDynamic.tryUpdate(topologyChangeDelay =
+    NonNegativeFiniteDuration.Zero
+  )
 
   val p1p1B_k2 =
     mkAdd(

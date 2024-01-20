@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.admin.participant.v0.{PackageServiceGrpc, PingServiceGrpc}
+import com.digitalasset.canton.admin.participant.v30.{PackageServiceGrpc, PingServiceGrpc}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

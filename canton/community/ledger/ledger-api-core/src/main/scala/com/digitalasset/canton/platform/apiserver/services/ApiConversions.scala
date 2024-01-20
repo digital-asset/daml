@@ -242,5 +242,4 @@ object ApiConversions {
 
   def toV1(submitAndWaitRequest: SubmitAndWaitRequestV2): SubmitAndWaitRequestV1 =
     SubmitAndWaitRequestV1(submitAndWaitRequest.commands.map(toV1))
-
 }

@@ -171,8 +171,8 @@ abstract class GrpcTopologyAggregationServiceCommon[
             v0.ListKeyOwnersResponse.Result(
               keyOwner = owner.toProtoPrimitive,
               domain = domain.toProtoPrimitive,
-              signingKeys = keys.signingKeys.map(_.toProtoV0),
-              encryptionKeys = keys.encryptionKeys.map(_.toProtoV0),
+              signingKeys = keys.signingKeys.map(_.toProtoV30),
+              encryptionKeys = keys.encryptionKeys.map(_.toProtoV30),
             )
           }
         }

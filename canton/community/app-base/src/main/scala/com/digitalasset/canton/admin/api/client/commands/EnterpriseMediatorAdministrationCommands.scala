@@ -9,7 +9,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -32,6 +32,7 @@ import io.grpc.ManagedChannel
 import scala.concurrent.Future
 
 object EnterpriseMediatorAdministrationCommands {
+  // TODO(#15161): Remove old mediator commands and administration endpoints
   abstract class BaseMediatorInitializationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc = v0.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub

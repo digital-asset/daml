@@ -8,7 +8,6 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.domain.config.{CommunityDomainConfig, RemoteDomainConfig}
 import com.digitalasset.canton.domain.mediator.{CommunityMediatorNodeXConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.domain.sequencing.config.{
   CommunitySequencerNodeXConfig,
@@ -29,23 +28,18 @@ import java.io.File
 import scala.annotation.nowarn
 
 final case class CantonCommunityConfig(
-    domains: Map[InstanceName, CommunityDomainConfig] = Map.empty,
     participants: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
-    participantsX: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
-    sequencersX: Map[InstanceName, CommunitySequencerNodeXConfig] = Map.empty,
-    mediatorsX: Map[InstanceName, CommunityMediatorNodeXConfig] = Map.empty,
-    remoteDomains: Map[InstanceName, RemoteDomainConfig] = Map.empty,
+    sequencers: Map[InstanceName, CommunitySequencerNodeXConfig] = Map.empty,
+    mediators: Map[InstanceName, CommunityMediatorNodeXConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
-    remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
-    remoteSequencersX: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
-    remoteMediatorsX: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
+    remoteSequencers: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
+    remoteMediators: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
     monitoring: MonitoringConfig = MonitoringConfig(),
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
 ) extends CantonConfig
     with ConfigDefaults[DefaultPorts, CantonCommunityConfig] {
 
-  override type DomainConfigType = CommunityDomainConfig
   override type ParticipantConfigType = CommunityParticipantConfig
   override type MediatorNodeXConfigType = CommunityMediatorNodeXConfig
   override type SequencerNodeXConfigType = CommunitySequencerNodeXConfig
@@ -58,11 +52,11 @@ final case class CantonCommunityConfig(
 
   override def withDefaults(ports: DefaultPorts): CantonCommunityConfig =
     this
-      .focus(_.domains)
-      .modify(_.fmap(_.withDefaults(ports)))
       .focus(_.participants)
       .modify(_.fmap(_.withDefaults(ports)))
-      .focus(_.participantsX)
+      .focus(_.sequencers)
+      .modify(_.fmap(_.withDefaults(ports)))
+      .focus(_.mediators)
       .modify(_.fmap(_.withDefaults(ports)))
 }
 
@@ -84,8 +78,6 @@ object CantonCommunityConfig {
     import ConfigReaders.*
     import DeprecatedConfigUtils.*
 
-    implicit val communityDomainConfigReader: ConfigReader[CommunityDomainConfig] =
-      deriveReader[CommunityDomainConfig]
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
       deriveReader[CommunityParticipantConfig]
     implicit val communitySequencerNodeXConfigReader: ConfigReader[CommunitySequencerNodeXConfig] =
@@ -100,8 +92,6 @@ object CantonCommunityConfig {
   private lazy implicit val cantonCommunityConfigWriter: ConfigWriter[CantonCommunityConfig] = {
     val writers = new CantonConfig.ConfigWriters(confidential = true)
     import writers.*
-    implicit val communityDomainConfigWriter: ConfigWriter[CommunityDomainConfig] =
-      deriveWriter[CommunityDomainConfig]
     implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
       deriveWriter[CommunityParticipantConfig]
     implicit val communitySequencerNodeXConfigWriter: ConfigWriter[CommunitySequencerNodeXConfig] =

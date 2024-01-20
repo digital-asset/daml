@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v1;
 
-import "com/digitalasset/canton/protocol/v2/topology.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
 
 /**
  * Write operations on the local topology manager.
@@ -25,13 +25,13 @@ service TopologyManagerWriteServiceX {
 message AuthorizeRequest {
   message Proposal {
     /** Replace / Remove */
-    com.digitalasset.canton.protocol.v2.TopologyChangeOpX change = 1;
+    com.digitalasset.canton.protocol.v30.EnumsX.TopologyChangeOpX change = 1;
 
     /** Optionally, the serial number of this request (auto-determined if omitted) */
     uint32 serial = 2;
 
     /** The mapping to be authorized */
-    com.digitalasset.canton.protocol.v2.TopologyMappingX mapping = 3;
+    com.digitalasset.canton.protocol.v30.TopologyMappingX mapping = 3;
   }
 
   oneof type {
@@ -80,14 +80,14 @@ message AuthorizeRequest {
 
 message AuthorizeResponse {
   /** the generated signed topology transaction */
-  com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transaction = 1;
+  com.digitalasset.canton.protocol.v30.SignedTopologyTransactionX transaction = 1;
 }
 
 message AddTransactionsRequest {
   /**
    * The transactions that should be added to the target store as indicated by the parameter `store`.
    */
-  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransactionX transactions = 1;
 
   /** Force change even if dangerous */
   bool force_change = 2;
@@ -110,7 +110,7 @@ message AddTransactionsResponse {
 
 message SignTransactionsRequest {
   /** The transactions to be signed, but will not be stored in the authorized store */
-  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransactionX transactions = 1;
   /**
    * Fingerprint of the keys signing the authorization
    *
@@ -123,5 +123,5 @@ message SignTransactionsRequest {
 
 message SignTransactionsResponse {
   /** The transaction with the additional signatures from this node */
-  repeated com.digitalasset.canton.protocol.v2.SignedTopologyTransactionX transactions = 1;
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransactionX transactions = 1;
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.admin.domain.{v0, v1}
+import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -94,10 +94,8 @@ final case class SequencerConnections private (
   override def pretty: Pretty[SequencerConnections] =
     prettyOfParam(_.aliasToConnection.forgetNE)
 
-  def toProtoV0: Seq[v0.SequencerConnection] = connections.map(_.toProtoV0)
-
-  def toProtoV1: v1.SequencerConnections =
-    new v1.SequencerConnections(connections.map(_.toProtoV0), sequencerTrustThreshold.unwrap)
+  def toProtoV30: v30.SequencerConnections =
+    new v30.SequencerConnections(connections.map(_.toProtoV30), sequencerTrustThreshold.unwrap)
 
   override protected def companionObj: HasVersionedMessageCompanionCommon[SequencerConnections] =
     SequencerConnections
@@ -145,7 +143,7 @@ object SequencerConnections
 
   private def fromProtoV0(
       fieldName: String,
-      connections: Seq[v0.SequencerConnection],
+      connections: Seq[v30.SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
   ): ParsingResult[SequencerConnections] = for {
     sequencerConnectionsNes <- parseRequiredNonEmpty(
@@ -166,8 +164,8 @@ object SequencerConnections
     )
   } yield sequencerConnections
 
-  def fromProtoV1(
-      sequencerConnections: v1.SequencerConnections
+  def fromProtoV30(
+      sequencerConnections: v30.SequencerConnections
   ): ParsingResult[SequencerConnections] =
     ProtoConverter
       .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
@@ -178,8 +176,8 @@ object SequencerConnections
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v1.SequencerConnections)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(v30.SequencerConnections)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 }

@@ -45,7 +45,7 @@ object DomainAdminCommands {
         case Parameters.Empty => Left("Field parameters was not found in the response")
         case Parameters.ParametersV1(parametersV1) =>
           (for {
-            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV1(
+            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV30(
               parametersV1
             )
             staticDomainParametersConfig = StaticDomainParametersConfig(

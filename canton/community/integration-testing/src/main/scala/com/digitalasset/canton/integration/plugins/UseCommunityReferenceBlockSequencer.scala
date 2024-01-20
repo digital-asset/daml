@@ -49,7 +49,7 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
       defaultStorageConfig: S,
       storageConfigs: Map[CantonRequireTypes.InstanceName, S],
   ): Map[InstanceName, CommunitySequencerConfig] =
-    config.sequencersX.keys.map { sequencerName =>
+    config.sequencers.keys.map { sequencerName =>
       sequencerName -> CommunitySequencerConfig.External(
         driverFactory.name,
         ConfigCursor(
@@ -129,7 +129,7 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
     }
 
     config
-      .focus(_.sequencersX)
+      .focus(_.sequencers)
       .modify(_.map(mapSequencerXConfigs))
   }
 }

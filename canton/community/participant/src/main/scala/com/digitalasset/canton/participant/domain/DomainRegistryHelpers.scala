@@ -28,6 +28,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
+  LedgerServerPartyNotifier,
   ParticipantTopologyDispatcherCommon,
   TopologyComponentFactory,
 }
@@ -72,6 +73,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcherCommon,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      partyNotifier: LedgerServerPartyNotifier,
       metrics: DomainAlias => SyncDomainMetrics,
       participantSettings: Eval[ParticipantSettingsLookup],
   )(implicit
@@ -248,6 +250,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         topologyClient,
         sequencerClientFactory,
         requestSigner,
+        partyNotifier,
         sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
       )
       sequencerClient <- sequencerClientFactory
@@ -282,6 +285,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       topologyClient: DomainTopologyClientWithInit,
       sequencerClientFactory: SequencerClientTransportFactory,
       requestSigner: RequestSigner,
+      partyNotifier: LedgerServerPartyNotifier,
       protocolVersion: ProtocolVersion,
   )(implicit
       ec: ExecutionContextExecutor,
@@ -318,6 +322,22 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
               )
             )
           )
+          // notify the ledger api server about regular and admin parties contained
+          // in the topology snapshot for this domain
+          .semiflatMap { storedTopologyTransactions =>
+            import cats.syntax.parallel.*
+            storedTopologyTransactions.result
+              .groupBy(stt => (stt.sequenced, stt.validFrom))
+              .toSeq
+              .sortBy(_._1)
+              .parTraverse_ { case ((sequenced, effective), topologyTransactions) =>
+                partyNotifier.observeTopologyTransactions(
+                  sequenced,
+                  effective,
+                  topologyTransactions.map(_.transaction),
+                )
+              }
+          }
           .leftMap[DomainRegistryError](
             DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(_)
           )

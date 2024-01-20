@@ -60,7 +60,7 @@ class GrpcSequencerConnectionService(
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
         .map {
           case Some(sequencerConnections) =>
-            v0.GetConnectionResponse(Some(sequencerConnections.toProtoV1))
+            v0.GetConnectionResponse(Some(sequencerConnections.toProtoV30))
 
           case None => v0.GetConnectionResponse(None)
         }
@@ -98,7 +98,7 @@ class GrpcSequencerConnectionService(
 
     ProtoConverter
       .required("sequencerConnections", sequencerConnectionsPO)
-      .flatMap(SequencerConnections.fromProtoV1)
+      .flatMap(SequencerConnections.fromProtoV30)
       .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.message).asException())
       .toEitherT[Future]
   }

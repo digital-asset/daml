@@ -653,7 +653,7 @@ object DbSequencerStateManagerStore {
     private def toProtoV0: v0.AggregatedSignaturesOfSender =
       v0.AggregatedSignaturesOfSender(
         signaturesByEnvelope = signaturesByEnvelope.map(sigs =>
-          v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV0))
+          v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV30))
         )
       )
   }
@@ -680,7 +680,7 @@ object DbSequencerStateManagerStore {
       for {
         sigs <- sigsP.traverse {
           case v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
-            sigsForEnvelope.traverse(Signature.fromProtoV0)
+            sigsForEnvelope.traverse(Signature.fromProtoV30)
         }
       } yield AggregatedSignaturesOfSender(sigs)(protocolVersionRepresentativeFor(ProtoVersion(0)))
     }

@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v0;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
-import "com/digitalasset/canton/protocol/v0/topology.proto";
-import "com/digitalasset/canton/protocol/v2/domain_params.proto";
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/domain_params.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
 
 /**
  * Write operations on the local topology manager.
@@ -71,7 +71,7 @@ message SignedTopologyTransactionAddition {
 
 message AuthorizationData {
   /** Add / Remove / Replace */
-  com.digitalasset.canton.protocol.v0.TopologyChangeOp change = 1;
+  com.digitalasset.canton.protocol.v30.TopologyChangeOp change = 1;
 
   /**
    * Fingerprint of the key signing the authorization
@@ -130,14 +130,16 @@ message PartyToParticipantAuthorization {
    * RequestSide.Both and collapse into a single transaction. Otherwise, `From` needs to be signed by a namespace key
    * of the party and `To` needs to be signed by a namespace key of the participant.
    */
-  com.digitalasset.canton.protocol.v0.RequestSide side = 2;
+  com.digitalasset.canton.protocol.v30.RequestSide side = 2;
 
   // The unique identifier of the party
   string party = 3;
+
   // The unique identifier of the participant
   string participant = 4;
+
   // The permission of the participant that will allow him to act on behalf of the party.
-  com.digitalasset.canton.protocol.v0.ParticipantPermission permission = 5;
+  com.digitalasset.canton.protocol.v30.ParticipantPermission permission = 5;
 }
 
 message OwnerToKeyMappingAuthorization {
@@ -160,33 +162,37 @@ message OwnerToKeyMappingAuthorization {
    */
   string fingerprint_of_key = 3;
 
-  /**
-   * Purpose of the key
-   */
-  com.digitalasset.canton.crypto.v0.KeyPurpose key_purpose = 4;
+  // Purpose of the key
+  com.digitalasset.canton.crypto.v30.KeyPurpose key_purpose = 4;
 }
 
 message ParticipantDomainStateAuthorization {
   AuthorizationData authorization = 1;
-  /** which side (domain or participant) is attempting to issue the authorization */
-  com.digitalasset.canton.protocol.v0.RequestSide side = 2;
-  /** domain this authorization refers to */
+
+  // which side (domain or participant) is attempting to issue the authorization
+  com.digitalasset.canton.protocol.v30.RequestSide side = 2;
+
+  // domain this authorization refers to
   string domain = 3;
+
   /** participant that should be authorized */
   string participant = 4;
-  /** permission that should be used (lower of From / To) */
-  com.digitalasset.canton.protocol.v0.ParticipantPermission permission = 5;
-  /** trust level that should be used (ignored for side from, defaults to Ordinary) */
-  com.digitalasset.canton.protocol.v0.TrustLevel trust_level = 6;
+
+  /// permission that should be used (lower of From / To)
+  com.digitalasset.canton.protocol.v30.ParticipantPermission permission = 5;
+
+  // trust level that should be used (ignored for side from, defaults to Ordinary)
+  com.digitalasset.canton.protocol.v30.TrustLevel trust_level = 6;
 }
 
 message MediatorDomainStateAuthorization {
   AuthorizationData authorization = 1;
   /** which side (domain or mediator) is attempting to issue the authorization */
-  com.digitalasset.canton.protocol.v0.RequestSide side = 2;
+  com.digitalasset.canton.protocol.v30.RequestSide side = 2;
   /** domain this authorization refers to */
   string domain = 3;
-  /** mediator that should be authorized */
+
+  // mediator that should be authorized
   string mediator = 4;
 }
 
@@ -198,10 +204,12 @@ message VettedPackagesAuthorization {
 
 message DomainParametersChangeAuthorization {
   AuthorizationData authorization = 1;
-  /** domain this authorization refers to */
+
+  // domain this authorization refers to
   string domain = 2;
-  /** new parameters for the domain */
+
+  // new parameters for the domain
   oneof parameters {
-    com.digitalasset.canton.protocol.v2.DynamicDomainParameters parameters_v1 = 3;
+    com.digitalasset.canton.protocol.v30.DynamicDomainParameters parameters_v1 = 3;
   }
 }

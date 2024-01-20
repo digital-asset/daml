@@ -43,7 +43,7 @@ class SerializableTraceContextTest extends BaseTestWordSpec with BeforeAndAfterE
       val testCases = Seq(emptyContext, contextWithRootSpan, contextWithChildSpan)
       forEvery(testCases) { context =>
         SerializableTraceContext
-          .fromProtoV0(SerializableTraceContext(context).toProtoV0) shouldBe
+          .fromProtoV30(SerializableTraceContext(context).toProtoV30) shouldBe
           Right(SerializableTraceContext(context))
         SerializableTraceContext.fromProtoVersioned(
           SerializableTraceContext(context).toProtoVersioned(testedProtocolVersion)

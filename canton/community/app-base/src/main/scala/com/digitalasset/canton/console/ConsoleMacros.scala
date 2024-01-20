@@ -328,7 +328,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |part of repair or export/import procedure, the corresponding contract id must be recomputed."""
     )
     def recompute_contract_ids(
-        participant: LocalParticipantReference,
+        participant: LocalParticipantReferenceX,
         acs: Seq[SerializableContract],
         protocolVersion: ProtocolVersion,
     ): (Seq[SerializableContract], Map[LfContractId, LfContractId]) = {
@@ -574,7 +574,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     // intentionally not publicly documented
     object jwt {
       def generate_unsafe_token_for_participant(
-          participant: LocalParticipantReference,
+          participant: LocalParticipantReferenceX,
           admin: Boolean,
           applicationId: String,
       ): Map[PartyId, String] = {

@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LedgerTransactionId
-import com.digitalasset.canton.admin.participant.v0.InspectionServiceGrpc.InspectionService
-import com.digitalasset.canton.admin.participant.v0.{
+import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
+import com.digitalasset.canton.admin.participant.v30.{
   LookupContractDomain,
   LookupOffsetByIndex,
   LookupOffsetByTime,

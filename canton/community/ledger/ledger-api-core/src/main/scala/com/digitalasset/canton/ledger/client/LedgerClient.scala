@@ -33,7 +33,7 @@ import com.digitalasset.canton.ledger.client.services.admin.*
 import com.digitalasset.canton.ledger.client.services.commands.{
   CommandClientV1,
   CommandServiceClient,
-  SynchronousCommandClient,
+  SynchronousCommandClientV1,
 }
 import com.digitalasset.canton.ledger.client.services.pkg.{PackageClient, PackageClientV1}
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
@@ -65,13 +65,14 @@ final class LedgerClient private (
     lazy val packageService = new PackageClient(
       LedgerClient.stub(PackageServiceGrpcV2.stub(channel), config.token)
     )
+
     lazy val stateService = new StateServiceClient(
       LedgerClient.stub(StateServiceGrpc.stub(channel), config.token)
     )
+
     lazy val updateService = new UpdateServiceClient(
       LedgerClient.stub(UpdateServiceGrpc.stub(channel), config.token)
     )
-
   }
 
   lazy val activeContractSetClient =
@@ -88,8 +89,8 @@ final class LedgerClient private (
       loggerFactory,
     )
 
-  lazy val commandServiceClient: SynchronousCommandClient =
-    new SynchronousCommandClient(
+  lazy val commandServiceClient: SynchronousCommandClientV1 =
+    new SynchronousCommandClientV1(
       LedgerClient.stub(CommandServiceGrpcV1.stub(channel), config.token)
     )
 

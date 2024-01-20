@@ -53,7 +53,7 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
   RootHash,
   ViewHash,
-  v0,
+  v30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
@@ -337,7 +337,7 @@ object TestProcessingSteps {
     override type View = TestViewTree
     override type FullView = TestViewTree
 
-    override def toProtoEnum: v0.ViewType =
+    override def toProtoEnum: v30.ViewType =
       throw new UnsupportedOperationException("TestViewType cannot be serialized")
   }
   type TestViewType = TestViewType.type

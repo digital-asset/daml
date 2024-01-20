@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.scheduler
 
-import com.digitalasset.canton.admin.pruning.v0
+import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.pruning.PruningProcessor
 import com.digitalasset.canton.scheduler.{PruningSchedule, PruningScheduler, Scheduler, Schedulers}
@@ -29,15 +29,16 @@ final case class ParticipantPruningSchedule(
     schedule: PruningSchedule,
     pruneInternallyOnly: Boolean,
 ) {
-  def toProtoV0: v0.ParticipantPruningSchedule = v0.ParticipantPruningSchedule(
+  def toProtoV30: v30.ParticipantPruningSchedule = v30.ParticipantPruningSchedule(
     schedule = Some(schedule.toProtoV0),
     pruneInternallyOnly = pruneInternallyOnly,
   )
 }
 
 object ParticipantPruningSchedule {
-  def fromProtoV0(
-      participantSchedule: v0.ParticipantPruningSchedule
+
+  def fromProtoV30(
+      participantSchedule: v30.ParticipantPruningSchedule
   ): ParsingResult[ParticipantPruningSchedule] =
     for {
       scheduleP <- ProtoConverter.required("schedule", participantSchedule.schedule)

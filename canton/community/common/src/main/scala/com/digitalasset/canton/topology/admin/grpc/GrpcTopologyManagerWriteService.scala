@@ -44,7 +44,7 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
     val authDataE = for {
       authDataP <- ProtoConverter.required("authorization", authDataPO)
       AuthorizationData(changeP, signedByP, replaceExistingP, forceChangeP) = authDataP
-      change <- TopologyChangeOp.fromProtoV0(changeP)
+      change <- TopologyChangeOp.fromProtoV30(changeP)
       fingerprint <- (if (signedByP.isEmpty) None
                       else Some(Fingerprint.fromProtoPrimitive(signedByP))).sequence
     } yield (change, fingerprint, replaceExistingP, forceChangeP)
