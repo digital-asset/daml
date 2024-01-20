@@ -3,43 +3,29 @@
 
 package com.daml.ledger
 
-import java.time.Clock
 import java.util.UUID
 
 import org.apache.pekko.actor.ActorSystem
 
-import scala.concurrent.ExecutionContext
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.auth.{
-  AuthServiceStatic,
-  Authorizer,
-  Claim,
-  ClaimActAsParty,
-  ClaimAdmin,
-  ClaimPublic,
-  ClaimReadAsParty,
-  ClaimSet,
-}
-import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.api.auth.{Claim, ClaimActAsParty, ClaimAdmin, ClaimPublic, ClaimReadAsParty, ClaimSet}
+
 
 package object rxjava {
 
-  private[rxjava] def untestedEndpoint: Nothing =
-    throw new UnsupportedOperationException("Untested endpoint, implement if needed")
   private val pekkoSystem = ActorSystem("testActorSystem")
   sys.addShutdownHook(pekkoSystem.terminate(): Unit)
 
-  private[rxjava] val authorizer =
-    new Authorizer(
-      () => Clock.systemUTC().instant(),
-      "testLedgerId",
-      "testParticipantId",
-      new InMemoryUserManagementStore(),
-      ExecutionContext.parasitic,
-      userRightsCheckIntervalInSeconds = 1,
-      pekkoScheduler = pekkoSystem.scheduler,
-    )(LoggingContext.ForTesting)
+//  private[rxjava] val authorizer =
+//    new Authorizer(
+//      () => Clock.systemUTC().instant(),
+//      "testLedgerId",
+//      "testParticipantId",
+//      new InMemoryUserManagementStore(NamedLoggerFactory.root),
+//      ExecutionContext.parasitic,
+//      userRightsCheckIntervalInSeconds = 1,
+//      pekkoScheduler = pekkoSystem.scheduler,
+//    )(LoggingContext.ForTesting)
 
   private[rxjava] val emptyToken = "empty"
   private[rxjava] val publicToken = "public"
@@ -54,7 +40,7 @@ package object rxjava {
   private[rxjava] val someOtherPartyReadWriteToken = UUID.randomUUID.toString
 
   private[rxjava] val mockedAuthService =
-    AuthServiceStatic {
+    grpc.helpers.AuthServiceStatic {
       case `emptyToken` => ClaimSet.Unauthenticated
       case `publicToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
       case `adminToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimAdmin))

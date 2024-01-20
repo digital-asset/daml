@@ -6,41 +6,24 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
+
 import org.apache.pekko.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.daml.ledger.rxjava.{
-  CommandCompletionClient,
-  EventQueryClient,
-  LedgerConfigurationClient,
-  PackageClient,
-}
+import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, LedgerConfigurationClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
+import com.digitalasset.canton.ledger.api.auth.interceptor.{AuthorizationInterceptor, IdentityProviderAwareAuthService}
+import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionEndResponse,
-  CompletionStreamResponse,
-}
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-}
-import com.daml.ledger.api.v1.event_query_service.{
-  GetEventsByContractIdResponse,
-  GetEventsByContractKeyResponse,
-}
+import com.daml.ledger.api.v1.command_completion_service.{CompletionEndResponse, CompletionStreamResponse}
+import com.daml.ledger.api.v1.command_service.{SubmitAndWaitForTransactionIdResponse, SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse}
+import com.daml.ledger.api.v1.event_query_service.{GetEventsByContractIdResponse, GetEventsByContractKeyResponse}
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  ListPackagesResponse,
-}
+import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
-import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -57,16 +40,20 @@ final class LedgerServices(val ledgerId: String) {
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
   private val pekkoSystem = ActorSystem("LedgerServicesParticipant")
   private val participantId = "LedgerServicesParticipant"
-  private val authorizer =
+  private val loggerFactory = NamedLoggerFactory.root
+  val authorizer: Authorizer =
     new Authorizer(
       now = () => Clock.systemUTC().instant(),
       ledgerId = ledgerId,
       participantId = participantId,
-      userManagementStore = new InMemoryUserManagementStore(),
+      userManagementStore = new InMemoryUserManagementStore(createAdmin = false, loggerFactory),
       ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,
       pekkoScheduler = pekkoSystem.scheduler,
-    )(LoggingContext.ForTesting)
+      jwtTimestampLeeway = None,
+      telemetry = NoOpTelemetry,
+      loggerFactory = loggerFactory,
+    )
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
@@ -101,14 +88,23 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  private class IDPAuthService extends IdentityProviderAwareAuthService {
+    override def decodeMetadata(headers: Metadata)(
+      implicit loggingContext: LoggingContextWithTrace
+    ): Future[ClaimSet] =
+      Future.successful(ClaimSet.Unauthenticated)
+  }
+
   private def createServer(
       authService: AuthService,
       services: Seq[ServerServiceDefinition],
   ): Server = {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
-      Some(new InMemoryUserManagementStore()),
-      { _ => Future.successful(ClaimSet.Unauthenticated) },
+      Some(new InMemoryUserManagementStore(false, loggerFactory)),
+      new IDPAuthService,
+      NoOpTelemetry,
+      loggerFactory,
       executionContext,
     )
     services
@@ -272,7 +268,7 @@ final class LedgerServices(val ledgerId: String) {
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: (UserManagementClientImpl, UserManagementServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
+      UserManagementServiceImpl.createWithRef(authorizer, loggerFactory)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new UserManagementClientImpl(channel, accessToken), serviceImpl)
     }
