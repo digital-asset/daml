@@ -53,8 +53,6 @@
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
   type: jar-jarjar
-- target: //language-support/scala/codegen:codegen-main
-  type: jar-distribute
 - target: //canton:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
@@ -64,10 +62,6 @@
 - target: //language-support/java/codegen:shaded_binary
   type: jar-jarjar
 - target: //language-support/java/json:json
-  type: jar-scala
-- target: //language-support/scala/bindings:bindings
-  type: jar-scala
-- target: //language-support/scala/codegen:codegen
   type: jar-scala
 - target: //canton:ledger_api_proto_jar
   type: jar-lib
@@ -82,18 +76,6 @@
 - target: //libs-scala/rs-grpc-testing-utils:rs-grpc-testing-utils
   type: jar-scala
 - target: //libs-scala/testing-utils:testing-utils
-  type: jar-scala
-- target: //ledger/ledger-api-auth:ledger-api-auth
-  type: jar-scala
-- target: //ledger/ledger-api-auth-client:ledger-api-auth-client
-  type: jar-lib
-- target: //ledger/ledger-api-client:ledger-api-client
-  type: jar-scala
-- target: //ledger/ledger-api-common:ledger-api-common
-  type: jar-scala
-- target: //ledger/ledger-api-domain:ledger-api-domain
-  type: jar-scala
-- target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-2.1-lib
   type: jar-scala

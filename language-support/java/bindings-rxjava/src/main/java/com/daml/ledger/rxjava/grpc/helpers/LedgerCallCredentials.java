@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava.grpc.helpers;
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import io.grpc.stub.AbstractStub;
-
 import java.util.concurrent.Executor;
 
 @SuppressWarnings("deprecation")
