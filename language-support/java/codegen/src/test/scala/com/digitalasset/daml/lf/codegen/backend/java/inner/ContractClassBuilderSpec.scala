@@ -35,6 +35,7 @@ final class ContractClassBuilderSpec
     parameters should contain theSameElementsInOrderAs Seq(
       "contractId" -> string,
       "record$" -> record,
+      "agreementText" -> optionalString, // will be removed
       "key" -> optionalContractKey,
       "signatories" -> setOfStrings,
       "observers" -> setOfStrings,
@@ -47,6 +48,7 @@ final class ContractClassBuilderSpec
     parameters should contain theSameElementsInOrderAs Seq(
       "contractId" -> string,
       "record$" -> record,
+      "agreementText" -> optionalString, // will be removed
       "signatories" -> setOfStrings,
       "observers" -> setOfStrings,
     )
@@ -63,6 +65,8 @@ final class ContractClassBuilderSpec
     ContractClass.Builder.generateFromIdAndRecord(className, None)
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
+  private[this] val optionalString =
+    ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
   private[this] val optionalContractKey =
     ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), ckClassName)
   private[this] val setOfStrings =
