@@ -256,8 +256,7 @@ isAscendant (ModuleName xs) (ModuleName ys) =
 -- name collision condition.
 checkModuleDeps :: World -> Module -> NCMonad ()
 checkModuleDeps world mod0 = do
-    let package = getWorldSelf world
-        modules = NM.toList (packageModules package)
+    let modules = NM.toList (getWorldSelfPkgModules world)
         name0 = moduleName mod0
         ascendants = filter (flip isAscendant name0 . moduleName) modules
         descendants = filter (isAscendant name0 . moduleName) modules
