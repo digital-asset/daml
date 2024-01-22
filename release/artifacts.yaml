@@ -238,7 +238,6 @@
 
 # Some temporary until slimmed canton LedgerClient created.
 
-
 - target: //canton:community_admin-api
   type: jar-scala
 - target: //canton:community_base
@@ -252,7 +251,7 @@
 - target: //canton:community_ledger_ledger-common
   type: jar-scala
 - target: //canton:community_ledger_ledger-common_configuration_proto_java
-  type: jar-scala
+  type: jar-proto
 - target: //canton:community_lib_Blake2b
   type: jar-scala
 - target: //canton:community_lib_slick_slick-fork
