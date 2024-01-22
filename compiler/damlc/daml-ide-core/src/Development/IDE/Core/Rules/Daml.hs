@@ -523,10 +523,7 @@ generatePackageMap version mbProjRoot userPkgDbs = do
       | "daml-stdlib" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
       | otherwise = pkgNameVersion (LF.PackageName name) mbVersion
       where (LF.PackageName name, mbVersion)
-               = LF.packageMetadataFromFile
-                     dalf
-                     (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
-                     (LF.dalfPackageId pkg)
+               = LF.safePackageMetadata (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
 
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
@@ -980,11 +977,10 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
     pure (concat diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
-    pkgId = LF.extPackageId extPkg
     pkgName' =
         toNormalizedFilePath' $
         T.unpack $
-        maybe (LF.unPackageId pkgId) (LF.unPackageName . LF.packageName) $ LF.packageMetadata pkg
+        LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
     world = LF.initWorldSelf pkgs pkg
     scenarios =
         map fst $

@@ -175,18 +175,21 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: LF.Version -> LF.PackageRef -> LF2.Package -> Either Error Package
-decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
-  let internedStrings = V.map decodeMangledString internedStringsV
-  let internedDottedNames = V.empty
-  let internedTypes = V.empty
-  let env0 = DecodeEnv{..}
-  internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
-  let env1 = env0{internedDottedNames}
-  internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
-      runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
-  let env2 = env1{internedTypes}
-  runDecode env2 $ do
-    Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
+decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV)
+  | Nothing <- mMetadata  =
+      throwError (ParseError "missing package metadata")
+  | Just metadata <- mMetadata = do
+      let internedStrings = V.map decodeMangledString internedStringsV
+      let internedDottedNames = V.empty
+      let internedTypes = V.empty
+      let env0 = DecodeEnv{..}
+      internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
+      let env1 = env0{internedDottedNames}
+      internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
+          runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
+      let env2 = env1{internedTypes}
+      runDecode env2 $ do
+        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode PackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =

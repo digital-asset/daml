@@ -80,11 +80,6 @@ isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
 isDevVersion _ = False
 
--- | True iff package metata is required for this LF version.
-requiresPackageMetadata :: Version -> Bool
-requiresPackageMetadata = \case
-  Version V2 _ -> True
-
 -- | A datatype describing a set of language versions. Used in the definition of
 -- 'Feature' below.
 newtype VersionReq = VersionReq (MajorVersion -> R.Range MinorVersion)

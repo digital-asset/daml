@@ -1040,7 +1040,7 @@ encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
-    metadata = Just PackageMetadata
+    metadata = PackageMetadata
       { packageName = PackageName "scenario"
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
@@ -1101,7 +1101,7 @@ encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version (WithInterning True)
         ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames, internedTypes}) =
-            runState ((,) <$> encodeNameMap encodeModule mods <*> traverse encodePackageMetadata metadata) env
+            runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
         packageInternedStrings =
             V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
         packageInternedDottedNames =

@@ -74,21 +74,13 @@ stablePackageByModuleName = MS.fromListWithKey
     , m <- NM.toList (packageModules p)
     ]
 
--- | Helper function for optionally adding metadata to stable packages depending
--- on the LF version of the package.
-ifMetadataRequired :: Version -> PackageMetadata -> Maybe PackageMetadata
-ifMetadataRequired v metadata =
-  if requiresPackageMetadata v
-    then Just metadata
-    else Nothing
-
 ghcTypes :: Version -> Package
 ghcTypes version = Package
   { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = NM.fromList [dataOrdering]
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-GHC-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -112,7 +104,7 @@ ghcPrim version = Package
     { moduleDataTypes = NM.fromList [dataVoid]
     , moduleValues = NM.fromList [valVoid]
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-GHC-Prim"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -143,7 +135,7 @@ daTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-DA-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -191,7 +183,7 @@ ghcTuple version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-GHC-Tuple"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -216,7 +208,7 @@ daInternalTemplate version = Package
   , packageModules = NM.singleton (emptyModule modName)
      { moduleDataTypes = types
      }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "ghc-stdlib-DA-Internal-Template"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -235,7 +227,7 @@ daInternalAny version = Package
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = types
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "ghc-stdlib-DA-Internal-Any"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -261,7 +253,7 @@ daInternalInterfaceAnyViewTypes version = Package
       { moduleDataTypes = datatypes
       , moduleValues = values
       }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -302,7 +294,7 @@ daActionStateType version daTypesPackageId = Package
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Action-State-Type"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -347,7 +339,7 @@ daRandomTypes version = Package
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Random-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -377,7 +369,7 @@ daStackTypes version = Package
       { moduleDataTypes = types
       , moduleValues = values
       }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Stack-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -415,7 +407,7 @@ daTimeTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Time-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -441,7 +433,7 @@ daNonEmptyTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-NonEmpty-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -470,7 +462,7 @@ daDateTypes version = Package
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = types
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Date-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -513,7 +505,7 @@ daSemigroupTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Semigroup-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -542,7 +534,7 @@ daMonoidTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Monoid-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -586,7 +578,7 @@ daValidationTypes version nonEmptyPkgId = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Validation-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -620,7 +612,7 @@ daLogicTypes version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Logic-Types"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -658,7 +650,7 @@ daInternalDown version = Package
     { moduleDataTypes = types
     , moduleValues = values
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Down"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -684,7 +676,7 @@ daSetTypes version = Package
         { moduleDataTypes = types
         , moduleValues = values
         }
-    , packageMetadata = ifMetadataRequired version $ PackageMetadata
+    , packageMetadata = PackageMetadata
         { packageName = PackageName "daml-stdlib-DA-Set-Types"
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
@@ -710,7 +702,7 @@ daInternalErased version = Package
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = types
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-Erased"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -730,7 +722,7 @@ daInternalNatSyn version = Package
       { moduleDataTypes = types
       , moduleValues = NM.empty
       }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-NatSyn"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -749,7 +741,7 @@ daInternalPromotedText version = Package
   , packageModules = NM.singleton (emptyModule modName)
     { moduleDataTypes = types
     }
-  , packageMetadata = ifMetadataRequired version $ PackageMetadata
+  , packageMetadata = PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-PromotedText"
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
@@ -782,7 +774,7 @@ builtinExceptionPackage version name = Package
         , moduleValues = values
         , moduleExceptions = exceptions
         }
-    , packageMetadata = ifMetadataRequired version $ PackageMetadata
+    , packageMetadata = PackageMetadata
         { packageName = PackageName ("daml-prim-DA-Exception-" <> name)
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
