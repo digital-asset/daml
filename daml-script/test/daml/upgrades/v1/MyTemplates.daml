@@ -227,3 +227,36 @@ template SharedTemplate
   where
     signatory party
     observer ob
+
+data UnchangedKeyKey = UnchangedKeyKey with
+    p : Party
+    n : Int
+  deriving (Eq, Show)
+
+template UnchangedKey
+  with
+    party : Party
+    n : Int
+  where
+    signatory party
+    key (UnchangedKeyKey party n) : UnchangedKeyKey
+    maintainer key.p
+
+    choice UnchangedKeyCall : Text
+      controller party
+      do pure "V1"
+
+template UnchangedKeyHelper
+  with
+    party : Party
+  where
+    signatory party
+    choice UnchangedKeyFetch : (ContractId UnchangedKey, UnchangedKey) with
+        k : UnchangedKeyKey
+      controller party
+      do fetchByKey k
+    
+    choice UnchangedKeyExercise : Text with
+        k : UnchangedKeyKey
+      controller party
+      do exerciseByKey @UnchangedKey k UnchangedKeyCall

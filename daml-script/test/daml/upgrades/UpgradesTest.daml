@@ -9,8 +9,10 @@ import DA.Assert
 import DA.Exception
 import DA.Foldable
 import DA.Text
+import DA.Time
 import Daml.Script
 import Daml.Script.Questions.Exceptions (tryToEither)
+import Daml.Script.Questions.Packages (unsafeVetDarOnParticipant, unsafeUnvetDarOnParticipant)
 import Daml.Script.Questions.Testing.Internal
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
@@ -50,13 +52,19 @@ main = forA_ tests $ \(testName, test) -> do
 brokenScript : Script () -> Script ()
 brokenScript act = do
   tryToEither (\() -> liftFailedCommandToException act) >>= \case
-    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `failure` to mark this as working."
+    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> do
-      -- Cleanup so next test can run.
-      vetDarOnParticipant v1DarName participant0
-      vetDarOnParticipant v1DarName participant1
-      vetDarOnParticipant v2DarName participant0
-      vetDarOnParticipant v2DarName participant1
+      -- Unvet first so we don't end up vetting a package twice
+      unsafeUnvetDarOnParticipant v1DarName $ Some participant0
+      unsafeUnvetDarOnParticipant v1DarName $ Some participant1
+      unsafeUnvetDarOnParticipant v2DarName $ Some participant0
+      unsafeUnvetDarOnParticipant v2DarName $ Some participant1
+      sleep $ seconds 1
+      unsafeVetDarOnParticipant v1DarName $ Some participant0
+      unsafeVetDarOnParticipant v1DarName $ Some participant1
+      unsafeVetDarOnParticipant v2DarName $ Some participant0
+      unsafeVetDarOnParticipant v2DarName $ Some participant1
+      sleep $ seconds 1
 
 broken : (Text, Script ()) -> (Text, Script ())
 broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
@@ -141,6 +149,12 @@ tests = mconcat
     , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
     , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
 
+    , -- Contract key upgrades
+      ("Query an unchanged old key for a new contract", queryKeyUnchanged)
+    , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
+    , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
+    , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+  
     , -- Edge behaviour
       -- https://github.com/DACH-NY/canton/issues/14718
       broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
@@ -150,10 +164,8 @@ tests = mconcat
     ]
   , -- Multi participant tests
     [ ("Both participants have v2, upgraded create succeeds.", bothParticipantsV2)
-    , ("Submitting participant has v2, other has v1, failure.", submitV1OtherV2)
-    , ("Submitting participant has v1, other has v2, failure.", submitV2OtherV1)
-      -- TODO: Consider a final test where both participants have v2 disabled. Sadly this cannot work given the
-      -- packageSelectionChoosesUnvettedPackages shows that even an individual participant will pick v2 in this case.
+    , ("Submitting participant has v2, other has v1, expect v1 used.", submitV2OtherV1)
+    , ("Submitting participant has v1, other has v2, expect v1 used.", submitV1OtherV2)
     ]
   ]
 
@@ -603,6 +615,37 @@ templateVariantDowngradeFromNew = do
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
+queryKeyUnchanged : Script ()
+queryKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
+  keyRes <- queryContractKey a $ V2.UnchangedKeyKey a 1
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UnchangedKey a 1 None -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UnchangedKey a 1 None) <> ", got " <> show keyRes
+
+exerciseCmdKeyUnchanged : Script ()
+exerciseCmdKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
+  res <- a `submit` exerciseByKeyExactCmd @V2.UnchangedKey (V2.UnchangedKeyKey a 1) V2.UnchangedKeyCall
+  res === "V2"
+
+fetchKeyUnchanged : Script ()
+fetchKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createCmd (V1.UnchangedKey a 1)
+  (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyFetch $ V2.UnchangedKeyKey a 1)
+  foundContract === V2.UnchangedKey a 1 None
+  show foundCid === show cid
+
+exerciseUpdateKeyUnchanged : Script ()
+exerciseUpdateKeyUnchanged = do
+  a <- allocateParty "alice"
+  _ <- a `submit` createCmd (V1.UnchangedKey a 1)
+  res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
+  res === "V2"
+
 packageSelectionChoosesUnvettedPackages : Script ()
 packageSelectionChoosesUnvettedPackages = do
   -- Unvet the v2 dar on all participants on the domain
@@ -635,7 +678,7 @@ submitV1OtherV2 = do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
   unvetDarOnParticipant v2DarName participant0
-  liftAssertUnknownPackageError $ a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
+  a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
   vetDarOnParticipant v2DarName participant0
 
 submitV2OtherV1 : Script ()
