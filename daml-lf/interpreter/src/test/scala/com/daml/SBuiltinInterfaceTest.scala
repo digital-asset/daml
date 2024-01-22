@@ -79,6 +79,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
+            packageResolution = basePkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -95,6 +96,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
+            packageResolution = basePkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -111,6 +113,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
+            packageResolution = basePkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -282,6 +285,9 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 
+  val basePkgNameMap =
+    List(basePkg.name.toList, extraPkgName.toList).flatten.map(n => n -> basePkgId).toMap
+
   lazy val extendedPkgs = {
 
     val modifiedParserParameters: parser.ParserParameters[this.type] =
@@ -326,6 +332,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   def eval(e: Expr): Try[Either[SError, SValue]] =
     evalSExpr(
       compiledBasePkgs.compiler.unsafeCompile(e),
+      Map.empty,
       PartialFunction.empty,
       PartialFunction.empty,
       PartialFunction.empty,
@@ -334,6 +341,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   def evalApp(
       e: Expr,
       args: Array[SValue],
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -341,6 +349,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   ): Try[Either[SError, SValue]] =
     evalSExpr(
       SEApp(compiledBasePkgs.compiler.unsafeCompile(e), args),
+      packageResolution,
       getPkg,
       getContract,
       getKey,
@@ -348,6 +357,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
 
   def evalSExpr(
       e: SExpr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
@@ -355,6 +365,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         compiledBasePkgs,
+        packageResolution = packageResolution,
         transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
         updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
         committers = Set(alice),

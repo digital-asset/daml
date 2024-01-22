@@ -94,7 +94,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        enable-engine-stack-traces = true
-         |        enable-contract-upgrading = ${config.enableUpgrade}
+         |        enable-contract-upgrading = true
          |        dev-version-support = ${config.devMode}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}

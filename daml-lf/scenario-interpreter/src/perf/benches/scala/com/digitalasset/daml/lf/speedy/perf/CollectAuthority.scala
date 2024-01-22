@@ -54,9 +54,7 @@ private[lf] class CollectAuthorityState {
     val compilerConfig =
       Compiler.Config
         .Default(LanguageMajorVersion.V1)
-        .copy(
-          stacktracing = Compiler.NoStackTrace
-        )
+        .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))

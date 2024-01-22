@@ -610,8 +610,6 @@ object Repl {
 
   def defaultCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
     Compiler.Config(
-      // TODO(#17366): change for something like LV.StableVersions(majorLanguageVersion) after the
-      //   refactoring of LanguageVersion and the introduction of 2.0.
       allowedLanguageVersions = majorLanguageVersion match {
         case LanguageMajorVersion.V1 => LV.StableVersions
         case LanguageMajorVersion.V2 => LV.AllVersions(LanguageMajorVersion.V2)
@@ -622,8 +620,8 @@ object Repl {
     )
 
   def devCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
-    defaultCompilerConfig(majorLanguageVersion).copy(
-      allowedLanguageVersions = LV.AllVersions(majorLanguageVersion)
+    defaultCompilerConfig(majorLanguageVersion).copy(allowedLanguageVersions =
+      LV.AllVersions(majorLanguageVersion)
     )
 
   private val nextSeed =

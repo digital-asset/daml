@@ -29,6 +29,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable.ArrayBuffer
+import scala.math.Ordered.orderingToOrdered
 import scala.util.{Failure, Success, Try}
 
 class TestTraceLog extends TraceLog {
@@ -59,8 +60,11 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
+  private val packageId = Ref.PackageId.assertFromString("-pkg-")
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters(Ref.PackageId.assertFromString("-pkg-"), languageVersion = languageVersion)
+    ParserParameters(packageId, languageVersion = languageVersion)
+
+  private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
 
   val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {
@@ -291,6 +295,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
 
+  private val packageNameMap = pkg.name.toList.map(n => n -> packageId).toMap
+
   private[this] val List(alice, bob, charlie) =
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
 
@@ -439,6 +445,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = packageNameMap,
       disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -452,6 +459,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         seed,
         if (args.isEmpty) se else SEApp(se, args),
         parties,
+        packageResolution = packageResolution,
         traceLog = traceLog,
       )
     disclosedContracts.foreach { case (cid, contract) =>
@@ -1050,7 +1058,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
         }
 
-        // This checks that type checking is done after checking activeness.
+        // This checks that type checking is done after checking activeness (pre upgrading)
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1063,7 +1071,11 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
+                if !upgradingEnabled =>
+              msgs shouldBe Seq("starts test")
+            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
+                if upgradingEnabled =>
               msgs shouldBe Seq("starts test")
           }
         }
@@ -2188,7 +2200,11 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
+                if !upgradingEnabled =>
+              msgs shouldBe Seq("starts test")
+            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
+                if upgradingEnabled =>
               msgs shouldBe Seq("starts test")
           }
         }

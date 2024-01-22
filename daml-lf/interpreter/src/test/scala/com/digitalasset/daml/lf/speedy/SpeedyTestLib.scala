@@ -210,9 +210,7 @@ private[speedy] object SpeedyTestLib {
       pkgs,
       Compiler.Config
         .Dev(majorLanguageVersion)
-        .copy(
-          stacktracing = Compiler.FullStackTrace
-        ),
+        .copy(stacktracing = Compiler.FullStackTrace),
     )
   }
 
