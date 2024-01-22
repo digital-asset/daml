@@ -3,6 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.lf.typesig.Type
 import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
@@ -62,7 +63,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
     val typeName = className.parameterized(typeParams)
 
     val argNames = {
-      val names = fields.map(f => CodeBlock.of("$S", f.javaName))
+      val names = fields.map(f => CodeBlock.of("$S", f.damlName))
       CodeBlock.of("$T.asList($L)", classOf[java.util.Arrays], CodeBlock.join(names.asJava, ", "))
     }
 
@@ -74,7 +75,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       fields.zipWithIndex.foreach { case (f, i) =>
         block.addStatement(
           "case $S: return $T.at($L, $L)",
-          f.javaName,
+          f.damlName,
           decodeClass.nestedClass("JavaArg"),
           i,
           jsonDecoderForType(f.damlType),
@@ -208,6 +209,28 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       )
       .build()
 
+  def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) = {
+    val className = toJavaTypeName(damlType)
+
+    val decoder = MethodSpec
+      .methodBuilder("keyJsonDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(decoderTypeName(className))
+      .addStatement("return $L", jsonDecoderForType(damlType))
+      .build()
+
+    val fromString = MethodSpec
+      .methodBuilder("keyFromJson")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addParameter(classOf[String], "json")
+      .returns(className)
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement("return keyJsonDecoder().decode(new $T(json))", classOf[JsonLfReader])
+      .build()
+
+    Seq(decoder, fromString)
+  }
+
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {
     val jsonDecoder = MethodSpec
       .methodBuilder("jsonDecoder")
@@ -219,7 +242,6 @@ private[inner] object FromJsonGenerator extends StrictLogging {
     Seq(jsonDecoder, fromJsonString(className, IndexedSeq.empty[String]))
   }
 
-  import com.daml.lf.typesig.Type
   private def jsonDecoderForType(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
