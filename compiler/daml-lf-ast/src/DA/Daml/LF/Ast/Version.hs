@@ -120,15 +120,6 @@ featureMinVersion :: Feature -> MajorVersion -> Maybe Version
 featureMinVersion Feature{featureVersionReq = VersionReq rangeForMajor} major =
   Version major <$> R.minBound (rangeForMajor major)
 
--- | Kept for serialization of stable packages.
-featureTypeInterning :: Feature
-featureTypeInterning = Feature
-    { featureName = "Type interning"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Nothing
-    }
-
 -- Unstable, experimental features. This should stay in x.dev forever.
 -- Features implemented with this flag should be moved to a separate
 -- feature flag once the decision to add them permanently has been made.
@@ -246,8 +237,7 @@ featureExperimental = Feature
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureTypeInterning
-    , featureBigNumeric
+    [ featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
     , featureSimpleInterfaces
