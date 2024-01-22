@@ -9,7 +9,7 @@ import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.RandomOps
+import com.digitalasset.canton.crypto.{Fingerprint, RandomOps}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -337,6 +337,9 @@ object PartyId {
 
   def apply(identifier: Identifier, namespace: Namespace): PartyId =
     PartyId(UniqueIdentifier(identifier, namespace))
+
+  def apply(identifier: Identifier, namespace: Fingerprint): PartyId =
+    PartyId(UniqueIdentifier(identifier, Namespace(namespace)))
 
   def fromLfParty(lfParty: LfPartyId): Either[String, PartyId] =
     UniqueIdentifier.fromProtoPrimitive_(lfParty).map(PartyId(_))
