@@ -323,7 +323,7 @@ object ValueGenerators {
       packageName = packageName,
       templateId = templateId,
       arg = arg,
-      agreementText = "",
+      agreementText = "", // to be removed
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,

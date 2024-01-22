@@ -35,7 +35,7 @@ final class ContractClassBuilderSpec
     parameters should contain theSameElementsInOrderAs Seq(
       "contractId" -> string,
       "record$" -> record,
-      "agreementText" -> optionalString,
+      "agreementText" -> optionalString, // will be removed
       "key" -> optionalContractKey,
       "signatories" -> setOfStrings,
       "observers" -> setOfStrings,
@@ -48,7 +48,7 @@ final class ContractClassBuilderSpec
     parameters should contain theSameElementsInOrderAs Seq(
       "contractId" -> string,
       "record$" -> record,
-      "agreementText" -> optionalString,
+      "agreementText" -> optionalString, // will be removed
       "signatories" -> setOfStrings,
       "observers" -> setOfStrings,
     )

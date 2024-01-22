@@ -674,30 +674,27 @@ private[archive] class DecodeCommon(languageVersion: LV) {
         else Ret(ETrue)
       ) { precond =>
         decodeExpr(lfTempl.getSignatories, s"$tpl.signatory") { signatories =>
-          decodeExpr(lfTempl.getAgreement, s"$tpl:agreement") { agreementText =>
-            sequenceWork(lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _))) { choices =>
-              decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
-                sequenceWork(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
-                  bindWork(
-                    if (lfTempl.hasKey) {
-                      bindWork(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
-                        Ret(Some(tk))
-                      }
-                    } else Ret(None)
-                  ) { key =>
-                    Ret(
-                      Template.build(
-                        param = paramName,
-                        precond,
-                        signatories,
-                        agreementText,
-                        choices,
-                        observers,
-                        implements = implements,
-                        key = key,
-                      )
+          sequenceWork(lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _))) { choices =>
+            decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
+              sequenceWork(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
+                bindWork(
+                  if (lfTempl.hasKey) {
+                    bindWork(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
+                      Ret(Some(tk))
+                    }
+                  } else Ret(None)
+                ) { key =>
+                  Ret(
+                    Template.build(
+                      param = paramName,
+                      precond,
+                      signatories,
+                      choices,
+                      observers,
+                      implements = implements,
+                      key = key,
                     )
-                  }
+                  )
                 }
               }
             }

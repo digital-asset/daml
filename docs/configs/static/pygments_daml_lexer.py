@@ -12,7 +12,6 @@ class DamlLexer(HaskellLexer):
     filenames = ['*.daml']
 
     daml_reserved = (
-        'agreement',
         'can',
         'choice',
         'controller',

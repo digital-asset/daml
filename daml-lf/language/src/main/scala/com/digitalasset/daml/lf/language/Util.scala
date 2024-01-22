@@ -244,10 +244,9 @@ object Util {
 
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key, implements) =>
+      case Template(param, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
-          (),
           (),
           (),
           choices.transform((_, v) => toSignature(v)),

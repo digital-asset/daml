@@ -367,7 +367,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        agreementText = "",
         signatories = Set(signatory),
         observers = Set.empty,
         keyOpt = None,

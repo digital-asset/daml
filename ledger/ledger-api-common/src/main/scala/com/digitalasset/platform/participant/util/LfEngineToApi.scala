@@ -213,7 +213,6 @@ object LfEngineToApi {
           witnessParties = node.stakeholders.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.agreementText),
         )
       )
     )
@@ -258,7 +257,6 @@ object LfEngineToApi {
           witnessParties = witnessParties.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.agreementText),
         )
       )
     )

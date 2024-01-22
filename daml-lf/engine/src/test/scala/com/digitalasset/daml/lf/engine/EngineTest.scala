@@ -762,6 +762,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
@@ -773,7 +774,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               basicUseSharedKeys,
             )
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1603,13 +1603,13 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
             .assertBuild(templateId, usedContractKey, Set(alice), basicUseSharedKeys)
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1657,10 +1657,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        agreementText = s"'$alice'", // agreement show party
         version = transactionVersion,
       )
 

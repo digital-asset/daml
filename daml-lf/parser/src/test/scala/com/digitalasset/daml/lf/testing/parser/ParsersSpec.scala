@@ -679,7 +679,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "" """,
           choices = Map(
             n"Sleep" ->
               TemplateChoice(
@@ -789,7 +788,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
-          agreementText = e""" "" """,
           choices = List.empty,
           observers = e"Nil @Unit",
           key = None,
