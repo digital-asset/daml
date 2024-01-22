@@ -17,7 +17,6 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
-import Control.Applicative
 import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -282,9 +281,9 @@ mergePkgs meta ver pkgs =
              LF.Package
                  { LF.packageLfVersion = ver
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
-                 , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
+                 , LF.packageMetadata = LF.packageMetadata pkg1
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just meta }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = meta }
         pkgs
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as

@@ -402,7 +402,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=2.dev"]
           Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
           (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
-          LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing)
+          LF.packageMetadata pkg @?= LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing
 
     , testCase "Package metadata - single file" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True projDir
@@ -419,7 +419,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=2.dev"]
           Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
           (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
-          LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing)
+          LF.packageMetadata pkg @?= LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3") Nothing
 
     , testCase "Transitive package deps" $ withTempDir $ \projDir -> do
           -- Check that the depends field in the package config files does not depend on the name of the DAR.

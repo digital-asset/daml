@@ -50,6 +50,8 @@ import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 -- module dependencies but we don't enforce this here.
 data World = World
   { _worldImported :: HMS.HashMap PackageId Package
+  -- _worldSelfLfVersion
+  -- _worldSelfModules
   , _worldSelf :: Package
   }
 
@@ -85,7 +87,7 @@ initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
-    (Package version NM.empty Nothing)
+    (Package version NM.empty undefined)
   where
     insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 

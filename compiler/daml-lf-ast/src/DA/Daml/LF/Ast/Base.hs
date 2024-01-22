@@ -1121,7 +1121,7 @@ data PackageMetadata = PackageMetadata
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
-    , packageMetadata :: Maybe PackageMetadata
+    , packageMetadata :: PackageMetadata
     }
   deriving (Eq, Data, Generic, NFData, Show)
 
