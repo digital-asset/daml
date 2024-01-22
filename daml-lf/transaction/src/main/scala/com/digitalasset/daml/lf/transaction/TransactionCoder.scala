@@ -185,6 +185,7 @@ object TransactionCoder {
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
     decodeVersionedContractInstance(decodeCid, protoCoinst).map(_.map(_.contractInstance))
 
+  // To be removed.
   def decodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
@@ -203,6 +204,17 @@ object TransactionCoder {
         agreementText = "", // to be removed
       )
     )
+
+  // To be renamed once the above one is removed.
+  def newDecodeVersionedContractInstance(
+      decodeCid: ValueCoder.DecodeCid,
+      protoCoinst: TransactionOuterClass.ContractInstance,
+  ): Either[DecodeError, Versioned[Value.ContractInstance]] =
+    for {
+      id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
+      value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
+      pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
+    } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,

@@ -529,7 +529,7 @@ class TransactionCoderSpec
         val Right(encoded) =
           TransactionCoder.newEncodeContractInstance(ValueCoder.CidEncoder, instance)
         val Right(decoded) =
-          TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
+          TransactionCoder.newDecodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
 
         decoded shouldBe instance
       }
