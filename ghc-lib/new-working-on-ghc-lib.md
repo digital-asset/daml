@@ -25,7 +25,12 @@ git fetch da-fork
 ```
 git checkout da-master-8.8.1
 git submodule update --init --recursive
+git clean -xfdf
 ```
+
+The last `git clean` is needed to remove the submodules from upstream master
+that aren't used in our fork. `-xfdf` with two `f`s is needed because
+submodules contain their own `.git` directories.
 
 ### Iterating on parser/desugaring in `ghc`
 
