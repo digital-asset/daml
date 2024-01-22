@@ -407,10 +407,8 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "test-dev",
-    # TODO[#18195] Fix daml3-script and re-enable this test.
     srcs = glob(
         ["src/com/**/*Dev*.scala"],
-        exclude = ["**/UpgradesITDev.scala"],
     ),
     data = [dep for deps in [[
         ":coin-upgrade-v1-v2-{}.dar".format(lf),
