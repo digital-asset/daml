@@ -169,14 +169,6 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
-featureNatSynonyms :: Feature
-featureNatSynonyms = Feature
-    { featureName = "Nat type synonyms"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_NAT_SYN"
-    }
-
 featureSimpleInterfaces :: Feature
 featureSimpleInterfaces = Feature
     { featureName = "Daml Interfaces"
@@ -264,7 +256,6 @@ allFeatures =
     , featureTypeInterning
     , featureBigNumeric
     , featureExceptions
-    , featureNatSynonyms
     , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs
