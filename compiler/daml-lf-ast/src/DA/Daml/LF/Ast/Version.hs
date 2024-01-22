@@ -126,15 +126,6 @@ featureMinVersion Feature{featureVersionReq = VersionReq rangeForMajor} major =
   Version major <$> R.minBound (rangeForMajor major)
 
 -- | Kept for serialization of stable packages.
-featureStringInterning :: Feature
-featureStringInterning = Feature
-    { featureName = "String interning"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Nothing
-    }
-
--- | Kept for serialization of stable packages.
 featureTypeInterning :: Feature
 featureTypeInterning = Feature
     { featureName = "Type interning"
@@ -260,8 +251,7 @@ featureExperimental = Feature
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureStringInterning
-    , featureTypeInterning
+    [ featureTypeInterning
     , featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
