@@ -335,6 +335,9 @@ object Ref {
       }
 
     def assertFromString(s: String): TypeConRef = assertRight(fromString(s))
+
+    def fromIdentifier(identifier: Identifier): TypeConRef =
+      TypeConRef(PackageRef.Id(identifier.packageId), identifier.qualifiedName)
   }
 
   /*
