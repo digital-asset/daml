@@ -80,7 +80,7 @@
         {- HLINT ignore "locateRunfiles/package_app" -}
 
 # Hints that do not always make sense
-- ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
+- ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV2, DA.Daml.LF.Ast.Pretty]}
 
 # Specify additional command line arguments
 #
