@@ -3,7 +3,7 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.data.Ref.{Identifier, LedgerString, Party, TypeConRef}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
 
@@ -14,6 +14,9 @@ package object logging {
 
   implicit val `Identifier to LoggingValue`: ToLoggingValue[Identifier] =
     ToLoggingValue.ToStringToLoggingValue
+
+  implicit val `TypeConRef to LoggingValue`: ToLoggingValue[TypeConRef] =
+    typeConRef => LoggingValue.OfString(typeConRef.toString)
 
   // The party name can grow quite long, so we offer ledger implementors the opportunity to truncate
   // it in structured log output.
