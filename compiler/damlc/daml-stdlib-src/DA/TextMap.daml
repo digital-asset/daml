@@ -37,9 +37,12 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 
 -- | Create a map from a list of key/value pairs with a combining
 -- function. Examples:
+--
 -- ```
---   fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] == fromList [("A", [1, 2, 3]), ("B", [2, 1])]
---   fromListWith (++) [] == (empty : TextMap [Int])
+-- >>> fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWith (++) [] == (empty : TextMap [Int])
+-- True
 -- ```
 fromListWith : (a -> a -> a) -> [(Text, a)] -> TextMap a
 fromListWith f = foldl g empty
