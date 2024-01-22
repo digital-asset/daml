@@ -197,20 +197,17 @@ queryDowngradedSome = do
     Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
     _ -> assertFail $ "Expected QueryContractId to error, but got " <> show res
 
-exerciseV1Util : Choice V1Utils c r => Party -> c -> Script r
-exerciseV1Util p c = p `submit` createAndExerciseCmd (V1Utils with party = p) c
+exerciseV1Util : Choice V1.ValidUpgradeUtils c r => Party -> c -> Script r
+exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.ValidUpgradeUtils with party = p) c
 
-exerciseV2Util : Choice V2Utils c r => Party -> c -> Script r
-exerciseV2Util p c = p `submit` createAndExerciseCmd (V2Utils with party = p) c
+exerciseV2Util : Choice V2.ValidUpgradeUtils c r => Party -> c -> Script r
+exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.ValidUpgradeUtils with party = p) c
 
-tryExerciseV1Util : Choice V1Utils c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV1Util p c = p `trySubmit` createAndExerciseCmd (V1Utils with party = p) c
+tryExerciseV1Util : Choice V1.ValidUpgradeUtils c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.ValidUpgradeUtils with party = p) c
 
-tryExerciseV1UtilExact : Choice V1Utils c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV1UtilExact p c = p `trySubmit` createAndExerciseExactCmd (V1Utils with party = p) c
-
-tryExerciseV2Util : Choice V2Utils c r => Party -> c -> Script (Either SubmitError r)
-tryExerciseV2Util p c = p `trySubmit` createAndExerciseCmd (V2Utils with party = p) c
+tryExerciseV2Util : Choice V2.ValidUpgradeUtils c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.ValidUpgradeUtils with party = p) c
 
 fetchUpgraded : Script ()
 fetchUpgraded = do
@@ -218,7 +215,7 @@ fetchUpgraded = do
   cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
 
   let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
-  v2Name <- a `exerciseV2Util` V2Fetch with cid = v2Cid
+  v2Name <- a `exerciseV2Util` V2.ValidUpgradeFetch with cid = v2Cid
   v2Name === V2.ValidUpgrade with party = a, newField = None
 
 fetchDowngradedNone : Script ()
@@ -226,7 +223,7 @@ fetchDowngradedNone = do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
   let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
-  v1Name <- a `exerciseV1Util` V1Fetch with cid = v1Cid
+  v1Name <- a `exerciseV1Util` V1.ValidUpgradeFetch with cid = v1Cid
   v1Name === V1.ValidUpgrade with party = a
 
 fetchDowngradedSome : Script ()
@@ -234,7 +231,7 @@ fetchDowngradedSome = do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
-  eV1Name <- a `tryExerciseV1Util` V1Fetch with cid = v1Cid
+  eV1Name <- a `tryExerciseV1Util` V1.ValidUpgradeFetch with cid = v1Cid
   
   case eV1Name of
     Left (DevError Upgrade msg)
@@ -250,7 +247,7 @@ fetchUpgradedSourceUnvetted = do
   -- Unvet v1, so the engine cannot have type information about the real packageid of the contract
   unvetDarOnParticipant v1DarName participant0
   let v2Cid = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
-  res <- a `tryExerciseV2Util` V2Fetch with cid = v2Cid
+  res <- a `tryExerciseV2Util` V2.ValidUpgradeFetch with cid = v2Cid
   case res of
     Right v2Name -> v2Name === V2.ValidUpgrade with party = a, newField = None
     Left err -> assertFail $ "Expected success but got " <> show err
@@ -266,7 +263,7 @@ fetchDowngradedNoneSourceUnvetted = do
   -- Unvet the upgraded type and ensure downgrade occurs
   unvetDarOnParticipant v2DarName participant0
   let v1Cid = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
-  res <- a `tryExerciseV1UtilExact` V1Fetch with cid = v1Cid
+  res <- a `tryExerciseV1Util` V1.ValidUpgradeFetch with cid = v1Cid
 
   case res of
     Right v1Name -> v1Name === V1.ValidUpgrade with party = a
@@ -280,7 +277,7 @@ exerciseV1ChoiceV1ContractSameType = do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd V1.ValidUpgrade with party = a
 
-  sameTypeResult <- a `exerciseV1Util` V1SameChoiceExercise with cid = cid
+  sameTypeResult <- a `exerciseV1Util` V1.SameChoiceExercise with cid = cid
   sameTypeResult === "V1"
 
 exerciseV1ChoiceV2ContractSameType : Script ()
@@ -289,7 +286,7 @@ exerciseV1ChoiceV2ContractSameType = do
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = None
   let cidV1 = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
 
-  sameTypeResult <- a `exerciseV1Util` V1SameChoiceExercise with cid = cidV1
+  sameTypeResult <- a `exerciseV1Util` V1.SameChoiceExercise with cid = cidV1
   sameTypeResult === "V1"
 
 exerciseV1ChoiceV2ContractSameTypeSome : Script ()
@@ -298,7 +295,7 @@ exerciseV1ChoiceV2ContractSameTypeSome = do
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
   let cidV1 = coerceContractId @V2.ValidUpgrade @V1.ValidUpgrade cid
 
-  sameTypeResult <- a `tryExerciseV1Util` V1SameChoiceExercise with cid = cidV1
+  sameTypeResult <- a `tryExerciseV1Util` V1.SameChoiceExercise with cid = cidV1
   case sameTypeResult of
     Left _ -> pure ()
     Right _ -> assertFail "Wrong"
@@ -309,7 +306,7 @@ exerciseV2ChoiceV1ContractSameType = do
   cid <- a `submit` createCmd V1.ValidUpgrade with party = a
   let cidV2 = coerceContractId @V1.ValidUpgrade @V2.ValidUpgrade cid
 
-  sameTypeResult <- a `exerciseV2Util` V2SameChoiceExercise with cid = cidV2
+  sameTypeResult <- a `exerciseV2Util` V2.SameChoiceExercise with cid = cidV2
   sameTypeResult === "V2"
 
 exerciseV2ChoiceV2ContractSameType : Script ()
@@ -317,7 +314,7 @@ exerciseV2ChoiceV2ContractSameType = do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.ValidUpgrade with party = a, newField = Some "hi"
 
-  sameTypeResult <- a `exerciseV2Util` V2SameChoiceExercise with cid = cid
+  sameTypeResult <- a `exerciseV2Util` V2.SameChoiceExercise with cid = cid
   sameTypeResult === "V2"
 
 genericUpgradeTest 

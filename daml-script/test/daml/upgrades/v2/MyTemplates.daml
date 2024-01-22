@@ -217,17 +217,17 @@ template VariantAdditional
       controller party
       do pure "V2"
 
-template V2Utils
+template ValidUpgradeUtils
   with
     party : Party
   where
     signatory party
-    choice V2Fetch : ValidUpgrade with
+    choice ValidUpgradeFetch : ValidUpgrade with
         cid : ContractId ValidUpgrade
       controller party
       do fetch cid
 
-    choice V2SameChoiceExercise : Text with
+    choice SameChoiceExercise : Text with
         cid : ContractId ValidUpgrade
       controller party
       do exercise cid SameTypeChoice

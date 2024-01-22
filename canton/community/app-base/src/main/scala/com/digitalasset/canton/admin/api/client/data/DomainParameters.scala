@@ -228,6 +228,9 @@ sealed trait DynamicDomainParameters {
   /** max request size is only available in V1 */
   def maxRequestSizeV1: Option[NonNegativeInt] = None
 
+  /** max rate per participant is only available in V1 */
+  def maxRatePerParticipantV1: Option[NonNegativeInt] = None
+
   /** Checks if it is safe to change the `ledgerTimeRecordTimeTolerance` to the given new value.
     */
   private[canton] def compatibleWithNewLedgerTimeRecordTimeTolerance(
@@ -253,6 +256,9 @@ sealed trait DynamicDomainParameters {
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
   ): DynamicDomainParameters
+
+  def updateMaxRate(maxRatePerParticipant: NonNegativeInt): DynamicDomainParameters
+
 }
 
 final case class DynamicDomainParametersV0(
@@ -280,6 +286,8 @@ final case class DynamicDomainParametersV0(
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
   )
+
+  override def updateMaxRate(nonNegativeInt: NonNegativeInt): DynamicDomainParameters = this
 
   override def toProto(
       protocolVersion: ProtocolVersion
@@ -313,6 +321,10 @@ final case class DynamicDomainParametersV1(
 ) extends DynamicDomainParameters {
 
   override def maxRequestSizeV1: Option[NonNegativeInt] = Some(maxRequestSize)
+  override def maxRatePerParticipantV1: Option[NonNegativeInt] = Some(maxRatePerParticipant)
+
+  override def updateMaxRate(maxRatePerParticipant: NonNegativeInt): DynamicDomainParameters =
+    copy(maxRatePerParticipant = maxRatePerParticipant)
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
     throw new InvalidDynamicDomainParameters(
