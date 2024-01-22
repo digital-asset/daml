@@ -7,11 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.memory.{InMemoryTransferStore, TransferCache}
-import com.digitalasset.canton.participant.store.{
-  ActiveContractStore,
-  ContractKeyJournal,
-  TransferStoreTest,
-}
+import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStoreTest}
 import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -27,7 +23,6 @@ class NaiveRequestTrackerTest
       sc: SequencerCounter,
       ts: CantonTimestamp,
       acs: ActiveContractStore,
-      ckj: ContractKeyJournal,
   ): NaiveRequestTracker = {
     val transferCache =
       new TransferCache(
@@ -38,7 +33,6 @@ class NaiveRequestTrackerTest
     val conflictDetector =
       new ConflictDetector(
         acs,
-        ckj,
         transferCache,
         loggerFactory,
         checkedInvariant = true,
@@ -66,8 +60,7 @@ class NaiveRequestTrackerTest
   "requests are evicted when they are finalized" in {
     for {
       acs <- mkAcs()
-      ckj <- mkCkj()
-      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.MinValue, acs, ckj)
+      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.MinValue, acs)
       (cdF, toF) <- enterCR(
         rt,
         RequestCounter(0),
@@ -112,8 +105,7 @@ class NaiveRequestTrackerTest
   "requests are evicted when they time out" in {
     for {
       acs <- mkAcs()
-      ckj <- mkCkj()
-      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.Epoch, acs, ckj)
+      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.Epoch, acs)
       (cdF, toF) <- enterCR(
         rt,
         RequestCounter(0),

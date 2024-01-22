@@ -113,7 +113,7 @@ object DomainTopologyManager {
       loggerFactory,
       ProtocolVersionValidation(protocolVersion),
     )
-    def hasSigningKey(owner: KeyOwner): EitherT[Future, String, SigningPublicKey] = EitherT(
+    def hasSigningKey(owner: Member): EitherT[Future, String, SigningPublicKey] = EitherT(
       dbSnapshot
         .signingKey(owner)
         .map(_.toRight(s"$owner signing key is missing"))
@@ -217,7 +217,7 @@ class DomainTopologyManager(
   /** Return a set of initial keys we can use before the sequenced store has seen any topology transaction */
   def getKeysForBootstrapping()(implicit
       traceContext: TraceContext
-  ): Future[Map[KeyOwner, Seq[PublicKey]]] =
+  ): Future[Map[Member, Seq[PublicKey]]] =
     store.findInitialState(id)
 
   private def checkTransactionIsNotForAlienDomainEntities(
@@ -290,8 +290,7 @@ class DomainTopologyManager(
       transaction.transaction.element.mapping match {
         // in v5, the domain topology message validator expects to get the From before the To
         // and no Both. so we need to ensure that at no point, a Both is added to the domain manager
-        case ParticipantState(RequestSide.Both, _, participant, _, _)
-            if protocolVersion >= ProtocolVersion.v5 =>
+        case ParticipantState(RequestSide.Both, _, participant, _, _) =>
           EitherT.leftT(
             DomainTopologyManagerError.InvalidOrFaultyOnboardingRequest
               .Failure(
@@ -359,7 +358,7 @@ class DomainTopologyManager(
       .foreach {
         case ParticipantState(side, _, participant, permission, trustLevel)
             if side != RequestSide.To =>
-          val attributes = ParticipantAttributes(permission, trustLevel)
+          val attributes = ParticipantAttributes(permission, trustLevel, None)
           sendToObservers(_.willChangeTheParticipantState(participant, attributes))
           logger.info(s"Setting participant $participant state to $attributes")
         case _ => ()

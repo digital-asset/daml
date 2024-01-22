@@ -141,7 +141,7 @@ object StoredTopologyTransactions
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.TopologyTransactions)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -164,8 +164,10 @@ object StoredTopologyTransactions
           "valid_from",
           item.validFrom,
         )
-        validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransaction.fromByteStringUnsafe(item.transaction)
+        validUntil <- item.validFrom.traverse(EffectiveTime.fromProtoPrimitive)
+        transaction <- SignedTopologyTransaction.fromByteStringUnsafe(
+          item.transaction
+        )
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,

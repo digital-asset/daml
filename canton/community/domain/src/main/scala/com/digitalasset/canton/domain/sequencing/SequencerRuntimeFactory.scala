@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
-import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.SequencerAdministrationServiceGrpc
 import com.digitalasset.canton.domain.config.DomainConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
@@ -20,7 +20,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommunitySequencerConfig,
   Sequencer,
 }
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
@@ -59,7 +58,6 @@ trait SequencerRuntimeFactory {
       staticDomainParameters: StaticDomainParameters,
       testingConfig: TestingConfigInternal,
       processingTimeout: ProcessingTimeout,
-      agreementManager: Option[ServiceAgreementManager],
       memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
       localParameters: CantonNodeWithSequencerParameters,
       metrics: SequencerMetrics,
@@ -95,7 +93,6 @@ object SequencerRuntimeFactory {
         staticDomainParameters: StaticDomainParameters,
         testingConfig: TestingConfigInternal,
         processingTimeout: ProcessingTimeout,
-        agreementManager: Option[ServiceAgreementManager],
         memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
         localParameters: CantonNodeWithSequencerParameters,
         metrics: SequencerMetrics,
@@ -165,19 +162,17 @@ object SequencerRuntimeFactory {
           storage,
           clock,
           SequencerAuthenticationConfig(
-            agreementManager,
             domainConfig.publicApi.nonceExpirationTime,
             domainConfig.publicApi.tokenExpirationTime,
           ),
           _ =>
             StaticGrpcServices
-              .notSupportedByCommunity(EnterpriseSequencerAdministrationServiceGrpc.SERVICE, logger)
+              .notSupportedByCommunity(SequencerAdministrationServiceGrpc.SERVICE, logger)
               .some,
           DomainMember
             .list(domainId, includeSequencer = false)
             .toList, // the community sequencer is always an embedded single sequencer
           futureSupervisor,
-          agreementManager,
           memberAuthenticationServiceFactory,
           topologyStateForInitializationService,
           loggerFactory,

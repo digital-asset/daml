@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.domain.admin.v1;
 
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
-import "com/digitalasset/canton/domain/admin/v0/sequencer_administration_service.proto";
 import "com/digitalasset/canton/domain/admin/v0/sequencer_initialization_snapshot.proto";
 import "com/digitalasset/canton/protocol/v0/sequencing.proto";
 import "google/protobuf/timestamp.proto";

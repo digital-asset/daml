@@ -17,7 +17,8 @@ import com.digitalasset.canton.http.domain.{
 import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2 as lav2
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
@@ -232,7 +233,7 @@ class CommandService(
       commandKind: String,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): lav1.command_service.SubmitAndWaitRequest = {
+  ): lav2.command_service.SubmitAndWaitRequest = {
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
     val actAs = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
     val readAs = meta.flatMap(_.readAs) getOrElse jwtPayload.readAs
@@ -245,7 +246,6 @@ class CommandService(
           s"Submitting $commandKind command, ${lc.makeString}"
         )
         Commands.submitAndWaitRequest(
-          jwtPayload.ledgerId,
           jwtPayload.applicationId,
           commandId,
           actAs,
@@ -263,7 +263,7 @@ class CommandService(
   }
 
   private def exactlyOneActiveContract(
-      response: lav1.command_service.SubmitAndWaitForTransactionResponse
+      response: lav2.command_service.SubmitAndWaitForTransactionResponse
   ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
@@ -277,7 +277,7 @@ class CommandService(
     }
 
   private def activeContracts(
-      response: lav1.command_service.SubmitAndWaitForTransactionResponse
+      response: lav2.command_service.SubmitAndWaitForTransactionResponse
   ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
@@ -289,7 +289,7 @@ class CommandService(
       .flatMap(activeContracts)
 
   private def activeContracts(
-      tx: lav1.transaction.Transaction
+      tx: lav2.transaction.Transaction
   ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
@@ -298,7 +298,7 @@ class CommandService(
   }
 
   private def contracts(
-      response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
+      response: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
@@ -310,7 +310,7 @@ class CommandService(
       .flatMap(contracts)
 
   private def contracts(
-      tx: lav1.transaction.TransactionTree
+      tx: lav2.transaction.TransactionTree
   ): Error \/ List[Contract[lav1.value.Value]] =
     Contract
       .fromTransactionTree(tx)
@@ -318,10 +318,10 @@ class CommandService(
       .map(_.toList)
 
   private def exerciseResult(
-      a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
+      a: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ lav1.value.Value = {
     val result: Option[lav1.value.Value] = for {
-      transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
+      transaction <- a.transaction: Option[lav2.transaction.TransactionTree]
       exercised <- firstExercisedEvent(transaction): Option[lav1.event.ExercisedEvent]
       exResult <- exercised.exerciseResult: Option[lav1.value.Value]
     } yield exResult
@@ -335,7 +335,7 @@ class CommandService(
   }
 
   private def firstExercisedEvent(
-      tx: lav1.transaction.TransactionTree
+      tx: lav2.transaction.TransactionTree
   ): Option[lav1.event.ExercisedEvent] = {
     val lookup: String => Option[lav1.event.ExercisedEvent] = id =>
       tx.eventsById.get(id).flatMap(_.kind.exercised)

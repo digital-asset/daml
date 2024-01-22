@@ -9,27 +9,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, TransactionError, TransactionErrorImpl}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.rpc.status.Status
 
 import java.time.Instant
 import scala.collection.immutable.Seq
 
-sealed trait SequencerDeliverError extends TransactionError {
-
-  /** This method is here to provide a simpler compatibility with older protocol versions
-    * by turning specific error codes into a BatchRefused (generic one), which existed before.
-    */
-  def forProtocolVersion(protocolVersion: ProtocolVersion): SequencerDeliverError = {
-    if (
-      protocolVersion < ProtocolVersion.CNTestNet && this.code != SequencerErrors.SubmissionRequestRefused
-    ) {
-      SequencerErrors.SubmissionRequestRefused(this.cause)
-    } else {
-      this
-    }
-  }
-}
+sealed trait SequencerDeliverError extends TransactionError
 
 sealed abstract class SequencerDeliverErrorCode(id: String, category: ErrorCategory)(implicit
     parent: ErrorClass

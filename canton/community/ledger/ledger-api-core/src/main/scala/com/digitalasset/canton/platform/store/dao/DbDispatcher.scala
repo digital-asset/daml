@@ -27,6 +27,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -130,7 +131,10 @@ object DbDispatcher {
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
       loggerFactory: NamedLoggerFactory,
-  ): ResourceOwner[DbDispatcher with ReportsHealth] =
+  ): ResourceOwner[DbDispatcher with ReportsHealth] = {
+    val logger = loggerFactory.getTracedLogger(getClass)
+    def log(s: String): Unit =
+      logger.debug(s"[${serverRole.threadPoolSuffix}] $s")(TraceContext.empty)
     for {
       hikariDataSource <- HikariDataSourceOwner(
         dataSource = dataSource,
@@ -139,27 +143,39 @@ object DbDispatcher {
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
         metrics = Some(metrics.registry),
-      )
-      connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource, loggerFactory)
+      ).afterReleased(log("HikariDataSource released"))
+      connectionProvider <- DataSourceConnectionProvider
+        .owner(
+          hikariDataSource,
+          serverRole.threadPoolSuffix,
+          loggerFactory,
+        )
+        .afterReleased(log("DataSourceConnectionProvider released"))
       threadPoolName = MetricName(
         metrics.daml.index.db.threadpool.connection,
         serverRole.threadPoolSuffix,
       )
-      executor <- ResourceOwner.forExecutorService(() =>
-        InstrumentedExecutors.newFixedThreadPoolWithFactory(
-          threadPoolName,
-          connectionPoolSize,
-          new ThreadFactoryBuilder()
-            .setNameFormat(s"$threadPoolName-%d")
-            .setUncaughtExceptionHandler((_, e) =>
-              loggerFactory
-                .getTracedLogger(getClass)
-                .error("Uncaught exception in the SQL executor.", e)(TraceContext.empty)
-            )
-            .build(),
-          metrics.executorServiceMetrics,
+      executor <- ResourceOwner
+        .forExecutorService(
+          () =>
+            InstrumentedExecutors.newFixedThreadPoolWithFactory(
+              threadPoolName,
+              connectionPoolSize,
+              new ThreadFactoryBuilder()
+                .setNameFormat(s"$threadPoolName-%d")
+                .setUncaughtExceptionHandler((_, e) =>
+                  loggerFactory
+                    .getTracedLogger(getClass)
+                    .error("Uncaught exception in the SQL executor.", e)(TraceContext.empty)
+                )
+                .build(),
+              metrics.executorServiceMetrics,
+            ),
+          gracefulAwaitTerminationMillis =
+            5000, // waiting 5s for ongoing SQL operations to finish and then forcing them with Thread.interrupt...
+          forcefulAwaitTerminationMillis = 5000, // ...and then waiting 5s more
         )
-      )
+        .afterReleased(log("ExecutorService released"))
     } yield new DbDispatcherImpl(
       connectionProvider = connectionProvider,
       executor = executor,
@@ -167,4 +183,5 @@ object DbDispatcher {
       overallExecutionTimer = metrics.daml.index.db.execAll,
       loggerFactory = loggerFactory,
     )
+  }
 }

@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.SimpleExecutionQueue
+import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import org.apache.pekko.actor.ActorSystem
 
@@ -106,7 +106,7 @@ abstract class CantonNodeBootstrapX[
       description = "Initialise storage",
       bootstrapStageCallback,
     ) {
-      override def attempt()(implicit
+      override protected def attempt()(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, String, Option[SetupCrypto]] = {
         EitherT(
@@ -128,10 +128,11 @@ abstract class CantonNodeBootstrapX[
           // init health services once
           val healthService = mkNodeHealthService(storage)
           addCloseable(healthService)
-          val (healthReporter, grpcHealthServer, livenessHealthService) =
+          val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
             mkHealthComponents(healthService)
           addCloseable(livenessHealthService)
           grpcHealthServer.foreach(addCloseable)
+          httpHealthServer.foreach(addCloseable)
           addCloseable(storage)
           Some(new SetupCrypto(storage, healthReporter, healthService))
         }
@@ -148,7 +149,7 @@ abstract class CantonNodeBootstrapX[
       )
       with HasCloseContext {
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
       // crypto factory doesn't write to the db during startup, hence,
@@ -226,7 +227,6 @@ abstract class CantonNodeBootstrapX[
           .bindService(
             new GrpcTopologyManagerReadServiceX(
               sequencedTopologyStores :+ authorizedStore,
-              ips,
               crypto,
               loggerFactory,
             ),
@@ -257,6 +257,7 @@ abstract class CantonNodeBootstrapX[
               clock,
               this,
               crypto.cryptoPublicStore,
+              loggerFactory,
             ),
             executionContext,
           )
@@ -333,6 +334,35 @@ abstract class CantonNodeBootstrapX[
         config.init.autoInit,
       ) {
 
+    private val topologyManagerObserver = new TopologyManagerObserver {
+      override def addedNewTransactions(
+          timestamp: CantonTimestamp,
+          transactions: Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+        logger.debug(
+          s"Checking whether new topology transactions at $timestamp suffice for initializing the stage $description"
+        )
+        // Run the resumption check asynchronously so that
+        // - Topology transactions added during initialization of this stage do not deadlock
+        //   because all stages run on a sequential queue.
+        // - Topology transactions added during the resumption do not deadlock
+        //   because the topology processor runs all notifications and topology additions on a sequential queue.
+        FutureUtil.doNotAwaitUnlessShutdown(
+          resumeIfCompleteStage().value,
+          s"Checking whether new topology transactions completed stage $description failed ",
+        )
+        FutureUnlessShutdown.unit
+      }
+    }
+
+    override def start()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Unit] = {
+      // Register the observer first so that it does not race with the removal when the stage has finished.
+      manager.addObserver(topologyManagerObserver)
+      super.start()
+    }
+
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): Future[Option[Unit]] = {
@@ -347,23 +377,23 @@ abstract class CantonNodeBootstrapX[
           filterNamespace = None,
         )
         .map { res =>
-          Option.when(
-            res.result
-              .filterNot(_.transaction.isProposal)
-              .map(_.transaction.transaction.mapping)
-              .exists {
-                case OwnerToKeyMappingX(`myMember`, None, keys) =>
-                  // stage is clear if we have a general signing key and possibly also an encryption key
-                  // this tx can not exist without appropriate certificates, so don't need to check for them
-                  keys.exists(_.isSigning) && (myMember.code != ParticipantId.Code || keys
-                    .exists(x => !x.isSigning))
-                case _ => false
-              }
-          )(())
+          val done = res.result
+            .filterNot(_.transaction.isProposal)
+            .map(_.transaction.transaction.mapping)
+            .exists {
+              case OwnerToKeyMappingX(`myMember`, None, keys) =>
+                // stage is clear if we have a general signing key and possibly also an encryption key
+                // this tx can not exist without appropriate certificates, so don't need to check for them
+                keys.exists(_.isSigning) && (myMember.code != ParticipantId.Code || keys
+                  .exists(x => !x.isSigning))
+              case _ => false
+            }
+          Option.when(done)(())
         }
     }
 
-    override protected def buildNextStage(result: Unit): BootstrapStageOrLeaf[T] =
+    override protected def buildNextStage(result: Unit): BootstrapStageOrLeaf[T] = {
+      manager.removeObserver(topologyManagerObserver)
       customNodeStages(
         storage,
         crypto,
@@ -372,6 +402,7 @@ abstract class CantonNodeBootstrapX[
         healthReporter,
         healthService,
       )
+    }
 
     override protected def autoCompleteStage()
         : EitherT[FutureUnlessShutdown, String, Option[Unit]] = {

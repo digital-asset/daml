@@ -38,8 +38,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, ResourceUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -73,7 +73,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       topologyDispatcher: ParticipantTopologyDispatcherCommon,
       packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
       metrics: DomainAlias => SyncDomainMetrics,
-      agreementClient: AgreementClient,
       participantSettings: Eval[ParticipantSettingsLookup],
   )(implicit
       traceContext: TraceContext
@@ -94,16 +93,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .fromEither[Future](verifyDomainId(config, domainId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      acceptedAgreement <- agreementClient
-        .isRequiredAgreementAccepted(
-          domainId,
-          sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
-        )
-        .leftMap(e =>
-          DomainRegistryError.HandshakeErrors.ServiceAgreementAcceptanceFailed.Error(e.reason)
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
       // fetch or create persistent state for the domain
       persistentState <- syncDomainPersistentStateManager
         .lookupOrCreatePersistentState(
@@ -115,14 +104,19 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         .mapK(FutureUnlessShutdown.outcomeK)
 
       // check and issue the domain trust certificate
-      _ <- topologyDispatcher
-        .trustDomain(
-          domainId,
-          sequencerAggregatedInfo.staticDomainParameters,
-        )
-        .leftMap(
-          DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
-        )
+      _ <-
+        if (config.initializeFromTrustedDomain) {
+          EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
+        } else {
+          topologyDispatcher
+            .trustDomain(
+              domainId,
+              sequencerAggregatedInfo.staticDomainParameters,
+            )
+            .leftMap(
+              DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
+            )
+        }
 
       domainLoggerFactory = loggerFactory.append("domainId", indexedDomainId.domainId.toString)
 
@@ -181,7 +175,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           domainId,
           domainCryptoApi,
           cryptoApiProvider.crypto,
-          acceptedAgreement.map(_.id),
           sequencerClientConfig,
           participantNodeParameters.tracing.propagation,
           testingConfig,
@@ -432,7 +425,7 @@ object DomainRegistryHelpers {
       domainId: DomainId,
       alias: DomainAlias,
       staticParameters: StaticDomainParameters,
-      sequencer: SequencerClient,
+      sequencer: RichSequencerClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyFactory: TopologyComponentFactory,
       domainPersistentState: SyncDomainPersistentState,

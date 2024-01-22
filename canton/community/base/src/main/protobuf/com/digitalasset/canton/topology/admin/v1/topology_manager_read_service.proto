@@ -17,7 +17,7 @@ import "google/protobuf/wrappers.proto";
 service TopologyManagerReadServiceX {
 
   rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResult);
-  rpc ListUnionspaceDefinition(ListUnionspaceDefinitionRequest) returns (ListUnionspaceDefinitionResult);
+  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResult);
   rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResult);
 
   rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResult);
@@ -57,7 +57,7 @@ message ListTrafficStateResult {
 
 
 message BaseQuery {
-  string filter_store = 1;
+  Store filter_store = 1;
   // whether to query only for proposals instead of approved topology mappings
   bool proposals = 2;
   com.digitalasset.canton.protocol.v2.TopologyChangeOpX operation = 3;
@@ -77,8 +77,20 @@ message BaseQuery {
   google.protobuf.StringValue protocol_version = 9;
 }
 
+message Store {
+  message Authorized { }
+  message Domain {
+    string id = 1;
+  }
+
+  oneof store {
+    Authorized authorized = 1;
+    Domain domain = 2;
+  }
+}
+
 message BaseResult {
-  string store = 1;
+  Store store = 1;
   google.protobuf.Timestamp sequenced = 2;
   google.protobuf.Timestamp valid_from = 3;
   google.protobuf.Timestamp valid_until = 4;
@@ -102,15 +114,15 @@ message ListNamespaceDelegationResult {
     repeated Result results = 1;
 }
 
-message ListUnionspaceDefinitionRequest {
+message ListDecentralizedNamespaceDefinitionRequest {
   BaseQuery base_query = 1;
   string filter_namespace = 2;
 }
 
-message ListUnionspaceDefinitionResult {
+message ListDecentralizedNamespaceDefinitionResult {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v2.UnionspaceDefinitionX item = 2;
+    com.digitalasset.canton.protocol.v2.DecentralizedNamespaceDefinitionX item = 2;
   }
   repeated Result results = 1;
 }
@@ -231,7 +243,7 @@ message ListDomainParametersStateRequest {
 message ListDomainParametersStateResult {
     message Result {
         BaseResult context = 1;
-        com.digitalasset.canton.protocol.v2.DynamicDomainParametersX item = 2;
+        com.digitalasset.canton.protocol.v2.DynamicDomainParameters item = 2;
     }
     repeated Result results = 1;
 }

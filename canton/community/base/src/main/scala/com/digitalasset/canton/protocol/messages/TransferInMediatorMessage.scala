@@ -29,13 +29,7 @@ import java.util.UUID
   * @param tree The transfer-in view tree blinded for the mediator
   * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
   */
-final case class TransferInMediatorMessage(tree: TransferInViewTree)
-    extends MediatorRequest
-    with ProtocolMessageV0
-    with ProtocolMessageV1
-    with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+final case class TransferInMediatorMessage(tree: TransferInViewTree) extends MediatorRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-out view must be blinded")
@@ -89,35 +83,8 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree)
     )
   }
 
-  override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
-    v0.EnvelopeContent(
-      someEnvelopeContent =
-        v0.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV0)
-    )
-
-  override def toProtoEnvelopeContentV1: v1.EnvelopeContent =
-    v1.EnvelopeContent(
-      someEnvelopeContent =
-        v1.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
-  override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
-    v2.EnvelopeContent(
-      someEnvelopeContent =
-        v2.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
-  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
-    v3.EnvelopeContent(
-      someEnvelopeContent =
-        v3.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
   override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
     v4.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-
-  def toProtoV0: v0.TransferInMediatorMessage =
-    v0.TransferInMediatorMessage(tree = Some(tree.toProtoV0))
 
   def toProtoV1: v1.TransferInMediatorMessage =
     v1.TransferInMediatorMessage(tree = Some(tree.toProtoV1))
@@ -139,32 +106,11 @@ object TransferInMediatorMessage
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.TransferInMediatorMessage)(
-      supportedProtoVersion(_)((context, proto) => fromProtoV0(context)(proto)),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.TransferInMediatorMessage)(
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.TransferInMediatorMessage)(
       supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
-
-  def fromProtoV0(context: (HashOps, ProtocolVersion))(
-      transferInMediatorMessageP: v0.TransferInMediatorMessage
-  ): ParsingResult[TransferInMediatorMessage] =
-    for {
-      tree <- ProtoConverter
-        .required("TransferInMediatorMessage.tree", transferInMediatorMessageP.tree)
-        .flatMap(TransferInViewTree.fromProtoV0(context, _))
-      _ <- EitherUtil.condUnitE(
-        tree.commonData.isFullyUnblinded,
-        OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),
-      )
-      _ <- EitherUtil.condUnitE(
-        tree.view.isBlinded,
-        OtherError(s"Transfer-in view data is not blinded in request ${tree.rootHash}"),
-      )
-    } yield TransferInMediatorMessage(tree)
 
   def fromProtoV1(context: (HashOps, ProtocolVersion))(
       transferInMediatorMessageP: v1.TransferInMediatorMessage

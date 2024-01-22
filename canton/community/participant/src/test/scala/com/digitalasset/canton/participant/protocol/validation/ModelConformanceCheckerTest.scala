@@ -110,7 +110,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       factory.domainId,
       testedProtocolVersion,
       factory.cryptoOps,
-      uniqueContractKeys = true,
       loggerFactory,
     )
   }

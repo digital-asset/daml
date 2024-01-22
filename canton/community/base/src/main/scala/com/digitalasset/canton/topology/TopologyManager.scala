@@ -104,7 +104,7 @@ abstract class TopologyManager[E <: CantonError](
     }
 
   protected def keyRevocationIsNotDangerous(
-      owner: KeyOwner,
+      owner: Member,
       key: PublicKey,
       elementId: TopologyElementId,
       force: Boolean,

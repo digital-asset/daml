@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
@@ -59,20 +58,18 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithContextAndValidationCompanion[
-      TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
-      HashOps,
+    extends HasMemoizedProtocolVersionedWithValidationCompanion[
+      TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
     ProtoVersion(0) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
+      ProtocolVersion.v30
     )(v0.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
+    )
   )
 
   def apply[M <: SignedProtocolMessageContent](
@@ -91,12 +88,11 @@ object TypedSignedProtocolMessageContent
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
   private def fromProtoV0(
-      context: (HashOps, ProtocolVersion),
+      expectedProtocolVersion: ProtocolVersion,
       proto: v0.TypedSignedProtocolMessageContent,
   )(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
-    val (_, expectedProtocolVersion) = context
     import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
     val v0.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
@@ -104,7 +100,7 @@ object TypedSignedProtocolMessageContent
         case Sm.MediatorResponse(mediatorResponseBytes) =>
           MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(expectedProtocolVersion)(context)(
+          TransactionResultMessage.fromByteString(expectedProtocolVersion)(
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>

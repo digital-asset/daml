@@ -56,15 +56,6 @@ final case class Batch[+Env <: Envelope[_]] private (envelopes: List[Env])(
     }
   }
 
-  private[protocol] def toProtoV0: v0.CompressedBatch = {
-    val batch = v0.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV0))
-    val compressed = ByteStringUtil.compressGzip(batch.toByteString)
-    v0.CompressedBatch(
-      algorithm = v0.CompressedBatch.CompressionAlgorithm.Gzip,
-      compressedBatch = compressed,
-    )
-  }
-
   private[protocol] def toProtoV1: v1.CompressedBatch = {
     val batch = v1.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV1))
     val compressed = ByteStringUtil.compressGzip(batch.toByteString)
@@ -94,22 +85,15 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
   override def name: String = "Batch"
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.CompressedBatch)(
-      supportedProtoVersion(_)(
-        // TODO(i10428) Prevent zip bombing when decompressing the request
-        Batch.fromProtoV0(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
-      ),
-      _.toProtoV0.toByteString,
-    ),
     ProtoVersion(1) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
+      ProtocolVersion.v30
     )(v1.CompressedBatch)(
       supportedProtoVersion(_)(
         // TODO(i10428) Prevent zip bombing when decompressing the request
         Batch.fromProtoV1(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
       ),
       _.toProtoV1.toByteString,
-    ),
+    )
   )
 
   def apply[Env <: Envelope[_]](
@@ -132,20 +116,6 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
       envelopes: ClosedEnvelope*
   ): Batch[ClosedEnvelope] =
     Batch(envelopes.toList)(protocolVersionRepresentativeFor(protocolVersion))
-
-  private[protocol] def fromProtoV0(
-      batchProto: v0.CompressedBatch,
-      maxRequestSize: MaxRequestSizeToDeserialize,
-  ): ParsingResult[Batch[ClosedEnvelope]] = {
-    val v0.CompressedBatch(algorithm, compressed) = batchProto
-
-    for {
-      uncompressed <- decompress(algorithm, compressed, maxRequestSize.toOption)
-      uncompressedBatchProto <- ProtoConverter.protoParser(v0.Batch.parseFrom)(uncompressed)
-      v0.Batch(envelopesProto) = uncompressedBatchProto
-      envelopes <- envelopesProto.toList.traverse(ClosedEnvelope.fromProtoV0)
-    } yield Batch[ClosedEnvelope](envelopes)(protocolVersionRepresentativeFor(ProtoVersion(0)))
-  }
 
   private[protocol] def fromProtoV1(
       batchProto: v1.CompressedBatch,

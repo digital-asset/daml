@@ -173,7 +173,7 @@ object IdentifierDelegation {
   * sequencer (which provides the communication infrastructure for the members).
   */
 // architecture-handbook-entry-begin: OwnerToKeyMapping
-final case class OwnerToKeyMapping(owner: KeyOwner, key: PublicKey)
+final case class OwnerToKeyMapping(owner: Member, key: PublicKey)
     extends TopologyStateUpdateMapping {
   // architecture-handbook-entry-end: OwnerToKeyMapping
   def toProtoV0: v0.OwnerToKeyMapping =
@@ -199,7 +199,7 @@ object OwnerToKeyMapping {
       value: v0.OwnerToKeyMapping
   ): ParsingResult[OwnerToKeyMapping] =
     for {
-      owner <- KeyOwner.fromProtoPrimitive(value.keyOwner, "keyOwner")
+      owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
       key <- ProtoConverter
         .parseRequired(PublicKey.fromProtoPublicKeyV0, "public_key", value.publicKey)
     } yield OwnerToKeyMapping(owner, key)
@@ -279,7 +279,7 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
   override val name: String = "LegalIdentityClaim"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.LegalIdentityClaim)(
+    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.LegalIdentityClaim)(
       supportedProtoVersionMemoized(_)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -408,7 +408,8 @@ final case class ParticipantState(
   )
   // architecture-handbook-entry-end: ParticipantState
 
-  def toParticipantAttributes: ParticipantAttributes = ParticipantAttributes(permission, trustLevel)
+  def toParticipantAttributes: ParticipantAttributes =
+    ParticipantAttributes(permission, trustLevel, None)
 
   def toProtoV0: v0.ParticipantState = {
     v0.ParticipantState(
@@ -620,14 +621,9 @@ final case class DomainParametersChange(
     domainId: DomainId,
     domainParameters: DynamicDomainParameters,
 ) extends DomainGovernanceMapping {
-  private[transaction] def toProtoV0: v0.DomainParametersChange = v0.DomainParametersChange(
-    domain = domainId.toProtoPrimitive,
-    Option(domainParameters.toProtoV0),
-  )
-
   private[transaction] def toProtoV1: v1.DomainParametersChange = v1.DomainParametersChange(
     domain = domainId.toProtoPrimitive,
-    Option(domainParameters.toProtoV1),
+    Option(domainParameters.toProtoV2),
   )
 
   override def dbType: DomainTopologyTransactionType = DomainParametersChange.dbType
@@ -638,23 +634,13 @@ final case class DomainParametersChange(
 object DomainParametersChange {
   val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.DomainParameters
 
-  private[transaction] def fromProtoV0(
-      value: v0.DomainParametersChange
-  ): ParsingResult[DomainParametersChange] = {
-    for {
-      uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
-      domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
-      domainParameters <- DynamicDomainParameters.fromProtoV0(domainParametersP)
-    } yield DomainParametersChange(DomainId(uid), domainParameters)
-  }
-
   private[transaction] def fromProtoV1(
       value: v1.DomainParametersChange
   ): ParsingResult[DomainParametersChange] = {
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
-      domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
-      domainParameters <- DynamicDomainParameters.fromProtoV1(domainParametersP)
+      domainParametersXP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
+      domainParameters <- DynamicDomainParameters.fromProtoV2(domainParametersXP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
   }
 }

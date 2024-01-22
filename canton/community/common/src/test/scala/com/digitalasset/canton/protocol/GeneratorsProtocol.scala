@@ -9,8 +9,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{GeneratorsDataTime, ViewPosition}
+import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.sequencing.TrafficControlParameters
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
 import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
@@ -26,52 +28,24 @@ final class GeneratorsProtocol(
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import com.digitalasset.canton.version.GeneratorsVersion.*
   import org.scalatest.EitherValues.*
   import generatorsDataTime.*
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
     Arbitrary(for {
-      uniqueContractKeys <- Arbitrary.arbitrary[Boolean]
-
       requiredSigningKeySchemes <- nonEmptySetGen[SigningKeyScheme]
       requiredEncryptionKeySchemes <- nonEmptySetGen[EncryptionKeyScheme]
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
 
-      reconciliationInterval <- defaultValueGen(
-        protocolVersion,
-        StaticDomainParameters.defaultReconciliationIntervalFrom,
-      )
-
-      maxRatePerParticipant <- defaultValueGen(
-        protocolVersion,
-        StaticDomainParameters.defaultMaxRatePerParticipantFrom,
-      )
-
-      maxRequestSize <- defaultValueGen(
-        protocolVersion,
-        StaticDomainParameters.defaultMaxRequestSizeFrom,
-      )
-
-      catchUpParameters <- defaultValueGen(
-        protocolVersion,
-        StaticDomainParameters.defaultCatchUpParameters,
-      )
-
       parameters = StaticDomainParameters.create(
-        maxRequestSize,
-        uniqueContractKeys,
         requiredSigningKeySchemes,
         requiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes,
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         protocolVersion,
-        reconciliationInterval,
-        maxRatePerParticipant,
-        catchUpParameters,
       )
 
     } yield parameters)
@@ -92,36 +66,17 @@ final class GeneratorsProtocol(
 
       representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
 
-      reconciliationInterval <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultReconciliationIntervalUntil,
-      )
+      reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
+      maxRatePerParticipant <- Arbitrary.arbitrary[NonNegativeInt]
+      maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
 
-      maxRatePerParticipant <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultMaxRatePerParticipantUntil,
-      )
+      trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
 
-      maxRequestSize <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultMaxRequestSizeUntil,
-      )
+      updatedMediatorDeduplicationTimeout = ledgerTimeRecordTimeTolerance * NonNegativeInt
+        .tryCreate(2) + mediatorDeduplicationMargin
 
-      trafficControlConfig <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultTrafficControlParametersUntil,
-      )
-
-      // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
-      updatedMediatorDeduplicationTimeout =
-        if (protocolVersion > ProtocolVersion.v3)
-          ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) + mediatorDeduplicationMargin
-        else
-          ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
-
-      // TODO(#14691) Use generator properly when dynamic domain parameters are properly versioned
-      sequencerAggregateSubmissionTimeout =
-        DynamicDomainParameters.defaultSequencerAggregateSubmissionTimeoutUntilExclusive.defaultValue
+      sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         participantResponseTimeout,
@@ -135,6 +90,7 @@ final class GeneratorsProtocol(
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
+        onboardingRestriction,
       )(representativePV)
 
     } yield dynamicDomainParameters
@@ -162,36 +118,19 @@ final class GeneratorsProtocol(
   {
     // If this pattern match is not exhaustive anymore, update the method below
     ((_: CantonContractIdVersion) match {
-      case NonAuthenticatedContractIdVersion => ()
-      case AuthenticatedContractIdVersion => ()
       case AuthenticatedContractIdVersionV2 => ()
     }).discard
   }
   def serializableContractArb(
-      canHaveEmptyKey: Boolean,
-      protocolVersion: Option[ProtocolVersion] = None,
+      canHaveEmptyKey: Boolean
   ): Arbitrary[SerializableContract] = {
-
-    val allContractIdVersions = List(
-      NonAuthenticatedContractIdVersion,
-      AuthenticatedContractIdVersion,
-      AuthenticatedContractIdVersionV2,
-    )
-
-    val contractIdVersions = protocolVersion match {
-      case Some(ProtocolVersion.v3) => List(NonAuthenticatedContractIdVersion)
-      case Some(ProtocolVersion.v4) => List(AuthenticatedContractIdVersion)
-      case Some(pv) if pv >= ProtocolVersion.v5 => List(AuthenticatedContractIdVersionV2)
-      case _ => allContractIdVersions
-    }
+    val contractIdVersion = AuthenticatedContractIdVersionV2
 
     Arbitrary(
       for {
         rawContractInstance <- Arbitrary.arbitrary[SerializableRawContractInstance]
         metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
-
-        contractIdVersion <- Gen.oneOf(contractIdVersions)
 
         domainId <- Arbitrary.arbitrary[DomainId]
         mediatorId <- Arbitrary.arbitrary[MediatorId]
@@ -231,14 +170,6 @@ final class GeneratorsProtocol(
       )
     )
   }
-
-  // Salt not supported for pv < 4
-  implicit val serializableContractArb: Arbitrary[SerializableContract] = Arbitrary(
-    if (protocolVersion < ProtocolVersion.v4)
-      serializableContractArb(canHaveEmptyKey = true).arbitrary.map(_.copy(contractSalt = None))
-    else
-      serializableContractArb(canHaveEmptyKey = true).arbitrary
-  )
 
   implicit val globalKeyWithMaintainersArb: Arbitrary[Versioned[LfGlobalKeyWithMaintainers]] =
     Arbitrary(
@@ -287,9 +218,7 @@ final class GeneratorsProtocol(
         contract,
         consumedInCore,
         rolledBack,
-        checkContractIdVersion = _ => Right(NonAuthenticatedContractIdVersion),
       )
       .value
   )
-
 }

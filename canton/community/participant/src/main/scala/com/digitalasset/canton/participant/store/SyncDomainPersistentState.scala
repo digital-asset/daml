@@ -36,6 +36,7 @@ import scala.concurrent.ExecutionContext
 
 /** The state of a synchronization domain that is independent of the connectivity to the domain. */
 trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
+
   protected[participant] def loggerFactory: NamedLoggerFactory
 
   /** The crypto operations used on the domain */
@@ -47,7 +48,6 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def contractStore: ContractStore
   def transferStore: TransferStore
   def activeContractStore: ActiveContractStore
-  def contractKeyJournal: ContractKeyJournal
   def sequencedEventStore: SequencedEventStore
   def sequencerCounterTrackerStore: SequencerCounterTrackerStore
   def sendTrackerStore: SendTrackerStore
@@ -56,8 +56,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def parameterStore: DomainParameterStore
   def topologyStore: DomainStoreCommon
   def submissionTrackerStore: SubmissionTrackerStore
-  def isMemory(): Boolean
-
+  def isMemory: Boolean
 }
 
 trait SyncDomainPersistentStateOld extends SyncDomainPersistentState {

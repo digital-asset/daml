@@ -5,10 +5,11 @@ package com.digitalasset.canton.topology.admin.grpc
 
 import cats.instances.future.*
 import cats.syntax.either.*
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.crypto.store.CryptoPublicStore
 import com.digitalasset.canton.environment.CantonNodeBootstrapBase
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v0.*
@@ -23,19 +24,23 @@ class GrpcInitializationService(
     clock: Clock,
     bootstrap: CantonNodeBootstrapBase[_, _, _, _],
     cryptoPublicStore: CryptoPublicStore,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends InitializationServiceGrpc.InitializationService {
+    extends InitializationServiceGrpc.InitializationService
+    with NamedLogging {
 
   override def initId(request: InitIdRequest): Future[InitIdResponse] = {
+    implicit val loggingContext: ErrorLoggingContext =
+      ErrorLoggingContext.fromTracedLogger(logger)(TraceContext.empty)
     for {
       fp <- Fingerprint
         .fromProtoPrimitive(request.fingerprint)
         .toEitherT
-        .valueOr(err => throw CantonGrpcUtil.invalidArgument(err.toString))
+        .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       id <- Identifier
         .fromProtoPrimitive(request.identifier)
         .toEitherT
-        .valueOr(err => throw CantonGrpcUtil.invalidArgument(err.toString))
+        .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
       uid = UniqueIdentifier(id, Namespace(fp))
       maybeKey <- cryptoPublicStore.signingKey(fp)(TraceContext.empty).value
       result <- maybeKey match {

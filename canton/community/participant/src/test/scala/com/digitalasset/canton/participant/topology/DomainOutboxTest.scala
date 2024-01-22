@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -26,11 +27,12 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Add, Remove}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, MonadUtil}
-import com.digitalasset.canton.{BaseTest, DomainAlias}
+import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.{BaseTest, DomainAlias, config}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
@@ -42,8 +44,9 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
   private val clock = new WallClock(timeouts, loggerFactory)
   private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
   private val publicKey =
-    FutureUtil
-      .noisyAwaitResult(crypto.cryptoPublicStore.signingKeys.value, "get public key", 10.seconds)
+    config
+      .NonNegativeFiniteDuration(10.seconds)
+      .await("get public key")(crypto.cryptoPublicStore.signingKeys.value)
       .valueOrFail("signing keys")
       .headOption
       .value
@@ -57,8 +60,8 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
       IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("gamma"), namespace), publicKey),
       IdentifierDelegation(UniqueIdentifier(Identifier.tryCreate("delta"), namespace), publicKey),
     ).map(TopologyStateUpdate.createAdd(_, testedProtocolVersion))
-  val slice1 = transactions.slice(0, 2)
-  val slice2 = transactions.slice(slice1.length, transactions.length)
+  private val slice1 = transactions.slice(0, 2)
+  private val slice2 = transactions.slice(slice1.length, transactions.length)
 
   private def mk(expect: Int) = {
     val source = new InMemoryTopologyStore(
@@ -100,9 +103,10 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
   ) extends RegisterTopologyTransactionHandleCommon[SignedTopologyTransaction[
         TopologyChangeOp
       ], RegisterTopologyTransactionResponseResult.State] {
-    val buffer = ListBuffer[SignedTopologyTransaction[TopologyChangeOp]]()
-    val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
-    val expect = new AtomicInteger(expectI)
+    val buffer: mutable.ListBuffer[SignedTopologyTransaction[TopologyChangeOp]] = ListBuffer()
+    private val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
+    private val expect = new AtomicInteger(expectI)
+
     override def submit(
         transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]]
     )(implicit
@@ -178,11 +182,12 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
       timeouts,
       loggerFactory,
       crypto,
+      futureSupervisor = FutureSupervisor.Noop,
     )
     domainOutbox
       .startup()
       .fold[StoreBasedDomainOutbox](
-        s => fail(s"Failed to start domain outbox ${s}"),
+        s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
             // add the outbox as an observer since these unit tests avoid instantiating the ParticipantTopologyDispatcher
@@ -213,8 +218,8 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
-        handle.buffer should have length (transactions.length.toLong)
+        res.value shouldBe a[Seq[?]]
+        handle.buffer should have length transactions.length.toLong
       }
     }
 
@@ -226,8 +231,8 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         res <- push(manager, transactions)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
-        handle.buffer should have length (transactions.length.toLong)
+        res.value shouldBe a[Seq[?]]
+        handle.buffer should have length transactions.length.toLong
       }
     }
 
@@ -258,7 +263,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res2.value shouldBe a[Seq[_]]
+        res2.value shouldBe a[Seq[?]]
         handle.buffer.map(_.transaction) shouldBe slice2
       }
     }
@@ -284,19 +289,19 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         _ <- push(manager, Seq(midRevert, another))
         // ensure that topology manager properly processed this state
         ais <- source.headTransactions.map(_.toTopologyState)
-        _ = ais should not contain (midRevert.element)
+        _ = ais should not contain midRevert.element
         _ = ais should contain(another.element)
         // and ensure both are not in the new store
         tis <- target.headTransactions.map(_.toTopologyState)
         _ = tis should contain(midRevert.element)
-        _ = tis should not contain (another.element)
+        _ = tis should not contain another.element
         // re-connect
         _ = handle.clear(2)
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
         tis <- target.headTransactions.map(_.toTopologyState)
       } yield {
-        tis should not contain (midRevert.element)
+        tis should not contain midRevert.element
         tis should contain(another.element)
       }
     }
@@ -310,7 +315,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
+        res.value shouldBe a[Seq[?]]
         handle.buffer.map(x =>
           (
             x.transaction.op,
@@ -323,7 +328,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
           (Add, Some("delta")),
           (Remove, Some("beta")),
         )
-        handle.buffer should have length (5)
+        handle.buffer should have length 5
       }
     }
 

@@ -15,13 +15,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-// TODO(#17366): Once daml3-script diverges from script, V1DevIT and V2DevIT may not be able to
-//     share the same code anymore.
-class DevITV1 extends DevIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class DevITV2 extends DevIT(LanguageMajorVersion.V2)
+class DevITV2 extends DevIT(LanguageMajorVersion.V2)
 
 class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

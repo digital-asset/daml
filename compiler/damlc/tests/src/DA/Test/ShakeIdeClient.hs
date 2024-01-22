@@ -33,7 +33,7 @@ import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
-import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep, withDamlScriptV2Dep)
+import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptV2Dep)
 
 import SdkVersion (SdkVersioned, withSdkVersions)
 
@@ -61,7 +61,6 @@ test lfVersion scenarioLogger = do
   where
     scenarioConfig = SS.defaultScenarioServiceConfig{SS.cnfJvmOptions = ["-Xmx200M"]}
     withDamlScript = case LF.versionMajor lfVersion of
-        LF.V1 -> withDamlScriptDep
         LF.V2 -> withDamlScriptV2Dep
 
 ideTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
@@ -796,7 +795,6 @@ goToDefinitionTests lfVersion mbScenarioService scriptPackageData = Tasty.testGr
             expectGoToDefinition
               (foo, 3, [7..19])
               (In $ case LF.versionMajor lfVersion of
-                      LF.V1 -> "Daml.Script"
                       LF.V2 -> "Daml.Script.Internal.Questions.PartyManagement")
 
     ,    testCase' "Exception goto definition" $ do

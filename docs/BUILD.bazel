@@ -126,8 +126,6 @@ genrule(
         "configs/pdf/conf.py",
         "configs/pdf/logo.png",
         "//templates:templates-tarball",
-        "//templates:create-daml-app-docs",
-        "//templates:create-daml-app-test-resources/index.test.ts",
         ":generate-docs-error-codes-inventory-into-rst-file",
         ":generate-docs-error-categories-inventory-into-rst-file",
         "//compiler/damlc:daml-base-rst.tar.gz",
@@ -150,8 +148,6 @@ genrule(
     cp $(location configs/pdf/logo.png) $$DIR/deps/configs/pdf
 
     cp $(location //templates:templates-tarball) $$DIR/deps/
-    cp $(location //templates:create-daml-app-docs) $$DIR/deps/
-    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$DIR/deps/
 
     cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
     cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
@@ -182,8 +178,6 @@ genrule(
         ":index",
         ":sources",
         "//templates:templates-tarball",
-        "//templates:create-daml-app-docs",
-        "//templates:create-daml-app-test-resources/index.test.ts",
     ],
     outs = ["sphinx-source-tree.tar.gz"],
     cmd = """
@@ -210,11 +204,6 @@ genrule(
     CODE_DIR=$$DIR/docs/source/getting-started/code/
     mkdir -p $$CODE_DIR
     tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
-    rm -rf $$CODE_DIR/templates-tarball/create-daml-app
-    tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
-    # Copy create-daml-app tests
-    mkdir $$CODE_DIR/testing
-    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
 
     TEMPLATES_DIR=$$DIR/docs/source/_templates
     mkdir -p $$TEMPLATES_DIR
@@ -503,8 +492,8 @@ daml_test(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-13/**/*.daml"],
     ),
-    target = "1.15",
-    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
 )
 
 daml_test(
@@ -512,8 +501,8 @@ daml_test(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
     ),
-    target = "1.15",
-    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
 )
 
 daml_compile(
@@ -521,8 +510,8 @@ daml_compile(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
     ),
-    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
-    target = "1.15",
+    dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
+    target = "2.1",
 )
 
 daml_test(
@@ -531,8 +520,8 @@ daml_test(
         ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
     ),
     data_deps = ["daml-intro12-part1.dar"],
-    target = "1.15",
-    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "2.1",
+    deps = ["//daml-script/daml:daml-script-2.1.dar"],
 )
 
 daml_test(

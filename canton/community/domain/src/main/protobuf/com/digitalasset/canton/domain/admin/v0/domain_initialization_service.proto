@@ -5,11 +5,10 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/domain/api/v0/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/domain/v0/sequencer_connection.proto";
 import "google/protobuf/empty.proto";
 
-// TODO(#15223) rename to DomainManagerInitializationService
-service DomainInitializationService {
+service DomainManagerInitializationService {
   // triggers the initialization of a domain node that has been setup with an external sequencer
   // this should be called after the external sequencer's (and optionally other initial sequencers') keys have been
   // authorized by the IDM and posteriorly sequenced by one of the sequencers
@@ -18,7 +17,7 @@ service DomainInitializationService {
 
 message DomainNodeSequencerConfig {
   // connection information to sequencer
-  com.digitalasset.canton.domain.api.v0.SequencerConnection sequencerConnection = 1;
+  com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencerConnection = 1;
 }
 
 message DomainInitRequest {

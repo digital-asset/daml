@@ -69,7 +69,6 @@ withInteractionTester major action = do
     setNumCapabilities 1
     limitJvmMemory defaultJvmMemoryLimits
     scriptDar <- locateRunfiles $ case major of
-        LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
         LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
     testDars <- forM ["repl-test", "repl-test-two"] $ \name ->
         locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <> "-v" <> prettyMajor <.> "dar")

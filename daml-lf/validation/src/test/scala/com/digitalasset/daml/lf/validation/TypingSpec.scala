@@ -19,7 +19,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpecV1 extends TypingSpec(LanguageMajorVersion.V1)
 class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
 
 class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -1106,7 +1105,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch1 (self) (i : Unit) : Unit
                   , controllers Nil @Party
                   to upure @Unit ();
@@ -1137,7 +1135,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
           }
 
@@ -1149,7 +1146,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
           }
 
@@ -1159,7 +1155,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             } ;
           }
 
@@ -1170,7 +1165,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition ();                               // precondition should be a boolean
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             } ;
           }
 
@@ -1181,7 +1175,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories ();                                 // should be of (type List Party)
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
@@ -1193,7 +1186,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers ();                                  // should be of type (List Party)
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
@@ -1205,7 +1197,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                 , controllers ()                                  // should be of type (List Party)
                 to upure @Unit ();
@@ -1219,23 +1210,10 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                 , controllers Nil @Party
                 , observers ()                                  // should be of type (List Party)
                 to upure @Unit ();
-            } ;
-          }
-
-          module PositiveTestCase_AgreementShouldBeText {
-            record @serializable T = {};
-
-            template (this : T) =  {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              agreement ();                                 // should be of type Text
-              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
 
@@ -1246,7 +1224,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
                 , controllers Nil @Party to upure @Unit ();
             } ;
@@ -1259,7 +1236,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
                 , controllers Nil @Party to upure @(List) (/\ (tau : *). Nil @tau);
             } ;
@@ -1273,7 +1249,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
@@ -1294,7 +1269,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
@@ -1315,7 +1289,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
@@ -1335,7 +1308,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @PositiveTestCase_MaintainersShouldNotUseThis:TBis
                 (PositiveTestCase_MaintainersShouldNotUseThis:TBis {
@@ -1355,7 +1327,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                   , controllers Nil @Party
                   to upure @Unit ();
@@ -1373,7 +1344,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                   , controllers Nil @Party
                   to upure @Unit ();
@@ -1390,7 +1360,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                   , controllers Nil @Party
                   to upure @Unit ();
@@ -1418,7 +1387,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         "PositiveTestCase_ObserversShouldBeListParty",
         "PositiveTestCase_ControllersMustBeListParty",
         "PositiveTestCase_ChoiceObserversMustBeListParty",
-        "PositiveTestCase_AgreementShouldBeText",
         "PositiveTestCase_KeyBodyShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeListParty",
@@ -1559,7 +1527,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements PositiveTestCase_MissingRequiredInterface:Y {
                 view = Mod:MyUnit {};
               };
@@ -1685,7 +1652,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "";
               implements CoImplementsBase:Root {
                 view = Mod:MyUnit {};
                 method getParties = Cons @Party [(CoImplementsBase:ParcelWithRoot {party} this)] (Nil @Party);
@@ -1698,7 +1664,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "";
             };
           }
 
@@ -1777,7 +1742,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "";
               implements CoImplementsBase:Root {
                 view = Mod:MyUnit {};
                 method getParties = Cons @Party [(PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {party} this)] (Nil @Party);
@@ -2132,7 +2096,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            precondition True;
            signatories Nil @Party;
            observers Nil @Party;
-           agreement "Agreement";
            choice Ch (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
@@ -2142,7 +2105,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
          };
 
          interface (this : I) = {
@@ -2169,7 +2131,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            precondition True;
            signatories Nil @Party;
            observers Nil @Party;
-           agreement "Agreement";
            choice ChTmpl (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
            implements Mod:I {
               view = Mod:MyUnit {};

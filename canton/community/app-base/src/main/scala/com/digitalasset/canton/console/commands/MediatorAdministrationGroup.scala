@@ -26,8 +26,8 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc.EnterpriseMediatorAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -74,8 +74,8 @@ class MediatorPruningAdministrationGroup(
 ) extends PruningSchedulerAdministration(
       runner,
       consoleEnvironment,
-      new PruningSchedulerCommands[EnterpriseMediatorAdministrationServiceStub](
-        EnterpriseMediatorAdministrationServiceGrpc.stub,
+      new PruningSchedulerCommands[MediatorAdministrationServiceStub](
+        MediatorAdministrationServiceGrpc.stub,
         _.setSchedule(_),
         _.clearSchedule(_),
         _.setCron(_),
@@ -196,27 +196,31 @@ class MediatorAdministrationGroupWithInit(
 
 }
 
+class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
+    extends ConsoleCommandGroup.Impl(consoleCommandGroup)
+    with InitNodeId {
+  @Help.Summary("Assign a mediator to a domain")
+  def assign(
+      domainId: DomainId,
+      domainParameters: StaticDomainParameters,
+      sequencerConnections: SequencerConnections,
+  ): Unit = consoleEnvironment.run {
+    runner.adminCommand(
+      InitializeX(
+        domainId,
+        domainParameters.toInternal,
+        sequencerConnections,
+      )
+    )
+  }
+
+}
+
 trait MediatorXAdministrationGroupWithInit extends ConsoleCommandGroup {
 
+  private lazy val setup_ = new MediatorXSetupGroup(this)
   @Help.Summary("Methods used to initialize the node")
-  object setup extends ConsoleCommandGroup.Impl(this) with InitNodeId {
-
-    @Help.Summary("Assign a mediator to a domain")
-    def assign(
-        domainId: DomainId,
-        domainParameters: StaticDomainParameters,
-        sequencerConnections: SequencerConnections,
-    ): Unit = consoleEnvironment.run {
-      runner.adminCommand(
-        InitializeX(
-          domainId,
-          domainParameters.toInternal,
-          sequencerConnections,
-        )
-      )
-    }
-
-  }
+  def setup: MediatorXSetupGroup = setup_
 
   private lazy val testing_ = new MediatorTestingGroup(runner, consoleEnvironment, loggerFactory)
   @Help.Summary("Testing functionality for the mediator")

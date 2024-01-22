@@ -5,11 +5,8 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.messages.LocalReject.ConsistencyRejections.{
-  DuplicateKey,
   InactiveContracts,
-  InconsistentKey,
   LockedContracts,
-  LockedKeys,
 }
 import com.digitalasset.canton.protocol.messages.LocalReject.MalformedRejects.{
   BadRootHashMessages,
@@ -43,10 +40,7 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
 
     val builders: Seq[RepresentativeProtocolVersion[LocalVerdict.type] => LocalRejectImpl] = Seq(
       LockedContracts.Reject(resources),
-      LockedKeys.Reject(resources),
       InactiveContracts.Reject(resources),
-      DuplicateKey.Reject(resources),
-      InconsistentKey.Reject(resources),
       LedgerTime.Reject(details),
       SubmissionTime.Reject(details),
       LocalTimeout.Reject(),

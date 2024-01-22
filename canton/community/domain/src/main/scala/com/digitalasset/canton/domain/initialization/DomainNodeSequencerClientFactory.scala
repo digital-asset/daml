@@ -16,10 +16,13 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
-  SequencerClient,
+  RichSequencerClient,
   SequencerClientFactory,
   SequencerClientTransportFactory,
 }
@@ -65,7 +68,7 @@ class DomainNodeSequencerClientFactory(
       materializer: Materializer,
       tracer: Tracer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SequencerClient] =
+  ): EitherT[Future, String, RichSequencerClient] =
     factory(member).create(
       member,
       sequencedEventStore,
@@ -79,13 +82,14 @@ class DomainNodeSequencerClientFactory(
       connection: SequencerConnection,
       member: Member,
       requestSigner: RequestSigner,
+      allowReplay: Boolean = true,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SequencerClientTransport] =
-    factory(member).makeTransport(connection, member, requestSigner)
+  ): EitherT[Future, String, SequencerClientTransport & SequencerClientTransportPekko] =
+    factory(member).makeTransport(connection, member, requestSigner, allowReplay)
 
   private def factory(member: Member)(implicit
       executionContext: ExecutionContextExecutor
@@ -115,7 +119,6 @@ class DomainNodeSequencerClientFactory(
       id,
       sequencerClientSyncCrypto,
       crypto,
-      None,
       cantonNodeParameters.sequencerClient,
       cantonNodeParameters.tracing.propagation,
       testingConfig,

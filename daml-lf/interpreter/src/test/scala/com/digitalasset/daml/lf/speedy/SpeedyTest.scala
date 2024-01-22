@@ -28,7 +28,6 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.{Failure, Success, Try}
 
-class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
 class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
 
 class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
@@ -53,7 +52,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record @serializable T2 = { party: Party };
@@ -61,7 +59,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record T3 (a: *) = { party: Party };

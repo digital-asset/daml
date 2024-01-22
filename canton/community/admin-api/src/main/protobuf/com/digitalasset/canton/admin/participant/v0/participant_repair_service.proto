@@ -1,0 +1,74 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v0;
+
+import "com/digitalasset/canton/admin/participant/v0/domain_connectivity.proto";
+import "google/protobuf/timestamp.proto";
+
+// Moving ACS from one participant to another
+service ParticipantRepairService {
+
+  // get contracts for a party
+  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
+
+  // upload contracts for a party
+  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
+
+  // purge contracts
+  rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
+
+  rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
+}
+
+message PurgeContractsRequest {
+  // Alias of the domain on which the contracts are currently assigned
+  string domain = 1;
+
+  // Contracts to be purged
+  repeated string contract_ids = 2;
+
+  // If true, will ignore already purged contract; if false, will return an error if a contract is already purged
+  bool ignore_already_purged = 3;
+}
+
+message PurgeContractsResponse {}
+
+message MigrateDomainRequest {
+  // the alias of the source domain
+  // Required
+  string source_alias = 1;
+  // the target domain connection configuration
+  // Required
+  DomainConnectionConfig target_domain_connection_config = 2;
+}
+message MigrateDomainResponse {}
+
+message ExportAcsRequest {
+  message TargetDomain {
+    string domain_id = 1;
+    // Protocol version of the target domain
+    int32 protocol_version = 2;
+  }
+
+  repeated string parties = 1;
+  string filter_domain_id = 2; // optional; exact match if set
+  google.protobuf.Timestamp timestamp = 3; // optional; take acs state for this timestamp
+
+  // Optional mapping from one domain id to another to rename the associated domain of contracts in the export
+  // NOTE: This is not a proper domain migration of contracts.
+  map<string, TargetDomain> contract_domain_renames = 4;
+}
+
+message ExportAcsResponse {
+  bytes chunk = 1; // a chunk of the acs snapshot download
+}
+
+message ImportAcsRequest {
+  bytes acs_snapshot = 1;
+  string workflow_id_prefix = 2;
+}
+
+message ImportAcsResponse {}

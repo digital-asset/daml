@@ -20,14 +20,6 @@ sealed trait WriteRequestRefused extends SequencerWriteError[Nothing] {
 }
 
 object WriteRequestRefused {
-  case object SequencerClosing extends WriteRequestRefused {
-    override def asGrpcStatus: Status =
-      Status.UNAVAILABLE.withDescription("Sequencer has been shutdown")
-  }
-  case object SequencerUnavailable extends WriteRequestRefused {
-    override def asGrpcStatus: Status =
-      Status.UNAVAILABLE.withDescription("Sequencer is unavailable")
-  }
   case object SequencerOverloaded extends WriteRequestRefused {
     override def asGrpcStatus: Status =
       Status.RESOURCE_EXHAUSTED.withDescription("Sequencer is overloaded")

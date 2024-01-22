@@ -164,7 +164,7 @@ class StartableStoppableLedgerApiServer(
     TraceContext.withNewTraceContext { implicit traceContext =>
       logger.debug("Shutting down ledger API server")
       Seq(
-        AsyncCloseable("ledger API server", stop().unwrap, timeouts.shutdownNetwork.duration),
+        AsyncCloseable("ledger API server", stop().unwrap, timeouts.shutdownNetwork),
         SyncCloseable("ledger-api-server-queue", execQueue.close()),
       )
     }
@@ -204,9 +204,6 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
           multiDomainEnabled = multiDomainEnabled,
-          maxEventsByContractKeyCacheSize = Option.when(
-            config.serverConfig.unsafeEnableEventsByContractKeyCache.enabled
-          )(config.serverConfig.unsafeEnableEventsByContractKeyCache.cacheSize.unwrap),
         )
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
@@ -332,9 +329,9 @@ class StartableStoppableLedgerApiServer(
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
         meteringReportKey = config.meteringReportKey,
         enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
+        multiDomainEnabled = multiDomainEnabled,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,

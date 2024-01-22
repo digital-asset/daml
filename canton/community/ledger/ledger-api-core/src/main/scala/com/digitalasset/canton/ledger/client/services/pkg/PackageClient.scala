@@ -3,23 +3,45 @@
 
 package com.digitalasset.canton.ledger.client.services.pkg
 
-import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
-import com.daml.ledger.api.v1.package_service.*
-import com.digitalasset.canton.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
+import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageServiceStub
+import com.daml.ledger.api.v2.package_service.{
+  GetPackageRequest,
+  GetPackageStatusRequest,
+  ListPackagesRequest,
+}
+import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
 
-class PackageClient(val ledgerId: LedgerId, service: PackageServiceStub) {
-  val it = new withoutledgerid.PackageClient(service)
+final class PackageClient(service: PackageServiceStub) {
 
-  def listPackages(token: Option[String] = None): Future[ListPackagesResponse] =
-    it.listPackages(ledgerId, token)
+  def listPackages(
+      token: Option[String] = None
+  ): Future[ListPackagesResponse] =
+    LedgerClient
+      .stub(service, token)
+      .listPackages(ListPackagesRequest())
 
-  def getPackage(packageId: String, token: Option[String] = None): Future[GetPackageResponse] =
-    it.getPackage(packageId, ledgerId, token)
+  def getPackage(
+      packageId: String,
+      token: Option[String] = None,
+  ): Future[GetPackageResponse] =
+    LedgerClient
+      .stub(service, token)
+      .getPackage(GetPackageRequest(packageId = packageId))
 
   def getPackageStatus(
       packageId: String,
       token: Option[String] = None,
-  ): Future[GetPackageStatusResponse] = it.getPackageStatus(packageId, ledgerId, token)
+  ): Future[GetPackageStatusResponse] =
+    LedgerClient
+      .stub(service, token)
+      .getPackageStatus(
+        GetPackageStatusRequest(packageId = packageId)
+      )
 }

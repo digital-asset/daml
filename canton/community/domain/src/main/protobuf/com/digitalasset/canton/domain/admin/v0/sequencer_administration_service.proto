@@ -5,7 +5,9 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/traffic/v0/member_traffic_status.proto";
+import "com/digitalasset/canton/admin/traffic/v0/member_traffic_status.proto";
+import "com/digitalasset/canton/domain/admin/v0/sequencer_initialization_snapshot.proto";
+import "com/digitalasset/canton/domain/admin/v1/sequencer_initialization_snapshot.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -14,22 +16,12 @@ service SequencerAdministrationService {
   // fetch the current status of the sequencer
   rpc PruningStatus(google.protobuf.Empty) returns (SequencerPruningStatus);
   rpc TrafficControlState(TrafficControlStateRequest) returns (TrafficControlStateResponse);
-}
 
-message SequencerMemberStatus {
-  string member = 1;
-  google.protobuf.Timestamp registered_at = 2;
-  google.protobuf.Timestamp last_acknowledged = 3;
-  bool enabled = 4;
-}
+  // fetch a snapshot of the sequencer state based on the given timestamp
+  rpc Snapshot(Snapshot.Request) returns (Snapshot.Response);
 
-message SequencerPruningStatus {
-  // current time according to the sequencer
-  google.protobuf.Timestamp now = 1;
-  // the earliest event we are currently storing
-  google.protobuf.Timestamp earliest_event_timestamp = 2;
-  // details of each member registered on the sequencer
-  repeated SequencerMemberStatus members = 3;
+  // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
+  rpc DisableMember(DisableMemberRequest) returns (google.protobuf.Empty);
 }
 
 message TrafficControlStateRequest {
@@ -37,5 +29,35 @@ message TrafficControlStateRequest {
 }
 
 message TrafficControlStateResponse {
-  repeated com.digitalasset.canton.traffic.v0.MemberTrafficStatus traffic_states = 1;
+  repeated com.digitalasset.canton.admin.traffic.v0.MemberTrafficStatus traffic_states = 1;
 }
+
+message Snapshot {
+  message Request {
+    google.protobuf.Timestamp timestamp = 1;
+  }
+  message Response {
+    oneof value {
+      // Used for sequencers running protocol versions up to v5
+      Success success = 1;
+      Failure failure = 2;
+      // Used for sequencers running protocol version CNTestNet or higher.
+      VersionedSuccess versionedSuccess = 3;
+    }
+  }
+  message Success {
+    com.digitalasset.canton.domain.admin.v1.SequencerSnapshot state = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  message VersionedSuccess {
+    // Contains a versioned SequencerSnapshot of version v1 or higher
+    bytes snapshot = 1;
+  }
+}
+
+message DisableMemberRequest {
+  string member = 1;
+}
+

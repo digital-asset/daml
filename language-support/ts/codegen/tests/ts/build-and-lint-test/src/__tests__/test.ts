@@ -73,13 +73,16 @@ let BOB_PARTY = "Bob";
 let BOB_TOKEN = "";
 let CHARLIE_PARTY = "Charlie";
 let CHARLIE_TOKEN = "";
+// TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
+//  participant party is returned by listKnownParties.
 // Will be `build-and-lint-test::[somehash]`
-let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
+//let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
 let jsonApiPort: number | undefined = undefined;
 const JSON_API_PORT_FILE = "json-api.port";
+const COMPLETION_FILE = "completion_marker";
 const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
@@ -112,18 +115,19 @@ beforeAll(async () => {
       "daemon",
       "-c",
       "./src/__tests__/canton.conf",
+      "--bootstrap",
+      "./src/__tests__/bootstrap.canton",
       "-C",
       "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
       "-C",
-      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port=0",
+      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port=0",
       "-C",
-      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
+      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
         JSON_API_PORT_FILE,
-      "--auto-connect-local",
     ],
     ["-Dpekko.http.server.request-timeout=60s"],
   );
-  await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
+  await waitOn({ resources: [`file:${COMPLETION_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
     encoding: "utf8",
   });
@@ -144,28 +148,23 @@ beforeAll(async () => {
   const upDar = await fs.readFile(getEnv("DAR"));
   await ledger.uploadDarFile(upDar);
 
+  // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
+  //  participant party is returned by listKnownParties.
   // Only the participant party should exist on the ledger at this point
-  PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
+  //PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
+
+  async function allocateParty(partyName: string): Promise<string> {
+    const party = await ledger.allocateParty({
+      displayName: partyName,
+      identifierHint: partyName,
+    });
+    return party.identifier;
+  }
 
   console.log("Explicitly allocating parties");
-  ALICE_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: ALICE_PARTY,
-      displayName: ALICE_PARTY,
-    })
-  ).identifier;
-  BOB_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: BOB_PARTY,
-      displayName: BOB_PARTY,
-    })
-  ).identifier;
-  CHARLIE_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: CHARLIE_PARTY,
-      displayName: CHARLIE_PARTY,
-    })
-  ).identifier;
+  ALICE_PARTY = await allocateParty(ALICE_PARTY);
+  BOB_PARTY = await allocateParty(BOB_PARTY);
+  CHARLIE_PARTY = await allocateParty(CHARLIE_PARTY);
 
   ALICE_TOKEN = computeToken(ALICE_PARTY);
   BOB_TOKEN = computeToken(BOB_PARTY);
@@ -1233,7 +1232,9 @@ test("party API", async () => {
     p("Alice", ALICE_PARTY),
     p("Bob", BOB_PARTY),
     p("Charlie", CHARLIE_PARTY),
-    PARTICIPANT_PARTY_DETAILS,
+    // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
+    //  participant party is returned by listKnownParties.
+    // PARTICIPANT_PARTY_DETAILS,
   ]);
 
   const newParty1 = await ledger.allocateParty({});
@@ -1251,7 +1252,9 @@ test("party API", async () => {
       ALICE_PARTY,
       BOB_PARTY,
       CHARLIE_PARTY,
-      PARTICIPANT_PARTY_DETAILS?.identifier,
+      // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once
+      //  the participant party is returned by listKnownParties.
+      //PARTICIPANT_PARTY_DETAILS?.identifier,
       daveParty,
       newParty1.identifier,
       newParty2.identifier,

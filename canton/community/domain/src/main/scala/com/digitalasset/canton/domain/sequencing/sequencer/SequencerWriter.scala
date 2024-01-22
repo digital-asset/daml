@@ -378,7 +378,7 @@ class SequencerWriter(
           "sequencingFlow",
           sequencerFlow.map(_.close()).getOrElse(Future.unit),
           // Use timeouts.closing.duration (as opposed to `shutdownShort`) as closing the sequencerFlow can be slow
-          timeouts.closing.duration,
+          timeouts.closing,
         ),
       )
   }

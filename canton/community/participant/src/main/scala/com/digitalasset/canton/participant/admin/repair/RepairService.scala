@@ -8,7 +8,6 @@ import cats.data.{EitherT, OptionT}
 import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
@@ -49,7 +48,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
+import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
@@ -137,25 +136,20 @@ final class RepairService(
       repairContract: RepairContract,
       ignoreAlreadyAdded: Boolean,
       acsState: Option[ActiveContractStore.Status],
-      keyState: Option[RepairService.KeyState],
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[ContractToAdd]] = {
     val contractId = repairContract.contract.contractId
     acsState match {
       case None =>
-        keyState
-          .traverse(_.checkAssignable(domain))
-          .map { keyToAssign =>
-            Option(
-              ContractToAdd(
-                repairContract.contract,
-                repairContract.witnesses.map(_.toLf),
-                repairContract.transferCounter,
-                None,
-                keyToAssign,
-              )
+        Right(
+          Option(
+            ContractToAdd(
+              repairContract.contract,
+              repairContract.witnesses.map(_.toLf),
+              repairContract.transferCounter,
+              None,
             )
-          }
-          .toEitherT[Future]
+          )
+        ).toEitherT[Future]
       case Some(ActiveContractStore.Active(_)) =>
         if (ignoreAlreadyAdded) {
           logger.debug(s"Skipping contract $contractId because it is already active")
@@ -198,20 +192,16 @@ final class RepairService(
           .getOrElse(true)
 
         if (isTransferCounterIncreasing) {
-          keyState
-            .traverse(_.checkAssignable(domain))
-            .map { keyToAssign =>
-              Option(
-                ContractToAdd(
-                  repairContract.contract,
-                  repairContract.witnesses.map(_.toLf),
-                  repairContract.transferCounter,
-                  Option(SourceDomainId(targetDomain.unwrap)),
-                  keyToAssign,
-                )
+          Right(
+            Option(
+              ContractToAdd(
+                repairContract.contract,
+                repairContract.witnesses.map(_.toLf),
+                repairContract.transferCounter,
+                Option(SourceDomainId(targetDomain.unwrap)),
               )
-            }
-            .toEitherT[Future]
+            )
+          ).toEitherT[Future]
         } else {
           EitherT.leftT(
             log(
@@ -234,7 +224,6 @@ final class RepairService(
   ): EitherT[Future, String, Option[ContractToAdd]] =
     for {
       acsState <- readContractAcsState(domain.persistentState, repairContract.contract.contractId)
-      keyState <- EitherT.liftF(readContractKey(domain, repairContract.contract))
       // Able to recompute contract signatories and stakeholders (and sanity check
       // repairContract metadata otherwise ignored matches real metadata)
       contractWithMetadata <- damle
@@ -264,7 +253,6 @@ final class RepairService(
         repairContract.copy(contract = computedContract),
         ignoreAlreadyAdded,
         acsState,
-        keyState,
       )
     } yield contractToAdd
 
@@ -378,38 +366,7 @@ final class RepairService(
                         _.contract.rawContractInstance.contractInstance.unversioned.template.packageId
                       )
                       .distinct
-                      .parTraverse_(packageVetted)
-
-                    _uniqueKeysWithHostedMaintainerInContractsToAdd <- EitherTUtil.ifThenET(
-                      repair.domain.parameters.uniqueContractKeys
-                    ) {
-                      val keysWithContractIdsF = filteredContracts
-                        .parTraverseFilter { repairContractWithCurrentState =>
-                          val contract = repairContractWithCurrentState.contract
-                          // Only check for duplicates where the participant hosts a maintainer
-                          getKeyIfOneMaintainerIsLocal(
-                            repair.domain.topologySnapshot,
-                            contract.metadata.maybeKeyWithMaintainers,
-                            participantId,
-                          ).map { lfKeyO =>
-                            lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
-                              keyWithMaintainers =>
-                                keyWithMaintainers.globalKey -> contract.contractId
-                            }
-                          }
-                        }
-                        .map(x => x.groupBy { case (globalKey, _) => globalKey })
-                      EitherT(keysWithContractIdsF.map { keysWithContractIds =>
-                        val duplicates = keysWithContractIds.mapFilter { keyCoids =>
-                          if (keyCoids.lengthCompare(1) > 0) Some(keyCoids.map(_._2)) else None
-                        }
-                        Either.cond(
-                          duplicates.isEmpty,
-                          (),
-                          log(show"Cannot add multiple contracts for the same key(s): $duplicates"),
-                        )
-                      })
-                    }
+                      .parTraverse_(packageKnown)
 
                     hostedParties <- EitherT.right(
                       filteredContracts
@@ -514,7 +471,7 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change domain request for ${contractIds.length} contracts from ${sourceDomain} to ${targetDomain} with skipInactive=${skipInactive}"
+      s"Change domain request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
     )
     lockAndAwaitEitherT(
       "repair.change_domain", {
@@ -693,7 +650,7 @@ final class RepairService(
         EitherT(hostsParty(topologySnapshot, participantId)(p).map { hosted =>
           EitherUtil.condUnitE(
             hosted,
-            log(s"Witness ${p} not active on domain ${repair.domain.alias} and local participant"),
+            log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
           )
         })
       }
@@ -730,7 +687,7 @@ final class RepairService(
       _ <- topologySnapshot.allHaveActiveParticipants(contractToAdd.witnesses).leftMap {
         missingWitnesses =>
           log(
-            s"Domain ${repair.domain.alias} missing witnesses ${missingWitnesses} of contract ${contract.contractId}"
+            s"Domain ${repair.domain.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
       }
 
@@ -740,12 +697,6 @@ final class RepairService(
         timeOfChange.rc,
         contract,
       )
-
-      _persistedInCkj <- contractToAdd.keyToAssign.traverse_ { key =>
-        repair.domain.persistentState.contractKeyJournal
-          .addKeyStateUpdates(Map(key -> (ContractKeyJournal.Assigned, timeOfChange)))
-          .leftMap(err => log(s"Error while persisting key state updates: $err"))
-      }
 
       _persistedInAcs <- contractToAdd.transferringFrom
         .map(_ -> contractToAdd.transferCounter)
@@ -777,7 +728,7 @@ final class RepairService(
 
       contractO <- EitherTUtil.fromFuture(
         repair.domain.persistentState.contractStore.lookupContract(cid).value,
-        t => log(s"Failed to look up contract ${cid} in domain ${repair.domain.alias}", t),
+        t => log(s"Failed to look up contract $cid in domain ${repair.domain.alias}", t),
       )
       // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
       // on behalf of stakeholders no longer around.
@@ -798,21 +749,6 @@ final class RepairService(
                 log(show"Active contract $cid not found in contract store"),
               )
 
-            keyOfHostedMaintainerO <- EitherT.liftF(
-              if (repair.domain.parameters.uniqueContractKeys)
-                getKeyIfOneMaintainerIsLocal(
-                  repair.domain.topologySnapshot,
-                  contract.metadata.maybeKeyWithMaintainers,
-                  participantId,
-                )
-              else Future.successful(None)
-            )
-
-            _ <- keyOfHostedMaintainerO.traverse_ { key =>
-              repair.domain.persistentState.contractKeyJournal
-                .addKeyStateUpdates(Map(key -> (ContractKeyJournal.Unassigned, timeOfChange)))
-                .leftMap(err => log(s"Error while persisting key state updates: $err"))
-            }
             _ <- persistArchival(repair, timeOfChange)(cid)
           } yield {
             logger.info(
@@ -978,7 +914,7 @@ final class RepairService(
       repair: RepairRequest,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = repair.transactionId.tryAsLedgerTransactionId
-    val offset = LocalOffset(repair.tryExactlyOneRequestCounter)
+    val offset = RequestOffset(repair.timestamp, repair.tryExactlyOneRequestCounter)
     val event =
       TimestampedEvent(
         LedgerSyncEvent.ContractsPurged(
@@ -1010,7 +946,7 @@ final class RepairService(
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId
-    val offset = LocalOffset(requestCounter)
+    val offset = RequestOffset(repair.timestamp, requestCounter)
     val contractMetadata = contractsAdded.view
       .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
       .toMap
@@ -1066,7 +1002,7 @@ final class RepairService(
         )
     }
 
-  private def packageVetted(
+  private def packageKnown(
       lfPackageId: LfPackageId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {
@@ -1197,7 +1133,7 @@ final class RepairService(
         (),
         log(
           s"""Cannot apply a repair command as events have been published up to
-             |${domain.startingPoints.lastPublishedLocalOffset} offset inclusive
+             |${domain.startingPoints.lastPublishedRequestOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),
@@ -1309,23 +1245,6 @@ final class RepairService(
       e => log(s"Failed to look up contract ${cid} status in ActiveContractStore: ${e}"),
     )
 
-  private def readContractKey(
-      domain: RepairRequest.DomainData,
-      contract: SerializableContract,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Option[RepairService.KeyState]] =
-    for {
-      optionalKey <- getKeyIfOneMaintainerIsLocal(
-        domain.topologySnapshot,
-        contract.metadata.maybeKeyWithMaintainers,
-        participantId,
-      )
-      optionalState <- optionalKey.flatTraverse(
-        domain.persistentState.contractKeyJournal.fetchState
-      )
-    } yield optionalKey.map(RepairService.KeyState(_, optionalState))
-
   // Looks up domain persistence erroring if domain is based on in-memory persistence for which repair is not supported.
   private def lookUpDomainPersistence(domainId: DomainId, domainDescription: String)(implicit
       traceContext: TraceContext
@@ -1333,12 +1252,12 @@ final class RepairService(
     for {
       dp <- syncDomainPersistentStateManager
         .get(domainId)
-        .toRight(log(s"Could not find ${domainDescription}"))
+        .toRight(log(s"Could not find $domainDescription"))
       _ <- Either.cond(
-        !dp.isMemory(),
+        !dp.isMemory,
         (),
         log(
-          s"${domainDescription} is in memory which is not supported by repair. Use db persistence."
+          s"$domainDescription is in memory which is not supported by repair. Use db persistence."
         ),
       )
     } yield dp
@@ -1458,25 +1377,10 @@ object RepairService {
       witnesses: Set[LfPartyId],
       transferCounter: TransferCounterO,
       transferringFrom: Option[SourceDomainId],
-      keyToAssign: Option[LfGlobalKey],
   ) {
     def driverMetadata(protocolVersion: ProtocolVersion): Bytes =
       contract.contractSalt
         .map(DriverContractMetadata(_).toLfBytes(protocolVersion))
         .getOrElse(Bytes.Empty)
   }
-
-  private final case class KeyState(
-      key: LfGlobalKey,
-      state: Option[ContractKeyJournal.ContractKeyState],
-  ) {
-    def checkAssignable(domain: RepairRequest.DomainData): Either[String, LfGlobalKey] =
-      Either.cond(
-        !domain.parameters.uniqueContractKeys ||
-          state.map(_.status).forall(_ == ContractKeyJournal.Unassigned),
-        key,
-        show"Key $key is already assigned to a different contract",
-      )
-  }
-
 }

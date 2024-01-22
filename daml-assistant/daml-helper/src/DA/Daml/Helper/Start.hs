@@ -18,7 +18,6 @@ import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Maybe
-import DA.PortFile
 import qualified Data.Text as T
 import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
@@ -56,8 +55,9 @@ determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> File
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile jsonApi = do
     cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort (ledger defaultSandboxPorts))) ledgerApiSpec
     cantonAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (admin defaultSandboxPorts))) adminApiSpec
-    cantonDomainPublicApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainPublic defaultSandboxPorts))) domainPublicApiSpec
-    cantonDomainAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainAdmin defaultSandboxPorts))) domainAdminApiSpec
+    cantonSequencerPublicApi <- getPortForSandbox (SpecifiedPort (SandboxPort (sequencerPublic defaultSandboxPorts))) sequencerPublicApiSpec
+    cantonSequencerAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (sequencerAdmin defaultSandboxPorts))) sequencerAdminApiSpec
+    cantonMediatorAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (mediatorAdmin defaultSandboxPorts))) mediatorAdminApiSpec
     let cantonPortFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
     let cantonStaticTime = StaticTime False
     let cantonHelp = False
@@ -73,9 +73,8 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
     cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
       cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPortM
-      withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
-        putStrLn "Waiting for canton sandbox to start."
-        sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
+      putStrLn "Waiting for canton sandbox to start."
+      withCantonSandbox cantonOptions sandboxArgs $ \(ph, sandboxPort) -> do
         runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
@@ -105,8 +104,9 @@ data StartOptions = StartOptions
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec
   { adminApiSpec :: !(Maybe SandboxPortSpec)
-  , domainPublicApiSpec :: !(Maybe SandboxPortSpec)
-  , domainAdminApiSpec :: !(Maybe SandboxPortSpec)
+  , sequencerPublicApiSpec :: !(Maybe SandboxPortSpec)
+  , sequencerAdminApiSpec :: !(Maybe SandboxPortSpec)
+  , mediatorAdminApiSpec :: !(Maybe SandboxPortSpec)
   }
 
 runStart :: StartOptions -> IO ()

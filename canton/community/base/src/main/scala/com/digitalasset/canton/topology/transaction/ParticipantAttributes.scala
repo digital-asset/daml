@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.syntax.order.*
 import com.digitalasset.canton.ProtoDeserializationError.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -11,7 +13,11 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 /** If [[trustLevel]] is [[TrustLevel.Vip]],
   * then [[permission]]`.`[[ParticipantPermission.canConfirm canConfirm]] must hold.
   */
-final case class ParticipantAttributes(permission: ParticipantPermission, trustLevel: TrustLevel) {
+final case class ParticipantAttributes(
+    permission: ParticipantPermission,
+    trustLevel: TrustLevel,
+    loginAfter: Option[CantonTimestamp] = None,
+) {
   // Make sure that VIPs can always confirm so that
   // downstream code does not have to handle VIPs that cannot confirm.
   require(
@@ -23,6 +29,7 @@ final case class ParticipantAttributes(permission: ParticipantPermission, trustL
     ParticipantAttributes(
       permission = ParticipantPermission.lowerOf(permission, elem.permission),
       trustLevel = TrustLevel.lowerOf(trustLevel, elem.trustLevel),
+      loginAfter = loginAfter.max(elem.loginAfter),
     )
 
 }
@@ -64,6 +71,7 @@ object ParticipantPermission {
     val toProtoEnum: v0.ParticipantPermission = v0.ParticipantPermission.Observation
   }
   // in 3.0, participants can't be disabled anymore. they can be purged for good
+  // The permission may still be used in the old topology management, but should not be used from the new topology management.
   @Deprecated(since = "3.0.0")
   case object Disabled extends ParticipantPermission {
     override def isActive = false

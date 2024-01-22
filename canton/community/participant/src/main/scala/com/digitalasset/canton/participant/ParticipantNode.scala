@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.Engine
+import com.digitalasset.canton.admin.participant.v0.*
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.InitConfigBase
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
@@ -21,7 +22,6 @@ import com.digitalasset.canton.health.{ComponentStatus, HealthService}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.admin.{
   PackageDependencyResolver,
   PackageOps,
@@ -271,6 +271,7 @@ class ParticipantNodeBootstrap(
               crypto.value,
               clock,
               parameterConfig.processingTimeouts,
+              futureSupervisor,
               loggerFactory,
             )
           (manager, topologyDispatcher)
@@ -437,7 +438,6 @@ object ParticipantNodeBootstrap {
 
     override protected def createEngine(arguments: Arguments): Engine =
       DAMLe.newEngine(
-        uniqueContractKeys = arguments.parameterConfig.uniqueContractKeys,
         enableLfDev = arguments.parameterConfig.devVersionSupport,
         enableStackTraces = arguments.parameterConfig.enableEngineStackTrace,
         enableContractUpgrading = arguments.parameterConfig.enableContractUpgrading,
@@ -587,7 +587,7 @@ class ParticipantNode(
     storage: Storage,
     override protected val clock: Clock,
     val topologyManager: ParticipantTopologyManager,
-    val cryptoPureApi: CryptoPureApi,
+    override val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcherCommon,
     partyNotifier: LedgerServerPartyNotifier,
     private[canton] val ips: IdentityProvidingServiceClient,
@@ -600,7 +600,7 @@ class ParticipantNode(
     val replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     val schedulers: SchedulersWithParticipantPruning,
     packageDependencyResolver: PackageDependencyResolver,
-    val loggerFactory: NamedLoggerFactory,
+    override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
 ) extends ParticipantNodeCommon(sync)
     with NoTracing {

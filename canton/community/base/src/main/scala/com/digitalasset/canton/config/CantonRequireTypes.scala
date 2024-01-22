@@ -379,7 +379,6 @@ object CantonRequireTypes {
     * - daml_packages.source_description
     * - service_agreements.agreement_text
     * - topology_transactions.ignore_reason
-    * - sequencer_events.error_message
     */
   final case class String256M(str: String)(override val name: Option[String] = None)
       extends AbstractLengthLimitedString {

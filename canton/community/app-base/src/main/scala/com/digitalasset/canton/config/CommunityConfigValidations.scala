@@ -51,7 +51,6 @@ object CommunityConfigValidations
       s"DbAccess($urlNoPassword, $user)"
   }
 
-  private val Valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
   type Validation = CantonCommunityConfig => Validated[NonEmpty[Seq[String]], Unit]
 
   override protected val validations: List[Validation] =
@@ -63,7 +62,6 @@ object CommunityConfigValidations
   private[config] def genericValidations[C <: CantonConfig]
       : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
-      backwardsCompatibleLoggingConfig,
       developmentProtocolSafetyCheckDomains,
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
@@ -156,9 +154,13 @@ object CommunityConfigValidations
       domains,
       participants,
       participantsX,
+      sequencersX,
+      mediatorsX,
       remoteDomains,
       remoteParticipants,
       remoteParticipantsX,
+      remoteSequencersX,
+      remoteMediatorsX,
       _,
       _,
       _,
@@ -172,6 +174,10 @@ object CommunityConfigValidations
         remoteParticipants,
         participantsX,
         remoteParticipantsX,
+        mediatorsX,
+        remoteMediatorsX,
+        sequencersX,
+        remoteSequencersX,
       )
         .exists(_.nonEmpty),
       (),
@@ -179,24 +185,6 @@ object CommunityConfigValidations
     )
 
   }
-
-  /** Check that logging configs are backwards compatible but consistent */
-  private def backwardsCompatibleLoggingConfig(
-      config: CantonConfig
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
-    (config.monitoring.logMessagePayloads, config.monitoring.logging.api.messagePayloads) match {
-      case (Some(fst), Some(snd)) =>
-        Validated.cond(
-          fst == snd,
-          (),
-          NonEmpty(Seq, backwardsCompatibleLoggingConfigErr),
-        )
-      case _ => Valid
-    }
-  }
-
-  private[config] val backwardsCompatibleLoggingConfigErr =
-    "Inconsistent configuration of canton.monitoring.log-message-payloads and canton.monitoring.logging.api.message-payloads. Please use the latter in your configuration"
 
   private def developmentProtocolSafetyCheckDomains(
       config: CantonConfig
@@ -222,7 +210,7 @@ object CommunityConfigValidations
         (),
         NonEmpty(
           Seq,
-          s"Enabling dev-version-support for participant ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Enabling dev-version-support for participant $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
     }
@@ -274,7 +262,7 @@ object CommunityConfigValidations
         (),
         NonEmpty(
           Seq,
-          s"Using non-stable protocol ${protocolVersion} for node ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Using non-stable protocol $protocolVersion for node $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
     }
@@ -302,7 +290,7 @@ object CommunityConfigValidations
         (),
         NonEmpty(
           Seq,
-          s"Setting ledger-api.admin-token for participant ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Setting ledger-api.admin-token for participant $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
     }

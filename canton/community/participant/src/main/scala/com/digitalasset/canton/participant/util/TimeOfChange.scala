@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.util
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset}
 import com.digitalasset.canton.util.OptionUtil
 import slick.jdbc.GetResult
 
@@ -17,7 +17,7 @@ import slick.jdbc.GetResult
   */
 final case class TimeOfChange(rc: RequestCounter, timestamp: CantonTimestamp)
     extends PrettyPrinting {
-  def asLocalOffset: LocalOffset = LocalOffset(rc)
+  def asLocalOffset: LocalOffset = RequestOffset(timestamp, rc)
 
   override def pretty: Pretty[TimeOfChange] = prettyOfClass(
     param("request", _.rc),

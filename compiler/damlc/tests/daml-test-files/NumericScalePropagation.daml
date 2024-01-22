@@ -4,7 +4,7 @@
 -- Test that numeric scale information propagates automatically when working
 -- with numeric literals.
 --
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 
 
 

@@ -34,6 +34,10 @@ service StateService {
   rpc GetLatestPrunedOffsets (GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
 }
 
+// If the given offset is different than the ledger end, and there are reassignments in-flight at the given offset,
+// the snapshot may fail with "FAILED_PRECONDITION/PARTICIPANT_PRUNED_DATA_ACCESSED".
+// Note that it is ok to request acs snapshots for party migration with offsets other than ledger end, because party
+// migration is not concerned with incomplete reassignments.
 message GetActiveContractsRequest {
 
   // Templates to include in the served snapshot, per party.

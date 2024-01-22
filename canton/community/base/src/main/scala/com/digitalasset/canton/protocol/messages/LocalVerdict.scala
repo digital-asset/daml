@@ -4,11 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.daml.error.*
-import com.digitalasset.canton.ProtoDeserializationError.{
-  FieldNotSet,
-  OtherError,
-  ValueDeserializationError,
-}
+import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -29,8 +25,6 @@ sealed trait LocalVerdict
     with Serializable
     with PrettyPrinting
     with HasProtocolVersionedWrapper[LocalVerdict] {
-  private[messages] def toProtoV0: v0.LocalVerdict
-
   private[messages] def toProtoV1: v1.LocalVerdict
 
   @transient override protected lazy val companionObj: LocalVerdict.type = LocalVerdict
@@ -44,34 +38,14 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
 
   override def supportedProtoVersions: messages.LocalVerdict.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.LocalVerdict)(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
-      ),
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.LocalVerdict)(
+      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV1),
         _.toProtoV1.toByteString,
-      ),
+      )
     )
 
-  private[messages] def fromProtoV0(
-      localVerdictP: v0.LocalVerdict
-  ): ParsingResult[LocalVerdict] = {
-    import v0.LocalVerdict.{SomeLocalVerdict as Lv}
-
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
-
-    localVerdictP match {
-      case v0.LocalVerdict(Lv.LocalApprove(empty.Empty(_))) =>
-        Right(LocalApprove()(protocolVersion))
-      case v0.LocalVerdict(Lv.LocalReject(value)) => LocalReject.fromProtoV0(value)
-      case v0.LocalVerdict(Lv.Empty) =>
-        Left(OtherError("Unable to deserialize LocalVerdict, as the content is empty"))
-    }
-  }
-
   private[messages] def fromProtoV1(localVerdictP: v1.LocalVerdict): ParsingResult[LocalVerdict] = {
-    import v1.LocalVerdict.{SomeLocalVerdict as Lv}
+    import v1.LocalVerdict.SomeLocalVerdict as Lv
 
     val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
     val v1.LocalVerdict(someLocalVerdictP) = localVerdictP
@@ -88,9 +62,6 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
 final case class LocalApprove()(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 ) extends LocalVerdict {
-  private[messages] def toProtoV0: v0.LocalVerdict =
-    v0.LocalVerdict(v0.LocalVerdict.SomeLocalVerdict.LocalApprove(empty.Empty()))
-
   private[messages] def toProtoV1: v1.LocalVerdict =
     v1.LocalVerdict(v1.LocalVerdict.SomeLocalVerdict.LocalApprove(empty.Empty()))
 
@@ -147,7 +118,7 @@ sealed trait LocalReject extends LocalVerdict with TransactionError with Transac
   override def cause: String = _causePrefix + _details
 
   // Make sure the ErrorCode has a v0CodeP.
-  override def code: ErrorCode with BaseLocalRejectErrorCode
+  override def code: ErrorCode & BaseLocalRejectErrorCode
 
   /** Make sure to define this, if _resources is non-empty.
     */
@@ -161,12 +132,6 @@ sealed trait LocalReject extends LocalVerdict with TransactionError with Transac
 
   override def resources: Seq[(ErrorResource, String)] =
     _resourcesType.fold(Seq.empty[(ErrorResource, String)])(rt => _resources.map(rs => (rt, rs)))
-
-  protected[messages] def toProtoV0: v0.LocalVerdict =
-    v0.LocalVerdict(v0.LocalVerdict.SomeLocalVerdict.LocalReject(toLocalRejectProtoV0))
-
-  protected[messages] def toLocalRejectProtoV0: v0.LocalReject =
-    v0.LocalReject(code.v0CodeP, _details, _resources)
 
   protected[messages] def toProtoV1: v1.LocalVerdict =
     v1.LocalVerdict(v1.LocalVerdict.SomeLocalVerdict.LocalReject(toLocalRejectProtoV1))
@@ -218,69 +183,13 @@ object LocalReject extends LocalRejectionGroup {
 
   // list of local errors, used to map them during transport
   // if you add a new error below, you must add it to this list here as well
-
-  private[messages] def fromProtoV0(v: v0.LocalReject): ParsingResult[LocalReject] = {
-    import ConsistencyRejections.*
-    import v0.LocalReject.Code
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
-
-    v.code match {
-      case Code.MissingCode => Left(FieldNotSet("LocalReject.code"))
-      case Code.LockedContracts => Right(LockedContracts.Reject(v.resource)(protocolVersion))
-      case Code.LockedKeys => Right(LockedKeys.Reject(v.resource)(protocolVersion))
-      case Code.InactiveContracts => Right(InactiveContracts.Reject(v.resource)(protocolVersion))
-      case Code.DuplicateKey => Right(DuplicateKey.Reject(v.resource)(protocolVersion))
-      case Code.CreatesExistingContract =>
-        Right(CreatesExistingContracts.Reject(v.resource)(protocolVersion))
-      case Code.LedgerTime => Right(TimeRejects.LedgerTime.Reject(v.reason)(protocolVersion))
-      case Code.SubmissionTime =>
-        Right(TimeRejects.SubmissionTime.Reject(v.reason)(protocolVersion))
-      case Code.LocalTimeout => Right(TimeRejects.LocalTimeout.Reject()(protocolVersion))
-      case Code.MalformedPayloads =>
-        Right(MalformedRejects.Payloads.Reject(v.reason)(protocolVersion))
-      case Code.MalformedModel =>
-        Right(MalformedRejects.ModelConformance.Reject(v.reason)(protocolVersion))
-      case Code.MalformedConfirmationPolicy =>
-        // MalformedConfirmationPolicy could only occur up to v2.6.x with malicious participants.
-        // The error code has been removed since.
-        Left(
-          ValueDeserializationError(
-            "reject",
-            s"Unknown local rejection error code ${v.code} with ${v.reason}",
-          )
-        )
-      case Code.BadRootHashMessage =>
-        Right(MalformedRejects.BadRootHashMessages.Reject(v.reason)(protocolVersion))
-      case Code.TransferOutActivenessCheck =>
-        Right(TransferOutRejects.ActivenessCheckFailed.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyCompleted =>
-        Right(TransferInRejects.AlreadyCompleted.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyActive =>
-        Right(TransferInRejects.ContractAlreadyActive.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyArchived =>
-        Right(TransferInRejects.ContractAlreadyArchived.Reject(v.reason)(protocolVersion))
-      case Code.TransferInLocked =>
-        Right(TransferInRejects.ContractIsLocked.Reject(v.reason)(protocolVersion))
-      case Code.InconsistentKey => Right(InconsistentKey.Reject(v.resource)(protocolVersion))
-      case Code.Unrecognized(code) =>
-        Left(
-          ValueDeserializationError(
-            "reject",
-            s"Unknown local rejection error code ${code} with ${v.reason}",
-          )
-        )
-    }
-  }
-
   private[messages] def fromProtoV1(localRejectP: v1.LocalReject): ParsingResult[LocalReject] = {
     import ConsistencyRejections.*
     val v1.LocalReject(causePrefix, details, resource, errorCodeP, errorCategoryP) = localRejectP
     val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
     errorCodeP match {
       case LockedContracts.id => Right(LockedContracts.Reject(resource)(protocolVersion))
-      case LockedKeys.id => Right(LockedKeys.Reject(resource)(protocolVersion))
       case InactiveContracts.id => Right(InactiveContracts.Reject(resource)(protocolVersion))
-      case DuplicateKey.id => Right(DuplicateKey.Reject(resource)(protocolVersion))
       case CreatesExistingContracts.id =>
         Right(CreatesExistingContracts.Reject(resource)(protocolVersion))
       case TimeRejects.LedgerTime.id =>
@@ -306,7 +215,6 @@ object LocalReject extends LocalRejectionGroup {
         Right(TransferInRejects.ContractAlreadyArchived.Reject(details)(protocolVersion))
       case TransferInRejects.ContractIsLocked.id =>
         Right(TransferInRejects.ContractIsLocked.Reject(details)(protocolVersion))
-      case InconsistentKey.id => Right(InconsistentKey.Reject(resource)(protocolVersion))
       case id =>
         val category = ErrorCategory
           .fromInt(errorCategoryP)
@@ -344,33 +252,6 @@ object LocalReject extends LocalRejectionGroup {
     }
 
     @Explanation(
-      """The transaction is referring to locked keys which are in the process of being
-        modified by another transaction."""
-    )
-    @Resolution("Retry the transaction")
-    object LockedKeys
-        extends LocalRejectErrorCode(
-          id = "LOCAL_VERDICT_LOCKED_KEYS",
-          ErrorCategory.ContentionOnSharedResources,
-          v0.LocalReject.Code.LockedKeys,
-        ) {
-      final case class Reject(override val _resources: Seq[String])(
-          override val representativeProtocolVersion: RepresentativeProtocolVersion[
-            LocalVerdict.type
-          ]
-      ) extends LocalRejectImpl(
-            _causePrefix = "Rejected transaction is referring to locked keys ",
-            _resourcesType = Some(CantonErrorResource.ContractKey),
-            _details = _resources.mkString(", "),
-          )
-
-      object Reject {
-        def apply(resources: Seq[String], protocolVersion: ProtocolVersion): Reject =
-          Reject(resources)(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion))
-      }
-    }
-
-    @Explanation(
       """The transaction is referring to contracts that have either been previously
                                 archived, transferred to another domain, or do not exist."""
     )
@@ -388,66 +269,6 @@ object LocalReject extends LocalRejectionGroup {
       ) extends LocalRejectImpl(
             _causePrefix = "Rejected transaction is referring to inactive contracts ",
             _resourcesType = Some(CantonErrorResource.ContractId),
-          )
-
-      object Reject {
-        def apply(resources: Seq[String], protocolVersion: ProtocolVersion): Reject =
-          Reject(resources)(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion))
-      }
-    }
-
-    @Explanation(
-      """If the participant provides unique contract key support,
-         this error will indicate that a transaction would create a unique key which already exists."""
-    )
-    @Resolution(
-      "It depends on your use case and application whether and when retrying makes sense or not."
-    )
-    object DuplicateKey
-        extends LocalRejectErrorCode(
-          id = "LOCAL_VERDICT_DUPLICATE_KEY",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-          v0.LocalReject.Code.DuplicateKey,
-        ) {
-      final case class Reject(override val _resources: Seq[String])(
-          override val representativeProtocolVersion: RepresentativeProtocolVersion[
-            LocalVerdict.type
-          ]
-      )
-      // Error message contains the term: "Inconsistent" and "DuplicateKey" to avoid failing contract key ledger api conformance tests
-          extends LocalRejectImpl(
-            _causePrefix =
-              "Inconsistent rejected transaction would create a key that already exists (DuplicateKey) ",
-            _resourcesType = Some(CantonErrorResource.ContractKey),
-          )
-
-      object Reject {
-        def apply(resources: Seq[String], protocolVersion: ProtocolVersion): Reject =
-          Reject(resources)(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion))
-      }
-    }
-
-    @Explanation(
-      """If the participant provides unique contract key support,
-         this error will indicate that a transaction expected a key to be unallocated, but a contract for the key already exists."""
-    )
-    @Resolution(
-      "It depends on your use case and application whether and when retrying makes sense or not."
-    )
-    object InconsistentKey
-        extends LocalRejectErrorCode(
-          id = "LOCAL_VERDICT_INCONSISTENT_KEY",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-          v0.LocalReject.Code.InconsistentKey,
-        ) {
-      final case class Reject(override val _resources: Seq[String])(
-          override val representativeProtocolVersion: RepresentativeProtocolVersion[
-            LocalVerdict.type
-          ]
-      ) extends LocalRejectImpl(
-            _causePrefix =
-              "Inconsistent rejected transaction expected unassigned key, which already exists ",
-            _resourcesType = Some(CantonErrorResource.ContractKey),
           )
 
       object Reject {

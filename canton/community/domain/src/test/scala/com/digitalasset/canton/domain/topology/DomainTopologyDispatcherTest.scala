@@ -56,7 +56,6 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -546,14 +545,8 @@ class DomainTopologyDispatcherTest
           res3a.recipients should contain(participant1)
           res3b.recipients should contain(participant1)
           res4a.recipients should contain(participant1)
-          if (testedProtocolVersion < ProtocolVersion.v5) {
-            res4b.recipients should not contain (participant1)
-            res5.recipients should not contain (participant1)
-          } else {
-            // in v5, changes are also forwarded to disabled participants
-            res4b.recipients should contain(participant1)
-            res5.recipients should contain(participant1)
-          }
+          res4b.recipients should contain(participant1)
+          res5.recipients should contain(participant1)
         }
       }
 
@@ -561,7 +554,7 @@ class DomainTopologyDispatcherTest
         import f.*
         val mpsS2 = genPs(ParticipantPermission.Observation)
         val rmpsS = revert(mpsS)
-        val rmpsD = revert(mpsD)
+        revert(mpsD)
         for {
           _ <- f.init()
           _ <- submit(ts0, txs.ns1k1, mpsS)
@@ -570,29 +563,14 @@ class DomainTopologyDispatcherTest
           boot1 <- nextMessage() // catchup
           _ <- nextMessage() // normal distro
           // depending on protocol version, we need Some(Disabled) or None as the participant state
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(2), mpsD) // disables
-            else
-              submit(ts0.plusMillis(2), revert(mpsS))
+          _ <- submit(ts0.plusMillis(2), revert(mpsS))
           _ <- nextMessage()
           _ <- submit(ts0.plusMillis(3), rmpsS, txs.ns1k1) // should not be seen by p1
           res1 <- expect(2) // get this in two messages
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(4), mpsS2) // back with observation rights but still disabled
-            else
-              submit(
-                ts0.plusMillis(4),
-                txs.id1k1,
-              ) // different scenario for v5+
+          _ <- submit(ts0.plusMillis(4), txs.id1k1)
           res2 <- nextMessage()
           // ban gets lifted
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(5), rmpsD) // ban gets lifted
-            else
-              submit(ts0.plusMillis(5), mpsS2)
+          _ <- submit(ts0.plusMillis(5), mpsS2)
           catch1 <- nextMessage() // catchup
           res3 <- nextMessage()
           _ <- submit(ts0.plusMillis(6), txs.okm1)
@@ -602,15 +580,12 @@ class DomainTopologyDispatcherTest
           res1.recipients should not contain (participant1)
           res2.recipients should not contain (participant1)
           catch1.recipients shouldBe Set(participant1)
-          if (testedProtocolVersion < ProtocolVersion.v5) {
-            catch1.compare(rmpsS, mpsS2, txs.ns1k1)
-            res3.compare(rmpsD)
-          } else {
-            // we get the id1k1 first because in the catchup computation, it got moved
-            // to the "first batch" as it is in the namespace / uid of the domain
-            catch1.compare(rmpsS, txs.id1k1, txs.ns1k1)
-            res3.compare(mpsS2)
-          }
+
+          // we get the id1k1 first because in the catchup computation, it got moved
+          // to the "first batch" as it is in the namespace / uid of the domain
+          catch1.compare(rmpsS, txs.id1k1, txs.ns1k1)
+          res3.compare(mpsS2)
+
           res3.recipients should contain(participant1)
           res4.compare(txs.okm1)
           res4.recipients should contain(participant1)

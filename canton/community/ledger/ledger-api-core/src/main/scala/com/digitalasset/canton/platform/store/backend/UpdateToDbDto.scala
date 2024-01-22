@@ -54,7 +54,7 @@ object UpdateToDbDto {
               IndexedUpdatesMetrics.Labels.status.rejected,
             )
           }
-          val domainId = u.domainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
+          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
           Iterator(
             commandCompletion(
               offset = offset,
@@ -85,23 +85,6 @@ object UpdateToDbDto {
               typ = JdbcLedgerDao.acceptType,
               configuration = Configuration.encode(u.newConfiguration).toByteArray,
               rejection_reason = None,
-            )
-          )
-
-        case u: ConfigurationChangeRejected =>
-          incrementCounterForEvent(
-            metrics.daml.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.configurationChange,
-            IndexedUpdatesMetrics.Labels.status.rejected,
-          )
-          Iterator(
-            DbDto.ConfigurationEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = u.submissionId,
-              typ = JdbcLedgerDao.rejectType,
-              configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
-              rejection_reason = Some(u.rejectionReason),
             )
           )
 
@@ -218,8 +201,7 @@ object UpdateToDbDto {
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
-          val domainId =
-            u.transactionMeta.optDomainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
+          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
           val events: Iterator[DbDto] = preorderTraversal.iterator
             .flatMap {
               case (nodeId, create: Create) =>

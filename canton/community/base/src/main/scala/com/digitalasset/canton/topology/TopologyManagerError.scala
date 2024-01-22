@@ -12,6 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
@@ -90,7 +91,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends Alarm(cause)
         with TopologyManagerError {
-      override lazy val logOnCreation: Boolean = false
+      override def logOnCreation: Boolean = false
     }
   }
 
@@ -483,6 +484,29 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           cause =
             s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties.sorted
                 .mkString(",")}"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that a participant was not able to onboard to a domain because onboarding restrictions are in place."""
+  )
+  @Resolution(
+    """Verify the onboarding restrictions of the domain. If the domain is not locked, then the participant needs first to be put on the allow list by issuing a ParticipantDomainPermission transaction."""
+  )
+  object ParticipantOnboardingRefused
+      extends ErrorCode(
+        id = "PARTICIPANT_ONBOARDING_REFUSED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        participantId: ParticipantId,
+        restriction: OnboardingRestriction,
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The $participantId can not join the domain because onboarding restrictions are in place"
         )
         with TopologyManagerError
   }

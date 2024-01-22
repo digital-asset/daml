@@ -508,6 +508,13 @@ object Runner {
     val runner = new Runner(compiledPackages, scriptAction, timeMode, enableContractUpgrading)
     runner.runWithClients(initialClients, traceLog, warningLog, profile, canceled)
   }
+
+  def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
+    compiledPackages.pkgInterface
+      .lookupPackage(pkgId)
+      .toOption
+      .flatMap(_.metadata)
+      .map(meta => meta.name.toString)
 }
 
 private[lf] class Runner(
@@ -559,13 +566,6 @@ private[lf] class Runner(
     md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
-  def getPackageName(pkgId: PackageId): Option[String] =
-    compiledPackages.pkgInterface
-      .lookupPackage(pkgId)
-      .toOption
-      .flatMap(_.metadata)
-      .map(meta => meta.name.toString)
-
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -577,7 +577,7 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[SValue], Option[Runner.IdeLedgerContext]) = {
-    val damlScriptName = getPackageName(script.scriptIds.scriptPackageId)
+    val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")

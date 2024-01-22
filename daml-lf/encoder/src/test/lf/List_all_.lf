@@ -9,7 +9,6 @@ module ListMod {
     precondition True;
     signatories (PartyMod:one (ListMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for ListMod:Box";
   };
 
   val empty: forall (a: *). List a = /\ (a: *). Nil @a;

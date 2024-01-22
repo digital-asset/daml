@@ -28,7 +28,7 @@ final case class InitializeMediatorRequest(
       domainId.toProtoPrimitive,
       mediatorId.uid.toProtoPrimitive,
       topologyState.map(_.toProtoV0),
-      Some(domainParameters.toProtoV0),
+      Some(domainParameters.toProtoV1),
       // Non-BFT domain is only supporting a single sequencer connection
       Some(sequencerConnections.default.toProtoV0),
       signingKeyFingerprint.map(_.toProtoPrimitive),
@@ -55,7 +55,7 @@ object InitializeMediatorRequest {
       topologyState <- topologyStateP.traverse(InitializeSequencerRequest.convertTopologySnapshot)
       domainParameters <- ProtoConverter
         .required("domain_parameters", domainParametersP)
-        .flatMap(StaticDomainParameters.fromProtoV0)
+        .flatMap(StaticDomainParameters.fromProtoV1)
       sequencerConnection <- ProtoConverter.parseRequired(
         SequencerConnection.fromProtoV0,
         "sequencer_connection",
@@ -82,8 +82,7 @@ final case class InitializeMediatorRequestX(
     v2.InitializeMediatorRequest(
       domainId.toProtoPrimitive,
       Some(domainParameters.toProtoV1),
-      sequencerConnections.toProtoV0,
-      sequencerConnections.sequencerTrustThreshold.unwrap,
+      Some(sequencerConnections.toProtoV1),
     )
 }
 
@@ -94,18 +93,16 @@ object InitializeMediatorRequestX {
     val v2.InitializeMediatorRequest(
       domainIdP,
       domainParametersP,
-      sequencerConnectionP,
-      sequencerTrustThreshold,
+      sequencerConnectionsPO,
     ) = requestP
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       domainParameters <- ProtoConverter
         .required("domain_parameters", domainParametersP)
         .flatMap(StaticDomainParameters.fromProtoV1)
-      sequencerConnections <- SequencerConnections.fromProtoV0(
-        sequencerConnectionP,
-        sequencerTrustThreshold,
-      )
+      sequencerConnections <- ProtoConverter
+        .required("sequencerConnections", sequencerConnectionsPO)
+        .flatMap(SequencerConnections.fromProtoV1)
     } yield InitializeMediatorRequestX(
       domainId,
       domainParameters,

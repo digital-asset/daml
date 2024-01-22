@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- Check that `coerceContractId` works properly.
--- @SINCE-LF 1.5 2.0
+-- @SINCE-LF 2.1
 
 module CoerceContractId where
 

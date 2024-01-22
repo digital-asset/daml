@@ -9,21 +9,6 @@ import "com/digitalasset/canton/protocol/v0/participant_transfer.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
-message CausalityMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  string target_domain_id = 1;
-  TransferId transfer_id = 2;
-  VectorClock clock = 3;
-}
-
-message VectorClock {
-  string origin_domain_id = 1;
-  google.protobuf.Timestamp local_ts = 2;
-  string party_id = 4;
-  map<string, google.protobuf.Timestamp> clock = 5;
-}
-
 message CausalityUpdate {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 

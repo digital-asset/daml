@@ -3,45 +3,48 @@
 
 package com.digitalasset.canton.topology.processing
 
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
 import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class TopologyTransactionProcessorTest
+class TopologyTransactionProcessorXTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext {
 
   private val crypto = new SymbolicPureCrypto()
 
-  private def mkStore: InMemoryTopologyStore[TopologyStoreId.DomainStore] =
-    new InMemoryTopologyStore(
+  private def mkStore: InMemoryTopologyStoreX[TopologyStoreId.DomainStore] =
+    new InMemoryTopologyStoreX(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
       timeouts,
-      futureSupervisor,
     )
 
   private def mk(
-      store: TopologyStore[TopologyStoreId.DomainStore] = mkStore
-  ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.DomainStore]) = {
+      store: TopologyStoreX[TopologyStoreId.DomainStore] = mkStore
+  ): (TopologyTransactionProcessorX, TopologyStoreX[TopologyStoreId.DomainStore]) = {
 
-    val proc = new TopologyTransactionProcessor(
+    val proc = new TopologyTransactionProcessorX(
       DefaultTestIdentities.domainId,
-      DomainTopologyTransactionMessageValidator.NoValidation,
       crypto,
       store,
       _ => (),
-      FutureSupervisor.Noop,
+      TerminateProcessing.NoOpTerminateTopologyProcessing,
+      true,
+      futureSupervisor,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
@@ -50,61 +53,76 @@ class TopologyTransactionProcessorTest
 
   private def ts(idx: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(idx.toLong)
   private def fetch(
-      store: TopologyStore[TopologyStoreId],
+      store: TopologyStoreX[TopologyStoreId],
       timestamp: CantonTimestamp,
-  ): Future[List[TopologyStateElement[TopologyMapping]]] = {
+  ): Future[List[TopologyMappingX]] = {
     store
-      .findStateTransactions(
+      .findPositiveTransactions(
         asOf = timestamp,
         asOfInclusive = false,
-        includeSecondary = false,
-        DomainTopologyTransactionType.all,
+        isProposal = false,
+        types = TopologyMappingX.Code.all,
         None,
         None,
       )
-      .map(_.toIdentityState)
+      .map(_.toTopologyState)
   }
 
   private def process(
-      proc: TopologyTransactionProcessor,
+      proc: TopologyTransactionProcessorX,
       ts: CantonTimestamp,
       sc: Long,
-      txs: List[SignedTopologyTransaction[TopologyChangeOp]],
+      txs: List[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
   ): Future[Unit] =
-    proc.process(SequencedTime(ts), EffectiveTime(ts), SequencerCounter(sc), txs).onShutdown(fail())
+    proc
+      .process(
+        SequencedTime(ts),
+        EffectiveTime(ts),
+        SequencerCounter(sc),
+        List(
+          TopologyTransactionsBroadcastX.create(
+            DefaultTestIdentities.domainId,
+            Seq(Broadcast(String255.tryCreate("some request"), txs)),
+            testedProtocolVersion,
+          )
+        ),
+      )
+      .onShutdown(fail())
 
   private def validate(
-      observed: List[TopologyStateElement[TopologyMapping]],
-      expected: List[SignedTopologyTransaction[TopologyChangeOp]],
+      observed: List[TopologyMappingX],
+      expected: List[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
   ) = {
-    val mp1 = observed.map(_.mapping).toSet
-    val mp2 = expected.map(_.transaction.element.mapping).toSet
-    mp1 shouldBe mp2
-    observed.toSet shouldBe expected.map(_.transaction.element).toSet
+    observed.toSet shouldBe expected.map(_.mapping).toSet
   }
 
-  object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
+  object Factory extends TopologyTransactionTestFactoryX(loggerFactory, parallelExecutionContext)
   import Factory.*
 
   "topology transaction processor" should {
     "deal with additions" in {
       val (proc, store) = mk()
-      val block1Adds = List(ns1k1_k1, ns1k2_k1, okm1bk5_k1, p1p1B_k2)
+      val block1Adds = List(ns1k1_k1, ns1k2_k1, okm1bk5_k1, dtcp1_k1)
       val block1Replaces = List(dmp1_k1)
-      val block2 = List(ns1k1_k1, dmp1_k1_bis)
+      val block2 = List(ns1k1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
       for {
 
         _ <- process(proc, ts(0), 0, block1Adds ++ block1Replaces)
         st0 <- fetch(store, ts(0).immediateSuccessor)
-        _ <- loggerFactory.assertLogs(
-          process(proc, ts(1), 1, block2),
-          _.warningMessage should include("Duplicate"),
-        )
+        _ <- process(proc, ts(1), 1, block2)
         st1 <- fetch(store, ts(1).immediateSuccessor)
+        // finds the most recently stored version of a transaction, including rejected ones
+        rejected_ns1k1_k1O <- store.findStored(ns1k1_k1, includeRejected = true)
 
       } yield {
+        val rejected_ns1k1_k1 =
+          rejected_ns1k1_k1O.valueOrFail("Unable to find ns1k1_k1 in the topology store")
+        // the rejected ns1k1_k1 should not be valid
+        rejected_ns1k1_k1.validUntil shouldBe Some(rejected_ns1k1_k1.validFrom)
+
         validate(st0, block1Adds ++ block1Replaces)
         validate(st1, block1Adds :+ dmp1_k1_bis)
+
       }
     }
 
@@ -113,7 +131,7 @@ class TopologyTransactionProcessorTest
       val block1Adds = List(ns1k1_k1, ns1k2_k1)
       val block1Replaces = List(dmp1_k1)
       val block1 = block1Adds ++ block1Replaces
-      val block2 = List(okm1bk5_k1, p1p1B_k2, dmp1_k1_bis)
+      val block2 = List(okm1bk5_k1, dtcp1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
       for {
         _ <- process(proc, ts(0), 0, block1)
         st0 <- fetch(store, ts(0).immediateSuccessor)
@@ -129,7 +147,7 @@ class TopologyTransactionProcessorTest
     "deal with removals" in {
       val (proc, store) = mk()
       val block1 = List(ns1k1_k1, ns1k2_k1)
-      val block2 = block1.reverse.map(Factory.revert)
+      val block2 = block1.reverse.map(Factory.mkRemoveTx)
       for {
         _ <- process(proc, ts(0), 0, block1)
         _ <- process(proc, ts(1), 1, block2)
@@ -143,8 +161,8 @@ class TopologyTransactionProcessorTest
 
     "idempotent / crash recovery" in {
       val (proc, store) = mk()
-      val block1 = List(ns1k1_k1, ns1k2_k1, okm1bk5_k1, p1p1B_k2)
-      val block2 = List(p1p2F_k2)
+      val block1 = List(ns1k1_k1, ns1k2_k1, dtcp1_k1)
+      val block2 = List(okm1bk5_k1)
       for {
         _ <- process(proc, ts(0), 0, block1)
         _ <- process(proc, ts(1), 1, block2)
@@ -159,19 +177,20 @@ class TopologyTransactionProcessorTest
       }
     }
 
-    "cascading update" in {
+    // TODO(#12390) enable test after support for cascading updates
+    "cascading update" ignore {
       val (proc, store) = mk()
       val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4)
       for {
         _ <- process(proc, ts(0), 0, block1)
         st1 <- fetch(store, ts(0).immediateSuccessor)
-        _ <- process(proc, ts(1), 1, List(Factory.revert(ns1k2_k1)))
+        _ <- process(proc, ts(1), 1, List(Factory.mkRemoveTx(ns1k2_k1)))
         st2 <- fetch(store, ts(1).immediateSuccessor)
-        _ <- process(proc, ts(2), 2, List(ns1k2_k1p))
+        _ <- process(proc, ts(2), 2, List(setSerial(ns1k2_k1p, PositiveInt.tryCreate(3))))
         st3 <- fetch(store, ts(2).immediateSuccessor)
-        _ <- process(proc, ts(3), 3, List(Factory.revert(id1ak4_k2)))
+        _ <- process(proc, ts(3), 3, List(Factory.mkRemoveTx(id1ak4_k2)))
         st4 <- fetch(store, ts(3).immediateSuccessor)
-        _ <- process(proc, ts(4), 4, List(id1ak4_k2p))
+        _ <- process(proc, ts(4), 4, List(setSerial(id1ak4_k2p, PositiveInt.tryCreate(3))))
         st5 <- fetch(store, ts(4).immediateSuccessor)
       } yield {
         validate(st1, block1)
@@ -188,7 +207,7 @@ class TopologyTransactionProcessorTest
       for {
         _ <- process(proc, ts(0), 0, block1)
         st1 <- fetch(store, ts(0).immediateSuccessor)
-        _ <- process(proc, ts(1), 1, List(Factory.revert(ns1k2_k1)))
+        _ <- process(proc, ts(1), 1, List(Factory.mkRemoveTx(ns1k2_k1)))
         st2 <- fetch(store, ts(1).immediateSuccessor)
       } yield {
         validate(st1, block1)

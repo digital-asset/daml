@@ -395,7 +395,7 @@ scenarioResultsToTestResults allPackages results =
     pkgIdToPkgName targetPid =
         case mapMaybe isTargetPackage allPackages of
           [] -> targetPid
-          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+          [matchingPkg] -> LF.unPackageName $ LF.packageName $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
           _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
         where
             isTargetPackage loe

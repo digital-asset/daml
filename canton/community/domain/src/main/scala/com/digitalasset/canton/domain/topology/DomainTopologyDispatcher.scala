@@ -62,6 +62,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{BatchTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{DiscardOps, SequencerCounter, checked}
@@ -105,7 +106,7 @@ private[domain] class DomainTopologyDispatcher(
     protocolVersion: ProtocolVersion,
     authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
     processor: TopologyTransactionProcessor,
-    initialKeys: Map[KeyOwner, Seq[PublicKey]],
+    initialKeys: Map[Member, Seq[PublicKey]],
     targetStore: TopologyStore[TopologyStoreId.DomainStore],
     crypto: Crypto,
     clock: Clock,
@@ -372,7 +373,7 @@ private[domain] class DomainTopologyDispatcher(
   private def waitIfTopologyManagerKeyWasRolled(
       transactions: NonEmpty[Seq[StoredTopologyTransaction[TopologyChangeOp]]]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val owner = domainId.keyOwner
+    val owner = domainId.member
     // we need to wait for the new key to become effective, as the next domain topology
     // transaction will be signed with that key ...
     val mustWait = transactions
@@ -657,16 +658,7 @@ private[domain] class DomainTopologyDispatcher(
     val receivingParticipantsF = performUnlessClosingF(functionFullName)(
       headSnapshot
         .participants()
-        .map(_.collect {
-          case (participantId, perm)
-              if perm.isActive ||
-                // with protocol version v5, we also dispatch topology transactions to disabled participants
-                // which avoids the "catchup" tx computation.
-                // but beware, there is a difference between "Disabled" and "None". with disabled, you are
-                // explicitly disabled, with None, we are back at the behaviour of < v5
-                protocolVersion >= ProtocolVersion.v5 =>
-            participantId
-        })
+        .map(_.map { case (participantId, _) => participantId })
     )
     val mediatorsF = performUnlessClosingF(functionFullName)(
       headSnapshot.mediatorGroups().map(_.flatMap(_.active))
@@ -699,7 +691,7 @@ private[domain] object DomainTopologyDispatcher {
       domainTopologyManager: DomainTopologyManager,
       targetClient: DomainTopologyClientWithInit,
       processor: TopologyTransactionProcessor,
-      initialKeys: Map[KeyOwner, Seq[PublicKey]],
+      initialKeys: Map[Member, Seq[PublicKey]],
       targetStore: TopologyStore[TopologyStoreId.DomainStore],
       client: SequencerClient,
       timeTracker: DomainTimeTracker,
@@ -854,7 +846,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
           recipients: Recipients,
       )(maxSequencingTime: CantonTimestamp) =
         DomainTopologyTransactionMessage
-          .create(batch.toList, snapshot, domainId, Some(maxSequencingTime), protocolVersion)
+          .create(batch.toList, snapshot, domainId, maxSequencingTime, protocolVersion)
           .map(batchMessage =>
             Batch(
               List(
@@ -959,8 +951,11 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
       def dispatch(): Unit = {
         logger.debug(s"Attempting to dispatch ${message}")
         FutureUtil.doNotAwait(
-          send(batch, callback).transform {
-            case x @ Success(UnlessShutdown.Outcome(Left(RequestRefused(error))))
+          send(batch, callback).thereafter {
+            case Success(UnlessShutdown.Outcome(Right(_))) =>
+            // nice, the sequencer seems to be accepting our request
+
+            case Success(UnlessShutdown.Outcome(Left(RequestRefused(error))))
                 if error.category.retryable.nonEmpty =>
               degradationOccurred(TopologyDispatchingDegradation.SendRefused(error))
               // delay the retry, assuming that the retry is much smaller than our shutdown interval
@@ -970,21 +965,16 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
               clock
                 .scheduleAfter(_ => dispatch(), java.time.Duration.ofMillis(retryInterval.toMillis))
                 .discard
-              x
-            case x @ Success(UnlessShutdown.Outcome(Left(error))) =>
+
+            case Success(UnlessShutdown.Outcome(Left(error))) =>
               TopologyDispatchingInternalError.AsyncResultError(error).discard
               stopDispatching("Stopping due to an unexpected async result error")
-              x
-            case x @ Success(UnlessShutdown.Outcome(Right(_))) =>
-              // nice, the sequencer seems to be accepting our request
-              x
-            case x @ Success(UnlessShutdown.AbortedDueToShutdown) =>
+
+            case Success(UnlessShutdown.AbortedDueToShutdown) =>
               abortDueToShutdown()
-              x
-            case x @ Failure(ex) =>
+            case Failure(ex) =>
               TopologyDispatchingInternalError.UnexpectedException(ex).discard
               stopDispatching("Stopping due to an unexpected exception")
-              x
           }.unwrap,
           "dispatch future threw an unexpected exception",
         )
@@ -1083,16 +1073,8 @@ class MemberTopologyCatchup(
     def isActivation(
         from: Option[ParticipantPermission],
         to: Option[ParticipantPermission],
-    ): Boolean =
-      if (protocolVersion < ProtocolVersion.v5) {
-        // before protocol version 5, we would not dispatch topology changes to disabled participants.
-        // starting with v5, we do, which changes the transition logic here
-        !from.getOrElse(ParticipantPermission.Disabled).isActive && to
-          .getOrElse(ParticipantPermission.Disabled)
-          .isActive
-      } else {
-        from.isEmpty && to.nonEmpty
-      }
+    ): Boolean = from.isEmpty && to.nonEmpty
+
     determinePermissionChange(asOf, participantId).flatMap {
       case (from, to) if isActivation(from, to) =>
         for {
@@ -1149,16 +1131,7 @@ class MemberTopologyCatchup(
     def isDeactivation(
         from: Option[ParticipantPermission],
         to: Option[ParticipantPermission],
-    ): Boolean = {
-      // same as above: different logic depending on protocol version
-      if (protocolVersion < ProtocolVersion.v5) {
-        from.getOrElse(ParticipantPermission.Disabled).isActive && !to
-          .getOrElse(ParticipantPermission.Disabled)
-          .isActive
-      } else {
-        from.nonEmpty && to.isEmpty
-      }
-    }
+    ): Boolean = from.nonEmpty && to.isEmpty
 
     val limit = 1000
     // let's find the last time this node got deactivated. note, we assume that the participant is

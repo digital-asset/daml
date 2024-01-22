@@ -164,7 +164,7 @@ abstract class CantonNodeBootstrapBase[
     .addService(
       InitializationServiceGrpc
         .bindService(
-          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore),
+          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore, loggerFactory),
           executionContext,
         )
     )
@@ -439,7 +439,7 @@ abstract class CantonNodeBootstrapBase[
   /** Health service component of the node
     */
   protected lazy val nodeHealthService: HealthService = mkNodeHealthService(storage)
-  protected val (healthReporter, grpcHealthServer, livenessHealthService) =
+  protected val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
     mkHealthComponents(nodeHealthService)
 
   override protected def onClosed(): Unit = {
@@ -454,7 +454,7 @@ abstract class CantonNodeBootstrapBase[
         Lifecycle.toCloseableOption(initializationWatcherRef.get()),
         adminServerRegistry,
         adminServer,
-      ) ++ grpcHealthServer.toList ++ getNode.toList ++ stores ++ List(
+      ) ++ grpcHealthServer.toList ++ httpHealthServer.toList ++ getNode.toList ++ stores ++ List(
         crypto.value,
         storage,
         clock,

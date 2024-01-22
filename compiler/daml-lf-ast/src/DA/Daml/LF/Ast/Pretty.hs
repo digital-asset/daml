@@ -773,5 +773,5 @@ instance Pretty Package where
   pPrintPrec lvl _prec (Package version modules metadata) =
     vcat $
       "daml-lf" <-> pPrintPrec lvl 0 version
-      : maybe empty (\m -> "metadata" <-> pPrintPrec lvl 0 m) metadata
+      : "metadata" <-> pPrintPrec lvl 0 metadata
       : map (\m -> "" $-$ pPrintPrec lvl 0 m) (NM.toList modules)

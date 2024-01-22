@@ -23,10 +23,6 @@ alias(
 )
 
 canonical_lf_versions = [
-    "1.8",
-    "1.14",
-    "1.15",
-    "1.dev",
     "2.1",
     "2.dev",
 ]

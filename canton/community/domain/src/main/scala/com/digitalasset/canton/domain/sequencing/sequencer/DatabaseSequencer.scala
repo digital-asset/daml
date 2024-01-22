@@ -383,19 +383,6 @@ class DatabaseSequencer(
     )(logger)
   }
 
-  override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    // unimplemented. We don't plan to implement ledger identity authorization for database sequencers, so this
-    // function will never be implemented.
-    Future.successful(false)
-
-  override def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    // see [[isLedgerIdentityRegistered]]
-    EitherT.leftT("authorizeLedgerIdentity is not implemented for database sequencers")
-
   override def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): Future[SequencerTrafficStatus] =

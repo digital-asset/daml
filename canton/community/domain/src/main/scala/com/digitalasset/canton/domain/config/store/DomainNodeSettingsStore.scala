@@ -20,8 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
 object DomainNodeSettingsStore {
   def create(
       storage: Storage,
-      staticDomainParametersFromConfig: StaticDomainParameters,
-      resetToConfig: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -32,8 +30,6 @@ object DomainNodeSettingsStore {
         new InMemoryBaseNodeConfigStore[StoredDomainNodeSettings](loggerFactory)
       case dbStorage: DbStorage =>
         new DbDomainNodeSettingsStore(
-          staticDomainParametersFromConfig,
-          resetToConfig,
           dbStorage,
           timeouts,
           loggerFactory,
@@ -42,9 +38,6 @@ object DomainNodeSettingsStore {
 }
 
 class DbDomainNodeSettingsStore(
-    // TODO(#15153) remove me once we can be sure that static domain parameters are persisted
-    staticDomainParametersFromConfig: StaticDomainParameters,
-    resetToConfig: Boolean,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -58,15 +51,6 @@ class DbDomainNodeSettingsStore(
   // sentinel value used to ensure the table can only have a single row
   // see create table sql for more details
   private val singleRowLockValue: String1 = String1.fromChar('X')
-
-  // reset configuration
-  // TODO(#15153) necessary for upgrading to 2.5. remove with 3.0
-  {
-    import TraceContext.Implicits.Empty.*
-    fixPreviousSettings(resetToConfig, timeouts.unbounded) { _ =>
-      saveSettings(StoredDomainNodeSettings(staticDomainParametersFromConfig))
-    }
-  }
 
   override def fetchSettings(implicit
       traceContext: TraceContext

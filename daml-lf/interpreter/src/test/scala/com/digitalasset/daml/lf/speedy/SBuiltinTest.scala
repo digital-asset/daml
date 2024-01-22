@@ -36,7 +36,6 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 import scala.Ordering.Implicits._
 
-class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
 class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
@@ -1939,7 +1938,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
-            agreement "Agreement";
             implements Mod:Iface { view = Mod:MyUnit {}; };
           };
 
@@ -1950,7 +1948,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Mod:IouWithKey {i} this] (Nil @Party);
             observers Cons @Party [Mod:IouWithKey {u} this] (Nil @Party);
-            agreement "Agreement";
             implements Mod:Iface { view = Mod:MyUnit {}; };
             key @Mod:Key
               (Mod:Key { label = "test-key", maintainers = (Cons @Party [Mod:IouWithKey {k} this] (Nil @Party)) })

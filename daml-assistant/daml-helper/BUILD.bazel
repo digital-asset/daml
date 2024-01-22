@@ -114,6 +114,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
@@ -155,6 +156,7 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
     ],
@@ -188,8 +190,8 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
     ],
 )
 
@@ -220,12 +222,14 @@ da_haskell_test(
         "//compiler/damlc:damlc-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
     ],
 )
 
 daml_compile(
     name = "test",
     srcs = glob(["test-data/Test.daml"]),
+    # TODO(#14706): remove explicit target once the default major version is 2
+    target = "2.1",
 )

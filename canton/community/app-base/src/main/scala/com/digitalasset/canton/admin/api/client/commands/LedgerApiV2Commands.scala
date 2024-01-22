@@ -5,6 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TemplateFilter}
 import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
@@ -70,7 +71,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
   UpdateServiceGrpc,
 }
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -86,6 +86,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.{LfPartyId, config}
 import com.google.protobuf.empty.Empty
 import io.grpc.*
 import io.grpc.stub.StreamObserver
@@ -101,13 +102,28 @@ object LedgerApiV2Commands {
 
   object UpdateService {
 
-    sealed trait UpdateTreeWrapper
-    sealed trait UpdateWrapper
+    sealed trait UpdateTreeWrapper {
+      def updateId: String
+    }
+    sealed trait UpdateWrapper {
+      def updateId: String
+      def createEvent: Option[CreatedEvent] =
+        this match {
+          case UpdateService.TransactionWrapper(t) => t.events.headOption.map(_.getCreated)
+          case u: UpdateService.AssignedWrapper => u.assignedEvent.createdEvent
+          case _: UpdateService.UnassignedWrapper => None
+        }
+    }
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
-        extends UpdateTreeWrapper
-    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper
+        extends UpdateTreeWrapper {
+      override def updateId: String = transactionTree.updateId
+    }
+    final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
+      override def updateId: String = transaction.updateId
+    }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
+      def unassignId: String = reassignment.getUnassignedEvent.unassignId
     }
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper = {
@@ -125,9 +141,13 @@ object LedgerApiV2Commands {
       }
     }
     final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
-        extends ReassignmentWrapper
+        extends ReassignmentWrapper {
+      override def updateId: String = reassignment.updateId
+    }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = UpdateServiceStub
@@ -279,7 +299,7 @@ object LedgerApiV2Commands {
     def submissionId: String
     def minLedgerTimeAbs: Option[Instant]
     def disclosedContracts: Seq[DisclosedContract]
-    def domainId: DomainId
+    def domainId: Option[DomainId]
     def applicationId: String
 
     protected def mkCommand: Commands = Commands(
@@ -304,7 +324,7 @@ object LedgerApiV2Commands {
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
-      domainId = domainId.toProtoPrimitive,
+      domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
     )
 
     override def pretty: Pretty[this.type] =
@@ -337,7 +357,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, SubmitResponse, Unit] {
@@ -457,7 +477,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[
@@ -494,7 +514,7 @@ object LedgerApiV2Commands {
         override val submissionId: String,
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
-        override val domainId: DomainId,
+        override val domainId: Option[DomainId],
         override val applicationId: String,
     ) extends SubmitCommand
         with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
@@ -697,6 +717,58 @@ object LedgerApiV2Commands {
       override def handleResponse(
           response: Seq[CompletionWrapper]
       ): Either[String, Seq[CompletionWrapper]] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
+    }
+
+    final case class CompletionCheckpointRequest(
+        partyId: LfPartyId,
+        beginExclusive: ParticipantOffset,
+        expectedCompletions: Int,
+        timeout: config.NonNegativeDuration,
+        applicationId: String,
+    )(filter: Completion => Boolean, scheduler: ScheduledExecutorService)
+        extends BaseCommand[CompletionStreamRequest, Seq[(Completion, Option[Checkpoint])], Seq[
+          (Completion, Option[Checkpoint])
+        ]] {
+
+      override def createRequest(): Either[String, CompletionStreamRequest] =
+        Right(
+          CompletionStreamRequest(
+            applicationId = applicationId,
+            parties = Seq(partyId),
+            beginExclusive = Some(beginExclusive),
+          )
+        )
+
+      override def submitRequest(
+          service: CommandCompletionServiceStub,
+          request: CompletionStreamRequest,
+      ): Future[Seq[(Completion, Option[Checkpoint])]] = {
+        def extract(response: CompletionStreamResponse): Seq[(Completion, Option[Checkpoint])] = {
+          val checkpoint = response.checkpoint
+
+          response.completion.filter(filter).map(_ -> checkpoint).toList
+        }
+
+        GrpcAdminCommand.streamedResponse[
+          CompletionStreamRequest,
+          CompletionStreamResponse,
+          (Completion, Option[Checkpoint]),
+        ](
+          service.completionStream,
+          extract,
+          request,
+          expectedCompletions,
+          timeout.asFiniteApproximation,
+          scheduler,
+        )
+      }
+
+      override def handleResponse(
+          response: Seq[(Completion, Option[Checkpoint])]
+      ): Either[String, Seq[(Completion, Option[Checkpoint])]] =
         Right(response)
 
       override def timeoutType: TimeoutType = ServerEnforcedTimeout

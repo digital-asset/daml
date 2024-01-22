@@ -11,7 +11,6 @@ import Data.Aeson (encode)
 import Data.Maybe
 import qualified Data.Text as T
 import System.Directory
-import System.Environment.Blank
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -29,8 +28,7 @@ dataLimiterTests :: FilePath -> TestTree
 dataLimiterTests cacheDir =
     testGroup
         "data limiter"
-        [ withResource homeDir snd $ \_ ->
-              withResource
+        [ withResource
                   (initialiseGcpState (GCPConfig "test" (Just cacheDir) Nothing) makeNopHandle)
                   (\gcpM -> whenJust gcpM $ \gcp -> removeFile (sentDataFile gcp)) $ \getGcp ->
                   testCase "Check that limit is triggered" $ do
@@ -59,10 +57,3 @@ cacheDirTests badCacheDir =
 
 fakeSend :: a -> IO ()
 fakeSend _ = pure ()
-
--- | The CI env doesn't have a home directory so set and unset it if it doesn't exist
-homeDir ::  IO ((), IO ())
-homeDir = do
-    (tmpDir, rmTmpDir) <- newTempDir
-    setEnv "HOME" tmpDir True
-    pure ((), unsetEnv "HOME" >> rmTmpDir)

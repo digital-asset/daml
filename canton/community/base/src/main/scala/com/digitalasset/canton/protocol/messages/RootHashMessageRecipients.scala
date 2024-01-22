@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessageV1.RecipientsInfo
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.sequencing.protocol.{
   MemberRecipient,
   ParticipantsOfParty,

@@ -33,7 +33,7 @@ import com.digitalasset.canton.topology.client.{
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Positive
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, KeyOwner, Member}
+import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -420,7 +420,7 @@ object TopologyTransactionProcessor {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       crypto: Crypto,
-      initKeys: Map[KeyOwner, Seq[PublicKey]],
+      initKeys: Map[Member, Seq[PublicKey]],
       parameters: CantonNodeParameters,
       clock: Clock,
       futureSupervisor: FutureSupervisor,
@@ -461,7 +461,6 @@ object TopologyTransactionProcessor {
       val topologyProcessor = new TopologyTransactionProcessor(
         domainId = domainId,
         validator = DomainTopologyTransactionMessageValidator.create(
-          parameters.skipTopologyManagerSignatureValidation,
           cryptoClient,
           owner,
           protocolVersion,

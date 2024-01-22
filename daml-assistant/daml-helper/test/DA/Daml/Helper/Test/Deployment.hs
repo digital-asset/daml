@@ -173,6 +173,8 @@ writeMinimalProject = do
       , "name: proj1"
       , "version: 0.0.1"
       , "source: ."
+      -- TODO(#17366): Remove this the default LF version is 2
+      , "build-options: [--target=2.1]"
       , "dependencies:"
       , "  - daml-prim"
       , "  - daml-stdlib"

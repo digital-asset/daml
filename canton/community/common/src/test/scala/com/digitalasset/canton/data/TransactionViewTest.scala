@@ -11,41 +11,37 @@ import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantDa
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  val factory = new ExampleTransactionFactory()()
+  private val factory = new ExampleTransactionFactory()()
 
-  val hashOps: HashOps = factory.cryptoOps
+  private val hashOps: HashOps = factory.cryptoOps
 
-  val contractInst: LfContractInst = ExampleTransactionFactory.contractInstance()
-  val serContractInst: SerializableRawContractInstance =
-    ExampleTransactionFactory.asSerializableRaw(contractInst, "")
+  private val contractInst: LfContractInst = ExampleTransactionFactory.contractInstance()
 
-  val cantonContractIdVersion: CantonContractIdVersion =
-    CantonContractIdVersion.fromProtocolVersion(testedProtocolVersion)
-  val createdId: LfContractId =
+  private val cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV2
+  private val createdId: LfContractId =
     cantonContractIdVersion.fromDiscriminator(
       ExampleTransactionFactory.lfHash(3),
       ExampleTransactionFactory.unicum(0),
     )
-  val absoluteId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
-  val otherAbsoluteId: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
-  val salt: Salt = factory.transactionSalt
-  val nodeSeed: LfHash = ExampleTransactionFactory.lfHash(1)
-  val globalKey: LfGlobalKey =
+  private val absoluteId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
+  private val otherAbsoluteId: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
+  private val salt: Salt = factory.transactionSalt
+  private val nodeSeed: LfHash = ExampleTransactionFactory.lfHash(1)
+  private val globalKey: LfGlobalKey =
     LfGlobalKey
       .build(
-        templateId = LfTransactionBuilder.defaultTemplateId,
-        key = Value.ValueInt64(100L),
+        LfTransactionBuilder.defaultTemplateId,
+        Value.ValueInt64(100L),
         shared = Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
       )
       .value
 
-  val defaultActionDescription: ActionDescription =
+  private val defaultActionDescription: ActionDescription =
     ActionDescription.tryFromLfActionNode(
       ExampleTransactionFactory.createNode(createdId, contractInst),
       Some(ExampleTransactionFactory.lfHash(5)),
@@ -77,7 +73,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
       val view = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(3)).view0
       val subViews = TransactionSubviews(Seq(view))(testedProtocolVersion, factory.cryptoOps)
       "reject creation" in {
-        val firstSubviewIndex = TransactionSubviews.indices(testedProtocolVersion, 1).head.toString
+        val firstSubviewIndex = TransactionSubviews.indices(1).head.toString
         TransactionView.create(hashOps)(
           view.viewCommonData,
           view.viewParticipantData,
@@ -106,7 +102,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           id,
           contractInstance = ExampleTransactionFactory.contractInstance(),
           metadata = ContractMetadata.empty,
-          salt = Option.when(testedProtocolVersion >= ProtocolVersion.v4)(TestSalt.generateSalt(1)),
+          salt = TestSalt.generateSalt(1),
         )
         CreatedContract.tryCreate(serializable, consumed.contains(id), rolledBack = false)
       }
@@ -247,8 +243,6 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
               Set.empty,
               Some(ExampleTransactionFactory.globalKeyWithMaintainers()),
             ),
-            salt =
-              Option.when(testedProtocolVersion >= ProtocolVersion.v4)(TestSalt.generateSalt(0)),
           )
 
         val vpd = create(

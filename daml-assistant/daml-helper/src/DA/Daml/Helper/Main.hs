@@ -15,7 +15,6 @@ import System.Environment
 import System.Exit
 import System.IO.Extra
 import System.Process (showCommandForUser)
-import System.Process.Typed (unsafeProcessHandle)
 import Text.Read (readMaybe)
 import DA.Signals
 import DA.Daml.Helper.Init
@@ -25,7 +24,6 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
-import DA.PortFile
 import DA.Ledger.Types (ApplicationId(..))
 import Data.Text.Lazy (pack)
 import Data.Time.Calendar (Day(..))
@@ -58,9 +56,6 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
-    | CreateDamlApp { targetFolder :: FilePath }
-    -- ^ CreateDamlApp is sufficiently special that in addition to
-    -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
@@ -98,7 +93,6 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
-    , command "create-daml-app" (info (createDamlAppCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -151,10 +145,6 @@ commandParser = subparser $ fold
             <*> appTemplateFlag
         ]
 
-    createDamlAppCmd =
-        CreateDamlApp <$>
-        argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
@@ -175,8 +165,9 @@ commandParser = subparser $ fold
 
     sandboxCantonPortSpecOpt = do
         adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
-        domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
-        domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
+        sequencerPublicApiSpec <- sandboxPortOpt "sandbox-sequencer-public-port" "Port number for the canton sequencer public API (--sandbox-canton only)"
+        sequencerAdminApiSpec <- sandboxPortOpt "sandbox-sequencer-admin-port" "Port number for the canton sequencer admin API (--sandbox-canton only)"
+        mediatorAdminApiSpec <- sandboxPortOpt "sandbox-mediator-admin-port" "Port number for the canton mediator admin API (--sandbox-canton only)"
         pure SandboxCantonPortSpec {..}
 
     deployCmdInfo = mconcat
@@ -425,8 +416,9 @@ commandParser = subparser $ fold
         cantonOptions <- do
             cantonLedgerApi <- option auto (long "port" <> value (ledger defaultSandboxPorts))
             cantonAdminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
-            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
-            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
+            cantonSequencerPublicApi <- option auto (long "sequencer-public-port" <> value (sequencerPublic defaultSandboxPorts))
+            cantonSequencerAdminApi <- option auto (long "sequencer-admin-port" <> value (sequencerAdmin defaultSandboxPorts))
+            cantonMediatorAdminApi <- option auto (long "mediator-admin-port" <> value (mediatorAdmin defaultSandboxPorts))
             cantonJsonApi <- optional $ option auto (long "json-api-port"
                 <> help "Port that the HTTP JSON API should listen on, omit to disable it")
             cantonJsonApiPortFileM <- optional $ option str (long "json-api-port-file" <> metavar "PATH"
@@ -455,8 +447,8 @@ commandParser = subparser $ fold
         host <- option str (long "host" <> value "127.0.0.1")
         ledgerApi <- option auto (long "port" <> value (ledger defaultSandboxPorts))
         adminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
-        domainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
-        domainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
+        sequencerPublicApi <- option auto (long "domain-public-port" <> value (sequencerPublic defaultSandboxPorts))
+        sequencerAdminApi <- option auto (long "domain-admin-port" <> value (sequencerAdmin defaultSandboxPorts))
         pure $ CantonReplOptions
             [ CantonReplParticipant
                 { crpName = "sandbox"
@@ -466,8 +458,8 @@ commandParser = subparser $ fold
             ]
             [ CantonReplDomain
                 { crdName = "local"
-                , crdPublicApi = Just (CantonReplApi host domainPublicApi)
-                , crdAdminApi = Just (CantonReplApi host domainAdminApi)
+                , crdPublicApi = Just (CantonReplApi host sequencerPublicApi)
+                , crdAdminApi = Just (CantonReplApi host sequencerAdminApi)
                 }
             ]
 
@@ -501,7 +493,6 @@ runCommand = \case
                     ]
                 pure (Just templateName)
         runNew targetFolder templateNameM
-    CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
@@ -518,11 +509,9 @@ runCommand = \case
     Codegen {..} -> runCodegen lang remainingArguments
     LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
     CantonSandbox {..} ->
-        (if shutdownStdinClose then withCloseOnStdin else id) $
-        withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
-            withCantonSandbox cantonOptions remainingArguments $ \ph -> do
-                putStrLn "Starting Canton sandbox."
-                sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
+        (if shutdownStdinClose then withCloseOnStdin else id) $ do
+            putStrLn "Starting Canton sandbox."
+            withCantonSandbox cantonOptions remainingArguments $ \(_, sandboxPort) -> do
                 putStrLn ("Listening at port " <> show sandboxPort)
                 forM_ darPaths $ \darPath -> do
                     runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)

@@ -226,6 +226,9 @@ class ValidateDisclosedContractsTest
 }
 
 object ValidateDisclosedContractsTest {
+
+  private val testTxVersion = TransactionVersion.maxVersion
+
   private val validateDisclosedContracts = new ValidateDisclosedContracts(
     explicitDisclosureFeatureEnabled = true
   )
@@ -269,7 +272,6 @@ object ValidateDisclosedContractsTest {
         Ref.DottedName.assertFromString(api.templateId.entityName),
       ),
     )
-    private val txVersion = TransactionVersion.maxVersion
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
@@ -292,7 +294,7 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      shared = Util.sharedKey(txVersion),
+      shared = Util.sharedKey(testTxVersion),
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash
@@ -306,7 +308,7 @@ object ValidateDisclosedContractsTest {
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),
-        version = txVersion,
+        version = testTxVersion,
       ),
       createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
       cantonData = lf.driverMetadataBytes,

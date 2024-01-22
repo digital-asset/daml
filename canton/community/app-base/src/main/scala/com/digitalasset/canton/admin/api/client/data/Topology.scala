@@ -11,8 +11,10 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters as DynamicDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore
 import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.admin.v0.ListDomainParametersChangesResult.Result.Parameters
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
@@ -52,7 +54,7 @@ object ListPartiesResult {
 
 final case class ListKeyOwnersResult(
     store: DomainId,
-    owner: KeyOwner,
+    owner: Member,
     signingKeys: Seq[SigningPublicKey],
     encryptionKeys: Seq[EncryptionPublicKey],
 ) {
@@ -68,14 +70,14 @@ object ListKeyOwnersResult {
   ): ParsingResult[ListKeyOwnersResult] =
     for {
       domain <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      owner <- KeyOwner.fromProtoPrimitive(value.keyOwner, "keyOwner")
+      owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
       signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV0)
       encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV0)
     } yield ListKeyOwnersResult(domain, owner, signingKeys, encryptionKeys)
 }
 
 final case class BaseResult(
-    domain: String,
+    store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
     operation: TopologyChangeOp,
@@ -91,8 +93,12 @@ object BaseResult {
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
       operation <- TopologyChangeOp.fromProtoV0(value.operation)
       signedBy <- Fingerprint.fromProtoPrimitive(value.signedByFingerprint)
-
-    } yield BaseResult(value.store, validFrom, validUntil, operation, value.serialized, signedBy)
+      store <-
+        if (value.store == AuthorizedStore.dbString.unwrap)
+          Right(TopologyStore.Authorized)
+        else
+          DomainId.fromProtoPrimitive(value.store, "store").map(TopologyStore.Domain)
+    } yield BaseResult(store, validFrom, validUntil, operation, value.serialized, signedBy)
 }
 
 final case class ListPartyToParticipantResult(context: BaseResult, item: PartyToParticipant)
@@ -246,9 +252,8 @@ object ListDomainParametersChangeResult {
     context <- BaseResult.fromProtoV0(contextP)
     dynamicDomainParametersInternal <- value.parameters match {
       case Parameters.Empty => Left(ProtoDeserializationError.FieldNotSet("parameters"))
-      case Parameters.V0(v0) => DynamicDomainParametersInternal.fromProtoV0(v0)
-      case Parameters.V1(v1) => DynamicDomainParametersInternal.fromProtoV1(v1)
+      case Parameters.V1(ddpX) => DynamicDomainParametersInternal.fromProtoV2(ddpX)
     }
-    item <- DynamicDomainParameters(dynamicDomainParametersInternal)
+    item = DynamicDomainParameters(dynamicDomainParametersInternal)
   } yield ListDomainParametersChangeResult(context, item)
 }

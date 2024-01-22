@@ -10,7 +10,7 @@ class LoggerUtilTest extends BaseTestWordSpec {
   lazy val testString =
     """I hate bananas
   |I actually do like em
-  |But I prefer bockwurst
+  |But I prefer bockwurst 
   |""".stripMargin
 
   "string truncation" should {

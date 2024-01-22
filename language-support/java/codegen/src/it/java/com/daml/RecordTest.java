@@ -50,7 +50,7 @@ public class RecordTest {
     Int64 int_ = new Int64(int64Value);
     Numeric decimal = new Numeric(decimalValue);
     Text text = new Text(textValue);
-    Bool bool = new Bool(boolValue);
+    Bool bool = Bool.of(boolValue);
     Party party = new Party(partyValue);
     Date date = new Date(dateValue);
     Timestamp timestamp = new Timestamp(timestampMicrosValue);
@@ -220,13 +220,13 @@ public class RecordTest {
             new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
     OuterRecord<String, Boolean> fromRoundTrip =
         OuterRecord.fromValue(
-            fromConstructor.toValue(Text::new, Bool::new),
+            fromConstructor.toValue(Text::new, Bool::of),
             f -> f.asText().get().getValue(),
             f -> f.asBool().get().getValue());
 
     assertEquals(fromValue, fromConstructor);
-    assertEquals(fromConstructor.toValue(Text::new, Bool::new), dataRecord);
-    assertEquals(fromConstructor.toValue(Text::new, Bool::new).toProtoRecord(), protoRecord);
+    assertEquals(fromConstructor.toValue(Text::new, Bool::of), dataRecord);
+    assertEquals(fromConstructor.toValue(Text::new, Bool::of).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
   }
 

@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.data.EitherT
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.store.{
@@ -12,10 +13,11 @@ import com.digitalasset.canton.crypto.store.{
   CryptoPrivateStoreExtended,
   CryptoPublicStoreError,
 }
+import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.KeyOwner
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
@@ -25,10 +27,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -163,7 +162,7 @@ object Signature
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.Signature)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
@@ -291,13 +290,6 @@ object SigningKeyPair {
     new SigningKeyPair(publicKey, privateKey)
   }
 
-  @VisibleForTesting
-  def wrongSigningKeyPairWithPublicKeyUnsafe(publicKey: SigningPublicKey): SigningKeyPair = {
-    val privateKey =
-      new SigningPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
-    new SigningKeyPair(publicKey, privateKey)
-  }
-
   def fromProtoV0(
       signingKeyPairP: v0.SigningKeyPair
   ): ParsingResult[SigningKeyPair] =
@@ -323,20 +315,11 @@ case class SigningPublicKey private[crypto] (
     scheme: SigningKeyScheme,
 ) extends PublicKey
     with PrettyPrinting
+    with NoCopy
     with HasVersionedWrapper[SigningPublicKey] {
   override val purpose: KeyPurpose = KeyPurpose.Signing
 
   override protected def companionObj = SigningPublicKey
-
-  // TODO(#15649): Make SigningPublicKey object invariant
-  protected def validated
-      : Either[ProtoDeserializationError.CryptoKeyDeserializationError, this.type] =
-    CryptoPureApiHelper
-      .parseAndValidatePublicKey(
-        this,
-        ProtoDeserializationError.CryptoKeyDeserializationError,
-      )
-      .map(_ => this)
 
   def toProtoV0: v0.SigningPublicKey =
     v0.SigningPublicKey(
@@ -360,23 +343,19 @@ object SigningPublicKey
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.SigningPublicKey)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
   )
 
-  private[crypto] def create(
+  private[this] def apply(
       id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: SigningKeyScheme,
-  ): Either[ProtoDeserializationError.CryptoKeyDeserializationError, SigningPublicKey] =
-    new SigningPublicKey(id, format, key, scheme).validated
-
-  @VisibleForTesting
-  val idUnsafe: Lens[SigningPublicKey, Fingerprint] =
-    GenLens[SigningPublicKey](_.id)
+  ): SigningPrivateKey =
+    throw new UnsupportedOperationException("Use keypair generate or deserialization methods")
 
   def fromProtoV0(
       publicKeyP: v0.SigningPublicKey
@@ -385,15 +364,9 @@ object SigningPublicKey
       id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- SigningKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
-      signingPublicKey <- SigningPublicKey.create(
-        id,
-        format,
-        publicKeyP.publicKey,
-        scheme,
-      )
-    } yield signingPublicKey
+    } yield new SigningPublicKey(id, format, publicKeyP.publicKey, scheme)
 
-  def collect(initialKeys: Map[KeyOwner, Seq[PublicKey]]): Map[KeyOwner, Seq[SigningPublicKey]] =
+  def collect(initialKeys: Map[Member, Seq[PublicKey]]): Map[Member, Seq[SigningPublicKey]] =
     initialKeys.map { case (k, v) =>
       (k, v.collect { case x: SigningPublicKey => x })
     }
@@ -443,13 +416,21 @@ final case class SigningPrivateKey private[crypto] (
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
+      ProtocolVersion.v30,
       supportedProtoVersion(v0.SigningPrivateKey)(fromProtoV0),
       _.toProtoV0.toByteString,
     )
   )
 
   override def name: String = "signing private key"
+
+  private[this] def apply(
+      id: Fingerprint,
+      format: CryptoKeyFormat,
+      key: ByteString,
+      scheme: SigningKeyScheme,
+  ): SigningPrivateKey =
+    throw new UnsupportedOperationException("Use keypair generate or deserialization methods")
 
   def fromProtoV0(
       privateKeyP: v0.SigningPrivateKey
@@ -491,7 +472,18 @@ object SigningError {
 }
 
 sealed trait SigningKeyGenerationError extends Product with Serializable with PrettyPrinting
-object SigningKeyGenerationError {
+object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that a signing key could not be created.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "SIGNING_KEY_GENERATION_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Wrap(reason: SigningKeyGenerationError)
+        extends BaseCantonError.Impl(cause = "Unable to create signing key")
+  }
 
   final case class GeneralError(error: Exception) extends SigningKeyGenerationError {
     override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
@@ -544,11 +536,6 @@ object SignatureCheckError {
         param("bytes", _.bytes),
         param("error", _.error.doubleQuoted),
       )
-  }
-  final case class InvalidCryptoScheme(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[InvalidCryptoScheme] = prettyOfClass(
-      unnamedParam(_.message.unquoted)
-    )
   }
   final case class InvalidKeyError(message: String) extends SignatureCheckError {
     override def pretty: Pretty[InvalidKeyError] = prettyOfClass(unnamedParam(_.message.unquoted))

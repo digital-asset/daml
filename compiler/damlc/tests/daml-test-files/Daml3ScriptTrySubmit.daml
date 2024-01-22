@@ -134,18 +134,6 @@ contractNotActive = script do
 
 -- DisclosedContractKeyHashingError: Cannot test DisclosedContractKeyHashingError yet, scripts does not support this functionality
 
-duplicateContractKey : Script ()
-duplicateContractKey = script do
-  alice <- allocateParty "alice"
-  alice `submit` createCmd T1 with t1_p = alice
-  res <- alice `trySubmit` createCmd T1 with t1_p = alice
-  case res of
-    Left (DuplicateContractKey (Some (fromAnyContractKey @T1 -> Some shouldBeAlice))) -> shouldBeAlice === alice
-    -- Key is often not provided when using canton
-    Left (DuplicateContractKey None) -> pure ()
-    Left e -> error $ "duplicateContractKey incorrect error: " <> show e
-    Right _ -> error "duplicateContractKey incorrectly succeeded"
-
 -- InconsistentContractKey: I don't know how to trigger an InconsistentContractKey error
 
 unhandledException : Script ()

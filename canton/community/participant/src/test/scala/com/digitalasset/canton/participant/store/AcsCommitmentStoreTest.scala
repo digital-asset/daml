@@ -4,7 +4,14 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
-import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, HashPurpose, LtHash16}
+import com.digitalasset.canton.crypto.{
+  CryptoPrivateApi,
+  CryptoPureApi,
+  Fingerprint,
+  HashPurpose,
+  LtHash16,
+  Signature,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -20,13 +27,12 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.FutureUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   LfPartyId,
   ProtocolVersionChecksAsyncWordSpec,
   TestMetrics,
+  config,
 }
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -36,10 +42,10 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
 trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
+  val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto
 
-  val symbolicVault =
+  val symbolicVault: CryptoPrivateApi =
     SymbolicCrypto
       .tryCreate(
         Seq(Fingerprint.tryCreate("test")),
@@ -50,23 +56,21 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
       )
       .privateCrypto
 
-  val localId = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain"))
-  val remoteId = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain"))
-  val remoteId2 = ParticipantId(
+  val localId: ParticipantId = ParticipantId(
+    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
+  )
+  val remoteId: ParticipantId = ParticipantId(
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
+  )
+  val remoteId2: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
   )
-  val remoteId3 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
-  )
-  val remoteId4 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::domain")
-  )
-  val interval = PositiveSeconds.tryOfSeconds(1)
+  val interval: PositiveSeconds = PositiveSeconds.tryOfSeconds(1)
 
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def meta(stakeholders: LfPartyId*): ContractMetadata =
     ContractMetadata.tryCreate(Set.empty, stakeholders.toSet, maybeKeyWithMaintainers = None)
-  def period(fromExclusive: Int, toInclusive: Int) =
+  def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod =
     CommitmentPeriod.create(ts(fromExclusive), ts(toInclusive), interval).value
 
   val dummyCommitment: AcsCommitment.CommitmentType = {
@@ -80,38 +84,19 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
     h.getByteString()
   }
 
-  val dummyCommitment3: AcsCommitment.CommitmentType = {
-    val h = LtHash16()
-    h.add("it's 42".getBytes())
-    h.getByteString()
-  }
-
-  val dummyCommitment4: AcsCommitment.CommitmentType = {
-    val h = LtHash16()
-    h.add("impossibility results".getBytes())
-    h.getByteString()
-  }
-
-  val dummyCommitment5: AcsCommitment.CommitmentType = {
-    val h = LtHash16()
-    h.add("mayday".getBytes())
-    h.getByteString()
-  }
-
-  lazy val dummySignature = FutureUtil
-    .noisyAwaitResult(
+  lazy val dummySignature: Signature = config
+    .NonNegativeFiniteDuration(10.seconds)
+    .await("dummy signature")(
       symbolicVault
         .sign(
           cryptoApi.digest(HashPurpose.AcsCommitment, dummyCommitment),
           Fingerprint.tryCreate("test"),
         )
-        .value,
-      "dummy signature",
-      10.seconds,
+        .value
     )
     .valueOrFail("failed to create dummy signature")
 
-  val dummyCommitmentMsg =
+  val dummyCommitmentMsg: AcsCommitment =
     AcsCommitment.create(
       domainId,
       remoteId,
@@ -120,8 +105,8 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
       dummyCommitment,
       testedProtocolVersion,
     )
-  val dummySigned =
-    SignedProtocolMessage.tryFrom(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
+  val dummySigned: SignedProtocolMessage[AcsCommitment] =
+    SignedProtocolMessage.from(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
 
   val alice: LfPartyId = LfPartyId.assertFromString("Alice")
   val bob: LfPartyId = LfPartyId.assertFromString("bob")
@@ -208,7 +193,7 @@ trait AcsCommitmentStoreTest
      This test is disabled for protocol versions for which the reconciliation interval is
      static because the described setting cannot occur.
      */
-    "correctly compute outstanding commitments when intersection contains no tick" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+    "correctly compute outstanding commitments when intersection contains no tick" in {
       /*
         This copies the scenario of the test
         `work when commitment tick falls between two participants connection to the domain`
@@ -376,7 +361,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned2 =
-        SignedProtocolMessage.tryFrom(dummyMsg2, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
       val dummyMsg3 = AcsCommitment.create(
         domainId,
         remoteId2,
@@ -386,7 +371,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned3 =
-        SignedProtocolMessage.tryFrom(dummyMsg3, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg3, testedProtocolVersion, dummySignature)
 
       for {
         _ <- store.storeReceived(dummySigned)
@@ -412,7 +397,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned2 =
-        SignedProtocolMessage.tryFrom(dummyMsg2, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
 
       for {
         _ <- store.storeReceived(dummySigned)
@@ -657,134 +642,5 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         at20with41 shouldBe List(c41)
       }
     }
-
-    "peekThroughAtOrAfter works as expected" in {
-      val queue = mk()
-      val c11 = commitment(remoteId, 0, 5, dummyCommitment)
-      val c12 = commitment(remoteId2, 0, 5, dummyCommitment2)
-      val c21 = commitment(remoteId, 5, 10, dummyCommitment)
-      val c22 = commitment(remoteId2, 5, 10, dummyCommitment2)
-      val c31 = commitment(remoteId, 10, 15, dummyCommitment)
-      val c32 = commitment(remoteId2, 10, 15, dummyCommitment2)
-      val c41 = commitment(remoteId, 15, 20, dummyCommitment)
-
-      for {
-        _ <- queue.enqueue(c11)
-        _ <- queue.enqueue(c11) // Idempotent enqueue
-        _ <- queue.enqueue(c12)
-        _ <- queue.enqueue(c21)
-        at5 <- queue.peekThroughAtOrAfter(ts(5))
-        at10 <- queue.peekThroughAtOrAfter(ts(10))
-        _ <- queue.enqueue(c22)
-        at10with22 <- queue.peekThroughAtOrAfter(ts(10))
-        at15 <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.enqueue(c32)
-        at10with32 <- queue.peekThroughAtOrAfter(ts(10))
-        at15with32 <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.deleteThrough(ts(5))
-        at15AfterDelete <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.enqueue(c31)
-        at15with31 <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.deleteThrough(ts(15))
-        at20AfterDelete <- queue.peekThroughAtOrAfter(ts(20))
-        _ <- queue.enqueue(c41)
-        at20with41 <- queue.peekThroughAtOrAfter(ts(20))
-      } yield {
-        // We don't really care how the priority queue breaks the ties, so just use sets here
-        at5.toSet shouldBe Set(c11, c12, c21)
-        at10.toSet shouldBe Set(c21)
-        at10with22.toSet shouldBe Set(c21, c22)
-        at15.toSet shouldBe empty
-        at10with32.toSet shouldBe Set(c21, c22, c32)
-        at15with32.toSet shouldBe Set(c32)
-        at15AfterDelete.toSet shouldBe Set(c32)
-        at15with31.toSet shouldBe Set(c32, c31)
-        at20AfterDelete shouldBe List.empty
-        at20with41 shouldBe List(c41)
-      }
-    }
-
-    "peekOverlapsForCounterParticipant works as expected" in {
-
-      val dummyCommitmentMsg =
-        AcsCommitment.create(
-          domainId,
-          remoteId,
-          localId,
-          period(0, 5),
-          dummyCommitment,
-          testedProtocolVersion,
-        )
-
-      val dummyCommitmentMsg2 =
-        AcsCommitment.create(
-          domainId,
-          remoteId,
-          localId,
-          period(10, 15),
-          dummyCommitment2,
-          testedProtocolVersion,
-        )
-
-      val dummyCommitmentMsg3 =
-        AcsCommitment.create(
-          domainId,
-          remoteId,
-          localId,
-          period(0, 10),
-          dummyCommitment3,
-          testedProtocolVersion,
-        )
-
-      val queue = mk()
-      val c11 = commitment(remoteId, 0, 5, dummyCommitment)
-      val c21 = commitment(remoteId2, 0, 5, dummyCommitment4)
-      val c12 = commitment(remoteId, 0, 10, dummyCommitment3)
-      val c13 = commitment(remoteId, 10, 15, dummyCommitment2)
-      val c22 = commitment(remoteId2, 5, 10, dummyCommitment5)
-
-      for {
-        _ <- queue.enqueue(c11)
-        _ <- queue.enqueue(c12)
-        _ <- queue.enqueue(c21)
-        at05 <- queue.peekOverlapsForCounterParticipant(period(0, 5), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at010 <- queue.peekOverlapsForCounterParticipant(period(0, 10), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at510 <- queue.peekOverlapsForCounterParticipant(period(5, 10), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at1015 <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
-          nonEmptyTraceContext1
-        )
-        _ <- queue.enqueue(c13)
-        _ <- queue.enqueue(c22)
-        at1015after <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at510after <- queue.peekOverlapsForCounterParticipant(period(5, 10), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at515after <- queue.peekOverlapsForCounterParticipant(period(5, 15), remoteId)(
-          nonEmptyTraceContext1
-        )
-        at015after <- queue.peekOverlapsForCounterParticipant(period(0, 15), remoteId)(
-          nonEmptyTraceContext1
-        )
-      } yield {
-        // We don't really care how the priority queue breaks the ties, so just use sets here
-        at05.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3)
-        at010.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3)
-        at510.toSet shouldBe Set(dummyCommitmentMsg3)
-        at1015 shouldBe empty
-        at1015after.toSet shouldBe Set(dummyCommitmentMsg2)
-        at510after.toSet shouldBe Set(dummyCommitmentMsg3)
-        at515after.toSet shouldBe Set(dummyCommitmentMsg3, dummyCommitmentMsg2)
-        at015after.toSet shouldBe Set(dummyCommitmentMsg3, dummyCommitmentMsg2, dummyCommitmentMsg)
-      }
-    }
-
   }
 }

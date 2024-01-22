@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class DamlTextMap extends Value {
+public final class DamlTextMap extends Value {
 
   private final Map<String, Value> map;
 
@@ -27,11 +27,6 @@ public class DamlTextMap extends Value {
 
   public static DamlTextMap of(@NonNull Map<@NonNull String, @NonNull Value> value) {
     return fromPrivateMap(new HashMap<>(value));
-  }
-
-  @Deprecated // use DamlTextMap::toMap or DamlTextMap::stream
-  public final @NonNull Map<@NonNull String, @NonNull Value> getMap() {
-    return toMap(Function.identity());
   }
 
   public Stream<Map.Entry<String, Value>> stream() {

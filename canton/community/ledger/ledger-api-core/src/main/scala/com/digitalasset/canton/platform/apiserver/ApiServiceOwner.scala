@@ -164,10 +164,10 @@ object ApiServiceOwner {
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
+        multiDomainEnabled = multiDomainEnabled,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

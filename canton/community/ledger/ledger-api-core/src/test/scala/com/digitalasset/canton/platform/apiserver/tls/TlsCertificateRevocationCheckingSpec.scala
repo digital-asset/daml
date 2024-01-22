@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.tls
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.resources.TestResourceContext
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.apiserver.LedgerApiService
 import com.digitalasset.canton.testing.utils.TestResourceUtils
 import org.mockito.MockitoSugar

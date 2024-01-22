@@ -54,11 +54,10 @@ abstract class TransactionTreeFactoryImpl(
     with NamedLogging {
 
   private val unicumGenerator = new UnicumGenerator(cryptoOps)
-  private val cantonContractIdVersion = CantonContractIdVersion.fromProtocolVersion(protocolVersion)
-  private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory(
-    protocolVersion
-  )
-  private val contractEnrichmentFactory = ContractEnrichmentFactory(protocolVersion)
+  private val cantonContractIdVersion = AuthenticatedContractIdVersionV2
+  private val transactionViewDecompositionFactory: TransactionViewDecompositionFactory =
+    TransactionViewDecompositionFactory()
+  private val contractEnrichmentFactory = ContractEnrichmentFactory()
 
   protected type State <: TransactionTreeFactoryImpl.State
 
@@ -128,19 +127,16 @@ abstract class TransactionTreeFactoryImpl(
         Some(participantId.adminParty.toLf),
       )
 
-    for {
-      commonMetadata <- EitherT.fromEither[Future](
-        CommonMetadata
-          .create(cryptoOps, protocolVersion)(
-            confirmationPolicy,
-            domainId,
-            mediator,
-            commonMetadataSalt,
-            transactionUuid,
-          )
-          .leftMap(CommonMetadataError)
+    val commonMetadata = CommonMetadata
+      .create(cryptoOps, protocolVersion)(
+        confirmationPolicy,
+        domainId,
+        mediator,
+        commonMetadataSalt,
+        transactionUuid,
       )
 
+    for {
       submitterMetadata <- EitherT.fromEither[Future](
         SubmitterMetadata
           .fromSubmitterInfo(cryptoOps)(
@@ -450,7 +446,7 @@ abstract class TransactionTreeFactoryImpl(
       rawContractInstance = serializedCantonContractInst,
       metadata = contractMetadata,
       ledgerCreateTime = LedgerCreateTime(state.ledgerTime),
-      contractSalt = Option.when(protocolVersion >= ProtocolVersion.v4)(contractSalt.unwrap),
+      contractSalt = Some(contractSalt.unwrap),
     )
     state.setCreatedContractInfo(contractId, createdInfo)
 
@@ -582,7 +578,6 @@ object TransactionTreeFactoryImpl {
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       cryptoOps: HashOps & HmacOps,
-      uniqueContractKeys: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImplV3(
@@ -591,7 +586,6 @@ object TransactionTreeFactoryImpl {
       protocolVersion,
       contractSerializer,
       cryptoOps,
-      uniqueContractKeys,
       loggerFactory,
     )
 

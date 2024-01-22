@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.active_contracts_service.{
-  GetActiveContractsResponse as GetActiveContractsResponseV1
-}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse as GetActiveContractsResponseV1
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest as CompletionStreamRequestV1,
   CompletionStreamResponse as CompletionStreamResponseV1,
@@ -13,10 +11,8 @@ import com.daml.ledger.api.v1.command_completion_service.{
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV1
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest as SubmitRequestV1
 import com.daml.ledger.api.v1.commands.Commands as CommandsV1
-import com.daml.ledger.api.v1.completion.{Completion as CompletionV1}
-import com.daml.ledger.api.v1.event_query_service.{
-  GetEventsByContractIdResponse as GetEventsByContractIdResponseV1
-}
+import com.daml.ledger.api.v1.completion.Completion as CompletionV1
+import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV1
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{
   Transaction as TransactionV1,
@@ -37,14 +33,10 @@ import com.daml.ledger.api.v2.command_completion_service.{
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV2
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest as SubmitRequestV2
 import com.daml.ledger.api.v2.commands.Commands as CommandsV2
-import com.daml.ledger.api.v2.completion.{Completion as CompletionV2}
-import com.daml.ledger.api.v2.event_query_service.{
-  GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
-}
+import com.daml.ledger.api.v2.completion.Completion as CompletionV2
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.state_service.{
-  GetActiveContractsResponse as GetActiveContractsResponseV2
-}
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse as GetActiveContractsResponseV2
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeV2,
@@ -81,6 +73,27 @@ object ApiConversions {
           LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.Unrecognized(value))
         )
     }
+
+  def toV2(ledgerOffset: LedgerOffset): ParticipantOffset = ledgerOffset.value match {
+    case LedgerOffset.Value.Empty => ParticipantOffset.of(ParticipantOffset.Value.Empty)
+    case LedgerOffset.Value.Absolute(value) =>
+      ParticipantOffset.of(ParticipantOffset.Value.Absolute(value))
+    case LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN) =>
+      ParticipantOffset.of(
+        ParticipantOffset.Value.Boundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+      )
+    case LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END) =>
+      ParticipantOffset.of(
+        ParticipantOffset.Value.Boundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_END)
+      )
+    case LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.Unrecognized(value)) => {
+      ParticipantOffset.of(
+        ParticipantOffset.Value.Boundary(
+          ParticipantOffset.ParticipantBoundary.Unrecognized(value)
+        )
+      )
+    }
+  }
 
   def toV1(
       getTransactionByEventIdRequest: GetTransactionByEventIdRequest
@@ -229,4 +242,5 @@ object ApiConversions {
 
   def toV1(submitAndWaitRequest: SubmitAndWaitRequestV2): SubmitAndWaitRequestV1 =
     SubmitAndWaitRequestV1(submitAndWaitRequest.commands.map(toV1))
+
 }

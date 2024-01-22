@@ -4,17 +4,14 @@
 package com.digitalasset.canton.common.domain.grpc
 
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.traverse.*
+import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.SequencerConnectClient.{
   DomainClientBootstrapInfo,
   Error,
 }
-import com.digitalasset.canton.common.domain.{SequencerConnectClient, ServiceAgreement}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.GetServiceAgreementRequest
 import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameters.Response.Parameters
 import com.digitalasset.canton.domain.api.v0.SequencerConnect.VerifyActive
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
@@ -84,11 +81,11 @@ class GrpcSequencerConnectClient(
     } yield DomainClientBootstrapInfo(domainId, sequencerId)
 
   override def getDomainParameters(
-      domainAlias: DomainAlias
+      domainIdentifier: String
   )(implicit traceContext: TraceContext): EitherT[Future, Error, StaticDomainParameters] = for {
     responseP <- CantonGrpcUtil
       .sendSingleGrpcRequest(
-        serverName = domainAlias.unwrap,
+        serverName = domainIdentifier,
         requestDescription = "get domain parameters",
         channel = builder.build(),
         stubFactory = v0.SequencerConnectServiceGrpc.stub,
@@ -106,6 +103,29 @@ class GrpcSequencerConnectClient(
     domainParameters <- EitherT.fromEither[Future](domainParametersE)
 
   } yield domainParameters
+
+  override def getDomainId(
+      domainIdentifier: String
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainId] = for {
+    responseP <- CantonGrpcUtil
+      .sendSingleGrpcRequest(
+        serverName = domainIdentifier,
+        requestDescription = "get domain id",
+        channel = builder.build(),
+        stubFactory = v0.SequencerConnectServiceGrpc.stub,
+        timeout = timeouts.network.unwrap,
+        logger = logger,
+        logPolicy = CantonGrpcUtil.silentLogPolicy,
+        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+      )(_.getDomainId(v0.SequencerConnect.GetDomainId.Request()))
+      .leftMap(err => Error.Transport(err.toString))
+
+    domainId <- EitherT
+      .fromEither[Future](
+        DomainId.fromProtoPrimitive(responseP.domainId, "domain_id")
+      )
+      .leftMap[Error](err => Error.DeserializationFailure(err.toString))
+  } yield domainId
 
   override def handshake(
       domainAlias: DomainAlias,
@@ -137,31 +157,6 @@ class GrpcSequencerConnectClient(
           handshakeResponse.serverProtocolVersion,
         )
     } yield handshakeResponse
-
-  override def getAgreement(
-      domainId: DomainId
-  )(implicit traceContext: TraceContext): EitherT[Future, Error, Option[ServiceAgreement]] = for {
-    response <- CantonGrpcUtil
-      .sendSingleGrpcRequest(
-        domainId.toString,
-        "getting service agreement from remote domain",
-        channel = builder.build(),
-        stubFactory = v0.SequencerConnectServiceGrpc.stub,
-        timeout = timeouts.network.unwrap,
-        logger = logger,
-        logPolicy = CantonGrpcUtil.silentLogPolicy,
-        retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
-      )(_.getServiceAgreement(GetServiceAgreementRequest()))
-      .leftMap(e => Error.Transport(e.toString))
-    optAgreement <- EitherT
-      .fromEither[Future](
-        response.agreement
-          .traverse(ag =>
-            ServiceAgreement.fromProtoV0(ag).leftMap(e => Error.DeserializationFailure(e.toString))
-          )
-      )
-      .leftWiden[Error]
-  } yield optAgreement
 
   def isActive(participantId: ParticipantId, waitForActive: Boolean)(implicit
       traceContext: TraceContext
@@ -205,8 +200,6 @@ object GrpcSequencerConnectClient {
   ): ParsingResult[StaticDomainParameters] = response.parameters match {
     case Parameters.Empty =>
       Left(ProtoDeserializationError.FieldNotSet("GetDomainParameters.parameters"))
-    case Parameters.ParametersV0(parametersV0) => StaticDomainParameters.fromProtoV0(parametersV0)
     case Parameters.ParametersV1(parametersV1) => StaticDomainParameters.fromProtoV1(parametersV1)
-    case Parameters.ParametersV2(parametersV2) => StaticDomainParameters.fromProtoV2(parametersV2)
   }
 }

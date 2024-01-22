@@ -25,7 +25,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
@@ -54,7 +53,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories M:sigs (M:T {sig} this) (None @Party);
         observers Nil @Party;
-        agreement "Agreement";
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -84,7 +82,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (None @Party);
         observers Nil @Party;
-        agreement "Agreement";
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -106,7 +103,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         precondition True;
         signatories '-pkg1-':M:sigs (M:T {sig} this) (M:T {optSig} this);
         observers Nil @Party;
-        agreement "Agreement";
       };
 
       val do_fetch: ContractId M:T -> Update M:T =

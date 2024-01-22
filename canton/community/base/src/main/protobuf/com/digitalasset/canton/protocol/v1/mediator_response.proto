@@ -6,23 +6,9 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v1;
 
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // Definition of the MediatorResponse message which is shared between the transaction and transfer protocol
-
-message MediatorResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  google.protobuf.Timestamp request_id = 1;
-  string sender = 2;
-  bytes view_hash = 3; // May be empty for Malformed verdicts if the participant cannot determine the view hash.
-  LocalVerdict local_verdict = 4; // new type LocalVerdict
-  bytes root_hash = 5; // May be empty for Malformed verdicts if the participant cannot determine the root hash.
-  repeated string confirming_parties = 6; // Empty iff the verdict is malformed.
-  string domain_id = 7;
-}
-
 message LocalVerdict {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
