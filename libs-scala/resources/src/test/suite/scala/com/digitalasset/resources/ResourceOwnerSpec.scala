@@ -17,7 +17,9 @@ import com.daml.resources.FailingResourceOwner.{
 }
 import com.daml.resources.{Resource => AbstractResource}
 import com.daml.timer.Delayed
+import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Second, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.annotation.nowarn
@@ -26,7 +28,10 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorServic
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
-final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
+final class ResourceOwnerSpec extends AsyncWordSpec with Matchers with Eventually {
+
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(scaled(Span(1, Second)))
+
   private type Resource[+T] = AbstractResource[TestContext, T]
   private val Resource = new ResourceFactories[TestContext]
   private val Factories = new ResourceOwnerFactories[TestContext] {
@@ -672,6 +677,100 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
+    "wait at teardown for submitted task to finish" in {
+      val testPromise = Promise[Unit]()
+      val resource = for {
+        executor <- Factories
+          .forExecutorService(() => Executors.newFixedThreadPool(1))
+          .acquire()
+      } yield {
+        executor.submit { () =>
+          Thread.sleep(100)
+          testPromise.success(())
+        }
+        executor
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ = testPromise.isCompleted shouldBe false
+        _ <- resource.release()
+      } yield {
+        testPromise.isCompleted shouldBe true
+      }
+    }
+
+    "wait at teardown for submitted task to finish for only gracefulAwaitTerminationMillis and then it should interrupt the threads, and wait for the thread to finish" in {
+      val interruptedPromise = Promise[Unit]()
+      val testPromise = Promise[Unit]()
+      val resource = for {
+        executor <- Factories
+          .forExecutorService(
+            () => Executors.newFixedThreadPool(1),
+            gracefulAwaitTerminationMillis = 10,
+          )
+          .acquire()
+      } yield {
+        executor.submit { () =>
+          try {
+            Thread.sleep(100)
+          } catch {
+            case _: InterruptedException =>
+              interruptedPromise.success(())
+              Thread.sleep(100)
+          }
+          testPromise.success(())
+        }
+        executor
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ = testPromise.isCompleted shouldBe false
+        _ = interruptedPromise.isCompleted shouldBe false
+        _ <- resource.release()
+      } yield {
+        testPromise.isCompleted shouldBe true
+        interruptedPromise.isCompleted shouldBe true
+      }
+    }
+
+    "wait at teardown for submitted task to finish for only gracefulAwaitTerminationMillis and then it should interrupt the threads, and wait for the thread to finish for only forcefulAwaitTerminationMillis" in {
+      val interruptedPromise = Promise[Unit]()
+      val testPromise = Promise[Unit]()
+      val resource = for {
+        executor <- Factories
+          .forExecutorService(
+            () => Executors.newFixedThreadPool(1),
+            gracefulAwaitTerminationMillis = 10,
+            forcefulAwaitTerminationMillis = 10,
+          )
+          .acquire()
+      } yield {
+        executor.submit { () =>
+          try {
+            Thread.sleep(100)
+          } catch {
+            case _: InterruptedException =>
+              interruptedPromise.success(())
+              Thread.sleep(100)
+          }
+          testPromise.success(())
+        }
+        executor
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ = testPromise.isCompleted shouldBe false
+        _ = interruptedPromise.isCompleted shouldBe false
+        _ <- resource.release()
+      } yield {
+        testPromise.isCompleted shouldBe false
+        interruptedPromise.isCompleted shouldBe true
+      }
+    }
+
     "cause an exception if the result is the execution context, to avoid deadlock upon release" in {
       implicit val executionContext: ExecutionContextExecutorService =
         ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
@@ -777,6 +876,56 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
           0,
         )
         info("And scheduling new task on the released timer, is not possible anymore")
+        Thread.sleep(100)
+        extraTimerTaskStarted.isCompleted shouldBe false
+        info("And after waiting 100 millis, the additional task is still not started")
+        succeed
+      }
+    }
+
+    "convert to a ResourceOwner, which does not ensure, that no TimerTask is running after the resource is released, if waitForRunningTasks = false" in {
+      val finishLongTakingTask = Promise[Unit]()
+      val timerResource =
+        Factories.forTimer(() => new Timer("test timer"), waitForRunningTasks = false).acquire()
+      for {
+        timer <- timerResource.asFuture
+        _ <- {
+          timer.schedule(
+            new TimerTask {
+              override def run(): Unit = {
+                Await.result(finishLongTakingTask.future, Duration(10, "seconds"))
+              }
+            },
+            0L,
+          )
+          info("As scheduled a long taking task")
+          val released = timerResource.release()
+          info("And as triggered release of the timer resource")
+          released
+        }
+      } yield {
+        info("Timer released")
+        Thread.sleep(100)
+        info("And as waiting 100 millis")
+        val extraTimerTaskStarted = Promise[Unit]()
+        timer.schedule(
+          new TimerTask {
+            override def run(): Unit = extraTimerTaskStarted.success(())
+          },
+          0L,
+        )
+        info("And scheduling a further task is still possible")
+        finishLongTakingTask.success(())
+        info("As completing the currently running timer task")
+        eventually {
+          an[IllegalStateException] should be thrownBy timer.schedule(
+            new TimerTask {
+              override def run(): Unit = ()
+            },
+            0,
+          )
+        }
+        info("Eventually scheduling new task on the released timer is not possible anymore")
         Thread.sleep(100)
         extraTimerTaskStarted.isCompleted shouldBe false
         info("And after waiting 100 millis, the additional task is still not started")
