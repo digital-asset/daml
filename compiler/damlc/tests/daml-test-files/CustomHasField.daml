@@ -1,9 +1,10 @@
 -- Copyright (c) 2024, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-module CustomHasField where
+-- This tests that "dot syntax" works for getting and setting "fields" defined
+-- using custom (i.e. not daml-preprocessor-generated) `HasField` instances.
 
--- @ERROR range=35:1-35:11; Tried to access nonexistent field a on value of type CustomHasField:Foo
+module CustomHasField where
 
 import Daml.Script
 import DA.Assert ((===))
@@ -50,3 +51,5 @@ test = do
 
   (myFoo, ())._1.a === 42
   ((myFoo, ()) with _1.a = 53) === (Foo (53, True), ())
+
+  fmap (.a) [myFoo] === [42]
