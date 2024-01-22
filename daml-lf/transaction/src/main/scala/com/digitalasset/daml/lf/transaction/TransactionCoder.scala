@@ -82,7 +82,8 @@ object TransactionCoder {
   ): Either[EncodeError, ByteString] =
     ValueCoder.encodeValue(cidEncoder, nodeVersion, value)
 
-  /** Encodes a contract instance with the help of the contractId encoding function
+  /** To be removed.
+    * Encodes a contract instance with the help of the contractId encoding function
     *
     * @param coinst    the contract instance to be encoded
     * @param encodeCid function to encode a cid to protobuf
@@ -100,6 +101,28 @@ object TransactionCoder {
       .newBuilder()
       .setPackageName(pkgName)
       .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
+      .setArgVersioned(value)
+      .build()
+
+  /** To be renamed once the above one is removed.
+    * Encodes a contract instance with the help of the contractId encoding function
+    *
+    * @param coinst    the contract instance to be encoded
+    * @param encodeCid function to encode a cid to protobuf
+    * @return protobuf wire format contract instance
+    */
+  def newEncodeContractInstance(
+      encodeCid: ValueCoder.EncodeCid,
+      coinst: Versioned[Value.ContractInstance],
+  ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
+    for {
+      value <- ValueCoder
+        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
+      pkgName <- encodePackageName(coinst.unversioned.packageName, coinst.version)
+    } yield TransactionOuterClass.ContractInstance
+      .newBuilder()
+      .setPackageName(pkgName)
+      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
       .setArgVersioned(value)
       .build()
 

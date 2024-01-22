@@ -381,11 +381,9 @@ class TransactionCoderSpec
 
         val normalizedCreate =
           adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         TransactionCoder
-          .encodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
+          .newEncodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
       }
     }
 
@@ -527,11 +525,9 @@ class TransactionCoderSpec
         minSuccessful(5),
       ) { create =>
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
+          TransactionCoder.newEncodeContractInstance(ValueCoder.CidEncoder, instance)
         val Right(decoded) =
           TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
 
@@ -580,11 +576,9 @@ class TransactionCoderSpec
         val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
 
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
+          TransactionCoder.newEncodeContractInstance(ValueCoder.CidEncoder, instance)
         val wrongProto = encoded.toBuilder.setPackageName(wrongPackageName.getOrElse("")).build()
         TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, wrongProto)
       }
