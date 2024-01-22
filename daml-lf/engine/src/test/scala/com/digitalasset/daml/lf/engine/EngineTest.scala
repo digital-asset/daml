@@ -1370,7 +1370,13 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val reinterpreted =
         engine
-          .reinterpret(submitters = submitters, command = fetchNode, nodeSeed = None, submissionTime = let, ledgerEffectiveTime = let)
+          .reinterpret(
+            submitters = submitters,
+            command = fetchNode,
+            nodeSeed = None,
+            submissionTime = let,
+            ledgerEffectiveTime = let,
+          )
           .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
