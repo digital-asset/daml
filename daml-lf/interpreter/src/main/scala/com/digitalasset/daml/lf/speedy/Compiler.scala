@@ -960,7 +960,7 @@ private[lf] final class Compiler(
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = checkPreCondition(tmplId, <tmplArg>)
-    //   in $create <tmplArg> [tmpl.signatories] [tmpl.observers] [tmpl.key]
+    //   in $create <tmplArg>
     topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
       translateCreateBody(tmplId, tmpl, tmplArgPos, env)
     )

@@ -1791,7 +1791,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
-          SEValue(SText("")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(None)),

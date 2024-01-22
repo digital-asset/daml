@@ -234,33 +234,31 @@ template T_EvUpdCreateErr1
     p : Party
   where
     ensure (error @Bool "EvUpdCreateErr1 OK")
-    agreement (error @Text "EvUpdCreateErr1 failed (1)")
-    signatory (error @Party "EvUpdCreateErr1 failed (2)")
-    observer (error @Party "EvUpdCreateErr1 failed (3)")
+    signatory (error @Party "EvUpdCreateErr1 failed (1)")
+    observer (error @Party "EvUpdCreateErr1 failed (2)")
 
 evUpdCreateErr1 : Script ()
 evUpdCreateErr1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr1 p)
-  abort "EvUpdCreateErr1 failed (4)"
+  abort "EvUpdCreateErr1 failed (3)"
 
--- @ERROR range=259:1-259:16; Template precondition violated
+-- @ERROR range=257:1-257:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
   where
     ensure False
-    agreement (error @Text "EvUpdCreateFail failed (1)")
-    signatory (error @Party "EvUpdCreateFail failed (2)")
-    observer (error @Party "EvUpdCreateFail failed (3)")
+    signatory (error @Party "EvUpdCreateFail failed (1)")
+    observer (error @Party "EvUpdCreateFail failed (2)")
 
 evUpdCreateFail : Script ()
 evUpdCreateFail = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateFail p)
-  abort "EvUpdCreateFail failed (4)"
+  abort "EvUpdCreateFail failed (3)"
 
 -- @ERROR EvUpdCreateErr2 OK
 template T_EvUpdCreateErr2
@@ -268,69 +266,49 @@ template T_EvUpdCreateErr2
     p : Party
   where
     ensure True
-    agreement (error @Text "EvUpdCreateErr2 OK")
-    signatory (error @Party "EvUpdCreateErr2 failed (1)")
-    observer (error @Party "EvUpdCreateErr2 failed (2)")
+    signatory (error @Party "EvUpdCreateErr2 OK")
+    observer (error @Party "EvUpdCreateErr2 failed (1)")
 
 evUpdCreateErr2 : Script ()
 evUpdCreateErr2 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr2 p)
-  abort "EvUpdCreateErr2 failed (3)"
+  abort "EvUpdCreateErr2 failed (2)"
 
--- @ERROR EvUpdCreateErr3 OK
-template T_EvUpdCreateErr3
+-- @ERROR EvUpdCreateErr3_1 OK
+template T_EvUpdCreateErr3_1
   with
     p : Party
   where
     ensure True
-    agreement ""
-    signatory (error @Party "EvUpdCreateErr3 OK")
-    observer (error @Party "EvUpdCreateErr3 failed (1)")
-
-evUpdCreateErr3 : Script ()
-evUpdCreateErr3 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_EvUpdCreateErr3 p)
-  abort "EvUpdCreateErr3 failed (2)"
-
--- @ERROR EvUpdCreateErr4_1 OK
-template T_EvUpdCreateErr4_1
-  with
-    p : Party
-  where
-    ensure True
-    agreement ""
     signatory p
-    observer (error @Party "EvUpdCreateErr4_1 OK")
+    observer (error @Party "EvUpdCreateErr3_1 OK")
 
-evUpdCreateErr4_1 : Script ()
-evUpdCreateErr4_1 = script do
+evUpdCreateErr3_1 : Script ()
+evUpdCreateErr3_1 = script do
   p <- allocateParty "Alice"
   submit p do
-    createCmd (T_EvUpdCreateErr4_1 p)
-  abort "EvUpdCreateErr4_1 failed"
+    createCmd (T_EvUpdCreateErr3_1 p)
+  abort "EvUpdCreateErr3_1 failed"
 
--- @ERROR EvUpdCreateErr4_2 OK
-template T_EvUpdCreateErr4_2
+-- @ERROR EvUpdCreateErr3_2 OK
+template T_EvUpdCreateErr3_2
   with
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
-    observer (error @Party "EvUpdCreateErr4_2 OK")
-    key error @Party "EvUpdCreateErr4_2 failed" : Party
-    maintainer error @Party "EvUpdCreateErr4_2 failed"
+    observer (error @Party "EvUpdCreateErr3_2 OK")
+    key error @Party "EvUpdCreateErr3_2 failed" : Party
+    maintainer error @Party "EvUpdCreateErr3_2 failed"
 
-evUpdCreateErr4_2 : Script ()
-evUpdCreateErr4_2 = script do
+evUpdCreateErr3_2 : Script ()
+evUpdCreateErr3_2 = script do
   p <- allocateParty "Alice"
   submit p do
-    createCmd (T_EvUpdCreateErr4_2 p)
-  abort "EvUpdCreateErr4_2 failed"
+    createCmd (T_EvUpdCreateErr3_2 p)
+  abort "EvUpdCreateErr3_2 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr1 OK
 template T_EvUpdCreateWithKeyErr1
@@ -338,7 +316,6 @@ template T_EvUpdCreateWithKeyErr1
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
     observer [] : [Party]
     key error @Party "EvUpdCreateWithKeyErr1 OK" : Party
@@ -357,7 +334,6 @@ template T_EvUpdCreateWithKeyErr2
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
     observer [] : [Party]
     key p : Party

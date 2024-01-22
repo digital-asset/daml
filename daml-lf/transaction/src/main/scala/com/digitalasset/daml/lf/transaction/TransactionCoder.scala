@@ -104,8 +104,9 @@ object TransactionCoder {
       .setArgVersioned(value)
       .build()
 
-  /** To be renamed once the above one is removed.
-    * Encodes a contract instance with the help of the contractId encoding function
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
+  //  To be renamed once the above one is removed.
+  /** Encodes a contract instance with the help of the contractId encoding function
     *
     * @param coinst    the contract instance to be encoded
     * @param encodeCid function to encode a cid to protobuf
@@ -185,7 +186,8 @@ object TransactionCoder {
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
     decodeVersionedContractInstance(decodeCid, protoCoinst).map(_.map(_.contractInstance))
 
-  // To be removed.
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
+  //  remove together with ContractInstanceWithAgreement
   def decodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
@@ -205,6 +207,7 @@ object TransactionCoder {
       )
     )
 
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
   // To be renamed once the above one is removed.
   def newDecodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
