@@ -116,7 +116,7 @@ object CantonRunner {
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
          |
-         |  sequencers-x {
+         |  sequencers {
          |    sequencer1 {
          |        admin-api.port = ${sequencerAdminApi.port}
          |        public-api.port = ${sequencerPublicApi.port}
@@ -128,13 +128,13 @@ object CantonRunner {
          |    }
          |  }
          |
-         |  mediators-x {
+         |  mediators {
          |    mediator1 {
          |        admin-api.port = ${mediatorAdminApi.port}
          |    }
          |  }
          |
-         |  participants-x {
+         |  participants {
          |    ${participantsConfig}
          |  }
          |}

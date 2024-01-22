@@ -120,9 +120,9 @@ beforeAll(async () => {
       "-C",
       "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
       "-C",
-      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port=0",
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port=0",
       "-C",
-      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
         JSON_API_PORT_FILE,
     ],
     ["-Dpekko.http.server.request-timeout=60s"],

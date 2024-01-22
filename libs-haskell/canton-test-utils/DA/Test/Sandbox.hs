@@ -176,7 +176,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
                 ] )
-            , "participants-x" Aeson..= Aeson.object
+            , "participants" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
                     (
                      [ storage
@@ -199,7 +199,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                      ]
                     )
                  ]
-            , "sequencers-x" Aeson..= Aeson.object
+            , "sequencers" Aeson..= Aeson.object
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
@@ -210,7 +210,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                     , "admin-api" Aeson..= port sequencerAdminPort
                     ]
                 ]
-            , "mediators-x" Aeson..= Aeson.object
+            , "mediators" Aeson..= Aeson.object
                 [ "mediator1" Aeson..= Aeson.object
                      [ "admin-api" Aeson..= port mediatorAdminPort
                      ]
