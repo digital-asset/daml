@@ -60,7 +60,7 @@ EOF
 scala_library(
     name = "community_buildinfo",
     srcs = [":community_buildinfo_src"],
-    tags = ["maven_coordinates=com.daml:canton.community.buildinfo:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:canton-community-buildinfo:__VERSION__"],
 )
 
 ### daml-common-staging/daml-errors ###
@@ -72,12 +72,12 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
-    tags = ["maven_coordinates=com.daml:daml.common.stagingdamlerrors:__VERSION__"],
     deps = [
         ":ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
@@ -95,8 +95,8 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:pekko-stream-patch:__VERSION__"],
     unused_dependency_checker_mode = "error",
-    tags = ["maven_coordinates=com.daml:canton.pekko-stream-patch:__VERSION__"],
     deps = [
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_stream_2_13",
@@ -114,10 +114,10 @@ jar_jar(
 java_library(
     name = "community_lib_Blake2b",
     srcs = glob(["community/lib/Blake2b/src/main/**/*.java"]),
+    tags = ["maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__"],
     deps = [
         "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.lib.blake2b:__VERSION__"],
 )
 
 ### community/lib/slick ###
@@ -126,12 +126,12 @@ scala_macro_library(
     name = "community_lib_slick_slick-fork",
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
     scalacopts = ["-Wconf:cat=unused-imports:s"],
+    tags = ["maven_coordinates=com.daml:canton-community-lib-slick-slick-fork:__VERSION__"],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.lib.slick.slick-fork:__VERSION__"],
 )
 
 ### community/lib/wartremover ###
@@ -143,8 +143,8 @@ scala_macro_library(
         "-Wconf:cat=unused-pat-vars:s",
         "-Xsource:3",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-lib-wartremover:__VERSION__"],
     unused_dependency_checker_mode = "error",
-    tags = ["maven_coordinates=com.daml:canton.community.lib.wartremover:__VERSION__"],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:org_typelevel_cats_core_2_13",
@@ -162,12 +162,12 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-util-logging:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.util.logging:__VERSION__"],
     deps = [
         ":daml-common-staging_daml-errors",
         ":pekko-stream-minus-patched-classes",
@@ -211,8 +211,8 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
-    tags = ["maven_coordinates=com.daml:canton.community.util.external:__VERSION__"],
     deps = [
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -253,6 +253,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//compiler/repl-service:__subpackages__",
@@ -260,7 +261,6 @@ scala_library(
         "//language-support/java:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.ledger.ledger-common:__VERSION__"],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",
@@ -345,7 +345,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.admin-api:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:canton-community-admin-api:__VERSION__"],
 )
 
 ### community/base ###
@@ -385,12 +385,12 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-base:__VERSION__"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.base:__VERSION__"],
     deps = [
         ":bindings-java",
         ":community_admin-api",
@@ -479,12 +479,12 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.common:__VERSION__"],
     deps = [
         ":bindings-java",
         ":community_admin-api",
@@ -589,13 +589,13 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-api-core:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
-    tags = ["maven_coordinates=com.daml:canton.community.ledger.ledger-api-core:__VERSION__"],
     deps = [
         ":bindings-java",
         ":community_base",
