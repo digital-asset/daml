@@ -138,14 +138,6 @@ featureBigNumeric = Feature
     , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
 
-featureExceptions :: Feature
-featureExceptions = Feature
-    { featureName = "Daml Exceptions"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_EXCEPTIONS"
-    }
-
 featureSimpleInterfaces :: Feature
 featureSimpleInterfaces = Feature
     { featureName = "Daml Interfaces"
@@ -237,7 +229,6 @@ foreverCppFlags =
 allFeatures :: [Feature]
 allFeatures =
     [ featureBigNumeric
-    , featureExceptions
     , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs

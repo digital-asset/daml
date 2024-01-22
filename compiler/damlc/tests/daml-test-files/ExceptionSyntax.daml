@@ -1,7 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 -- @QUERY-LF [ $pkg.modules[].exceptions[] ] | length == 1
 
 -- | Test that exception syntax is correctly handled.

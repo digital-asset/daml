@@ -4,15 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Exception.PreconditionFailed where
-
-import GHC.Types ()
-
-#else
-
 -- | MOVE DA.Exception
 module DA.Exception.PreconditionFailed where
 
@@ -21,4 +12,3 @@ import GHC.Types (Text)
 -- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
 data PreconditionFailed = PreconditionFailed { message : Text }
 
-#endif

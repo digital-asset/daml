@@ -49,11 +49,7 @@ module DA.Internal.LF
   -- If this is not supported by the target LF version, we compile it to ().
   , Any
   , TypeRep
-
-  #ifdef DAML_EXCEPTIONS
   , AnyException
-  #endif
-
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -177,11 +173,7 @@ instance Action Update where
     (>>=) = primitive @"UBind"
 
 instance ActionFail Update where
-#ifdef DAML_EXCEPTIONS
     fail m = pure () >>= \_ -> error m
-#else
-    fail = primitive @"UAbort"
-#endif
 
 -- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
 class HasTime m where
@@ -284,9 +276,5 @@ instance Ord TypeRep where
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
 
-#ifdef DAML_EXCEPTIONS
-
 -- | A wrapper for all exception types.
 data AnyException = AnyException Opaque
-
-#endif

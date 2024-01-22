@@ -1,8 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
-
 {-# OPTIONS_GHC -fwarn-unused-matches #-}
 
 -- Regression test for https://github.com/digital-asset/daml/issues/11004

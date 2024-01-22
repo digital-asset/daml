@@ -4,15 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Exception.ArithmeticError where
-
-import GHC.Types ()
-
-#else
-
 -- | MOVE DA.Exception
 module DA.Exception.ArithmeticError where
 
@@ -21,4 +12,3 @@ import GHC.Types (Text)
 -- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
 data ArithmeticError = ArithmeticError { message : Text }
 
-#endif

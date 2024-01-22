@@ -87,10 +87,8 @@ module Daml.Script
   , submitUserOn
   ) where
 
-#ifdef DAML_EXCEPTIONS
 import DA.Bifunctor
 import DA.Exception
-#endif
 import DA.Functor
 import DA.NonEmpty (NonEmpty(..))
 import DA.List.Total
@@ -158,10 +156,8 @@ data ScriptF a
   | GrantUserRights (GrantUserRightsPayload a)
   | RevokeUserRights (RevokeUserRightsPayload a)
   | ListUserRights (ListUserRightsPayload a)
-#ifdef DAML_EXCEPTIONS
   | Catch (CatchPayload LedgerValue a)
   | Throw ThrowPayload
-#endif
   | QueryDisclosure (QueryDisclosurePayload a)
   deriving Functor
 
@@ -692,11 +688,7 @@ instance ActionFail Script where
   fail = abort
 
 instance CanAssert Script where
-#ifdef DAML_EXCEPTIONS
   assertFail m = throw (AssertionFailed m)
-#else
-  assertFail = abort
-#endif
 
 data LedgerValue = LedgerValue {}
 

@@ -25,12 +25,8 @@ import GHC.Num
 import GHC.Classes
 import GHC.CString (fromString)
 
-#ifdef DAML_EXCEPTIONS
 import GHC.Show(show)
 import DA.Exception.ArithmeticError
-#else
-import GHC.Show()
-#endif
 
 -- | Use the `Bounded` class to name the upper and lower limits of a
 -- type.
@@ -161,22 +157,12 @@ instance Bounded Int where
     maxBound =  0x7FFFFFFFFFFFFFFF
 
 instance  Enum Int  where
-
-#ifdef DAML_EXCEPTIONS
     succ x
        | x == maxBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (succ @Int " ++ show x ++ ")."))
         | otherwise      = x + 1
     pred x
        | x == minBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (pred @Int " ++ show x ++ ")."))
        | otherwise      = x - 1
-#else
-    succ x
-       | x == maxBound  = error "Prelude.Enum.succ{Int}: tried to take `succ' of maxBound"
-       | otherwise      = x + 1
-    pred x
-       | x == minBound  = error "Prelude.Enum.pred{Int}: tried to take `pred' of minBound"
-       | otherwise      = x - 1
-#endif
 
     toEnum   x = x
     fromEnum x = x

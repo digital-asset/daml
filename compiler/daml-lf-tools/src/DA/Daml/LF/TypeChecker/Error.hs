@@ -203,7 +203,7 @@ templateLocation t = \case
   TPWhole -> tplLocation t
   TPPrecondition -> extractExprSourceLoc $ tplPrecondition t
   TPSignatories -> extractExprSourceLoc $ tplSignatories t
-  TPObservers -> extractExprSourceLoc $ tplObservers t 
+  TPObservers -> extractExprSourceLoc $ tplObservers t
   TPAgreement -> extractExprSourceLoc $ tplAgreement t
   TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
   TPChoice tc -> chcLocation tc
@@ -215,7 +215,7 @@ templateLocation t = \case
 extractExprSourceLoc :: Expr -> Maybe SourceLoc
 extractExprSourceLoc (ELocation loc _) = Just loc
 extractExprSourceLoc (ETmApp f _) = extractExprSourceLoc f -- All 4 of the Expr values in Template are wrapped in ($ this), so we match this out
-extractExprSourceLoc (ECase c _) = extractExprSourceLoc c -- Precondition wraps the bool in a case when featureExceptions is supported
+extractExprSourceLoc (ECase c _) = extractExprSourceLoc c -- Precondition wraps the bool in a case
 extractExprSourceLoc _ = Nothing
 
 interfaceLocation :: DefInterface -> InterfacePart -> Maybe SourceLoc

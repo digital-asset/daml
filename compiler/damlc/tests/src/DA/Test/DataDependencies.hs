@@ -17,7 +17,6 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List (intercalate, sortOn, (\\))
 import qualified Data.NameMap as NM
 import Module (unitIdString)
-import Safe (fromJustNote)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -36,7 +35,8 @@ main = withSdkVersions $ do
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
         let targetDevVersion = LF.version2_dev
-        let exceptionsVersion = minExceptionVersion LF.V2
+        -- Exceptions are supported by all 2.x versions. The smallest 2.x version is 2.1.
+        let exceptionsVersion = LF.version2_1
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script-2.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
@@ -44,11 +44,6 @@ main = withSdkVersions $ do
         return TestArgs{..}
     let testTrees = map tests [v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
-  where
-    minExceptionVersion major =
-        fromJustNote
-            "exceptions should have a minor version for every existing major version"
-            (LF.featureMinVersion LF.featureExceptions major)
 
 data TestArgs = TestArgs
   { targetDevVersion :: LF.Version

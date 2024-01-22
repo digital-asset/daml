@@ -15,22 +15,8 @@ module GHC.Err
 import GHC.Integer.Type() -- required so Integer optimisation works
 import GHC.Types
 
-#ifdef DAML_EXCEPTIONS
-
 import DA.Exception.GeneralError
 
 -- | Throws a `GeneralError` exception.
 error : Text -> a
 error msg = primitive @"EThrow" (GeneralError msg)
-
-#else
-
--- | `error` stops execution and displays the given error message.
---
--- If called within a transaction, it will abort the current transaction.
--- Outside of a transaction (scenarios and Daml Script)
--- it will stop the whole scenario/script.
-error : Text -> a
-error = primitive @"BEError"
-
-#endif

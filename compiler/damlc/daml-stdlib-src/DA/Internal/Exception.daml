@@ -4,13 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Internal.Exception where
-
-#else
-
 -- | MOVE DA.Exception This module contains the definitions needed for exception desugaring.
 module DA.Internal.Exception
     ( module DA.Internal.Exception
@@ -175,8 +168,4 @@ instance ActionCatch Update where
 #ifdef DAML_SCENARIOS
 instance ActionThrow Scenario where
     throw e = pure () >>= \_ -> throwPure e
-#endif
-
--- Can't catch in scenarios.
-
 #endif

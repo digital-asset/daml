@@ -268,11 +268,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
                ]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
-    mcExceptionBinds
-        | envLfVersion `supports` featureExceptions =
-            scrapeExceptionBinds mcBinds
-        | otherwise =
-            MS.empty
+    mcExceptionBinds = scrapeExceptionBinds mcBinds
 
     mcModInstanceInfo = modInstanceInfoFromDetails details
     mcDepOrphanModules = getDepOrphanModules modIface
@@ -1114,9 +1110,8 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
 
   where
     majorLfVersion = versionMajor (envLfVersion env)
-    wrapPrecondition b
-        | envLfVersion env`supports` featureExceptions
-        = case tbShow of
+    wrapPrecondition b =
+        case tbShow of
             Nothing ->
                 error ("Missing Show instance for template: " <> show tplTypeCon)
             Just showDict ->
@@ -1133,10 +1128,6 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                                 `ETmApp` EUnit
                                 `ETmApp` EVar this)
                     ]
-
-        | otherwise
-        = b
-
 
 convertTemplateKey :: SdkVersioned => Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}

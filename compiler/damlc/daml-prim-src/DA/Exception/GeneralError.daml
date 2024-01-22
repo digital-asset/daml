@@ -4,15 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Exception.GeneralError where
-
-import GHC.Types ()
-
-#else
-
 -- | MOVE DA.Exception
 module DA.Exception.GeneralError where
 
@@ -21,4 +12,3 @@ import GHC.Types (Text)
 -- | Exception raised by `error`.
 data GeneralError = GeneralError { message : Text }
 
-#endif

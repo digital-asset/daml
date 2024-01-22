@@ -6,7 +6,6 @@
 
 module Daml.Script.Questions.Exceptions where
 
-#ifdef DAML_EXCEPTIONS
 import DA.Exception
 import DA.Optional
 import Daml.Script.Internal
@@ -43,7 +42,3 @@ throwAnyException = lift . Throw
 
 instance CanAssert Script where
   assertFail m = throw (AssertionFailed m)
-#else
-instance CanAssert Script where
-  assertFail = abort
-#endif

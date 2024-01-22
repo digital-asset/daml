@@ -38,11 +38,7 @@ import DA.Internal.Template.Functions
 import DA.Internal.Interface
 import DA.Internal.Interface.AnyView
 import DA.Internal.LF
-#ifndef DAML_EXCEPTIONS
-import DA.Internal.Exception ()
-#else
 import DA.Internal.Exception
-#endif
 import GHC.Types (magic, Symbol)
 import GHC.Tuple.Check (userWrittenTuple)
 

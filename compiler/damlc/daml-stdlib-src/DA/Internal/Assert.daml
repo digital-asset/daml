@@ -7,17 +7,12 @@
 -- | MOVE Prelude
 module DA.Internal.Assert
   ( module DA.Internal.Assert
-#ifdef DAML_EXCEPTIONS
   , AssertionFailed (AssertionFailed)
-#endif
   ) where
 
 import DA.Internal.Prelude
 import DA.Internal.LF
-
-#ifdef DAML_EXCEPTIONS
 import DA.Internal.Exception
-#endif
 
 -- | Constraint that determines whether an assertion can be made
 -- in this context.
@@ -28,8 +23,6 @@ class Action m => CanAssert m where
     -- message as an error.
     assertFail : Text -> m t
 
-#ifdef DAML_EXCEPTIONS
-
 instance CanAssert Update where
     assertFail msg = throw (AssertionFailed msg)
 #ifdef DAML_SCENARIOS
@@ -38,19 +31,6 @@ instance CanAssert Scenario where
 #endif
 instance CanAssert (Either Text) where
     assertFail = fail
-
-#else
-
-instance CanAssert Update where
-    assertFail = fail
-#ifdef DAML_SCENARIOS
-instance CanAssert Scenario where
-    assertFail = fail
-#endif
-instance CanAssert (Either Text) where
-    assertFail = fail
-
-#endif
 
 -- | Check whether a condition is true. If it's not, abort the transaction.
 assert : CanAssert m => Bool -> m ()

@@ -10,9 +10,7 @@ module DA.Assert
   , assertMsg
   , assertAfter
   , assertBefore
-#ifdef DAML_EXCEPTIONS
   , AssertionFailed (AssertionFailed)
-#endif
   ) where
 
 infix 4 ===
