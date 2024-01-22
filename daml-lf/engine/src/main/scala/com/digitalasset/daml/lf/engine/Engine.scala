@@ -155,6 +155,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     * @param ledgerEffectiveTime the ledger effective time used as a result of `getTime` during reinterpretation
     */
   def reinterpret(
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+      packagePreference: Set[Ref.PackageId] = Set.empty,
       submitters: Set[Party],
       command: ReplayCommand,
       nodeSeed: Option[crypto.Hash],
@@ -162,6 +164,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerEffectiveTime: Time.Timestamp,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
+      pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -176,7 +179,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        packageResolution = Map.empty,
+        packageResolution = pkgResolution,
       )
     } yield result
 
