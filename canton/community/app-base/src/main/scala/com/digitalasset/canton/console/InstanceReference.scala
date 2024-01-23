@@ -124,6 +124,12 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
   object db extends Helpful {
 
     @Help.Summary("Migrates the instance's database if using a database storage")
+    @Help.Description(
+      """When instances reside on different nodes, their database migration can be run in parallel
+        |to save time. Please not that the migration commands must however must be run on each node
+        |individually, because remote migration through `participants.remote...` is not supported.
+        |"""
+    )
     def migrate(): Unit = consoleEnvironment.run(migrateDbCommand())
 
     @Help.Summary(
