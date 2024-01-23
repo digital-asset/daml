@@ -914,6 +914,8 @@ encodeDefDataType DefDataType{..} = do
             pure $ P.DefDataTypeDataConsVariant P.DefDataType_Fields{..}
         DataEnum cs -> do
             mangledIds <- encodeNames (map unVariantConName cs)
+            -- TODO(https://github.com/digital-asset/daml/issues/18240): remove
+            -- the constructors_str field from the proto definition.
             let defDataType_EnumConstructorsConstructorsStr = V.empty
             let defDataType_EnumConstructorsConstructorsInternedStr = V.fromList mangledIds
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
