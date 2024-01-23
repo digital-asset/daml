@@ -13,9 +13,7 @@ import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 
-import qualified Data.Bifunctor as Bf
 import           Data.Coerce
-import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
@@ -43,11 +41,8 @@ type Just a = Maybe a
 
 type Encode a = State EncodeEnv a
 
-newtype WithInterning = WithInterning{getWithInterning :: Bool}
-
 data EncodeEnv = EncodeEnv
     { version :: !Version
-    , withInterning :: !WithInterning
     , internedStrings :: !(HMS.HashMap T.Text Int32)
     , nextInternedStringId :: !Int32
       -- ^ We track the size of `internedStrings` explicitly since `HMS.size` is `O(n)`.
@@ -58,8 +53,8 @@ data EncodeEnv = EncodeEnv
     , nextInternedTypeId :: !Int32
     }
 
-initEncodeEnv :: Version -> WithInterning -> EncodeEnv
-initEncodeEnv version withInterning =
+initEncodeEnv :: Version -> EncodeEnv
+initEncodeEnv version =
     EncodeEnv
     { nextInternedStringId = 0
     , internedStrings = HMS.empty
@@ -109,40 +104,35 @@ allocDottedName ids = do
 encodeString :: T.Text -> TL.Text
 encodeString = TL.fromStrict
 
--- | Encode a string that will be interned in Daml-LF 1.7 and onwards.
-encodeInternableString :: T.Text -> Encode (Either TL.Text Int32)
+-- | Encode a string that will be interned
+encodeInternableString :: T.Text -> Encode Int32
 encodeInternableString = coerce (encodeInternableStrings @Identity)
 
--- | Encode a string that will be interned in Daml-LF 1.7 and onwards.
-encodeInternableStrings :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
-encodeInternableStrings strs = do
-    EncodeEnv{..} <- get
-    if getWithInterning withInterning && version `supports` featureStringInterning
-        then Right <$> mapM allocString strs
-        else pure $ Left $ fmap encodeString strs
+-- | Encode a string that will be interned
+encodeInternableStrings :: Traversable t => t T.Text -> Encode (t Int32)
+encodeInternableStrings strs = mapM allocString strs
 
+-- TODO(https://github.com/digital-asset/daml/issues/18240): change the proto
+--  to only use interned names. Then we don't need this EitherLike variant of
+--  encodeName anymore.
 -- | Encode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
--- names will be interned in Daml-LF 1.7 and onwards.
+-- names are interned.
 encodeName
     :: Util.EitherLike TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode (Just e)
-encodeName unwrapName = fmap Just . encodeName' unwrapName
+encodeName unwrapName obj =
+    Just
+        . Util.fromEither @TL.Text @Int32
+        . Right
+        <$> encodeNameId unwrapName obj
 
-encodeName'
-    :: Util.EitherLike TL.Text Int32 e
-    => (a -> T.Text) -> a -> Encode e
-encodeName' unwrapName (unwrapName -> unmangled) = do
-    Util.fromEither @TL.Text @Int32 <$> coerce (encodeNames @Identity) unmangled
 
 encodeNameId :: (a -> T.Text) -> a -> Encode Int32
-encodeNameId unwrapName (unwrapName -> unmangled) = do
-    (encoded :: Either TL.Text Int32) <- encodeName' id unmangled
-    case encoded of
-        Left _ -> error ("could not intern name " <> show unmangled)
-        Right id -> pure id
+encodeNameId unwrapName (unwrapName -> unmangled) =
+    coerce (encodeNames @Identity) unmangled
 
-encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
+encodeNames :: Traversable t => t T.Text -> Encode (t Int32)
 encodeNames = encodeInternableStrings . fmap mangleName
     where
         mangleName :: T.Text -> T.Text
@@ -151,35 +141,31 @@ encodeNames = encodeInternableStrings . fmap mangleName
            Right mangled -> mangled
 
 
+-- TODO(https://github.com/digital-asset/daml/issues/18240): change the proto
+--  to only use interned names. Then we don't need this EitherLike variant of
+--  encodeDottedName anymore.
 -- | Encode the multi-component name of a syntactic object, e.g., a type
--- constructor. All compononents are mangled. Dotted names will be interned
--- in Daml-LF 1.7 and onwards.
+-- constructor. All compononents are mangled. Dotted names are interned.
 encodeDottedName :: Util.EitherLike P.DottedName Int32 e
                  => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
     Just .
       Util.fromEither @P.DottedName @Int32 .
-      Bf.first P.DottedName <$>
+      Right <$>
       encodeDottedName' unmangled
 
-encodeDottedName' :: [T.Text] -> Encode (Either (V.Vector TL.Text) Int32)
+encodeDottedName' :: [T.Text] -> Encode Int32
 encodeDottedName' unmangled = do
-    mangledAndInterned <- encodeNames unmangled
-    case mangledAndInterned of
-        Left mangled -> pure $ Left (V.fromList mangled)
-        Right ids -> do
-            id <- allocDottedName ids
-            pure $ Right id
+    ids <- encodeNames unmangled
+    allocDottedName ids
 
 encodeDottedNameId :: (a -> [T.Text]) -> a -> Encode Int32
-encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) = do
-    encoded <- encodeDottedName' unmangled
-    case encoded of
-        Left _ -> error ("could not intern dotted name " <> show unmangled)
-        Right id -> pure id
+encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) =
+    encodeDottedName' unmangled
 
--- | Encode the name of a top-level value. The name is mangled and will be
--- interned in Daml-LF 1.7 and onwards.
+-- TODO(https://github.com/digital-asset/daml/issues/18240): change the proto
+--  to only store an interned name ID. Then we can simply return an Int32.
+-- | Encode the name of a top-level value. The name is mangled and interned.
 --
 -- For now, value names are always encoded using a single segment.
 -- This is to keep backwards compat with older .dalf files, but also
@@ -188,21 +174,16 @@ encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) = do
 -- use values in codegen, just mangle the entire thing.
 encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Int32)
 encodeValueName valName = do
-    either <- encodeDottedName' [unExprValName valName]
-    case either of
-        Left mangled -> pure (mangled, 0)
-        Right id -> pure (V.empty, id)
+    id <- encodeDottedName' [unExprValName valName]
+    pure (V.empty, id)
 
 -- | Encode a reference to a package. Package names are not mangled. Package
--- name are interned since Daml-LF 1.6.
+-- names are interned.
 encodePackageRef :: PackageRef -> Encode (Just P.PackageRef)
 encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
     PRSelf -> pure $ P.PackageRefSumSelf P.Unit
     PRImport (PackageId pkgId) -> do
-        EncodeEnv{..} <- get
-        if getWithInterning withInterning
-            then P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
-            else pure $ P.PackageRefSumPackageIdStr $ encodeString pkgId
+        P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -364,8 +345,8 @@ encodeType t = Just <$> encodeType' t
 
 allocType :: P.TypeSum -> Encode P.Type
 allocType ptyp = fmap (P.Type . Just) $ do
-    env@EncodeEnv{version, withInterning, internedTypes, nextInternedTypeId = n} <- get
-    if getWithInterning withInterning && version `supports` featureTypeInterning then
+    env@EncodeEnv{version, internedTypes, nextInternedTypeId = n} <- get
+    if version `supports` featureTypeInterning then
         case ptyp `Map.lookup` internedTypes of
             Just n -> pure (P.TypeSumInterned n)
             Nothing -> do
@@ -395,8 +376,7 @@ encodeBuiltinExpr = \case
     BENumeric num ->
         lit . P.PrimLitSumNumericInternedStr <$> allocString (T.pack (show num))
     BEText x ->
-        lit . either P.PrimLitSumTextStr P.PrimLitSumTextInternedStr
-        <$> encodeInternableString x
+        lit . P.PrimLitSumTextInternedStr <$> encodeInternableString x
     BETimestamp x -> pureLit $ P.PrimLitSumTimestamp x
     BEDate x -> pureLit $ P.PrimLitSumDate x
 
@@ -566,7 +546,7 @@ encodeBuiltinExpr = \case
 
 encodeExpr' :: Expr -> Encode P.Expr
 encodeExpr' = \case
-    EVar v -> expr . either P.ExprSumVarStr P.ExprSumVarInternedStr <$> encodeName' unExprVarName v
+    EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valNameModule <- encodeModuleRef pkgRef modName
         (valNameNameDname, valNameNameInternedDname) <- encodeValueName val
@@ -805,9 +785,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
-        update_ExerciseByKeyChoiceInternedStr <-
-          fromRight (error "INTERNAL: exercise_by_key is only available in Daml-LF versions supporting string interning")
-           <$> encodeName' @(Either TL.Text Int32) unChoiceName exeChoice
+        update_ExerciseByKeyChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
         update_ExerciseByKeyArg <- encodeExpr exeArg
         pure $ P.UpdateSumExerciseByKey P.Update_ExerciseByKey{..}
@@ -935,10 +913,11 @@ encodeDefDataType DefDataType{..} = do
             defDataType_FieldsFields <- encodeFieldsWithTypes unVariantConName fs
             pure $ P.DefDataTypeDataConsVariant P.DefDataType_Fields{..}
         DataEnum cs -> do
-            mangledAndInterned <- encodeNames (map unVariantConName cs)
-            let (defDataType_EnumConstructorsConstructorsStr, defDataType_EnumConstructorsConstructorsInternedStr) = case mangledAndInterned of
-                    Left mangled -> (V.fromList mangled, V.empty)
-                    Right mangledIds -> (V.empty, V.fromList mangledIds)
+            mangledIds <- encodeNames (map unVariantConName cs)
+            -- TODO(https://github.com/digital-asset/daml/issues/18240): remove
+            -- the constructors_str field from the proto definition.
+            let defDataType_EnumConstructorsConstructorsStr = V.empty
+            let defDataType_EnumConstructorsConstructorsInternedStr = V.fromList mangledIds
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
         DataInterface -> pure $ P.DefDataTypeDataConsInterface P.Unit
     let defDataTypeSerializable = getIsSerializable dataSerializable
@@ -1086,20 +1065,19 @@ encodeInterfaceCoImplements InterfaceCoImplements {..} = do
 
 encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
 encodeUpgradedPackageId upgradedPackageId = do
-  upgradedPackageIdUpgradedPackageIdInternedStr <- fromRight (error "Upgraded package-id is always interned") <$> encodeInternableString (unPackageId upgradedPackageId)
+  upgradedPackageIdUpgradedPackageIdInternedStr <- encodeInternableString (unPackageId upgradedPackageId)
   pure P.UpgradedPackageId{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do
-    packageMetadataNameInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageName packageName)
-    packageMetadataVersionInternedStr <- fromRight (error "Package version is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataNameInternedStr <- encodeInternableString (unPackageName packageName)
+    packageMetadataVersionInternedStr <- encodeInternableString (unPackageVersion packageVersion)
     packageMetadataUpgradedPackageId <- traverse encodeUpgradedPackageId upgradedPackageId
     pure P.PackageMetadata{..}
 
--- | NOTE(MH): Assumes the Daml-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
-    let env = initEncodeEnv version (WithInterning True)
+    let env = initEncodeEnv version
         ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames, internedTypes}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
         packageInternedStrings =
