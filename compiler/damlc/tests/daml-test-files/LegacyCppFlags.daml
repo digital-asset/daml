@@ -1,0 +1,12 @@
+{-# LANGUAGE CPP #-}
+
+module LegacyCppFlags where
+
+import Daml.Script
+
+test : Script ()
+test = do
+#ifndef DAML_NAT_SYN
+  error "Expected DAML_NAT_SYN to be defined for backwards compatibility"
+#endif
+  pure ()
