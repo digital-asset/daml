@@ -345,20 +345,17 @@ encodeType t = Just <$> encodeType' t
 
 allocType :: P.TypeSum -> Encode P.Type
 allocType ptyp = fmap (P.Type . Just) $ do
-    env@EncodeEnv{version, internedTypes, nextInternedTypeId = n} <- get
-    if version `supports` featureTypeInterning then
-        case ptyp `Map.lookup` internedTypes of
-            Just n -> pure (P.TypeSumInterned n)
-            Nothing -> do
-                when (n == maxBound) $
-                    error "Type interning table grew too large"
-                put $! env
-                    { internedTypes = Map.insert ptyp n internedTypes
-                    , nextInternedTypeId = n + 1
-                    }
-                pure (P.TypeSumInterned n)
-    else
-        pure ptyp
+    env@EncodeEnv{internedTypes, nextInternedTypeId = n} <- get
+    case ptyp `Map.lookup` internedTypes of
+        Just n -> pure (P.TypeSumInterned n)
+        Nothing -> do
+            when (n == maxBound) $
+                error "Type interning table grew too large"
+            put $! env
+                { internedTypes = Map.insert ptyp n internedTypes
+                , nextInternedTypeId = n + 1
+                }
+            pure (P.TypeSumInterned n)
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
