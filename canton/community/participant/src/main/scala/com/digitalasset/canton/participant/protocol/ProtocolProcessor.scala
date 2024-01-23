@@ -804,9 +804,11 @@ abstract class ProtocolProcessor[
               logger.error(
                 s"Mediator $declaredMediator declared in views is not the recipient $mediator of the root hash message"
               )
-              EitherT.right[steps.RequestError](
-                prepareForMediatorResultOfBadRequest(rc, sc, ts)
-              )
+              EitherT
+                .right[steps.RequestError](
+                  prepareForMediatorResultOfBadRequest(rc, sc, ts)
+                )
+                .thereafter(_ => handleRequestData.complete(None))
             }
 
             for {
