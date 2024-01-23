@@ -12,7 +12,6 @@ import com.digitalasset.canton.config.{
   H2DbConfig,
   StorageConfig,
 }
-import com.digitalasset.canton.domain.config.CommunityDomainConfig
 import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
@@ -64,14 +63,6 @@ object CommunityConfigTransforms {
     s"${dbPrefix}_$nodeName"
   }
 
-  def updateAllDomainConfigs(
-      update: (String, CommunityDomainConfig) => CommunityDomainConfig
-  ): CommunityConfigTransform =
-    cantonConfig =>
-      cantonConfig
-        .focus(_.domains)
-        .modify(_.map { case (dName, dConfig) => (dName, update(dName.unwrap, dConfig)) })
-
   def updateAllParticipantConfigs(
       update: (String, CommunityParticipantConfig) => CommunityParticipantConfig
   ): CommunityConfigTransform =
@@ -83,7 +74,7 @@ object CommunityConfigTransforms {
   def updateAllSequencerXConfigs(
       update: (String, CommunitySequencerNodeXConfig) => CommunitySequencerNodeXConfig
   ): CommunityConfigTransform =
-    _.focus(_.sequencersX)
+    _.focus(_.sequencers)
       .modify(_.map { case (sName, sConfig) => (sName, update(sName.unwrap, sConfig)) })
 
   def updateAllSequencerXConfigs_(
@@ -101,7 +92,7 @@ object CommunityConfigTransforms {
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig
-        .focus(_.mediatorsX)
+        .focus(_.mediators)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
   def updateAllParticipantXConfigs(
@@ -109,13 +100,15 @@ object CommunityConfigTransforms {
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig
-        .focus(_.participantsX)
+        .focus(_.participants)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
   def uniqueH2DatabaseNames: CommunityConfigTransform = {
-    updateAllDomainConfigs { case (nodeName, cfg) =>
+    updateAllSequencerXConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
-    } compose updateAllParticipantConfigs { case (nodeName, cfg) =>
+    } compose updateAllMediatorXConfigs { case (nodeName, cfg) =>
+      cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
+    } compose updateAllParticipantXConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     }
   }
@@ -123,14 +116,6 @@ object CommunityConfigTransforms {
   def uniquePorts: CommunityConfigTransform = {
 
     def nextPort = UniquePortGenerator.next
-
-    val domainUpdate = updateAllDomainConfigs { case (_, config) =>
-      config
-        .focus(_.publicApi.internalPort)
-        .replace(nextPort.some)
-        .focus(_.adminApi.internalPort)
-        .replace(nextPort.some)
-    }
 
     val participantUpdate = updateAllParticipantConfigs { case (_, config) =>
       config
@@ -164,6 +149,6 @@ object CommunityConfigTransforms {
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
 
-    domainUpdate compose participantUpdate compose sequencerXUpdate compose mediatorXUpdate compose participantXUpdate
+    participantUpdate compose sequencerXUpdate compose mediatorXUpdate compose participantXUpdate
   }
 }

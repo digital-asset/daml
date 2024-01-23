@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v0;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
-import "com/digitalasset/canton/protocol/v0/topology.proto";
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
 import "google/protobuf/timestamp.proto";
 
 /**
@@ -63,12 +63,15 @@ message ListPartiesRequest {
 message ListPartiesResponse {
   message Result {
     string party = 1;
+
     message ParticipantDomains {
       message DomainPermissions {
         string domain = 1;
-        com.digitalasset.canton.protocol.v0.ParticipantPermission permission = 2;
+        com.digitalasset.canton.protocol.v30.ParticipantPermission permission = 2;
       }
+
       string participant = 1;
+
       /**
        * permissions of this participant for this party on a per domain basis
        *
@@ -76,8 +79,10 @@ message ListPartiesResponse {
        */
       repeated DomainPermissions domains = 2;
     }
+
     repeated ParticipantDomains participants = 2;
   }
+
   repeated Result results = 2;
 }
 
@@ -93,8 +98,8 @@ message ListKeyOwnersResponse {
   message Result {
     string domain = 1;
     string key_owner = 2;
-    repeated com.digitalasset.canton.crypto.v0.SigningPublicKey signing_keys = 3;
-    repeated com.digitalasset.canton.crypto.v0.EncryptionPublicKey encryption_keys = 4;
+    repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 3;
+    repeated com.digitalasset.canton.crypto.v30.EncryptionPublicKey encryption_keys = 4;
   }
   repeated Result results = 1;
 }

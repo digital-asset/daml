@@ -5,94 +5,20 @@ package com.digitalasset.canton.console.commands
 
 import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
-  BootstrapTopology,
-  Initialize,
-  InitializeX,
-}
+import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.InitializeX
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
-import com.digitalasset.canton.console.{
-  AdminCommandRunner,
-  FeatureFlagFilter,
-  Help,
-  Helpful,
-  SequencerNodeReference,
-}
+import com.digitalasset.canton.console.Help
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.{
-  InitializeSequencerResponse,
-  InitializeSequencerResponseX,
-}
+import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponseX
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
-  StoredTopologyTransactions,
   StoredTopologyTransactionsX,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.PositiveSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{
-  TopologyChangeOp,
-  TopologyChangeOpX,
-  TopologyMappingX,
-}
-
-trait SequencerNodeAdministration {
-  self: AdminCommandRunner with FeatureFlagFilter with SequencerNodeReference =>
-
-  private lazy val _init = new Initialization()
-
-  def initialization: Initialization = _init
-
-  @Help.Summary("Manage sequencer initialization")
-  @Help.Group("initialization")
-  class Initialization extends Helpful {
-    @Help.Summary(
-      "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
-        "sequencer nodes being initialized at the same time as the corresponding domain node. " +
-        "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
-    )
-    def initialize_from_beginning(
-        domainId: DomainId,
-        domainParameters: StaticDomainParameters,
-    ): InitializeSequencerResponse =
-      consoleEnvironment.run {
-        adminCommand(
-          Initialize(domainId, StoredTopologyTransactions.empty, domainParameters)
-        )
-      }
-
-    @Help.Summary(
-      "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-        "This is called as part of the domain.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
-    )
-    def initialize_from_snapshot(
-        domainId: DomainId,
-        topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
-        sequencerSnapshot: SequencerSnapshot,
-        domainParameters: StaticDomainParameters,
-    ): InitializeSequencerResponse =
-      consoleEnvironment.run {
-        adminCommand(
-          Initialize(domainId, topologySnapshot, domainParameters, sequencerSnapshot.some)
-        )
-      }
-
-    @Help.Summary("Bootstrap topology data")
-    @Help.Description(
-      "Use this to sequence the initial batch of topology transactions which must include at least the IDM's and sequencer's" +
-        "key mappings. This is called as part of domain.setup.bootstrap"
-    )
-    def bootstrap_topology(
-        topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive]
-    ): Unit =
-      consoleEnvironment.run {
-        adminCommand(BootstrapTopology(topologySnapshot))
-      }
-  }
-}
+import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TopologyMappingX}
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup)
     extends ConsoleCommandGroup.Impl(parent)

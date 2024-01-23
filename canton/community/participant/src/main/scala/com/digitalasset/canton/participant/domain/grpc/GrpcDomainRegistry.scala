@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
+  LedgerServerPartyNotifier,
   ParticipantTopologyDispatcherCommon,
   TopologyComponentFactory,
 }
@@ -67,6 +68,7 @@ class GrpcDomainRegistry(
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     metrics: DomainAlias => SyncDomainMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
+    partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(
@@ -150,6 +152,7 @@ class GrpcDomainRegistry(
         replaySequencerConfig,
         topologyDispatcher,
         packageDependencies,
+        partyNotifier,
         metrics,
         participantSettings,
       )

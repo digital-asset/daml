@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDoub
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.metrics.DomainTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
@@ -25,7 +25,7 @@ import com.digitalasset.canton.protocol.{
   DomainParametersLookup,
   DynamicDomainParametersLookup,
   TestDomainParameters,
-  v1 as protocolV1,
+  v30 as protocolV30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.BytestringWithCryptographicEvidence
@@ -72,7 +72,7 @@ class GrpcSequencerServiceTest
     with BaseTest
     with ProtocolVersionChecksFixtureAsyncWordSpec
     with HasExecutionContext {
-  type Subscription = GrpcManagedSubscription[_]
+  type Subscription = GrpcManagedSubscription[?]
 
   import GrpcSequencerServiceTest.*
 
@@ -94,7 +94,7 @@ class GrpcSequencerServiceTest
     val cryptoApi: DomainSyncCryptoClient =
       TestingIdentityFactory(loggerFactory).forOwnerAndDomain(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
-      mock[SubscriptionPool[GrpcManagedSubscription[_]]]
+      mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
     private val maxRatePerParticipant = NonNegativeInt.tryCreate(5)
     private val maxRequestSize = NonNegativeInt.tryCreate(1000)
@@ -236,11 +236,11 @@ class GrpcSequencerServiceTest
       import env.*
 
       if (!authenticated) {
-        val requestP = v0.SendAsyncUnauthenticatedVersionedRequest(versionedRequest)
+        val requestP = v30.SendAsyncUnauthenticatedVersionedRequest(versionedRequest)
         val response = service.sendAsyncUnauthenticatedVersioned(requestP)
         response.map(SendAsyncResponse.fromSendAsyncResponseProto)
       } else {
-        val requestP = v0.SendAsyncVersionedRequest(versionedSignedRequest)
+        val requestP = v30.SendAsyncVersionedRequest(versionedSignedRequest)
         val response = service.sendAsyncVersioned(requestP)
 
         response.map(SendAsyncResponse.fromSendAsyncSignedResponseProto)
@@ -290,7 +290,8 @@ class GrpcSequencerServiceTest
       }
 
     "reject empty request" in { implicit env =>
-      val requestV1 = protocolV1.SubmissionRequest("", "", false, None, None, None, None)
+      val requestV1 =
+        protocolV30.SubmissionRequest("", "", isRequest = false, None, None, None, None)
       val signedRequestV0 = signedContent(
         VersionedMessage[SubmissionRequest](requestV1.toByteString, 0).toByteString
       )
@@ -323,7 +324,7 @@ class GrpcSequencerServiceTest
     }
 
     "reject envelopes with invalid sender" in { implicit env =>
-      val requestV1 = defaultRequest.toProtoV1.focus(_.sender).modify {
+      val requestV1 = defaultRequest.toProtoV30.focus(_.sender).modify {
         case "" => fail("sender should be set")
         case _sender => "THISWILLFAIL"
       }
@@ -468,7 +469,7 @@ class GrpcSequencerServiceTest
       val newEnv = new Environment(unauthenticatedMember).service
       val responseF =
         newEnv.sendAsyncUnauthenticatedVersioned(
-          v0.SendAsyncUnauthenticatedVersionedRequest(request.toByteString)
+          v30.SendAsyncUnauthenticatedVersionedRequest(request.toByteString)
         )
 
       responseF
@@ -795,10 +796,10 @@ class GrpcSequencerServiceTest
 
   "versionedSubscribe" should {
     "return error if called with observer not capable of observing server calls" in { env =>
-      val observer = new MockStreamObserver[v0.VersionedSubscriptionResponse]()
+      val observer = new MockStreamObserver[v30.VersionedSubscriptionResponse]()
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribeVersioned(
-          v0.SubscriptionRequest(member = "", counter = 0L),
+          v30.SubscriptionRequest(member = "", counter = 0L),
           observer,
         )
       }
@@ -809,8 +810,8 @@ class GrpcSequencerServiceTest
     }
 
     "return error if request cannot be deserialized" in { env =>
-      val observer = new MockServerStreamObserver[v0.VersionedSubscriptionResponse]()
-      env.service.subscribeVersioned(v0.SubscriptionRequest(member = "", counter = 0L), observer)
+      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
+      env.service.subscribeVersioned(v30.SubscriptionRequest(member = "", counter = 0L), observer)
 
       observer.items.toSeq should matchPattern {
         case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == INVALID_ARGUMENT =>
@@ -818,13 +819,13 @@ class GrpcSequencerServiceTest
     }
 
     "return error if pool registration fails" in { env =>
-      val observer = new MockServerStreamObserver[v0.VersionedSubscriptionResponse]()
+      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
       val requestP =
         SubscriptionRequest(
           participant,
           SequencerCounter.Genesis,
           testedProtocolVersion,
-        ).toProtoV0
+        ).toProtoV30
 
       Mockito
         .when(
@@ -844,13 +845,13 @@ class GrpcSequencerServiceTest
     }
 
     "return error if sending request with member that is not authenticated" in { env =>
-      val observer = new MockServerStreamObserver[v0.VersionedSubscriptionResponse]()
+      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
       val requestP =
         SubscriptionRequest(
           ParticipantId("Wrong participant"),
           SequencerCounter.Genesis,
           testedProtocolVersion,
-        ).toProtoV0
+        ).toProtoV30
 
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribeVersioned(requestP, observer)
@@ -862,13 +863,13 @@ class GrpcSequencerServiceTest
     }
 
     "return error if authenticated member sending request unauthenticated endpoint" in { env =>
-      val observer = new MockServerStreamObserver[v0.VersionedSubscriptionResponse]()
+      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
       val requestP =
         SubscriptionRequest(
           participant,
           SequencerCounter.Genesis,
           testedProtocolVersion,
-        ).toProtoV0
+        ).toProtoV30
 
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribeUnauthenticatedVersioned(requestP, observer)
@@ -880,13 +881,13 @@ class GrpcSequencerServiceTest
     }
 
     "return error if unauthenticated member sending request authenticated endpoint" in { env =>
-      val observer = new MockServerStreamObserver[v0.VersionedSubscriptionResponse]()
+      val observer = new MockServerStreamObserver[v30.VersionedSubscriptionResponse]()
       val requestP =
         SubscriptionRequest(
           unauthenticatedMember,
           SequencerCounter.Genesis,
           testedProtocolVersion,
-        ).toProtoV0
+        ).toProtoV30
 
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribeVersioned(requestP, observer)
@@ -901,13 +902,13 @@ class GrpcSequencerServiceTest
   "subscribe" should {
 
     "return protocol version error if protocol version >= v5 is used for subscribe" in { env =>
-      val observer = new MockServerStreamObserver[v0.SubscriptionResponse]()
+      val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
       val requestP =
         SubscriptionRequest(
           participant,
           SequencerCounter.Genesis,
           testedProtocolVersion,
-        ).toProtoV0
+        ).toProtoV30
 
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribe(requestP, observer)
@@ -926,13 +927,13 @@ class GrpcSequencerServiceTest
 
     "return protocol version error if protocol version >= v5 is used for subscribeUnauthenticated" in {
       env =>
-        val observer = new MockServerStreamObserver[v0.SubscriptionResponse]()
+        val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
         val requestP =
           SubscriptionRequest(
             unauthenticatedMember,
             SequencerCounter.Genesis,
             testedProtocolVersion,
-          ).toProtoV0
+          ).toProtoV30
 
         loggerFactory.suppressWarningsAndErrors {
           env.service.subscribeUnauthenticated(requestP, observer)
@@ -953,12 +954,12 @@ class GrpcSequencerServiceTest
   Seq(("acknowledge", false), ("acknowledgeSigned", true)).foreach { case (name, useSignedAck) =>
     def performAcknowledgeRequest(env: Environment)(request: AcknowledgeRequest) =
       if (useSignedAck) {
-        env.service.acknowledgeSigned(signedAcknowledgeReq(request.toProtoV0))
+        env.service.acknowledgeSigned(signedAcknowledgeReq(request.toProtoV30))
       } else
-        env.service.acknowledge(request.toProtoV0)
+        env.service.acknowledge(request.toProtoV30)
 
-    def signedAcknowledgeReq(requestP: v0.AcknowledgeRequest): protocolV1.SignedContent =
-      signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV1
+    def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): protocolV30.SignedContent =
+      signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV30
 
     name should {
       if (useSignedAck) {
@@ -999,9 +1000,9 @@ class GrpcSequencerServiceTest
 
   "downloadTopologyStateForInit" should {
     "stream batches of topology transactions" in { env =>
-      val observer = new MockStreamObserver[v0.TopologyStateForInitResponse]()
+      val observer = new MockStreamObserver[v30.TopologyStateForInitResponse]()
       env.service.downloadTopologyStateForInit(
-        TopologyStateForInitRequest(participant, testedProtocolVersion).toProtoV0,
+        TopologyStateForInitRequest(participant, testedProtocolVersion).toProtoV30,
         observer,
       )
 
@@ -1010,10 +1011,10 @@ class GrpcSequencerServiceTest
         observer.items.lastOption shouldBe Some(StreamComplete)
       }
       val parsed = observer.items.toSeq.map {
-        case StreamNext(response: v0.TopologyStateForInitResponse) =>
+        case StreamNext(response: v30.TopologyStateForInitResponse) =>
           StreamNext(
             TopologyStateForInitResponse
-              .fromProtoV0(response)
+              .fromProtoV30(response)
               .getOrElse(sys.error("error converting response from protobuf"))
           )
         case otherwise => otherwise

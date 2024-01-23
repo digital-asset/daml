@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
-import com.digitalasset.canton.admin.participant.v0.{ExportAcsRequest, ExportAcsResponse}
+import com.digitalasset.canton.admin.participant.v30.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{

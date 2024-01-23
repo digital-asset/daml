@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, v1}
+import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
@@ -49,11 +49,11 @@ final case class CommonMetadata private (
 
   @transient override protected lazy val companionObj: CommonMetadata.type = CommonMetadata
 
-  private def toProtoV1: v1.CommonMetadata = {
-    v1.CommonMetadata(
+  private def toProtoV30: v30.CommonMetadata = {
+    v30.CommonMetadata(
       confirmationPolicy = confirmationPolicy.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
-      salt = Some(salt.toProtoV0),
+      salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       mediator = mediator.toProtoPrimitive,
     )
@@ -68,9 +68,9 @@ object CommonMetadata
   override val name: String = "CommonMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.CommonMetadata)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.CommonMetadata)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -104,7 +104,7 @@ object CommonMetadata
       None,
     )
 
-  private def fromProtoV1(hashOps: HashOps, metaDataP: v1.CommonMetadata)(
+  private def fromProtoV30(hashOps: HashOps, metaDataP: v30.CommonMetadata)(
       bytes: ByteString
   ): ParsingResult[CommonMetadata] =
     for {
@@ -113,14 +113,14 @@ object CommonMetadata
         .leftMap(e =>
           ProtoDeserializationError.ValueDeserializationError("confirmationPolicy", e.show)
         )
-      v1.CommonMetadata(saltP, _confirmationPolicyP, domainIdP, uuidP, mediatorP) = metaDataP
+      v30.CommonMetadata(saltP, _confirmationPolicyP, domainIdP, uuidP, mediatorP) = metaDataP
       domainUid <- UniqueIdentifier
         .fromProtoPrimitive_(domainIdP)
         .leftMap(ProtoDeserializationError.ValueDeserializationError("domainId", _))
       mediator <- MediatorRef
         .fromProtoPrimitive(mediatorP, "CommonMetadata.mediator_id")
       salt <- ProtoConverter
-        .parseRequired(Salt.fromProtoV0, "salt", saltP)
+        .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
     } yield CommonMetadata(confirmationPolicy, DomainId(domainUid), mediator, salt, uuid)(

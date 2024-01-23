@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveNumeric}
 
 /** Encapsulated resource limits for a participant.
@@ -22,8 +22,8 @@ final case class ResourceLimits(
     maxBurstFactor: PositiveDouble = ResourceLimits.defaultMaxBurstFactor,
 ) {
 
-  def toProtoV0: v0.ResourceLimits =
-    v0.ResourceLimits(
+  def toProtoV30: v30.ResourceLimits =
+    v30.ResourceLimits(
       maxDirtyRequests = maxDirtyRequests.fold(-1)(_.unwrap),
       maxRate = maxRate.fold(-1)(_.unwrap),
       maxBurstFactor = maxBurstFactor.value,
@@ -31,8 +31,8 @@ final case class ResourceLimits(
 }
 
 object ResourceLimits {
-  def fromProtoV0(resourceLimitsP: v0.ResourceLimits): ResourceLimits = {
-    val v0.ResourceLimits(maxDirtyRequestsP, maxRateP, maxBurstFactorP) = resourceLimitsP
+  def fromProtoV30(resourceLimitsP: v30.ResourceLimits): ResourceLimits = {
+    val v30.ResourceLimits(maxDirtyRequestsP, maxRateP, maxBurstFactorP) = resourceLimitsP
 
     val maxDirtyRequests =
       if (maxDirtyRequestsP >= 0) Some(NonNegativeInt.tryCreate(maxDirtyRequestsP)) else None

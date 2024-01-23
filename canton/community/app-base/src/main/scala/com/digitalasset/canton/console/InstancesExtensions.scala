@@ -67,10 +67,3 @@ object LocalInstancesExtensions {
   class Impl[LocalInstanceRef <: LocalInstanceReferenceCommon](val instances: Seq[LocalInstanceRef])
       extends LocalInstancesExtensions[LocalInstanceRef] {}
 }
-
-class LocalDomainReferencesExtensions(domains: Seq[LocalDomainReference])
-    extends LocalInstancesExtensions[LocalDomainReference] {
-
-  override def instances: Seq[LocalDomainReference] = domains
-
-}

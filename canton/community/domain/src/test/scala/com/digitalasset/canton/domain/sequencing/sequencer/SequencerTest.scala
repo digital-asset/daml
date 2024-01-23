@@ -20,7 +20,7 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   UnsignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.v4
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
@@ -147,8 +147,8 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
 
     override protected val companionObj: AnyRef = TestProtocolMessage
 
-    override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-      v4.EnvelopeContent.SomeEnvelopeContent.Empty
+    override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+      v30.EnvelopeContent.SomeEnvelopeContent.Empty
 
     override def productElement(n: Int): Any = fail("shouldn't be used")
     override def productArity: Int = fail("shouldn't be used")

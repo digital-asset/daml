@@ -8,7 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.SequencerClientMetrics
@@ -77,15 +77,15 @@ class GrpcSequencerClientTransportPekko(
       requiresAuthentication: Boolean,
   )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[SubscriptionError] = {
 
-    val subscriptionRequestP = subscriptionRequest.toProtoV0
+    val subscriptionRequestP = subscriptionRequest.toProtoV30
 
     def mkSubscription[Resp: HasProtoTraceContext](
-        subscriber: (v0.SubscriptionRequest, StreamObserver[Resp]) => Unit
+        subscriber: (v30.SubscriptionRequest, StreamObserver[Resp]) => Unit
     )(
         parseResponse: (Resp, TraceContext) => ParsingResult[SubscriptionResponse]
     ): SequencerSubscriptionPekko[SubscriptionError] = {
       val source = ClientAdapter
-        .serverStreaming[v0.SubscriptionRequest, Resp](
+        .serverStreaming[v30.SubscriptionRequest, Resp](
           subscriptionRequestP,
           stubWithFreshContext(subscriber),
         )
@@ -137,7 +137,7 @@ class GrpcSequencerClientTransportPekko(
       if (requiresAuthentication) sequencerServiceClient.subscribeVersioned _
       else sequencerServiceClient.subscribeUnauthenticatedVersioned _
 
-    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(_)(_))
+    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(_)(_))
   }
 
   private def stubWithFreshContext[Req, Resp](
@@ -160,7 +160,7 @@ class GrpcSequencerClientTransportPekko(
     // we take the unusual step of immediately trying to deserialize the trace-context
     // so it is available here for logging
     implicit val traceContext: TraceContext = SerializableTraceContext
-      .fromProtoSafeV0Opt(noTracingLogger)(
+      .fromProtoSafeV30Opt(noTracingLogger)(
         implicitly[HasProtoTraceContext[R]].traceContext(subscriptionResponseP)
       )
       .unwrap

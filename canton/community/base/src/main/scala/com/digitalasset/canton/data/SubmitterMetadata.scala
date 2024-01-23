@@ -11,7 +11,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
@@ -58,14 +58,14 @@ final case class SubmitterMetadata private (
 
   @transient override protected lazy val companionObj: SubmitterMetadata.type = SubmitterMetadata
 
-  protected def toProtoV1: v1.SubmitterMetadata = v1.SubmitterMetadata(
+  protected def toProtoV30: v30.SubmitterMetadata = v30.SubmitterMetadata(
     actAs = actAs.toSeq,
     applicationId = applicationId.toProtoPrimitive,
     commandId = commandId.toProtoPrimitive,
     submitterParticipant = submitterParticipant.toProtoPrimitive,
-    salt = Some(salt.toProtoV0),
+    salt = Some(salt.toProtoV30),
     submissionId = submissionId.getOrElse(""),
-    dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV0),
+    dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV30),
     maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
   )
 }
@@ -78,9 +78,9 @@ object SubmitterMetadata
   override val name: String = "SubmitterMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.SubmitterMetadata)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubmitterMetadata)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -134,10 +134,10 @@ object SubmitterMetadata
     }
   }
 
-  private def fromProtoV1(hashOps: HashOps, metaDataP: v1.SubmitterMetadata)(
+  private def fromProtoV30(hashOps: HashOps, metaDataP: v30.SubmitterMetadata)(
       bytes: ByteString
   ): ParsingResult[SubmitterMetadata] = {
-    val v1.SubmitterMetadata(
+    val v30.SubmitterMetadata(
       saltOP,
       actAsP,
       applicationIdP,
@@ -163,7 +163,7 @@ object SubmitterMetadata
         .fromProtoPrimitive(commandIdP)
         .leftMap(ProtoDeserializationError.ValueConversionError("commandId", _))
       salt <- ProtoConverter
-        .parseRequired(Salt.fromProtoV0, "salt", saltOP)
+        .parseRequired(Salt.fromProtoV30, "salt", saltOP)
         .leftMap(e => ProtoDeserializationError.ValueConversionError("salt", e.message))
       submissionIdO <- Option
         .when(submissionIdP.nonEmpty)(submissionIdP)
@@ -174,7 +174,7 @@ object SubmitterMetadata
         )
       dedupPeriod <- ProtoConverter
         .parseRequired(
-          SerializableDeduplicationPeriod.fromProtoV0,
+          SerializableDeduplicationPeriod.fromProtoV30,
           "SubmitterMetadata.deduplication_period",
           dedupPeriodOP,
         )

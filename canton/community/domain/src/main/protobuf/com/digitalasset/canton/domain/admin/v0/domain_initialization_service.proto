@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/admin/domain/v0/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
 import "google/protobuf/empty.proto";
 
 service DomainManagerInitializationService {
@@ -17,7 +17,7 @@ service DomainManagerInitializationService {
 
 message DomainNodeSequencerConfig {
   // connection information to sequencer
-  com.digitalasset.canton.admin.domain.v0.SequencerConnection sequencerConnection = 1;
+  com.digitalasset.canton.admin.domain.v30.SequencerConnection sequencerConnection = 1;
 }
 
 message DomainInitRequest {

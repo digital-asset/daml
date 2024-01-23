@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.commands.Commands
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.ErrorCodeUtils
-import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClientV1
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -19,7 +19,7 @@ import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.protobuf.StatusProto
 
-import scala.concurrent.duration.{Duration, FiniteDuration, *}
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 
@@ -28,7 +28,7 @@ import scala.util.Failure
   */
 class CommandSubmitterWithRetry(
     maxRetries: Int,
-    synchronousCommandClient: SynchronousCommandClient,
+    synchronousCommandClient: SynchronousCommandClientV1,
     futureSupervisor: FutureSupervisor,
     protected override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,

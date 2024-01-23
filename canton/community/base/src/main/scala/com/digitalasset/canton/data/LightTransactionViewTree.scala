@@ -9,7 +9,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.EitherUtil
@@ -26,7 +26,6 @@ import scala.collection.mutable
   * @throws LightTransactionViewTree$.InvalidLightTransactionViewTree if [[tree]] is not a light transaction view tree
   *                                    (i.e. the wrong set of nodes is blinded)
   */
-
 sealed abstract case class LightTransactionViewTree private[data] (
     tree: GenTransactionTree,
     override val subviewHashes: Seq[ViewHash],
@@ -72,9 +71,9 @@ sealed abstract case class LightTransactionViewTree private[data] (
 
   override protected def companionObj = LightTransactionViewTree
 
-  def toProtoV1: v1.LightTransactionViewTree =
-    v1.LightTransactionViewTree(
-      tree = Some(tree.toProtoV1),
+  def toProtoV30: v30.LightTransactionViewTree =
+    v30.LightTransactionViewTree(
+      tree = Some(tree.toProtoV30),
       subviewHashes = subviewHashes.map(_.toProtoPrimitive),
     )
 
@@ -91,8 +90,8 @@ object LightTransactionViewTree
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v1.LightTransactionViewTree)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(v30.LightTransactionViewTree)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -113,13 +112,13 @@ object LightTransactionViewTree
   ): Either[String, LightTransactionViewTree] =
     new LightTransactionViewTree(tree, subviewHashes) {}.validated
 
-  private def fromProtoV1(
+  private def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoT: v1.LightTransactionViewTree,
+      protoT: v30.LightTransactionViewTree,
   ): ParsingResult[LightTransactionViewTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoT.tree)
-      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      tree <- GenTransactionTree.fromProtoV30(context, protoTree)
       subviewHashes <- protoT.subviewHashes.traverse(ViewHash.fromProtoPrimitive)
       result <- LightTransactionViewTree
         .create(tree, subviewHashes)

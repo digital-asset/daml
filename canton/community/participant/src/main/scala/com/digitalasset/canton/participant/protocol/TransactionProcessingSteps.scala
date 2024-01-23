@@ -381,9 +381,11 @@ class TransactionProcessingSteps(
                 causeWithTemplate("Confirmation request creation failed", creationError)
             }
         )
+        _ = logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
+        batch <- EitherT.right[TransactionSubmissionTrackingData.RejectionCause](
+          request.asBatch(recentSnapshot.ipsSnapshot)
+        )
       } yield {
-        logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
-        val batch = request.asBatch
         val batchSize = batch.toProtoVersioned.serializedSize
         metrics.protocolMessages.confirmationRequestSize.update(batchSize)(MetricsContext.Empty)
 

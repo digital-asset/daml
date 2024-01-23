@@ -28,18 +28,18 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
 }
-import com.digitalasset.canton.admin.participant.v0
-import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc
-import com.digitalasset.canton.admin.participant.v0.PruningServiceGrpc.PruningServiceStub
+import com.digitalasset.canton.admin.participant.v30
+import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
+import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
   CommandFailure,
+  ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
-  DomainReference,
   FeatureFlag,
   FeatureFlagFilter,
   Help,
@@ -110,7 +110,7 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
-    ) =
+    ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
           .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
@@ -823,7 +823,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       |  filterName: filter by name (source description)
       |  limit: Limit number of results (default none)
       """)
-    def list(limit: PositiveInt = defaultLimit, filterName: String = ""): Seq[v0.DarDescription] =
+    def list(limit: PositiveInt = defaultLimit, filterName: String = ""): Seq[v30.DarDescription] =
       consoleEnvironment
         .run {
           adminCommand(ParticipantAdminCommands.Package.ListDars(limit))
@@ -921,13 +921,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""Supported arguments:
         limit - Limit on the number of packages returned (defaults to canton.parameters.console.default-limit)
         """)
-    def list(limit: PositiveInt = defaultLimit): Seq[v0.PackageDescription] =
+    def list(limit: PositiveInt = defaultLimit): Seq[v30.PackageDescription] =
       consoleEnvironment.run {
         adminCommand(ParticipantAdminCommands.Package.List(limit))
       }
 
     @Help.Summary("List package contents")
-    def list_contents(packageId: String): Seq[v0.ModuleDescription] = consoleEnvironment.run {
+    def list_contents(packageId: String): Seq[v30.ModuleDescription] = consoleEnvironment.run {
       adminCommand(ParticipantAdminCommands.Package.ListContents(packageId))
     }
 
@@ -935,7 +935,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def find(
         moduleName: String,
         limitPackages: PositiveInt = defaultLimit,
-    ): Seq[v0.PackageDescription] = consoleEnvironment.runE {
+    ): Seq[v30.PackageDescription] = consoleEnvironment.runE {
       val packageC = adminCommand(ParticipantAdminCommands.Package.List(limitPackages)).toEither
       val matchingC = packageC
         .flatMap { packages =>
@@ -972,7 +972,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |that commands are only submitted once the package vetting has been observed by some other connected participant
         |known to the console. This command can be used in such cases.""")
     def synchronize_vetting(
-        timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
+        timeout: config.NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
 
       // ensure that the ledger api server has seen all packages
@@ -1023,45 +1023,16 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     )
     def active(domainAlias: DomainAlias): Boolean = {
       list_connected().exists(r => {
-        val domainReferenceO = consoleEnvironment.nodes.all
-          .collectFirst {
-            case d: DomainAdministration
-                if d.health.status.successOption.exists(_.uid == r.domainId.unwrap) =>
-              d
-          }
-
+        // TODO(#14053): Filter out participants that are not permissioned on the domain. The TODO is because the daml 2.x
+        //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermissionX?
         r.domainAlias == domainAlias &&
         r.healthy &&
-        participantIsActiveOnDomain(r.domainId, id) &&
-        domainReferenceO.forall(_.participants.active(id))
+        participantIsActiveOnDomain(r.domainId, id)
       })
     }
 
     @Help.Summary(
-      "Test whether a participant is connected to and permissioned on a domain reference, both from the perspective of the participant and the domain."
-    )
-    @Help.Description(
-      "Yields false, if the domain has not been initialized, is not connected or is not healthy."
-    )
-    def active(reference: DomainAdministration): Boolean = {
-      val domainUidO = reference.health.status.successOption.map(_.uid)
-      list_connected()
-        .exists(r =>
-          domainUidO.contains(r.domainId.unwrap) &&
-            r.healthy &&
-            participantIsActiveOnDomain(r.domainId, id) &&
-            reference.participants.active(id)
-        )
-    }
-
-    @Help.Summary(
-      "Test whether a participant is connected to a domain reference"
-    )
-    def is_connected(reference: DomainAdministration): Boolean =
-      list_connected().exists(_.domainId == reference.id)
-
-    @Help.Summary(
-      "Test whether a participant is connected to a domain reference"
+      "Test whether a participant is connected to a domain"
     )
     def is_connected(domainId: DomainId): Boolean =
       list_connected().exists(_.domainId == domainId)
@@ -1359,9 +1330,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("Disconnect this participant from the given local domain")
-    def disconnect_local(domain: DomainReference): Unit = disconnect_local(domain.name)
-
-    @Help.Summary("Disconnect this participant from the given local domain")
     def disconnect_local(domain: DomainAlias): Unit = consoleEnvironment.run {
       adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domain))
     }
@@ -1643,18 +1611,6 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
     ping_internal(participantId, timeout, workflowId, id)
   }
 }
-
-class ParticipantHealthAdministration(
-    val runner: AdminCommandRunner,
-    val consoleEnvironment: ConsoleEnvironment,
-    override val loggerFactory: NamedLoggerFactory,
-) extends HealthAdministration(
-      runner,
-      consoleEnvironment,
-      ParticipantStatus.fromProtoV0,
-    )
-    with FeatureFlagFilter
-    with ParticipantHealthAdministrationCommon
 
 class ParticipantHealthAdministrationX(
     val runner: AdminCommandRunner,

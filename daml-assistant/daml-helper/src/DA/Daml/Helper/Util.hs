@@ -354,7 +354,7 @@ cantonConfig CantonOptions{..} =
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | StaticTime True <- [cantonStaticTime] ]
                 ] )
-            , "participants-x" Aeson..= Aeson.object
+            , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
                     (
                      [ storage
@@ -379,7 +379,7 @@ cantonConfig CantonOptions{..} =
                      ]
                     )
                 ]
-            , "sequencers-x" Aeson..= Aeson.object
+            , "sequencers" Aeson..= Aeson.object
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
@@ -390,7 +390,7 @@ cantonConfig CantonOptions{..} =
                     , "admin-api" Aeson..= port cantonSequencerAdminApi
                     ]
                 ]
-            , "mediators-x" Aeson..= Aeson.object
+            , "mediators" Aeson..= Aeson.object
                 [ "mediator1" Aeson..= Aeson.object
                      [ "admin-api" Aeson..= port cantonMediatorAdminApi
                      ]
@@ -441,7 +441,7 @@ cantonReplConfig CantonReplOptions{..} =
                     (api "ledger-api" crpLedgerApi <> api "admin-api" crpAdminApi)
                 | CantonReplParticipant {..} <- croParticipants
                 ]
-            , "remote-domains" Aeson..= Aeson.object
+            , "remote-sequencers" Aeson..= Aeson.object
                 [ Aeson.Key.fromString crdName Aeson..= Aeson.object
                     (api "public-api" crdPublicApi <> api "admin-api" crdAdminApi)
                 | CantonReplDomain {..} <- croDomains

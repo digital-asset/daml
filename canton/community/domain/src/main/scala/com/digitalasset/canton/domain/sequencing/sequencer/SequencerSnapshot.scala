@@ -39,7 +39,7 @@ final case class SequencerSnapshot(
       val (aggregationId, InFlightAggregation(aggregatedSenders, maxSequencingTime, rule)) = args
       v1.SequencerSnapshot.InFlightAggregationWithId(
         aggregationId.toProtoPrimitive,
-        Some(rule.toProtoV0),
+        Some(rule.toProtoV30),
         Some(maxSequencingTime.toProtoPrimitive),
         aggregatedSenders.toSeq.map {
           case (sender, AggregationBySender(sequencingTimestamp, signatures)) =>
@@ -47,7 +47,7 @@ final case class SequencerSnapshot(
               sender.toProtoPrimitive,
               Some(sequencingTimestamp.toProtoPrimitive),
               signatures.map(sigsOnEnv =>
-                v1.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv.map(_.toProtoV0))
+                v1.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv.map(_.toProtoV30))
               ),
             )
         },
@@ -121,7 +121,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       for {
         aggregationId <- AggregationId.fromProtoPrimitive(aggregationIdP)
         aggregationRule <- ProtoConverter.parseRequired(
-          AggregationRule.fromProtoV0,
+          AggregationRule.fromProtoV30,
           "v1.SequencerSnapshot.InFlightAggregationWithId.aggregation_rule",
           aggregationRuleP,
         )
@@ -149,7 +149,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
                 )
                 signatures <- signaturesByEnvelopeP.traverse {
                   case v1.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv) =>
-                    sigsOnEnv.traverse(Signature.fromProtoV0)
+                    sigsOnEnv.traverse(Signature.fromProtoV30)
                 }
               } yield sender -> AggregationBySender(sequencingTimestamp, signatures)
           }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.domain.v0
+import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -29,7 +29,7 @@ import java.util.concurrent.Executor
 sealed trait SequencerConnection extends PrettyPrinting {
   def withAlias(alias: SequencerAlias): SequencerConnection
 
-  def toProtoV0: v0.SequencerConnection
+  def toProtoV30: v30.SequencerConnection
 
   def addEndpoints(
       connection: String,
@@ -70,10 +70,10 @@ final case class GrpcSequencerConnection(
     clientChannelBuilder
       .create(endpoints, transportSecurity, executor, customTrustCertificates, tracePropagation)
 
-  override def toProtoV0: v0.SequencerConnection =
-    v0.SequencerConnection(
-      v0.SequencerConnection.Type.Grpc(
-        v0.SequencerConnection.Grpc(
+  override def toProtoV30: v30.SequencerConnection =
+    v30.SequencerConnection(
+      v30.SequencerConnection.Type.Grpc(
+        v30.SequencerConnection.Grpc(
           endpoints.map(_.toURI(transportSecurity).toString).toList,
           transportSecurity,
           customTrustCertificates,
@@ -138,15 +138,15 @@ object GrpcSequencerConnection {
 
 object SequencerConnection {
   def fromProtoV0(
-      configP: v0.SequencerConnection
+      configP: v30.SequencerConnection
   ): ParsingResult[SequencerConnection] =
     configP.`type` match {
-      case v0.SequencerConnection.Type.Empty => Left(ProtoDeserializationError.FieldNotSet("type"))
-      case v0.SequencerConnection.Type.Grpc(grpc) => fromGrpcProto(grpc, configP.alias)
+      case v30.SequencerConnection.Type.Empty => Left(ProtoDeserializationError.FieldNotSet("type"))
+      case v30.SequencerConnection.Type.Grpc(grpc) => fromGrpcProto(grpc, configP.alias)
     }
 
   private def fromGrpcProto(
-      grpcP: v0.SequencerConnection.Grpc,
+      grpcP: v30.SequencerConnection.Grpc,
       alias: String,
   ): ParsingResult[SequencerConnection] =
     for {

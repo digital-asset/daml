@@ -12,7 +12,7 @@ import com.digitalasset.canton.domain.admin.v0.{
   SequencerAdministrationServiceGrpc,
   SequencerVersionServiceGrpc,
 }
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.{
@@ -270,7 +270,7 @@ class SequencerRuntime(
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
     {
       ServerInterceptors.intercept(
-        v0.SequencerConnectServiceGrpc.bindService(
+        v30.SequencerConnectServiceGrpc.bindService(
           new GrpcSequencerConnectService(
             domainId,
             sequencerId,
@@ -290,7 +290,7 @@ class SequencerRuntime(
         ec,
       )
     }, {
-      v0.SequencerAuthenticationServiceGrpc
+      v30.SequencerAuthenticationServiceGrpc
         .bindService(authenticationServices.sequencerAuthenticationService, ec)
     }, {
       import scala.jdk.CollectionConverters.*
@@ -299,7 +299,7 @@ class SequencerRuntime(
       val interceptors = List(authenticationServices.authenticationInterceptor).asJava
 
       ServerInterceptors.intercept(
-        v0.SequencerServiceGrpc.bindService(sequencerService, ec),
+        v30.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
       )
     },

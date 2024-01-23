@@ -61,14 +61,6 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReferenceComm
         .runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
         .discard
 
-    @Help.Summary("Disconnect from a local domain")
-    def disconnect_local(domain: LocalDomainReference): Unit =
-      ConsoleCommandResult
-        .runAll(participants)(
-          ParticipantCommands.domains.disconnect(_, DomainAlias.tryCreate(domain.name))
-        )
-        .discard
-
     @Help.Summary("Reconnect to domain")
     @Help.Description(
       "If retry is set to true (default), the command will return after the first attempt, but keep on trying in the background."

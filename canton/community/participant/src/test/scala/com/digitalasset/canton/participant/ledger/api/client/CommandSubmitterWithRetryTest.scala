@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.commands.Commands
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClientV1
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.protobuf.StatusProto
@@ -46,9 +46,9 @@ class CommandSubmitterWithRetryTest
         expectedCommands: Commands,
         result: Future[Either[Status, String]],
     )(
-        test: (CommandSubmitterWithRetry, SynchronousCommandClient) => Future[Assertion]
+        test: (CommandSubmitterWithRetry, SynchronousCommandClientV1) => Future[Assertion]
     ): Future[Assertion] = {
-      val synchronousCommandClient = mock[SynchronousCommandClient]
+      val synchronousCommandClient = mock[SynchronousCommandClientV1]
       val request = SubmitAndWaitRequest(Some(expectedCommands))
       when(synchronousCommandClient.submitAndWaitForTransactionId(request, None, Some(timeout)))
         .thenReturn(

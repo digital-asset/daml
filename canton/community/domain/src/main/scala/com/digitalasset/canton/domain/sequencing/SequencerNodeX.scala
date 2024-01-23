@@ -616,6 +616,7 @@ class SequencerNodeBootstrapX(
   }
 }
 
+// TODO(#15161): Rename SequencerNodeX to SequencerNode, also remove X from SequencerNodeBootstrapX above
 class SequencerNodeX(
     config: SequencerNodeConfigCommon,
     metrics: SequencerMetrics,

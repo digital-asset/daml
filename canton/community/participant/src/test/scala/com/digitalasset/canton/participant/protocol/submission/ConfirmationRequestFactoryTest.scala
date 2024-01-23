@@ -29,7 +29,6 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipient}
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
@@ -106,12 +105,6 @@ class ConfirmationRequestFactoryTest
     cryptoSnapshot
   }
 
-  private val privateCryptoApi: DomainSnapshotSyncCryptoApi =
-    TestingTopology()
-      .withSimpleParticipants(submitterParticipant)
-      .build()
-      .forOwnerAndDomain(submitterParticipant, domain)
-      .currentSnapshotApproximation
   private val randomOps: RandomOps = new SymbolicPureCrypto()
 
   private val transactionUuid: UUID = new UUID(10L, 20L)
@@ -341,7 +334,7 @@ class ConfirmationRequestFactoryTest
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
               testedProtocolVersion,
-            )(Some(RecipientsInfo(participants, Set.empty, Set.empty)))
+            )
           }
 
         }

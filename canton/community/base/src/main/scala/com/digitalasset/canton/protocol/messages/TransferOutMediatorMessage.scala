@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{Informee, TransferOutViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -83,11 +83,11 @@ final case class TransferOutMediatorMessage(
     )
   }
 
-  def toProtoV1: v1.TransferOutMediatorMessage =
-    v1.TransferOutMediatorMessage(tree = Some(tree.toProtoV1))
+  def toProtoV30: v30.TransferOutMediatorMessage =
+    v30.TransferOutMediatorMessage(tree = Some(tree.toProtoV30))
 
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV1)
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV30)
 
   override def rootHash: Option[RootHash] = Some(tree.rootHash)
 
@@ -107,20 +107,20 @@ object TransferOutMediatorMessage
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v1.TransferOutMediatorMessage
+      v30.TransferOutMediatorMessage
     )(
-      supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
+      _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV1(context: (HashOps, ProtocolVersion))(
-      transferOutMediatorMessageP: v1.TransferOutMediatorMessage
+  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+      transferOutMediatorMessageP: v30.TransferOutMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] =
     for {
       tree <- ProtoConverter
         .required("TransferOutMediatorMessage.tree", transferOutMediatorMessageP.tree)
-        .flatMap(TransferOutViewTree.fromProtoV1(context))
+        .flatMap(TransferOutViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-out common data is blinded in request ${tree.rootHash}"),

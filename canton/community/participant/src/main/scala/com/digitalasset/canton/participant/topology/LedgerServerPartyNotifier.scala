@@ -147,10 +147,7 @@ class LedgerServerPartyNotifier(
           sequencerCounter: SequencerCounter,
           transactions: Seq[GenericSignedTopologyTransactionX],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-        transactions.parTraverse_(
-          extractTopologyProcessorXData(_)
-            .parTraverse_(observedF(sequencerTimestamp, effectiveTimestamp, _))
-        )
+        observeTopologyTransactions(sequencerTimestamp, effectiveTimestamp, transactions)
       }
     }
 
@@ -160,11 +157,23 @@ class LedgerServerPartyNotifier(
           timestamp: CantonTimestamp,
           transactions: Seq[GenericSignedTopologyTransactionX],
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        transactions.parTraverse_ { tx =>
-          extractTopologyProcessorXData(tx)
-            .parTraverse_(observedF(SequencedTime(timestamp), EffectiveTime(timestamp), _))
-        }
+        observeTopologyTransactions(
+          SequencedTime(timestamp),
+          EffectiveTime(timestamp),
+          transactions,
+        )
     }
+
+  def observeTopologyTransactions(
+      sequencedTime: SequencedTime,
+      effectiveTime: EffectiveTime,
+      transactions: Seq[GenericSignedTopologyTransactionX],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    transactions.parTraverse_(
+      extractTopologyProcessorXData(_)
+        .parTraverse_(observedF(sequencedTime, effectiveTime, _))
+    )
+  }
 
   private def extractTopologyProcessorXData(
       transaction: GenericSignedTopologyTransactionX
@@ -318,9 +327,11 @@ class LedgerServerPartyNotifier(
       .toOption match {
       case Some(timeBeforeScheduling) =>
         lazy val latestMetadata = checkForConcurrentUpdate(metadata)
-        clock.scheduleAfter(notifyLedgerServer(latestMetadata), timeBeforeScheduling).discard
+        clock
+          .scheduleAfter(notifyLedgerServer(metadata.partyId, latestMetadata), timeBeforeScheduling)
+          .discard
       case None =>
-        notifyLedgerServer(Future.successful(metadata))(clock.now)
+        notifyLedgerServer(metadata.partyId, Future.successful(metadata))(clock.now)
     }
   }
 
@@ -361,7 +372,8 @@ class LedgerServerPartyNotifier(
     }
 
   private def notifyLedgerServer(
-      fetchMetadata: => Future[PartyMetadata]
+      partyId: PartyId,
+      fetchMetadata: => Future[PartyMetadata],
   )(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit =
     FutureUtil.doNotAwait(
       sequentialQueue
@@ -371,12 +383,12 @@ class LedgerServerPartyNotifier(
             _ <- sendNotification(metadata)
             _ <- FutureUnlessShutdown.outcomeF(store.markNotified(metadata))
           } yield {
-            logger.debug(s"Notification scheduled at $timestamp sent and marked")
+            logger.debug(s"Notification for $partyId scheduled at $timestamp sent and marked")
           },
-          "Notifying the ledger server about the metadata update",
+          s"Notifying the ledger server about the metadata update of $partyId",
         )
         .unwrap,
-      "Error while sending the metadata update notification to the ledger server",
+      s"Error while sending the metadata update notification for $partyId to the ledger server",
     )
 
   private def observedF(

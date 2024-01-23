@@ -13,8 +13,8 @@ class SaltTest extends AnyWordSpec with BaseTest {
 
     "serializing and deserializing via protobuf" in {
       val salt = TestSalt.generateSalt(0)
-      val saltP = salt.toProtoV0
-      Salt.fromProtoV0(saltP).value shouldBe salt
+      val saltP = salt.toProtoV30
+      Salt.fromProtoV30(saltP).value shouldBe salt
     }
 
     "generate a fresh salt seeds" in {

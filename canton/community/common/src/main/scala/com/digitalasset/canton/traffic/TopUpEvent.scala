@@ -4,7 +4,7 @@
 package com.digitalasset.canton.traffic
 
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.admin.traffic.v0.MemberTrafficStatus.TopUpEvent as TopUpEventP
+import com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus.TopUpEvent as TopUpEventP
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter

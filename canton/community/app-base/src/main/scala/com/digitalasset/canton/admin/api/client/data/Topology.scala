@@ -71,8 +71,8 @@ object ListKeyOwnersResult {
     for {
       domain <- DomainId.fromProtoPrimitive(value.domain, "domain")
       owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
-      signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV0)
-      encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV0)
+      signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV30)
+      encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV30)
     } yield ListKeyOwnersResult(domain, owner, signingKeys, encryptionKeys)
 }
 
@@ -91,7 +91,7 @@ object BaseResult {
       protoValidFrom <- ProtoConverter.required("valid_from", value.validFrom)
       validFrom <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoValidFrom)
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
-      operation <- TopologyChangeOp.fromProtoV0(value.operation)
+      operation <- TopologyChangeOp.fromProtoV30(value.operation)
       signedBy <- Fingerprint.fromProtoPrimitive(value.signedByFingerprint)
       store <-
         if (value.store == AuthorizedStore.dbString.unwrap)
@@ -111,7 +111,7 @@ object ListPartyToParticipantResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyToParticipant.fromProtoV0(itemProto)
+      item <- PartyToParticipant.fromProtoV30(itemProto)
     } yield ListPartyToParticipantResult(context, item)
 }
 
@@ -129,7 +129,7 @@ object ListOwnerToKeyMappingResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- OwnerToKeyMapping.fromProtoV0(itemProto)
+      item <- OwnerToKeyMapping.fromProtoV30(itemProto)
       key <- Fingerprint.fromProtoPrimitive(value.keyFingerprint)
     } yield ListOwnerToKeyMappingResult(context, item, key)
 }
@@ -148,7 +148,7 @@ object ListNamespaceDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- NamespaceDelegation.fromProtoV0(itemProto)
+      item <- NamespaceDelegation.fromProtoV30(itemProto)
       targetKey <- Fingerprint.fromProtoPrimitive(value.targetKeyFingerprint)
     } yield ListNamespaceDelegationResult(context, item, targetKey)
 }
@@ -167,7 +167,7 @@ object ListIdentifierDelegationResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- IdentifierDelegation.fromProtoV0(itemProto)
+      item <- IdentifierDelegation.fromProtoV30(itemProto)
       targetKey <- Fingerprint.fromProtoPrimitive(value.targetKeyFingerprint)
     } yield ListIdentifierDelegationResult(context, item, targetKey)
 }
@@ -182,7 +182,7 @@ object ListSignedLegalIdentityClaimResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SignedLegalIdentityClaim.fromProtoV0(
+      item <- SignedLegalIdentityClaim.fromProtoV30(
         ProtocolVersionValidation.NoValidation,
         itemProto,
       )
@@ -203,7 +203,7 @@ object ListParticipantDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- ParticipantState.fromProtoV0(itemProto)
+      item <- ParticipantState.fromProtoV30(itemProto)
     } yield ListParticipantDomainStateResult(context, item)
 
 }
@@ -218,7 +218,7 @@ object ListMediatorDomainStateResult {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- MediatorDomainState.fromProtoV0(itemProto)
+      item <- MediatorDomainState.fromProtoV30(itemProto)
     } yield ListMediatorDomainStateResult(context, item)
 
 }
@@ -234,7 +234,7 @@ object ListVettedPackagesResult {
       contextProto <- ProtoConverter.required("context", contextPO)
       context <- BaseResult.fromProtoV0(contextProto)
       itemProto <- ProtoConverter.required("item", itemPO)
-      item <- VettedPackages.fromProtoV0(itemProto)
+      item <- VettedPackages.fromProtoV30(itemProto)
     } yield ListVettedPackagesResult(context, item)
   }
 }

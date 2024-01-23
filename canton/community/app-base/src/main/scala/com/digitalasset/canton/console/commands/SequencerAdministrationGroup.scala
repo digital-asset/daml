@@ -18,8 +18,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.SequencerPruningAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerClients,
   SequencerPruningStatus,

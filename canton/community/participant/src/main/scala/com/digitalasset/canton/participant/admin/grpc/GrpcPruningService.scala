@@ -8,8 +8,8 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
-import com.digitalasset.canton.admin.participant.v0.*
-import com.digitalasset.canton.admin.pruning.v0
+import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
@@ -111,31 +111,31 @@ class GrpcPruningService(
   }
 
   override def setParticipantSchedule(
-      request: v0.SetParticipantSchedule.Request
-  ): Future[v0.SetParticipantSchedule.Response] = {
+      request: v30.SetParticipantSchedule.Request
+  ): Future[v30.SetParticipantSchedule.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
       participantSchedule <- convertRequiredF(
         "participant_schedule",
         request.schedule,
-        ParticipantPruningSchedule.fromProtoV0,
+        ParticipantPruningSchedule.fromProtoV30,
       )
       _ <- handlePassiveHAStorageError(
         scheduler.setParticipantSchedule(participantSchedule),
         "set_participant_schedule",
       )
-    } yield v0.SetParticipantSchedule.Response()
+    } yield v30.SetParticipantSchedule.Response()
   }
 
   override def getParticipantSchedule(
-      request: v0.GetParticipantSchedule.Request
-  ): Future[v0.GetParticipantSchedule.Response] = {
+      request: v30.GetParticipantSchedule.Request
+  ): Future[v30.GetParticipantSchedule.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
       schedule <- scheduler.getParticipantSchedule()
-    } yield v0.GetParticipantSchedule.Response(schedule.map(_.toProtoV0))
+    } yield v30.GetParticipantSchedule.Response(schedule.map(_.toProtoV30))
   }
 
   private def toProtoResponse(safeOffsetO: Option[GlobalOffset]): GetSafePruningOffsetResponse = {

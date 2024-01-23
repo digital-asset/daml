@@ -3,28 +3,26 @@
 
 package com.digitalasset.canton.ledger.client.services.testing.time
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.{TimeService, TimeServiceStub}
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.{TimeService, TimeServiceStub}
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.*
 import com.digitalasset.canton.ledger.api.util.{TimeProvider, TimestampConversion}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
+import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source}
 import org.apache.pekko.stream.{ClosedShape, KillSwitches, Materializer, UniqueKillSwitch}
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class StaticTime(
     timeService: TimeService,
     clock: AtomicReference[Instant],
     killSwitch: UniqueKillSwitch,
-    ledgerId: String,
 ) extends TimeProvider
     with AutoCloseable {
 
@@ -32,7 +30,6 @@ class StaticTime(
 
   def timeRequest(instant: Instant): SetTimeRequest =
     SetTimeRequest(
-      ledgerId,
       Some(TimestampConversion.fromInstant(getCurrentTime)),
       Some(TimestampConversion.fromInstant(instant)),
     )
@@ -47,7 +44,6 @@ class StaticTime(
 }
 
 object StaticTime {
-
   def advanceClock(clock: AtomicReference[Instant], instant: Instant): Instant = {
     clock.updateAndGet {
       case current if instant isAfter current => instant
@@ -57,10 +53,10 @@ object StaticTime {
 
   def updatedVia(
       timeService: TimeServiceStub,
-      ledgerId: String,
       loggerFactory: NamedLoggerFactory,
       token: Option[String] = None,
-  )(implicit m: Materializer, esf: ExecutionSequencerFactory): Future[StaticTime] = {
+      updateInterval: FiniteDuration = 1.second,
+  )(implicit m: Materializer): Future[StaticTime] = {
     val clockRef = new AtomicReference[Instant](Instant.EPOCH)
     val killSwitchExternal = KillSwitches.single[Instant]
     val sinkExternal = Sink.head[Instant]
@@ -74,17 +70,16 @@ object StaticTime {
           case (killSwitch, futureOfFirstElem) =>
             // We serve this in a future which completes when the first element has passed through.
             // Thus we make sure that the object we serve already received time data from the ledger.
-            futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
+            futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch))(
               directEc
             )
         } { implicit b => (killSwitch, sinkHead) =>
           import GraphDSL.Implicits.*
+
           val instantSource = b.add(
-            ClientAdapter
-              .serverStreaming(
-                GetTimeRequest(ledgerId),
-                LedgerClient.stub(timeService, token).getTime,
-              )
+            Source
+              .tick(updateInterval, updateInterval, ())
+              .mapAsync(1)(_ => LedgerClient.stub(timeService, token).getTime(GetTimeRequest()))
               .map(r => toInstant(r.getCurrentTime))
           )
 

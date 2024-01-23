@@ -12,7 +12,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{InitConfigBase, LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.admin.v0.VaultServiceGrpc
+import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.HealthService
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}

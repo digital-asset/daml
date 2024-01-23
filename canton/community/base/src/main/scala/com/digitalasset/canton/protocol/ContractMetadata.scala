@@ -53,8 +53,8 @@ final case class ContractMetadata private (
   def maintainers: Set[LfPartyId] =
     maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.maintainers)
 
-  private[protocol] def toProtoV1: v1.SerializableContract.Metadata = {
-    v1.SerializableContract.Metadata(
+  private[protocol] def toProtoV30: v30.SerializableContract.Metadata = {
+    v30.SerializableContract.Metadata(
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
       key = maybeKeyWithMaintainersVersioned.map(x =>
@@ -80,8 +80,8 @@ object ContractMetadata
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v1.SerializableContract.Metadata)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(v30.SerializableContract.Metadata)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -109,10 +109,10 @@ object ContractMetadata
 
   def empty: ContractMetadata = checked(ContractMetadata.tryCreate(Set.empty, Set.empty, None))
 
-  def fromProtoV1(
-      metadataP: v1.SerializableContract.Metadata
+  def fromProtoV30(
+      metadataP: v30.SerializableContract.Metadata
   ): ParsingResult[ContractMetadata] = {
-    val v1.SerializableContract.Metadata(
+    val v30.SerializableContract.Metadata(
       nonMaintainerSignatoriesP,
       nonSignatoryStakeholdersP,
       keyP,
@@ -122,7 +122,7 @@ object ContractMetadata
     for {
       nonMaintainerSignatories <- nonMaintainerSignatoriesP.traverse(ProtoConverter.parseLfPartyId)
       nonSignatoryStakeholders <- nonSignatoryStakeholdersP.traverse(ProtoConverter.parseLfPartyId)
-      keyO <- keyP.traverse(GlobalKeySerialization.fromProtoV0)
+      keyO <- keyP.traverse(GlobalKeySerialization.fromProtoV30)
       maintainersList <- maintainersP.traverse(ProtoConverter.parseLfPartyId)
       _ <- Either.cond(maintainersList.isEmpty || keyO.isDefined, (), FieldNotSet("Metadata.key"))
     } yield {

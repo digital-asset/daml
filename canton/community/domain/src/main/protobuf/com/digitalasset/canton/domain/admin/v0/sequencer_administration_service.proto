@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/admin/traffic/v0/member_traffic_status.proto";
+import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
 import "com/digitalasset/canton/domain/admin/v0/sequencer_initialization_snapshot.proto";
 import "com/digitalasset/canton/domain/admin/v1/sequencer_initialization_snapshot.proto";
 import "google/protobuf/empty.proto";
@@ -29,7 +29,7 @@ message TrafficControlStateRequest {
 }
 
 message TrafficControlStateResponse {
-  repeated com.digitalasset.canton.admin.traffic.v0.MemberTrafficStatus traffic_states = 1;
+  repeated com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus traffic_states = 1;
 }
 
 message Snapshot {

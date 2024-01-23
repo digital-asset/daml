@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -75,7 +75,7 @@ class DomainConnectivityService(
 
   def connectDomain(domainAlias: String, keepRetrying: Boolean)(implicit
       traceContext: TraceContext
-  ): Future[v0.ConnectDomainResponse] =
+  ): Future[v30.ConnectDomainResponse] =
     for {
       alias <- Future(
         DomainAlias
@@ -84,11 +84,11 @@ class DomainConnectivityService(
       )
       success <- mapErrNewETUS(sync.connectDomain(alias, keepRetrying)).valueOr(throw _)
       _ <- waitUntilActiveIfSuccess(success, alias).valueOr(throw _)
-    } yield v0.ConnectDomainResponse(connectedSuccessfully = success)
+    } yield v30.ConnectDomainResponse(connectedSuccessfully = success)
 
   def disconnectDomain(
       domainAlias: String
-  )(implicit traceContext: TraceContext): Future[v0.DisconnectDomainResponse] =
+  )(implicit traceContext: TraceContext): Future[v30.DisconnectDomainResponse] =
     for {
       alias <- Future(
         DomainAlias
@@ -96,29 +96,29 @@ class DomainConnectivityService(
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
       )
       _ <- mapErrNewETUS(sync.disconnectDomain(alias)).valueOr(throw _)
-    } yield v0.DisconnectDomainResponse()
+    } yield v30.DisconnectDomainResponse()
 
-  def listConnectedDomains(): Future[v0.ListConnectedDomainsResponse] =
-    Future.successful(v0.ListConnectedDomainsResponse(sync.readyDomains.map {
+  def listConnectedDomains(): Future[v30.ListConnectedDomainsResponse] =
+    Future.successful(v30.ListConnectedDomainsResponse(sync.readyDomains.map {
       case (alias, (domainId, healthy)) =>
-        new v0.ListConnectedDomainsResponse.Result(
+        new v30.ListConnectedDomainsResponse.Result(
           domainAlias = alias.unwrap,
           domainId = domainId.toProtoPrimitive,
           healthy = healthy,
         )
     }.toSeq))
 
-  def listConfiguredDomains(): Future[v0.ListConfiguredDomainsResponse] = {
+  def listConfiguredDomains(): Future[v30.ListConfiguredDomainsResponse] = {
     val connected = sync.readyDomains
     val configuredDomains = sync.configuredDomains
     Future.successful(
-      v0.ListConfiguredDomainsResponse(
+      v30.ListConfiguredDomainsResponse(
         results = configuredDomains
           .filter(_.status.isActive)
           .map(_.config)
           .map(cnf =>
-            new v0.ListConfiguredDomainsResponse.Result(
-              config = Some(cnf.toProtoV0),
+            new v30.ListConfiguredDomainsResponse.Result(
+              config = Some(cnf.toProtoV30),
               connected = connected.contains(cnf.domain),
             )
           )
@@ -127,8 +127,8 @@ class DomainConnectivityService(
   }
 
   def registerDomain(
-      request: v0.DomainConnectionConfig
-  )(implicit traceContext: TraceContext): Future[v0.RegisterDomainResponse] = {
+      request: v30.DomainConnectionConfig
+  )(implicit traceContext: TraceContext): Future[v30.RegisterDomainResponse] = {
 
     for {
       conf <- Future(
@@ -145,12 +145,12 @@ class DomainConnectivityService(
           _ <- waitUntilActiveIfSuccess(success, conf.domain).valueOr(throw _)
         } yield ()
         else Future.unit
-    } yield v0.RegisterDomainResponse()
+    } yield v30.RegisterDomainResponse()
   }
 
   def modifyDomain(
-      request: v0.DomainConnectionConfig
-  )(implicit traceContext: TraceContext): Future[v0.ModifyDomainResponse] =
+      request: v30.DomainConnectionConfig
+  )(implicit traceContext: TraceContext): Future[v30.ModifyDomainResponse] =
     for {
       conf <- Future(
         DomainConnectionConfig
@@ -158,7 +158,7 @@ class DomainConnectivityService(
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
       _ <- mapErrNewET(sync.modifyDomain(conf)).valueOr(throw _)
-    } yield v0.ModifyDomainResponse()
+    } yield v30.ModifyDomainResponse()
 
   private def getSequencerAggregatedInfo(domainAlias: String)(implicit
       traceContext: TraceContext

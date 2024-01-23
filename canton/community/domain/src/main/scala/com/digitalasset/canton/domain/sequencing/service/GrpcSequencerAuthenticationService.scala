@@ -8,8 +8,8 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.domain.Domain.GrpcSequencerAuthenticationErrorGroup
-import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.domain.api.v0.{Authentication, Challenge}
+import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
+import com.digitalasset.canton.domain.api.v30.{Authentication, Challenge}
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationService
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAuthenticationService.{
   SequencerAuthenticationFailure,
@@ -48,7 +48,7 @@ class GrpcSequencerAuthenticationService(
       member <- eitherT(deserializeMember(request.member))
       signature <- eitherT(
         ProtoConverter
-          .parseRequired(Signature.fromProtoV0, "signature", request.signature)
+          .parseRequired(Signature.fromProtoV30, "signature", request.signature)
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
       )
       providedNonce <- eitherT(

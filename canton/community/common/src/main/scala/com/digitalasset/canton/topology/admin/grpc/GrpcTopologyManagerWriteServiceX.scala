@@ -14,7 +14,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.v2.TopologyMappingX.Mapping
+import com.digitalasset.canton.protocol.v30.TopologyMappingX.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -82,41 +82,41 @@ class GrpcTopologyManagerWriteServiceX(
         val validatedMappingE = for {
           // we treat serial=0 as "serial was not set". negative values should be rejected by parsePositiveInt
           serial <- Option.when(serial != 0)(serial).traverse(ProtoConverter.parsePositiveInt)
-          op <- TopologyChangeOpX.fromProtoV2(op)
+          op <- TopologyChangeOpX.fromProtoV30(op)
           mapping <- ProtoConverter.required("AuthorizeRequest.mapping", mapping)
           signingKeys <-
             request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
           validatedMapping <- mapping.mapping match {
             case Mapping.DecentralizedNamespaceDefinition(mapping) =>
-              DecentralizedNamespaceDefinitionX.fromProtoV2(mapping)
+              DecentralizedNamespaceDefinitionX.fromProtoV30(mapping)
             case Mapping.NamespaceDelegation(mapping) =>
-              NamespaceDelegationX.fromProtoV2(mapping)
+              NamespaceDelegationX.fromProtoV30(mapping)
             case Mapping.IdentifierDelegation(mapping) =>
-              IdentifierDelegationX.fromProtoV2(mapping)
+              IdentifierDelegationX.fromProtoV30(mapping)
             case Mapping.DomainParametersState(mapping) =>
-              DomainParametersStateX.fromProtoV2(mapping)
+              DomainParametersStateX.fromProtoV30(mapping)
             case Mapping.MediatorDomainState(mapping) =>
-              MediatorDomainStateX.fromProtoV2(mapping)
+              MediatorDomainStateX.fromProtoV30(mapping)
             case Mapping.SequencerDomainState(mapping) =>
-              SequencerDomainStateX.fromProtoV2(mapping)
+              SequencerDomainStateX.fromProtoV30(mapping)
             case Mapping.PartyToParticipant(mapping) =>
-              PartyToParticipantX.fromProtoV2(mapping)
+              PartyToParticipantX.fromProtoV30(mapping)
             case Mapping.AuthorityOf(mapping) =>
-              AuthorityOfX.fromProtoV2(mapping)
+              AuthorityOfX.fromProtoV30(mapping)
             case Mapping.DomainTrustCertificate(mapping) =>
-              DomainTrustCertificateX.fromProtoV2(mapping)
+              DomainTrustCertificateX.fromProtoV30(mapping)
             case Mapping.OwnerToKeyMapping(mapping) =>
-              OwnerToKeyMappingX.fromProtoV2(mapping)
+              OwnerToKeyMappingX.fromProtoV30(mapping)
             case Mapping.VettedPackages(mapping) =>
-              VettedPackagesX.fromProtoV2(mapping)
+              VettedPackagesX.fromProtoV30(mapping)
             case Mapping.ParticipantPermission(mapping) =>
-              ParticipantDomainPermissionX.fromProtoV2(mapping)
+              ParticipantDomainPermissionX.fromProtoV30(mapping)
             case Mapping.TrafficControlState(mapping) =>
-              TrafficControlStateX.fromProtoV2(mapping)
+              TrafficControlStateX.fromProtoV30(mapping)
             case Mapping.PartyHostingLimits(mapping) =>
-              PartyHostingLimitsX.fromProtoV2(mapping)
+              PartyHostingLimitsX.fromProtoV30(mapping)
             case Mapping.PurgeTopologyTxs(mapping) =>
-              PurgeTopologyTransactionX.fromProtoV2(mapping)
+              PurgeTopologyTransactionX.fromProtoV30(mapping)
             case _ =>
               // TODO(#14048): match missing cases
               ???
@@ -145,7 +145,7 @@ class GrpcTopologyManagerWriteServiceX(
           signedTopoTx
         }
     }
-    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v1.AuthorizeResponse(Some(tx.toProtoV2))))
+    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v1.AuthorizeResponse(Some(tx.toProtoV30))))
   }
 
   override def signTransactions(
@@ -156,7 +156,7 @@ class GrpcTopologyManagerWriteServiceX(
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation(protocolVersion), tx)
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
@@ -176,7 +176,7 @@ class GrpcTopologyManagerWriteServiceX(
       )
     } yield extendedTransactions
 
-    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v1.SignTransactionsResponse(txs.map(_.toProtoV2))))
+    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v1.SignTransactionsResponse(txs.map(_.toProtoV30))))
   }
 
   override def addTransactions(
@@ -187,7 +187,7 @@ class GrpcTopologyManagerWriteServiceX(
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation(protocolVersion), tx)
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )

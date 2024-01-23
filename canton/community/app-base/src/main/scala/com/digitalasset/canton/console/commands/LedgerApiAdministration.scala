@@ -3725,15 +3725,10 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     // changes during the command's execution. We'll have to live with it for the moment, as there's no convenient
     // way to get the record time of the transaction to pass to the parties.list call.
     val domainPartiesAndParticipants = {
-      val pNodes = consoleEnvironment.participants.all.iterator
+      consoleEnvironment.participantsX.all.iterator
         .filter(x => x.health.running() && x.health.initialized() && x.name == name)
         .flatMap(_.parties.list(filterDomain = txDomain.filterString))
         .toSet
-      val pXNodes = consoleEnvironment.participantsX.all.iterator
-        .filter(x => x.health.running() && x.health.initialized() && x.name == name)
-        .flatMap(_.parties.list(filterDomain = txDomain.filterString))
-        .toSet
-      pNodes ++ pXNodes
     }
 
     val domainParties = domainPartiesAndParticipants.map(_.party)
@@ -3771,7 +3766,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
         val involvedConsoleParticipants = cand.participants.mapFilter { pd =>
           for {
             participantReference <-
-              (consoleEnvironment.participants.all ++ consoleEnvironment.participantsX.all)
+              consoleEnvironment.participantsX.all
                 .filter(x => x.health.running() && x.health.initialized())
                 .find(identityIs(_, pd.participant))
             _ <- pd.domains.find(_.domain == txDomain)
