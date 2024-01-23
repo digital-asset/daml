@@ -441,7 +441,7 @@ cantonReplConfig CantonReplOptions{..} =
                     (api "ledger-api" crpLedgerApi <> api "admin-api" crpAdminApi)
                 | CantonReplParticipant {..} <- croParticipants
                 ]
-            , "remote-domains" Aeson..= Aeson.object
+            , "remote-sequencers" Aeson..= Aeson.object
                 [ Aeson.Key.fromString crdName Aeson..= Aeson.object
                     (api "public-api" crdPublicApi <> api "admin-api" crdAdminApi)
                 | CantonReplDomain {..} <- croDomains
