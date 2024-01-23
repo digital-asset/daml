@@ -4,12 +4,8 @@ module LegacyCppFlags where
 
 import Daml.Script
 
--- Dummy script to prevent a "redundant import" error.
-dummyScript : Script ()
-dummyScript = pure ()
-
+test : Script ()
 #ifndef DAML_NAT_SYN
-natSynNotDefined : Script ()
-natSynNotDefined =
   error "Expected DAML_NAT_SYN to be defined for backwards compatibility"
 #endif
+  pure ()
