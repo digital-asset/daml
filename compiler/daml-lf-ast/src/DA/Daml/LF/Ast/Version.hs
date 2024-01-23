@@ -221,6 +221,7 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
+    , "DAML_EXCEPTIONS"
     ]
 
 -- TODO: https://github.com/digital-asset/daml/issues/15882
