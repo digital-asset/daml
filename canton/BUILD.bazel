@@ -5,20 +5,19 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_library",
-    "da_scala_test_suite",
     "kind_projector_plugin",
     "scala_source_jar",
     "scaladoc_jar",
 )
 load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite", "da_scala_macro_library", "scaladoc_jar")
 load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -32,7 +31,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 # TODO(https://github.com/DACH-NY/canton/issues/15106): read 'version' from the canton repository
 #  once it is exposed in some file.
 genrule(
-    name = "community_buildinfo_src",
+    name = "community_buildinfo_source",
     outs = ["BuildInfo.scala"],
     cmd = """
 cat << EOF > $@
@@ -57,18 +56,18 @@ EOF
     ),
 )
 
-scala_library(
+da_scala_library(
     name = "community_buildinfo",
-    srcs = [":community_buildinfo_src"],
+    srcs = [":community_buildinfo_source"],
     tags = ["maven_coordinates=com.daml:canton-community-buildinfo:__VERSION__"],
 )
 
 ### daml-common-staging/daml-errors ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_daml-errors",
     srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -88,10 +87,10 @@ scala_library(
 
 ### community/lib/pekko ###
 
-scala_library(
+da_scala_library(
     name = "pekko-stream-patch",
     srcs = glob(["community/lib/pekko/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -111,10 +110,14 @@ jar_jar(
 
 ### community/lib/Blake2b ###
 
-java_library(
+da_java_library(
     name = "community_lib_Blake2b",
     srcs = glob(["community/lib/Blake2b/src/main/**/*.java"]),
-    tags = ["maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__"],
+    tags = [
+        # TODO: is this okay?
+        "javadoc_root_packages=org.bouncycastle.crypto.digests.canton",
+        "maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__"
+    ],
     deps = [
         "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
@@ -122,10 +125,10 @@ java_library(
 
 ### community/lib/slick ###
 
-scala_macro_library(
+da_scala_macro_library(
     name = "community_lib_slick_slick-fork",
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
-    scalacopts = ["-Wconf:cat=unused-imports:s"],
+    override_scalacopts = ["-Wconf:cat=unused-imports:s"],
     tags = ["maven_coordinates=com.daml:canton-community-lib-slick-slick-fork:__VERSION__"],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -136,10 +139,10 @@ scala_macro_library(
 
 ### community/lib/wartremover ###
 
-scala_macro_library(
+da_scala_macro_library(
     name = "community_lib_wartremover",
     srcs = glob(["community/lib/wartremover/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Wconf:cat=unused-pat-vars:s",
         "-Xsource:3",
     ],
@@ -155,10 +158,10 @@ scala_macro_library(
 
 ### community/util-logging ###
 
-scala_library(
+da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -204,10 +207,10 @@ scala_library(
 
 ### community/util-external ###
 
-scala_library(
+da_scala_library(
     name = "community_util-external",
     srcs = glob(["community/util-external/src/main/scala/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -244,12 +247,12 @@ proto_jars(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "community_ledger_ledger-common",
     srcs = glob(["community/ledger/ledger-common/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
     resources = glob(["community/ledger/ledger-common/src/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -338,10 +341,10 @@ filegroup(
     visibility = ["//daml-script:__subpackages__"],
 )
 
-scala_library(
+da_scala_library(
     name = "community_admin-api",
     srcs = [":community_admin-api-src"],
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -375,16 +378,17 @@ proto_gen(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "community_base",
     srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    scaladoc = False,
     tags = ["maven_coordinates=com.daml:canton-community-base:__VERSION__"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
@@ -467,15 +471,24 @@ scala_library(
     ],
 )
 
+# Create empty Scaladoc JAR for uploading to Maven Central
+# Needed as scaladoc for base fails to compile
+scaladoc_jar(
+    name = "community_base_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
 ### community/common ###
 
-scala_library(
+da_scala_library(
     name = "community_common",
     srcs = glob(["community/common/src/main/scala/**/*.scala"]),
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/common/src/main/resources",
     resources = glob(["community/common/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -577,7 +590,7 @@ proto_gen(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "community_ledger_ledger-api-core",
     srcs = glob([
         "community/ledger/ledger-api-core/src/main/scala/**/*.scala",
@@ -585,10 +598,11 @@ scala_library(
     ]) + [":community_ledger_ledger-api-core_proto_scala"],
     resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
     resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    scaladoc = False,
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-api-core:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -684,15 +698,24 @@ scala_library(
     ],
 )
 
+# Create empty Scaladoc JAR for uploading to Maven Central
+# Needed as scaladoc for ledger-api-core fails to compile
+scaladoc_jar(
+    name = "community_ledger_ledger-api-core_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
 ### community/ledger/ledger-json-api ###
 
-scala_library(
+da_scala_library(
     name = "community_ledger_ledger-json-api",
     srcs = glob(["community/ledger/ledger-json-api/src/main/scala/**/*.scala"]),
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
     resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -785,11 +808,11 @@ proto_gen(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "community_domain",
     srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
     plugins = [kind_projector_plugin],
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -936,7 +959,7 @@ copy_file(
     out = "VERSION",
 )
 
-scala_library(
+da_scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
         ":community_participant_proto_scala",
@@ -948,7 +971,7 @@ scala_library(
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
     ],
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1031,12 +1054,12 @@ scala_library(
 
 ### community/drivers/reference
 
-scala_library(
+da_scala_library(
     name = "community_reference-driver",
     srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
     resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
     resources = glob(["community/drivers/reference/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1101,12 +1124,12 @@ proto_gen(
 
 ### community/sequencer-driver
 
-scala_library(
+da_scala_library(
     name = "community_sequencer-driver",
     srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
     resources = glob(["community/sequencer-driver/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1126,12 +1149,12 @@ scala_library(
 
 ### community/app-base ###
 
-scala_library(
+da_scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/app-base/src/main/resources",
     resources = glob(["community/app-base/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1220,12 +1243,12 @@ scala_library(
 
 ### community/app ###
 
-scala_library(
+da_scala_library(
     name = "community_app-lib",
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/app/src/main/resources",
     resources = glob(["community/app/src/main/resources/**"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1295,7 +1318,7 @@ proto_gen(
 )
 
 # this is only needed for the uber-javadoc in //language-support/java:javadoc
-java_library(
+da_java_library(
     name = "ledger-api-java-lib-for-javadocs",
     srcs = [
         ":ledger-api-java",
@@ -1373,7 +1396,7 @@ java_test_suite(
     ],
 )
 
-java_library(
+da_java_library(
     name = "bindings-java-test-helpers",
     testonly = True,
     srcs = glob(["community/bindings-java/src/test/java/**/TestHelpers.java"]),
@@ -1392,7 +1415,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1417,7 +1440,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],

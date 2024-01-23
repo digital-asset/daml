@@ -253,7 +253,7 @@
 - target: //canton:community_ledger_ledger-common_configuration_proto_java
   type: jar-proto
 - target: //canton:community_lib_Blake2b
-  type: jar-scala
+  type: jar-lib
 - target: //canton:community_lib_slick_slick-fork
   type: jar-scala
 - target: //canton:community_lib_wartremover
