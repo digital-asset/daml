@@ -118,6 +118,7 @@ da_haskell_library(
     compiler_flags = [
         "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
     ],
+    data = ["//compiler/damlc:hpp-copy"],
     hackage_deps = [
         "aeson-pretty",
         "base",
@@ -189,6 +190,7 @@ da_haskell_library(
             ":cant-skip-preprocessor",
             ":daml-test-files",
             ":query-lf-lib",
+            "//compiler/damlc:ghcversion",
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/scenario-service/server:scenario_service_jar",
