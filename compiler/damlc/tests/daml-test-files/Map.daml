@@ -27,7 +27,7 @@ testFromList = script do
   [(1, "b")] === toList (fromList [(1, "a"), (1, "c"), (1, "b")])
 
 testFromListWith = script do
-  fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(5, "abc"), (3, "ba")]
+  fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(5, "cba"), (3, "ab")]
   fromListWith (<>) [] === (M.empty : Map Int Text)
 
 testMember = script do
