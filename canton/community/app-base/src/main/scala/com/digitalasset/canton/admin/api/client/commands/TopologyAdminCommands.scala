@@ -12,9 +12,9 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v0
-import com.digitalasset.canton.topology.admin.v0.InitializationServiceGrpc.InitializationServiceStub
-import com.digitalasset.canton.topology.admin.v0.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
+import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
+import com.digitalasset.canton.topology.admin.v30old.InitializationServiceGrpc.InitializationServiceStub
+import com.digitalasset.canton.topology.admin.{v30, v30old}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ManagedChannel
 
@@ -29,7 +29,7 @@ object TopologyAdminCommands {
     abstract class BaseCommand[Req, Res, Result] extends GrpcAdminCommand[Req, Res, Result] {
       override type Svc = TopologyAggregationServiceStub
       override def createService(channel: ManagedChannel): TopologyAggregationServiceStub =
-        v0.TopologyAggregationServiceGrpc.stub(channel)
+        v30.TopologyAggregationServiceGrpc.stub(channel)
     }
 
     final case class ListParties(
@@ -38,11 +38,13 @@ object TopologyAdminCommands {
         filterParticipant: String,
         asOf: Option[Instant],
         limit: PositiveInt,
-    ) extends BaseCommand[v0.ListPartiesRequest, v0.ListPartiesResponse, Seq[ListPartiesResult]] {
+    ) extends BaseCommand[v30.ListPartiesRequest, v30.ListPartiesResponse, Seq[
+          ListPartiesResult
+        ]] {
 
-      override def createRequest(): Either[String, v0.ListPartiesRequest] =
+      override def createRequest(): Either[String, v30.ListPartiesRequest] =
         Right(
-          v0.ListPartiesRequest(
+          v30.ListPartiesRequest(
             filterDomain = filterDomain,
             filterParty = filterParty,
             filterParticipant = filterParticipant,
@@ -53,14 +55,14 @@ object TopologyAdminCommands {
 
       override def submitRequest(
           service: TopologyAggregationServiceStub,
-          request: v0.ListPartiesRequest,
-      ): Future[v0.ListPartiesResponse] =
+          request: v30.ListPartiesRequest,
+      ): Future[v30.ListPartiesResponse] =
         service.listParties(request)
 
       override def handleResponse(
-          response: v0.ListPartiesResponse
+          response: v30.ListPartiesResponse
       ): Either[String, Seq[ListPartiesResult]] =
-        response.results.traverse(ListPartiesResult.fromProtoV0).leftMap(_.toString)
+        response.results.traverse(ListPartiesResult.fromProtoV30).leftMap(_.toString)
 
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -73,13 +75,13 @@ object TopologyAdminCommands {
         filterKeyOwnerUid: String,
         asOf: Option[Instant],
         limit: PositiveInt,
-    ) extends BaseCommand[v0.ListKeyOwnersRequest, v0.ListKeyOwnersResponse, Seq[
+    ) extends BaseCommand[v30.ListKeyOwnersRequest, v30.ListKeyOwnersResponse, Seq[
           ListKeyOwnersResult
         ]] {
 
-      override def createRequest(): Either[String, v0.ListKeyOwnersRequest] =
+      override def createRequest(): Either[String, v30.ListKeyOwnersRequest] =
         Right(
-          v0.ListKeyOwnersRequest(
+          v30.ListKeyOwnersRequest(
             filterDomain = filterDomain,
             filterKeyOwnerType = filterKeyOwnerType.map(_.toProtoPrimitive).getOrElse(""),
             filterKeyOwnerUid = filterKeyOwnerUid,
@@ -90,14 +92,14 @@ object TopologyAdminCommands {
 
       override def submitRequest(
           service: TopologyAggregationServiceStub,
-          request: v0.ListKeyOwnersRequest,
-      ): Future[v0.ListKeyOwnersResponse] =
+          request: v30.ListKeyOwnersRequest,
+      ): Future[v30.ListKeyOwnersResponse] =
         service.listKeyOwners(request)
 
       override def handleResponse(
-          response: v0.ListKeyOwnersResponse
+          response: v30.ListKeyOwnersResponse
       ): Either[String, Seq[ListKeyOwnersResult]] =
-        response.results.traverse(ListKeyOwnersResult.fromProtoV0).leftMap(_.toString)
+        response.results.traverse(ListKeyOwnersResult.fromProtoV30).leftMap(_.toString)
 
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -108,22 +110,24 @@ object TopologyAdminCommands {
   object Init {
 
     final case class InitId(identifier: String, fingerprint: String)
-        extends GrpcAdminCommand[v0.InitIdRequest, v0.InitIdResponse, UniqueIdentifier] {
+        extends GrpcAdminCommand[v30old.InitIdRequest, v30old.InitIdResponse, UniqueIdentifier] {
       override type Svc = InitializationServiceStub
 
       override def createService(channel: ManagedChannel): InitializationServiceStub =
-        v0.InitializationServiceGrpc.stub(channel)
+        v30old.InitializationServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, v0.InitIdRequest] =
-        Right(v0.InitIdRequest(identifier, fingerprint, instance = ""))
+      override def createRequest(): Either[String, v30old.InitIdRequest] =
+        Right(v30old.InitIdRequest(identifier, fingerprint, instance = ""))
 
       override def submitRequest(
           service: InitializationServiceStub,
-          request: v0.InitIdRequest,
-      ): Future[v0.InitIdResponse] =
+          request: v30old.InitIdRequest,
+      ): Future[v30old.InitIdResponse] =
         service.initId(request)
 
-      override def handleResponse(response: v0.InitIdResponse): Either[String, UniqueIdentifier] =
+      override def handleResponse(
+          response: v30old.InitIdResponse
+      ): Either[String, UniqueIdentifier] =
         UniqueIdentifier.fromProtoPrimitive_(response.uniqueIdentifier)
     }
   }

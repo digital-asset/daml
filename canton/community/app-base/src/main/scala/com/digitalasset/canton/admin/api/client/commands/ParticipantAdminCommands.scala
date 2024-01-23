@@ -526,29 +526,30 @@ object ParticipantAdminCommands {
     final case class Ping(
         targets: Set[String],
         validators: Set[String],
-        timeoutMillis: Long,
-        levels: Long,
-        gracePeriodMillis: Long,
+        timeout: config.NonNegativeDuration,
+        levels: Int,
+        domainId: Option[DomainId],
         workflowId: String,
         id: String,
-    ) extends GrpcAdminCommand[PingRequest, PingResponse, Option[Duration]] {
+    ) extends GrpcAdminCommand[PingRequest, PingResponse, Either[String, Duration]] {
       override type Svc = PingServiceStub
 
       override def createService(channel: ManagedChannel): PingServiceStub =
         PingServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, PingRequest] =
+      override def createRequest(): Either[String, PingRequest] = {
         Right(
           PingRequest(
             targets.toSeq,
             validators.toSeq,
-            timeoutMillis,
+            Some(timeout.toProtoPrimitive),
             levels,
-            gracePeriodMillis,
+            domainId.map(_.toProtoPrimitive).getOrElse(""),
             workflowId,
             id,
           )
         )
+      }
 
       override def submitRequest(
           service: PingServiceStub,
@@ -556,11 +557,13 @@ object ParticipantAdminCommands {
       ): Future[PingResponse] =
         service.ping(request)
 
-      override def handleResponse(response: PingResponse): Either[String, Option[Duration]] =
+      override def handleResponse(
+          response: PingResponse
+      ): Either[String, Either[String, Duration]] =
         response.response match {
           case PingResponse.Response.Success(PingSuccess(pingTime, responder)) =>
-            Right(Some(Duration(pingTime, MILLISECONDS)))
-          case PingResponse.Response.Failure(_ex) => Right(None)
+            Right(Right(Duration(pingTime, MILLISECONDS)))
+          case PingResponse.Response.Failure(failure) => Right(Left(failure.reason))
           case PingResponse.Response.Empty => Left("Ping client: unexpected empty response")
         }
 

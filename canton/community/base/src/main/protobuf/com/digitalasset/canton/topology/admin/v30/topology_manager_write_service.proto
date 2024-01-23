@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.topology.admin.v1;
+package com.digitalasset.canton.topology.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/topology.proto";
 
@@ -13,13 +13,11 @@ import "com/digitalasset/canton/protocol/v30/topology.proto";
  * Both, participant and domain run a local topology manager exposing the same write interface.
  */
 service TopologyManagerWriteServiceX {
-
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
 
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
 
   rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
-
 }
 
 message AuthorizeRequest {
@@ -104,9 +102,7 @@ message AddTransactionsRequest {
   string store = 3;
 }
 
-message AddTransactionsResponse {
-
-}
+message AddTransactionsResponse {}
 
 message SignTransactionsRequest {
   /** The transactions to be signed, but will not be stored in the authorized store */

@@ -16,8 +16,8 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle, Unles
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
-import com.digitalasset.canton.topology.admin.v0.InitializationServiceGrpc
-import com.digitalasset.canton.topology.admin.v1.IdentityInitializationServiceXGrpc
+import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceXGrpc
+import com.digitalasset.canton.topology.admin.v30old.InitializationServiceGrpc
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, PriorityBlockingQueueUtil}

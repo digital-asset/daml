@@ -3,18 +3,16 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.topology.admin.v1;
+package com.digitalasset.canton.topology.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/domain_params.proto";
 import "com/digitalasset/canton/protocol/v30/topology.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
-
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
 service TopologyManagerReadServiceX {
-
   rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResult);
   rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResult);
   rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResult);
@@ -54,7 +52,6 @@ message ListTrafficStateResult {
   repeated Result results = 1;
 }
 
-
 message BaseQuery {
   Store filter_store = 1;
 
@@ -82,7 +79,7 @@ message BaseQuery {
 }
 
 message Store {
-  message Authorized { }
+  message Authorized {}
 
   message Domain {
     string id = 1;
@@ -106,17 +103,17 @@ message BaseResult {
 }
 
 message ListNamespaceDelegationRequest {
-    BaseQuery base_query = 1;
-    string filter_namespace = 2;
-    string filter_target_key_fingerprint = 3;
+  BaseQuery base_query = 1;
+  string filter_namespace = 2;
+  string filter_target_key_fingerprint = 3;
 }
 
 message ListNamespaceDelegationResult {
-    message Result {
-        BaseResult context = 1;
-        com.digitalasset.canton.protocol.v30.NamespaceDelegationX item = 2;
-    }
-    repeated Result results = 1;
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.NamespaceDelegationX item = 2;
+  }
+  repeated Result results = 1;
 }
 
 message ListDecentralizedNamespaceDefinitionRequest {
@@ -133,19 +130,18 @@ message ListDecentralizedNamespaceDefinitionResult {
 }
 
 message ListIdentifierDelegationRequest {
-    BaseQuery base_query = 1;
-    string filter_uid = 2;
-    string filter_target_key_fingerprint = 3;
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+  string filter_target_key_fingerprint = 3;
 }
 
 message ListIdentifierDelegationResult {
-    message Result {
-        BaseResult context = 1;
-        com.digitalasset.canton.protocol.v30.IdentifierDelegationX item = 2;
-    }
-    repeated Result results = 1;
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.IdentifierDelegationX item = 2;
+  }
+  repeated Result results = 1;
 }
-
 
 message ListOwnerToKeyMappingRequest {
   BaseQuery base_query = 1;
@@ -160,7 +156,6 @@ message ListOwnerToKeyMappingResult {
   }
   repeated Result results = 1;
 }
-
 
 message ListDomainTrustCertificateRequest {
   BaseQuery base_query = 1;
@@ -220,11 +215,11 @@ message ListPartyToParticipantRequest {
 }
 
 message ListPartyToParticipantResult {
-    message Result {
-        BaseResult context = 1;
-        com.digitalasset.canton.protocol.v30.PartyToParticipantX item = 2;
-    }
-    repeated Result results = 2;
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyToParticipantX item = 2;
+  }
+  repeated Result results = 2;
 }
 
 message ListAuthorityOfRequest {
@@ -241,16 +236,16 @@ message ListAuthorityOfResult {
 }
 
 message ListDomainParametersStateRequest {
-    BaseQuery base_query = 1;
-    string filter_domain = 2;
+  BaseQuery base_query = 1;
+  string filter_domain = 2;
 }
 
 message ListDomainParametersStateResult {
-    message Result {
-        BaseResult context = 1;
-        com.digitalasset.canton.protocol.v30.DynamicDomainParameters item = 2;
-    }
-    repeated Result results = 1;
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DynamicDomainParameters item = 2;
+  }
+  repeated Result results = 1;
 }
 
 message ListMediatorDomainStateRequest {
@@ -279,7 +274,6 @@ message ListSequencerDomainStateResult {
   repeated Result results = 1;
 }
 
-
 message ListPurgeTopologyTransactionXRequest {
   BaseQuery base_query = 1;
   string filter_domain = 2;
@@ -300,9 +294,9 @@ message ListAvailableStoresResult {
 }
 
 message ListAllRequest {
-    BaseQuery base_query = 1;
+  BaseQuery base_query = 1;
 }
 
 message ListAllResponse {
-    com.digitalasset.canton.protocol.v30.TopologyTransactions result = 1;
+  com.digitalasset.canton.protocol.v30.TopologyTransactions result = 1;
 }

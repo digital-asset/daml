@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
   GrpcTopologyManagerReadService,
   GrpcTopologyManagerWriteService,
 }
-import com.digitalasset.canton.topology.admin.v0.{
+import com.digitalasset.canton.topology.admin.v30old.{
   InitializationServiceGrpc,
   TopologyManagerWriteServiceGrpc,
 }
@@ -147,7 +147,7 @@ abstract class CantonNodeBootstrapBase[
     )
   this.adminServerRegistry
     .addService(
-      canton.topology.admin.v0.TopologyManagerReadServiceGrpc
+      canton.topology.admin.v30old.TopologyManagerReadServiceGrpc
         .bindService(
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores,
@@ -170,7 +170,7 @@ abstract class CantonNodeBootstrapBase[
     )
     ._2
     .addService(
-      canton.topology.admin.v0.TopologyAggregationServiceGrpc
+      canton.topology.admin.v30.TopologyAggregationServiceGrpc
         .bindService(
           new GrpcTopologyAggregationService(
             // TODO(#14048) remove map filter
@@ -183,7 +183,7 @@ abstract class CantonNodeBootstrapBase[
     )
     ._2
     .addService(
-      canton.topology.admin.v0.TopologyManagerReadServiceGrpc
+      canton.topology.admin.v30old.TopologyManagerReadServiceGrpc
         .bindService(
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores :+ authorizedTopologyStore,

@@ -110,17 +110,17 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReferenceComm
         """)
     def connect_local(
         domain: InstanceReferenceWithSequencerConnection,
+        alias: DomainAlias,
         manualConnect: Boolean = false,
-        alias: Option[DomainAlias] = None,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): Unit = {
       val config =
-        ParticipantCommands.domains.referenceToConfig(
+        ParticipantCommands.domains.reference_to_config(
           NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
-          manualConnect,
           alias,
+          manualConnect,
         )
       register(config)
       synchronize.foreach { timeout =>

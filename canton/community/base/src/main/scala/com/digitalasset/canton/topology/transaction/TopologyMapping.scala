@@ -645,7 +645,7 @@ object DomainParametersChange {
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
       domainParametersXP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
-      domainParameters <- DynamicDomainParameters.fromProtoV2(domainParametersXP)
+      domainParameters <- DynamicDomainParameters.fromProtoV30(domainParametersXP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
   }
 }

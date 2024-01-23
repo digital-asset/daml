@@ -616,7 +616,7 @@ final class RepairService(
     EitherT.fromEither[Future](
       for {
         rawContractInstance <- SerializableRawContractInstance
-          .create(computed.instance, computed.agreementText)
+          .create(computed.instance)
           .leftMap(err =>
             log(s"Failed to serialize contract ${inputContract.contractId}: ${err.errorMessage}")
           )
@@ -1323,7 +1323,7 @@ object RepairService {
          and will discard this value.
          */
         serializableRawContractInst <- SerializableRawContractInstance
-          .create(lfContractInst, AgreementText.empty)
+          .create(lfContractInst)
           .leftMap(_.errorMessage)
 
         signatoriesAsParties <- signatories.toList.traverse(LfPartyId.fromString).map(_.toSet)

@@ -34,19 +34,18 @@ sealed trait SequencerConnection extends PrettyPrinting {
   def addEndpoints(
       connection: String,
       additionalConnections: String*
-  ): SequencerConnection =
+  ): Either[String, SequencerConnection] =
     addEndpoints(new URI(connection), additionalConnections.map(new URI(_)) *)
 
-  // TODO(#15224) change this to Either
   def addEndpoints(
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnection
+  ): Either[String, SequencerConnection]
 
   def addEndpoints(
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnection
+  ): Either[String, SequencerConnection]
 
   def sequencerAlias: SequencerAlias
 
@@ -92,21 +91,18 @@ final case class GrpcSequencerConnection(
   override def addEndpoints(
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnection =
-    (for {
+  ): Either[String, SequencerConnection] =
+    for {
       newEndpoints <- Endpoint
         .fromUris(NonEmpty(Seq, connection, additionalConnections: _*))
-    } yield copy(endpoints = endpoints ++ newEndpoints._1)).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
+    } yield copy(endpoints = endpoints ++ newEndpoints._1)
 
   override def addEndpoints(
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnection =
+  ): Either[String, SequencerConnection] =
     SequencerConnection
       .merge(this +: connection +: additionalConnections)
-      .valueOr(err => throw new IllegalArgumentException(err))
 
   override def withCertificates(certificates: ByteString): SequencerConnection =
     copy(customTrustCertificates = Some(certificates))

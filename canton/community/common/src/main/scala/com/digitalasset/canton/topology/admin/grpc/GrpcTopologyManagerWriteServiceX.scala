@@ -18,8 +18,8 @@ import com.digitalasset.canton.protocol.v30.TopologyMappingX.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v1
-import com.digitalasset.canton.topology.admin.v1.AuthorizeRequest.{Proposal, Type}
+import com.digitalasset.canton.topology.admin.v30
+import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.{Proposal, Type}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
@@ -40,10 +40,10 @@ class GrpcTopologyManagerWriteServiceX(
     clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends v1.TopologyManagerWriteServiceXGrpc.TopologyManagerWriteServiceX
+    extends v30.TopologyManagerWriteServiceXGrpc.TopologyManagerWriteServiceX
     with NamedLogging {
 
-  override def authorize(request: v1.AuthorizeRequest): Future[v1.AuthorizeResponse] = {
+  override def authorize(request: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = request.`type` match {
@@ -145,12 +145,12 @@ class GrpcTopologyManagerWriteServiceX(
           signedTopoTx
         }
     }
-    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v1.AuthorizeResponse(Some(tx.toProtoV30))))
+    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v30.AuthorizeResponse(Some(tx.toProtoV30))))
   }
 
   override def signTransactions(
-      request: v1.SignTransactionsRequest
-  ): Future[v1.SignTransactionsResponse] = {
+      request: v30.SignTransactionsRequest
+  ): Future[v30.SignTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
@@ -176,12 +176,12 @@ class GrpcTopologyManagerWriteServiceX(
       )
     } yield extendedTransactions
 
-    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v1.SignTransactionsResponse(txs.map(_.toProtoV30))))
+    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v30.SignTransactionsResponse(txs.map(_.toProtoV30))))
   }
 
   override def addTransactions(
-      request: v1.AddTransactionsRequest
-  ): Future[v1.AddTransactionsResponse] = {
+      request: v30.AddTransactionsRequest
+  ): Future[v30.AddTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
@@ -196,7 +196,7 @@ class GrpcTopologyManagerWriteServiceX(
       _ <- manager
         .add(signedTxs, force = request.forceChange, expectFullAuthorization = false)
         .leftWiden[CantonError]
-    } yield v1.AddTransactionsResponse()
+    } yield v30.AddTransactionsResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
 

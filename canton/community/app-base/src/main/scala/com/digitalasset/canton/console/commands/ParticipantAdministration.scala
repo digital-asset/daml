@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.console.commands
 
+import cats.implicits.toBifunctorOps
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -16,13 +17,7 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   GetResourceLimits,
   SetResourceLimits,
 }
-import com.digitalasset.canton.admin.api.client.commands.{
-  DomainTimeCommands,
-  LedgerApiCommands,
-  LedgerApiV2Commands,
-  ParticipantAdminCommands,
-  PruningSchedulerCommands,
-}
+import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   ListConnectedDomainsResult,
@@ -91,7 +86,6 @@ import com.digitalasset.canton.{
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 
 sealed trait DomainChoice
@@ -120,17 +114,14 @@ private[console] object ParticipantCommands {
 
   object domains {
 
-    def referenceToConfig(
+    def reference_to_config(
         domain: NonEmpty[Map[SequencerAlias, InstanceReferenceWithSequencerConnection]],
+        domainAlias: DomainAlias,
         manualConnect: Boolean = false,
-        alias: Option[DomainAlias] = None,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
         sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
     ): DomainConnectionConfig = {
-      val domainAlias = alias.getOrElse(
-        DomainAlias.tryCreate(domain.head1._2.name)
-      ) // TODO(#14048): Come up with a good way of giving it a good alias
       DomainConnectionConfig(
         domainAlias,
         SequencerConnections.tryMany(
@@ -148,7 +139,7 @@ private[console] object ParticipantCommands {
       )
     }
 
-    def toConfig(
+    def to_config(
         domainAlias: DomainAlias,
         connection: String,
         manualConnect: Boolean = false,
@@ -234,13 +225,13 @@ class ParticipantTestingGroup(
       targets: Set[ParticipantId],
       validators: Set[ParticipantId] = Set(),
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.testingBong,
-      levels: Long = 0,
-      gracePeriodMillis: Long = 1000,
+      levels: Int = 0,
+      domainId: Option[DomainId] = None,
       workflowId: String = "",
       id: String = "",
   ): Duration = {
     consoleEnvironment.runE(
-      maybe_bong(targets, validators, timeout, levels, gracePeriodMillis, workflowId, id)
+      maybe_bong(targets, validators, timeout, levels, domainId, workflowId, id)
         .toRight(
           s"Unable to bong $targets with $levels levels within ${LoggerUtil.roundDurationForHumans(timeout.duration)}"
         )
@@ -252,8 +243,8 @@ class ParticipantTestingGroup(
       targets: Set[ParticipantId],
       validators: Set[ParticipantId] = Set(),
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.testingBong,
-      levels: Long = 0,
-      gracePeriodMillis: Long = 1000,
+      levels: Int = 0,
+      domainId: Option[DomainId] = None,
       workflowId: String = "",
       id: String = "",
   ): Option[Duration] =
@@ -263,14 +254,14 @@ class ParticipantTestingGroup(
           .Ping(
             targets.map(_.adminParty.toLf),
             validators.map(_.adminParty.toLf),
-            timeout.duration.toMillis,
+            timeout,
             levels,
-            gracePeriodMillis,
+            domainId,
             workflowId,
             id,
           )
       )
-    })
+    }).toOption
 
   @Help.Summary("Fetch the current time from the given domain", FeatureFlag.Testing)
   def fetch_domain_time(
@@ -971,13 +962,15 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""Sometimes, when scripting tests and demos, a dar or package is uploaded and we need to ensure
         |that commands are only submitted once the package vetting has been observed by some other connected participant
         |known to the console. This command can be used in such cases.""")
+    // Also checks that the packages stored by Canton are the same as by the ledger api server.
+    // However, this check is bypassed if there are 1000 or more packages at the ledger api server.
     def synchronize_vetting(
         timeout: config.NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
     ): Unit = {
 
       // ensure that the ledger api server has seen all packages
-      try {
-        AdminCommandRunner.retryUntilTrue(timeout) {
+      ConsoleMacros.utils.retry_until_true(timeout)(
+        {
           val canton = packages.list().map(_.packageId).toSet
           val maxPackages = PositiveInt.tryCreate(1000)
           val lApi = consoleEnvironment
@@ -990,13 +983,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .toSet
           // don't synchronise anymore in a big production system (as we only need this truly for testing)
           (lApi.size >= maxPackages.value) || (canton -- lApi).isEmpty
-        }
-      } catch {
-        case _: TimeoutException =>
-          logger.error(
-            show"Participant $id ledger Api server has still a different set of packages than the sync server"
-          )
-      }
+        },
+        show"Participant $id ledger Api server has still a different set of packages than the sync server",
+      )
 
       waitPackagesVetted(timeout)
     }
@@ -1043,26 +1032,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""
         The arguments are:
           domain - A local domain or sequencer reference
-          manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
+          manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           certificatesPath - Path to TLS certificate files to use as a trust anchor.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def connect_local(
         domain: InstanceReferenceWithSequencerConnection,
+        alias: DomainAlias,
         manualConnect: Boolean = false,
-        alias: Option[DomainAlias] = None,
         maxRetryDelayMillis: Option[Long] = None,
         priority: Int = 0,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): Unit = {
-      val config = ParticipantCommands.domains.referenceToConfig(
+      val config = ParticipantCommands.domains.reference_to_config(
         NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
-        manualConnect,
         alias,
+        manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )
@@ -1071,8 +1060,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
     def connect_local_bft(
         domain: NonEmpty[Map[SequencerAlias, InstanceReferenceWithSequencerConnection]],
+        alias: DomainAlias,
         manualConnect: Boolean = false,
-        alias: Option[DomainAlias] = None,
         maxRetryDelayMillis: Option[Long] = None,
         priority: Int = 0,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -1080,10 +1069,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
     ): Unit = {
-      val config = ParticipantCommands.domains.referenceToConfig(
+      val config = ParticipantCommands.domains.reference_to_config(
         domain,
-        manualConnect,
         alias,
+        manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
         sequencerTrustThreshold,
@@ -1184,7 +1173,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): DomainConnectionConfig = {
-      val config = ParticipantCommands.domains.toConfig(
+      val config = ParticipantCommands.domains.to_config(
         domainAlias,
         connection,
         manualConnect,
@@ -1561,18 +1550,19 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
   private def ping_internal(
       participantId: ParticipantId,
       timeout: NonNegativeDuration,
+      domainId: Option[DomainId],
       workflowId: String,
       id: String,
-  ): Option[Duration] =
+  ): Either[String, Duration] =
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.Ping
           .Ping(
             Set[String](participantId.adminParty.toLf),
             Set(),
-            timeout.asFiniteApproximation.toMillis,
+            timeout,
             0,
-            0,
+            domainId,
             workflowId,
             id,
           )
@@ -1586,14 +1576,17 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
   def ping(
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
+      domainId: Option[DomainId] = None,
       workflowId: String = "",
       id: String = "",
   ): Duration = {
-    val adminApiRes: Option[Duration] = ping_internal(participantId, timeout, workflowId, id)
+    val adminApiRes: Either[String, Duration] =
+      ping_internal(participantId, timeout, domainId, workflowId, id)
     consoleEnvironment.runE(
-      adminApiRes.toRight(
-        s"Unable to ping $participantId within ${LoggerUtil.roundDurationForHumans(timeout.duration)}"
-      )
+      adminApiRes.leftMap { reason =>
+        s"Unable to ping $participantId within ${LoggerUtil
+            .roundDurationForHumans(timeout.duration)}: ${reason}"
+      }
     )
 
   }
@@ -1605,10 +1598,11 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
   def maybe_ping(
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
+      domainId: Option[DomainId] = None,
       workflowId: String = "",
       id: String = "",
   ): Option[Duration] = check(FeatureFlag.Testing) {
-    ping_internal(participantId, timeout, workflowId, id)
+    ping_internal(participantId, timeout, domainId, workflowId, id).toOption
   }
 }
 

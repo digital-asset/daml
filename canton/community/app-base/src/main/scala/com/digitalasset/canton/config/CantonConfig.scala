@@ -100,35 +100,6 @@ import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 import scala.util.Try
 
-/** Configuration for a check */
-sealed trait CheckConfig
-object CheckConfig {
-
-  /** Always return a healthy result - useful for testing and where there may be no suitable domain configured to use the ping health check */
-  case object AlwaysHealthy extends CheckConfig
-
-  /** Attempt to ping the given participant to determine health
-    *
-    * @param participant Alias of a locally configured participant (will ping itself)
-    * @param interval    The duration to wait between pings
-    * @param timeout     Duration to allow for the ping to complete
-    */
-  final case class Ping(
-      participant: String,
-      interval: NonNegativeFiniteDuration,
-      timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
-  ) extends CheckConfig
-
-  /** Returns the isActive state of a node.
-    * Intended for a HA node where only one of potentially many replicas will be active concurrently.
-    * @param node If unset will default to picking the only configured node as this is the likely usage of this check.
-    *                    If many nodes are available within the process it will pick the first participant node.
-    *                    If using many nodes in process then set to the configured name of the node to return
-    *                    the active status of.
-    */
-  final case class IsActive(node: Option[String] = None) extends CheckConfig
-}
-
 /** Deadlock detection configuration
   *
   * A simple deadlock detection method. Using a background scheduler, we schedule a trivial future on the EC.
@@ -908,13 +879,6 @@ object CantonConfig {
       deriveReader[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
       deriveReader[DeadlockDetectionConfig]
-    lazy implicit val checkConfigAlwaysHealthyReader: ConfigReader[CheckConfig.AlwaysHealthy.type] =
-      deriveReader[CheckConfig.AlwaysHealthy.type]
-    lazy implicit val checkConfigPingReader: ConfigReader[CheckConfig.Ping] =
-      deriveReader[CheckConfig.Ping]
-    lazy implicit val checkConfigIsActiveReader: ConfigReader[CheckConfig.IsActive] =
-      deriveReader[CheckConfig.IsActive]
-    lazy implicit val checkConfigReader: ConfigReader[CheckConfig] = deriveReader[CheckConfig]
 
     lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
       deriveReader[MetricsConfig.MetricsFilterConfig]
@@ -1319,13 +1283,6 @@ object CantonConfig {
       deriveWriter[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
       deriveWriter[DeadlockDetectionConfig]
-    lazy implicit val checkConfigAlwaysHealthyWriter: ConfigWriter[CheckConfig.AlwaysHealthy.type] =
-      deriveWriter[CheckConfig.AlwaysHealthy.type]
-    lazy implicit val checkConfigPingWriter: ConfigWriter[CheckConfig.Ping] =
-      deriveWriter[CheckConfig.Ping]
-    lazy implicit val checkConfigIsActiveWriter: ConfigWriter[CheckConfig.IsActive] =
-      deriveWriter[CheckConfig.IsActive]
-    lazy implicit val checkConfigWriter: ConfigWriter[CheckConfig] = deriveWriter[CheckConfig]
 
     lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsConfig.MetricsFilterConfig] =
       deriveWriter[MetricsConfig.MetricsFilterConfig]

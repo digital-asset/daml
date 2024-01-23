@@ -38,7 +38,7 @@ class TransactionTreeFactoryImplV3(
     submitterParticipant: ParticipantId,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
-    contractSerializer: (LfContractInst, AgreementText) => SerializableRawContractInstance,
+    contractSerializer: LfContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

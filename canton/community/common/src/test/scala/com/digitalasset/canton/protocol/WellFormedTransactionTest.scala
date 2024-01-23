@@ -18,7 +18,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
   val lfAbs: LfContractId = suffixedId(0, 0)
 
   val contractInst = contractInstance()
-  val serContractInst = asSerializableRaw(contractInst, "")
+  val serContractInst = asSerializableRaw(contractInst)
 
   def createNode(
       cid: LfContractId,
@@ -32,7 +32,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
       signatories = signatories,
       contractInstance = contractInstance,
       key = key,
-      agreementText = agreementText,
     )
 
   def fetchNode(cid: LfContractId): LfNodeFetch =

@@ -14,7 +14,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v0 as adminProto
+import com.digitalasset.canton.topology.admin.v30old as adminProto
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -47,7 +47,7 @@ final case class BaseQuery(
       useStateStore,
       ops.map(_.toProto).getOrElse(TopologyChangeOp.Add.toProto),
       ops.nonEmpty,
-      timeQuery.toProtoV0,
+      timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitiveS),
     )

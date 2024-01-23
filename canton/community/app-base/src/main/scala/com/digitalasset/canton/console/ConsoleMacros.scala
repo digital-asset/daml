@@ -338,10 +338,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         // Update the referenced contract ids
         val contractInstanceWithUpdatedContractIdReferences =
           SerializableRawContractInstance
-            .create(
-              contract.rawContractInstance.contractInstance.map(_.mapCid(contractIdMappings)),
-              AgreementText.empty, // Empty is fine, because the agreement text is not used when generating the raw serializable contract hash
-            )
+            .create(contract.rawContractInstance.contractInstance.map(_.mapCid(contractIdMappings)))
             .valueOr(err =>
               throw new RuntimeException(
                 s"Could not create serializable raw contract instance: $err"

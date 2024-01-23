@@ -17,7 +17,7 @@ val Alice = participant1.parties.enable("Alice")
 val Bob = participant2.parties.enable("Bob", waitForDomain = DomainChoice.All)
 
 // setup parties and connect participants to domain
-Seq(participant1, participant2).foreach(_.domains.connect_local(sequencer1, alias = Some("lostDomain")))
+Seq(participant1, participant2).foreach(_.domains.connect_local(sequencer1, alias = "lostDomain"))
 
 utils.retry_until_true {
     participant1.domains.active("lostDomain") && participant2.domains.active("lostDomain")

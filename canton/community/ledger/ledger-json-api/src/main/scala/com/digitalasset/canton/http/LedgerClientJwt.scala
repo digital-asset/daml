@@ -66,7 +66,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionLog) {
           client.v2.commandService
-            .submitAndWaitForTransaction(req, bearer(jwt))
+            .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
         }
           .requireHandling(submitErrors)
       }
@@ -78,7 +78,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionTreeLog) {
           client.v2.commandService
-            .submitAndWaitForTransactionTree(req, bearer(jwt))
+            .deprecatedSubmitAndWaitForTransactionTreeForJsonApi(req, token = bearer(jwt))
         }
           .requireHandling(submitErrors)
       }
@@ -140,24 +140,24 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
   }
 
-//  TODO(#16065)
-//  def getByContractKey(client: DamlLedgerClient)(implicit ec: EC): GetContractByContractKey = {
-//    (jwt, key, templateId, requestingParties, continuationToken) =>
-//      { implicit lc =>
-//        logFuture(GetContractByContractKeyLog) {
-//          client.eventQueryServiceClient.getEventsByContractKey(
-//            token = bearer(jwt),
-//            contractKey = key,
-//            templateId = templateId,
-//            requestingParties = requestingParties.view.map(_.unwrap).toSeq,
-//            continuationToken = continuationToken,
-//          )
-//        }
-//          .requireHandling { case Code.PERMISSION_DENIED =>
-//            PermissionDenied
-//          }
-//      }
-//  }
+  //  TODO(#16065)
+  //  def getByContractKey(client: DamlLedgerClient)(implicit ec: EC): GetContractByContractKey = {
+  //    (jwt, key, templateId, requestingParties, continuationToken) =>
+  //      { implicit lc =>
+  //        logFuture(GetContractByContractKeyLog) {
+  //          client.eventQueryServiceClient.getEventsByContractKey(
+  //            token = bearer(jwt),
+  //            contractKey = key,
+  //            templateId = templateId,
+  //            requestingParties = requestingParties.view.map(_.unwrap).toSeq,
+  //            continuationToken = continuationToken,
+  //          )
+  //        }
+  //          .requireHandling { case Code.PERMISSION_DENIED =>
+  //            PermissionDenied
+  //          }
+  //      }
+  //  }
 
   private def skipRequest(start: ParticipantOffset, end: Option[ParticipantOffset]): Boolean = {
     import com.digitalasset.canton.http.util.ParticipantOffsetUtil.AbsoluteOffsetOrdering
@@ -326,16 +326,16 @@ object LedgerClientJwt {
         Set[domain.Party],
     ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractIdResponse]
 
-//  TODO(#16065)
-//  type ContinuationToken = String
-//  type GetContractByContractKey =
-//    (
-//        Jwt,
-//        com.daml.ledger.api.v1.value.Value,
-//        Identifier,
-//        Set[domain.Party],
-//        ContinuationToken,
-//    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
+  //  TODO(#16065)
+  //  type ContinuationToken = String
+  //  type GetContractByContractKey =
+  //    (
+  //        Jwt,
+  //        com.daml.ledger.api.v1.value.Value,
+  //        Identifier,
+  //        Set[domain.Party],
+  //        ContinuationToken,
+  //    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
 
   type ListKnownParties =
     Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
