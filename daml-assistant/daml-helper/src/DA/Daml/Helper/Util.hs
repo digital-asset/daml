@@ -313,7 +313,7 @@ withCantonSandbox options remainingArgs k = do
             [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
             , "val domainOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
-            , "sandbox.domains.connect_local(sequencer1)"
+            , "sandbox.domains.connect_local(sequencer1, \"mydomain\")"
             , "os.copy(os.Path(" <> show altPortFile <> "), os.Path(" <> show portFile <> "))"
             ]
 

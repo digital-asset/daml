@@ -143,7 +143,7 @@ object CantonRunner {
 
     val bootstrapConnectParticipants =
       config.participantIds
-        .map(id => s"$id.domains.connect_local(sequencer1)")
+        .map(id => s"$id.domains.connect_local(sequencer1, \"mydomain\")")
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
