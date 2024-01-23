@@ -247,6 +247,13 @@ featureExperimental = Feature
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
+-- | CPP flags of past features that have become part of LF but that some
+-- clients might still depend on being defined.
+foreverCppFlags :: [T.Text]
+foreverCppFlags =
+    [ "DAML_NAT_SYN"
+    ]
+
 -- TODO: https://github.com/digital-asset/daml/issues/15882
 -- Ought we have "featureChoiceAuthority" ?
 
