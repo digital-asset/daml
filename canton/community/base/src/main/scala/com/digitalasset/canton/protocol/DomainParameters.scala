@@ -430,7 +430,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.DynamicDomainParameters
     )(
-      supportedProtoVersion(_)(fromProtoV2),
+      supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
@@ -623,7 +623,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   // if there is no topology change delay defined (or not yet propagated), we'll use this one
   val topologyChangeDelayIfAbsent: NonNegativeFiniteDuration = NonNegativeFiniteDuration.Zero
 
-  def fromProtoV2(
+  def fromProtoV30(
       domainParametersP: v30.DynamicDomainParameters
   ): ParsingResult[DynamicDomainParameters] = {
     val v30.DynamicDomainParameters(

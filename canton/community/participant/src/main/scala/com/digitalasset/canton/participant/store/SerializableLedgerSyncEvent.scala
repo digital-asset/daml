@@ -23,7 +23,6 @@ import com.digitalasset.canton.participant.store.DamlLfSerializers.*
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   LfActionNode,
   LfCommittedTransaction,
   LfNodeCreate,
@@ -69,8 +68,8 @@ import com.google.rpc.status.Status as RpcStatus
 /** Wrapper for converting a [[com.digitalasset.canton.participant.sync.LedgerSyncEvent]] to its protobuf companion.
   * Currently only Intended only for storage due to the unusual exceptions which are thrown that are only permitted in a storage context.
   *
-  * @throws canton.store.db.DbSerializationException if transactions or contracts fail to serialize
-  * @throws canton.store.db.DbDeserializationException if transactions or contracts fail to deserialize
+  * @throws com.digitalasset.canton.store.db.DbSerializationException if transactions or contracts fail to serialize
+  * @throws com.digitalasset.canton.store.db.DbDeserializationException if transactions or contracts fail to deserialize
   */
 private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEvent)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -144,13 +143,14 @@ private[store] object SerializableLedgerSyncEvent
     with ProtocolVersionedCompanionDbHelpers[SerializableLedgerSyncEvent] {
   override val name: String = "SerializableLedgerSyncEvent"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
-      .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.LedgerSyncEvent)(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
-      )
-  )
+  override val supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(0) -> VersionedProtoConverter
+        .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.LedgerSyncEvent)(
+          supportedProtoVersion(_)(fromProtoV0),
+          _.toProtoV0.toByteString,
+        )
+    )
 
   def apply(
       event: LedgerSyncEvent,
@@ -663,7 +663,7 @@ private[store] final case class SerializableDivulgedContract(divulgedContract: D
     v30.DivulgedContract(
       contractId = contractId.toProtoPrimitive,
       // This is fine to use empty agreement text for divulged contract
-      contractInst = serializeContract(contractInst, AgreementText.empty)
+      contractInst = serializeContract(contractInst)
         .valueOr(err =>
           throw new DbSerializationException(
             s"Failed to serialize contract: ${err.errorMessage}"

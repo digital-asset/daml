@@ -12,7 +12,7 @@ import com.digitalasset.canton.environment.CantonNodeBootstrapBase
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v0.*
+import com.digitalasset.canton.topology.admin.v30old.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcInitializationService(
     clock: Clock,
-    bootstrap: CantonNodeBootstrapBase[_, _, _, _],
+    bootstrap: CantonNodeBootstrapBase[?, ?, ?, ?],
     cryptoPublicStore: CryptoPublicStore,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

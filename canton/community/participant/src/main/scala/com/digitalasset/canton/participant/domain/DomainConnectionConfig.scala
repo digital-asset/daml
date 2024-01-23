@@ -70,22 +70,28 @@ final case class DomainConnectionConfig(
       sequencerAlias: SequencerAlias,
       connection: String,
       additionalConnections: String*
-  ): DomainConnectionConfig =
+  ): Either[String, DomainConnectionConfig] =
     addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_)): _*)
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): DomainConnectionConfig =
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(sequencerAlias, connection, additionalConnections: _*)
+  ): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(
+      sequencerAlias,
+      connection,
+      additionalConnections: _*
     )
-  def addConnection(connection: SequencerConnection): DomainConnectionConfig = {
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
-    )
-  }
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
+
+  def addConnection(connection: SequencerConnection): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
 
   def withCertificates(
       sequencerAlias: SequencerAlias,

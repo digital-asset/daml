@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.store.CryptoPublicStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.UniqueIdentifier
-import com.digitalasset.canton.topology.admin.v1 as adminProto
+import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp

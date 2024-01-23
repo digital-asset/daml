@@ -22,7 +22,6 @@ import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
-import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContextExecutor, blocking}
 
 /** Holds and manages the lifecycle of all Canton services that use the Ledger API
@@ -52,7 +51,6 @@ class StartableStoppableLedgerApiDependentServices(
     ec: ExecutionContextExecutor,
     actorSystem: ActorSystem,
     tracer: Tracer,
-    scheduler: ScheduledExecutorService,
     executionSequencerFactory: ExecutionSequencerFactory,
 ) extends AutoCloseable
     with NamedLogging {
@@ -113,7 +111,10 @@ class StartableStoppableLedgerApiDependentServices(
 
             val (pingServiceGrpc, _) = registry
               .addService(
-                PingServiceGrpc.bindService(new GrpcPingService(adminWorkflowServices.ping), ec)
+                PingServiceGrpc.bindService(
+                  new GrpcPingService(adminWorkflowServices.ping, loggerFactory),
+                  ec,
+                )
               )
 
             servicesRef = Some((adminWorkflowServices, packageServiceGrpc, pingServiceGrpc))

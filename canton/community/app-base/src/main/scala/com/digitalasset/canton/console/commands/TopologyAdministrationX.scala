@@ -13,7 +13,6 @@ import com.digitalasset.canton.admin.api.client.data.{
   DynamicDomainParameters as ConsoleDynamicDomainParameters,
   TrafficControlParameters,
 }
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
@@ -21,12 +20,14 @@ import com.digitalasset.canton.console.{
   CommandErrors,
   ConsoleCommandResult,
   ConsoleEnvironment,
+  ConsoleMacros,
   FeatureFlag,
   FeatureFlagFilter,
   Help,
   Helpful,
   InstanceReferenceCommon,
   InstanceReferenceX,
+  ParticipantReferenceX,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
@@ -51,6 +52,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{DiscardOps, config}
 import com.google.protobuf.ByteString
 
 import java.time.Duration
@@ -316,6 +318,7 @@ class TopologyAdministrationGroupX(
                 ),
               signedBy = thisNodeRootKey,
               store = Some(AuthorizedStore.filterName),
+              synchronize = None,
             )
           )
 
@@ -2025,6 +2028,8 @@ class TopologyAdministrationGroupX(
                exists, or if there is a gap between this serial and the most recently used serial.
                If None, the serial will be automatically selected by the node.
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
+                            to the listed participants
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose(
@@ -2039,9 +2044,10 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        waitForParticipants: Seq[ParticipantReferenceX] = consoleEnvironment.participantsX.all,
         force: Boolean = false,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
-      synchronisation.runAdminCommand(synchronize)(
+      val res = synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommandsX.Write.Propose(
           DomainParametersStateX(
             domainId,
@@ -2054,6 +2060,37 @@ class TopologyAdministrationGroupX(
           forceChange = force,
         )
       )
+
+      def waitForParameters(ref: TopologyAdministrationGroupX): Unit =
+        synchronize
+          .foreach(timeout =>
+            ConsoleMacros.utils.retry_until_true(timeout)(
+              {
+                // cannot use get_dynamic_domain_parameters, as this will throw if there are no prior parameters
+                val headState = ref.domain_parameters
+                  .list(
+                    filterStore = domainId.filterString,
+                    timeQuery = TimeQueryX.HeadState,
+                    operation = Some(TopologyChangeOpX.Replace),
+                    filterDomain = domainId.filterString,
+                  )
+                  .map(r => ConsoleDynamicDomainParameters(r.item))
+
+                headState == Seq(parameters)
+              },
+              s"The dynamic domain parameters never became effective within $timeout",
+            )
+          )
+
+      waitForParameters(TopologyAdministrationGroupX.this)
+      waitForParticipants
+        .filter(p =>
+          p.health.running() && p.health.initialized() && p.domains.is_connected(domainId)
+        )
+        .map(_.topology)
+        .foreach(waitForParameters)
+
+      res
     }
 
     @Help.Summary("Propose an update to dynamic domain parameters")
@@ -2067,6 +2104,8 @@ class TopologyAdministrationGroupX(
                            satisfy the mapping's authorization requirements.
        signedBy: the fingerprint of the key to be used to sign this proposal
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
+                            to the listed participants
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose_update(
@@ -2078,6 +2117,7 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        waitForParticipants: Seq[ParticipantReferenceX] = consoleEnvironment.participantsX.all,
         force: Boolean = false,
     ): Unit = {
       val domainStore = domainId.filterString
@@ -2102,6 +2142,7 @@ class TopologyAdministrationGroupX(
           signedBy,
           Some(previousParameters.context.serial.increment),
           synchronize,
+          waitForParticipants,
           force,
         ).discard
       }

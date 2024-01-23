@@ -17,8 +17,8 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization.Parameters
-import com.digitalasset.canton.topology.admin.v0.*
+import com.digitalasset.canton.topology.admin.v30old.DomainParametersChangeAuthorization.Parameters
+import com.digitalasset.canton.topology.admin.v30old.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
@@ -238,7 +238,7 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
       domainParameters <- request.parameters match {
         case Parameters.Empty => Left(ProtoDeserializationError.FieldNotSet("domainParameters"))
         case Parameters.ParametersV1(ddpX) =>
-          DynamicDomainParameters.fromProtoV2(ddpX)
+          DynamicDomainParameters.fromProtoV30(ddpX)
       }
 
     } yield DomainParametersChange(DomainId(uid), domainParameters)

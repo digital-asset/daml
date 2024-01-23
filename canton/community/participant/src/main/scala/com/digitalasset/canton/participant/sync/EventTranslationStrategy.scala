@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ledger.participant.state.v2.Update
-import com.digitalasset.canton.participant.admin.workflows.java.pingpong
+import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
 import com.digitalasset.canton.protocol.LedgerTransactionNodeStatistics
 
@@ -51,8 +51,13 @@ final class EventTranslationStrategy(
   private val excludedPackageIds: Set[LfPackageId] =
     if (excludeInfrastructureTransactions) {
       Set(
-        LfPackageId.assertFromString(pingpong.Ping.TEMPLATE_ID.getPackageId)
-      )
+        canton.internal.ping.Ping.TEMPLATE_ID,
+        canton.internal.bong.BongProposal.TEMPLATE_ID,
+        canton.internal.bong.Bong.TEMPLATE_ID,
+        canton.internal.bong.Merge.TEMPLATE_ID,
+        canton.internal.bong.Explode.TEMPLATE_ID,
+        canton.internal.bong.Collapse.TEMPLATE_ID,
+      ).map(x => LfPackageId.assertFromString(x.getPackageId))
     } else {
       Set.empty[LfPackageId]
     }

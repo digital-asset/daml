@@ -74,7 +74,7 @@ case class SerializableContract(
     coid = contractId,
     templateId = rawContractInstance.contractInstance.unversioned.template,
     arg = rawContractInstance.contractInstance.unversioned.arg,
-    agreementText = rawContractInstance.unvalidatedAgreementText.v,
+    agreementText = "", // not used anymore
     signatories = metadata.signatories,
     stakeholders = metadata.stakeholders,
     keyOpt = metadata.maybeKeyWithMaintainers,
@@ -115,10 +115,9 @@ object SerializableContract
       metadata: ContractMetadata,
       ledgerTime: CantonTimestamp,
       contractSalt: Option[Salt],
-      unvalidatedAgreementText: AgreementText,
   ): Either[ValueCoder.EncodeError, SerializableContract] =
     SerializableRawContractInstance
-      .create(contractInstance, unvalidatedAgreementText)
+      .create(contractInstance)
       .map(
         SerializableContract(contractId, _, metadata, LedgerCreateTime(ledgerTime), contractSalt)
       )
@@ -157,7 +156,6 @@ object SerializableContract
         metadata = cantonContractMetadata,
         ledgerTime = ledgerTime,
         contractSalt = salt,
-        unvalidatedAgreementText = AgreementText(create.agreementText),
       ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
     } yield contract
   }

@@ -14,11 +14,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {
 
-  val alice = LfPartyId.assertFromString("Alice")
-  val bob = LfPartyId.assertFromString("Bob")
+  private val alice = LfPartyId.assertFromString("Alice")
+  private val bob = LfPartyId.assertFromString("Bob")
 
-  val languageVersion = ExampleTransactionFactory.languageVersion
-  val templateId = ExampleTransactionFactory.templateId
+  private val languageVersion = ExampleTransactionFactory.languageVersion
+  private val templateId = ExampleTransactionFactory.templateId
 
   "SerializableContractInstance" should {
     "deserialize correctly" in {
@@ -92,12 +92,8 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .create(
               LfVersioned(
                 transactionVersion,
-                LfValue.ContractInstance(
-                  template = templateId,
-                  arg = LfValue.ValueNil,
-                ),
-              ),
-              AgreementText(agreementText),
+                LfValue.ContractInstance(template = templateId, arg = LfValue.ValueNil),
+              )
             )
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),

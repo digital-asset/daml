@@ -30,7 +30,7 @@ import com.digitalasset.canton.time.{
   NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
   PositiveSeconds,
 }
-import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization
+import com.digitalasset.canton.topology.admin.v30old.DomainParametersChangeAuthorization
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
 import com.digitalasset.canton.crypto as DomainCrypto

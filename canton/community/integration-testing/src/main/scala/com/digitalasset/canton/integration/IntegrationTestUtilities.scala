@@ -82,11 +82,11 @@ object IntegrationTestUtilities {
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
-  def expectedGrabbedCountsForBong(levels: Long, validators: Int = 0): GrabbedCounts = {
-    // 2^(n+2) - 3 contracts plus input ping (last collapse changes to pong) plus PingProposals for validator
-    val contracts = (math.pow(2, levels + 2d) - 3 + 1).toInt + validators
-    // 2^(n+1) + 1 + validator events expected
-    val events = (math.pow(2, levels + 1d) + 1).toInt + validators
+  def expectedGrabbedCountsForBong(levels: Int, validators: Int = 0): GrabbedCounts = {
+    // 2^(n+2) - 3 contracts plus input BongProposal (last collapse changes to bong) for validator
+    val contracts = (math.pow(2, levels + 2d) - 3).toInt + Math.max(1, validators)
+    // 2^(n+1) + validator events expected
+    val events = (math.pow(2, levels + 1d)).toInt + Math.max(1, validators)
     GrabbedCounts(contracts, events)
   }
 

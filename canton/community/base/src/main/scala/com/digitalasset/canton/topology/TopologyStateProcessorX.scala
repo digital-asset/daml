@@ -145,7 +145,7 @@ class TopologyStateProcessorX(
       validatedTx = pendingWrites.map(pw => pw.validatedTx)
       _ <- EitherT.cond[Future](
         // TODO(#12390) differentiate error reason and only abort actual errors, not in-batch merges
-        !abortOnError || validatedTx.forall(_.rejectionReason.isEmpty),
+        !abortOnError || validatedTx.forall(_.nonDuplicateRejectionReason.isEmpty),
         (), {
           // reset caches as they are broken now if we abort
           clearCaches()
@@ -383,7 +383,6 @@ class TopologyStateProcessorX(
         tx_deduplicatedAndMerged,
         expectFullAuthorization,
       )
-
       // Run mapping specific semantic checks
       _ <- topologyMappingXChecks.checkTransaction(effective, tx_authorized, tx_inStore)
 

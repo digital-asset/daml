@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "google/protobuf/duration.proto";
+
 service PingService {
   rpc ping(PingRequest) returns (PingResponse);
 }
@@ -12,9 +14,9 @@ service PingService {
 message PingRequest {
   repeated string target_parties = 1;
   repeated string validators = 2;
-  uint64 timeout_milliseconds = 3;
-  uint64 levels = 4;
-  uint64 grace_period_milliseconds = 5;
+  google.protobuf.Duration timeout = 3;
+  uint32 levels = 4;
+  string domain_id = 5; // optional
   string workflow_id = 6; // optional
   string id = 7; // optional UUID to be used for ping test
 }
@@ -24,7 +26,9 @@ message PingSuccess {
   string responder = 2;
 }
 
-message PingFailure {}
+message PingFailure {
+  string reason = 1;
+}
 
 message PingResponse {
   oneof response {

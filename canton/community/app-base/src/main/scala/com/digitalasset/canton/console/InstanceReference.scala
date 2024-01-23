@@ -11,7 +11,7 @@ import com.digitalasset.canton.common.domain.grpc.GrpcSequencerConnectClient
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
-import com.digitalasset.canton.console.commands.{SequencerNodeAdministrationGroupXWithInit, *}
+import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.domain.mediator.{
   MediatorNodeBootstrapX,
@@ -25,12 +25,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
 }
 import com.digitalasset.canton.domain.sequencing.{SequencerNodeBootstrapX, SequencerNodeX}
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.{
-  MediatorNodeStatus,
-  NodeStatus,
-  ParticipantStatus,
-  SequencerNodeStatus,
-}
+import com.digitalasset.canton.health.admin.data.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.config.{
@@ -44,19 +39,12 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeX,
 }
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
-import com.digitalasset.canton.topology.{
-  DomainId,
-  MediatorId,
-  Member,
-  NodeIdentity,
-  ParticipantId,
-  SequencerId,
-}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracingConfig}
 import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, ExecutionContext, TimeoutException}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.hashing.MurmurHash3
 
 // TODO(#15161): Fold all *Common traits into X-derivers
@@ -143,6 +131,12 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
   object db extends Helpful {
 
     @Help.Summary("Migrates the instance's database if using a database storage")
+    @Help.Description(
+      """When instances reside on different nodes, their database migration can be run in parallel
+        |to save time. Please not that the migration commands must however must be run on each node
+        |individually, because remote migration through `participants.remote...` is not supported.
+        |"""
+    )
     def migrate(): Unit = consoleEnvironment.run(migrateDbCommand())
 
     @Help.Summary(
@@ -464,6 +458,10 @@ abstract class ParticipantReferenceX(
   @Help.Description("This group contains access to the full set of topology management commands.")
   override def topology: TopologyAdministrationGroupX = topology_
 
+  /** Waits until for every participant p (drawn from consoleEnvironment.participantsX.all) that is running and initialized
+    * and for each domain to which both this participant and p are connected
+    * the vetted_package transactions in the authorized store are the same as in the domain store.
+    */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
     val connected = domains.list_connected().map(_.domainId).toSet
 
@@ -474,40 +472,34 @@ abstract class ParticipantReferenceX(
         // for every domain this participant is connected to as well
         participant.domains.list_connected().foreach {
           case item if connected.contains(item.domainId) =>
-            try {
-              AdminCommandRunner
-                .retryUntilTrue(timeout) {
-                  // ensure that vetted packages on the domain match the ones in the authorized store
-                  val onDomain = participant.topology.vetted_packages
-                    .list(
-                      filterStore = item.domainId.filterString,
-                      filterParticipant = id.filterString,
-                    )
-                    .flatMap(_.item.packageIds)
-                    .toSet
+            ConsoleMacros.utils.retry_until_true(timeout)(
+              {
+                // ensure that vetted packages on the domain match the ones in the authorized store
+                val onDomain = participant.topology.vetted_packages
+                  .list(
+                    filterStore = item.domainId.filterString,
+                    filterParticipant = id.filterString,
+                  )
+                  .flatMap(_.item.packageIds)
+                  .toSet
 
-                  // Vetted packages from the participant's authorized store
-                  val onParticipantAuthorizedStore = topology.vetted_packages
-                    .list(filterStore = "Authorized", filterParticipant = id.filterString)
-                    .filter(_.item.domainId.forall(_ == item.domainId))
-                    .flatMap(_.item.packageIds)
-                    .toSet
+                // Vetted packages from the participant's authorized store
+                val onParticipantAuthorizedStore = topology.vetted_packages
+                  .list(filterStore = "Authorized", filterParticipant = id.filterString)
+                  .filter(_.item.domainId.forall(_ == item.domainId))
+                  .flatMap(_.item.packageIds)
+                  .toSet
 
-                  val ret = onParticipantAuthorizedStore == onDomain
-                  if (!ret) {
-                    logger.debug(
-                      show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
-                    )
-                  }
-                  ret
+                val ret = onParticipantAuthorizedStore == onDomain
+                if (!ret) {
+                  logger.debug(
+                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.domainId}: vetted -- onDomain is ${onParticipantAuthorizedStore -- onDomain} while onDomain -- vetted is ${onDomain -- onParticipantAuthorizedStore}"
+                  )
                 }
-                .discard
-            } catch {
-              case _: TimeoutException =>
-                logger.error(
-                  show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.domainId} within the given timeout."
-                )
-            }
+                ret
+              },
+              show"Participant ${participant.name} has not observed all vetting txs of $id on domain ${item.domainId} within the given timeout.",
+            )
           case _ =>
         }
       }

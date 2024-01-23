@@ -18,7 +18,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.admin.v1.{
+import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsRequest,
   ListPartyHostingLimitsResult,
   ListPurgeTopologyTransactionXRequest,
@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.admin.v1.{
   ListTrafficStateRequest,
   ListTrafficStateResult,
 }
-import com.digitalasset.canton.topology.admin.v1 as adminProto
+import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -78,7 +78,7 @@ final case class BaseQueryX(
       proposals,
       ops.map(_.toProto).getOrElse(TopologyChangeOpX.Replace.toProto),
       filterOperation = true,
-      timeQuery.toProtoV1,
+      timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitiveS),
     )

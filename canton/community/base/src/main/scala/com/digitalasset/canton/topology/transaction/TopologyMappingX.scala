@@ -1259,7 +1259,7 @@ object DomainParametersStateX {
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       parameters <- ProtoConverter.parseRequired(
-        DynamicDomainParameters.fromProtoV2,
+        DynamicDomainParameters.fromProtoV30,
         "domainParameters",
         domainParametersP,
       )

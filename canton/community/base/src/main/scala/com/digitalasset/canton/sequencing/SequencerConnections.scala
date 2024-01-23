@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.Monad
 import cats.syntax.either.*
+import cats.syntax.foldable.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -53,7 +55,7 @@ final case class SequencerConnections private (
   def modify(
       sequencerAlias: SequencerAlias,
       m: SequencerConnection => SequencerConnection,
-  ): SequencerConnections =
+  ): SequencerConnections = {
     aliasToConnection
       .get(sequencerAlias)
       .map { connection =>
@@ -66,23 +68,43 @@ final case class SequencerConnections private (
         )
       }
       .getOrElse(this)
+  }
+
+  private def modifyM[M[_]](
+      sequencerAlias: SequencerAlias,
+      m: SequencerConnection => M[SequencerConnection],
+  )(implicit M: Monad[M]): M[SequencerConnections] =
+    aliasToConnection
+      .get(sequencerAlias)
+      .map { connection =>
+        M.map(m(connection)) { x =>
+          SequencerConnections(
+            aliasToConnection.updated(
+              sequencerAlias,
+              x,
+            ),
+            sequencerTrustThreshold,
+          )
+        }
+      }
+      .getOrElse(M.pure(this))
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnections =
-    (Seq(connection) ++ additionalConnections).foldLeft(this) { case (acc, elem) =>
-      acc.modify(sequencerAlias, _.addEndpoints(elem))
+  ): Either[String, SequencerConnections] =
+    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
+      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
     }
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnections =
-    (Seq(connection) ++ additionalConnections).foldLeft(this) { case (acc, elem) =>
-      acc.modify(sequencerAlias, _.addEndpoints(elem))
+  ): Either[String, SequencerConnections] =
+    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
+      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
     }
 
   def withCertificates(

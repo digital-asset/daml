@@ -10,7 +10,6 @@ import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.canton.protocol
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   LfActionNode,
   LfContractInst,
   LfNodeId,
@@ -42,13 +41,12 @@ private[store] object DamlLfSerializers {
       )
 
   def serializeContract(
-      contract: LfContractInst,
-      agreementText: AgreementText,
+      contract: LfContractInst
   ): Either[EncodeError, ByteString] =
     TransactionCoder
       .encodeContractInstance(
         ValueCoder.CidEncoder,
-        contract.map(ContractInstanceWithAgreement(_, agreementText.v)),
+        contract.map(ContractInstanceWithAgreement(_, agreementText = "" /* not used anymore */ )),
       )
       .map(_.toByteString)
 
@@ -83,7 +81,7 @@ private[store] object DamlLfSerializers {
       node <- deserializeNode(proto)
       createNode <- node match {
         case create: Node.Create => Right(create)
-        case _node =>
+        case _ =>
           Left(
             DecodeError(s"Failed to deserialize create node: wrong node type `${node.nodeType}`")
           )
@@ -98,7 +96,7 @@ private[store] object DamlLfSerializers {
       node <- deserializeNode(proto)
       exerciseNode <- node match {
         case exercise: Node.Exercise => Right(exercise)
-        case _node =>
+        case _ =>
           Left(
             DecodeError(s"Failed to deserialize exercise node: wrong node type `${node.nodeType}`")
           )

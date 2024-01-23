@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
@@ -69,9 +68,7 @@ object ParticipantNodeParameters {
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
-      bongTestMaxLevel = 10,
-      retries = 10,
-      submissionTimeout = config.NonNegativeFiniteDuration.ofHours(1),
+      bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),
     maxUnzippedDarSize = 10,
     stores = ParticipantStoreConfig(),
