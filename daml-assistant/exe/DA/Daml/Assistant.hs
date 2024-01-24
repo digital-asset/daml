@@ -279,8 +279,8 @@ runCommand env@Env{..} = \case
         install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall unresolvedVersion) -> do
-        version <- resolveReleaseVersion (envUseCache env) unresolvedVersion
-        uninstallVersion env version
+        versionOrErr <- resolveReleaseVersion (envUseCache env) unresolvedVersion
+        uninstallVersion env versionOrErr
 
     Builtin (Exec cmd args) -> do
         wrapErr "Running executable in daml environment." $ do

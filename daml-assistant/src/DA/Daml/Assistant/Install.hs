@@ -22,7 +22,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Version as DAVersion
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease)
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease, CouldNotResolveReleaseVersion(..))
 import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
@@ -485,7 +485,7 @@ projectInstall env projectPath = do
     projectConfig <- readProjectConfig projectPath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
     unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
-    version <- DAVersion.resolveReleaseVersion (useCache env) unresolvedVersion
+    version <- DAVersion.resolveReleaseVersionUnsafe (Just "installing daml version of in project config (daml.yaml)") (useCache env) unresolvedVersion
     versionInstall env { targetVersionM = version }
 
 -- | Determine whether the assistant should be installed.
@@ -557,7 +557,7 @@ install options damlPath useCache projectPathM assistantVersion = do
 
         Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
             warnAboutAnyInstallFlags "daml install <version>"
-            releaseVersion <- DAVersion.resolveReleaseVersion useCache version
+            releaseVersion <- DAVersion.resolveReleaseVersionUnsafe (Just ("installing daml version " <> arg)) useCache version
             versionInstall env { targetVersionM = releaseVersion }
 
         Just (RawInstallTarget arg) -> do
@@ -569,8 +569,10 @@ install options damlPath useCache projectPathM assistantVersion = do
                 throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
 
 -- | Uninstall a specific SDK version.
-uninstallVersion :: Env -> ReleaseVersion -> IO ()
-uninstallVersion Env{..} releaseVersion = wrapErr "Uninstalling SDK version." $ do
+uninstallVersion :: Env -> Either CouldNotResolveReleaseVersion ReleaseVersion -> IO ()
+uninstallVersion Env{} (Left (CouldNotResolveReleaseVersion _ _ unresolvedVersion)) =
+    putStrLn ("SDK version " <> unresolvedReleaseVersionToString unresolvedVersion <> " is not installed.")
+uninstallVersion Env{..} (Right releaseVersion) = wrapErr "Uninstalling SDK version." $ do
     let (SdkPath path) = defaultSdkPath envDamlPath releaseVersion
 
     exists <- doesDirectoryExist path

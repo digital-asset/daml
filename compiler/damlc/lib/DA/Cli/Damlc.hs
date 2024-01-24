@@ -93,7 +93,7 @@ import DA.Daml.Project.Types
       ProjectPath(..),
       ProjectConfig,
       unsafeResolveReleaseVersion)
-import DA.Daml.Assistant.Version (resolveReleaseVersion)
+import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
@@ -921,7 +921,7 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   then do
                     damlPath <- getDamlPath
                     damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-                    resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+                    resolveReleaseVersionUnsafe (Just "installing dependencies and initializing package database") (envUseCache damlEnv) pSdkVersion
                   else pure (unsafeResolveReleaseVersion pSdkVersion)
               installDependencies
                   (toNormalizedFilePath' projRoot)
@@ -1613,7 +1613,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
           then do
             damlPath <- getDamlPath
             damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-            resolveReleaseVersion (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
+            resolveReleaseVersionUnsafe (Just "running doc test") (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty

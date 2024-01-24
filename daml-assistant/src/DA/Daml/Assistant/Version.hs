@@ -20,6 +20,9 @@ module DA.Daml.Assistant.Version
     , UseCache (..)
     , freshMaximumOfVersions
     , resolveReleaseVersion
+    , resolveReleaseVersionUnsafe
+    , CouldNotResolveSdkVersion(..)
+    , CouldNotResolveReleaseVersion(..)
     , resolveSdkVersionToRelease
     , githubVersionLocation
     , artifactoryVersionLocation
@@ -28,7 +31,10 @@ module DA.Daml.Assistant.Version
     , ArtifactoryApiKey(..)
     , alternateVersionLocation
     , InstallLocation(..)
+    , resolveReleaseVersionFromArtifactory
     ) where
+
+import Network.URI.Encode
 
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
@@ -48,6 +54,7 @@ import Network.HTTP.Simple
 import Network.HTTP.Client
     ( Request(responseTimeout)
     , responseTimeoutMicro
+    , setQueryString
     )
 
 import Data.ByteString (ByteString)
@@ -107,8 +114,15 @@ getSdkVersionFromProjectPath useCache projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
         configE <- tryConfig $ readProjectConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
-            Right (Just v) ->
-                resolveReleaseVersion useCache v
+            Right (Just v) -> do
+                resolvedVersionOrErr <- resolveReleaseVersion useCache v
+                case resolvedVersionOrErr of
+                    Left resolveErr ->
+                        throwIO $ assistantErrorDetails
+                            ("sdk-version field in " <> projectConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
+                            [("path", unwrapProjectPath projectPath </> projectConfigName)
+                            ,("internal", displayException resolveErr)]
+                    Right version -> pure version
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
                     (projectConfigName <> " is an invalid YAML file")
@@ -357,48 +371,77 @@ getLatestReleaseVersion :: UseCache -> IO ReleaseVersion
 getLatestReleaseVersion useCache =
     maximumOfNonEmptyVersions (getAvailableReleaseVersions useCache)
 
-data CouldNotResolveVersion
-  = CouldNotResolveReleaseVersion UnresolvedReleaseVersion
-  | CouldNotResolveSdkVersion SdkVersion
-  deriving (Show, Eq, Ord)
+data CouldNotResolveReleaseVersion = CouldNotResolveReleaseVersion (Maybe String) ResolveReleaseError UnresolvedReleaseVersion
+  deriving (Show, Eq)
 
-instance Exception CouldNotResolveVersion where
-    displayException (CouldNotResolveReleaseVersion version) = "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version))
-    displayException (CouldNotResolveSdkVersion version) = "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version)) <> " to a release version. Possible fix: `daml version --force-reload yes`?"
+instance Exception CouldNotResolveReleaseVersion where
+    displayException (CouldNotResolveReleaseVersion origin githubReleaseError version) =
+        let header = case origin of
+                       Nothing -> ""
+                       Just origin -> "Error while " <> origin <> ": "
+        in
+        header <> "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version)) <> " from the internet. Reason: " <> displayException githubReleaseError
 
-resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersion _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
-resolveReleaseVersion useCache targetVersion = do
+resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO (Either CouldNotResolveReleaseVersion ReleaseVersion)
+resolveReleaseVersion useCache unresolvedVersion = do
+    try (resolveReleaseVersionUnsafe Nothing useCache unresolvedVersion)
+
+resolveReleaseVersionUnsafe :: HasCallStack => Maybe String -> UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersionUnsafe _ _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
+resolveReleaseVersionUnsafe origin useCache targetVersion = do
     mbResolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
     case mbResolved of
-      Just resolved -> pure resolved
+      Just resolved -> do
+          writeFile "/home/dylan-thinnes/resolveVia" "resolve via daml path"
+          pure resolved
       Nothing -> do
         let isTargetVersion version =
               unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
         (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
-          (x:_) -> pure x
+          (x:_) -> do
+              writeFile "/home/dylan-thinnes/resolveVia" "resolve via cache"
+              pure x
           [] -> do
-              releasedVersionE <- resolveReleaseVersionFromGithub targetVersion
-              case releasedVersionE of
-                Left _ ->
-                  throwIO (CouldNotResolveReleaseVersion targetVersion)
-                Right releasedVersion -> do
-                  _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
-                  pure releasedVersion
+              artifactoryReleasedVersionE <- resolveReleaseVersionFromArtifactory (damlPath useCache) targetVersion
+              case artifactoryReleasedVersionE of
+                Right (Just version) -> do
+                    writeFile "/home/dylan-thinnes/resolveVia" "resolve via artifactory"
+                    pure version
+                Left err -> throwIO (CouldNotResolveReleaseVersion origin err targetVersion)
+                Right Nothing -> do
+                  githubReleasedVersionE <- resolveReleaseVersionFromGithub targetVersion
+                  case githubReleasedVersionE of
+                    Left githubReleaseError ->
+                      throwIO (CouldNotResolveReleaseVersion origin githubReleaseError targetVersion)
+                    Right releasedVersion -> do
+                      _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
+                      writeFile "/home/dylan-thinnes/resolveVia" "resolve via github"
+                      pure releasedVersion
 
-resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO (Either CouldNotResolveVersion ReleaseVersion)
+data CouldNotResolveSdkVersion = CouldNotResolveSdkVersion SdkVersion
+  deriving (Show, Eq)
+
+instance Exception CouldNotResolveSdkVersion where
+    displayException (CouldNotResolveSdkVersion version) =
+        "Could not resolve SDK version " <> T.unpack (V.toText (unwrapSdkVersion version)) <> " to a release version. Possible fix: `daml version --force-reload yes`?"
+
+resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO (Either CouldNotResolveSdkVersion ReleaseVersion)
 resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure (Right headReleaseVersion)
 resolveSdkVersionToRelease useCache targetVersion = do
     resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
-      Just resolved -> pure (Right resolved)
+      Just resolved -> do
+          writeFile "/home/dylan-thinnes/resolveSdkVia" "resolved from path"
+          pure (Right resolved)
       Nothing -> do
         let isTargetVersion version =
               targetVersion == sdkVersionFromReleaseVersion version
-        (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
+        (releaseVersions, _age) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
-          (x:_) -> pure $ Right x
+          (x:_) -> do
+              writeFile "/home/dylan-thinnes/resolveSdkVia" "resolved from cache"
+              pure $ Right x
           [] -> pure $ Left $ CouldNotResolveSdkVersion targetVersion
 
 resolveReleaseVersionFromDamlPath :: DamlPath -> UnresolvedReleaseVersion -> IO (Maybe ReleaseVersion)
@@ -417,7 +460,7 @@ resolveSdkVersionFromDamlPath damlPath targetSdkVersion = do
 
 -- | Subset of the github release response that we care about
 data GithubReleaseResponseSubset = GithubReleaseResponseSubset
-  { assetNames :: [T.Text] }
+  { githubAssetNames :: [T.Text] }
 
 instance FromJSON GithubReleaseResponseSubset where
   -- Akin to `GithubReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
@@ -431,34 +474,97 @@ releaseResponseSubsetSdkVersion responseSubset =
         withoutExt <- T.stripSuffix "-linux.tar.gz" name
         T.stripPrefix "daml-sdk-" withoutExt
   in
-  listToMaybe $ mapMaybe extractMatchingName (assetNames responseSubset)
+  listToMaybe $ mapMaybe extractMatchingName (githubAssetNames responseSubset)
 
-data GithubReleaseError
+data ResolveReleaseError
   = FailedToFindLinuxSdkInRelease String
   | Couldn'tParseSdkVersion String InvalidVersion
+  | Couldn'tParseJSON String
+  | Couldn'tConnect200 Int String
   deriving (Show, Eq)
 
-instance Exception GithubReleaseError where
+instance Exception ResolveReleaseError where
   displayException (FailedToFindLinuxSdkInRelease url) =
     "Couldn't find Linux SDK in release at url: '" <> url <> "'"
   displayException (Couldn'tParseSdkVersion url v) =
     "Couldn't parse SDK in release at url '" <> url <> "': " <> displayException v
+  displayException (Couldn'tParseJSON url) =
+    "Couldn't parse JSON from the response from url '" <> url <> "'"
+  displayException (Couldn'tConnect200 statusCode url) =
+    "Couldn't connect successfully to '" <> url <> "', got HTTP status code `" <> show statusCode <> "`"
 
--- | Since ~2.8.snapshot, the "enterprise version" (the version the user inputs) and the daml sdk version (the version of the daml repo) can differ
--- As such, we derive the latter via the github api `assets` endpoint, looking for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
-resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO (Either GithubReleaseError ReleaseVersion)
+-- | Since ~2.8.snapshot, the "daml version" (the version the user inputs) and
+-- the daml sdk version (the version of the daml repo) can differ
+-- As such, we derive the latter via the github api `assets` endpoint, looking
+-- for a file matching the expected `daml-sdk-$VERSION-$OS.tar.gz`
+resolveReleaseVersionFromGithub :: UnresolvedReleaseVersion -> IO (Either ResolveReleaseError ReleaseVersion)
 resolveReleaseVersionFromGithub unresolvedVersion = do
   let tag = T.unpack (rawVersionToTextWithV (unwrapUnresolvedReleaseVersion unresolvedVersion))
       url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
   req <- parseRequest url
-  res <- httpJSON $ setRequestHeaders [("User-Agent", "request")] req
+  res <- httpJSONEither $ setRequestHeaders [("User-Agent", "request")] req
   pure $
-    case releaseResponseSubsetSdkVersion (getResponseBody res) of
-      Nothing -> Left (FailedToFindLinuxSdkInRelease url)
-      Just sdkVersionStr ->
+    case releaseResponseSubsetSdkVersion <$> getResponseBody res of
+      Right (Just sdkVersionStr) ->
         case parseSdkVersion sdkVersionStr of
           Left issue -> Left (Couldn'tParseSdkVersion url issue)
           Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
+      Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+      Left _
+        | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
+        | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+        | otherwise -> Left (Couldn'tConnect200 (getResponseStatusCode res) url)
+
+-- | Subset of the artifactory release response that we care about
+data ArtifactoryReleaseResponseSubset = ArtifactoryReleaseResponseSubset
+  { artifactoryFiles :: [T.Text] }
+  deriving (Show, Eq, Ord)
+
+instance FromJSON ArtifactoryReleaseResponseSubset where
+  -- Akin to `ArtifactoryReleaseResponseSubset . fmap name . assets` but lifted into a parser over json
+  parseJSON = withObject "ArtifactoryReleaseResponse" $ \v ->
+    ArtifactoryReleaseResponseSubset <$> explicitParseField (listParser parseJSON) v "files"
+
+artifactoryReleaseResponseSubsetSdkVersion :: ArtifactoryReleaseResponseSubset -> Maybe T.Text
+artifactoryReleaseResponseSubsetSdkVersion responseSubset =
+  let extractMatchingName :: T.Text -> Maybe T.Text
+      extractMatchingName path = do
+        let name = T.takeWhileEnd (/= '/') path
+        withoutExt <- T.stripSuffix "-linux-ee.tar.gz" name
+        T.stripPrefix "daml-sdk-" withoutExt
+  in
+  listToMaybe $ mapMaybe extractMatchingName (artifactoryFiles responseSubset)
+
+resolveReleaseVersionFromArtifactory :: DamlPath -> UnresolvedReleaseVersion -> IO (Either ResolveReleaseError (Maybe ReleaseVersion))
+resolveReleaseVersionFromArtifactory damlPath unresolvedVersion = do
+  damlConfig <- tryConfig $ readDamlConfig damlPath
+  case queryArtifactoryApiKey <$> damlConfig of
+    Right (Just apiKey) -> do
+      let url = "https://digitalasset.jfrog.io/artifactory/api/search/pattern"
+          --searchParam = foldMap id [ "sdk-ee:", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
+          searchParam = foldMap id [ "external-files:daml-enterprise/*/", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
+      req <- parseRequest url
+      res <- httpJSONEither $
+                setRequestHeaders
+                    [ ("User-Agent", "request")
+                    , ("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))
+                    ] $
+                setQueryString
+                    [ ("pattern", Just searchParam)
+                    ]
+                    req
+      pure $
+        case artifactoryReleaseResponseSubsetSdkVersion <$> getResponseBody res of
+          Right (Just sdkVersionStr) ->
+            case parseSdkVersion sdkVersionStr of
+              Left issue -> Left (Couldn'tParseSdkVersion url issue)
+              Right sdkVersion -> Right (Just (mkReleaseVersion unresolvedVersion sdkVersion))
+          Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+          Left _
+            | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
+            | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+            | otherwise -> Left (Couldn'tConnect200 (getResponseStatusCode res) url)
+    _ -> pure (Right Nothing)
 
 -- | OS-specific part of the asset name.
 osName :: Text

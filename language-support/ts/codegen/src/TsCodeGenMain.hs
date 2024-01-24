@@ -131,7 +131,7 @@ main = do
               Left _ -> fail "Invalid SDK version"
               Right v -> do
                 useCache <- DAEnv.mkUseCache <$> DAEnv.getCachePath <*> DAEnv.getDamlPath
-                DAVersion.resolveReleaseVersion useCache v
+                DAVersion.resolveReleaseVersionUnsafe (Just "Getting version for codegen") useCache v
         pkgs <- readPackages optInputDars
         case mergePackageMap pkgs of
           Left err -> fail . T.unpack $ err
