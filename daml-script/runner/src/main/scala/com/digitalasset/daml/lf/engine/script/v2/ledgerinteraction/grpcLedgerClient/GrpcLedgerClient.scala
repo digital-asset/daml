@@ -10,7 +10,6 @@ import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.event.InterfaceView
@@ -38,6 +37,8 @@ import com.digitalasset.canton.platform.participant.util.LfEngineToApi.{
 }
 import com.daml.script.converter.ConverterException
 import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.protobuf.StatusProto
+import com.google.rpc.status.{Status => GoogleStatus}
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -270,41 +271,43 @@ class GrpcLedgerClient(
           createdEventBlob = blob.toByteString,
         )
       }
-    val resultFuture =
-      for {
-        ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
-        // We need to remember the original package ID for each command result, so we can reapply them
-        // after we get the results (for upgrades)
-        commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+    for {
+      ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+      // We need to remember the original package ID for each command result, so we can reapply them
+      // after we get the results (for upgrades)
+      commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
 
-        apiCommands = Commands(
-          party = actAs.head,
-          actAs = actAs.toList,
-          readAs = readAs.toList,
-          commands = ledgerCommands,
-          applicationId = applicationId.getOrElse(""),
-          commandId = UUID.randomUUID.toString,
-          disclosedContracts = ledgerDisclosures,
-        )
-        request = SubmitAndWaitRequest(Some(apiCommands))
-        resp <- grpcClient.v2.commandService
-          .submitAndWaitForTransactionTree(request)
-        tree <- Converter.toFuture(
-          Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
-        )
-        results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
-      } yield Right((results, Some(tree)))
-    resultFuture
-      .recoverWith({ case s: StatusRuntimeException =>
-        Future.successful(
-          Left(
-            ScriptLedgerClient.SubmitFailure(
-              s,
-              Some(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)),
+      apiCommands = Commands(
+        party = actAs.head,
+        actAs = actAs.toList,
+        readAs = readAs.toList,
+        commands = ledgerCommands,
+        applicationId = applicationId.getOrElse(""),
+        commandId = UUID.randomUUID.toString,
+        disclosedContracts = ledgerDisclosures,
+      )
+      eResp <- grpcClient.v2.commandService
+        .submitAndWaitForTransactionTree(apiCommands)
+
+      result <- eResp match {
+        case Right(resp) =>
+          for {
+            tree <- Converter.toFuture(
+              Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+            )
+            results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
+          } yield Right((results, Some(tree)))
+        case Left(status) =>
+          Future.successful(
+            Left(
+              ScriptLedgerClient.SubmitFailure(
+                StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status)),
+                Some(GrpcErrorParser.convertStatusRuntimeException(status, languageVersionLookup)),
+              )
             )
           )
-        )
-      })
+      }
+    } yield result
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit

@@ -212,9 +212,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
     ).map(_.value())
 
   private def isSubmitMustFailError(status: Status): Boolean = {
-    val code = status.code
-    // We handle ABORTED for backwards compatibility with pre-1.18 error codes.
-    catchableStatusCodes.contains(code) || code == Code.ABORTED
+    catchableStatusCodes.contains(status.code)
   }
 
   override def queryContractKey(
@@ -280,9 +278,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       .flatMap {
         case Right(tree) => Future.successful(Right(tree))
         // daml2-script is being deleted, i dont mind rebuilding the error
-        case Left(status) if isSubmitMustFailError(status) => 
+        case Left(status) if isSubmitMustFailError(status) =>
           Future.successful(Left(StatusProto.toStatusRuntimeException(Status.toJavaProto(status))))
-        case Left(status) => 
+        case Left(status) =>
           Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
       }
     transactionTreeF.map(r =>
@@ -337,7 +335,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
         .flatMap {
           case Right(tree) => Future.successful(tree)
           // daml2-script is being deleted, i dont mind rebuilding the error
-          case Left(status) => 
+          case Left(status) =>
             Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
         }
       converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))

@@ -59,7 +59,7 @@ final class ReproducesTransactions
     api.Identifier(mainPkg, moduleName = "Iou", s)
 
   private def submit(client: LedgerClient, p: Ref.Party, cmd: Command) =
-    client.v2.commandService.submitAndWaitForTransaction(
+    client.v2.commandService.deprecatedSubmitAndWaitForTransactionForJsonApi(
       SubmitAndWaitRequest(
         Some(
           Commands(
