@@ -108,7 +108,7 @@ getFreshStableSdkVersionForCheck useCache = do
       parsed <- requiredE
         ("Invalid value for environment variable " <> pack sdkVersionLatestEnvVar <> ".")
         (parseVersion (pack value))
-      pure (Just <$> resolveReleaseVersionUnsafe (Just "getFreshStableSdkVersionForCheck") useCache parsed)
+      pure (Just <$> resolveReleaseVersionUnsafe useCache parsed)
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
@@ -152,7 +152,7 @@ getDamlAssistantPathDefault (DamlPath damlPath) =
 getDamlAssistantSdkVersion :: UseCache -> IO (Maybe DamlAssistantSdkVersion)
 getDamlAssistantSdkVersion useCache =
     overrideWithEnvVarMaybeIO damlAssistantVersionEnvVar pure
-        (fmap (fmap DamlAssistantSdkVersion) . traverse (resolveReleaseVersionUnsafe (Just "getDamlAssistantSdkVersion") useCache) . parseVersion . pack)
+        (fmap (fmap DamlAssistantSdkVersion) . traverse (resolveReleaseVersionUnsafe useCache) . parseVersion . pack)
         (fmap DamlAssistantSdkVersion <$> tryAssistantM (getAssistantSdkVersion useCache))
 
 -- | Determine absolute path of daml home directory.
@@ -225,7 +225,7 @@ getSdk useCache damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
         releaseVersion <-
             let parseAndResolve =
-                  traverse (resolveReleaseVersionUnsafe (Just "determining SDK version and path") useCache) .
+                  traverse (resolveReleaseVersionUnsafe useCache) .
                     parseVersion .
                       pack
             in

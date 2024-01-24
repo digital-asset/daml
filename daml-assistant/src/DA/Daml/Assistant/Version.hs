@@ -371,24 +371,20 @@ getLatestReleaseVersion :: UseCache -> IO ReleaseVersion
 getLatestReleaseVersion useCache =
     maximumOfNonEmptyVersions (getAvailableReleaseVersions useCache)
 
-data CouldNotResolveReleaseVersion = CouldNotResolveReleaseVersion (Maybe String) ResolveReleaseError UnresolvedReleaseVersion
+data CouldNotResolveReleaseVersion = CouldNotResolveReleaseVersion ResolveReleaseError UnresolvedReleaseVersion
   deriving (Show, Eq)
 
 instance Exception CouldNotResolveReleaseVersion where
-    displayException (CouldNotResolveReleaseVersion origin githubReleaseError version) =
-        let header = case origin of
-                       Nothing -> ""
-                       Just origin -> "Error while " <> origin <> ": "
-        in
-        header <> "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version)) <> " from the internet. Reason: " <> displayException githubReleaseError
+    displayException (CouldNotResolveReleaseVersion githubReleaseError version) =
+        "Could not resolve release version " <> T.unpack (V.toText (unwrapUnresolvedReleaseVersion version)) <> " from the internet. Reason: " <> displayException githubReleaseError
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO (Either CouldNotResolveReleaseVersion ReleaseVersion)
 resolveReleaseVersion useCache unresolvedVersion = do
-    try (resolveReleaseVersionUnsafe Nothing useCache unresolvedVersion)
+    try (resolveReleaseVersionUnsafe useCache unresolvedVersion)
 
-resolveReleaseVersionUnsafe :: HasCallStack => Maybe String -> UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersionUnsafe _ _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
-resolveReleaseVersionUnsafe origin useCache targetVersion = do
+resolveReleaseVersionUnsafe :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersionUnsafe _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
+resolveReleaseVersionUnsafe useCache targetVersion = do
     mbResolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
     case mbResolved of
       Just resolved -> do
@@ -408,12 +404,12 @@ resolveReleaseVersionUnsafe origin useCache targetVersion = do
                 Right (Just version) -> do
                     writeFile "/home/dylan-thinnes/resolveVia" "resolve via artifactory"
                     pure version
-                Left err -> throwIO (CouldNotResolveReleaseVersion origin err targetVersion)
+                Left err -> throwIO (CouldNotResolveReleaseVersion err targetVersion)
                 Right Nothing -> do
                   githubReleasedVersionE <- resolveReleaseVersionFromGithub targetVersion
                   case githubReleasedVersionE of
                     Left githubReleaseError ->
-                      throwIO (CouldNotResolveReleaseVersion origin githubReleaseError targetVersion)
+                      throwIO (CouldNotResolveReleaseVersion githubReleaseError targetVersion)
                     Right releasedVersion -> do
                       _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
                       writeFile "/home/dylan-thinnes/resolveVia" "resolve via github"
