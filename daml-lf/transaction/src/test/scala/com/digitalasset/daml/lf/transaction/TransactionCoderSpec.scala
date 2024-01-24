@@ -383,7 +383,7 @@ class TransactionCoderSpec
           adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
         val instance = normalizedCreate.versionedCoinst
         TransactionCoder
-          .newEncodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
+          .encodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
       }
     }
 
@@ -527,9 +527,9 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
-          TransactionCoder.newEncodeContractInstance(ValueCoder.CidEncoder, instance)
+          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val Right(decoded) =
-          TransactionCoder.newDecodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
+          TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, encoded)
 
         decoded shouldBe instance
       }
@@ -578,7 +578,7 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
-          TransactionCoder.newEncodeContractInstance(ValueCoder.CidEncoder, instance)
+          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val wrongProto = encoded.toBuilder.setPackageName(wrongPackageName.getOrElse("")).build()
         TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, wrongProto)
       }
