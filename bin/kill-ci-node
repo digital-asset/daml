@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+log_file=$(mktemp)
+
+failed() (
+  echo "It looks like this script failed. You can find the output of the subcommands in:"
+  echo $log_file
+)
+
+trap failed EXIT
+
+agent_name=$1
+
+scale_set=${agent_name%-*}
+instance_id=$((36#${agent_name#*-}))
+
+case $scale_set in
+  dw*)
+    pool_id=11
+    ;;
+  du*)
+    pool_id=8
+    ;;
+  *)
+    echo "Invalid scale set: $scale_set."
+esac
+
+agent_is_busy() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id/?includeAssignedRequest=true&includeLastCompletedRequest=true&api-version=5.1" \
+       | jq -e .assignedRequest.requestId \
+   &>$log_file
+)
+
+disable_agent() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id?api-version=5.0" \
+       -X 'PATCH' \
+       -H 'Content-Type: application/json' \
+       --data-binary '{"id":'$agent_id',"enabled":false}' \
+   &>$log_file
+)
+
+remove_agent() (
+  pool_id=$1
+  agent_id=$2
+  curl --silent \
+       --fail \
+       -u :$AZURE_PAT \
+       -XDELETE \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id?api-version=7.0" \
+   &>$log_file
+)
+
+if [ -z "${AZURE_PAT:-}" ]; then
+  echo "This script requires the AZURE_PAT environment variable."
+  exit 1
+fi
+
+agents=$(curl --silent \
+              --fail \
+              -u :$AZURE_PAT \
+              "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents?api-version=7.0" \
+         | jq -c '[.value[] | {name,id}]')
+
+for idx in $(seq 0 $(echo "$agents" | jq 'length - 1')); do
+  if [ "$(echo "$agents" | jq -r ".[$idx].name")" == "$agent_name" ]; then
+    agent_id=$(echo "$agents" | jq -r ".[$idx].id")
+  fi
+done
+
+if [ -z "${agent_id:-}" ]; then
+  echo "Agent not found: $agent_name."
+  exit 1
+fi
+
+previous_size=$(az vmss show --resource-group daml-ci --name $scale_set | jq '.sku.capacity')
+
+echo "$(date -Is -u) > $agent_name: disabling agent and waiting for job to finish."
+disable_agent $pool_id $agent_id
+while agent_is_busy $pool_id $agent_id; do
+  echo "$(date -Is -u) > $agent_name: waiting for jobs to finish."
+  sleep 30
+done
+echo "$(date -Is -u) > $agent_name: removing from Azure Pipelines."
+remove_agent $pool_id $agent_id
+echo "$(date -Is -u) > $agent_name: shutting down."
+az vmss delete-instances --resource-group daml-ci --name $scale_set --instance-ids $instance_id &>$log_file
+if [ -z "${REDUCE_SIZE:-}" ]; then
+  echo "$(date -Is -u) > $agent_name: bringing scale set size back up."
+  az vmss scale --resource-group daml-ci --name $scale_set --new-capacity $previous_size &>$log_file
+fi
+echo "$(date -Is -u) > $agent_name: done."
+
+trap - EXIT
