@@ -1,4 +1,3 @@
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module DamlDocHoogle where
 
 -- | T docs

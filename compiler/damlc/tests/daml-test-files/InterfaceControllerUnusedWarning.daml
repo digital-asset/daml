@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wunused-matches #-}
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
 module InterfaceControllerUnusedWarning where
 

@@ -1,6 +1,6 @@
 -- @ERROR range=13:7-13:11; `this' is a prohibited field name, please use something else.
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 module RestrictedNameInterfaceThis where
 
 data ViewType = ViewType {
