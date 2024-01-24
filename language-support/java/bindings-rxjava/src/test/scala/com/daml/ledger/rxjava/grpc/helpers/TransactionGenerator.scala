@@ -240,7 +240,6 @@ object TransactionGenerator {
       createdEventBlob,
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
-      None.toJava, // agreementText, to be removed
       contractKey.map(_._2).toJava,
       signatories.toSet.asJava,
       observers.toSet.asJava,
