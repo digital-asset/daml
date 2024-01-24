@@ -243,14 +243,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     x + "_XXX"
   }
 
-  // --[predicates]--
-  // Some tweaks have version dependant significance.
-
-  private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
-    import scala.Ordering.Implicits.infixOrderingOps
-    v >= TransactionVersion.minByKey
-  }
-
   // --[shared sub tweaks]--
 
   private val tweakPartySet = Tweak[Set[Party]] { case xs =>
@@ -335,10 +327,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     Tweak[Node] { case nf: Node.Fetch =>
       tweakOptKeyMaintainers(nf.version).run(nf.keyOpt).map { x => nf.copy(keyOpt = x) }
     }
-  private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case nf: Node.Fetch if whenVersion(nf.version) =>
-      nf.copy(byKey = changeBoolean(nf.byKey))
-  }
   private val tweakFetchVersion = Tweak.single[Node] { case nf: Node.Fetch =>
     nf.copy(version = changeVersion(nf.version))
   }
@@ -351,7 +339,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakFetchSignatories" -> tweakFetchSignatories,
       "tweakFetchStakeholders" -> tweakFetchStakeholders,
       "tweakFetchKey" -> tweakFetchKey(tweakOptKeyMaintainers),
-      "tweakFetchByKey(New Version)" -> tweakFetchByKey(versionSinceMinByKey),
       "tweakFetchVersion" -> tweakFetchVersion,
     )
 
@@ -422,10 +409,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     Tweak[Node] { case ne: Node.Exercise =>
       tweakOptKeyMaintainers(ne.version).run(ne.keyOpt).map { x => ne.copy(keyOpt = x) }
     }
-  private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case ne: Node.Exercise if whenVersion(ne.version) =>
-      ne.copy(byKey = changeBoolean(ne.byKey))
-  }
   private val tweakExerciseVersion = Tweak.single[Node] { case ne: Node.Exercise =>
     ne.copy(version = changeVersion(ne.version))
   }
@@ -443,7 +426,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseChoiceObservers" -> tweakExerciseChoiceObservers,
       "tweakExerciseExerciseResult" -> tweakExerciseExerciseResult,
       "tweakExerciseKey" -> tweakExerciseKey(tweakOptKeyMaintainers),
-      "tweakExerciseByKey(New Version)" -> tweakExerciseByKey(versionSinceMinByKey),
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )
 

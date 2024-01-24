@@ -45,7 +45,6 @@ object TransactionVersion {
   def maxVersion: TransactionVersion = VDev
 
   private[lf] val minExceptions = V14
-  private[lf] val minByKey = V14
   private[lf] val minInterfaces = V15
   private[lf] val minExplicitDisclosure = VDev
   private[lf] val minChoiceAuthorizers = VDev

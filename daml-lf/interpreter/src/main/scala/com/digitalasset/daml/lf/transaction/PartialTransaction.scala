@@ -286,14 +286,6 @@ private[speedy] case class PartialTransaction(
     }.toMap
   }
 
-  private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
-    if (version < TxVersion.minByKey) {
-      false
-    } else {
-      byKey
-    }
-  }
-
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -396,7 +388,7 @@ private[speedy] case class PartialTransaction(
         signatories = contract.signatories,
         stakeholders = contract.stakeholders,
         keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
-        byKey = normByKey(version, byKey),
+        byKey = byKey,
         version = version,
       )
 
@@ -577,7 +569,7 @@ private[speedy] case class PartialTransaction(
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = ec.contractKey,
-      byKey = normByKey(ec.version, ec.byKey),
+      byKey = ec.byKey,
       version = ec.version,
     )
   }

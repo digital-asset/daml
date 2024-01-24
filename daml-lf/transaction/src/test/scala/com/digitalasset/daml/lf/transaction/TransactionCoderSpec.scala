@@ -937,76 +937,6 @@ class TransactionCoderSpec
       }
     }
 
-    s"preserve byKey on exercise in version >= ${TransactionVersion.minByKey} and drop before" in {
-      forAll(
-        Arbitrary.arbInt.arbitrary,
-        danglingRefExerciseNodeGen,
-        minSuccessful(50),
-      ) { (nodeIdx, node) =>
-        val nodeId = NodeId(nodeIdx)
-        // We want to check that byKey gets lost so we undo the normalization
-        val byKey = node.byKey
-        val normalizedNode = normalizeExe(node.updateVersion(node.version)).copy(byKey = byKey)
-
-        val result = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            node.version,
-            nodeId,
-            normalizedNode,
-          )
-        inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            node.version,
-            encoded,
-          )
-          result shouldBe Right(
-            nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
-            )
-          )
-        }
-      }
-    }
-
-    s"preserve byKey on fetch in version >= ${TransactionVersion.minByKey} and drop before" in {
-      forAll(
-        Arbitrary.arbInt.arbitrary,
-        fetchNodeGen,
-        minSuccessful(50),
-      ) { (nodeIdx, node) =>
-        val nodeId = NodeId(nodeIdx)
-        // We want to check that byKey gets lost so we undo the normalization
-        val byKey = node.byKey
-        val normalizedNode = normalizeFetch(node.updateVersion(node.version)).copy(byKey = byKey)
-
-        val result = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            node.version,
-            nodeId,
-            normalizedNode,
-          )
-        inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            node.version,
-            encoded,
-          )
-          result shouldBe Right(
-            nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
-            )
-          )
-        }
-      }
-    }
-
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
     "accept to decode action node with packageName iff version >= 1.16" ignore {
@@ -1206,11 +1136,7 @@ class TransactionCoderSpec
       case _ => fetch
     }
     node.copy(
-      keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version)),
-      byKey =
-        if (fetch.version >= TransactionVersion.minByKey)
-          fetch.byKey
-        else false,
+      keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version))
     )
   }
 
@@ -1241,10 +1167,7 @@ class TransactionCoderSpec
       choiceAuthorizers =
         if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
-      byKey =
-        if (exe.version >= TransactionVersion.minByKey)
-          exe.byKey
-        else false,
+      byKey =         exe.byKey
     )
   }
 

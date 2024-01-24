@@ -44,11 +44,7 @@ class Normalization {
     }
   }
 
-  private def normNode(
-      node: Node
-  ): Node = {
-    import scala.Ordering.Implicits.infixOrderingOps
-    node match {
+  private def normNode(node: Node): Node = node match {
 
       case old: Node.Create =>
         old
@@ -56,22 +52,12 @@ class Normalization {
           .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
 
       case old: Node.Fetch =>
-        (if (old.version >= TransactionVersion.minByKey) {
-           old
-         } else {
-           old.copy(byKey = false)
-         })
-          .copy(
+          old.copy(
             keyOpt = old.keyOpt.map(normKWM(old.version))
           )
 
       case old: Node.Exercise =>
-        (if (old.version >= TransactionVersion.minByKey) {
-           old
-         } else {
-           old.copy(byKey = false)
-         })
-          .copy(
+        old      .copy(
             chosenValue = normValue(old.version)(old.chosenValue),
             exerciseResult = old.exerciseResult.map(normValue(old.version)),
             keyOpt = old.keyOpt.map(normKWM(old.version)),
@@ -85,7 +71,6 @@ class Normalization {
       case old: Node.Rollback => old
 
     }
-  }
 
   private def normValue(version: TransactionVersion)(x: Val): Val = {
     Util.assertNormalizeValue(x, version)

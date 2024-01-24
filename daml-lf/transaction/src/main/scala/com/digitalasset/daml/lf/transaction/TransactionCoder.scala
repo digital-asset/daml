@@ -289,9 +289,7 @@ object TransactionCoder {
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nf.coid)))
-              if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(nf.byKey))
-              }
               nf.actingParties.foreach(builder.addActors)
               for {
                 encodedPkgName <- encodePackageName(nf.packageName, nodeVersion)
@@ -322,10 +320,7 @@ object TransactionCoder {
                 case None => ()
                 case Some(xs) => xs.foreach(builder.addAuthorizers)
               }
-
-              if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
-              }
               if (nodeVersion >= TransactionVersion.minInterfaces) {
                 ne.interfaceId.foreach(iface =>
                   builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
@@ -528,10 +523,7 @@ object TransactionCoder {
             templateId,
             protoFetch.getKeyWithMaintainers,
           )
-          byKey =
-            if (nodeVersion >= TransactionVersion.minByKey)
-              protoFetch.getByKey
-            else false
+          byKey =             protoFetch.getByKey
         } yield ni -> Node.Fetch(
           coid = c,
           packageName = pkgName,
@@ -590,10 +582,7 @@ object TransactionCoder {
                 if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
             }
           choiceName <- toIdentifier(protoExe.getChoice)
-          byKey =
-            if (nodeVersion >= TransactionVersion.minByKey)
-              protoExe.getByKey
-            else false
+          byKey = protoExe.getByKey
           interfaceId <-
             if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasInterfaceId) {
               ValueCoder.decodeIdentifier(protoExe.getInterfaceId).map(Some(_))
