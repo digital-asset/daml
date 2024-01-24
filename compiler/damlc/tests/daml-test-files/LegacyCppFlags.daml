@@ -9,4 +9,7 @@ test = do
 #ifndef DAML_NAT_SYN
   error "Expected DAML_NAT_SYN to be defined for backwards compatibility"
 #endif
+#ifndef DAML_RIGHT_TO_LEFT_EVALUATION
+  error "Expected DAML_RIGHT_TO_LEFT_EVALUATION to be defined for backwards compatibility"
+#endif
   pure ()
