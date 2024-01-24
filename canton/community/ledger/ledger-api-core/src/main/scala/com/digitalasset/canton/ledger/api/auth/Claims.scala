@@ -107,12 +107,15 @@ object ClaimSet {
     def notExpired(
         now: Instant,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        tokenExpiryGracePeriodForStreams: Option[Duration] = None,
     ): Either[AuthorizationError, Unit] = {
-      val relaxedNow =
+      val subtrahends =
         jwtTimestampLeeway
           .flatMap(l => l.expiresAt.orElse(l.default))
-          .map(leeway => now.minus(Duration.ofSeconds(leeway)))
-          .getOrElse(now)
+          .map(Duration.ofSeconds)
+          .toList ++
+          tokenExpiryGracePeriodForStreams.toList
+      val relaxedNow = subtrahends.foldLeft(now)((acc, subtrahend) => acc.minus(subtrahend))
       expiration match {
         case Some(e) if !relaxedNow.isBefore(e) => Left(AuthorizationError.Expired(e, now))
         case _ => Right(())

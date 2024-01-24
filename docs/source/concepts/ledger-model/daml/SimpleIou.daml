@@ -12,9 +12,6 @@ template MustPay with
     owner : Party
   where
     signatory obligor, owner
-    agreement
-      show obligor <> " must pay " <>
-      show owner <> " one unit of value"
 
 template Iou with
     obligor : Party

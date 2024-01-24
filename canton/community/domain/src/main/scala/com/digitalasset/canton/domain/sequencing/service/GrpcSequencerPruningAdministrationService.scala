@@ -6,10 +6,10 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
-import com.digitalasset.canton.admin.pruning.v0.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0
+import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.sequencing.sequencer.{PruningError, Sequencer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.scheduler.PruningScheduler
@@ -25,15 +25,15 @@ class GrpcSequencerPruningAdministrationService(
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
-) extends v0.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationService
+) extends v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationService
     with GrpcPruningScheduler
     with HasPruningScheduler
     with NamedLogging {
 
   /** Remove data from the Sequencer */
-  override def prune(req: v0.Pruning.Request): Future[v0.Pruning.Response] = {
+  override def prune(req: v30.Pruning.Request): Future[v30.Pruning.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    EitherTUtil.toFuture[StatusException, v0.Pruning.Response] {
+    EitherTUtil.toFuture[StatusException, v30.Pruning.Response] {
       for {
         requestedTimestamp <- EitherT
           .fromEither[Future](
@@ -50,7 +50,7 @@ class GrpcSequencerPruningAdministrationService(
             case e: PruningError.UnsafePruningPoint =>
               Status.FAILED_PRECONDITION.withDescription(e.message).asException()
           }
-      } yield v0.Pruning.Response(details)
+      } yield v30.Pruning.Response(details)
     }
   }
   override def locatePruningTimestamp(

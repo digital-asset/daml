@@ -19,7 +19,6 @@ import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.testing.parser.Implicits._
 
-class ExplicitDisclosureTestV1 extends ExplicitDisclosureTest(LanguageMajorVersion.V1)
 class ExplicitDisclosureTestV2 extends ExplicitDisclosureTest(LanguageMajorVersion.V2)
 
 private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVersion)

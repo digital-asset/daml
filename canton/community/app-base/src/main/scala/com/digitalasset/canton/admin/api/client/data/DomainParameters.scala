@@ -23,14 +23,14 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParameters as DynamicDomainParametersInternal,
   OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
-  v2 as protocolV2,
+  v30 as protocolV30,
 }
 import com.digitalasset.canton.time.{
   Clock,
   NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
   PositiveSeconds,
 }
-import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization
+import com.digitalasset.canton.topology.admin.v30old.DomainParametersChangeAuthorization
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
 import com.digitalasset.canton.crypto as DomainCrypto
@@ -197,7 +197,7 @@ final case class DynamicDomainParameters(
 
   def toProto: DomainParametersChangeAuthorization.Parameters =
     DomainParametersChangeAuthorization.Parameters.ParametersV1(
-      protocolV2.DynamicDomainParameters(
+      protocolV30.DynamicDomainParameters(
         participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
         mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
         transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
@@ -206,14 +206,14 @@ final case class DynamicDomainParameters(
         mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
         reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
         defaultParticipantLimits = Some(
-          protocolV2.ParticipantDomainLimits(
+          protocolV30.ParticipantDomainLimits(
             maxRate = maxRatePerParticipant.unwrap,
             maxNumParties = 0,
             maxNumPackages = 0,
           )
         ),
         maxRequestSize = maxRequestSize.unwrap,
-        onboardingRestriction = onboardingRestriction.toProtoV0,
+        onboardingRestriction = onboardingRestriction.toProtoV30,
         requiredPackages = Nil,
         onlyRequiredPackagesPermitted = false,
         defaultMaxHostingParticipantsPerParty = 0,

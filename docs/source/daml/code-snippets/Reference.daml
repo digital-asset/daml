@@ -39,11 +39,6 @@ template NameOfTemplate
     ensure
       True -- a boolean condition goes here
 -- end template ensure snippet
--- start template agree snippet
-    agreement
-      -- text representing the contract
-      ""
--- end template agree snippet
 -- start contract key snippet
     key (exampleParty, exampleParam) : (Party, Text)
     maintainer (exampleFunction key)

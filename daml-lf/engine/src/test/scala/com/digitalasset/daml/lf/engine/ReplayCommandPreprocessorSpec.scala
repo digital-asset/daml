@@ -20,7 +20,6 @@ import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ReplayCommandPreprocessorSpecV1 extends ReplayCommandPreprocessorSpec(LanguageMajorVersion.V1)
 class ReplayCommandPreprocessorSpecV2 extends ReplayCommandPreprocessorSpec(LanguageMajorVersion.V2)
 
 class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)

@@ -6,8 +6,6 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Util => AstUtil}
-
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -172,7 +170,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             param = x,
             precond = precon,
             signatories = signatories,
-            agreementText = AstUtil.EEmptyString,
             choices = choices,
             observers = observers,
             key = key,

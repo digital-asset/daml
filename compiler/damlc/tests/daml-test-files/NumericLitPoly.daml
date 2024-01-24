@@ -5,7 +5,7 @@
 -- condition on `NumericScale n`. That is, we still get a
 -- conversion error even if we try to be clever.
 --
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 -- @ERROR range=19:1-19:8; Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (2.71828 : Numeric 10)
 
 

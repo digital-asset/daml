@@ -5,6 +5,7 @@ package com.daml;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import da.types.Tuple2;
 import da.types.Tuple3;
 import da.types.Tuple4;
@@ -102,5 +103,14 @@ public class ContractKeysTest {
     assertEquals(nestedTupleKey.key.get()._2._2.booleanValue(), true);
     assertEquals(nestedTupleKey.key.get()._2._3, "foobar");
     assertEquals(nestedTupleKey.key.get()._2._4.longValue(), 0L);
+  }
+
+  @Test
+  void roundTripKeyThroughJson() throws JsonLfDecoder.Error {
+    assertEquals(partyKey.key.get(), PartyKey.Contract.keyFromJson(partyKey.keyToJson()));
+    assertEquals(recordKey.key.get(), RecordKey.Contract.keyFromJson(recordKey.keyToJson()));
+    assertEquals(tupleKey.key.get(), TupleKey.Contract.keyFromJson(tupleKey.keyToJson()));
+    assertEquals(
+        nestedTupleKey.key.get(), NestedTupleKey.Contract.keyFromJson(nestedTupleKey.keyToJson()));
   }
 }

@@ -222,7 +222,6 @@ private[validation] object TypeIterable {
             param @ _,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
@@ -230,7 +229,6 @@ private[validation] object TypeIterable {
           ) =>
         iterator(precond) ++
           iterator(signatories) ++
-          iterator(agreementText) ++
           choices.values.flatMap(iterator(_)) ++
           iterator(observers) ++
           key.iterator.flatMap(iterator(_)) ++

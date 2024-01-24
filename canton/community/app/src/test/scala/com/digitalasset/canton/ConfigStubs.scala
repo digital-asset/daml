@@ -10,11 +10,7 @@ import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
   CommunityStorageConfig,
 }
-import com.digitalasset.canton.domain.config.{
-  CommunityDomainConfig,
-  CommunityPublicServerConfig,
-  DomainInitConfig,
-}
+import com.digitalasset.canton.domain.config.CommunityPublicServerConfig
 import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.participant.config.{
@@ -34,16 +30,6 @@ object ConfigStubs {
       None,
       adminApi,
       CommunityStorageConfig.Memory(),
-    )
-
-  def domain: CommunityDomainConfig =
-    CommunityDomainConfig(
-      DomainInitConfig(),
-      false,
-      null,
-      null,
-      CommunityStorageConfig.Memory(),
-      CommunityCryptoConfig(),
     )
 
   def sequencerx: CommunitySequencerNodeXConfig =

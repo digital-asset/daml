@@ -249,14 +249,6 @@ class SecretKeyAdministration(
       owner: Member,
   ): Seq[PublicKey] =
     topologyAdmin match {
-      case t: TopologyAdministrationGroup =>
-        t.owner_to_key_mappings
-          .list(
-            filterStore = AuthorizedStore.filterName,
-            filterKeyOwnerUid = owner.filterString,
-            filterKeyOwnerType = Some(owner.code),
-          )
-          .map(_.item.key)
       case tx: TopologyAdministrationGroupX =>
         tx.owner_to_key_mappings
           .list(
@@ -266,8 +258,9 @@ class SecretKeyAdministration(
           )
           .flatMap(_.item.keys)
       case _ =>
+        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
         throw new IllegalStateException(
-          "Impossible to encounter topology admin group besides X and non-X"
+          "Impossible to encounter topology admin group besides X"
         )
     }
 

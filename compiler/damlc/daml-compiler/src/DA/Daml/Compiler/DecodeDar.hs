@@ -34,7 +34,6 @@ decodeDar dependenciesInPkgDb ExtractedDar{..} = do
     mainDalf <-
         decodeDalf
             dependenciesInPkgDb
-            (ZipArchive.eRelativePath edMain)
             (BSL.toStrict $ ZipArchive.fromEntry edMain)
     otherDalfs <-
         mapM decodeEntry $
@@ -44,9 +43,8 @@ decodeDar dependenciesInPkgDb ExtractedDar{..} = do
     let dalfs = mainDalf : otherDalfs
     pure DecodedDar{..}
   where
-    decodeEntry entry =         decodeDalf
+    decodeEntry entry = decodeDalf
             dependenciesInPkgDb
-            (ZipArchive.eRelativePath entry)
             (BSL.toStrict $ ZipArchive.fromEntry entry)
 
 data DecodedDalf = DecodedDalf
@@ -54,8 +52,8 @@ data DecodedDalf = DecodedDalf
     , decodedUnitId :: UnitId
     }
 
-decodeDalf :: Set LF.PackageId -> FilePath -> BS.ByteString -> Either String DecodedDalf
-decodeDalf dependenciesInPkgDb path bytes = do
+decodeDalf :: Set LF.PackageId -> BS.ByteString -> Either String DecodedDalf
+decodeDalf dependenciesInPkgDb bytes = do
     (pkgId, package) <-
         mapLeft DA.Pretty.renderPretty $
         Archive.decodeArchive Archive.DecodeAsDependency bytes
@@ -77,7 +75,7 @@ decodeDalf dependenciesInPkgDb path bytes = do
     -- If the version of daml-prim/daml-stdlib in a data-dependency is the same
     -- as the one we are currently compiling against, we don’t need to apply this
     -- hack.
-    let (name, mbVersion) = case LF.packageMetadataFromFile path package pkgId of
+    let (name, mbVersion) = case LF.safePackageMetadata package of
             (LF.PackageName "daml-prim", Nothing)
                 | pkgId `Set.notMember` dependenciesInPkgDb ->
                   (LF.PackageName ("daml-prim-" <> LF.unPackageId pkgId), Nothing)

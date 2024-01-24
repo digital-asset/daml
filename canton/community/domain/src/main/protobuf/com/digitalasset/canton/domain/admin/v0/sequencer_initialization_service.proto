@@ -5,9 +5,10 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.admin.v0;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/domain/admin/v2/sequencer_initialization_service.proto";
-import "com/digitalasset/canton/topology/admin/v0/topology_ext.proto";
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+
 import "google/protobuf/empty.proto";
 
 // Service allowing a Domain node to initialize the sequencer instance.
@@ -24,7 +25,7 @@ service SequencerInitializationService {
 
 message InitResponse {
   string key_id = 1;
-  com.digitalasset.canton.crypto.v0.SigningPublicKey public_key = 2;
+  com.digitalasset.canton.crypto.v30.SigningPublicKey public_key = 2;
 
   // Indicate if the initialized sequencer is replicated
   bool replicated = 3;
@@ -36,5 +37,5 @@ service TopologyBootstrapService {
 }
 
 message TopologyBootstrapRequest {
-  com.digitalasset.canton.protocol.v0.TopologyTransactions initial_topology_snapshot = 1;
+  com.digitalasset.canton.protocol.v30.TopologyTransactions initial_topology_snapshot = 1;
 }

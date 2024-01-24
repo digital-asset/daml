@@ -187,7 +187,7 @@ class CantonSyncService(
     excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions,
   )
 
-  type ConnectionListener = DomainAlias => Unit
+  type ConnectionListener = Traced[DomainId] => Unit
 
   // Listeners to domain connections
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
@@ -1283,7 +1283,9 @@ class CantonSyncService(
       ): UnlessShutdown[Either[SyncServiceError, Unit]] =
         outcome match {
           case x @ UnlessShutdown.Outcome(Right(())) =>
-            connectionListeners.get().foreach(_(domainAlias))
+            aliasManager.domainIdForAlias(domainAlias).foreach { domainId =>
+              connectionListeners.get().foreach(_(Traced(domainId)))
+            }
             x
           case UnlessShutdown.AbortedDueToShutdown =>
             disconnectOn()

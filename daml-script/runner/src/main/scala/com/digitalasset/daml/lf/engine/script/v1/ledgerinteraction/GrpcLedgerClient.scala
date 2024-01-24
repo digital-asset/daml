@@ -10,7 +10,6 @@ import java.time.Instant
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.event.InterfaceView
@@ -41,7 +40,10 @@ import com.digitalasset.canton.platform.participant.util.LfEngineToApi.{
   toTimestamp,
 }
 import com.daml.script.converter.ConverterException
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.protobuf.StatusProto
+import io.grpc.StatusRuntimeException
+import io.grpc.Status.Code
+import com.google.rpc.status.Status
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -203,16 +205,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737
   private val catchableStatusCodes =
     Set(
-      Status.Code.NOT_FOUND,
-      Status.Code.INVALID_ARGUMENT,
-      Status.Code.FAILED_PRECONDITION,
-      Status.Code.ALREADY_EXISTS,
-    )
+      Code.NOT_FOUND,
+      Code.INVALID_ARGUMENT,
+      Code.FAILED_PRECONDITION,
+      Code.ALREADY_EXISTS,
+    ).map(_.value())
 
-  private def isSubmitMustFailError(status: StatusRuntimeException): Boolean = {
-    val code = status.getStatus.getCode
+  private def isSubmitMustFailError(status: Status): Boolean = {
+    val code = status.code
     // We handle ABORTED for backwards compatibility with pre-1.18 error codes.
-    catchableStatusCodes.contains(code) || code == Status.Code.ABORTED
+    catchableStatusCodes.contains(code) || code == Code.ABORTED
   }
 
   override def queryContractKey(
@@ -273,15 +275,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       applicationId = applicationId.getOrElse(""),
       commandId = UUID.randomUUID.toString,
     )
-    val request = SubmitAndWaitRequest(Some(apiCommands))
     val transactionTreeF = grpcClient.v2.commandService
-      .submitAndWaitForTransactionTree(request)
-      .map(Right(_))
-      .recoverWith({
-        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
-          Future.successful(Left(s))
-
-      })
+      .submitAndWaitForTransactionTree(apiCommands)
+      .flatMap {
+        case Right(tree) => Future.successful(Right(tree))
+        // daml2-script is being deleted, i dont mind rebuilding the error
+        case Left(status) if isSubmitMustFailError(status) => 
+          Future.successful(Left(StatusProto.toStatusRuntimeException(Status.toJavaProto(status))))
+        case Left(status) => 
+          Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
+      }
     transactionTreeF.map(r =>
       r.map(transactionTree => {
         val events = transactionTree.getTransaction.rootEventIds
@@ -329,9 +332,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
         applicationId = applicationId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
       )
-      request = SubmitAndWaitRequest(Some(apiCommands))
       resp <- grpcClient.v2.commandService
-        .submitAndWaitForTransactionTree(request)
+        .submitAndWaitForTransactionTree(apiCommands)
+        .flatMap {
+          case Right(tree) => Future.successful(tree)
+          // daml2-script is being deleted, i dont mind rebuilding the error
+          case Left(status) => 
+            Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
+        }
       converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))
     } yield converted
   }
@@ -446,7 +454,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[Unit]] =
     grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(())).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.ALREADY_EXISTS => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.ALREADY_EXISTS => None
     }
 
   override def getUser(id: UserId)(implicit
@@ -455,7 +463,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[User]] =
     grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def deleteUser(id: UserId)(implicit
@@ -464,7 +472,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[Unit]] =
     grpcClient.userManagementClient.deleteUser(id).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def listAllUsers()(implicit
@@ -501,7 +509,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def revokeUserRights(
@@ -517,7 +525,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       .map(_.toList)
       .map(Some(_))
       .recover {
-        case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+        case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
       }
 
   override def listUserRights(id: UserId)(implicit
@@ -526,6 +534,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     grpcClient.userManagementClient.listUserRights(id).map(_.toList).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 }

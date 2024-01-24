@@ -65,6 +65,7 @@ steps:
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+      IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne('${{parameters.name}}', 'm1')))

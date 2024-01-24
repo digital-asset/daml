@@ -17,7 +17,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-class ParsersSpecV1 extends ParsersSpec(LanguageMajorVersion.V1)
 class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
 
 class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -680,7 +679,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "" """,
           choices = Map(
             n"Sleep" ->
               TemplateChoice(
@@ -790,7 +788,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
-          agreementText = e""" "" """,
           choices = List.empty,
           observers = e"Nil @Unit",
           key = None,

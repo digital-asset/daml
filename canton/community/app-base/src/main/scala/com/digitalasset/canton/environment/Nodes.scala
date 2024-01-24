@@ -11,7 +11,6 @@ import cats.{Applicative, Id}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
-import com.digitalasset.canton.domain.config.DomainConfig
 import com.digitalasset.canton.domain.mediator.{
   MediatorNodeBootstrapX,
   MediatorNodeConfigCommon,
@@ -23,7 +22,6 @@ import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.domain.sequencing.{SequencerNodeBootstrapX, SequencerNodeX}
-import com.digitalasset.canton.domain.{Domain, DomainNodeBootstrap, DomainNodeParameters}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
@@ -425,30 +423,9 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
 }
 
 object ParticipantNodes {
-  type ParticipantNodesOld[PC <: LocalParticipantConfig] =
-    ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, PC]
   type ParticipantNodesX[PC <: LocalParticipantConfig] =
     ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, PC]
 }
-
-class DomainNodes[DC <: DomainConfig](
-    create: (String, DC) => DomainNodeBootstrap,
-    migrationsFactory: DbMigrationsFactory,
-    timeouts: ProcessingTimeout,
-    configs: Map[String, DC],
-    parameters: String => DomainNodeParameters,
-    loggerFactory: NamedLoggerFactory,
-)(implicit
-    protected val executionContext: ExecutionContextIdlenessExecutorService
-) extends ManagedNodes[Domain, DC, DomainNodeParameters, DomainNodeBootstrap](
-      create,
-      migrationsFactory,
-      timeouts,
-      configs,
-      parameters,
-      startUpGroup = 0,
-      loggerFactory,
-    )
 
 class SequencerNodesX[SC <: SequencerNodeConfigCommon](
     create: (String, SC) => SequencerNodeBootstrapX,

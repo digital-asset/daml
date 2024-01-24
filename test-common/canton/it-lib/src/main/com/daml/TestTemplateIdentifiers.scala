@@ -21,12 +21,6 @@ final class TestTemplateIdentifiers(testPackageId: String) {
     Identifier(testPackageId, moduleName = "Test", entityName = "Choice1")
   val optionalInteger =
     Identifier(testPackageId, moduleName = "Test", entityName = "OptionalInteger")
-  val agreementFactory =
-    Identifier(testPackageId, moduleName = "Test", entityName = "AgreementFactory")
-  val agreement =
-    Identifier(testPackageId, moduleName = "Test", entityName = "Agreement")
-  val triAgreement =
-    Identifier(testPackageId, moduleName = "Test", entityName = "TriAgreement")
   val triProposal =
     Identifier(testPackageId, moduleName = "Test", entityName = "TriProposal")
   val textContainer =
@@ -76,10 +70,7 @@ final class TestTemplateIdentifiers(testPackageId: String) {
       dummy,
       dummyWithParam,
       dummyFactory,
-      agreement,
-      agreementFactory,
       triProposal,
-      triAgreement,
       textContainer,
       textKey,
       textKeyOperations,

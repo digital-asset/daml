@@ -39,11 +39,6 @@ template Invoice
   where
     signatory payer, payee
 
-    agreement
-      show payer <> " will pay " <> show payee <> " " <>
-      show amount <> "$ for " <> service <>
-      " by " <> show timeLimit
-
     choice Pay : ()
       controller payer
       do

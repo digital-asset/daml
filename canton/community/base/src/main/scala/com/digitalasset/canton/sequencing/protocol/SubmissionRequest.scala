@@ -8,7 +8,8 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt}
 import com.digitalasset.canton.crypto.{HashOps, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.v1
+import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   DeterministicEncoding,
@@ -53,14 +54,14 @@ final case class SubmissionRequest private (
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
   // Caches the serialized request to be able to do checks on its size without re-serializing
-  lazy val toProtoV1: v1.SubmissionRequest = v1.SubmissionRequest(
+  lazy val toProtoV30: v30.SubmissionRequest = v30.SubmissionRequest(
     sender = sender.toProtoPrimitive,
     messageId = messageId.toProtoPrimitive,
     isRequest = isRequest,
-    batch = Some(batch.toProtoV1),
+    batch = Some(batch.toProtoV30),
     maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
     timestampOfSigningKey = timestampOfSigningKey.map(_.toProtoPrimitive),
-    aggregationRule = aggregationRule.map(_.toProtoV0),
+    aggregationRule = aggregationRule.map(_.toProtoV30),
   )
 
   @VisibleForTesting
@@ -133,7 +134,7 @@ final case class SubmissionRequest private (
       builder.add(
         DeterministicEncoding.encodeBytes(
           // TODO(#12075) Use a deterministic serialization scheme for the recipients
-          recipients.toProtoV0.toByteString
+          recipients.toProtoV30.toByteString
         )
       )
       builder.add(DeterministicEncoding.encodeByte(if (signatures.isEmpty) 0x00 else 0x01))
@@ -167,15 +168,16 @@ object SubmissionRequest
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(
       ProtocolVersion.v30
-    )(v1.SubmissionRequest)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    )(v30.SubmissionRequest)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
   override def name: String = "submission request"
 
-  override lazy val invariants = Seq(aggregationRuleDefaultValue, timestampOfSigningKeyInvariant)
+  override lazy val invariants: Seq[protocol.SubmissionRequest.Invariant] =
+    Seq(aggregationRuleDefaultValue, timestampOfSigningKeyInvariant)
 
   lazy val aggregationRuleDefaultValue
       : SubmissionRequest.DefaultValueUntilExclusive[Option[AggregationRule]] =
@@ -242,11 +244,11 @@ object SubmissionRequest
       protocolVersionRepresentativeFor(protocolVersion),
     ).valueOr(err => throw new IllegalArgumentException(err.message))
 
-  def fromProtoV1(
+  def fromProtoV30(
       maxRequestSize: MaxRequestSizeToDeserialize,
-      requestP: v1.SubmissionRequest,
+      requestP: v30.SubmissionRequest,
   )(bytes: ByteString): ParsingResult[SubmissionRequest] = {
-    val v1.SubmissionRequest(
+    val v30.SubmissionRequest(
       senderP,
       messageIdP,
       isRequest,
@@ -265,12 +267,12 @@ object SubmissionRequest
         maxSequencingTimeP,
       )
       batch <- ProtoConverter.parseRequired(
-        Batch.fromProtoV1(_, maxRequestSize),
+        Batch.fromProtoV30(_, maxRequestSize),
         "SubmissionRequest.batch",
         batchP,
       )
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
-      aggregationRule <- aggregationRuleP.traverse(AggregationRule.fromProtoV0)
+      aggregationRule <- aggregationRuleP.traverse(AggregationRule.fromProtoV30)
     } yield new SubmissionRequest(
       sender,
       messageId,

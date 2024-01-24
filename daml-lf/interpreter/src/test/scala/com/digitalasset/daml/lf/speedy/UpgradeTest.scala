@@ -25,7 +25,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
@@ -169,7 +168,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
-        agreementText = "meh",
         signatories = Set.empty,
         observers = Set.empty,
         keyOpt = None,

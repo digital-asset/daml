@@ -35,8 +35,7 @@ checkPackage ::
   -> [Diagnostic]
 checkPackage world version = concatMap (checkModuleInWorld world version) modules
     where
-      package = getWorldSelf world
-      modules = NM.toList (packageModules package)
+      modules = NM.toList (getWorldSelfPkgModules world)
 
 checkModuleInWorld :: World -> Version -> Module -> [Diagnostic]
 checkModuleInWorld world version m =

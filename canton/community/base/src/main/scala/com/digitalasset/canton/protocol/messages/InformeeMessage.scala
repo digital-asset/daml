@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v1, v4}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -33,7 +33,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
 ) extends MediatorRequest
     // By default, we use ProtoBuf for serialization.
     // Serializable classes that have a corresponding Protobuf message should inherit from this trait to inherit common code and naming conventions.
-    // If the corresponding Protobuf message of a class has multiple versions (e.g. `v0.InformeeMessage` and `v1.InformeeMessage`),
+    // If the corresponding Protobuf message of a class has multiple versions (e.g. `InformeeMessage`),
     with UnsignedProtocolMessage {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[InformeeMessage.type] =
@@ -69,16 +69,16 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
     )
 
   // Implementing a `toProto<version>` method allows us to compose serializable classes.
-  // You should define the toProtoV0 method on the serializable class, because then it is easiest to find and use.
+  // You should define the toProtoV30 method on the serializable class, because then it is easiest to find and use.
   // (Conversely, you should not define a separate proto converter class.)
-  def toProtoV1: v1.InformeeMessage =
-    v1.InformeeMessage(
-      fullInformeeTree = Some(fullInformeeTree.toProtoV1),
+  def toProtoV30: v30.InformeeMessage =
+    v30.InformeeMessage(
+      fullInformeeTree = Some(fullInformeeTree.toProtoV30),
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
 
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV1)
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV30)
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt =
     fullInformeeTree.confirmationPolicy.minimumThreshold(informees)
@@ -96,9 +96,9 @@ object InformeeMessage
     extends HasProtocolVersionedWithContextCompanion[InformeeMessage, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.InformeeMessage)(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV1(hashOps)(proto)),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.InformeeMessage)(
+      supportedProtoVersion(_)((hashOps, proto) => fromProtoV30(hashOps)(proto)),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -112,19 +112,19 @@ object InformeeMessage
   // There is no agreed convention on which type to use for errors. In this class it is "ProtoDeserializationError",
   // but other classes use something else (e.g. "String").
   // In the end, it is most important that the errors are informative and this can be achieved in different ways.
-  private[messages] def fromProtoV1(
+  private[messages] def fromProtoV30(
       context: (HashOps, ProtocolVersion)
-  )(informeeMessageP: v1.InformeeMessage): ParsingResult[InformeeMessage] = {
+  )(informeeMessageP: v30.InformeeMessage): ParsingResult[InformeeMessage] = {
     // Use pattern matching to access the fields of v0.InformeeMessage,
     // because this will break if a field is forgotten.
-    val v1.InformeeMessage(maybeFullInformeeTreeP, protocolVersionP) = informeeMessageP
+    val v30.InformeeMessage(maybeFullInformeeTreeP, protocolVersionP) = informeeMessageP
     for {
       // Keep in mind that all fields of a proto class are optional. So the existence must be checked explicitly.
       fullInformeeTreeP <- ProtoConverter.required(
         "InformeeMessage.informeeTree",
         maybeFullInformeeTreeP,
       )
-      fullInformeeTree <- FullInformeeTree.fromProtoV1(context, fullInformeeTreeP)
+      fullInformeeTree <- FullInformeeTree.fromProtoV30(context, fullInformeeTreeP)
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield new InformeeMessage(fullInformeeTree)(protocolVersion)
   }

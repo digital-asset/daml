@@ -31,7 +31,6 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Char
 import Data.List.Extra
 import qualified Data.Map.Strict as M
-import Data.Maybe
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Yaml as Yaml
@@ -161,7 +160,7 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
             installDataDepDalf
                 remoteDalfIsMain
                 depsDir
-                (packageNameToFp $ packageNameOrId remoteDalfPkgId remoteDalfName)
+                (packageNameToFp remoteDalfName)
                 remoteDalfBs
         -- Mark received packages as well as their transitive dependencies as data dependencies.
         Logger.logDebug logger "Mark data-dependencies"
@@ -398,18 +397,16 @@ resolvePkgsWithLedger depsDir tokFpM pkgs = do
         installDalf
             []
             depsDir
-            (packageNameToFp $ packageNameOrId remoteDalfPkgId remoteDalfName)
+            (packageNameToFp remoteDalfName)
             remoteDalfBs
     let m =
             M.fromList
                 [ ( FullPkgName
-                        { pkgName = pkgName
-                        , pkgVersion = version
+                        { pkgName = remoteDalfName
+                        , pkgVersion = remoteDalfVersion
                         }
                   , remoteDalfPkgId)
                 | RemoteDalf {..} <- rdalfs
-                , Just pkgName <- [remoteDalfName]
-                , Just version <- [remoteDalfVersion]
                 ]
     let m0 = M.restrictKeys m $ Set.fromList pkgs
     pure $
@@ -503,6 +500,3 @@ guardDefM def pM m = ifM pM m (pure def)
 
 packageNameToFp :: LF.PackageName -> FilePath
 packageNameToFp n = (T.unpack $ LF.unPackageName n) <.> "dalf"
-
-packageNameOrId :: LF.PackageId -> Maybe LF.PackageName -> LF.PackageName
-packageNameOrId pkgId pkgNameM = fromMaybe (LF.PackageName $ LF.unPackageId pkgId) pkgNameM

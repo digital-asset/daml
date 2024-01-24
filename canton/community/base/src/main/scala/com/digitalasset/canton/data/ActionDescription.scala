@@ -29,7 +29,7 @@ import com.digitalasset.canton.protocol.{
   LfTemplateId,
   LfTransactionVersion,
   RefIdentifierSyntax,
-  v2,
+  v30,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -65,20 +65,19 @@ sealed trait ActionDescription
   @transient override protected lazy val companionObj: ActionDescription.type =
     ActionDescription
 
-  protected def toProtoDescriptionV2: v2.ActionDescription.Description
+  protected def toProtoDescriptionV30: v30.ActionDescription.Description
 
-  def toProtoV2: v2.ActionDescription =
-    v2.ActionDescription(description = toProtoDescriptionV2)
-
+  def toProtoV30: v30.ActionDescription =
+    v30.ActionDescription(description = toProtoDescriptionV30)
 }
 
 object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription] {
   override lazy val name: String = "ActionDescription"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.ActionDescription)(
-      supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActionDescription)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -201,10 +200,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     }
 
   private def fromCreateProtoV2(
-      c: v2.ActionDescription.CreateActionDescription,
+      c: v30.ActionDescription.CreateActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[CreateActionDescription] = {
-    val v2.ActionDescription.CreateActionDescription(contractIdP, seedP, versionP) = c
+    val v30.ActionDescription.CreateActionDescription(contractIdP, seedP, versionP) = c
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
       seed <- LfHash.fromProtoPrimitive("node_seed", seedP)
@@ -218,10 +217,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       .leftMap(err => ValueDeserializationError("choice", err))
 
   private def fromExerciseProtoV2(
-      e: v2.ActionDescription.ExerciseActionDescription,
+      e: v30.ActionDescription.ExerciseActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[ExerciseActionDescription] = {
-    val v2.ActionDescription.ExerciseActionDescription(
+    val v30.ActionDescription.ExerciseActionDescription(
       inputContractIdP,
       choiceP,
       chosenValueB,
@@ -263,14 +262,14 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   }
 
   private def fromLookupByKeyProtoV2(
-      k: v2.ActionDescription.LookupByKeyActionDescription,
+      k: v30.ActionDescription.LookupByKeyActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[LookupByKeyActionDescription] = {
-    val v2.ActionDescription.LookupByKeyActionDescription(keyP) = k
+    val v30.ActionDescription.LookupByKeyActionDescription(keyP) = k
     for {
       key <- ProtoConverter
         .required("key", keyP)
-        .flatMap(GlobalKeySerialization.fromProtoV0)
+        .flatMap(GlobalKeySerialization.fromProtoV30)
       actionDescription <- LookupByKeyActionDescription
         .create(key.unversioned, key.version, pv)
         .leftMap(err => OtherError(err.message))
@@ -278,10 +277,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   }
 
   private def fromFetchProtoV2(
-      f: v2.ActionDescription.FetchActionDescription,
+      f: v30.ActionDescription.FetchActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[FetchActionDescription] = {
-    val v2.ActionDescription.FetchActionDescription(inputContractIdP, actorsP, byKey, versionP) = f
+    val v30.ActionDescription.FetchActionDescription(inputContractIdP, actorsP, byKey, versionP) = f
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
@@ -289,11 +288,11 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     } yield FetchActionDescription(inputContractId, actors, byKey, version)(pv)
   }
 
-  private[data] def fromProtoV2(
-      actionDescriptionP: v2.ActionDescription
+  private[data] def fromProtoV30(
+      actionDescriptionP: v30.ActionDescription
   ): ParsingResult[ActionDescription] = {
-    import v2.ActionDescription.Description.*
-    val v2.ActionDescription(description) = actionDescriptionP
+    import v30.ActionDescription.Description.*
+    val v30.ActionDescription(description) = actionDescriptionP
 
     val pv = protocolVersionRepresentativeFor(ProtoVersion(2))
 
@@ -334,9 +333,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override def seedOption: Option[LfHash] = Some(seed)
 
-    override protected def toProtoDescriptionV2: v2.ActionDescription.Description.Create =
-      v2.ActionDescription.Description.Create(
-        v2.ActionDescription.CreateActionDescription(
+    override protected def toProtoDescriptionV30: v30.ActionDescription.Description.Create =
+      v30.ActionDescription.Description.Create(
+        v30.ActionDescription.CreateActionDescription(
           contractId = contractId.toProtoPrimitive,
           nodeSeed = seed.toProtoPrimitive,
           version = version.protoValue,
@@ -373,9 +372,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override def seedOption: Option[LfHash] = Some(seed)
 
-    override protected def toProtoDescriptionV2: v2.ActionDescription.Description.Exercise =
-      v2.ActionDescription.Description.Exercise(
-        v2.ActionDescription.ExerciseActionDescription(
+    override protected def toProtoDescriptionV30: v30.ActionDescription.Description.Exercise =
+      v30.ActionDescription.Description.Exercise(
+        v30.ActionDescription.ExerciseActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
           templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
           choice = choice,
@@ -473,9 +472,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override def seedOption: Option[LfHash] = None
 
-    override protected def toProtoDescriptionV2: v2.ActionDescription.Description.Fetch =
-      v2.ActionDescription.Description.Fetch(
-        v2.ActionDescription.FetchActionDescription(
+    override protected def toProtoDescriptionV30: v30.ActionDescription.Description.Fetch =
+      v30.ActionDescription.Description.Fetch(
+        v30.ActionDescription.FetchActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
           actors = actors.toSeq,
           byKey = byKey,
@@ -509,9 +508,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override def seedOption: Option[LfHash] = None
 
-    override protected def toProtoDescriptionV2: v2.ActionDescription.Description.LookupByKey =
-      v2.ActionDescription.Description.LookupByKey(
-        v2.ActionDescription.LookupByKeyActionDescription(
+    override protected def toProtoDescriptionV30: v30.ActionDescription.Description.LookupByKey =
+      v30.ActionDescription.Description.LookupByKey(
+        v30.ActionDescription.LookupByKeyActionDescription(
           key = Some(serializedKey)
         )
       )

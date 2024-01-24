@@ -105,13 +105,10 @@ final class GeneratorsProtocol(
 
   implicit val confirmationPolicyArb: Arbitrary[ConfirmationPolicy] = genArbitrary
 
-  implicit val serializableRawContractInstanceArb: Arbitrary[SerializableRawContractInstance] =
-    Arbitrary(
-      for {
-        agreementText <- Gen.asciiPrintableStr.map(AgreementText(_))
-        contractInstance = ExampleTransactionFactory.contractInstance()
-      } yield SerializableRawContractInstance.create(contractInstance, agreementText).value
-    )
+  implicit val serializableRawContractInstanceArb: Arbitrary[SerializableRawContractInstance] = {
+    val contractInstance = ExampleTransactionFactory.contractInstance()
+    Arbitrary(SerializableRawContractInstance.create(contractInstance).value)
+  }
 
   private lazy val unicumGenerator: UnicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
 

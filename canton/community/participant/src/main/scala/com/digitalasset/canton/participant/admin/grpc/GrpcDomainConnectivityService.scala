@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
-import com.digitalasset.canton.admin.participant.v0.*
+import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.participant.admin.DomainConnectivityService
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import io.grpc.Status

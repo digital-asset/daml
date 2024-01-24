@@ -18,7 +18,6 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scala.jdk.CollectionConverters._
 
-class ProfilerTestV1 extends ProfilerTest(LanguageMajorVersion.V1)
 class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
 
 class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
@@ -102,8 +101,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -113,8 +110,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -123,8 +118,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),

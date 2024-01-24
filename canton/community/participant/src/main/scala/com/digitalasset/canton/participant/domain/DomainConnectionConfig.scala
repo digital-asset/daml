@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
-import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.DomainTimeTrackerConfig
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.{
@@ -70,22 +70,28 @@ final case class DomainConnectionConfig(
       sequencerAlias: SequencerAlias,
       connection: String,
       additionalConnections: String*
-  ): DomainConnectionConfig =
+  ): Either[String, DomainConnectionConfig] =
     addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_)): _*)
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): DomainConnectionConfig =
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(sequencerAlias, connection, additionalConnections: _*)
+  ): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(
+      sequencerAlias,
+      connection,
+      additionalConnections: _*
     )
-  def addConnection(connection: SequencerConnection): DomainConnectionConfig = {
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
-    )
-  }
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
+
+  def addConnection(connection: SequencerConnection): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
 
   def withCertificates(
       sequencerAlias: SequencerAlias,
@@ -106,16 +112,16 @@ final case class DomainConnectionConfig(
       paramIfNotDefault("initializeFromTrustedDomain", _.initializeFromTrustedDomain, false),
     )
 
-  def toProtoV0: v0.DomainConnectionConfig =
-    v0.DomainConnectionConfig(
+  def toProtoV30: v30.DomainConnectionConfig =
+    v30.DomainConnectionConfig(
       domainAlias = domain.unwrap,
-      sequencerConnections = Some(sequencerConnections.toProtoV1),
+      sequencerConnections = sequencerConnections.toProtoV30.some,
       manualConnect = manualConnect,
       domainId = domainId.fold("")(_.toProtoPrimitive),
       priority = priority,
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
-      timeTracker = timeTracker.toProtoV0.some,
+      timeTracker = timeTracker.toProtoV30.some,
       initializeFromTrustedDomain = initializeFromTrustedDomain,
     )
 }
@@ -126,8 +132,8 @@ object DomainConnectionConfig
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v0.DomainConnectionConfig)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV0),
+      _.toProtoV30.toByteString,
     )
   )
   override def name: String = "domain connection config"
@@ -160,9 +166,9 @@ object DomainConnectionConfig
     )
 
   def fromProtoV0(
-      domainConnectionConfigP: v0.DomainConnectionConfig
+      domainConnectionConfigP: v30.DomainConnectionConfig
   ): ParsingResult[DomainConnectionConfig] = {
-    val v0.DomainConnectionConfig(
+    val v30.DomainConnectionConfig(
       domainAlias,
       sequencerConnectionsPO,
       manualConnect,
@@ -180,7 +186,7 @@ object DomainConnectionConfig
         .leftMap(err => InvariantViolation(s"DomainConnectionConfig.DomainAlias: $err"))
       sequencerConnections <- ProtoConverter
         .required("sequencerConnections", sequencerConnectionsPO)
-        .flatMap(SequencerConnections.fromProtoV1)
+        .flatMap(SequencerConnections.fromProtoV30)
       domainId <- OptionUtil
         .emptyStringAsNone(domainId)
         .traverse(DomainId.fromProtoPrimitive(_, "domain_id"))

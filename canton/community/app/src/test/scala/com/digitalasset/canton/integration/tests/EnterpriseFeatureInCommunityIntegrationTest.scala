@@ -92,7 +92,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
     participant1x.start()
     participant1x.domains.connect_local(
       sequencer1x,
-      alias = Some(DomainAlias.tryCreate(domainAlias)),
+      alias = DomainAlias.tryCreate(domainAlias),
     )
 
     val startOffset = ApiConversions.toV1(participant1x.ledger_api_v2.state.end())

@@ -1,5 +1,5 @@
 -- Check that the compiler bits of contract keys work.
--- @SINCE-LF 1.4 2.0
+-- @SINCE-LF 2.1
 
 module ContractKeys where
 

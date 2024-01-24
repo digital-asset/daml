@@ -421,11 +421,13 @@ object JournalPruningConfig {
   *                           Only configurable to reduce the amount of secure random numbers consumed by tests and to avoid flaky timeouts during continuous integration.
   * @param indexer            parameters how the participant populates the index db used to serve the ledger api
   * @param jwtTimestampLeeway leeway parameters for JWTs
+  * @param tokenExpiryGracePeriodForStreams grace periods for streams that postpone termination beyond the JWT expiry
   */
 final case class LedgerApiServerParametersConfig(
     contractIdSeeding: Seeding = Seeding.Strong,
     indexer: IndexerConfig = IndexerConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )
 

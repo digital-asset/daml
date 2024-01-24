@@ -84,8 +84,8 @@ template Iou
         updateAmount a = create this with owner = a
 
     -- Expressions bound in a template let block can be referenced
-    -- from any and all of the signatory, consuming, ensure and
-    -- agreement expressions and from within any choice do blocks.
+    -- from any and all of the signatory, consuming, ensure expressions
+    -- and from within any choice do blocks.
 
     choice Transfer : ContractId Iou
       with newOwner : Party

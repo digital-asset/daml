@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -16,12 +16,12 @@ final case class SubscriptionResponse(
 )
 
 object SubscriptionResponse {
-  def fromVersionedProtoV0(
+  def fromVersionedProtoV30(
       protocolVersion: ProtocolVersion
-  )(responseP: v0.VersionedSubscriptionResponse)(implicit
+  )(responseP: v30.VersionedSubscriptionResponse)(implicit
       traceContext: TraceContext
   ): ParsingResult[SubscriptionResponse] = {
-    val v0.VersionedSubscriptionResponse(
+    val v30.VersionedSubscriptionResponse(
       signedSequencedEvent,
       _ignoredTraceContext,
       trafficStateP,

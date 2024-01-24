@@ -73,10 +73,8 @@ let BOB_PARTY = "Bob";
 let BOB_TOKEN = "";
 let CHARLIE_PARTY = "Charlie";
 let CHARLIE_TOKEN = "";
-// TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
-//  participant party is returned by listKnownParties.
 // Will be `build-and-lint-test::[somehash]`
-//let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
+let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
@@ -120,9 +118,9 @@ beforeAll(async () => {
       "-C",
       "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
       "-C",
-      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port=0",
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port=0",
       "-C",
-      "canton.participants-x.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
+      "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
         JSON_API_PORT_FILE,
     ],
     ["-Dpekko.http.server.request-timeout=60s"],
@@ -148,19 +146,14 @@ beforeAll(async () => {
   const upDar = await fs.readFile(getEnv("DAR"));
   await ledger.uploadDarFile(upDar);
 
-  // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
-  //  participant party is returned by listKnownParties.
   // Only the participant party should exist on the ledger at this point
-  //PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
+  PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
 
   async function allocateParty(partyName: string): Promise<string> {
     const party = await ledger.allocateParty({
       displayName: partyName,
       identifierHint: partyName,
     });
-    // TODO(https://github.com/DACH-NY/canton/issues/16401): remove once we have
-    //  a better way of synchronizing after a party allocation.
-    await new Promise(resolve => setTimeout(resolve, 250));
     return party.identifier;
   }
 
@@ -803,7 +796,6 @@ describe("interfaces", () => {
       contractId: Asset.toInterface(Token, contract.contractId),
       signatories: [ALICE_PARTY],
       observers: [],
-      agreementText: "",
       payload: expectedView,
     };
     expect(acs).toContainEqual(expectedAc);
@@ -1235,9 +1227,7 @@ test("party API", async () => {
     p("Alice", ALICE_PARTY),
     p("Bob", BOB_PARTY),
     p("Charlie", CHARLIE_PARTY),
-    // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once the
-    //  participant party is returned by listKnownParties.
-    // PARTICIPANT_PARTY_DETAILS,
+    PARTICIPANT_PARTY_DETAILS,
   ]);
 
   const newParty1 = await ledger.allocateParty({});
@@ -1255,9 +1245,7 @@ test("party API", async () => {
       ALICE_PARTY,
       BOB_PARTY,
       CHARLIE_PARTY,
-      // TODO(https://github.com/DACH-NY/canton/issues/16073): uncomment once
-      //  the participant party is returned by listKnownParties.
-      //PARTICIPANT_PARTY_DETAILS?.identifier,
+      PARTICIPANT_PARTY_DETAILS?.identifier,
       daveParty,
       newParty1.identifier,
       newParty2.identifier,

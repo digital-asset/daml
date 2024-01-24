@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServic
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc as CommandServiceGrpcV1
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc as PackageServiceGrpcV1
+import com.daml.ledger.api.v1.trace_context.TraceContext as LedgerApiTraceContext
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc as CommandServiceGrpcV2
@@ -33,7 +34,7 @@ import com.digitalasset.canton.ledger.client.services.admin.*
 import com.digitalasset.canton.ledger.client.services.commands.{
   CommandClientV1,
   CommandServiceClient,
-  SynchronousCommandClient,
+  SynchronousCommandClientV1,
 }
 import com.digitalasset.canton.ledger.client.services.pkg.{PackageClient, PackageClientV1}
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
@@ -41,6 +42,7 @@ import com.digitalasset.canton.ledger.client.services.transactions.TransactionCl
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
@@ -48,6 +50,13 @@ import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
 
+/** GRPC client for the Canton Ledger API.
+  *
+  * Tracing support:
+  *   In order to propagate the TraceContext through the API, just run
+  *     traceContext.context.makeCurrent()
+  *     before any request invocation.
+  */
 final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
@@ -65,13 +74,14 @@ final class LedgerClient private (
     lazy val packageService = new PackageClient(
       LedgerClient.stub(PackageServiceGrpcV2.stub(channel), config.token)
     )
+
     lazy val stateService = new StateServiceClient(
       LedgerClient.stub(StateServiceGrpc.stub(channel), config.token)
     )
+
     lazy val updateService = new UpdateServiceClient(
       LedgerClient.stub(UpdateServiceGrpc.stub(channel), config.token)
     )
-
   }
 
   lazy val activeContractSetClient =
@@ -88,8 +98,8 @@ final class LedgerClient private (
       loggerFactory,
     )
 
-  lazy val commandServiceClient: SynchronousCommandClient =
-    new SynchronousCommandClient(
+  lazy val commandServiceClient: SynchronousCommandClientV1 =
+    new SynchronousCommandClientV1(
       LedgerClient.stub(CommandServiceGrpcV1.stub(channel), config.token)
     )
 
@@ -210,5 +220,13 @@ object LedgerClient {
       loggerFactory,
     )
   }
+
+  /** Extract a trace context from a transaction and represent it as our TraceContext */
+  def traceContextFromLedgerApi(traceContext: Option[LedgerApiTraceContext]): TraceContext =
+    traceContext match {
+      case Some(LedgerApiTraceContext(Some(parent), state)) =>
+        W3CTraceContext(parent, state).toTraceContext
+      case _ => TraceContext.withNewTraceContext(identity)
+    }
 
 }

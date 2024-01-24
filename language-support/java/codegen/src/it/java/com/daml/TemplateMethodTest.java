@@ -98,32 +98,7 @@ public class TemplateMethodTest {
     assertEquals(new SimpleTemplate("Bob").getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
-  @Test
-  void contractHasFromIdAndRecord() {
-    SimpleTemplate.Contract emptyAgreement =
-        SimpleTemplate.Contract.fromIdAndRecord(
-            "SomeId",
-            simpleTemplateRecord,
-            Optional.empty(),
-            Collections.emptySet(),
-            Collections.emptySet());
-    assertFalse(
-        emptyAgreement.agreementText.isPresent(), "Field agreementText should not be present");
-
-    SimpleTemplate.Contract nonEmptyAgreement =
-        SimpleTemplate.Contract.fromIdAndRecord(
-            "SomeId",
-            simpleTemplateRecord,
-            Optional.of("I agree"),
-            Collections.emptySet(),
-            Collections.emptySet());
-    assertTrue(
-        nonEmptyAgreement.agreementText.isPresent(), "Field agreementText should be present");
-    assertEquals(
-        nonEmptyAgreement.agreementText, Optional.of("I agree"), "Unexpected agreementText");
-  }
-
-  private static final CreatedEvent agreementEvent =
+  private static final CreatedEvent createdEvent =
       new CreatedEvent(
           Collections.emptyList(),
           "eventId",
@@ -133,58 +108,31 @@ public class TemplateMethodTest {
           ByteString.EMPTY,
           Collections.emptyMap(),
           Collections.emptyMap(),
-          Optional.of("I agree"),
+          Optional.of(""), // to be removed
           Optional.empty(),
           Collections.emptySet(),
           Collections.emptySet(),
           Instant.ofEpochMilli(0));
 
   @Test
-  void contractHasFromCreatedEvent() {
-    CreatedEvent noAgreementEvent =
-        new CreatedEvent(
-            Collections.emptyList(),
-            "eventId",
-            SimpleTemplate.TEMPLATE_ID,
-            "cid",
-            simpleTemplateRecord,
-            ByteString.EMPTY,
-            Collections.emptyMap(),
-            Collections.emptyMap(),
-            Optional.empty(),
-            Optional.empty(),
-            Collections.emptySet(),
-            Collections.emptySet(),
-            Instant.ofEpochMilli(0));
-
-    SimpleTemplate.Contract withAgreement =
-        SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
-    assertTrue(withAgreement.agreementText.isPresent(), "AgreementText was not present");
-
-    SimpleTemplate.Contract withoutAgreement =
-        SimpleTemplate.Contract.fromCreatedEvent(noAgreementEvent);
-    assertFalse(withoutAgreement.agreementText.isPresent(), "AgreementText was present");
-  }
-
-  @Test
   void contractHasCompanion() {
     var companion = SimpleTemplate.COMPANION;
-    SimpleTemplate.Contract withAgreement = companion.fromCreatedEvent(agreementEvent);
-    SimpleTemplate data = withAgreement.data;
+    SimpleTemplate.Contract contract = companion.fromCreatedEvent(createdEvent);
+    SimpleTemplate data = contract.data;
     assertEquals(new SimpleTemplate("Bob"), data);
   }
 
   @Test
   void contractHasGetContractTypeId() {
-    var withAgreement = SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
-    assertEquals(withAgreement.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
+    var contract = SimpleTemplate.Contract.fromCreatedEvent(createdEvent);
+    assertEquals(contract.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
   @Test
   void contractHasToString() {
     assertEquals(
         "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
-            + "tests.template1.SimpleTemplate(Bob), Optional[I agree], [], [])",
-        SimpleTemplate.Contract.fromCreatedEvent(agreementEvent).toString());
+            + "tests.template1.SimpleTemplate(Bob), Optional[], [], [])",
+        SimpleTemplate.Contract.fromCreatedEvent(createdEvent).toString());
   }
 }

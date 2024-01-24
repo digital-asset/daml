@@ -37,7 +37,7 @@ import scala.util.{Failure, Success, Try}
   */
 class ResilientLedgerSubscription[S, T](
     makeSource: ParticipantOffset => Source[S, NotUsed],
-    mapOperator: Flow[S, T, ?],
+    consumingFlow: Flow[S, T, ?],
     subscriptionName: String,
     startOffset: ParticipantOffset,
     extractOffset: S => Option[ParticipantOffset],
@@ -145,7 +145,7 @@ class ResilientLedgerSubscription[S, T](
           extractOffset(item).foreach(offsetRef.set)
           item
         }
-        .via(mapOperator),
+        .via(consumingFlow),
       subscriptionName,
       timeouts,
       loggerFactory,

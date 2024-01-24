@@ -15,7 +15,7 @@ final case class InitializeSequencerResponse(
 ) {
   def toProtoV0: v0.InitResponse = v0.InitResponse(
     keyId = keyId,
-    publicKey = Some(publicKey.toProtoV0),
+    publicKey = Some(publicKey.toProtoV30),
     replicated = replicated,
   )
 }
@@ -24,7 +24,7 @@ object InitializeSequencerResponse {
   def fromProtoV0(response: v0.InitResponse): ParsingResult[InitializeSequencerResponse] =
     for {
       publicKey <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV0,
+        SigningPublicKey.fromProtoV30,
         "public_key",
         response.publicKey,
       )

@@ -23,15 +23,11 @@ main :: IO ()
 main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
-    v1TestArgs <- do
-      scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-      let lfVersion = LF.defaultOrLatestStable LF.V1
-      pure TestArgs{..}
     v2TestArgs <- do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
       let lfVersion = LF.defaultOrLatestStable LF.V2
       pure TestArgs{..}
-    let testTrees = map tests [v1TestArgs, v2TestArgs]
+    let testTrees = map tests [v2TestArgs]
     defaultMain (testGroup "Incremental builds" testTrees)
 
 data TestArgs = TestArgs

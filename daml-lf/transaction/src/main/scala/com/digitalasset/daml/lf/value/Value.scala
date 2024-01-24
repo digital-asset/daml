@@ -182,6 +182,7 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
+  // to be removed
   final case class ContractInstanceWithAgreement(
       contractInstance: ContractInstance,
       agreementText: String,

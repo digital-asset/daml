@@ -18,7 +18,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.admin.v1.{
+import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsRequest,
   ListPartyHostingLimitsResult,
   ListPurgeTopologyTransactionXRequest,
@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.admin.v1.{
   ListTrafficStateRequest,
   ListTrafficStateResult,
 }
-import com.digitalasset.canton.topology.admin.v1 as adminProto
+import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -78,7 +78,7 @@ final case class BaseQueryX(
       proposals,
       ops.map(_.toProto).getOrElse(TopologyChangeOpX.Replace.toProto),
       filterOperation = true,
-      timeQuery.toProtoV1,
+      timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitiveS),
     )
@@ -108,7 +108,7 @@ object BaseQueryX {
       proposals = baseQuery.proposals
       filterSignedKey = baseQuery.filterSignedKey
       timeQuery <- TimeQueryX.fromProto(baseQuery.timeQuery, "time_query")
-      opsRaw <- TopologyChangeOpX.fromProtoV2(baseQuery.operation)
+      opsRaw <- TopologyChangeOpX.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
       filterStore <- baseQuery.filterStore.traverse(TopologyStore.fromProto(_, "filter_store"))
     } yield BaseQueryX(
@@ -585,7 +585,7 @@ class GrpcTopologyManagerReadServiceX(
         .map { case (context, elem) =>
           new adminProto.ListDomainParametersStateResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.parameters.toProtoV2),
+            item = Some(elem.parameters.toProtoV30),
           )
         }
 
@@ -682,7 +682,7 @@ class GrpcTopologyManagerReadServiceX(
       if (logger.underlying.isDebugEnabled()) {
         logger.debug(s"All listed topology transactions: ${res.result}")
       }
-      adminProto.ListAllResponse(result = Some(res.toProtoV0))
+      adminProto.ListAllResponse(result = Some(res.toProtoV30))
     }
     CantonGrpcUtil.mapErrNew(res)
   }

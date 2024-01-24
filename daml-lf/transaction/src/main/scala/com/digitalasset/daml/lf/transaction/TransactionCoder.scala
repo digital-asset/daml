@@ -82,7 +82,8 @@ object TransactionCoder {
   ): Either[EncodeError, ByteString] =
     ValueCoder.encodeValue(cidEncoder, nodeVersion, value)
 
-  /** Encodes a contract instance with the help of the contractId encoding function
+  /** To be removed.
+    * Encodes a contract instance with the help of the contractId encoding function
     *
     * @param coinst    the contract instance to be encoded
     * @param encodeCid function to encode a cid to protobuf
@@ -101,7 +102,29 @@ object TransactionCoder {
       .setPackageName(pkgName)
       .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
       .setArgVersioned(value)
-      .setAgreement(coinst.unversioned.agreementText)
+      .build()
+
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
+  //  To be renamed once the above one is removed.
+  /** Encodes a contract instance with the help of the contractId encoding function
+    *
+    * @param coinst    the contract instance to be encoded
+    * @param encodeCid function to encode a cid to protobuf
+    * @return protobuf wire format contract instance
+    */
+  def newEncodeContractInstance(
+      encodeCid: ValueCoder.EncodeCid,
+      coinst: Versioned[Value.ContractInstance],
+  ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
+    for {
+      value <- ValueCoder
+        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
+      pkgName <- encodePackageName(coinst.unversioned.packageName, coinst.version)
+    } yield TransactionOuterClass.ContractInstance
+      .newBuilder()
+      .setPackageName(pkgName)
+      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
+      .setArgVersioned(value)
       .build()
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
@@ -163,6 +186,8 @@ object TransactionCoder {
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
     decodeVersionedContractInstance(decodeCid, protoCoinst).map(_.map(_.contractInstance))
 
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
+  //  remove together with ContractInstanceWithAgreement
   def decodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
@@ -178,9 +203,21 @@ object TransactionCoder {
           id,
           arg,
         ),
-        protoCoinst.getAgreement,
+        agreementText = "", // to be removed
       )
     )
+
+  // TODO: https://github.com/DACH-NY/canton/issues/15209
+  // To be renamed once the above one is removed.
+  def newDecodeVersionedContractInstance(
+      decodeCid: ValueCoder.DecodeCid,
+      protoCoinst: TransactionOuterClass.ContractInstance,
+  ): Either[DecodeError, Versioned[Value.ContractInstance]] =
+    for {
+      id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
+      value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
+      pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
+    } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,
@@ -272,7 +309,6 @@ object TransactionCoder {
                   builder
                     .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                     .setArgUnversioned(arg)
-                    .setAgreement(nc.agreementText)
                 )
                 encodedPkgName <- encodePackageName(nc.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
@@ -507,7 +543,7 @@ object TransactionCoder {
           packageName = pkgName,
           templateId = tmplId,
           arg = arg,
-          agreementText = protoCreate.getAgreement,
+          agreementText = "", // to be removed
           signatories = signatories,
           stakeholders = stakeholders,
           keyOpt = keyOpt,

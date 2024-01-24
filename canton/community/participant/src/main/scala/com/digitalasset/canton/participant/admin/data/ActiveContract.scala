@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.data
 
 import better.files.File
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.participant.v1
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.protocol.messages.HasDomainId
 import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -25,8 +25,8 @@ final case class ActiveContract private (
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
     with HasSerializableContract {
-  private def toProtoV1: v1.ActiveContract = {
-    v1.ActiveContract(
+  private def toProtoV30: v30.ActiveContract = {
+    v30.ActiveContract(
       protocolVersion.toProtoPrimitive,
       domainId.toProtoPrimitive,
       contract.toByteString(protocolVersion),
@@ -50,14 +50,14 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   override def name: String = "ActiveContract"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.ActiveContract)(
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActiveContract)(
       supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      _.toProtoV30.toByteString,
     )
   )
 
   private def fromProtoV1(
-      proto: v1.ActiveContract
+      proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] = {
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)

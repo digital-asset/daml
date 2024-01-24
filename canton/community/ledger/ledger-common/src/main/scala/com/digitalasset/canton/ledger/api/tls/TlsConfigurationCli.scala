@@ -1,16 +1,16 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.canton.ledger.api.tls
 
 import java.nio.file.Paths
-
 import scala.util.Try
 
 object TlsConfigurationCli {
 
   type Setter[T, B] = (B => B, T) => T
   def parse[C](parser: scopt.OptionParser[C], colSpacer: String)(
-    setter: Setter[C, TlsConfiguration]
+      setter: Setter[C, TlsConfiguration]
   ): Unit = {
     def enableSet(tlsUp: TlsConfiguration => TlsConfiguration, c: C) =
       setter(tlsc => tlsUp(tlsc copy (enabled = true)), c)
@@ -23,7 +23,7 @@ object TlsConfigurationCli {
       .validate(validatePath(_, "The file specified via --pem does not exist"))
       .action { (path, c) =>
         enableSet(_ copy (privateKeyFile = Some(Paths.get(path).toFile)), c)
-      }
+      }: Unit
 
     opt[String]("crt")
       .optional()
@@ -34,7 +34,7 @@ object TlsConfigurationCli {
       .validate(validatePath(_, "The file specified via --crt does not exist"))
       .action { (path, c) =>
         enableSet(_ copy (certChainFile = Some(Paths.get(path).toFile)), c)
-      }
+      }: Unit
 
     opt[String]("cacrt")
       .optional()
@@ -42,7 +42,7 @@ object TlsConfigurationCli {
       .validate(validatePath(_, "The file specified via --cacrt does not exist"))
       .action { (path, c) =>
         enableSet(_ copy (trustCollectionFile = Some(Paths.get(path).toFile)), c)
-      }
+      }: Unit
 
     // allows you to enable tls without any special certs,
     // i.e., tls without client auth with the default root certs.
@@ -53,7 +53,7 @@ object TlsConfigurationCli {
       .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
       .action { (_, c) =>
         enableSet(identity, c)
-      }
+      }: Unit
 
     ()
   }

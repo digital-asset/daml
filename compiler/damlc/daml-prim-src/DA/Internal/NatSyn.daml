@@ -4,8 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-#ifdef DAML_NAT_SYN
-
 -- | HIDE
 module DA.Internal.NatSyn (
   NatSyn
@@ -15,11 +13,3 @@ import GHC.Types (Nat)
 
 -- | NatSyn type used for encoding type-level Nats with kind *.
 data NatSyn (n : Nat)
-
-#else
-
--- | HIDE
-module DA.Internal.NatSyn () where
-import GHC.Types ()
-
-#endif

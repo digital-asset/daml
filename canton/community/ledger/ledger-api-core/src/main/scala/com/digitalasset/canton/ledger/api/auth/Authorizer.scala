@@ -21,7 +21,7 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.apache.pekko.actor.Scheduler
 import scalapb.lenses.Lens
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -37,6 +37,7 @@ final class Authorizer(
     userRightsCheckIntervalInSeconds: Int,
     pekkoScheduler: Scheduler,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    tokenExpiryGracePeriodForStreams: Option[Duration] = None,
     protected val telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
@@ -47,7 +48,11 @@ final class Authorizer(
     */
   private def valid(claims: ClaimSet.Claims): Either[AuthorizationError, Unit] =
     for {
-      _ <- claims.notExpired(now(), jwtTimestampLeeway)
+      _ <- claims.notExpired(
+        now(),
+        jwtTimestampLeeway,
+        None,
+      ) // Don't use the grace period for the initial check
       _ <- claims.validForLedger(ledgerId)
       _ <- claims.validForParticipant(participantId)
     } yield {
@@ -332,6 +337,7 @@ final class Authorizer(
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
     pekkoScheduler = pekkoScheduler,
     jwtTimestampLeeway = jwtTimestampLeeway,
+    tokenExpiryGracePeriodForStreams = tokenExpiryGracePeriodForStreams,
     loggerFactory = loggerFactory,
   )(ec, TraceContext.empty)
 

@@ -46,7 +46,6 @@ import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationR
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   DriverContractMetadata,
   SerializableContract,
@@ -462,8 +461,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           metadata = recomputedMetadata,
           ledgerTime = ledgerTime,
           contractSalt = Some(salt),
-          // The agreement text is unused on contract authentication
-          unvalidatedAgreementText = AgreementText.empty,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
         _ <- authenticateContract(contract).leftMap { contractAuthenticationError =>
           val firstParticle =

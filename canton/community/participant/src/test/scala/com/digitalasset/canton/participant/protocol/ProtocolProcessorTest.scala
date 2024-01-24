@@ -55,7 +55,6 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.AsyncResult
@@ -363,7 +362,7 @@ class ProtocolProcessorTest
     domainId = DefaultTestIdentities.domainId,
     SymmetricKeyScheme.Aes128Gcm,
     testedProtocolVersion,
-  )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
+  )
   private lazy val rootHashMessage = RootHashMessage(
     rootHash,
     DefaultTestIdentities.domainId,
@@ -617,7 +616,7 @@ class ProtocolProcessorTest
         domainId = DefaultTestIdentities.domainId,
         SymmetricKeyScheme.Aes128Gcm,
         testedProtocolVersion,
-      )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
+      )
       val requestBatchWrongRH = RequestAndRootHashMessage(
         NonEmpty(
           Seq,
@@ -654,7 +653,7 @@ class ProtocolProcessorTest
         domainId = DefaultTestIdentities.domainId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
         protocolVersion = testedProtocolVersion,
-      )(Some(RecipientsInfo(Set.empty, Set.empty, Set.empty)))
+      )
 
       val requestBatchDecryptError = RequestAndRootHashMessage(
         NonEmpty(

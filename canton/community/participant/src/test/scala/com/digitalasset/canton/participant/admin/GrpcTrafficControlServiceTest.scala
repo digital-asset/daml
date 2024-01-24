@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.admin.participant.v0.TrafficControlStateRequest
+import com.digitalasset.canton.admin.participant.v30.TrafficControlStateRequest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.grpc.GrpcTrafficControlService

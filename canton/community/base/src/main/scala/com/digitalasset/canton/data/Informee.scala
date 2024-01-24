@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v1
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
@@ -37,13 +37,11 @@ sealed trait Informee extends Product with Serializable with PrettyPrinting {
     */
   def withAdditionalWeight(delta: NonNegativeInt): Informee
 
-  /** Creates the v1-proto version of an informee.
-    *
-    * Plain informees get weight 0.
+  /** Plain informees get weight 0.
     * Confirming parties get their assigned (positive) weight.
     */
-  private[data] def toProtoV1: v1.Informee =
-    v1.Informee(
+  private[data] def toProtoV30: v30.Informee =
+    v30.Informee(
       party = party,
       weight = weight.unwrap,
       requiredTrustLevel = requiredTrustLevel.toProtoEnum,
@@ -63,8 +61,8 @@ object Informee {
     if (weight == NonNegativeInt.zero) PlainInformee(party)
     else ConfirmingParty(party, PositiveInt.tryCreate(weight.unwrap), requiredTrustLevel)
 
-  private[data] def fromProtoV1(informeeP: v1.Informee): ParsingResult[Informee] = {
-    val v1.Informee(partyP, weightP, requiredTrustLevelP) = informeeP
+  private[data] def fromProtoV30(informeeP: v30.Informee): ParsingResult[Informee] = {
+    val v30.Informee(partyP, weightP, requiredTrustLevelP) = informeeP
     for {
       party <- LfPartyId
         .fromString(partyP)

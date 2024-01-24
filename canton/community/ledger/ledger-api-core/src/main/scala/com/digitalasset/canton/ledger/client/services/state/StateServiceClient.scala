@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.state_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
   GetLedgerEndRequest,
+  GetLedgerEndResponse,
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -79,14 +80,20 @@ class StateServiceClient(service: StateServiceStub)(implicit
     } yield (active, ParticipantOffset(value = ParticipantOffset.Value.Absolute(offset)))
   }
 
+  def getLedgerEnd(
+      token: Option[String] = None
+  ): Future[GetLedgerEndResponse] =
+    LedgerClient
+      .stub(service, token)
+      .getLedgerEnd(GetLedgerEndRequest())
+
   /** Get the current participant offset */
-  def getLedgerEnd(token: Option[String] = None): Future[ParticipantOffset] = {
-    LedgerClient.stub(service, token).getLedgerEnd(GetLedgerEndRequest()).map { response =>
+  def getLedgerEndOffset(token: Option[String] = None): Future[ParticipantOffset] =
+    getLedgerEnd(token).map { response =>
       response.offset.getOrElse(
         throw new IllegalStateException("Invalid empty getLedgerEnd response from server")
       )
     }
-  }
 
 }
 

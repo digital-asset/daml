@@ -15,18 +15,17 @@ import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.{
   SessionKeyCreationError,
   SyncCryptoDecryptError,
   WrongRandomnessLength,
 }
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
@@ -52,7 +51,7 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
     case _ => throw new IndexOutOfBoundsException(s"Index out of range: $n")
   }
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[EncryptedView[_]]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[EncryptedView[?]]
   @SuppressWarnings(
     Array(
       "org.wartremover.warts.AsInstanceOf",
@@ -62,7 +61,7 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
   )
   override def equals(that: Any): Boolean = {
     if (this eq that.asInstanceOf[Object]) true
-    else if (!that.isInstanceOf[EncryptedView[_]]) false
+    else if (!that.isInstanceOf[EncryptedView[?]]) false
     else {
       val other = that.asInstanceOf[EncryptedView[ViewType]]
       val thisViewTree = this.viewTree
@@ -170,10 +169,9 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     override val domainId: DomainId,
     viewEncryptionScheme: SymmetricKeyScheme,
 )(
-    val recipientsInfo: Option[RecipientsInfo],
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       EncryptedViewMessage.type
-    ],
+    ]
 ) extends UnsignedProtocolMessage {
 
   @transient override protected lazy val companionObj: EncryptedViewMessage.type =
@@ -197,12 +195,12 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     encryptedView,
     domainId,
     viewEncryptionScheme,
-  )(recipientsInfo, representativeProtocolVersion)
+  )(representativeProtocolVersion)
 
-  private def toProtoV2: v2.EncryptedViewMessage = v2.EncryptedViewMessage(
+  private def toProtoV30: v30.EncryptedViewMessage = v30.EncryptedViewMessage(
     viewTree = encryptedView.viewTree.ciphertext,
     encryptionScheme = viewEncryptionScheme.toProtoEnum,
-    submitterParticipantSignature = submitterParticipantSignature.map(_.toProtoV0),
+    submitterParticipantSignature = submitterParticipantSignature.map(_.toProtoV30),
     viewHash = viewHash.toProtoPrimitive,
     randomness = randomness.ciphertext,
     sessionKeyRandomness = sessionKey.map(EncryptedViewMessage.serializeSessionKeyEntry),
@@ -210,14 +208,14 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     viewType = viewType.toProtoEnum,
   )
 
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.EncryptedViewMessage(toProtoV2)
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.EncryptedViewMessage(toProtoV30)
 
   protected def updateView[VT2 <: ViewType](
       newView: EncryptedView[VT2]
   ): EncryptedViewMessage[VT2] = copy(encryptedView = newView)
 
-  def toByteString: ByteString = toProtoV2.toByteString
+  def toByteString: ByteString = toProtoV30.toByteString
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def traverse[F[_], VT2 <: ViewType](
@@ -239,7 +237,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
 object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewMessage[ViewType]] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.EncryptedViewMessage)(
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
       _.toByteString,
     )
@@ -254,8 +252,6 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       domainId: DomainId,
       viewEncryptionScheme: SymmetricKeyScheme,
       protocolVersion: ProtocolVersion,
-  )(
-      recipientsInfo: Option[RecipientsInfo]
   ): EncryptedViewMessage[VT] = EncryptedViewMessage(
     submitterParticipantSignature,
     viewHash,
@@ -264,19 +260,19 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
     encryptedView,
     domainId,
     viewEncryptionScheme,
-  )(recipientsInfo, protocolVersionRepresentativeFor(protocolVersion))
+  )(protocolVersionRepresentativeFor(protocolVersion))
 
   private def serializeSessionKeyEntry(
       encryptedSessionKey: AsymmetricEncrypted[SecureRandomness]
-  ): v2.SessionKeyLookup = {
-    v2.SessionKeyLookup(
+  ): v30.SessionKeyLookup = {
+    v30.SessionKeyLookup(
       sessionKeyRandomness = encryptedSessionKey.ciphertext,
       fingerprint = encryptedSessionKey.encryptedFor.toProtoPrimitive,
     )
   }
 
   private def deserializeSessionKeyEntry(
-      sessionKeyLookup: v2.SessionKeyLookup
+      sessionKeyLookup: v30.SessionKeyLookup
   ): ParsingResult[AsymmetricEncrypted[SecureRandomness]] =
     for {
       fingerprint <- Fingerprint.fromProtoPrimitive(sessionKeyLookup.fingerprint)
@@ -284,9 +280,9 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
     } yield AsymmetricEncrypted(sessionKeyRandomness, fingerprint)
 
   def fromProto(
-      encryptedViewMessageP: v2.EncryptedViewMessage
+      encryptedViewMessageP: v30.EncryptedViewMessage
   ): ParsingResult[EncryptedViewMessage[ViewType]] = {
-    val v2.EncryptedViewMessage(
+    val v30.EncryptedViewMessage(
       viewTreeP,
       encryptionSchemeP,
       signatureP,
@@ -303,7 +299,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         "encryptionScheme",
         encryptionSchemeP,
       )
-      signature <- signatureP.traverse(Signature.fromProtoV0)
+      signature <- signatureP.traverse(Signature.fromProtoV30)
       viewTree <- Encrypted
         .fromByteString[EncryptedView.CompressedView[viewType.View]](viewTreeP)
         .leftMap(CryptoDeserializationError)
@@ -326,7 +322,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       encryptedView,
       DomainId(domainUid),
       viewEncryptionScheme,
-    )(None, protocolVersionRepresentativeFor(ProtoVersion(2)))
+    )(protocolVersionRepresentativeFor(ProtoVersion(2)))
   }
 
   def decryptRandomness[VT <: ViewType](
@@ -431,8 +427,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
   final case class RecipientsInfo(
       informeeParticipants: Set[ParticipantId],
-      partiesWithGroupAddressing: Set[PartyId],
-      participantsAddressedByGroupAddress: Set[ParticipantId],
+      doNotEncrypt: Boolean,
   )
 
   private def eitherT[VT <: ViewType, B](value: Either[EncryptedViewMessageError, B])(implicit

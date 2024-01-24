@@ -58,6 +58,10 @@ if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
 
+if [ "$IS_FORK" = "True" ]; then
+  tag_filter="${tag_filter},-canton-ee"
+fi
+
 # Occasionally we end up with a stale sandbox process for a hardcoded
 # port number. Not quite sure how we end up with a stale process
 # but it happens sufficiently rarely that just killing it here is

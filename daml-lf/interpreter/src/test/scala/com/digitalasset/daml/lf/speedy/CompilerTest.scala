@@ -29,7 +29,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTestV1 extends CompilerTest(LanguageMajorVersion.V1)
 class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
 class CompilerTest(majorLanguageVersion: LanguageMajorVersion)

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
-import com.digitalasset.canton.admin.participant.v0
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.admin.{ResourceLimits, ResourceManagementService}
@@ -17,15 +17,15 @@ class GrpcResourceManagementService(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends v0.ResourceManagementServiceGrpc.ResourceManagementService
+) extends v30.ResourceManagementServiceGrpc.ResourceManagementService
     with NamedLogging {
 
-  override def updateResourceLimits(limitsP: v0.ResourceLimits): Future[Empty] =
+  override def updateResourceLimits(limitsP: v30.ResourceLimits): Future[Empty] =
     TraceContext.withNewTraceContext { implicit traceContext =>
-      val limits = ResourceLimits.fromProtoV0(limitsP)
+      val limits = ResourceLimits.fromProtoV30(limitsP)
       service.writeResourceLimits(limits).map(_ => Empty()).asGrpcResponse
     }
 
-  override def getResourceLimits(request: Empty): Future[v0.ResourceLimits] =
-    Future.successful(service.resourceLimits.toProtoV0)
+  override def getResourceLimits(request: Empty): Future[v30.ResourceLimits] =
+    Future.successful(service.resourceLimits.toProtoV30)
 }

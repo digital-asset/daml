@@ -21,7 +21,6 @@ import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
-class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
 class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
 
 class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)

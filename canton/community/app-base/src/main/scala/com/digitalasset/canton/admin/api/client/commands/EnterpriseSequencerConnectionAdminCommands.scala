@@ -43,7 +43,7 @@ object EnterpriseSequencerConnectionAdminCommands {
         response: v0.GetConnectionResponse
     ): Either[String, Option[SequencerConnections]] = {
       val v0.GetConnectionResponse(sequencerConnectionsPO) = response
-      sequencerConnectionsPO.traverse(SequencerConnections.fromProtoV1).leftMap(_.message)
+      sequencerConnectionsPO.traverse(SequencerConnections.fromProtoV30).leftMap(_.message)
     }
   }
 
@@ -59,7 +59,7 @@ object EnterpriseSequencerConnectionAdminCommands {
     ): Future[Empty] = service.setConnection(request)
 
     override def createRequest(): Either[String, v0.SetConnectionRequest] = Right(
-      v0.SetConnectionRequest(Some(connections.toProtoV1))
+      v0.SetConnectionRequest(Some(connections.toProtoV30))
     )
 
     override def handleResponse(response: Empty): Either[String, Unit] = Right(())

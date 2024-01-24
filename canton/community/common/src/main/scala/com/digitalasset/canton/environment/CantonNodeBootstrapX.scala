@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.admin.v0.VaultServiceGrpc
+import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
   GrpcTopologyManagerReadServiceX,
   GrpcTopologyManagerWriteServiceX,
 }
-import com.digitalasset.canton.topology.admin.{v0 as adminV0, v1 as topologyProto}
+import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.*
@@ -223,7 +223,7 @@ abstract class CantonNodeBootstrapX[
     addCloseable(topologyManager)
     adminServerRegistry
       .addServiceU(
-        topologyProto.TopologyManagerReadServiceXGrpc
+        adminV30.TopologyManagerReadServiceXGrpc
           .bindService(
             new GrpcTopologyManagerReadServiceX(
               sequencedTopologyStores :+ authorizedStore,
@@ -235,7 +235,7 @@ abstract class CantonNodeBootstrapX[
       )
     adminServerRegistry
       .addServiceU(
-        topologyProto.TopologyManagerWriteServiceXGrpc
+        adminV30.TopologyManagerWriteServiceXGrpc
           .bindService(
             new GrpcTopologyManagerWriteServiceX(
               sequencedTopologyManagers :+ topologyManager,
@@ -251,7 +251,7 @@ abstract class CantonNodeBootstrapX[
       )
     adminServerRegistry
       .addServiceU(
-        topologyProto.IdentityInitializationServiceXGrpc
+        adminV30.IdentityInitializationServiceXGrpc
           .bindService(
             new GrpcIdentityInitializationServiceX(
               clock,
@@ -265,7 +265,7 @@ abstract class CantonNodeBootstrapX[
     import cats.syntax.functorFilter.*
     adminServerRegistry
       .addServiceU(
-        adminV0.TopologyAggregationServiceGrpc.bindService(
+        adminV30.TopologyAggregationServiceGrpc.bindService(
           new GrpcTopologyAggregationServiceX(
             sequencedTopologyStores.mapFilter(TopologyStoreId.selectX[TopologyStoreId.DomainStore]),
             ips,

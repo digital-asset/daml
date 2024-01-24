@@ -31,6 +31,8 @@ message ContractInstance {
    string package_name = 4; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
+    // TODO: https://github.com/digital-asset/daml/issues/18240
+    //  remove agreement text for the proto
     string agreement = 3;
 }
 // architecture-handbook-entry-end: Contract
@@ -65,6 +67,8 @@ message NodeCreate {
     string package_name = 10; // required *since dev*
     com.daml.lf.value.Identifier template_id = 7;
     bytes arg_unversioned = 8;
+    // TODO: https://github.com/digital-asset/daml/issues/18240
+    //  remove agreement text for the proto
     string agreement = 9;
     repeated string stakeholders = 3;
     repeated string signatories = 4;

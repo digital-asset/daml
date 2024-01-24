@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
-import com.digitalasset.canton.admin.participant.v0.*
+import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.TransferService
@@ -132,7 +132,7 @@ class GrpcTransferService(
       transferId <- Future(
         ProtoConverter
           .required("transferId", transferIdP)
-          .flatMap(TransferId.fromAdminProtoV0)
+          .flatMap(TransferId.fromAdminProto30)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
       applicationId <- Future(
@@ -272,7 +272,7 @@ object TransferSearchResult {
           contractId <- ProtoConverter.parseLfContractId(contractIdP)
           transferId <- ProtoConverter
             .required("transferId", transferIdP)
-            .flatMap(TransferId.fromAdminProtoV0)
+            .flatMap(TransferId.fromAdminProto30)
           targetTimeProofO <- targetTimeProofOP.traverse(CantonTimestamp.fromProtoPrimitive)
           _ <- Either.cond(sourceDomain.nonEmpty, (), FieldNotSet("originDomain"))
           _ <- Either.cond(targetDomain.nonEmpty, (), FieldNotSet("targetDomain"))

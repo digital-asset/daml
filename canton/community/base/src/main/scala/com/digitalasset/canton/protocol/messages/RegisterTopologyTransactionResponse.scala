@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.Top
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.v1.RegisterTopologyTransactionResponse.Result.State as ProtoStateV1
-import com.digitalasset.canton.protocol.{v1, v4}
+import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.protocol.v30.RegisterTopologyTransactionResponse.Result.State as ProtoStateV1
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.{
@@ -32,15 +32,15 @@ final case class RegisterTopologyTransactionResponse(
     ]
 ) extends UnsignedProtocolMessage {
 
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionResponse(toProtoV1)
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionResponse(toProtoV30)
 
-  def toProtoV1: v1.RegisterTopologyTransactionResponse =
-    v1.RegisterTopologyTransactionResponse(
+  def toProtoV30: v30.RegisterTopologyTransactionResponse =
+    v30.RegisterTopologyTransactionResponse(
       requestedBy = requestedBy.toProtoPrimitive,
       participant = participant.uid.toProtoPrimitive,
       requestId = requestId.unwrap,
-      results = results.map(_.toProtoV1),
+      results = results.map(_.toProtoV30),
       domainId = domainId.unwrap.toProtoPrimitive,
     )
 
@@ -52,10 +52,10 @@ object RegisterTopologyTransactionResponse
     extends HasProtocolVersionedCompanion[RegisterTopologyTransactionResponse] {
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v1.RegisterTopologyTransactionResponse
+      v30.RegisterTopologyTransactionResponse
     )(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -71,15 +71,15 @@ object RegisterTopologyTransactionResponse
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  private[messages] def fromProtoV1(
-      message: v1.RegisterTopologyTransactionResponse
+  private[messages] def fromProtoV30(
+      message: v30.RegisterTopologyTransactionResponse
   ): ParsingResult[RegisterTopologyTransactionResponse] =
     for {
       requestedBy <- Member.fromProtoPrimitive(message.requestedBy, "requestedBy")
       participantUid <- UniqueIdentifier.fromProtoPrimitive(message.participant, "participant")
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
       requestId <- String255.fromProtoPrimitive(message.requestId, "requestId")
-      results <- message.results.traverse(RegisterTopologyTransactionResponseResult.fromProtoV1)
+      results <- message.results.traverse(RegisterTopologyTransactionResponseResult.fromProtoV30)
     } yield RegisterTopologyTransactionResponse(
       requestedBy,
       ParticipantId(participantUid),
@@ -119,11 +119,11 @@ final case class RegisterTopologyTransactionResponseResult(
     state: RegisterTopologyTransactionResponseResult.State
 ) extends PrettyPrinting {
 
-  def toProtoV1: v1.RegisterTopologyTransactionResponse.Result = {
+  def toProtoV30: v30.RegisterTopologyTransactionResponse.Result = {
     import RegisterTopologyTransactionResponseResult.*
 
-    def reply(state: v1.RegisterTopologyTransactionResponse.Result.State) =
-      v1.RegisterTopologyTransactionResponse.Result(
+    def reply(state: v30.RegisterTopologyTransactionResponse.Result.State) =
+      v30.RegisterTopologyTransactionResponse.Result(
         state = state,
         errorMessage = "",
       )
@@ -160,8 +160,8 @@ object RegisterTopologyTransactionResponseResult {
     case object Obsolete extends State
   }
 
-  def fromProtoV1(
-      result: v1.RegisterTopologyTransactionResponse.Result
+  def fromProtoV30(
+      result: v30.RegisterTopologyTransactionResponse.Result
   ): ParsingResult[RegisterTopologyTransactionResponseResult] = {
     result.state match {
       case ProtoStateV1.MISSING_STATE =>

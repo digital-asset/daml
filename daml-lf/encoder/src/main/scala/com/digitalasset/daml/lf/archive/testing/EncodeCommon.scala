@@ -954,7 +954,6 @@ private[daml] class EncodeCommon(languageVersion: LV) {
       setString(template.param, b.setParamStr, b.setParamInternedStr)
       b.setPrecond(template.precond)
       b.setSignatories(template.signatories)
-      b.setAgreement(template.agreementText)
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))

@@ -1,0 +1,302 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v30;
+
+import "com/digitalasset/canton/protocol/v30/domain_params.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+service TopologyManagerReadServiceX {
+  rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResult);
+  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResult);
+  rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResult);
+
+  rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResult);
+
+  rpc ListDomainTrustCertificate(ListDomainTrustCertificateRequest) returns (ListDomainTrustCertificateResult);
+  rpc ListParticipantDomainPermission(ListParticipantDomainPermissionRequest) returns (ListParticipantDomainPermissionResult);
+  rpc ListPartyHostingLimits(ListPartyHostingLimitsRequest) returns (ListPartyHostingLimitsResult);
+  rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResult);
+
+  rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResult);
+  rpc ListAuthorityOf(ListAuthorityOfRequest) returns (ListAuthorityOfResult);
+
+  rpc ListDomainParametersState(ListDomainParametersStateRequest) returns (ListDomainParametersStateResult);
+  rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResult);
+  rpc ListSequencerDomainState(ListSequencerDomainStateRequest) returns (ListSequencerDomainStateResult);
+
+  rpc ListPurgeTopologyTransactionX(ListPurgeTopologyTransactionXRequest) returns (ListPurgeTopologyTransactionXResult);
+
+  rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResult);
+  rpc ListAll(ListAllRequest) returns (ListAllResponse);
+
+  rpc ListTrafficState(ListTrafficStateRequest) returns (ListTrafficStateResult);
+}
+
+message ListTrafficStateRequest {
+  BaseQuery base_query = 1;
+  string filter_member = 2;
+}
+
+message ListTrafficStateResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.TrafficControlStateX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message BaseQuery {
+  Store filter_store = 1;
+
+  // whether to query only for proposals instead of approved topology mappings
+  bool proposals = 2;
+
+  com.digitalasset.canton.protocol.v30.EnumsX.TopologyChangeOpX operation = 3;
+
+  // TODO(#14048) Decide whether the filter_operation flag is necessary on top of the optional operation field, if not remove
+  // if true, then we'll filter the results according to above defined operation
+  bool filter_operation = 4;
+
+  message TimeRange {
+    google.protobuf.Timestamp from = 1;
+    google.protobuf.Timestamp until = 2;
+  }
+
+  oneof time_query {
+    google.protobuf.Timestamp snapshot = 5;
+    google.protobuf.Empty head_state = 6;
+    TimeRange range = 7;
+  }
+  string filter_signed_key = 8;
+  google.protobuf.StringValue protocol_version = 9;
+}
+
+message Store {
+  message Authorized {}
+
+  message Domain {
+    string id = 1;
+  }
+
+  oneof store {
+    Authorized authorized = 1;
+    Domain domain = 2;
+  }
+}
+
+message BaseResult {
+  Store store = 1;
+  google.protobuf.Timestamp sequenced = 2;
+  google.protobuf.Timestamp valid_from = 3;
+  google.protobuf.Timestamp valid_until = 4;
+  com.digitalasset.canton.protocol.v30.EnumsX.TopologyChangeOpX operation = 5;
+  bytes transaction_hash = 6;
+  int32 serial = 7;
+  repeated string signed_by_fingerprints = 8;
+}
+
+message ListNamespaceDelegationRequest {
+  BaseQuery base_query = 1;
+  string filter_namespace = 2;
+  string filter_target_key_fingerprint = 3;
+}
+
+message ListNamespaceDelegationResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.NamespaceDelegationX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListDecentralizedNamespaceDefinitionRequest {
+  BaseQuery base_query = 1;
+  string filter_namespace = 2;
+}
+
+message ListDecentralizedNamespaceDefinitionResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DecentralizedNamespaceDefinitionX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListIdentifierDelegationRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+  string filter_target_key_fingerprint = 3;
+}
+
+message ListIdentifierDelegationResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.IdentifierDelegationX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListOwnerToKeyMappingRequest {
+  BaseQuery base_query = 1;
+  string filter_key_owner_type = 2;
+  string filter_key_owner_uid = 3;
+}
+
+message ListOwnerToKeyMappingResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.OwnerToKeyMappingX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListDomainTrustCertificateRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListDomainTrustCertificateResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DomainTrustCertificateX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListParticipantDomainPermissionRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListParticipantDomainPermissionResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.ParticipantDomainPermissionX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListPartyHostingLimitsRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListPartyHostingLimitsResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyHostingLimitsX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListVettedPackagesRequest {
+  BaseQuery base_query = 1;
+  string filter_participant = 2;
+}
+
+message ListVettedPackagesResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.VettedPackagesX item = 2;
+  }
+  repeated Result results = 1;
+}
+message ListPartyToParticipantRequest {
+  BaseQuery base_query = 1;
+  string filter_party = 2;
+  string filter_participant = 3;
+}
+
+message ListPartyToParticipantResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyToParticipantX item = 2;
+  }
+  repeated Result results = 2;
+}
+
+message ListAuthorityOfRequest {
+  BaseQuery base_query = 1;
+  string filter_party = 2;
+}
+
+message ListAuthorityOfResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.AuthorityOfX item = 2;
+  }
+  repeated Result results = 2;
+}
+
+message ListDomainParametersStateRequest {
+  BaseQuery base_query = 1;
+  string filter_domain = 2;
+}
+
+message ListDomainParametersStateResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DynamicDomainParameters item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListMediatorDomainStateRequest {
+  BaseQuery base_query = 1;
+  string filter_domain = 2;
+}
+
+message ListMediatorDomainStateResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.MediatorDomainStateX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListSequencerDomainStateRequest {
+  BaseQuery base_query = 1;
+  string filter_domain = 2;
+}
+
+message ListSequencerDomainStateResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.SequencerDomainStateX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListPurgeTopologyTransactionXRequest {
+  BaseQuery base_query = 1;
+  string filter_domain = 2;
+}
+
+message ListPurgeTopologyTransactionXResult {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PurgeTopologyTransactionX item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListAvailableStoresRequest {}
+
+message ListAvailableStoresResult {
+  repeated string store_ids = 1;
+}
+
+message ListAllRequest {
+  BaseQuery base_query = 1;
+}
+
+message ListAllResponse {
+  com.digitalasset.canton.protocol.v30.TopologyTransactions result = 1;
+}

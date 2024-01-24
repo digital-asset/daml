@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandServiceStub
-import com.daml.ledger.api.v1.command_service.*
+import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceStub
+import com.daml.ledger.api.v2.command_service.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.google.protobuf.empty.Empty
 import io.grpc.stub.AbstractStub
@@ -26,9 +26,9 @@ class SynchronousCommandClient(service: CommandServiceStub) {
       submitAndWaitRequest: SubmitAndWaitRequest,
       token: Option[String] = None,
       timeout: Option[Duration] = None,
-  ): Future[SubmitAndWaitForTransactionIdResponse] =
+  ): Future[SubmitAndWaitForUpdateIdResponse] =
     withDeadline(LedgerClient.stub(service, token), timeout)
-      .submitAndWaitForTransactionId(submitAndWaitRequest)
+      .submitAndWaitForUpdateId(submitAndWaitRequest)
 
   def submitAndWaitForTransaction(
       submitAndWaitRequest: SubmitAndWaitRequest,
