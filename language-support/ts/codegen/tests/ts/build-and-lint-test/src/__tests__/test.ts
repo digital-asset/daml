@@ -120,6 +120,7 @@ beforeAll(async () => {
       "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
         JSON_API_PORT_FILE,
       "--auto-connect-local",
+      "--debug",
     ],
     ["-Dpekko.http.server.request-timeout=60s"],
   );

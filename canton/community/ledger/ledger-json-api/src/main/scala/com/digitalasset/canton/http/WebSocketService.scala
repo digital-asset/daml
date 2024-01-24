@@ -718,8 +718,20 @@ class WebSocketService(
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamRequestParser[A]]
     Flow[Message]
+      .map({ x =>
+        logger.info(s"unparsed message: $x")
+        x // Pass the message along unchanged
+      })
       .mapAsync(1)(parseJson)
+      .map({ x =>
+        logger.info(s"parsed message: $x")
+        x // Pass the message along unchanged
+      })
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
+      .map({ x =>
+        logger.info(s"parsed w prf message: $x")
+        x // Pass the message along unchanged
+      })
       .mapAsync(1) { case (oeso, ejv) =>
         (for {
           offPrefix <- either[Future, Error, Option[StartingOffset]](oeso.sequence)
@@ -737,6 +749,10 @@ class WebSocketService(
           )
         } yield (offPrefix, a: Q.QueryRequest[_])).run
       }
+      .map({ x =>
+        logger.info(s"parsed query: $x")
+        x // Pass the message along unchanged
+      })
       .mapAsync(1) {
         _.map { case (offPrefix, qq: Q.QueryRequest[q]) =>
           qq.resolver
@@ -750,11 +766,19 @@ class WebSocketService(
         }
           .fold(e => Future.successful(-\/(e)), identity)
       }
+      .map({ x =>
+        logger.info(s"parsed resolved: $x")
+        x // Pass the message along unchanged
+      })
       .via(
         allowOnlyFirstInput(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
         )
       )
+      .map({ x =>
+        logger.info(s"parsed after only first input: $x")
+        x // Pass the message along unchanged
+      })
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
         _.map { case (offPrefix, rq: ResolvedQueryRequest[q]) =>
@@ -768,6 +792,10 @@ class WebSocketService(
           ) via logTermination(logger, "getTransactionSourceForParty")
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
+      .map({ x =>
+        logger.info(s"parsed after source: $x")
+        x // Pass the message along unchanged
+      })
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
