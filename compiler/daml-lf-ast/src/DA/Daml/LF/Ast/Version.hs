@@ -182,14 +182,6 @@ featurePackageUpgrades = Feature
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
-featureNatTypeErasure :: Feature
-featureNatTypeErasure = Feature
-    { featureName = "Erasing types of kind Nat"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
-    }
-
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -202,6 +194,7 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
+    , "DAML_NAT_TYPE_ERASURE"
     , "DAML_INTERFACE"
     , "DAML_RIGHT_TO_LEFT_EVALUATION"
     ]
@@ -220,7 +213,6 @@ allFeatures =
     , featureExperimental
     , featureDynamicExercise
     , featurePackageUpgrades
-    , featureNatTypeErasure
     ]
 
 -- | A map from feature CPP flags to features.
