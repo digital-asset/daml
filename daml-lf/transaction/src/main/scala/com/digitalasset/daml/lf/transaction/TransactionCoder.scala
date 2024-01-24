@@ -281,7 +281,7 @@ object TransactionCoder {
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nf.coid)))
-                discard(builder.setByKey(nf.byKey))
+              discard(builder.setByKey(nf.byKey))
               nf.actingParties.foreach(builder.addActors)
               for {
                 encodedPkgName <- encodePackageName(nf.packageName, nodeVersion)
@@ -312,7 +312,7 @@ object TransactionCoder {
                 case None => ()
                 case Some(xs) => xs.foreach(builder.addAuthorizers)
               }
-                discard(builder.setByKey(ne.byKey))
+              discard(builder.setByKey(ne.byKey))
               if (nodeVersion >= TransactionVersion.minInterfaces) {
                 ne.interfaceId.foreach(iface =>
                   builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
@@ -504,7 +504,7 @@ object TransactionCoder {
             templateId,
             protoFetch.getKeyWithMaintainers,
           )
-          byKey =             protoFetch.getByKey
+          byKey = protoFetch.getByKey
         } yield ni -> Node.Fetch(
           coid = c,
           packageName = pkgName,
@@ -524,7 +524,7 @@ object TransactionCoder {
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           rvOpt <-
             if (!protoExe.hasResultVersioned && protoExe.getResultUnversioned.isEmpty) {
-             Right(None)
+              Right(None)
             } else {
               decodeValue(
                 decodeCid,

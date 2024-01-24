@@ -1062,7 +1062,7 @@ class TransactionCoderSpec
       choiceAuthorizers =
         if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
-      byKey =         exe.byKey
+      byKey = exe.byKey,
     )
   }
 

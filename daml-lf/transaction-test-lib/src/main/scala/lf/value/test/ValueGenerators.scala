@@ -484,10 +484,10 @@ object ValueGenerators {
     )
 
   def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
-      Gen.frequency(
-        3 -> danglingRefGenActionNodeWithVersion(version),
-        1 -> refGenNode(danglingRefRollbackNodeGen),
-      )
+    Gen.frequency(
+      3 -> danglingRefGenActionNodeWithVersion(version),
+      1 -> refGenNode(danglingRefRollbackNodeGen),
+    )
 
   /** Aside from the invariants failed as listed under `malformedCreateNodeGen`,
     * resulting transactions may be malformed in several other ways:
