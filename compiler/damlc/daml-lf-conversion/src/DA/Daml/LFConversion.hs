@@ -668,8 +668,6 @@ convertInterfaces env mc =
 convertInterface :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
 convertInterface env mc intName ib =
   withRange intLocation do
-    unless (envLfVersion env `supports` featureSimpleInterfaces) do
-      unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
     defInterfaceDataType <- convertDefInterfaceDataType
     defInterface <- convertDefInterface
     pure
@@ -1197,8 +1195,6 @@ convertInterfaceInstance ::
   -> InterfaceInstanceBinds
   -> ConvertM r
 convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
-  unless (envLfVersion env `supports` featureSimpleInterfaces) do
-    unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent interfaceQualTypeCon templateQualTypeCon
