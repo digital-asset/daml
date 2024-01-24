@@ -429,10 +429,11 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
                       .flatMap(_.nonDuplicateRejectionReason)
                       .headOption
                       .map(_.toTopologyManagerError)
-                      // if the only rejections where duplicates, we filter them out and proceed with all other
-                      // validated transactions, because the TopologyStateProcessor will have treated them as such as well.
+                      // if the only rejections where duplicates (i.e. headOption returns None),
+                      // we filter them out and proceed with all other validated transactions, because the
+                      // TopologyStateProcessor will have treated them as such as well.
                       // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
-                      .toLeft(rejectedTransactions.flatMap(_.ignoreDuplicateRejectionReason))
+                      .toLeft(rejectedTransactions.filter(tx => tx.rejectionReason.isEmpty))
                   )
                 )
                 .map { acceptedTransactions =>

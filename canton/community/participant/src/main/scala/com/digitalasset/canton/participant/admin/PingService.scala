@@ -497,7 +497,6 @@ object PingService {
         flag: AtomicBoolean,
         expire: CantonTimestamp,
     )(implicit traceContext: TraceContext): Unit = {
-
       NonNegativeFiniteDuration.create(expire - clock.now) match {
         case Right(timeout) =>
           if (!flag.getAndSet(true)) {
@@ -524,7 +523,7 @@ object PingService {
             )
           }
         case Left(err) =>
-          logger.warn("Not submitting background submission as it is already expired: " + err)
+          logger.debug("Not submitting background submission as it is already expired: " + err)
       }
     }
 
@@ -658,6 +657,7 @@ object PingService {
       }
 
       def pingTimedout(now: CantonTimestamp): Unit = {
+        // no need to schedule vacuuming here, as this is scheduled as part of the create event
         requests.remove(id).foreach { _ =>
           if (promise.isCompleted) {
             if (!isClosing) {
@@ -791,7 +791,8 @@ object PingService {
         ping.getContractTypeId,
         context.domainId,
         context.workflowId,
-        expire = context.effectiveAt + timeout,
+        // using clock.now as with the ping, it doesn't really make a difference if we vacuum or respond
+        expire = clock.now + timeout,
       ) {
 
         override protected def prettyData: String = ping.data.id

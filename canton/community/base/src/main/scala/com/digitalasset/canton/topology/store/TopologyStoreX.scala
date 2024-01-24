@@ -86,9 +86,6 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     case otherwise => otherwise
   }
 
-  def ignoreDuplicateRejectionReason: Option[ValidatedTopologyTransactionX[Op, M]] =
-    rejectionReason.collect { case Duplicate(_) => ValidatedTopologyTransactionX(transaction) }
-
   def collectOfMapping[TargetM <: TopologyMappingX: ClassTag]
       : Option[ValidatedTopologyTransactionX[Op, TargetM]] =
     transaction.selectMapping[TargetM].map(tx => copy[Op, TargetM](transaction = tx))

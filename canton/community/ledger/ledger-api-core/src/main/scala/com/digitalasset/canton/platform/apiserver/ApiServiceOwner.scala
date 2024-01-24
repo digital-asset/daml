@@ -68,7 +68,6 @@ object ApiServiceOwner {
       ledgerFeatures: LedgerFeatures,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
-      enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       // immutable configuration parameters
@@ -164,7 +163,6 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
-        enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         upgradingEnabled = upgradingEnabled,

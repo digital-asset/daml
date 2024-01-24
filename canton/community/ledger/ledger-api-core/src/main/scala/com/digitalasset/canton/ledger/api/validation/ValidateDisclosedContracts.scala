@@ -17,26 +17,15 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
   validateIdentifier,
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
 
-class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
+class ValidateDisclosedContracts {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     for {
-      _ <- Either.cond(
-        explicitDisclosureFeatureEnabled || commands.disclosedContracts.isEmpty,
-        (),
-        RequestValidationErrors.InvalidField
-          .Reject(
-            "disclosed_contracts",
-            "feature disabled: disclosed_contracts should not be set",
-          )
-          .asGrpcError,
-      )
       validatedDisclosedContracts <- validateDisclosedContracts(commands.disclosedContracts)
     } yield validatedDisclosedContracts
 

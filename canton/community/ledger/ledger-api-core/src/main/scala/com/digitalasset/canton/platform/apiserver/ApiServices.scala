@@ -109,7 +109,6 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
-      enableExplicitDisclosure: Boolean,
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
@@ -411,7 +410,6 @@ object ApiServices {
           ledgerId = ledgerId,
           resolveToTemplateId = resolveTemplateNameTo(_.primary)(indexService),
           upgradingEnabled = upgradingEnabled,
-          enableExplicitDisclosure = enableExplicitDisclosure,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

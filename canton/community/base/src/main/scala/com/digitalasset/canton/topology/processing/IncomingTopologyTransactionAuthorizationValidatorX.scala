@@ -236,9 +236,17 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     } else {
       ValidatedTopologyTransactionX(
         toValidate,
-        rejectionOrMissingAuthorizers.left.toOption.orElse(
-          Some(TopologyTransactionRejection.NotAuthorized)
-        ),
+        rejectionOrMissingAuthorizers match {
+          case Left(rejection) => Some(rejection)
+          case Right(missingAuthorizers) =>
+            if (!missingAuthorizers.isEmpty) {
+              logger.debug(s"Missing authorizers for $toValidate: $missingAuthorizers")
+            }
+            if (!mappingSpecificCheck) {
+              logger.debug(s"Mapping specific check failed for $toValidate")
+            }
+            Some(TopologyTransactionRejection.NotAuthorized)
+        },
       )
     }
   }

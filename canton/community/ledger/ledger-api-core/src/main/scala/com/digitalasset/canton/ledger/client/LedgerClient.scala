@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
@@ -12,7 +11,6 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruni
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc as CommandServiceGrpcV1
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc as PackageServiceGrpcV1
 import com.daml.ledger.api.v1.trace_context.TraceContext as LedgerApiTraceContext
@@ -29,12 +27,10 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
-import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.admin.*
 import com.digitalasset.canton.ledger.client.services.commands.{
   CommandClientV1,
   CommandServiceClient,
-  SynchronousCommandClientV1,
 }
 import com.digitalasset.canton.ledger.client.services.pkg.{PackageClient, PackageClientV1}
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
@@ -84,11 +80,6 @@ final class LedgerClient private (
     )
   }
 
-  lazy val activeContractSetClient =
-    new ActiveContractSetClient(
-      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token)
-    )
-
   lazy val commandClient: CommandClientV1 =
     new CommandClientV1(
       LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
@@ -96,11 +87,6 @@ final class LedgerClient private (
       config.applicationId,
       config.commandClient,
       loggerFactory,
-    )
-
-  lazy val commandServiceClient: SynchronousCommandClientV1 =
-    new SynchronousCommandClientV1(
-      LedgerClient.stub(CommandServiceGrpcV1.stub(channel), config.token)
     )
 
   lazy val identityProviderConfigClient: IdentityProviderConfigClient =
@@ -124,11 +110,6 @@ final class LedgerClient private (
   lazy val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
       LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
-    )
-
-  lazy val transactionClient: TransactionClient =
-    new TransactionClient(
-      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token)
     )
 
   lazy val versionClient: VersionClient =

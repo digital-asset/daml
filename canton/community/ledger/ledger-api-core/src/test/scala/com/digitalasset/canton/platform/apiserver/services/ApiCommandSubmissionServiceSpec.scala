@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand, DisclosedContract}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.tracing.{DefaultOpenTelemetry, SpanAttribute}
@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
-import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, ValidateDisclosedContracts}
+import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.TestTelemetrySetup
@@ -25,7 +25,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 class ApiCommandSubmissionServiceSpec
     extends AsyncWordSpec
@@ -49,13 +48,7 @@ class ApiCommandSubmissionServiceSpec
     "propagate trace context" in {
       val span = testTelemetrySetup.anEmptySpan()
       val scope = span.makeCurrent()
-      val mockCommandSubmissionService = mock[CommandSubmissionService & AutoCloseable]
-      when(
-        mockCommandSubmissionService
-          .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
-      )
-        .thenReturn(Future.unit)
-
+      val mockCommandSubmissionService = createMockCommandSubmissionService
       try {
         grpcCommandSubmissionService(mockCommandSubmissionService)
           .submit(aSubmitRequest)
@@ -78,7 +71,7 @@ class ApiCommandSubmissionServiceSpec
         aSubmitRequest.update(_.commands.submissionId := expectedSubmissionId)
       val requestCaptor =
         ArgCaptor[SubmitRequest]
-      val mockCommandSubmissionService = mock[CommandSubmissionService & AutoCloseable]
+      val mockCommandSubmissionService = createMockCommandSubmissionService
       when(
         mockCommandSubmissionService
           .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
@@ -98,7 +91,7 @@ class ApiCommandSubmissionServiceSpec
       val requestCaptor =
         ArgCaptor[SubmitRequest]
 
-      val mockCommandSubmissionService = mock[CommandSubmissionService & AutoCloseable]
+      val mockCommandSubmissionService = createMockCommandSubmissionService
       when(
         mockCommandSubmissionService
           .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
@@ -114,25 +107,18 @@ class ApiCommandSubmissionServiceSpec
         }
     }
 
-    "reject submission on explicit disclosure disabled with provided disclosed contracts" in {
-      val mockCommandSubmissionService = mock[CommandSubmissionService & AutoCloseable]
+    "accept submission with provided disclosed contracts" in {
+      val mockCommandSubmissionService = createMockCommandSubmissionService
 
       val submissionWithDisclosedContracts =
-        aSubmitRequest.update(_.commands.disclosedContracts.set(Seq(DisclosedContract())))
+        aSubmitRequest.update(
+          _.commands.disclosedContracts.set(Seq(DisclosedContractCreator.disclosedContract))
+        )
 
       grpcCommandSubmissionService(mockCommandSubmissionService)
         .submit(submissionWithDisclosedContracts)
         .map { _ =>
-          verifyZeroInteractions(mockCommandSubmissionService)
           succeed
-        }
-        .transform {
-          case Failure(exception)
-              if exception.getMessage.contains(
-                "feature disabled: disclosed_contracts should not be set"
-              ) =>
-            Success(succeed)
-          case other => fail(s"Unexpected result: $other")
         }
     }
   }
@@ -149,11 +135,10 @@ class ApiCommandSubmissionServiceSpec
       metrics = Metrics.ForTesting,
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
-      commandsValidator = new CommandsValidator(
+      commandsValidator = CommandsValidator(
         ledgerId = LedgerId(ledgerId),
         resolveToTemplateId = _ => fail("should not be called"),
         upgradingEnabled = false,
-        validateDisclosedContracts = new ValidateDisclosedContracts(false),
       ),
     )
 }
@@ -176,4 +161,16 @@ object ApiCommandSubmissionServiceSpec {
   private val aSubmitRequest = submitRequestV1.copy(
     commands = Some(commandsV1.copy(commands = Seq(aCommand)))
   )
+
+  def createMockCommandSubmissionService: CommandSubmissionService & AutoCloseable = {
+    import MockitoSugar.*
+    import org.mockito.ArgumentMatchersSugar.*
+    val mockCommandSubmissionService = mock[CommandSubmissionService & AutoCloseable]
+    when(
+      mockCommandSubmissionService
+        .submit(any[SubmitRequest])(any[LoggingContextWithTrace])
+    )
+      .thenReturn(Future.unit)
+    mockCommandSubmissionService
+  }
 }
