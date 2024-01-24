@@ -476,7 +476,7 @@ data ResolveReleaseError
   = FailedToFindLinuxSdkInRelease String
   | Couldn'tParseSdkVersion String InvalidVersion
   | Couldn'tParseJSON String
-  | Couldn'tConnect200 Int String
+  | Couldn'tConnect (Maybe Int) String
   deriving (Show, Eq)
 
 instance Exception ResolveReleaseError where
@@ -486,8 +486,13 @@ instance Exception ResolveReleaseError where
     "Couldn't parse SDK in release at url '" <> url <> "': " <> displayException v
   displayException (Couldn'tParseJSON url) =
     "Couldn't parse JSON from the response from url '" <> url <> "'"
-  displayException (Couldn'tConnect200 statusCode url) =
-    "Couldn't connect successfully to '" <> url <> "', got HTTP status code `" <> show statusCode <> "`"
+  displayException (Couldn'tConnect statusCode url) =
+    let statusCodeDescription =
+            case statusCode of
+              Nothing -> ""
+              Just statusCode -> ", got HTTP status code `" <> show statusCode <> "`"
+    in
+    "Couldn't connect successfully to '" <> url <> "'" <> statusCodeDescription
 
 -- | Since ~2.8.snapshot, the "daml version" (the version the user inputs) and
 -- the daml sdk version (the version of the daml repo) can differ
@@ -498,18 +503,20 @@ resolveReleaseVersionFromGithub unresolvedVersion = do
   let tag = T.unpack (rawVersionToTextWithV (unwrapUnresolvedReleaseVersion unresolvedVersion))
       url = "https://api.github.com/repos/digital-asset/daml/releases/tags/" <> tag
   req <- parseRequest url
-  res <- httpJSONEither $ setRequestHeaders [("User-Agent", "request")] req
+  resOrErr <- try $ httpJSONEither $ setRequestHeaders [("User-Agent", "request")] req
   pure $
-    case releaseResponseSubsetSdkVersion <$> getResponseBody res of
-      Right (Just sdkVersionStr) ->
-        case parseSdkVersion sdkVersionStr of
-          Left issue -> Left (Couldn'tParseSdkVersion url issue)
-          Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
-      Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
-      Left _
-        | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
-        | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
-        | otherwise -> Left (Couldn'tConnect200 (getResponseStatusCode res) url)
+    case resOrErr of
+      Right res -> case releaseResponseSubsetSdkVersion <$> getResponseBody res of
+          Right (Just sdkVersionStr) ->
+            case parseSdkVersion sdkVersionStr of
+              Left issue -> Left (Couldn'tParseSdkVersion url issue)
+              Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
+          Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+          Left _err
+            | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
+            | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+            | otherwise -> Left (Couldn'tConnect (Just (getResponseStatusCode res)) url)
+      Left SomeException{} -> Left (Couldn'tConnect Nothing url)
 
 -- | Subset of the artifactory release response that we care about
 data ArtifactoryReleaseResponseSubset = ArtifactoryReleaseResponseSubset
@@ -540,7 +547,7 @@ resolveReleaseVersionFromArtifactory damlPath unresolvedVersion = do
           --searchParam = foldMap id [ "sdk-ee:", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
           searchParam = foldMap id [ "external-files:daml-enterprise/*/", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
       req <- parseRequest url
-      res <- httpJSONEither $
+      resOrErr <- try $ httpJSONEither $
                 setRequestHeaders
                     [ ("User-Agent", "request")
                     , ("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))
@@ -550,16 +557,20 @@ resolveReleaseVersionFromArtifactory damlPath unresolvedVersion = do
                     ]
                     req
       pure $
-        case artifactoryReleaseResponseSubsetSdkVersion <$> getResponseBody res of
-          Right (Just sdkVersionStr) ->
-            case parseSdkVersion sdkVersionStr of
-              Left issue -> Left (Couldn'tParseSdkVersion url issue)
-              Right sdkVersion -> Right (Just (mkReleaseVersion unresolvedVersion sdkVersion))
-          Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
-          Left _
-            | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
-            | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
-            | otherwise -> Left (Couldn'tConnect200 (getResponseStatusCode res) url)
+        case resOrErr of
+          Right res ->
+            case artifactoryReleaseResponseSubsetSdkVersion <$> getResponseBody res of
+              Right (Just sdkVersionStr) ->
+                case parseSdkVersion sdkVersionStr of
+                  Left issue -> Left (Couldn'tParseSdkVersion url issue)
+                  Right sdkVersion -> Right (Just (mkReleaseVersion unresolvedVersion sdkVersion))
+              Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+              Left _err
+                | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
+                | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+                | otherwise -> Left (Couldn'tConnect (Just (getResponseStatusCode res)) url)
+          Left SomeException{} ->
+            Left (Couldn'tConnect Nothing url)
     _ -> pure (Right Nothing)
 
 -- | OS-specific part of the asset name.
