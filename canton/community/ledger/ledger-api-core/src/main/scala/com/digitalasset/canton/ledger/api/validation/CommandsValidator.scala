@@ -40,7 +40,7 @@ final class CommandsValidator(
     ledgerId: LedgerId,
     resolveToTemplateId: ResolveToTemplateId,
     upgradingEnabled: Boolean = false,
-    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
+    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts,
 ) {
 
   import ValidationErrors.*
@@ -293,13 +293,11 @@ object CommandsValidator {
       ledgerId: LedgerId,
       resolveToTemplateId: ResolveToTemplateId,
       upgradingEnabled: Boolean,
-      enableExplicitDisclosure: Boolean,
   ) =
     new CommandsValidator(
       ledgerId = ledgerId,
       resolveToTemplateId = resolveToTemplateId,
       upgradingEnabled = upgradingEnabled,
-      validateDisclosedContracts = new ValidateDisclosedContracts(enableExplicitDisclosure),
     )
 
   /** Effective submitters of a command

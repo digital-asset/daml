@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand, DisclosedContract}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetry
@@ -17,19 +17,18 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.services.CommandService
-import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, ValidateDisclosedContracts}
+import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.google.protobuf.empty.Empty
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertions
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.{Assertion, Assertions}
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 class ApiCommandServiceSpec
     extends AsyncWordSpec
@@ -45,31 +44,7 @@ class ApiCommandServiceSpec
   "ApiCommandService" should {
     "generate a submission ID if it's empty" in {
       val submissionCounter = new AtomicInteger
-
-      val mockCommandService = mock[CommandService & AutoCloseable]
-      when(
-        mockCommandService.submitAndWait(any[SubmitAndWaitRequest])(any[LoggingContextWithTrace])
-      )
-        .thenReturn(Future.successful(Empty.defaultInstance))
-      when(
-        mockCommandService.submitAndWaitForTransaction(any[SubmitAndWaitRequest])(
-          any[LoggingContextWithTrace]
-        )
-      )
-        .thenReturn(Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance))
-      when(
-        mockCommandService.submitAndWaitForTransactionId(any[SubmitAndWaitRequest])(
-          any[LoggingContextWithTrace]
-        )
-      )
-        .thenReturn(Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance))
-      when(
-        mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest])(
-          any[LoggingContextWithTrace]
-        )
-      )
-        .thenReturn(Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance))
-
+      val mockCommandService = createMockCommandService
       val grpcCommandService = new ApiCommandService(
         mockCommandService,
         commandsValidator = commandsValidator,
@@ -120,8 +95,8 @@ class ApiCommandServiceSpec
         succeed
       }
     }
-    "reject submission on explicit disclosure disabled with provided disclosed contracts" in {
-      val mockCommandService = mock[CommandService & AutoCloseable]
+    "accept submission with provided disclosed contracts" in {
+      val mockCommandService = createMockCommandService
 
       val grpcCommandService = new ApiCommandService(
         mockCommandService,
@@ -135,33 +110,15 @@ class ApiCommandServiceSpec
       )
 
       val submissionWithDisclosedContracts = aSubmitAndWaitRequestWithNoSubmissionId.update(
-        _.commands.disclosedContracts.set(Seq(DisclosedContract()))
+        _.commands.disclosedContracts.set(Seq(DisclosedContractCreator.disclosedContract))
       )
 
-      def expectFailedOnProvidedDisclosedContracts(f: Future[?]): Future[Assertion] = f.transform {
-        case Failure(exception)
-            if exception.getMessage.contains(
-              "feature disabled: disclosed_contracts should not be set"
-            ) =>
-          Success(succeed)
-        case other => fail(s"Unexpected result: $other")
-      }
-
       for {
-        _ <- expectFailedOnProvidedDisclosedContracts(
-          grpcCommandService.submitAndWait(submissionWithDisclosedContracts)
-        )
-        _ <- expectFailedOnProvidedDisclosedContracts(
-          grpcCommandService.submitAndWaitForTransaction(submissionWithDisclosedContracts)
-        )
-        _ <- expectFailedOnProvidedDisclosedContracts(
-          grpcCommandService.submitAndWaitForTransactionId(submissionWithDisclosedContracts)
-        )
-        _ <- expectFailedOnProvidedDisclosedContracts(
-          grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
-        )
+        _ <- grpcCommandService.submitAndWait(submissionWithDisclosedContracts)
+        _ <- grpcCommandService.submitAndWaitForTransaction(submissionWithDisclosedContracts)
+        _ <- grpcCommandService.submitAndWaitForTransactionId(submissionWithDisclosedContracts)
+        _ <- grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
       } yield {
-        verifyZeroInteractions(mockCommandService)
         succeed
       }
     }
@@ -190,10 +147,39 @@ object ApiCommandServiceSpec {
 
   private val submissionIdPrefix = "submissionId-"
 
-  private val commandsValidator = new CommandsValidator(
+  private val commandsValidator = CommandsValidator(
     ledgerId = LedgerId(ledgerId),
     resolveToTemplateId = _ => Assertions.fail("should not be called"),
     upgradingEnabled = false,
-    validateDisclosedContracts = new ValidateDisclosedContracts(false),
   )
+
+  def createMockCommandService: CommandService & AutoCloseable = {
+    import org.mockito.MockitoSugar.*
+    import org.mockito.ArgumentMatchersSugar.*
+    val mockCommandService = mock[CommandService & AutoCloseable]
+    when(
+      mockCommandService.submitAndWait(any[SubmitAndWaitRequest])(any[LoggingContextWithTrace])
+    )
+      .thenReturn(Future.successful(Empty.defaultInstance))
+    when(
+      mockCommandService.submitAndWaitForTransaction(any[SubmitAndWaitRequest])(
+        any[LoggingContextWithTrace]
+      )
+    )
+      .thenReturn(Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance))
+    when(
+      mockCommandService.submitAndWaitForTransactionId(any[SubmitAndWaitRequest])(
+        any[LoggingContextWithTrace]
+      )
+    )
+      .thenReturn(Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance))
+    when(
+      mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest])(
+        any[LoggingContextWithTrace]
+      )
+    )
+      .thenReturn(Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance))
+    mockCommandService
+  }
+
 }

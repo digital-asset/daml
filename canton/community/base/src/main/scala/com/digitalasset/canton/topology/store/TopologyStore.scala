@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
 }
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
-import com.digitalasset.canton.crypto.{PublicKey, SignatureCheckError}
+import com.digitalasset.canton.crypto.{Fingerprint, PublicKey, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -236,12 +236,21 @@ sealed trait TopologyTransactionRejection extends PrettyPrinting {
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError
 }
 object TopologyTransactionRejection {
+
+  final case class NoDelegationFoundForKey(key: Fingerprint) extends TopologyTransactionRejection {
+    override def asString: String = s"No delegation found for key ${key.singleQuoted}"
+    override def pretty: Pretty[NoDelegationFoundForKey] = prettyOfString(_ => asString)
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+
+  }
   object NotAuthorized extends TopologyTransactionRejection {
     override def asString: String = "Not authorized"
     override def pretty: Pretty[NotAuthorized.type] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
-      TopologyManagerError.UnauthorizedTransaction.Failure()
+      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
   }
 
   final case class ThresholdTooHigh(actual: Int, mustBeAtMost: Int)

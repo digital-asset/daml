@@ -151,7 +151,7 @@ abstract class TopologyManager[E <: CantonError](
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
 
     lazy val unauthorizedTransaction: TopologyManagerError =
-      TopologyManagerError.UnauthorizedTransaction.Failure()
+      TopologyManagerError.UnauthorizedTransaction.Failure("Unauthorized")
 
     lazy val removingKeyWithDanglingTransactionsMustBeForcedError: TopologyManagerError =
       TopologyManagerError.RemovingKeyWithDanglingTransactionsMustBeForced
