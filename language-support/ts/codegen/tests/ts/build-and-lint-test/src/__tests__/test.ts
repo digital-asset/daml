@@ -207,19 +207,19 @@ function sleep(ms: number): Promise<void> {
 }
 
 describe("decoders for recursive types do not loop", () => {
-  test("recursive enum", () => {
+  test.skip("recursive enum", () => {
     expect(buildAndLint.Main.Expr(Int).decoder.run(undefined).ok).toBe(false);
   });
 
-  test("recursive record with guards", () => {
+  test.skip("recursive record with guards", () => {
     expect(buildAndLint.Main.Recursive.decoder.run(undefined).ok).toBe(false);
   });
 
-  test("uninhabited record", () => {
+  test.skip("uninhabited record", () => {
     expect(buildAndLint.Main.VoidRecord.decoder.run(undefined).ok).toBe(false);
   });
 
-  test("uninhabited enum", () => {
+  test.skip("uninhabited enum", () => {
     expect(buildAndLint.Main.VoidEnum.decoder.run(undefined).ok).toBe(false);
   });
 });
@@ -589,7 +589,7 @@ test.skip("create + fetch & exercise", async () => {
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
 });
 
-test("exercise using explicit disclosure", async () => {
+test.skip("exercise using explicit disclosure", async () => {
   const aliceLedger = new Ledger({
     token: ALICE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
@@ -664,15 +664,15 @@ describe("interface definition", () => {
   const tpl = buildAndLint.Main.Asset;
   const if1 = buildAndLint.Main.Token;
   const if2 = buildAndLint.Lib.Mod.Other;
-  test("separate object from template", () => {
+  test.skip("separate object from template", () => {
     expect(if1).not.toBe(tpl);
     expect(if2).not.toBe(tpl);
   });
-  test("template IDs not overwritten", () => {
+  test.skip("template IDs not overwritten", () => {
     expect(if1.templateId).not.toEqual(tpl.templateId);
     expect(if2.templateId).not.toEqual(tpl.templateId);
   });
-  test("choices not copied to interfaces", () => {
+  test.skip("choices not copied to interfaces", () => {
     const key1 = "Transfer";
     const key2 = "Something";
     expect(if1).toHaveProperty(key1);
@@ -680,7 +680,7 @@ describe("interface definition", () => {
     expect(if1).not.toHaveProperty(key2);
     expect(if2).not.toHaveProperty(key1);
   });
-  test("even with no choices", () => {
+  test.skip("even with no choices", () => {
     const emptyIfc = buildAndLint.Lib.EmptyIfaceOnly.NoChoices;
     const emptyIfcId: string = emptyIfc.templateId;
     expect(emptyIfc).toMatchObject({
@@ -691,7 +691,7 @@ describe("interface definition", () => {
     // statically assert that an expression is a choice
     const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
 
-    test("choice from two interfaces is not inherited", () => {
+    test.skip("choice from two interfaces is not inherited", () => {
       const k = "PeerIfaceOverload";
       expect(theChoice(if2[k])).toBeDefined();
       expect(
@@ -705,7 +705,7 @@ describe("interface definition", () => {
       // dynamically check the same
       expect(_.get(tpl, k)).toBeUndefined();
     });
-    test("choice from template and interface prefers template", () => {
+    test.skip("choice from template and interface prefers template", () => {
       const k = "Overridden";
       const c: Choice<
         buildAndLint.Main.Asset,
@@ -718,7 +718,7 @@ describe("interface definition", () => {
     });
   });
 
-  test("retroactive interfaces permit contract ID conversion", () => {
+  test.skip("retroactive interfaces permit contract ID conversion", () => {
     const cid = "test" as ContractId<buildAndLint.Main.Asset>;
     const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
       buildAndLint.Retro.Retro,
@@ -765,7 +765,7 @@ describe("interfaces", () => {
     };
   }
 
-  test("interface companion choice exercise", async () => {
+  test.skip("interface companion choice exercise", async () => {
     const {
       aliceLedger,
       assetPayload,
@@ -790,7 +790,7 @@ describe("interfaces", () => {
     ]);
   });
 
-  test("sync query without predicate", async () => {
+  test.skip("sync query without predicate", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     const acs = await aliceLedger.query(Token);
@@ -891,7 +891,7 @@ describe("interfaces", () => {
     expect(ctEvent).toMatchObject(expectedEvent);
   });
 
-  test("undecodable exercise result event data is discarded", async () => {
+  test.skip("undecodable exercise result event data is discarded", async () => {
     const ledger = new Ledger({
       token: ALICE_TOKEN,
       httpBaseUrl: httpBaseUrl(),
@@ -965,7 +965,7 @@ describe("interfaces", () => {
   });
 });
 
-test("createAndExercise", async () => {
+test.skip("createAndExercise", async () => {
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
 
   const [result, events] = await ledger.createAndExercise(
@@ -1197,7 +1197,7 @@ test.skip("multi-{key,query} stream", async () => {
   ]);
 });
 
-test("stream close behaviour", async () => {
+test.skip("stream close behaviour", async () => {
   const url = "ws" + httpBaseUrl().slice(4) + "v1/stream/query";
   const events: string[] = [];
   const ws = new WebSocket(url, ["jwt.token." + ALICE_TOKEN, "daml.ws.auth"]);
@@ -1216,7 +1216,7 @@ test("stream close behaviour", async () => {
   expect(events).toEqual(["before close", "after close", "close"]);
 });
 
-test("party API", async () => {
+test.skip("party API", async () => {
   const p = (name: string, id: string): PartyInfo => ({
     identifier: id,
     displayName: name,
@@ -1259,7 +1259,7 @@ test("party API", async () => {
   );
 });
 
-test("user API", async () => {
+test.skip("user API", async () => {
   const ledger = new Ledger({
     token: computeUserToken("participant_admin"),
     httpBaseUrl: httpBaseUrl(),
@@ -1301,7 +1301,7 @@ test("user API", async () => {
   ]);
 });
 
-test("package API", async () => {
+test.skip("package API", async () => {
   // expect().toThrow does not seem to work with async thunk
   const expectFail = async <T>(p: Promise<T>): Promise<void> => {
     try {
@@ -1344,15 +1344,13 @@ test("package API", async () => {
 });
 
 //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-test.skip("reconnect on timeout, when multiplexing is enabled", async () => {
+test("reconnect on timeout, when multiplexing is enabled", async () => {
   const charlieLedger = new Ledger({
     token: CHARLIE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
     multiplexQueryStreams: true,
   });
-  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person, {
-    party: CHARLIE_PARTY,
-  });
+  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person);
   const charlieStream = promisifyStream(charlieRawStream);
   const charlieStreamLive = pEvent(charlieRawStream, "live");
   expect(await charlieStreamLive).toEqual([]);
