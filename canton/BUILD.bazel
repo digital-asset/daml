@@ -10,7 +10,7 @@ load(
     "scaladoc_jar",
 )
 load("//bazel_tools:java.bzl", "da_java_library")
-load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite", "da_scala_macro_library", "scaladoc_jar")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_macro_library", "da_scala_test_suite", "scaladoc_jar")
 load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
@@ -116,7 +116,7 @@ da_java_library(
     tags = [
         # TODO: is this okay?
         "javadoc_root_packages=org.bouncycastle.crypto.digests.canton",
-        "maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__"
+        "maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__",
     ],
     deps = [
         "@maven//:org_bouncycastle_bcprov_jdk15on",
@@ -250,12 +250,12 @@ proto_jars(
 da_scala_library(
     name = "community_ledger_ledger-common",
     srcs = glob(["community/ledger/ledger-common/src/main/scala/**/*.scala"]),
-    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
-    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
+    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -381,13 +381,13 @@ proto_gen(
 da_scala_library(
     name = "community_base",
     srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
-    plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/base/src/main/resources",
-    resources = glob(["community/base/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton/community/base/src/main/resources",
+    resources = glob(["community/base/src/main/resources/**"]),
     scaladoc = False,
     tags = ["maven_coordinates=com.daml:canton-community-base:__VERSION__"],
     unused_dependency_checker_mode = "error",
@@ -485,13 +485,13 @@ scaladoc_jar(
 da_scala_library(
     name = "community_common",
     srcs = glob(["community/common/src/main/scala/**/*.scala"]),
-    plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/common/src/main/resources",
-    resources = glob(["community/common/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton/community/common/src/main/resources",
+    resources = glob(["community/common/src/main/resources/**"]),
     tags = ["maven_coordinates=com.daml:canton-community-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
@@ -596,12 +596,12 @@ da_scala_library(
         "community/ledger/ledger-api-core/src/main/scala/**/*.scala",
         "community/ledger/ledger-api-core/src/main/scala/**/*.java",
     ]) + [":community_ledger_ledger-api-core_proto_scala"],
-    resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
-    resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
+    resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
     scaladoc = False,
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-api-core:__VERSION__"],
     unused_dependency_checker_mode = "error",
@@ -712,13 +712,13 @@ scaladoc_jar(
 da_scala_library(
     name = "community_ledger_ledger-json-api",
     srcs = glob(["community/ledger/ledger-json-api/src/main/scala/**/*.scala"]),
-    plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
-    resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
+    resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -811,11 +811,11 @@ proto_gen(
 da_scala_library(
     name = "community_domain",
     srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
-    plugins = [kind_projector_plugin],
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    plugins = [kind_projector_plugin],
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -940,15 +940,15 @@ da_scala_library(
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
         ":community_participant_proto_scala",
     ],
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton",
     resources = [
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
-    ],
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
     exports = [
@@ -1033,12 +1033,12 @@ da_scala_library(
 da_scala_library(
     name = "community_reference-driver",
     srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
-    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
-    resources = glob(["community/drivers/reference/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
+    resources = glob(["community/drivers/reference/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_base",
@@ -1103,12 +1103,12 @@ proto_gen(
 da_scala_library(
     name = "community_sequencer-driver",
     srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
-    resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
-    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
+    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_util-external",
@@ -1128,12 +1128,12 @@ da_scala_library(
 da_scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
-    resource_strip_prefix = "/canton/community/app-base/src/main/resources",
-    resources = glob(["community/app-base/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "/canton/community/app-base/src/main/resources",
+    resources = glob(["community/app-base/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
@@ -1222,12 +1222,12 @@ da_scala_library(
 da_scala_library(
     name = "community_app-lib",
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
-    resource_strip_prefix = "/canton/community/app/src/main/resources",
-    resources = glob(["community/app/src/main/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "/canton/community/app/src/main/resources",
+    resources = glob(["community/app/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -1388,12 +1388,12 @@ da_scala_library(
             "community/bindings-java/src/test/**/*Test.scala",
         ],
     ),
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-    ],
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
     ],
     deps = [
         ":bindings-java",
@@ -1408,6 +1408,10 @@ da_scala_test_suite(
         "community/bindings-java/src/test/**/*Spec.scala",
         "community/bindings-java/src/test/**/*Test.scala",
     ]),
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
@@ -1415,10 +1419,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
-    ],
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
     ],
     deps = [
         ":bindings-java",
