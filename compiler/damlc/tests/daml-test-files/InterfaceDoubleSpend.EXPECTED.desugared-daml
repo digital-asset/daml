@@ -164,11 +164,6 @@ instance DA.Internal.Desugar.HasEnsure Asset where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement Asset where
-  agreement this@Asset {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive Asset where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive

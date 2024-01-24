@@ -71,11 +71,6 @@ instance DA.Internal.Desugar.HasEnsure TrySyntax where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement TrySyntax where
-  agreement this@TrySyntax {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive TrySyntax where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive

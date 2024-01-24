@@ -140,11 +140,6 @@ instance DA.Internal.Desugar.HasEnsure T where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement T where
-  agreement this@T {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive T where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -245,11 +240,6 @@ instance DA.Internal.Desugar.HasObserver ExerciseGuarded where
 instance DA.Internal.Desugar.HasEnsure ExerciseGuarded where
   ensure this@ExerciseGuarded {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement ExerciseGuarded where
-  agreement this@ExerciseGuarded {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive ExerciseGuarded where

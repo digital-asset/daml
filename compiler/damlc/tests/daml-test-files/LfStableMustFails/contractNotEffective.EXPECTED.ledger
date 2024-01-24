@@ -1,5 +1,5 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (LfStableMustFails:138:10)
+  TX 0 1970-01-01T00:00:00Z (LfStableMustFails:137:10)
   #0:0
   │   disclosed to (since): 'Alice' (0), 'Bob' (0)
   └─> 'Alice' creates LfStableMustFails:X
@@ -9,7 +9,7 @@ Transactions:
   pass 1 -100s
   
   TX 2 1969-12-31T23:58:20Z
-     mustFailAt actAs: {'Bob'} readAs: {} (LfStableMustFails:140:3)
+     mustFailAt actAs: {'Bob'} readAs: {} (LfStableMustFails:139:3)
 
 Active contracts:  #0:0
 

@@ -31,11 +31,6 @@ instance DA.Internal.Desugar.HasEnsure T where
     = assertion this
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement T where
-  agreement this@T {..}
-    = plainEnglish this
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive T where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive

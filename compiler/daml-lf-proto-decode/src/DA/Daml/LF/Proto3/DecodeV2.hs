@@ -317,7 +317,6 @@ decodeDefTemplate LF2.DefTemplate{..} = do
     <*> mayDecode "defTemplatePrecond" defTemplatePrecond decodeExpr
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
     <*> mayDecode "defTemplateObservers" defTemplateObservers decodeExpr
-    <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
     <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements

@@ -126,7 +126,7 @@ initializeUser = do
 tries : Int
 tries = 60
 
-waitForCid : (Template t, HasAgreement t) => Int -> Party -> ContractId t -> Script ()
+waitForCid : (Template t, HasEnsure t) => Int -> Party -> ContractId t -> Script ()
 waitForCid tries p cid
   | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
   | otherwise = do
