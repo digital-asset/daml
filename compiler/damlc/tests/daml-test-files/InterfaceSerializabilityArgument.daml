@@ -1,5 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
--- @ERROR range=17:11-17:12; error type checking interface InterfaceSerializabilityArgument.I choice NonSerializableArgument: expected serializable type: * reason: choice argument * found: InterfaceSerializabilityArgument:NonSerializableArgument * problem: unserializable data type InterfaceSerializabilityArgument:NonSerializableArgument
+-- @ERROR range=16:11-16:12; error type checking interface InterfaceSerializabilityArgument.I choice NonSerializableArgument: expected serializable type: * reason: choice argument * found: InterfaceSerializabilityArgument:NonSerializableArgument * problem: unserializable data type InterfaceSerializabilityArgument:NonSerializableArgument
 module InterfaceSerializabilityArgument where
 
 data NonSerializable = NonSerializable (() -> ())

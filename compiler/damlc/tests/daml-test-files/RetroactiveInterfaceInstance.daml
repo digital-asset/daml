@@ -3,7 +3,6 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 module RetroactiveInterfaceInstance where
 
 import Daml.Script

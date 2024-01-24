@@ -146,14 +146,6 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
-featureSimpleInterfaces :: Feature
-featureSimpleInterfaces = Feature
-    { featureName = "Daml Interfaces"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_INTERFACE"
-    }
-
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
     { featureName = "Guards in interfaces"
@@ -210,6 +202,7 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
+    , "DAML_INTERFACE"
     , "DAML_RIGHT_TO_LEFT_EVALUATION"
     ]
 
@@ -220,7 +213,6 @@ allFeatures :: [Feature]
 allFeatures =
     [ featureBigNumeric
     , featureExceptions
-    , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
