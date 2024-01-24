@@ -63,6 +63,7 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.SemVer as V
 import Data.Function ((&))
+import Data.Foldable (fold)
 import Control.Lens (view)
 import System.Directory (listDirectory, doesFileExist)
 import System.FilePath ((</>))
@@ -544,8 +545,7 @@ resolveReleaseVersionFromArtifactory damlPath unresolvedVersion = do
   case queryArtifactoryApiKey <$> damlConfig of
     Right (Just apiKey) -> do
       let url = "https://digitalasset.jfrog.io/artifactory/api/search/pattern"
-          --searchParam = foldMap id [ "sdk-ee:", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
-          searchParam = foldMap id [ "external-files:daml-enterprise/*/", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
+          searchParam = fold [ "external-files:daml-enterprise/*/", encodeTextToBS $ unresolvedReleaseVersionToText unresolvedVersion, "/*" ]
       req <- parseRequest url
       resOrErr <- try $ httpJSONEither $
                 setRequestHeaders
