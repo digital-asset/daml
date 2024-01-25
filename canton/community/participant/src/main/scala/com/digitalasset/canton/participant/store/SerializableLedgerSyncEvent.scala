@@ -662,7 +662,6 @@ private[store] final case class SerializableDivulgedContract(divulgedContract: D
     val DivulgedContract(contractId, contractInst) = divulgedContract
     v30.DivulgedContract(
       contractId = contractId.toProtoPrimitive,
-      // This is fine to use empty agreement text for divulged contract
       contractInst = serializeContract(contractInst)
         .valueOr(err =>
           throw new DbSerializationException(
@@ -680,11 +679,10 @@ private[store] object SerializableDivulgedContract {
     val v30.DivulgedContract(contractIdP, contractInstP) = divulgedContract
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
-      contractInstAndAgreementText <- deserializeContract(contractInstP).leftMap(err =>
+      contractInstance <- deserializeContract(contractInstP).leftMap(err =>
         ValueConversionError("contractInst", err.errorMessage)
       )
-      contractInst = contractInstAndAgreementText.map(_.contractInstance)
-    } yield DivulgedContract(contractId, contractInst)
+    } yield DivulgedContract(contractId, contractInstance)
   }
 }
 
