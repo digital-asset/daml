@@ -160,6 +160,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
@@ -176,7 +177,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 
