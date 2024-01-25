@@ -108,7 +108,6 @@ public class TemplateMethodTest {
           ByteString.EMPTY,
           Collections.emptyMap(),
           Collections.emptyMap(),
-          Optional.of(""), // to be removed
           Optional.empty(),
           Collections.emptySet(),
           Collections.emptySet(),
@@ -132,7 +131,7 @@ public class TemplateMethodTest {
   void contractHasToString() {
     assertEquals(
         "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
-            + "tests.template1.SimpleTemplate(Bob), Optional[], [], [])",
+            + "tests.template1.SimpleTemplate(Bob), [], [])",
         SimpleTemplate.Contract.fromCreatedEvent(createdEvent).toString());
   }
 }

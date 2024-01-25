@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Identifier;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -20,9 +19,6 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
 
   /** The contract payload, as declared after {@code template X with}. */
   public final Data data;
-
-  /** If defined, the contract's agreement text. */
-  public final Optional<String> agreementText;
 
   /** The party IDs of this contract's signatories. */
   public final Set<String> signatories;
@@ -41,12 +37,10 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   protected Contract(
       Id id,
       Data data,
-      Optional<String> agreementText,
       Set<String> signatories,
       Set<String> observers) {
     this.id = id;
     this.data = data;
-    this.agreementText = agreementText;
     this.signatories = signatories;
     this.observers = observers;
   }
@@ -82,24 +76,22 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
     // already compares the associated record types' classes
     return this.id.equals(other.id)
         && this.data.equals(other.data)
-        && this.agreementText.equals(other.agreementText)
         && this.signatories.equals(other.signatories)
         && this.observers.equals(other.observers);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(this.id, this.data, this.agreementText, this.signatories, this.observers);
+    return Objects.hash(this.id, this.data, this.signatories, this.observers);
   }
 
   @Override
   public String toString() {
     return String.format(
-        "%s.Contract(%s, %s, %s, %s, %s)",
+        "%s.Contract(%s, %s, %s, %s)",
         getCompanion().TEMPLATE_CLASS_NAME,
         this.id,
         this.data,
-        this.agreementText,
         this.signatories,
         this.observers);
   }

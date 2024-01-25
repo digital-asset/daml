@@ -14,10 +14,9 @@ final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
       InterfaceCompanion<?, Id, View> contractTypeCompanion,
       Id id,
       View interfaceView,
-      Optional<String> agreementText,
       Set<String> signatories,
       Set<String> observers) {
-    super(id, interfaceView, agreementText, signatories, observers);
+    super(id, interfaceView, signatories, observers);
     this.contractTypeCompanion = contractTypeCompanion;
   }
 
