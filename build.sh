@@ -25,22 +25,19 @@ has_run_all_tests_trailer() {
   [[ $run_all_tests == "true" ]]
 }
 
-ALL_TESTS_FILTER="-pr-only"
-FEWER_TESTS_FILTER="-main-only"
-
+tag_filter=""
 case $test_mode in
-  # When running against main, exclude "pr-only" tests
   main)
-    tag_filter=$FEWER_TESTS_FILTER
+    echo "running all tests because test mode is 'main'"
     ;;
   # When running against a PR, exclude "main-only" tests, unless the commit message features a
   # 'run-all-tests: true' trailer
   pr)
     if has_run_all_tests_trailer; then
       echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
-      tag_filter=$ALL_TESTS_FILTER
     else
-      tag_filter=$FEWER_TESTS_FILTER
+      echo "running fewer tests because test mode is 'pr'"
+      tag_filter="-main-only"
     fi
     ;;
   *)
