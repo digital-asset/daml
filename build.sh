@@ -59,6 +59,9 @@ if [ "$IS_FORK" = "True" ]; then
   tag_filter="${tag_filter},-canton-ee"
 fi
 
+# remove possible leading comma
+tag_filter="${tag_filter#,}"
+
 # Occasionally we end up with a stale sandbox process for a hardcoded
 # port number. Not quite sure how we end up with a stale process
 # but it happens sufficiently rarely that just killing it here is
