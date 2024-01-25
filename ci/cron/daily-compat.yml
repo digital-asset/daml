@@ -262,11 +262,7 @@ jobs:
 
           ### create PR ###
 
-          commit_date=$(git -C $tmp log -n1 --format=%cd --date=format:%Y%m%d HEAD)
-          number_of_commits=$(git -C $tmp rev-list --count HEAD)
-          commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
-          canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
-          branch="main-canton-update-$canton_tag-$canton3_version"
+          branch="main-canton-update-$canton3_version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
@@ -274,7 +270,7 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ] \
               || [ "main-2.x" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh test-common/canton/BUILD.bazel
-                  open_pr "$branch" "update canton to $canton_tag/$canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  open_pr "$branch" "update canton to $canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
