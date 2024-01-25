@@ -452,7 +452,6 @@ class IdeLedgerClient(
       case Reference.Interface(name) => name.packageId
       case Reference.TemplateKey(name) => name.packageId
       case Reference.InterfaceInstance(_, name) => name.packageId
-      case Reference.ConcreteInterfaceInstance(_, ref) => getReferencePackageId(ref)
       case Reference.TemplateChoice(name, _) => name.packageId
       case Reference.InterfaceChoice(name, _) => name.packageId
       case Reference.InheritedChoice(name, _, _) => name.packageId

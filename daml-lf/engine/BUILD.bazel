@@ -93,7 +93,6 @@ da_scala_test_suite(
         for name in [
             "//daml-lf/tests:Exceptions",
             "//daml-lf/tests:Interfaces",
-            "//daml-lf/tests:InterfaceRetro",
             "//daml-lf/tests:InterfaceViews",
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:ReinterpretTests",

@@ -15,9 +15,6 @@ module InterfaceMod {
 
   interface (this: Root) = {
     viewtype RecordMod:MyUnit;
-    coimplements InterfaceMod0:Parcel {
-      view = RecordMod:MyUnit {};
-    };
   };
 
   interface (this: Boxy) = {
@@ -27,10 +24,6 @@ module InterfaceMod {
       , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
       , observers Nil @Party
       to upure @Int64 i;
-    coimplements InterfaceMod0:Parcel {
-      view = RecordMod:MyUnit {};
-      method getParty = InterfaceMod0:Parcel {party} this;
-    };
   };
 
   record @serializable Box = { party: Party, name: Text };

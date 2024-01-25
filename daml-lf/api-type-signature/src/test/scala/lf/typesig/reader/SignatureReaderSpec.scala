@@ -225,7 +225,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
     val LibTIf = qn("InterfaceTestLib:TIf")
-    val RetroIf = qn("RetroInterface:RetroIf")
     val LibTIfView = qn("InterfaceTestLib:TIfView")
     val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
@@ -265,17 +264,10 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have interfaces with choices" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
       inside(itp.main.interfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
-    }
-
-    "have interfaces with retroImplements" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
-      itp.main.interfaces(RetroIf).retroImplements should ===(
-        Set(Ref.TypeConName(itp.main.packageId, Foo))
-      )
     }
 
     "identify a record interface view" in {
@@ -350,37 +342,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         None
       ) should ===((), itpWithoutRetroImplements.all)
       itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
-    }
-
-    "resolve retro implements" in {
-      val (_, itpResolvedRetro) =
-        PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None)
-      itpResolvedRetro should !==(itp.all)
-      inside(
-        itpResolvedRetro.find(_.packageId == itp.main.packageId)
-      ) { case Some(packageSignature) =>
-        inside(packageSignature.interfaces.get(RetroIf)) {
-          case Some(DefInterface(_, retroImplements, _)) =>
-            retroImplements shouldBe empty
-        }
-        inside(packageSignature.typeDecls.get(Foo)) {
-          case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-        }
-      }
-
-      val itsESResolvedRetro = itpES.resolveRetroImplements
-      itsESResolvedRetro should !==(itpES)
-      inside(
-        itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
-      ) { case Some(DefInterface(_, retroImplements, _)) =>
-        retroImplements shouldBe empty
-      }
-
-      inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
-        case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-          implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-      }
     }
   }
 

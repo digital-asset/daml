@@ -256,26 +256,14 @@ object Util {
         )
     }
 
-  private[this] def toSignature(
-      coImplements: InterfaceCoImplements
-  ): InterfaceCoImplementsSignature =
-    coImplements match {
-      case InterfaceCoImplements(name, body) =>
-        InterfaceCoImplementsSignature(
-          name,
-          toSignature(body),
-        )
-    }
-
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, choices, methods, coImplements, view) =>
+      case DefInterface(requires, param, choices, methods, view) =>
         DefInterfaceSignature(
           requires,
           param,
           choices.transform((_, choice) => toSignature(choice)),
           methods,
-          coImplements.transform((_, v) => toSignature(v)),
           view,
         )
     }

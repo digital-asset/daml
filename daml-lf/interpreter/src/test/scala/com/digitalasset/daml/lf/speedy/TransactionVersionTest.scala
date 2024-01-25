@@ -39,7 +39,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
         templatePkg.languageVersion,
         interfacesPkg.languageVersion,
         implementsPkg.languageVersion,
-        coImplementsPkg.languageVersion,
       ) shouldBe Set(commonVersion)
     }
 
@@ -47,14 +46,12 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
       val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
       val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
       val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
-      val newPkg2 = coImplementsPkg.copy(languageVersion = newVersion)
       val pkgs = SpeedyTestLib.typeAndCompile(
         majorLanguageVersion,
         Map(
           templatePkgId -> oldPkg1,
           interfacesPkgId -> oldPkg2,
           implementsPkgId -> newPkg1,
-          coImplementsPkgId -> newPkg2,
         ),
       )
 
@@ -77,7 +74,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
 
     "template version < interface version" in {
       val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
-      val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
       val newPkg1 = templatePkg.copy(languageVersion = newVersion)
       val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
       val pkgs = SpeedyTestLib.typeAndCompile(
@@ -86,7 +82,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
           templatePkgId -> newPkg1,
           interfacesPkgId -> newPkg2,
           implementsPkgId -> oldPkg1,
-          coImplementsPkgId -> oldPkg2,
         ),
       )
 
@@ -114,7 +109,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
           templatePkgId -> templatePkg,
           interfacesPkgId -> interfacesPkg,
           implementsPkgId -> implementsPkg,
-          coImplementsPkgId -> coImplementsPkg,
         ),
       )
 
@@ -240,38 +234,11 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
           };
         }
       """
-  val (coImplementsPkgId, coImplementsPkg) =
-    PackageId.assertFromString("coimplements-pkg") -> p""" metadata ( 'coimplements-pkg' : '1.0.0' )
-        module CoImplementsMod {
-          record @serializable EmptyInterfaceView = {};
-
-          interface (this: InterfaceCoImplements1) = {
-            viewtype 'coimplements-pkg':CoImplementsMod:EmptyInterfaceView;
-            method getPerson: Party;
-            method getLabel: Text;
-            choice Destroy (self) (arg: Unit): Unit,
-              controllers Cons @Party [call_method @'coimplements-pkg':CoImplementsMod:InterfaceCoImplements1 getPerson this] (Nil @Party),
-              observers Nil @Party
-              to upure @Unit ();
-            coimplements 'template-pkg':TemplateMod:Template1 {
-              view = 'coimplements-pkg':CoImplementsMod:EmptyInterfaceView {};
-              method getPerson = 'template-pkg':TemplateMod:Template1 {person} this;
-              method getLabel = 'template-pkg':TemplateMod:Template1 {label} this;
-            };
-          };
-        }
-       """
   val contractParty: IdString.Party = Ref.Party.assertFromString("contractParty")
   val implementsTemplateId: Ref.TypeConName =
     Ref.TypeConName.assertFromString(s"$implementsPkgId:ImplementsMod:TemplateImplements1")
-  val coimplementsTemplateId: Ref.TypeConName =
-    Ref.TypeConName.assertFromString(s"$templatePkgId:TemplateMod:Template1")
   val implementsInterfaceId: Ref.TypeConName =
     Ref.TypeConName.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
-  val coimplementsInterfaceId: Ref.TypeConName =
-    Ref.TypeConName.assertFromString(
-      s"$coImplementsPkgId:CoImplementsMod:InterfaceCoImplements1"
-    )
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
@@ -288,23 +255,9 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
       ),
     ),
   )
-  val coimplementsContract: Versioned[Value.ContractInstance] = Versioned(
-    TransactionVersion.assignNodeVersion(newVersion),
-    Value.ContractInstance(
-      coImplementsPkg.name,
-      coimplementsTemplateId,
-      Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(contractParty),
-          None -> Value.ValueText("test"),
-        ),
-      ),
-    ),
-  )
+
   val testData = Seq(
-    (implementsTemplateId, implementsInterfaceId, implementsContract),
-    (coimplementsTemplateId, coimplementsInterfaceId, coimplementsContract),
+    (implementsTemplateId, implementsInterfaceId, implementsContract)
   )
 
   def evaluateBeginExercise(

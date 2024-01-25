@@ -51,13 +51,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
       "MethodTest:callGetText MethodTest:t_Co0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Co0_Co1" -> SText(
-        "co-implements I1 T_Co0_Co1, msg=T_Co0_Co1"
-      ),
       "MethodTest:callGetText MethodTest:t_Im0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Im0_Co1" -> SText(
-        "co-implements I1 T_Im0_Co1, msg=T_Im0_Co1"
-      ),
       "MethodTest:callGetText MethodTest:t_Im0_Im1" -> SText(
         "implements I1 T_Im0_Im1, msg=T_Im0_Im1"
       ),
@@ -166,8 +160,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
         module I0 {
           interface (this: I0) = {
             viewtype Mod:MyUnit;
-            coimplements T_Co0_No1:T_Co0_No1 { view = Mod:MyUnit {}; };
-            coimplements T_Co0_Co1:T_Co0_Co1 { view = Mod:MyUnit {}; };
           };
         }
 
@@ -198,14 +190,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
             viewtype Mod:MyUnit;
             requires I0:I0;
             method getText: Text;
-            coimplements T_Co0_Co1:T_Co0_Co1 {
-              view = Mod:MyUnit {};
-              method getText = APPEND_TEXT "co-implements I1 T_Co0_Co1, msg=" (T_Co0_Co1:T_Co0_Co1 {msg} this);
-            };
-            coimplements T_Im0_Co1:T_Im0_Co1 {
-              view = Mod:MyUnit {};
-              method getText = APPEND_TEXT "co-implements I1 T_Im0_Co1, msg=" (T_Im0_Co1:T_Im0_Co1 {msg} this);
-            };
           };
         }
 

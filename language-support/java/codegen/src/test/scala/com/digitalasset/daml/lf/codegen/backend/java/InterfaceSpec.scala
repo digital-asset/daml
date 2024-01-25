@@ -10,21 +10,8 @@ import ut.retro.{InterfaceRetro, TemplateRetro}
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters.RichOptional
 
 final class InterfaceSpec extends AnyWordSpec with Matchers {
-
-  "TemplateRetro.ContractId where `TemplateRetro` is implementing `InterfaceRetro` retroactively" should {
-    "be able to convert to a interface id of `InterfaceRetro`" in {
-      val contractId = new TemplateRetro.ContractId("SomeID")
-      val contractViaInterface: InterfaceRetro.ContractId =
-        contractId.toInterface(InterfaceRetro.INTERFACE)
-      val update = contractViaInterface.exerciseTransfer("newOwner")
-      val cmd = update.commands().get(0).asExerciseCommand().toScala.get
-      cmd.getContractId shouldEqual contractId.contractId
-      cmd.getTemplateId shouldEqual InterfaceRetro.TEMPLATE_ID
-    }
-  }
 
   "decoded contracts" should {
     import com.daml.ledger.javaapi.data.CreatedEvent

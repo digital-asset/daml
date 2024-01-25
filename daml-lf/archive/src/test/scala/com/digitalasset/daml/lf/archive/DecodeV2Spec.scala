@@ -1275,12 +1275,11 @@ class DecodeV2Spec
 
       val emptyDefInterfaceScala =
         Ast.DefInterface(
-          Set.empty,
-          Ref.Name.assertFromString("this"),
-          Map.empty,
-          Map.empty,
-          Map.empty,
-          TUnit,
+          requires = Set.empty,
+          param = Ref.Name.assertFromString("this"),
+          choices = Map.empty,
+          methods = Map.empty,
+          view = TUnit,
         )
 
       val methodsDefInterface = {
@@ -1304,15 +1303,14 @@ class DecodeV2Spec
         val methodName2 = Ref.MethodName.assertFromString("method2")
 
         Ast.DefInterface(
-          Set.empty,
-          Ref.Name.assertFromString("this"),
-          Map.empty,
-          Map(
+          requires = Set.empty,
+          param = Ref.Name.assertFromString("this"),
+          choices = Map.empty,
+          methods = Map(
             methodName1 -> Ast.InterfaceMethod(methodName1, TText),
             methodName2 -> Ast.InterfaceMethod(methodName2, TBool),
           ),
-          Map.empty,
-          TUnit,
+          view = TUnit,
         )
       }
 
@@ -1325,12 +1323,11 @@ class DecodeV2Spec
 
       val coImplementsDefInterfaceScala =
         Ast.DefInterface(
-          Set.empty,
-          Ref.IdString.Name.assertFromString("this"),
-          Map.empty,
-          Map.empty,
-          Map.empty,
-          TUnit,
+          requires = Set.empty,
+          param = Ref.IdString.Name.assertFromString("this"),
+          choices = Map.empty,
+          methods = Map.empty,
+          view = TUnit,
         )
 
       val testCases = {
@@ -1403,16 +1400,15 @@ class DecodeV2Spec
 
       val requiresDefInterfaceScala =
         Ast.DefInterface(
-          Set(
+          requires = Set(
             Ref.TypeConName.assertFromString("noPkgId:Mod:J"),
             Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
             Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
           ),
-          Ref.IdString.Name.assertFromString("this"),
-          Map.empty,
-          Map.empty,
-          Map.empty,
-          TUnit,
+          param = Ref.IdString.Name.assertFromString("this"),
+          choices = Map.empty,
+          methods = Map.empty,
+          view = TUnit,
         )
 
       forEveryVersion { version =>

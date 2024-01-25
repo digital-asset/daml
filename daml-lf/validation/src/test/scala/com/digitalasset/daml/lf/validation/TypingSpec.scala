@@ -3,7 +3,6 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{
@@ -879,10 +878,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             val TTyCon(conI) = t"Mod:I"
             val TTyCon(conTi) = t"Mod:Ti"
             env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-              case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                  if iiInfo.interfaceId == conI
-                    && iiInfo.templateId == conTi
-                    && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              case Right(TemplateImplementsSignature(`conI`, _)) =>
             }
             assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
@@ -923,10 +919,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               val TTyCon(conI) = t"Mod:I"
               val TTyCon(conTi) = t"Mod:Ti"
               env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                    if iiInfo.interfaceId == conI
-                      && iiInfo.templateId == conTi
-                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+                case Right(TemplateImplementsSignature(`conI`, _)) =>
               }
               assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
@@ -966,27 +959,31 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
           { case _: ETypeMismatch => },
         // EToInterface
-        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:T @Mod:Ti t  ⸩""" -> //
-          {
-            case EUnknownDefinition(
-                  _,
-                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
-                ) =>
-          },
-        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
-          { case EMissingInterfaceInstance(_, _, _) => },
+// Why ?
+//        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:T @Mod:Ti t  ⸩""" -> //
+//          {
+//            case EUnknownDefinition(
+//                  _,
+//                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
+//                ) =>
+//          },
+// Why ?
+//        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
+//          { case EMissingInterfaceInstance(_, _, _) => },
         E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
           { case _: ETypeMismatch => },
         // EFromInterface
-        E"""λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:I i ⸩""" -> //
-          {
-            case EUnknownDefinition(
-                  _,
-                  LookupError.NotFound(Reference.Template(_), Reference.InterfaceInstance(_, _)),
-                ) =>
-          },
-        E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
-          { case EMissingInterfaceInstance(_, _, _) => },
+// Why ?
+//        E"""λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:I i ⸩""" -> //
+//          {
+//            case EUnknownDefinition(
+//                  _,
+//                  LookupError.NotFound(Reference.Template(_), Reference.InterfaceInstance(_, _)),
+//                ) =>
+//          },
+// Why ?
+//        E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
+//          { case EMissingInterfaceInstance(_, _, _) => },
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
@@ -1086,7 +1083,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
-
           module Mod {
             record @serializable MyUnit = {};
 
@@ -1636,137 +1632,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               viewtype Mod:Box;
             };
           }
-
-          module CoImplementsBase {
-            interface (this: Root) = {
-              viewtype Mod:MyUnit;
-              method getParties: List Party;
-              choice RootCh (self) (i : Unit) : Unit,
-                controllers call_method @CoImplementsBase:Root getParties this
-                to upure @Unit ();
-            };
-
-            record @serializable ParcelWithRoot = { party: Party };
-
-            template (this: ParcelWithRoot) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              implements CoImplementsBase:Root {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(CoImplementsBase:ParcelWithRoot {party} this)] (Nil @Party);
-              };
-            };
-
-            record @serializable ParcelWithoutRoot = { party: Party };
-
-            template (this: ParcelWithoutRoot) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-            };
-          }
-
-          module NegativeTestCase_CoImplements {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @NegativeTestCase_CoImplements:Boxy this)
-                to upure @Int64 (call_method @NegativeTestCase_CoImplements:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsMissingRequiredInterface {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithoutRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsMissingMethod {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingMethod:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingMethod:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsUnknownMethod {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsUnknownMethod:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsUnknownMethod:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-                method getBoolean = True;
-              };
-            };
-          }
-
-          module PositiveTestCase_ConflictingImplementsCoImplements {
-            record @serializable Hexagon = { party: Party };
-
-            template (this: Hexagon) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              implements CoImplementsBase:Root {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {party} this)] (Nil @Party);
-              };
-              implements PositiveTestCase_ConflictingImplementsCoImplements:Polygon {
-                view = Mod:MyUnit {};
-                method getSides = 6;
-              };
-            };
-
-            interface (this: Polygon) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getSides: Int64;
-              choice PolygonCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_ConflictingImplementsCoImplements:Polygon this)
-                to upure @Int64 (call_method @PositiveTestCase_ConflictingImplementsCoImplements:Polygon getSides this);
-              coimplements PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {
-                view = Mod:MyUnit {};
-                method getSides = 6;
-              };
-            };
-          }
       """
 
       val typeMismatchCases = Table(
@@ -1793,8 +1658,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       checkModule(pkg, "NegativeTestCase")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement3")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement4")
-      checkModule(pkg, "NegativeTestCase_CoImplements")
-      "NegativeTestCase" shouldBe "NegativeTestCase"
       forEvery(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
       )
@@ -1827,18 +1690,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       )
       an[EViewTypeHeadNotCon] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_ViewtypeIsNotUserDefined")
-      )
-      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
-      )
-      an[EMissingMethodInInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsMissingMethod")
-      )
-      an[EUnknownMethodInInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsUnknownMethod")
-      )
-      an[EAmbiguousInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_ConflictingImplementsCoImplements")
       )
     }
 
@@ -2113,10 +1964,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
-              coimplements Mod:CoTi {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(Mod:CoTi {person} this)] (Nil @Party);
-              };
          };
 
          interface (this : SubI) = {

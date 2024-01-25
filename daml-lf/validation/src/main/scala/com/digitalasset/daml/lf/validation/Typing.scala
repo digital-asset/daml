@@ -8,7 +8,6 @@ import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.LookupError
 import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
@@ -563,7 +562,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, coImplements, view) =>
+        case DefInterface(requires, param, choices, methods, view) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -574,14 +573,6 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          coImplements.values.foreach(coImpl =>
-            checkInterfaceInstance(
-              tmplParam = param,
-              interfaceId = ifaceName,
-              templateId = coImpl.templateId,
-              iiBody = coImpl.body,
-            )
-          )
           view match {
             case TTyCon(tycon) => {
               val DDataType(_, args, dataCon) =
@@ -609,35 +600,10 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkUniqueInterfaceInstance(
-        interfaceId: TypeConName,
-        templateId: TypeConName,
-    ): PackageInterface.InterfaceInstanceInfo = {
-      pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
-        case Right(iiInfo) => iiInfo
-        case Left(err) =>
-          err match {
-            case lookupErr: LookupError.NotFound =>
-              lookupErr.notFound match {
-                case _: Reference.InterfaceInstance =>
-                  throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
-                case _ =>
-                  throw EUnknownDefinition(ctx, lookupErr)
-              }
-            case ambiIfaceErr: LookupError.AmbiguousInterfaceInstance =>
-              throw EAmbiguousInterfaceInstance(
-                ctx,
-                ambiIfaceErr.instance.interfaceName,
-                ambiIfaceErr.instance.templateName,
-              )
-          }
-      }
-    }
-
     private def checkUniqueInterfaceInstanceExists(
         interfaceId: TypeConName,
         templateId: TypeConName,
-    ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
+    ): Unit = discard(pkgInterface.lookupInterfaceInstance(interfaceId, templateId))
 
     private def checkInterfaceInstance(
         tmplParam: ExprVarName,
@@ -645,24 +611,22 @@ private[validation] object Typing {
         templateId: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
-      val iiInfo = checkUniqueInterfaceInstance(interfaceId, templateId)
-      val ctx = Context.Reference(iiInfo.ref)
+      val ctx = Context.Reference(Reference.InterfaceInstance(interfaceId, templateId))
+      val DefInterfaceSignature(requires, _, _, methods, view) =
+        handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
 
       // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
       val env = Env(languageVersion, pkgInterface, ctx)
         .introExprVar(tmplParam, TTyCon(templateId))
 
-      val DefInterfaceSignature(requires, _, _, methods, _, view) =
-        iiInfo.interfaceSignature
-
       requires
-        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
         .foreach(required =>
-          throw EMissingRequiredInterfaceInstance(
-            ctx,
-            interfaceId,
-            Reference.InterfaceInstance(required, templateId),
-          )
+          if (pkgInterface.lookupInterfaceInstance(required, templateId).isLeft)
+            throw EMissingRequiredInterfaceInstance(
+              ctx,
+              interfaceId,
+              Reference.InterfaceInstance(required, templateId),
+            )
         )
 
       methods.values.foreach { (method: InterfaceMethod) =>
@@ -676,7 +640,7 @@ private[validation] object Typing {
           case Some(method) =>
             try env.checkTopExpr(value, method.returnType)
             catch {
-              case e: ETypeMismatch => {
+              case e: ETypeMismatch =>
                 throw EMethodTypeMismatch(
                   e.context,
                   interfaceId,
@@ -686,14 +650,13 @@ private[validation] object Typing {
                   e.expectedType,
                   e.expr,
                 )
-              }
             }
         }
       }
 
       try env.checkTopExpr(iiBody.view, view)
       catch {
-        case e: ETypeMismatch => {
+        case e: ETypeMismatch =>
           throw EViewTypeMismatch(
             e.context,
             interfaceId,
@@ -702,7 +665,6 @@ private[validation] object Typing {
             e.expectedType,
             e.expr,
           )
-        }
       }
     }
 
