@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
@@ -491,13 +490,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:example1", "RESULT: Happy Path"),
       ("M:example2", "HANDLED: oops1"),
       ("M:example3", "UNHANDLED"),
-      (
-        "M:example4",
-        majorLanguageVersion.evaluationOrder match {
-          case LeftToRight => "HANDLED: left"
-          case RightToLeft => "HANDLED: right"
-        },
-      ),
+      ("M:example4", "HANDLED: right"),
       ("M:example5", "HANDLED: throw-in-throw"),
     )
 
