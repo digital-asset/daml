@@ -79,7 +79,6 @@ class IdeLedgerClient(
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
-      enableContractUpgrading = true,
     )
 
   private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {

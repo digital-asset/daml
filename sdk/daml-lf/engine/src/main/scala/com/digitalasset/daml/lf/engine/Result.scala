@@ -55,6 +55,7 @@ sealed trait Result[+A] extends Product with Serializable {
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantNeedAuthority: Boolean = false,
+      grantUpgradeVerification: Option[String] = Some("not validated!"),
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -66,7 +67,8 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
-        case ResultNeedUpgradeVerification(_, _, _, _, resume) => go(resume(Some("not validated!")))
+        case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
+          go(resume(grantUpgradeVerification))
       }
     go(this)
   }

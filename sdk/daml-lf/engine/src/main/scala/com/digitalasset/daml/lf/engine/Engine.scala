@@ -71,7 +71,6 @@ class Engine(val config: EngineConfig) {
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
       requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
-      enableContractUpgrading = config.enableContractUpgrading,
     )
 
   def info = new EngineInfo(config)

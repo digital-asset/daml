@@ -26,9 +26,7 @@ object LoadDarFunction extends App {
     val compilerConfig =
       Compiler.Config
         .Default(packages.main._2.languageVersion.major)
-        .copy(
-          stacktracing = Compiler.NoStackTrace
-        )
+        .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages: CompiledPackages =
       PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)

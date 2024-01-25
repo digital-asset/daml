@@ -70,7 +70,6 @@ private[lf] object Compiler {
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
-      enableContractUpgrading: Boolean = false,
   )
 
   object Config {
@@ -103,10 +102,11 @@ private[lf] object Compiler {
   ): Either[String, Map[t.SDefinitionRef, SDefinition]] = {
     val compiler = new Compiler(pkgInterface, compilerConfig)
     try {
-      Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
-        case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
-      })
+      Right(
+        packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
+          acc ++ compiler.compilePackage(pkgId, pkg)
+        }
+      )
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
       case PackageNotFound(pkgId, context) =>
@@ -149,9 +149,8 @@ private[lf] final class Compiler(
   def unsafeCompilePackage(
       pkgId: PackageId,
       pkg: Package,
-      enableContractUpgrading: Boolean = false,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    compilePackage(pkgId, pkg, enableContractUpgrading)
+    compilePackage(pkgId, pkg)
   }
 
   @throws[PackageNotFound]
@@ -160,7 +159,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    compileModule(pkgId, module, enableContractUpgrading = false)
+    compileModule(pkgId, module)
   }
 
   @throws[PackageNotFound]
@@ -351,11 +350,7 @@ private[lf] final class Compiler(
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
     flattenToAnf(closureConvert(sexpr))
 
-  private[this] def compileModule(
-      pkgId: PackageId,
-      module: Module,
-      enableContractUpgrading: Boolean,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+  private def compileModule(pkgId: PackageId, module: Module) = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
@@ -374,15 +369,10 @@ private[lf] final class Compiler(
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
 
-      val optTargetTemplateId =
-        if (enableContractUpgrading) {
-          Some(tmplId) // soft
-        } else {
-          None // hard
-        }
+      val targetTemplateId = Some(tmplId)
 
       addDef(compileCreate(tmplId, tmpl))
-      addDef(compileFetchTemplate(tmplId, optTargetTemplateId))
+      addDef(compileFetchTemplate(tmplId, targetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
@@ -398,26 +388,26 @@ private[lf] final class Compiler(
       }
 
       tmpl.choices.values.foreach { choice =>
-        addDef(compileTemplateChoice(tmplId, tmpl, choice, optTargetTemplateId))
+        addDef(compileTemplateChoice(tmplId, tmpl, choice, targetTemplateId))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
-        addDef(compileFetchByKey(tmplId, tmplKey, optTargetTemplateId))
-        addDef(compileLookupByKey(tmplId, tmplKey, optTargetTemplateId))
+        addDef(compileFetchByKey(tmplId, tmplKey, targetTemplateId))
+        addDef(compileLookupByKey(tmplId, tmplKey, targetTemplateId))
         tmpl.choices.values.foreach { x =>
-          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x, optTargetTemplateId))
+          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x, targetTemplateId))
         }
       }
     }
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      addDef(compileFetchInterface(ifaceId, soft = enableContractUpgrading))
+      addDef(compileFetchInterface(ifaceId, soft = true))
       iface.choices.values.foreach { choice =>
-        addDef(compileInterfaceChoice(ifaceId, iface.param, choice, soft = enableContractUpgrading))
+        addDef(compileInterfaceChoice(ifaceId, iface.param, choice, soft = true))
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
       }
@@ -433,11 +423,7 @@ private[lf] final class Compiler(
     *
     * @throws ValidationError if the package does not pass validations.
     */
-  private def compilePackage(
-      pkgId: PackageId,
-      pkg: Package,
-      enableContractUpgrading: Boolean,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+  private def compilePackage(pkgId: PackageId, pkg: Package) = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
@@ -460,7 +446,8 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, enableContractUpgrading))
+    val result =
+      pkg.modules.values.flatMap((module: GenModule[Expr]) => compileModule(pkgId, module))
 
     val t2 = Time.Timestamp.now()
     logger.trace(

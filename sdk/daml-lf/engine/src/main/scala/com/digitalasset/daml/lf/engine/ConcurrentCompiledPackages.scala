@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import java.util.concurrent.ConcurrentHashMap
-
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
@@ -109,7 +108,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             val defns =
               try {
                 new speedy.Compiler(extendedSignatures, compilerConfig)
-                  .unsafeCompilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
+                  .unsafeCompilePackage(pkgId, pkg)
               } catch {
                 case e: validation.ValidationError =>
                   return ResultError(Error.Package.Validation(e))

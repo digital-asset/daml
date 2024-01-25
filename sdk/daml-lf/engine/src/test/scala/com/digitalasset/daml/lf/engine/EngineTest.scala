@@ -52,6 +52,7 @@ import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
+import scala.util.Right
 
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
@@ -240,16 +241,18 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
 
         val replaySubmitters = submitters + party
-        val replayResult = suffixLenientEngine.replay(
-          submitters = replaySubmitters,
-          tx = tx,
-          ledgerEffectiveTime = let,
-          participantId = participant,
-          submissionTime = let,
-          submissionSeed = submissionSeed,
-        )
+        val replayResult = suffixLenientEngine
+          .replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+          .consume(grantUpgradeVerification = None)
 
-        replayResult shouldBe a[ResultDone[_]]
+        replayResult shouldBe a[Right[_, _]]
       }
     }
 
@@ -338,6 +341,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           let,
           lookupPackage,
           defaultContracts,
+          grantUpgradeVerification = None,
         )
       isReplayedBy(stx, rtx) shouldBe Right(())
     }
@@ -346,7 +350,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -476,7 +480,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -823,7 +827,16 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val stx = suffix(tx)
 
       val Right((rtx, _)) =
-        reinterpret(suffixStrictEngine, Set(party), stx.roots, stx, txMeta, let, lookupPackage)
+        reinterpret(
+          suffixStrictEngine,
+          Set(party),
+          stx.roots,
+          stx,
+          txMeta,
+          let,
+          lookupPackage,
+          grantUpgradeVerification = None,
+        )
 
       isReplayedBy(stx, rtx) shouldBe Right(())
     }
@@ -1100,6 +1113,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           let,
           lookupPackage,
           defaultContracts,
+          grantUpgradeVerification = None,
         )
 
       isReplayedBy(rtx, stx) shouldBe Right(())
@@ -1306,7 +1320,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               txMeta.submissionTime,
               let,
             )
-            .consume(lookupContract, lookupPackage, lookupKey)
+            .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
       }
     }
@@ -1359,7 +1373,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val reinterpreted =
         engine
           .reinterpret(submitters, fetchNode, None, let, let)
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
 
       reinterpreted shouldBe a[Right[_, _]]
     }
@@ -1465,7 +1479,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             txMeta.submissionTime,
             now,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1967,6 +1981,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         txMeta,
         let,
         lookupPackage,
+        grantUpgradeVerification = None,
       ) shouldBe a[Right[_, _]]
 
     }
@@ -1976,7 +1991,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2127,7 +2142,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2206,7 +2221,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2310,7 +2325,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
     val devVersion = majorLanguageVersion.dev
-    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadPackage(
+    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
     val compatibleLanguageVersions = LanguageVersion.All
@@ -2402,7 +2417,21 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
-  val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
+  val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
+  val suffixLenientEngine = newEngine()
+  val compiledPackages = ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
+  val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+
+  def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val (mainPkgId, mainPkg) = packages.main
+    assert(
+      compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
+    )
+    (mainPkgId, mainPkg, packages.all.toMap)
+  }
+
+  val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
     // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
     //  non-dev dar
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
@@ -2482,19 +2511,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val lookupContract = defaultContracts
 
-  val suffixLenientEngine: Engine = newEngine()
-  val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
-  val preprocessor =
-    new preprocessing.Preprocessor(
-      ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-    )
-
-  def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
-    val (mainPkgId, mainPkg) = packages.main
-    (mainPkgId, mainPkg, packages.all.toMap)
-  }
-
   val lookupPackage = allPackages
 
   val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2553,6 +2569,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       lookupPackages: PartialFunction[PackageId, Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKeyWithMaintainers, ContractId] = Map.empty,
+      grantUpgradeVerification: Option[String] = None,
   ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -2603,6 +2620,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
                 state.contracts,
                 lookupPackages,
                 state.keys,
+                grantUpgradeVerification = grantUpgradeVerification,
               )
             (tr0, meta0) = currentStep
             tr1 = suffix(tr0)

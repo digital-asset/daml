@@ -2282,7 +2282,7 @@ private[lf] object SBuiltinFun {
                 }
               }
             case None =>
-              crash(s"unexpected contract instance without packageName")
+              crash(s"Could not resolve packageName to packageId: $packageName")
           }
         }
     }

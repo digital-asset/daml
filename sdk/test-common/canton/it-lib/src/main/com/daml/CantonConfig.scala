@@ -55,7 +55,6 @@ final case class CantonConfig(
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     bootstrapScript: Option[String] = None,
-    enableUpgrade: Boolean = false,
     targetScope: Option[String] = None,
     disableUpgradeValidation: Boolean = false,
 ) {
