@@ -21,8 +21,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.DecodedRpcStatus
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
-import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -123,7 +122,7 @@ class PingService(
 
   private def decideRetry: Status => Option[FiniteDuration] = status =>
     if (isActive && retries) {
-      CommandServiceClient.defaultRetryRules(status).orElse {
+      LedgerClientUtils.defaultRetryRules(status).orElse {
         DecodedRpcStatus.fromScalaStatus(status) match {
           case Some(decoded)
               if PingService.AdditionalRetryOnKnownRaceConditions.contains(decoded.id) =>
@@ -154,7 +153,7 @@ class PingService(
         applicationId = applicationId,
         commandId = commandId,
         party = adminPartyId.toProtoPrimitive,
-        commands = cmds.map(CommandServiceClient.javaCodegenToScalaProto),
+        commands = cmds.map(LedgerClientUtils.javaCodegenToScalaProto),
         deduplicationPeriod = DeduplicationDuration(deduplicationDuration.toProtoPrimitive),
         domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
       ),
@@ -497,7 +496,6 @@ object PingService {
         flag: AtomicBoolean,
         expire: CantonTimestamp,
     )(implicit traceContext: TraceContext): Unit = {
-
       NonNegativeFiniteDuration.create(expire - clock.now) match {
         case Right(timeout) =>
           if (!flag.getAndSet(true)) {
@@ -524,7 +522,7 @@ object PingService {
             )
           }
         case Left(err) =>
-          logger.warn("Not submitting background submission as it is already expired: " + err)
+          logger.debug("Not submitting background submission as it is already expired: " + err)
       }
     }
 
@@ -658,6 +656,7 @@ object PingService {
       }
 
       def pingTimedout(now: CantonTimestamp): Unit = {
+        // no need to schedule vacuuming here, as this is scheduled as part of the create event
         requests.remove(id).foreach { _ =>
           if (promise.isCompleted) {
             if (!isClosing) {
@@ -791,7 +790,8 @@ object PingService {
         ping.getContractTypeId,
         context.domainId,
         context.workflowId,
-        expire = context.effectiveAt + timeout,
+        // using clock.now as with the ping, it doesn't really make a difference if we vacuum or respond
+        expire = clock.now + timeout,
       ) {
 
         override protected def prettyData: String = ping.data.id

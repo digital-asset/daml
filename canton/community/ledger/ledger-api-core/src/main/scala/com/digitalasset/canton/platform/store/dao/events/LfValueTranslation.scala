@@ -30,7 +30,6 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
@@ -48,6 +47,7 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
+import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ApiTimestamp
 import com.google.rpc.Status

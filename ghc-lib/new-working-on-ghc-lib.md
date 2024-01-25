@@ -21,7 +21,10 @@ git remote add da-fork git@github.com:digital-asset/ghc.git
 git fetch da-fork
 ```
 
-3. Checkout the version of interest (usually `da-master-8.8.1`, which should match `GHC_REV` from [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl)) and update the submodules:
+3. Checkout the version of interest (usually `da-master-8.8.1`, or
+`da-master-8.8.1-daml-2.x` if you're targetting (daml) `main-2.x`) which should
+match `GHC_REV` from [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl))
+and update the submodules:
 ```
 git checkout da-master-8.8.1
 git submodule update --init --recursive
@@ -56,7 +59,7 @@ While working on GHC, you can integrate your changes directly into the `daml` pr
 
 1. Add `BUILD` file:
    ```
-   ln -S $DAML_REPO/bazel_tools/ghc-lib/BUILD.ghc BUILD
+   ln -s $DAML_REPO/bazel_tools/ghc-lib/BUILD.ghc BUILD
    ```
 
 2. Make changes... 🛠️

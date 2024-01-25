@@ -146,14 +146,6 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
-featureSimpleInterfaces :: Feature
-featureSimpleInterfaces = Feature
-    { featureName = "Daml Interfaces"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_INTERFACE"
-    }
-
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
     { featureName = "Guards in interfaces"
@@ -190,23 +182,6 @@ featurePackageUpgrades = Feature
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
-featureNatTypeErasure :: Feature
-featureNatTypeErasure = Feature
-    { featureName = "Erasing types of kind Nat"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
-    }
-
--- This is used to remove references to Scenarios in LFv2
-featureScenarios :: Feature
-featureScenarios = Feature
-    { featureName = "Scenarios"
-    , featureVersionReq = VersionReq \case
-          V2 -> noMinorVersion
-    , featureCppFlag = Just "DAML_SCENARIOS"
-    }
-
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -219,6 +194,8 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
+    , "DAML_NAT_TYPE_ERASURE"
+    , "DAML_INTERFACE"
     , "DAML_RIGHT_TO_LEFT_EVALUATION"
     ]
 
@@ -229,16 +206,13 @@ allFeatures :: [Feature]
 allFeatures =
     [ featureBigNumeric
     , featureExceptions
-    , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
-    , featureScenarios
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
     , featurePackageUpgrades
-    , featureNatTypeErasure
     ]
 
 -- | A map from feature CPP flags to features.

@@ -32,8 +32,8 @@ import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLo
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TransactionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.Implicits.{

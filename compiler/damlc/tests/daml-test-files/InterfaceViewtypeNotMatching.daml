@@ -4,7 +4,7 @@
 -- Test that implementing a view method with the wrong output viewtype
 -- generates a sensible error
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 -- @ERROR range=23:7-23:22;  Possible Daml-specific reason for the following type error: Tried to implement a view of type ‘NotIView’ on interface ‘I’, but the definition of interface ‘I’ requires a view of type ‘IView’
 
 module InterfaceViewtypeNotMatching where

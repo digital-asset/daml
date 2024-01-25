@@ -31,6 +31,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
 import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
@@ -39,7 +40,6 @@ import com.digitalasset.canton.platform.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
@@ -68,7 +68,6 @@ object ApiServiceOwner {
       ledgerFeatures: LedgerFeatures,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
-      enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       // immutable configuration parameters
@@ -164,7 +163,6 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
-        enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         upgradingEnabled = upgradingEnabled,

@@ -5,12 +5,12 @@ package com.digitalasset.canton.ledger.api
 
 import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.{value as api}
+import com.daml.ledger.api.v1.value as api
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
+import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.empty.Empty
 import org.mockito.MockitoSugar
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}

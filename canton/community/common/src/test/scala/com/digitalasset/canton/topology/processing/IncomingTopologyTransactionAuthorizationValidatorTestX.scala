@@ -13,6 +13,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.NoDelegationFoundForKey
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
@@ -247,9 +248,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       assert(true)
     }
 
-    val unauthorized =
-      Some((err: TopologyTransactionRejection) => err == TopologyTransactionRejection.NotAuthorized)
-
     "receiving transactions with signatures" should {
       "succeed to add if the signature is valid" in {
         val validator = mk()
@@ -348,7 +346,16 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              None,
+              None,
+            ),
+          )
         }
       }
       "succeed and use load existing delegations" in {
@@ -387,7 +394,17 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           )
 
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, unauthorized, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
+              None,
+            ),
+          )
         }
       }
 
@@ -419,7 +436,15 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(unauthorized, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+            ),
+          )
         }
       }
     }
@@ -451,7 +476,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+            ),
+          )
         }
       }
       "succeed with loading existing identifier delegations" in {
@@ -510,7 +542,18 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None, None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              None,
+              None,
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+            ),
+          )
         }
       }
 
@@ -562,7 +605,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized))
+          check(res._2, Seq(None, Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint))))
           res._1.cascadingNamespaces shouldBe Set(ns1)
         }
       }
@@ -628,7 +671,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(None, None, None, Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint))),
+          )
           res._1.cascadingNamespaces shouldBe Set(ns1)
           res._1.filteredCascadingUids shouldBe Set(uid6)
         }

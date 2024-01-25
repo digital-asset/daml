@@ -21,9 +21,9 @@ import com.daml.ledger.api.v2.update_service.{
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.error.IndexErrors
 import com.digitalasset.canton.platform.ApiOffset
-import com.digitalasset.canton.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
+import com.digitalasset.canton.platform.store.utils.EventOps.{EventOps, TreeEventOps}
 
 object EventsTable {
 

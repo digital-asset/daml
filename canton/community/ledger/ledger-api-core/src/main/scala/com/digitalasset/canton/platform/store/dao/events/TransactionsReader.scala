@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
@@ -33,6 +32,7 @@ import com.digitalasset.canton.platform.store.dao.{
 }
 import com.digitalasset.canton.platform.store.serialization.Compression
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source

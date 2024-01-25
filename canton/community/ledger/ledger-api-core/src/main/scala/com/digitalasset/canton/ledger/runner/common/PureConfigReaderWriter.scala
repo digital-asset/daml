@@ -30,7 +30,6 @@ import com.digitalasset.canton.platform.indexer.{
   PackageMetadataViewConfig,
 }
 import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,
@@ -165,9 +164,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val commandConfigurationConvert: ConfigConvert[CommandServiceConfig] =
     deriveConvert[CommandServiceConfig]
-
-  implicit val timeProviderTypeConvert: ConfigConvert[TimeProviderType] =
-    deriveEnumerationConvert[TimeProviderType]
 
   implicit val dbConfigSynchronousCommitValueConvert: ConfigConvert[SynchronousCommitValue] =
     deriveEnumerationConvert[SynchronousCommitValue]

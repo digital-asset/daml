@@ -5,7 +5,7 @@ module InterfaceContractDoesNotImplementInterface where
 
 import Daml.Script
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where

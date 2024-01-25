@@ -286,9 +286,21 @@ class ParticipantTab(
               .flatMap(_.event.created.toList)
               .map(_.contractId)
               .map(LfContractId.assertFromString)
+              .toSet
             val coidMap =
               if (isClosing) Map.empty[LfContractId, String]
-              else participant.transfer.lookup_contract_domain(coids *)
+              else
+                participant.ledger_api_v2.state.acs
+                  .of_all()
+                  .flatMap(_.entry.activeContract)
+                  .map(c => c.domainId -> c.createdEvent)
+                  .collect { case (domainId, Some(createdEvent)) =>
+                    LfContractId.assertFromString(createdEvent.contractId) -> domainId
+                  }
+                  .filter { case (contractId, createdEventO) =>
+                    coids.contains(contractId)
+                  }
+                  .toMap
             transaction.events.foreach(event => {
               event.event.created.foreach(ce =>
                 Platform.runLater {

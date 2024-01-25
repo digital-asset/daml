@@ -100,7 +100,7 @@ final case class TlsFixture(
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
       apiServer <- apiServerOwner()
-      channel <- new GrpcChannel.Owner(apiServer.port, ledgerClientChannelConfiguration)
+      channel <- new GrpcChannel.Owner(apiServer.port.unwrap, ledgerClientChannelConfiguration)
     } yield channel
 
 }

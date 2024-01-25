@@ -53,7 +53,6 @@ import com.digitalasset.canton.platform.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -109,7 +108,6 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
-      enableExplicitDisclosure: Boolean,
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
@@ -411,7 +409,6 @@ object ApiServices {
           ledgerId = ledgerId,
           resolveToTemplateId = resolveTemplateNameTo(_.primary)(indexService),
           upgradingEnabled = upgradingEnabled,
-          enableExplicitDisclosure = enableExplicitDisclosure,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

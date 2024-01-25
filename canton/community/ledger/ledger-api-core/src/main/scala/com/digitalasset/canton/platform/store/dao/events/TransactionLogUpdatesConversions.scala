@@ -24,8 +24,6 @@ import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.api.v1.event.EventOps.TreeEventOps
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
@@ -33,8 +31,10 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   CreatedEvent,
   ExercisedEvent,
 }
+import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter, Value}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 
