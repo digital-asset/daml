@@ -388,23 +388,17 @@ resolveReleaseVersionUnsafe _ targetVersion | isHeadVersion targetVersion = pure
 resolveReleaseVersionUnsafe useCache targetVersion = do
     mbResolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
     case mbResolved of
-      Just resolved -> do
-          writeFile "/home/dylan-thinnes/resolveVia" "resolve via daml path"
-          pure resolved
+      Just resolved -> pure resolved
       Nothing -> do
         let isTargetVersion version =
               unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
         (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
-          (x:_) -> do
-              writeFile "/home/dylan-thinnes/resolveVia" "resolve via cache"
-              pure x
+          (x:_) -> pure x
           [] -> do
               artifactoryReleasedVersionE <- resolveReleaseVersionFromArtifactory (damlPath useCache) targetVersion
               case artifactoryReleasedVersionE of
-                Right (Just version) -> do
-                    writeFile "/home/dylan-thinnes/resolveVia" "resolve via artifactory"
-                    pure version
+                Right (Just version) -> pure version
                 Left err -> throwIO (CouldNotResolveReleaseVersion err targetVersion)
                 Right Nothing -> do
                   githubReleasedVersionE <- resolveReleaseVersionFromGithub targetVersion
@@ -413,7 +407,6 @@ resolveReleaseVersionUnsafe useCache targetVersion = do
                       throwIO (CouldNotResolveReleaseVersion githubReleaseError targetVersion)
                     Right releasedVersion -> do
                       _ <- cacheAvailableSdkVersions useCache (\pre -> pure (releasedVersion : fromMaybe [] pre))
-                      writeFile "/home/dylan-thinnes/resolveVia" "resolve via github"
                       pure releasedVersion
 
 data CouldNotResolveSdkVersion = CouldNotResolveSdkVersion SdkVersion
@@ -428,17 +421,13 @@ resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure 
 resolveSdkVersionToRelease useCache targetVersion = do
     resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
     case resolved of
-      Just resolved -> do
-          writeFile "/home/dylan-thinnes/resolveSdkVia" "resolved from path"
-          pure (Right resolved)
+      Just resolved -> pure (Right resolved)
       Nothing -> do
         let isTargetVersion version =
               targetVersion == sdkVersionFromReleaseVersion version
         (releaseVersions, _age) <- getAvailableSdkSnapshotVersions useCache
         case filter isTargetVersion releaseVersions of
-          (x:_) -> do
-              writeFile "/home/dylan-thinnes/resolveSdkVia" "resolved from cache"
-              pure $ Right x
+          (x:_) -> pure $ Right x
           [] -> pure $ Left $ CouldNotResolveSdkVersion targetVersion
 
 resolveReleaseVersionFromDamlPath :: DamlPath -> UnresolvedReleaseVersion -> IO (Maybe ReleaseVersion)
