@@ -253,12 +253,12 @@ da_scala_library(
         "community/ledger/ledger-common/src/main/scala/**/*.scala",
         "community/ledger/ledger-common/src/main/scala/**/*.java",
     ]),
-    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
-    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
+    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -714,13 +714,13 @@ scaladoc_jar(
 scala_library(
     name = "community_ledger_ledger-json-api",
     srcs = glob(["community/ledger/ledger-json-api/src/main/scala/**/*.scala"]),
+    plugins = [kind_projector_plugin],
+    resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
+    resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    plugins = [kind_projector_plugin],
-    resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
-    resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -813,11 +813,11 @@ proto_gen(
 scala_library(
     name = "community_domain",
     srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
+    plugins = [kind_projector_plugin],
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    plugins = [kind_projector_plugin],
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -942,15 +942,15 @@ scala_library(
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
         ":community_participant_proto_scala",
     ],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton",
     resources = [
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
+    ],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
     exports = [
@@ -1035,12 +1035,12 @@ scala_library(
 scala_library(
     name = "community_reference-driver",
     srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
+    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
+    resources = glob(["community/drivers/reference/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
-    resources = glob(["community/drivers/reference/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_base",
@@ -1105,12 +1105,12 @@ proto_gen(
 scala_library(
     name = "community_sequencer-driver",
     srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
+    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
-    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_util-external",
@@ -1130,12 +1130,12 @@ scala_library(
 scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/app-base/src/main/resources",
+    resources = glob(["community/app-base/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "/canton/community/app-base/src/main/resources",
-    resources = glob(["community/app-base/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
@@ -1224,12 +1224,12 @@ scala_library(
 scala_library(
     name = "community_app-lib",
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/app/src/main/resources",
+    resources = glob(["community/app/src/main/resources/**"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "/canton/community/app/src/main/resources",
-    resources = glob(["community/app/src/main/resources/**"]),
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -1390,12 +1390,12 @@ da_scala_library(
             "community/bindings-java/src/test/**/*Test.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+    ],
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
-    ],
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
     ],
     deps = [
         ":bindings-java",
@@ -1410,10 +1410,6 @@ da_scala_test_suite(
         "community/bindings-java/src/test/**/*Spec.scala",
         "community/bindings-java/src/test/**/*Test.scala",
     ]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
@@ -1421,6 +1417,10 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
     deps = [
         ":bindings-java",
