@@ -193,7 +193,7 @@ jobs:
         echo "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|"
         sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ci/blackduck.yml
         git add ci/blackduck.yml
-        open_pr "$branch" "bump blackduck script to ${latest:0:8}"
+        open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)"
         az extension add --name azure-devops
         trap "az devops logout" EXIT
         echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
