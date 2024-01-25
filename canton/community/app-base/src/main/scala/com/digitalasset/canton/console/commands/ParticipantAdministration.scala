@@ -59,12 +59,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriod,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{
-  LfCommittedTransaction,
-  LfContractId,
-  SerializableContract,
-  TransferId,
-}
+import com.digitalasset.canton.protocol.{LfCommittedTransaction, SerializableContract}
 import com.digitalasset.canton.sequencing.{
   PossiblyIgnoredProtocolEvent,
   SequencerConnection,
@@ -76,16 +71,9 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.{
-  DiscardOps,
-  DomainAlias,
-  LedgerApplicationId,
-  SequencerAlias,
-  config,
-}
+import com.digitalasset.canton.{DiscardOps, DomainAlias, SequencerAlias, config}
 
 import java.time.Instant
-import java.util.UUID
 import scala.concurrent.duration.Duration
 
 sealed trait DomainChoice
@@ -1371,80 +1359,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   @Help.Summary("Composability related functionality", FeatureFlag.Preview)
   @Help.Group("Transfer")
   object transfer extends Helpful {
-    @Help.Summary(
-      "Transfer-out a contract from the source domain with destination target domain",
-      FeatureFlag.Preview,
-    )
-    @Help.Description(
-      """Transfers the given contract out of the source domain with destination target domain.
-       The command returns the ID of the transfer when the transfer-out has completed successfully.
-       The contract is in transit until the transfer-in has completed on the target domain.
-       The submitting party must be a stakeholder of the contract and the participant must have submission rights
-       for the submitting party on the source domain. It must also be connected to the target domain.
-       An application-id can be specified to uniquely identify the application that have issued the transfer,
-       otherwise the default value will be used. An optional submission id can be set by the committer to the value
-       of their choice that allows an application to correlate completions to its submissions."""
-    )
-    def out(
-        submittingParty: PartyId,
-        contractId: LfContractId,
-        sourceDomain: DomainAlias,
-        targetDomain: DomainAlias,
-        applicationId: LedgerApplicationId = LedgerApplicationId.assertFromString("AdminConsole"),
-        submissionId: String = "",
-        workflowId: String = "",
-        commandId: String = "",
-    ): TransferId =
-      check(FeatureFlag.Preview)(consoleEnvironment.run {
-        adminCommand(
-          ParticipantAdminCommands.Transfer
-            .TransferOut(
-              submittingParty,
-              contractId,
-              sourceDomain,
-              targetDomain,
-              applicationId = applicationId,
-              submissionId = submissionId,
-              workflowId = workflowId,
-              commandId = if (commandId.isEmpty) UUID.randomUUID().toString else commandId,
-            )
-        )
-      })
 
-    @Help.Summary("Transfer-in a contract in transit to the target domain", FeatureFlag.Preview)
-    @Help.Description("""Manually transfers a contract in transit into the target domain.
-      The command returns when the transfer-in has completed successfully.
-      If the transferExclusivityTimeout in the target domain's parameters is set to a positive value,
-      all participants of all stakeholders connected to both origin and target domain will attempt to transfer-in
-      the contract automatically after the exclusivity timeout has elapsed.
-      An application-id can be specified to uniquely identifies the application that have issued the transfer,
-      otherwise the default value will be used. An optional submission id can be set by the committer to the value
-      of their choice that allows an application to correlate completions to its submissions.""")
-    def in(
-        submittingParty: PartyId,
-        transferId: TransferId,
-        targetDomain: DomainAlias,
-        applicationId: LedgerApplicationId = LedgerApplicationId.assertFromString("AdminConsole"),
-        submissionId: String = "",
-        workflowId: String = "",
-        commandId: String = "",
-    ): Unit =
-      check(FeatureFlag.Preview)(consoleEnvironment.run {
-        adminCommand(
-          ParticipantAdminCommands.Transfer
-            .TransferIn(
-              submittingParty,
-              transferId.toAdminProto,
-              targetDomain,
-              applicationId = applicationId,
-              submissionId = submissionId,
-              workflowId = workflowId,
-              commandId = if (commandId.isEmpty) UUID.randomUUID().toString else commandId,
-            )
-        )
-      })
-
-    @Help.Summary("Search the currently in-flight transfers", FeatureFlag.Preview)
+    @Help.Summary("Search the currently in-flight transfers", FeatureFlag.Testing)
     @Help.Description(
       "Returns all in-flight transfers with the given target domain that match the filters, but no more than the limit specifies."
     )
@@ -1467,31 +1383,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             )
         )
       })
-
-    @Help.Summary(
-      "Transfer the contract from the origin domain to the target domain",
-      FeatureFlag.Preview,
-    )
-    @Help.Description(
-      "Macro that first calls transfer_out and then transfer_in. No error handling is done."
-    )
-    def execute(
-        submittingParty: PartyId,
-        contractId: LfContractId,
-        sourceDomain: DomainAlias,
-        targetDomain: DomainAlias,
-    ): Unit = {
-      val transferId = out(submittingParty, contractId, sourceDomain, targetDomain)
-      in(submittingParty, transferId, targetDomain)
-    }
-
-    @Help.Summary("Lookup the active domain for the provided contracts", FeatureFlag.Preview)
-    def lookup_contract_domain(contractIds: LfContractId*): Map[LfContractId, String] =
-      check(FeatureFlag.Preview) {
-        consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Inspection.LookupContractDomain(contractIds.toSet))
-        }
-      }
   }
 
   @Help.Summary("Functionality for managing resources")

@@ -9,7 +9,6 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.platform.common.MismatchException
 import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}

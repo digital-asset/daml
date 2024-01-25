@@ -54,8 +54,8 @@ import com.digitalasset.canton.participant.{
   RequestOffset,
   TopologyOffset,
 }
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.Clock

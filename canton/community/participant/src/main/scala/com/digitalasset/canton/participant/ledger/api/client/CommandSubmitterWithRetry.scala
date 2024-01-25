@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.client.LedgerClientUtils
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -17,7 +18,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{DelayUtil, LoggerUtil}
 import com.google.rpc.status.Status
 
-import scala.concurrent.duration.{FiniteDuration, *}
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Failure
@@ -29,7 +30,7 @@ class CommandSubmitterWithRetry(
     futureSupervisor: FutureSupervisor,
     protected override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    decideRetry: Status => Option[FiniteDuration] = CommandServiceClient.defaultRetryRules,
+    decideRetry: Status => Option[FiniteDuration] = LedgerClientUtils.defaultRetryRules,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync {

@@ -44,6 +44,11 @@ object LedgerApiTypeWrappers {
     }
 
     def contractId: String = event.contractId
+
+    def domainId: Option[String] = entry match {
+      case ContractEntry.ActiveContract(value) => Some(value.domainId)
+      case _ => None
+    }
     def templateId: TemplateId = TemplateId.fromIdentifier(
       event.templateId
         .getOrElse(throw new RuntimeException("Found empty template id"))

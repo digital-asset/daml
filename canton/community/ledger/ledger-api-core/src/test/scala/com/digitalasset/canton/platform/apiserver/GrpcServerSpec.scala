@@ -176,7 +176,7 @@ object GrpcServerSpec {
         loggerFactory = loggerFactory,
       )
       channel <- new GrpcChannel.Owner(
-        Port.tryCreate(server.getPort),
+        Port.tryCreate(server.getPort).unwrap,
         LedgerClientChannelConfiguration.InsecureDefaults,
       )
     } yield channel
