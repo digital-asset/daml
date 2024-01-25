@@ -21,8 +21,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.DecodedRpcStatus
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
-import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -123,7 +122,7 @@ class PingService(
 
   private def decideRetry: Status => Option[FiniteDuration] = status =>
     if (isActive && retries) {
-      CommandServiceClient.defaultRetryRules(status).orElse {
+      LedgerClientUtils.defaultRetryRules(status).orElse {
         DecodedRpcStatus.fromScalaStatus(status) match {
           case Some(decoded)
               if PingService.AdditionalRetryOnKnownRaceConditions.contains(decoded.id) =>
@@ -154,7 +153,7 @@ class PingService(
         applicationId = applicationId,
         commandId = commandId,
         party = adminPartyId.toProtoPrimitive,
-        commands = cmds.map(CommandServiceClient.javaCodegenToScalaProto),
+        commands = cmds.map(LedgerClientUtils.javaCodegenToScalaProto),
         deduplicationPeriod = DeduplicationDuration(deduplicationDuration.toProtoPrimitive),
         domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
       ),

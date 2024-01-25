@@ -157,6 +157,7 @@ class SequencerClientTest
           _.warningMessage shouldBe "Cannot create additional subscriptions to the sequencer from the same client",
           _.errorMessage should include("Sequencer subscription failed"),
         ) shouldBe a[RuntimeException]
+        env.client.close()
       }
 
       "start from the specified sequencer counter if there is no recorded event" in {
@@ -164,6 +165,7 @@ class SequencerClientTest
         env.subscribeAfter().futureValue
         val counter = env.transport.subscriber.value.request.counter
         counter shouldBe SequencerCounter(5)
+        env.client.close()
       }
 
       "starts subscription at last stored event (for fork verification)" in {
@@ -171,6 +173,7 @@ class SequencerClientTest
         env.subscribeAfter().futureValue
         val counter = env.transport.subscriber.value.request.counter
         counter shouldBe deliver.counter
+        env.client.close()
       }
 
       "doesn't give prior event to the application handler" in {
@@ -233,6 +236,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        env.client.close()
       }
 
       "picks the last prior event" in {
@@ -252,6 +256,7 @@ class SequencerClientTest
 
         testF.futureValue
         triggerNextDeliverHandling.get shouldBe true
+        env.client.close()
       }
 
       "replays messages from the SequencedEventStore" in {
@@ -272,6 +277,7 @@ class SequencerClientTest
           nextDeliver.counter,
           deliver44.counter,
         )
+        env.client.close()
       }
 
       "propagates errors during replay" in {
@@ -294,6 +300,7 @@ class SequencerClientTest
             logEntry.throwable.value shouldBe syncExc
           },
         ) shouldBe syncExc
+        env.client.close()
       }
 
       "throttle message batches" in {
@@ -340,6 +347,7 @@ class SequencerClientTest
         }
 
         maxSeenCounter.get() shouldBe 5
+        env.client.close()
       }
     }
   }
@@ -356,6 +364,7 @@ class SequencerClientTest
         } yield storedEvent
 
         storedEventF.futureValue shouldBe Seq(signedDeliver)
+        env.client.close()
       }
 
       "stores the event even if the handler fails" in {
@@ -380,6 +389,7 @@ class SequencerClientTest
         } yield storedEvent
 
         storedEventF.futureValue shouldBe Seq(signedDeliver)
+        env.client.close()
       }
 
       "completes the sequencer client if the subscription closes due to an error" in {
@@ -404,6 +414,7 @@ class SequencerClientTest
         closeReasonF.futureValue should matchPattern {
           case e: UnrecoverableError if e.cause == s"handler returned error: $error" =>
         }
+        env.client.close()
       }
 
       "completes the sequencer client if the application handler fails" in {
@@ -563,6 +574,7 @@ class SequencerClientTest
         } yield preHead.value
 
         preHeadF.futureValue shouldBe CursorPrehead(deliver.counter, deliver.timestamp)
+        client.close()
       }
 
       "replays from the sequencer counter prehead" in {
@@ -590,7 +602,7 @@ class SequencerClientTest
           deliver44.counter,
           deliver45.counter,
         )
-
+        client.close()
       }
 
       "resubscribes after replay" in {
@@ -621,6 +633,7 @@ class SequencerClientTest
           deliver44.counter,
           deliver45.counter,
         )
+        client.close()
       }
 
       "does not update the prehead if the application handler fails" in {
@@ -650,6 +663,7 @@ class SequencerClientTest
         } yield preHead
 
         preHeadF.futureValue shouldBe None
+        client.close()
       }
 
       "updates the prehead only after the asynchronous processing has been completed" in {
@@ -694,6 +708,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        client.close()
       }
     }
 
@@ -719,6 +734,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        env.client.close()
       }
 
       "create second subscription from the same counter as the previous one when there are events" in {
@@ -762,6 +778,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        env.client.close()
       }
 
       "have new transport be used for sends when there is subscription" in {
@@ -778,6 +795,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        env.client.close()
       }
 
       "have new transport be used with same sequencerId but different sequencer alias" in {
@@ -800,6 +818,7 @@ class SequencerClientTest
         }
 
         testF.futureValue
+        env.client.close()
       }
 
       "fail to reassign sequencerId" in {
@@ -829,6 +848,7 @@ class SequencerClientTest
 
         testF.futureValue shouldBe an[IllegalArgumentException]
         testF.futureValue.getMessage shouldBe "Adding or removing sequencer subscriptions is not supported at the moment"
+        env.client.close()
       }
     }
   }
@@ -925,7 +945,6 @@ class SequencerClientTest
         batch: Batch[DefaultOpenEnvelope]
     )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
       client.sendAsync(batch)
-
   }
 
   private class MockSubscription[E] extends SequencerSubscription[E] {

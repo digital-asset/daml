@@ -53,7 +53,6 @@ import com.digitalasset.canton.platform.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.services.ProtoReflectionService

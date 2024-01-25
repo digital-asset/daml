@@ -15,6 +15,7 @@ import com.digitalasset.canton.{BaseTest, LfPartyId}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.Ordered.orderingToOrdered
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
@@ -84,6 +85,11 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
       override def consortiumThresholds(
           parties: Set[LfPartyId]
       ): Future[Map[LfPartyId, PositiveInt]] = ???
+
+      override def canNotSubmit(
+          participant: ParticipantId,
+          parties: Seq[LfPartyId],
+      ): Future[immutable.Iterable[LfPartyId]] = ???
     }
 
     "allHaveActiveParticipants should yield correct results" in {

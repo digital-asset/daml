@@ -39,6 +39,7 @@ import com.digitalasset.canton.{LfPartyId, checked}
 
 import scala.Ordered.orderingToOrdered
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -275,6 +276,12 @@ trait PartyTopologySnapshotClient {
       party: LfPartyId,
       requiredTrustLevel: TrustLevel = TrustLevel.Ordinary,
   ): Future[Boolean]
+
+  /** Returns the subset of parties the given participant can NOT submit on behalf of */
+  def canNotSubmit(
+      participant: ParticipantId,
+      parties: Seq[LfPartyId],
+  ): Future[immutable.Iterable[LfPartyId]]
 
   /** Returns all active participants of all the given parties. Returns a Left if some of the parties don't have active
     * participants, in which case the parties with missing active participants are returned. Note that it will return
@@ -760,8 +767,24 @@ private[client] trait PartyTopologySnapshotLoader
   final override def partiesWithGroupAddressing(parties: Seq[LfPartyId]): Future[Set[LfPartyId]] =
     loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
 
-  final def consortiumThresholds(parties: Set[LfPartyId]): Future[Map[LfPartyId, PositiveInt]] =
+  final override def consortiumThresholds(
+      parties: Set[LfPartyId]
+  ): Future[Map[LfPartyId, PositiveInt]] =
     loadAndMapPartyInfos(parties.toSeq, _.threshold)
+
+  final override def canNotSubmit(
+      participant: ParticipantId,
+      parties: Seq[LfPartyId],
+  ): Future[immutable.Iterable[LfPartyId]] =
+    loadAndMapPartyInfos(
+      parties,
+      _ => (),
+      info =>
+        info.threshold > PositiveInt.one ||
+          !info.participants
+            .get(participant)
+            .exists(_.permission == ParticipantPermission.Submission),
+    ).map(_.keySet)
 
   private def loadAndMapPartyInfos[T](
       lfParties: Seq[LfPartyId],

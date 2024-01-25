@@ -198,7 +198,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity.
     * If the database was already intialized, instead compares the given identity parameters
-    * to the existing ones, and returns a Future failed with [[com.digitalasset.canton.platform.common.MismatchException]]
+    * to the existing ones, and returns a Future failed with [[MismatchException]]
     * if they don't match.
     *
     * This method is idempotent.
