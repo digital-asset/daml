@@ -764,12 +764,21 @@ class WebSocketService(
             )
             .map(_.map(resolved => (offPrefix, resolved)))
         }
-          .fold(e => Future.successful(-\/(e)), identity)
+          .fold(e => {
+            logger.info(s"parsed error 1 $e")
+            println(s"parsed error 1 $e")
+            Future.successful({
+              logger.info(s"parsed error 2 $e")
+              -\/(e)
+            })
+          }, identity)
       }
       .map({ x =>
         logger.info(s"parsed resolved: $x")
+        println(s"parsed resolved: $x")
         x // Pass the message along unchanged
       })
+      .via(logTermination(logger, "1111"))
       .via(
         allowOnlyFirstInput(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
@@ -777,6 +786,7 @@ class WebSocketService(
       )
       .map({ x =>
         logger.info(s"parsed after only first input: $x")
+        println(s"parsed after only first input: $x")
         x // Pass the message along unchanged
       })
       .flatMapMerge(
@@ -792,8 +802,10 @@ class WebSocketService(
           ) via logTermination(logger, "getTransactionSourceForParty")
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
+      .via(logTermination(logger, "2222"))
       .map({ x =>
         logger.info(s"parsed after source: $x")
+        println(s"parsed after source: $x")
         x // Pass the message along unchanged
       })
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -862,6 +874,7 @@ class WebSocketService(
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
+    println("getTransactionSourceForParty")
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)
 

@@ -42,12 +42,12 @@ object GraphExtensions extends NoTracing {
         fd.onComplete(
           _.fold(
             { t =>
-              logger.trace(
+              logger.debug(
                 s"stream-abort [$extraMessage] trying to abort ${t.getMessage}, ${lc.makeString}"
               )
             },
             { _ =>
-              logger.trace(s"stream-stop [$extraMessage] trying to shutdown, ${lc.makeString}")
+              logger.debug(s"stream-stop [$extraMessage] trying to shutdown, ${lc.makeString}")
             },
           )
         )
