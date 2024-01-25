@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder

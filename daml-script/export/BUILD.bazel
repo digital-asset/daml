@@ -37,7 +37,6 @@ da_scala_binary(
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//daml-lf/archive:daml_lf_archive_reader",

@@ -14,7 +14,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedg
 import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
-import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}

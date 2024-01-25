@@ -18,7 +18,6 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
-        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//daml-lf/data",
