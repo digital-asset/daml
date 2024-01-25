@@ -292,7 +292,7 @@ object Ref {
   sealed abstract class PackageRef extends Product with Serializable
   object PackageRef {
     final case class Name(name: PackageName) extends PackageRef {
-      override def toString: String = "n#" + name
+      override def toString: String = "#" + name
     }
 
     final case class Id(id: PackageId) extends PackageRef {
@@ -300,8 +300,8 @@ object Ref {
     }
 
     def fromString(s: String): Either[String, PackageRef] =
-      if (s.startsWith("n#"))
-        PackageName.fromString(s.drop(2)).map(Name)
+      if (s.startsWith("#"))
+        PackageName.fromString(s.drop(1)).map(Name)
       else
         PackageId.fromString(s).map(Id)
 
