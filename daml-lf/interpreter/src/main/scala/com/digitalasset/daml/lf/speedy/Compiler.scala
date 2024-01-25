@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
 import com.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -362,10 +361,7 @@ private[lf] final class Compiler(
 
   // speedy compilation phases 2,3 (i.e post translate-from-LF)
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
-    flattenToAnf(
-      closureConvert(sexpr),
-      evaluationOrder = config.allowedLanguageVersions.majorVersion.evaluationOrder,
-    )
+    flattenToAnf(closureConvert(sexpr))
 
   private[this] def compileModule(
       pkgId: PackageId,
