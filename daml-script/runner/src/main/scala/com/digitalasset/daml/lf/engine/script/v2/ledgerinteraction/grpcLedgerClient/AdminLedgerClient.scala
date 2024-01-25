@@ -6,7 +6,7 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
-import com.digitalasset.canton.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
+import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}

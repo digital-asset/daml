@@ -17,7 +17,7 @@ load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_test_suite")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -259,8 +259,6 @@ da_scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
-    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -713,10 +711,10 @@ scaladoc_jar(
 
 ### community/ledger/ledger-json-api ###
 
-da_scala_library(
+scala_library(
     name = "community_ledger_ledger-json-api",
     srcs = glob(["community/ledger/ledger-json-api/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -812,10 +810,10 @@ proto_gen(
     ],
 )
 
-da_scala_library(
+scala_library(
     name = "community_domain",
     srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -939,12 +937,12 @@ copy_file(
     out = "VERSION",
 )
 
-da_scala_library(
+scala_library(
     name = "community_participant",
     srcs = glob(["community/participant/src/main/scala/**/*.scala"]) + [
         ":community_participant_proto_scala",
     ],
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1034,10 +1032,10 @@ da_scala_library(
 
 ### community/drivers/reference
 
-da_scala_library(
+scala_library(
     name = "community_reference-driver",
     srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1104,10 +1102,10 @@ proto_gen(
 
 ### community/sequencer-driver
 
-da_scala_library(
+scala_library(
     name = "community_sequencer-driver",
     srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1129,10 +1127,10 @@ da_scala_library(
 
 ### community/app-base ###
 
-da_scala_library(
+scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1223,10 +1221,10 @@ da_scala_library(
 
 ### community/app ###
 
-da_scala_library(
+scala_library(
     name = "community_app-lib",
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1298,7 +1296,7 @@ proto_gen(
 )
 
 # this is only needed for the uber-javadoc in //language-support/java:javadoc
-da_java_library(
+java_library(
     name = "ledger-api-java-lib-for-javadocs",
     srcs = [
         ":ledger-api-java",
@@ -1376,7 +1374,7 @@ java_test_suite(
     ],
 )
 
-da_java_library(
+java_library(
     name = "bindings-java-test-helpers",
     testonly = True,
     srcs = glob(["community/bindings-java/src/test/java/**/TestHelpers.java"]),
@@ -1392,7 +1390,7 @@ da_scala_library(
             "community/bindings-java/src/test/**/*Test.scala",
         ],
     ),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
@@ -1412,7 +1410,7 @@ da_scala_test_suite(
         "community/bindings-java/src/test/**/*Spec.scala",
         "community/bindings-java/src/test/**/*Test.scala",
     ]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],

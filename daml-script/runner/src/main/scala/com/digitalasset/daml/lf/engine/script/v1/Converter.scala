@@ -20,7 +20,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.{Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._

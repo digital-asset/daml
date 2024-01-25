@@ -33,7 +33,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi.{
+import com.digitalasset.canton.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier,
