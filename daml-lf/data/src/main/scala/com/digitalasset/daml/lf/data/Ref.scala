@@ -320,7 +320,9 @@ object Ref {
       case PackageRef.Id(id) =>
         TypeConName(id, qName)
     }
+  }
 
+  object TypeConRef {
     def fromString(s: String): Either[String, TypeConRef] =
       splitInTwo(s, ':') match {
         case Some((packageRefString, qualifiedNameString)) =>
@@ -332,9 +334,10 @@ object Ref {
           Left(s"Separator ':' between package identifier and qualified name not found in $s")
       }
 
-    def assertFromString(s: String): TypeConRef =
-      assertRight(fromString(s))
+    def assertFromString(s: String): TypeConRef = assertRight(fromString(s))
 
+    def fromIdentifier(identifier: Identifier): TypeConRef =
+      TypeConRef(PackageRef.Id(identifier.packageId), identifier.qualifiedName)
   }
 
   /*
