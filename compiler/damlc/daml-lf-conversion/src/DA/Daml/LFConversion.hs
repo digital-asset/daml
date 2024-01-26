@@ -1633,17 +1633,26 @@ convertExpr env0 e = do
         withTmArg env field' args $ \x1 args ->
             withTmArg env record' args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
-    -- NOTE(MH): We only inline `getField` for record types. Projections on
+    -- NOTE(MH, MA): We only inline `getField` for record types, and only when the
+    -- type actually contains a field of the given name. Projections on
     -- sum-of-records types have to through the type class for `getField`.
     go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             recordType <- convertType env recordType
             withTmArg env recordType args $ \record args ->
                 pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
     go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             record' <- convertType env record
             field' <- convertType env field
             withTmArg env field' args $ \x1 args ->
