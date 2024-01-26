@@ -10,7 +10,7 @@ import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
+import com.daml.daml_lf_dev.DamlLf2
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -20,57 +20,57 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-class DecodeCommonSpec
+class DecodeV2Spec
     extends AnyWordSpec
     with Matchers
     with Inside
     with OptionValues
     with ScalaCheckPropertyChecks {
 
-  val unitTyp: DamlLf1.Type = DamlLf1.Type
+  val unitTyp: DamlLf2.Type = DamlLf2.Type
     .newBuilder()
-    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
     .build()
-  val boolTyp: DamlLf1.Type = DamlLf1.Type
+  val boolTyp: DamlLf2.Type = DamlLf2.Type
     .newBuilder()
-    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.BOOL))
+    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.BOOL))
     .build()
-  val textTyp: DamlLf1.Type = DamlLf1.Type
+  val textTyp: DamlLf2.Type = DamlLf2.Type
     .newBuilder()
-    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.TEXT))
+    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.TEXT))
     .build()
 
   val typeTable = ImmArraySeq(TUnit, TBool, TText)
-  val unitTypInterned = DamlLf1.Type.newBuilder().setInterned(0).build()
-  val boolTypInterned = DamlLf1.Type.newBuilder().setInterned(1).build()
-  val textTypInterned = DamlLf1.Type.newBuilder().setInterned(2).build()
+  val unitTypInterned = DamlLf2.Type.newBuilder().setInterned(0).build()
+  val boolTypInterned = DamlLf2.Type.newBuilder().setInterned(1).build()
+  val textTypInterned = DamlLf2.Type.newBuilder().setInterned(2).build()
 
-  val unitExpr: DamlLf1.Expr = DamlLf1.Expr
+  val unitExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
-    .setPrimCon(DamlLf1.PrimCon.CON_UNIT)
+    .setPrimCon(DamlLf2.PrimCon.CON_UNIT)
     .build()
 
-  val falseExpr: DamlLf1.Expr = DamlLf1.Expr
+  val falseExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
-    .setPrimCon(DamlLf1.PrimCon.CON_FALSE)
+    .setPrimCon(DamlLf2.PrimCon.CON_FALSE)
     .build()
 
-  "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
+  "The entries of primTypeInfos correspond to Protobuf DamlLf2.PrimType" in {
 
     (Set(
-      DamlLf1.PrimType.UNRECOGNIZED,
-      DamlLf1.PrimType.DECIMAL,
+      DamlLf2.PrimType.UNRECOGNIZED,
+      DamlLf2.PrimType.DECIMAL,
     ) ++
-      DecodeCommon.builtinTypeInfos.map(_.proto)) shouldBe
-      DamlLf1.PrimType.values().toSet
+      DecodeV2.builtinTypeInfos.map(_.proto)) shouldBe
+      DamlLf2.PrimType.values().toSet
 
   }
 
-  "The entries of builtinFunctionInfos correspond to Protobuf DamlLf1.BuiltinFunction" in {
+  "The entries of builtinFunctionInfos correspond to Protobuf DamlLf2.BuiltinFunction" in {
 
     val s1 =
-      Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeCommon.builtinFunctionInfos.map(_.proto)
-    val s2 = DamlLf1.BuiltinFunction.values().toSet
+      Set(DamlLf2.BuiltinFunction.UNRECOGNIZED) ++ DecodeV2.builtinFunctionInfos.map(_.proto)
+    val s2 = DamlLf2.BuiltinFunction.values().toSet
     (s1 -- s2) shouldBe Set.empty
     (s2 -- s1) shouldBe Set.empty
 
@@ -79,7 +79,8 @@ class DecodeCommonSpec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  private[this] val lfVersions = LV.All
+  // TODO(https://github.com/digital-asset/daml/issues/18240): revert to [[All]] once V1 is gone
+  private[this] val lfVersions = LV.All.filter(_.major == LV.Major.V2)
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>
@@ -96,7 +97,7 @@ class DecodeCommonSpec
       dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
       typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
   ) = {
-    new DecodeCommon(version).Env(
+    new DecodeV2(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
@@ -111,7 +112,7 @@ class DecodeCommonSpec
 
     "reject nat kind if lf version < 1.7" in {
 
-      val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
+      val input = DamlLf2.Kind.newBuilder().setNat(DamlLf2.Unit.newBuilder()).build()
 
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
@@ -119,7 +120,7 @@ class DecodeCommonSpec
     }
 
     "accept nat kind if lf version >= 1.7" in {
-      val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
+      val input = DamlLf2.Kind.newBuilder().setNat(DamlLf2.Unit.newBuilder()).build()
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         moduleDecoder(version).decodeKindForTest(input) shouldBe Ast.KNat
       }
@@ -128,9 +129,9 @@ class DecodeCommonSpec
 
   "uncheckedDecodeType" should {
 
-    import DamlLf1.PrimType._
+    import DamlLf2.PrimType._
 
-    def buildNat(i: Long) = DamlLf1.Type.newBuilder().setNat(i).build()
+    def buildNat(i: Long) = DamlLf2.Type.newBuilder().setNat(i).build()
 
     val validNatTypes = List(0, 1, 2, 5, 11, 35, 36, 37)
     val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 38, 39, 200, Long.MaxValue)
@@ -166,10 +167,10 @@ class DecodeCommonSpec
       }
     }
 
-    def buildPrimType(primType: DamlLf1.PrimType, args: DamlLf1.Type*) =
-      DamlLf1.Type
+    def buildPrimType(primType: DamlLf2.PrimType, args: DamlLf2.Type*) =
+      DamlLf2.Type
         .newBuilder()
-        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(primType).addAllArgs(args.asJava))
+        .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(primType).addAllArgs(args.asJava))
         .build()
 
     val decimalTestCases = Table(
@@ -186,7 +187,7 @@ class DecodeCommonSpec
       "input" -> "expected output",
       buildPrimType(NUMERIC) ->
         TNumeric.cons,
-      buildPrimType(NUMERIC, DamlLf1.Type.newBuilder().setNat(Decimal.scale.toLong).build()) ->
+      buildPrimType(NUMERIC, DamlLf2.Type.newBuilder().setNat(Decimal.scale.toLong).build()) ->
         TNumeric(Ast.TNat(Decimal.scale)),
       buildPrimType(NUMERIC, buildPrimType(TEXT)) ->
         Ast.TApp(TNumeric.cons, TText),
@@ -270,19 +271,19 @@ class DecodeCommonSpec
       val positiveTestCases =
         Table("field names", List("a", "a"), List("a", "b", "c", "a"), List("a", "b", "c", "b"))
 
-      val unit = DamlLf1.Type
+      val unit = DamlLf2.Type
         .newBuilder()
-        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+        .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
         .build
 
       def fieldWithUnitWithoutInterning(s: String) =
-        DamlLf1.FieldWithType.newBuilder().setFieldStr(s).setType(unit)
+        DamlLf2.FieldWithType.newBuilder().setFieldStr(s).setType(unit)
 
       def buildTStructWithoutInterning(fields: Seq[String]) =
-        DamlLf1.Type
+        DamlLf2.Type
           .newBuilder()
           .setStruct(
-            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+            fields.foldLeft(DamlLf2.Type.Struct.newBuilder())((builder, name) =>
               builder.addFields(fieldWithUnitWithoutInterning(name))
             )
           )
@@ -292,13 +293,13 @@ class DecodeCommonSpec
       val stringIdx = stringTable.zipWithIndex.toMap
 
       def fieldWithUnitWithInterning(s: String) =
-        DamlLf1.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
+        DamlLf2.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
 
       def buildTStructWithInterning(fields: Seq[String]) =
-        DamlLf1.Type
+        DamlLf2.Type
           .newBuilder()
           .setStruct(
-            fields.foldLeft(DamlLf1.Type.Struct.newBuilder())((builder, name) =>
+            fields.foldLeft(DamlLf2.Type.Struct.newBuilder())((builder, name) =>
               builder.addFields(fieldWithUnitWithInterning(name))
             )
           )
@@ -332,7 +333,7 @@ class DecodeCommonSpec
     s"translate exception types iff version >= ${LV.Features.exceptions}" in {
       val exceptionBuiltinTypes = Table(
         "builtin types",
-        DamlLf1.PrimType.ANY_EXCEPTION -> Ast.BTAnyException,
+        DamlLf2.PrimType.ANY_EXCEPTION -> Ast.BTAnyException,
       )
 
       forEveryVersion { version =>
@@ -358,35 +359,35 @@ class DecodeCommonSpec
       val stringTable = ImmArraySeq("pkgId", "x")
       val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
 
-      val unit = DamlLf1.Unit.newBuilder().build()
-      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val unit = DamlLf2.Unit.newBuilder().build()
+      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
       val modRef =
-        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-      val tyConName = DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
-      val tySynName = DamlLf1.TypeSynName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+      val tyConName = DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+      val tySynName = DamlLf2.TypeSynName.newBuilder().setModule(modRef).setNameInternedDname(2)
 
-      def newBuilder = DamlLf1.Type.newBuilder()
+      def newBuilder = DamlLf2.Type.newBuilder()
 
-      val star = DamlLf1.Kind.newBuilder().setStar(unit).build
+      val star = DamlLf2.Kind.newBuilder().setStar(unit).build
       val xWithStar =
-        DamlLf1.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(star).build()
-      val typeVar = newBuilder.setVar(DamlLf1.Type.Var.newBuilder().setVarInternedStr(0)).build()
+        DamlLf2.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(star).build()
+      val typeVar = newBuilder.setVar(DamlLf2.Type.Var.newBuilder().setVarInternedStr(0)).build()
       val typeBool =
-        newBuilder.setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.BOOL)).build()
+        newBuilder.setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.BOOL)).build()
       val xWithBool =
-        DamlLf1.FieldWithType.newBuilder.setFieldInternedStr(1).setType(typeBool).build()
+        DamlLf2.FieldWithType.newBuilder.setFieldInternedStr(1).setType(typeBool).build()
 
-      val testCases = Table[DamlLf1.Type](
+      val testCases = Table[DamlLf2.Type](
         "type",
         typeVar,
         newBuilder.setNat(10).build(),
-        newBuilder.setSyn(DamlLf1.Type.Syn.newBuilder().setTysyn(tySynName)).build(),
-        newBuilder.setCon(DamlLf1.Type.Con.newBuilder().setTycon(tyConName)).build(),
+        newBuilder.setSyn(DamlLf2.Type.Syn.newBuilder().setTysyn(tySynName)).build(),
+        newBuilder.setCon(DamlLf2.Type.Con.newBuilder().setTycon(tyConName)).build(),
         typeBool,
         newBuilder
-          .setForall(DamlLf1.Type.Forall.newBuilder().addVars(xWithStar).setBody(typeVar))
+          .setForall(DamlLf2.Type.Forall.newBuilder().addVars(xWithStar).setBody(typeVar))
           .build(),
-        newBuilder.setStruct(DamlLf1.Type.Struct.newBuilder().addFields(xWithBool)).build(),
+        newBuilder.setStruct(DamlLf2.Type.Struct.newBuilder().addFields(xWithBool)).build(),
       )
 
       forEveryVersionSuchThat(_ >= LV.Features.internedTypes) { version =>
@@ -401,35 +402,35 @@ class DecodeCommonSpec
 
   "decodeExpr" should {
 
-    def toProtoExpr(b: DamlLf1.BuiltinFunction) =
-      DamlLf1.Expr.newBuilder().setBuiltin(b).build()
+    def toProtoExpr(b: DamlLf2.BuiltinFunction) =
+      DamlLf2.Expr.newBuilder().setBuiltin(b).build()
 
-    def toDecimalProto(s: String): DamlLf1.Expr =
-      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setDecimalStr(s)).build()
+    def toDecimalProto(s: String): DamlLf2.Expr =
+      DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setDecimalStr(s)).build()
 
-    // def toNumericProto(s: String): DamlLf1.Expr =
-    //  DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setNumeric(s)).build()
+    // def toNumericProto(s: String): DamlLf2.Expr =
+    //  DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setNumeric(s)).build()
 
-    def toNumericProto(id: Int): DamlLf1.Expr =
-      DamlLf1.Expr
+    def toNumericProto(id: Int): DamlLf2.Expr =
+      DamlLf2.Expr
         .newBuilder()
-        .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedStr(id))
+        .setPrimLit(DamlLf2.PrimLit.newBuilder().setNumericInternedStr(id))
         .build()
 
-    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, String, Ast.Expr](
+    val decimalBuiltinTestCases = Table[DamlLf2.BuiltinFunction, String, Ast.Expr](
       ("decimal builtins", "minVersion", "expected output"),
       (
-        DamlLf1.BuiltinFunction.ADD_DECIMAL,
+        DamlLf2.BuiltinFunction.ADD_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale),
       ),
       (
-        DamlLf1.BuiltinFunction.SUB_DECIMAL,
+        DamlLf2.BuiltinFunction.SUB_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale),
       ),
       (
-        DamlLf1.BuiltinFunction.MUL_DECIMAL,
+        DamlLf2.BuiltinFunction.MUL_DECIMAL,
         "6",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumericLegacy), TDecimalScale), TDecimalScale),
@@ -437,7 +438,7 @@ class DecodeCommonSpec
         ),
       ),
       (
-        DamlLf1.BuiltinFunction.DIV_DECIMAL,
+        DamlLf2.BuiltinFunction.DIV_DECIMAL,
         "6",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumericLegacy), TDecimalScale), TDecimalScale),
@@ -445,116 +446,116 @@ class DecodeCommonSpec
         ),
       ),
       (
-        DamlLf1.BuiltinFunction.ROUND_DECIMAL,
+        DamlLf2.BuiltinFunction.ROUND_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale),
       ),
-      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
-      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
+      (DamlLf2.BuiltinFunction.LEQ_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf2.BuiltinFunction.LESS_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
       (
-        DamlLf1.BuiltinFunction.GEQ_DECIMAL,
+        DamlLf2.BuiltinFunction.GEQ_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal),
       ),
       (
-        DamlLf1.BuiltinFunction.GREATER_DECIMAL,
+        DamlLf2.BuiltinFunction.GREATER_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal),
       ),
       (
-        DamlLf1.BuiltinFunction.DECIMAL_TO_TEXT,
+        DamlLf2.BuiltinFunction.DECIMAL_TO_TEXT,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToText), TDecimalScale),
       ),
       (
-        DamlLf1.BuiltinFunction.TEXT_TO_DECIMAL,
+        DamlLf2.BuiltinFunction.TEXT_TO_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumericLegacy), TDecimalScale),
       ),
       (
-        DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
+        DamlLf2.BuiltinFunction.INT64_TO_DECIMAL,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumericLegacy), TDecimalScale),
       ),
       (
-        DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
+        DamlLf2.BuiltinFunction.DECIMAL_TO_INT64,
         "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale),
       ),
-      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
+      (DamlLf2.BuiltinFunction.EQUAL_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(
       "numeric builtins" -> "expected output",
-      DamlLf1.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
-      DamlLf1.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
-      DamlLf1.BuiltinFunction.MUL_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BMulNumericLegacy),
-      DamlLf1.BuiltinFunction.DIV_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BDivNumericLegacy),
-      DamlLf1.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
-      DamlLf1.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
-      DamlLf1.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BTextToNumericLegacy),
-      DamlLf1.BuiltinFunction.INT64_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BInt64ToNumericLegacy),
-      DamlLf1.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
+      DamlLf2.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
+      DamlLf2.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
+      DamlLf2.BuiltinFunction.MUL_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BMulNumericLegacy),
+      DamlLf2.BuiltinFunction.DIV_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BDivNumericLegacy),
+      DamlLf2.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
+      DamlLf2.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
+      DamlLf2.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BTextToNumericLegacy),
+      DamlLf2.BuiltinFunction.INT64_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BInt64ToNumericLegacy),
+      DamlLf2.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
     )
 
     val comparisonBuiltinCases = Table(
       "compare builtins" -> "expected output",
-      DamlLf1.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
-      DamlLf1.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
-      DamlLf1.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
-      DamlLf1.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
-      DamlLf1.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
-      DamlLf1.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
-      DamlLf1.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
-      DamlLf1.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
-      DamlLf1.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
-      DamlLf1.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
-      DamlLf1.BuiltinFunction.EQUAL_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
-      DamlLf1.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
-      DamlLf1.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
-      DamlLf1.BuiltinFunction.GEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
-      DamlLf1.BuiltinFunction.GREATER_TIMESTAMP -> Ast
+      DamlLf2.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
+      DamlLf2.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
+      DamlLf2.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
+      DamlLf2.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
+      DamlLf2.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
+      DamlLf2.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
+      DamlLf2.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
+      DamlLf2.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
+      DamlLf2.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
+      DamlLf2.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
+      DamlLf2.BuiltinFunction.EQUAL_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
+      DamlLf2.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
+      DamlLf2.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
+      DamlLf2.BuiltinFunction.GEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
+      DamlLf2.BuiltinFunction.GREATER_TIMESTAMP -> Ast
         .ETyApp(Ast.EBuiltin(Ast.BGreater), TTimestamp),
-      DamlLf1.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
-      DamlLf1.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
-      DamlLf1.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TText),
-      DamlLf1.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
-      DamlLf1.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
-      DamlLf1.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
-      DamlLf1.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
-      DamlLf1.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
-      DamlLf1.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
-      DamlLf1.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
+      DamlLf2.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
+      DamlLf2.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
+      DamlLf2.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TText),
+      DamlLf2.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
+      DamlLf2.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
+      DamlLf2.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
+      DamlLf2.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
+      DamlLf2.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
+      DamlLf2.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
+      DamlLf2.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
     )
 
     val numericComparisonBuiltinCases = Table(
       "numeric comparison builtins" -> "expected output",
-      DamlLf1.BuiltinFunction.EQUAL_NUMERIC -> Ast.EBuiltin(Ast.BEqualNumeric),
-      DamlLf1.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
-      DamlLf1.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
-      DamlLf1.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
-      DamlLf1.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
+      DamlLf2.BuiltinFunction.EQUAL_NUMERIC -> Ast.EBuiltin(Ast.BEqualNumeric),
+      DamlLf2.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
+      DamlLf2.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
+      DamlLf2.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
+      DamlLf2.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
     )
 
     val genericComparisonBuiltinCases = Table(
       "generic comparison builtins" -> "expected output",
-      DamlLf1.BuiltinFunction.EQUAL -> Ast.EBuiltin(Ast.BEqual),
-      DamlLf1.BuiltinFunction.LESS_EQ -> Ast.EBuiltin(Ast.BLessEq),
-      DamlLf1.BuiltinFunction.LESS -> Ast.EBuiltin(Ast.BLess),
-      DamlLf1.BuiltinFunction.GREATER_EQ -> Ast.EBuiltin(Ast.BGreaterEq),
-      DamlLf1.BuiltinFunction.GREATER -> Ast.EBuiltin(Ast.BGreater),
+      DamlLf2.BuiltinFunction.EQUAL -> Ast.EBuiltin(Ast.BEqual),
+      DamlLf2.BuiltinFunction.LESS_EQ -> Ast.EBuiltin(Ast.BLessEq),
+      DamlLf2.BuiltinFunction.LESS -> Ast.EBuiltin(Ast.BLess),
+      DamlLf2.BuiltinFunction.GREATER_EQ -> Ast.EBuiltin(Ast.BGreaterEq),
+      DamlLf2.BuiltinFunction.GREATER -> Ast.EBuiltin(Ast.BGreater),
     )
 
     val negativeBuiltinTestCases = Table(
       "other builtins" -> "expected output",
       // We do not need to test all other builtin
-      DamlLf1.BuiltinFunction.ADD_INT64 -> Ast.EBuiltin(Ast.BAddInt64),
-      DamlLf1.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText),
+      DamlLf2.BuiltinFunction.ADD_INT64 -> Ast.EBuiltin(Ast.BAddInt64),
+      DamlLf2.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText),
     )
 
     val contractIdTextConversionCases = Table(
       "builtin" -> "expected output",
-      DamlLf1.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltin(Ast.BContractIdToText),
+      DamlLf2.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltin(Ast.BContractIdToText),
     )
 
     "translate non numeric/decimal builtin as is for any version" in {
@@ -608,7 +609,7 @@ class DecodeCommonSpec
         val decoder = moduleDecoder(version)
 
         forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
-          if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == LV.v1_7)
+          if (proto != DamlLf2.BuiltinFunction.EQUAL_NUMERIC || version == LV.v1_7)
             decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
@@ -804,23 +805,23 @@ class DecodeCommonSpec
     s"translate BigNumeric builtins iff version >= ${LV.Features.bigNumeric}" in {
       val exceptionBuiltinCases = Table(
         "exception builtins" -> "expected output",
-        DamlLf1.BuiltinFunction.SCALE_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.SCALE_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BScaleBigNumeric),
-        DamlLf1.BuiltinFunction.PRECISION_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.PRECISION_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BPrecisionBigNumeric),
-        DamlLf1.BuiltinFunction.ADD_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.ADD_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BAddBigNumeric),
-        DamlLf1.BuiltinFunction.SUB_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.SUB_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BSubBigNumeric),
-        DamlLf1.BuiltinFunction.MUL_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.MUL_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BMulBigNumeric),
-        DamlLf1.BuiltinFunction.DIV_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.DIV_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BDivBigNumeric),
-        DamlLf1.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
+        DamlLf2.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BNumericToBigNumeric),
-        DamlLf1.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY ->
+        DamlLf2.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY ->
           Ast.EBuiltin(Ast.BBigNumericToNumericLegacy),
-        DamlLf1.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
+        DamlLf2.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
           Ast.EBuiltin(Ast.BBigNumericToText),
       )
 
@@ -839,18 +840,18 @@ class DecodeCommonSpec
 
     val roundingModeTestCases = Table(
       "proto" -> "expected rounding Mode",
-      DamlLf1.PrimLit.RoundingMode.UP -> java.math.RoundingMode.UP,
-      DamlLf1.PrimLit.RoundingMode.DOWN -> java.math.RoundingMode.DOWN,
-      DamlLf1.PrimLit.RoundingMode.CEILING -> java.math.RoundingMode.CEILING,
-      DamlLf1.PrimLit.RoundingMode.FLOOR -> java.math.RoundingMode.FLOOR,
-      DamlLf1.PrimLit.RoundingMode.HALF_UP -> java.math.RoundingMode.HALF_UP,
-      DamlLf1.PrimLit.RoundingMode.HALF_DOWN -> java.math.RoundingMode.HALF_DOWN,
-      DamlLf1.PrimLit.RoundingMode.HALF_EVEN -> java.math.RoundingMode.HALF_EVEN,
-      DamlLf1.PrimLit.RoundingMode.UNNECESSARY -> java.math.RoundingMode.UNNECESSARY,
+      DamlLf2.PrimLit.RoundingMode.UP -> java.math.RoundingMode.UP,
+      DamlLf2.PrimLit.RoundingMode.DOWN -> java.math.RoundingMode.DOWN,
+      DamlLf2.PrimLit.RoundingMode.CEILING -> java.math.RoundingMode.CEILING,
+      DamlLf2.PrimLit.RoundingMode.FLOOR -> java.math.RoundingMode.FLOOR,
+      DamlLf2.PrimLit.RoundingMode.HALF_UP -> java.math.RoundingMode.HALF_UP,
+      DamlLf2.PrimLit.RoundingMode.HALF_DOWN -> java.math.RoundingMode.HALF_DOWN,
+      DamlLf2.PrimLit.RoundingMode.HALF_EVEN -> java.math.RoundingMode.HALF_EVEN,
+      DamlLf2.PrimLit.RoundingMode.UNNECESSARY -> java.math.RoundingMode.UNNECESSARY,
     )
 
-    def roundingToProtoExpr(s: DamlLf1.PrimLit.RoundingMode): DamlLf1.Expr =
-      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setRoundingMode(s)).build()
+    def roundingToProtoExpr(s: DamlLf2.PrimLit.RoundingMode): DamlLf2.Expr =
+      DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setRoundingMode(s)).build()
 
     s"translate RoundingMode iff version  >= ${LV.Features.bigNumeric}" in {
       forEveryVersion { version =>
@@ -871,19 +872,19 @@ class DecodeCommonSpec
     s"translate exception primitive as is iff version >= ${LV.Features.exceptions}" in {
       val exceptionBuiltinCases = Table(
         "exception primitive" -> "expected output",
-        toProtoExpr(DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
+        toProtoExpr(DamlLf2.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
           Ast.EBuiltin(Ast.BAnyExceptionMessage),
-        DamlLf1.Expr
+        DamlLf2.Expr
           .newBuilder()
           .setToAnyException(
-            DamlLf1.Expr.ToAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
+            DamlLf2.Expr.ToAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
           )
           .build() ->
           Ast.EToAnyException(TUnit, EUnit),
-        DamlLf1.Expr
+        DamlLf2.Expr
           .newBuilder()
           .setFromAnyException(
-            DamlLf1.Expr.FromAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
+            DamlLf2.Expr.FromAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
           )
           .build() ->
           Ast.EFromAnyException(TUnit, EUnit),
@@ -906,15 +907,15 @@ class DecodeCommonSpec
 
     s"translate UpdateTryCatch as is iff version >= ${LV.Features.exceptions}" in {
       val tryCatchProto =
-        DamlLf1.Update.TryCatch
+        DamlLf2.Update.TryCatch
           .newBuilder()
           .setReturnType(unitTypInterned)
           .setTryExpr(unitExpr)
           .setVarInternedStr(0)
           .setCatchExpr(unitExpr)
           .build()
-      val tryCatchUpdateProto = DamlLf1.Update.newBuilder().setTryCatch(tryCatchProto).build()
-      val tryCatchExprProto = DamlLf1.Expr.newBuilder().setUpdate(tryCatchUpdateProto).build()
+      val tryCatchUpdateProto = DamlLf2.Update.newBuilder().setTryCatch(tryCatchProto).build()
+      val tryCatchExprProto = DamlLf2.Expr.newBuilder().setUpdate(tryCatchUpdateProto).build()
       val tryCatchExprScala = Ast.EUpdate(
         Ast.UpdateTryCatch(
           typ = TUnit,
@@ -945,24 +946,24 @@ class DecodeCommonSpec
     s"decode basic interface primitives iff version >= ${LV.Features.basicInterfaces}" in {
       val testCases = {
 
-        val unit = DamlLf1.Unit.newBuilder().build()
-        val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+        val unit = DamlLf2.Unit.newBuilder().build()
+        val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
         val modRef =
-          DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+          DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
         val templateTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
         val ifaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
         val requiredIfaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
         val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
 
-        val signatoryInterface = DamlLf1.Expr
+        val signatoryInterface = DamlLf2.Expr
           .newBuilder()
           .setSignatoryInterface(
-            DamlLf1.Expr.SignatoryInterface
+            DamlLf2.Expr.SignatoryInterface
               .newBuilder()
               .setInterface(ifaceTyConName)
               .setExpr(unitExpr)
@@ -970,10 +971,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val observerInterface = DamlLf1.Expr
+        val observerInterface = DamlLf2.Expr
           .newBuilder()
           .setObserverInterface(
-            DamlLf1.Expr.ObserverInterface
+            DamlLf2.Expr.ObserverInterface
               .newBuilder()
               .setInterface(ifaceTyConName)
               .setExpr(unitExpr)
@@ -981,10 +982,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val toInterface = DamlLf1.Expr
+        val toInterface = DamlLf2.Expr
           .newBuilder()
           .setToInterface(
-            DamlLf1.Expr.ToInterface
+            DamlLf2.Expr.ToInterface
               .newBuilder()
               .setInterfaceType(ifaceTyConName)
               .setTemplateType(templateTyConName)
@@ -993,10 +994,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val fromInterface = DamlLf1.Expr
+        val fromInterface = DamlLf2.Expr
           .newBuilder()
           .setFromInterface(
-            DamlLf1.Expr.FromInterface
+            DamlLf2.Expr.FromInterface
               .newBuilder()
               .setInterfaceType(ifaceTyConName)
               .setTemplateType(templateTyConName)
@@ -1005,10 +1006,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val interfaceTemplateTypeRep = DamlLf1.Expr
+        val interfaceTemplateTypeRep = DamlLf2.Expr
           .newBuilder()
           .setInterfaceTemplateTypeRep(
-            DamlLf1.Expr.InterfaceTemplateTypeRep
+            DamlLf2.Expr.InterfaceTemplateTypeRep
               .newBuilder()
               .setInterface(ifaceTyConName)
               .setExpr(unitExpr)
@@ -1016,10 +1017,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val unsafeFromInterface = DamlLf1.Expr
+        val unsafeFromInterface = DamlLf2.Expr
           .newBuilder()
           .setUnsafeFromInterface(
-            DamlLf1.Expr.UnsafeFromInterface
+            DamlLf2.Expr.UnsafeFromInterface
               .newBuilder()
               .setInterfaceType(ifaceTyConName)
               .setTemplateType(templateTyConName)
@@ -1029,10 +1030,10 @@ class DecodeCommonSpec
           )
           .build()
 
-        val toRequiredInterface = DamlLf1.Expr
+        val toRequiredInterface = DamlLf2.Expr
           .newBuilder()
           .setToRequiredInterface(
-            DamlLf1.Expr.ToRequiredInterface
+            DamlLf2.Expr.ToRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
               .setRequiringInterface(ifaceTyConName)
@@ -1040,10 +1041,10 @@ class DecodeCommonSpec
               .build()
           )
           .build()
-        val fromRequiredInterface = DamlLf1.Expr
+        val fromRequiredInterface = DamlLf2.Expr
           .newBuilder()
           .setFromRequiredInterface(
-            DamlLf1.Expr.FromRequiredInterface
+            DamlLf2.Expr.FromRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
               .setRequiringInterface(ifaceTyConName)
@@ -1051,10 +1052,10 @@ class DecodeCommonSpec
               .build()
           )
           .build()
-        val unsafeFromRequiredInterface = DamlLf1.Expr
+        val unsafeFromRequiredInterface = DamlLf2.Expr
           .newBuilder()
           .setUnsafeFromRequiredInterface(
-            DamlLf1.Expr.UnsafeFromRequiredInterface
+            DamlLf2.Expr.UnsafeFromRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
               .setRequiringInterface(ifaceTyConName)
@@ -1121,10 +1122,10 @@ class DecodeCommonSpec
 
     s"decode extended TypeRep iff version < ${LV.Features.templateTypeRepToText}" in {
       val testCases = {
-        val typeRepTyConName = DamlLf1.Expr
+        val typeRepTyConName = DamlLf2.Expr
           .newBuilder()
           .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPE_REP_TYCON_NAME
+            DamlLf2.BuiltinFunction.TYPE_REP_TYCON_NAME
           )
           .build()
 
@@ -1148,22 +1149,22 @@ class DecodeCommonSpec
     s"decode interface update iff version >= ${LV.Features.basicInterfaces} " in {
       val testCases = {
 
-        val unit = DamlLf1.Unit.newBuilder().build()
-        val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+        val unit = DamlLf2.Unit.newBuilder().build()
+        val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
         val modRef =
-          DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+          DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
         val ifaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
 
         val exerciseInterfaceProto = {
-          val exe = DamlLf1.Update.ExerciseInterface
+          val exe = DamlLf2.Update.ExerciseInterface
             .newBuilder()
             .setInterface(ifaceTyConName)
             .setChoiceInternedStr(0)
             .setCid(unitExpr)
             .setArg(unitExpr)
             .build()
-          DamlLf1.Update.newBuilder().setExerciseInterface(exe).build()
+          DamlLf2.Update.newBuilder().setExerciseInterface(exe).build()
         }
 
         val exerciseInterfaceScala = Ast.UpdateExerciseInterface(
@@ -1175,12 +1176,12 @@ class DecodeCommonSpec
         )
 
         val fetchInterfaceProto = {
-          val fetch = DamlLf1.Update.FetchInterface
+          val fetch = DamlLf2.Update.FetchInterface
             .newBuilder()
             .setInterface(ifaceTyConName)
             .setCid(unitExpr)
             .build()
-          DamlLf1.Update.newBuilder().setFetchInterface(fetch).build()
+          DamlLf2.Update.newBuilder().setFetchInterface(fetch).build()
         }
 
         val fetchInterfaceScala = Ast.UpdateFetchInterface(
@@ -1199,7 +1200,7 @@ class DecodeCommonSpec
         forEvery(testCases) { (protoUpdate, scala) =>
           val decoder =
             moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
-          val proto = DamlLf1.Expr.newBuilder().setUpdate(protoUpdate).build()
+          val proto = DamlLf2.Expr.newBuilder().setUpdate(protoUpdate).build()
           decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(scala)
         }
       }
@@ -1207,15 +1208,15 @@ class DecodeCommonSpec
 
     s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
 
-      val unit = DamlLf1.Unit.newBuilder().build()
-      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val unit = DamlLf2.Unit.newBuilder().build()
+      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
       val modRef =
-        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
       val ifaceTyConName =
-        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
 
       val exerciseInterfaceProto = {
-        val exe = DamlLf1.Update.ExerciseInterface
+        val exe = DamlLf2.Update.ExerciseInterface
           .newBuilder()
           .setInterface(ifaceTyConName)
           .setChoiceInternedStr(0)
@@ -1223,7 +1224,7 @@ class DecodeCommonSpec
           .setArg(unitExpr)
           .setGuard(unitExpr)
           .build()
-        DamlLf1.Update.newBuilder().setExerciseInterface(exe).build()
+        DamlLf2.Update.newBuilder().setExerciseInterface(exe).build()
       }
 
       val exerciseInterfaceScala = Ast.UpdateExerciseInterface(
@@ -1237,27 +1238,27 @@ class DecodeCommonSpec
       forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
         val decoder =
           moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
-        val proto = DamlLf1.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
+        val proto = DamlLf2.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
     }
 
     s"decode softFetch iff version >= ${LV.Features.packageUpgrades} " in {
       val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
-      val unit = DamlLf1.Unit.newBuilder().build()
-      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val unit = DamlLf2.Unit.newBuilder().build()
+      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
       val modRef =
-        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
       val templateTyConName =
-        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+        DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
 
       val softFetchProto = {
-        val exe = DamlLf1.Update.SoftFetch
+        val exe = DamlLf2.Update.SoftFetch
           .newBuilder()
           .setTemplate(templateTyConName)
           .setCid(unitExpr)
           .build()
-        DamlLf1.Update.newBuilder().setSoftFetch(exe).build()
+        DamlLf2.Update.newBuilder().setSoftFetch(exe).build()
       }
 
       val softFetchScala = Ast.UpdateSoftFetchTemplate(
@@ -1267,7 +1268,7 @@ class DecodeCommonSpec
 
       forEveryVersion { version =>
         val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, typeTable)
-        val proto = DamlLf1.Expr.newBuilder().setUpdate(softFetchProto).build()
+        val proto = DamlLf2.Expr.newBuilder().setUpdate(softFetchProto).build()
         val result = Try(decoder.decodeExprForTest(proto, "test"))
         if (version >= LV.Features.packageUpgrades)
           result shouldBe Success(Ast.EUpdate(softFetchScala))
@@ -1291,14 +1292,14 @@ class DecodeCommonSpec
 
     s"decode interface definitions correctly iff version >= ${LV.Features.basicInterfaces}" in {
 
-      val fearureFlags = DamlLf1.FeatureFlags
+      val fearureFlags = DamlLf2.FeatureFlags
         .newBuilder()
         .setForbidPartyLiterals(true)
         .setDontDivulgeContractIdsInCreateArguments(true)
         .setDontDiscloseNonConsumingChoicesToObservers(true)
         .build()
 
-      val emptyDefInterface = DamlLf1.DefInterface
+      val emptyDefInterface = DamlLf2.DefInterface
         .newBuilder()
         .setTyconInternedDname(2)
         .setParamInternedStr(0)
@@ -1317,11 +1318,11 @@ class DecodeCommonSpec
 
       val methodsDefInterface = {
         val interfaceMethod1 =
-          DamlLf1.InterfaceMethod.newBuilder().setMethodInternedName(1).setType(textTypInterned)
+          DamlLf2.InterfaceMethod.newBuilder().setMethodInternedName(1).setType(textTypInterned)
         val interfaceMethod2 =
-          DamlLf1.InterfaceMethod.newBuilder().setMethodInternedName(2).setType(boolTypInterned)
+          DamlLf2.InterfaceMethod.newBuilder().setMethodInternedName(2).setType(boolTypInterned)
 
-        DamlLf1.DefInterface
+        DamlLf2.DefInterface
           .newBuilder()
           .setTyconInternedDname(2)
           .setParamInternedStr(0)
@@ -1348,7 +1349,7 @@ class DecodeCommonSpec
         )
       }
 
-      val coImplementsDefInterface = DamlLf1.DefInterface
+      val coImplementsDefInterface = DamlLf2.DefInterface
         .newBuilder()
         .setTyconInternedDname(2)
         .setParamInternedStr(0)
@@ -1380,7 +1381,7 @@ class DecodeCommonSpec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val module =
-            DamlLf1.Module
+            DamlLf2.Module
               .newBuilder()
               .setFlags(fearureFlags)
               .setNameInternedDname(0)
@@ -1412,18 +1413,18 @@ class DecodeCommonSpec
 
       val interfaceName = Ref.DottedName.assertFromString("I")
 
-      val unit = DamlLf1.Unit.newBuilder()
-      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit)
+      val unit = DamlLf2.Unit.newBuilder()
+      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit)
       val modRef =
-        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0)
+        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0)
 
       val requiresDefInterface = {
         val typeConNameJ =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val typeConNameK =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(4)
+          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(4)
 
-        DamlLf1.DefInterface
+        DamlLf2.DefInterface
           .newBuilder()
           .setTyconInternedDname(1)
           .setParamInternedStr(0)
@@ -1512,8 +1513,8 @@ class DecodeCommonSpec
   "decodePackageMetadata" should {
     "accept a valid package name and version" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        new DecodeCommon(version).decodePackageMetadata(
-          DamlLf1.PackageMetadata
+        new DecodeV2(version.minor).decodePackageMetadata(
+          DamlLf2.PackageMetadata
             .newBuilder()
             .setNameInternedStr(0)
             .setVersionInternedStr(1)
@@ -1530,8 +1531,8 @@ class DecodeCommonSpec
     "reject a package namewith space" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeCommon(version).decodePackageMetadata(
-            DamlLf1.PackageMetadata
+          new DecodeV2(version.minor).decodePackageMetadata(
+            DamlLf2.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
               .setVersionInternedStr(1)
@@ -1545,8 +1546,8 @@ class DecodeCommonSpec
     "reject a package version with leading zero" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeCommon(version).decodePackageMetadata(
-            DamlLf1.PackageMetadata
+          new DecodeV2(version.minor).decodePackageMetadata(
+            DamlLf2.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
               .setVersionInternedStr(1)
@@ -1560,8 +1561,8 @@ class DecodeCommonSpec
     "reject a package version with a dash" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         an[Error.Parsing] shouldBe thrownBy(
-          new DecodeCommon(version).decodePackageMetadata(
-            DamlLf1.PackageMetadata
+          new DecodeV2(version.minor).decodePackageMetadata(
+            DamlLf2.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
               .setVersionInternedStr(1)
@@ -1575,13 +1576,13 @@ class DecodeCommonSpec
     s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         val result = Try(
-          new DecodeCommon(version).decodePackageMetadata(
-            DamlLf1.PackageMetadata
+          new DecodeV2(version.minor).decodePackageMetadata(
+            DamlLf2.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
               .setVersionInternedStr(1)
               .setUpgradedPackageId(
-                DamlLf1.UpgradedPackageId
+                DamlLf2.UpgradedPackageId
                   .newBuilder()
                   .setUpgradedPackageIdInternedStr(2)
                   .build()
@@ -1616,16 +1617,16 @@ class DecodeCommonSpec
   "decodePackage" should {
     "reject PackageMetadata if lf version < 1.8" in {
       forEveryVersionSuchThat(_ < LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeCommon(version)
+        val decoder = new DecodeV2(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
         val metadata =
-          DamlLf1.PackageMetadata.newBuilder
+          DamlLf2.PackageMetadata.newBuilder
             .setNameInternedStr(0)
             .setVersionInternedStr(1)
             .build()
-        val pkg = DamlLf1.Package
+        val pkg = DamlLf2.Package
           .newBuilder()
           .addInternedStrings("foobar")
           .addInternedStrings("0.0.0")
@@ -1639,11 +1640,11 @@ class DecodeCommonSpec
 
     "require PackageMetadata to be present if lf version >= 1.8" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeCommon(version)
+        val decoder = new DecodeV2(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
-        inside(decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false)) {
+        inside(decoder.decodePackage(pkgId, DamlLf2.Package.newBuilder().build(), false)) {
           case Left(err) => err shouldBe an[Error.Parsing]
         }
       }
@@ -1651,16 +1652,16 @@ class DecodeCommonSpec
 
     "decode PackageMetadata if lf version >= 1.8" in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeCommon(version)
+        val decoder = new DecodeV2(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
         val metadata =
-          DamlLf1.PackageMetadata.newBuilder
+          DamlLf2.PackageMetadata.newBuilder
             .setNameInternedStr(0)
             .setVersionInternedStr(1)
             .build()
-        val pkg = DamlLf1.Package
+        val pkg = DamlLf2.Package
           .newBuilder()
           .addInternedStrings("foobar")
           .addInternedStrings("0.0.0")
@@ -1682,21 +1683,21 @@ class DecodeCommonSpec
   "decodeChoice" should {
     val stringTable = ImmArraySeq("SomeChoice", "controllers", "observers", "self", "arg", "body")
     val templateName = Ref.DottedName.assertFromString("Template")
-    val controllersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(1).build()
-    val observersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(2).build()
-    val bodyExp = DamlLf1.Expr.newBuilder().setVarInternedStr(5).build()
+    val controllersExpr = DamlLf2.Expr.newBuilder().setVarInternedStr(1).build()
+    val observersExpr = DamlLf2.Expr.newBuilder().setVarInternedStr(2).build()
+    val bodyExp = DamlLf2.Expr.newBuilder().setVarInternedStr(5).build()
 
     "reject choice with observers if lf version = 1.6" in {
       // special case for LF 1.6 that does not support string interning
-      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+      val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
         .newBuilder()
         .setNameStr("ChoiceName")
         .setConsuming(true)
-        .setControllers(DamlLf1.Expr.newBuilder().setVarStr("controllers"))
+        .setControllers(DamlLf2.Expr.newBuilder().setVarStr("controllers"))
         .setSelfBinderStr("self")
-        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarStr("arg").setType(unitTyp))
+        .setArgBinder(DamlLf2.VarWithType.newBuilder().setVarStr("arg").setType(unitTyp))
         .setRetType(unitTyp)
-        .setUpdate(DamlLf1.Expr.newBuilder().setVarStr("body").build())
+        .setUpdate(DamlLf2.Expr.newBuilder().setVarStr("body").build())
         .build()
 
       val protoChoiceWithObservers =
@@ -1720,13 +1721,13 @@ class DecodeCommonSpec
     // -- test that we reject explicit choice authorizers prior to the feature version.
 
     "reject choice with observers if 1.7 < lf version < 1.11" in {
-      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+      val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
         .setConsuming(true)
         .setControllers(controllersExpr)
         .setSelfBinderInternedStr(3)
-        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
+        .setArgBinder(DamlLf2.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
         .setRetType(unitTyp)
         .setUpdate(bodyExp)
         .build()
@@ -1753,14 +1754,14 @@ class DecodeCommonSpec
 
     "reject choice without observers if lv version >= 1.11" in {
 
-      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+      val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
         .setConsuming(true)
         .setControllers(controllersExpr)
         .setSelfBinderInternedStr(3)
         .setArgBinder(
-          DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTypInterned)
+          DamlLf2.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTypInterned)
         )
         .setRetType(unitTypInterned)
         .setUpdate(bodyExp)
@@ -1784,9 +1785,9 @@ class DecodeCommonSpec
   }
 
   "decodeInternedTypes" should {
-    def pkgWithInternedTypes: DamlLf1.Package = {
-      val typeNat1 = DamlLf1.Type.newBuilder().setNat(1).build()
-      DamlLf1.Package
+    def pkgWithInternedTypes: DamlLf2.Package = {
+      val typeNat1 = DamlLf2.Type.newBuilder().setNat(1).build()
+      DamlLf2.Package
         .newBuilder()
         .addInternedTypes(typeNat1)
         .build()
@@ -1794,7 +1795,7 @@ class DecodeCommonSpec
 
     "reject interned types if lf version < 1.11" in {
       forEveryVersionSuchThat(_ < LV.Features.internedTypes) { version =>
-        val decoder = new DecodeCommon(version)
+        val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           Ref.PackageId.assertFromString("noPkgId"),
           ImmArraySeq.empty,
@@ -1814,17 +1815,17 @@ class DecodeCommonSpec
 
   s"reject experiment expression if LF version < ${LV.Features.unstable}" in {
 
-    val expr = DamlLf1.Expr
+    val expr = DamlLf2.Expr
       .newBuilder()
       .setExperimental(
-        DamlLf1.Expr.Experimental
+        DamlLf2.Expr.Experimental
           .newBuilder()
           .setName("ANSWER")
           .setType(
-            DamlLf1.Type
+            DamlLf2.Type
               .newBuilder()
               .setPrim(
-                DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.INT64)
+                DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.INT64)
               )
           )
       )
@@ -1838,7 +1839,7 @@ class DecodeCommonSpec
 
   s"reject DefValue with no_party_literals = false" in {
     val defValue =
-      DamlLf1.DefValue
+      DamlLf2.DefValue
         .newBuilder()
         .setNoPartyLiterals(false)
         .build()
@@ -1854,7 +1855,7 @@ class DecodeCommonSpec
         forbidPartyLits: Boolean,
         dontDivulgeCids: Boolean,
         dontDiscloseNonConsuming: Boolean,
-    ) = DamlLf1.FeatureFlags
+    ) = DamlLf2.FeatureFlags
       .newBuilder()
       .setForbidPartyLiterals(forbidPartyLits)
       .setDontDivulgeContractIdsInCreateArguments(dontDivulgeCids)

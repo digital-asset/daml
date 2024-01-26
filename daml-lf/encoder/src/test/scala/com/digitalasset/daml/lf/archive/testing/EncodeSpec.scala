@@ -18,9 +18,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-// TODO (#17366): Once the LF2 syntax diverges from LF1, code sharing between these two tests is no
-//  longer possible.
-class EncodeV1Spec extends EncodeSpec(LanguageVersion.v1_dev)
 class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
 class EncodeSpec(languageVersion: LanguageVersion)

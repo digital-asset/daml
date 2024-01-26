@@ -117,12 +117,6 @@ LF_VERSIONS = [
 
 # All LF versions suported by the engine
 ENGINE_LF_VERSIONS = [
-    "1.8",
-    "1.11",
-    "1.13",
-    "1.14",
-    "1.15",
-    "1.dev",
     "2.1",
     "2.dev",
 ]
