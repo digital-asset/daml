@@ -8,7 +8,8 @@ import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.api.refinements.ApiTypes._
 

@@ -137,8 +137,8 @@ object LedgerClient {
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     for {
       // requesting ledger end validates the token, thus guaranteeing that the client is operable
-      _ <- new TransactionClient(
-        TransactionServiceGrpc.stub(channel)
+      _ <- new StateServiceClient(
+        StateServiceGrpc.stub(channel)
       ).getLedgerEnd(config.token)
     } yield new LedgerClient(channel, config, loggerFactory)
 

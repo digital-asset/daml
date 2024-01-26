@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast

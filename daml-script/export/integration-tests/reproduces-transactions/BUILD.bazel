@@ -34,6 +34,8 @@ da_scala_test(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -41,9 +43,6 @@ da_scala_test(
         "//daml-script/export/transaction-eq",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",

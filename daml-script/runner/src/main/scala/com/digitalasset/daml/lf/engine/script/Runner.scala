@@ -10,13 +10,12 @@ import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref
@@ -51,6 +50,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -250,6 +250,8 @@ object Runner {
     )
   }
 
+  val namedLoggerFactory: NamedLoggerFactory = NamedLoggerFactory("daml-script", "")
+
   val BLANK_APPLICATION_ID: Option[Ref.ApplicationId] = None
   val DEFAULT_APPLICATION_ID: Option[Ref.ApplicationId] = Some(
     Ref.ApplicationId.assertFromString("daml-script")
@@ -267,7 +269,6 @@ object Runner {
     )
     val clientConfig = LedgerClientConfiguration(
       applicationId = applicationId.getOrElse(""),
-      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = params.access_token,
     )
@@ -276,7 +277,7 @@ object Runner {
       maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .singleHost(params.host, params.port, clientConfig, clientChannelConfig)
+      .singleHost(params.host, params.port, clientConfig, clientChannelConfig, namedLoggerFactory)
       .map(
         new GrpcLedgerClient(
           _,

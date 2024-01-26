@@ -6,8 +6,9 @@ package engine
 package script
 package v2
 
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
@@ -16,7 +17,7 @@ import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._

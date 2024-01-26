@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._

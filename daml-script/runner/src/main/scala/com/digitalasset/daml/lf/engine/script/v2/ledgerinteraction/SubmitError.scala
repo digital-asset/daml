@@ -14,7 +14,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 

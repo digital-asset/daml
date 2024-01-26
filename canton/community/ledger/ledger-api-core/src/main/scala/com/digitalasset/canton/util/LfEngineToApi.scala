@@ -37,6 +37,8 @@ object LfEngineToApi {
   }
 
   def toApiIdentifier(typConRef: Ref.TypeConRef): api.Identifier =
+  // TODO: https://github.com/digital-asset/daml/issues/17995
+  //   drop this once the proto support package name
     toApiIdentifier(typConRef.assertToTypeConName)
 
   def toTimestamp(instant: Instant): Timestamp = {
