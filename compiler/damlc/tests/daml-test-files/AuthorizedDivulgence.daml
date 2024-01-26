@@ -105,19 +105,6 @@ test_noDivulgenceOfCreateArguments = script do
   cidSwap2 <- submit alice $ exerciseCmd cidSwap1 (GoSwap1 cidIouAlice)
   submitMustFail bob $ exerciseCmd cidSwap2 (GoSwap2 cidIouBob)
 
--- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
--- swap scenario passes.
--- @WARN range=119:3-119:13; Use of divulged contracts is deprecated
-test_noDivulgenceForFetch : Script ()
-test_noDivulgenceForFetch = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  cidIouAlice <- submit alice $ createCmd $ Iou {owner = alice, obligor = alice}
-  cidIouBob <- submit bob $ createCmd $ Iou {owner = bob, obligor = bob}
-  cidSwap1 <- submit alice $ createCmd $ (Swap1 alice bob)
-  cidSwap2 <- submit alice $ exerciseCmd cidSwap1 (GoSwap1WithFetch cidIouAlice)
-  submit bob $ exerciseCmd cidSwap2 (GoSwap2 cidIouBob)
-
 ----------------------------------------------------------------------------------------------------
 -- Testing divulgence of target contract ids of choices.
 ----------------------------------------------------------------------------------------------------

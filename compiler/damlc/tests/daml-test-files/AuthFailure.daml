@@ -3,6 +3,7 @@
 
 module AuthFailure where
 
+import DA.Optional(fromSome)
 import Daml.Script
 
 -- Tests for various(all) different forms of authorization failure detected during execution.
@@ -15,7 +16,7 @@ template TheContract1
   where
     signatory s
 
--- @ERROR range=20:1-20:30; failed due to a missing authorization from 'Ivy'
+-- @ERROR range=21:1-21:30; failed due to a missing authorization from 'Ivy'
 t1_CreateMissingAuthorization : Script ()
 t1_CreateMissingAuthorization = script do
   mach <- allocateParty "Mach"
@@ -33,7 +34,7 @@ template TheContract2
     key (m, id) : (Party, Int)
     maintainer key._1
 
--- @ERROR range=38:1-38:37; failed due to that some parties are maintainers but not signatories: 'Bob'
+-- @ERROR range=39:1-39:37; failed due to that some parties are maintainers but not signatories: 'Bob'
 t2_MaintainersNotSubsetOfSignatories : Script ()
 t2_MaintainersNotSubsetOfSignatories = script do
   alice <- allocateParty "Alice"
@@ -69,7 +70,7 @@ template Test3
       controller bob
       do fetch @TheContract3 cid
 
--- @ERROR range=74:1-74:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
+-- @ERROR range=75:1-75:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
 t3_FetchMissingAuthorization : Script ()
 t3_FetchMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -79,6 +80,8 @@ t3_FetchMissingAuthorization = script do
   -- note: we use `builder` so `cid` is visible to bob, although he is not a stakeholder
   cid <- bob `submit`
     exerciseCmd builder TheChoice with s2 = alice
+  disclosedCid <- fromSome <$> queryDisclosure alice cid
+  _ <- submitWithDisclosures bob [disclosedCid] (createAndExerciseCmd (Test3 bob cid) Call3)
   _ <- bob `submit` createAndExerciseCmd (Test3 bob cid) Call3
   abort "t3 finished"
 
@@ -104,7 +107,7 @@ template Test4
       controller bob
       do lookupByKey @TheContract4 contractKey
 
--- @ERROR range=109:1-109:35; failed due to a missing authorization from 'Alice'
+-- @ERROR range=112:1-112:35; failed due to a missing authorization from 'Alice'
 t4_LookupByKeyMissingAuthorization : Script ()
 t4_LookupByKeyMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -124,7 +127,7 @@ template TheContract5
       controller cs
       do return ()
 
--- @ERROR range=129:1-129:32; failed due to a missing authorization from 'Bob'
+-- @ERROR range=132:1-132:32; failed due to a missing authorization from 'Bob'
 t5_ExerciseMissingAuthorization : Script ()
 t5_ExerciseMissingAuthorization = script do
   alice <- allocateParty "Alice"

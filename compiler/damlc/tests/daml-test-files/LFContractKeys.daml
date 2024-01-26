@@ -191,14 +191,13 @@ lookupTest = script do
 
   -- TESTING CREATES AND ARCHIVES
 
-  -- Divulgee can archive
-  -- @WARN range=196:3-199:15; Use of divulged contracts is deprecated
-  submit divulgee do
+  -- Divulgee can not archive
+  submitMustFail divulgee do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = divulgee
       keyedCid
-  -- Divulgee can create
-  keyedCid2 <- submit divulgee do
+  -- Divulgee can not create
+  submitMustFail divulgee do
     exerciseCmd sigDelegationCid CreateKeyed with
       delegee = divulgee
       obs
@@ -207,9 +206,9 @@ lookupTest = script do
   submit obs do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = obs
-      keyedCid = keyedCid2
+      keyedCid = keyedCid
   -- Stakeholder can create
-  keyedCid3 <- submit obs do
+  keyedCid2 <- submit obs do
     exerciseCmd sigDelegationCid CreateKeyed with
       delegee = obs
       obs
