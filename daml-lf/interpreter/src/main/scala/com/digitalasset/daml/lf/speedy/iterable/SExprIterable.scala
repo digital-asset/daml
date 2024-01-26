@@ -5,17 +5,14 @@ package com.daml.lf.speedy.iterable
 
 import com.daml.lf.speedy.{SExpr, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s
 // uniplate.
-@nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
 private[speedy] object SExprIterable {
   that =>
   private[iterable] def iterator(e: SExpr): Iterator[SExpr] = e match {
     case SExpr.SEVal(_) => Iterator.empty
-    case SExpr.SEAppOnlyFunIsAtomic(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicGeneral(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicSaturatedBuiltin(_, args) => args.iterator
     case SExpr.SEMakeClo(_, _, body) => Iterator(body)
