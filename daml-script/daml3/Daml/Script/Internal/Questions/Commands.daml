@@ -4,9 +4,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module Daml.Script.Questions.Commands where
+module Daml.Script.Internal.Questions.Commands where
 
-import Daml.Script.Internal hiding (IsQuestion (..))
+import Daml.Script.Internal.LowLevel hiding (IsQuestion (..))
 import DA.Bifunctor
 
 data Command

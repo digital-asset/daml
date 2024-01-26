@@ -3,9 +3,12 @@
 
 -- @ SCRIPT-V2
 
+-- @ WARN range=11:1-11:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
 module Daml3ScriptPackageVetting where
 
 import Daml.Script
+import Daml.Script.Internal
 import PackageAModule
 import DA.Assert
 
@@ -32,7 +35,7 @@ canUseReVettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=37:1-37:25; Failed to find package
+-- @ ERROR range=40:1-40:25; Failed to find package
 cannotUseUnvettedPackage : Script ()
 cannotUseUnvettedPackage = script do
   alice <- allocateParty "Alice"
@@ -40,7 +43,7 @@ cannotUseUnvettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=45:1-45:30; Failed to find package
+-- @ ERROR range=48:1-48:30; Failed to find package
 cannotExerciseUnvettedPackage : Script ()
 cannotExerciseUnvettedPackage = script do
   alice <- allocateParty "Alice"

@@ -36,7 +36,7 @@ object SubmitError {
 
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =
-      env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", s)
+      env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Submit.Error", s)
     def damlScriptVariant(
         datatypeName: String,
         variantName: String,
@@ -401,7 +401,10 @@ object SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
-        env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", "DevErrorType")
+        env.scriptIds.damlScriptModule(
+          "Daml.Script.Internal.Questions.Submit.Error",
+          "DevErrorType",
+        )
       val devErrorType = errorType match {
         case "ChoiceGuardFailed" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)

@@ -1451,7 +1451,7 @@ scenariosInModule m =
 
 isDamlScriptModule :: LF.ModuleName -> Bool
 isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
-isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal"]) = True
+isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True
 isDamlScriptModule _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
