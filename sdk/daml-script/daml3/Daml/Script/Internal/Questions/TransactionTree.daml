@@ -3,9 +3,9 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-module Daml.Script.Questions.TransactionTree where
+module Daml.Script.Internal.Questions.TransactionTree where
 
-import Daml.Script.Questions.Util
+import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
 

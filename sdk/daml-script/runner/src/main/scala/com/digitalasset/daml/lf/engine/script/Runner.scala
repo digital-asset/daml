@@ -535,7 +535,10 @@ private[lf] class Runner(
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
-          if id == script.scriptIds.damlScriptModule("Daml.Script.Internal", "dangerousCast") =>
+          if id == script.scriptIds.damlScriptModule(
+            "Daml.Script.Internal.LowLevel",
+            "dangerousCast",
+          ) =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
       // Daml script legacy
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>

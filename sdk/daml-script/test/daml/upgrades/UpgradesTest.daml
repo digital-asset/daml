@@ -11,9 +11,7 @@ import DA.Foldable
 import DA.Text
 import DA.Time
 import Daml.Script
-import Daml.Script.Questions.Exceptions (tryToEither)
-import Daml.Script.Questions.Packages (unsafeVetDarOnParticipant, unsafeUnvetDarOnParticipant)
-import Daml.Script.Questions.Testing.Internal
+import Daml.Script.Internal
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
 import V1.MyTemplates hiding (ValidUpgrade, SameTypeChoice)

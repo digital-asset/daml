@@ -1,9 +1,9 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Questions.PartyManagement where
+module Daml.Script.Internal.Questions.PartyManagement where
 
-import Daml.Script.Internal
+import Daml.Script.Internal.LowLevel
 import DA.Stack
 
 data AllocateParty = AllocateParty with
