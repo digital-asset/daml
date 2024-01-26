@@ -13,8 +13,8 @@ import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.{v30, v30old}
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorRequestX,
@@ -35,28 +35,28 @@ object EnterpriseMediatorAdministrationCommands {
   // TODO(#15161): Remove old mediator commands and administration endpoints
   abstract class BaseMediatorInitializationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
-    override type Svc = v0.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub
+    override type Svc = v30old.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v0.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
-      v0.MediatorInitializationServiceGrpc.stub(channel)
+    ): v30old.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
+      v30old.MediatorInitializationServiceGrpc.stub(channel)
   }
   abstract class BaseMediatorXInitializationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
-    override type Svc = v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub
+    override type Svc = v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
-      v2.MediatorInitializationServiceGrpc.stub(channel)
+    ): v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
+      v30.MediatorInitializationServiceGrpc.stub(channel)
   }
   abstract class BaseMediatorAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
+      v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
-      v0.MediatorAdministrationServiceGrpc.stub(channel)
+    ): v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
+      v30.MediatorAdministrationServiceGrpc.stub(channel)
   }
 
   final case class Initialize(
@@ -67,11 +67,11 @@ object EnterpriseMediatorAdministrationCommands {
       sequencerConnections: SequencerConnections,
       signingKeyFingerprint: Option[Fingerprint],
   ) extends BaseMediatorInitializationCommand[
-        v0.InitializeMediatorRequest,
-        v0.InitializeMediatorResponse,
+        v30old.InitializeMediatorRequest,
+        v30old.InitializeMediatorResponse,
         PublicKey,
       ] {
-    override def createRequest(): Either[String, v0.InitializeMediatorRequest] =
+    override def createRequest(): Either[String, v30old.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequest(
           domainId,
@@ -80,19 +80,19 @@ object EnterpriseMediatorAdministrationCommands {
           domainParameters,
           sequencerConnections,
           signingKeyFingerprint,
-        ).toProtoV0
+        ).toProtoV30Old
       )
 
     override def submitRequest(
-        service: v0.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
-        request: v0.InitializeMediatorRequest,
-    ): Future[v0.InitializeMediatorResponse] =
+        service: v30old.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
+        request: v30old.InitializeMediatorRequest,
+    ): Future[v30old.InitializeMediatorResponse] =
       service.initialize(request)
     override def handleResponse(
-        response: v0.InitializeMediatorResponse
+        response: v30old.InitializeMediatorResponse
     ): Either[String, PublicKey] =
       InitializeMediatorResponse
-        .fromProtoV0(response)
+        .fromProtoV30old(response)
         .leftMap(err => s"Failed to deserialize response: $err")
         .flatMap(_.toEither)
   }
@@ -102,47 +102,47 @@ object EnterpriseMediatorAdministrationCommands {
       domainParameters: StaticDomainParameters,
       sequencerConnections: SequencerConnections,
   ) extends BaseMediatorXInitializationCommand[
-        v2.InitializeMediatorRequest,
-        v2.InitializeMediatorResponse,
+        v30.InitializeMediatorRequest,
+        v30.InitializeMediatorResponse,
         Unit,
       ] {
-    override def createRequest(): Either[String, v2.InitializeMediatorRequest] =
+    override def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequestX(
           domainId,
           domainParameters,
           sequencerConnections,
-        ).toProtoV2
+        ).toProtoV30
       )
 
     override def submitRequest(
-        service: v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
-        request: v2.InitializeMediatorRequest,
-    ): Future[v2.InitializeMediatorResponse] =
+        service: v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
+        request: v30.InitializeMediatorRequest,
+    ): Future[v30.InitializeMediatorResponse] =
       service.initialize(request)
     override def handleResponse(
-        response: v2.InitializeMediatorResponse
+        response: v30.InitializeMediatorResponse
     ): Either[String, Unit] =
       InitializeMediatorResponseX
-        .fromProtoV2(response)
+        .fromProtoV30(response)
         .leftMap(err => s"Failed to deserialize response: $err")
         .map(_ => ())
 
   }
 
   final case class Prune(timestamp: CantonTimestamp)
-      extends GrpcAdminCommand[v0.MediatorPruningRequest, Empty, Unit] {
+      extends GrpcAdminCommand[v30.MediatorPruningRequest, Empty, Unit] {
     override type Svc =
-      v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
+      v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
-      v0.MediatorAdministrationServiceGrpc.stub(channel)
-    override def createRequest(): Either[String, v0.MediatorPruningRequest] =
-      Right(v0.MediatorPruningRequest(timestamp.toProtoPrimitive.some))
+    ): v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
+      v30.MediatorAdministrationServiceGrpc.stub(channel)
+    override def createRequest(): Either[String, v30.MediatorPruningRequest] =
+      Right(v30.MediatorPruningRequest(timestamp.toProtoPrimitive.some))
     override def submitRequest(
-        service: v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
-        request: v0.MediatorPruningRequest,
+        service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
+        request: v30.MediatorPruningRequest,
     ): Future[Empty] = service.prune(request)
     override def handleResponse(response: Empty): Either[String, Unit] = Right(())
 

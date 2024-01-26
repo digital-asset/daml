@@ -8,8 +8,8 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.TopologyBootstrapRequest
-import com.digitalasset.canton.domain.admin.v0.TopologyBootstrapServiceGrpc.TopologyBootstrapService
+import com.digitalasset.canton.domain.admin.v30old.TopologyBootstrapRequest
+import com.digitalasset.canton.domain.admin.v30old.TopologyBootstrapServiceGrpc.TopologyBootstrapService
 import com.digitalasset.canton.domain.initialization.TopologyManagementInitialization
 import com.digitalasset.canton.domain.topology.DomainTopologyManager
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

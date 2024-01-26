@@ -283,7 +283,7 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
   override val name: String = "LegalIdentityClaim"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LegalIdentityClaim)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LegalIdentityClaim)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

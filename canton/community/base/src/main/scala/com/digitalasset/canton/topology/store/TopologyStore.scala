@@ -472,14 +472,6 @@ trait TopologyStoreCommon[+StoreID <: TopologyStoreId, ValidTx, StoredTx, Signed
   def providesAdditionalSignatures(transaction: SignedTx)(implicit
       traceContext: TraceContext
   ): Future[Boolean]
-
-  final def exists(transaction: SignedTx)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] = findStored(transaction).map(_.exists(signedTxFromStoredTx(_) == transaction))
-
-  def findStored(transaction: SignedTx, includeRejected: Boolean = false)(implicit
-      traceContext: TraceContext
-  ): Future[Option[StoredTx]]
 }
 
 object TopologyStoreCommon {
@@ -681,6 +673,19 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       transaction: SignedTopologyTransaction[TopologyChangeOp]
   )(implicit traceContext: TraceContext): Future[Boolean] =
     exists(transaction).map(exists => !exists)
+
+  final def exists(transaction: SignedTopologyTransaction[TopologyChangeOp])(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = findStored(transaction).map(
+    _.exists(signedTxFromStoredTx(_) == transaction)
+  )
+
+  def findStored(
+      transaction: SignedTopologyTransaction[TopologyChangeOp],
+      includeRejected: Boolean = false,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp]]]
 }
 
 object TopologyStore {

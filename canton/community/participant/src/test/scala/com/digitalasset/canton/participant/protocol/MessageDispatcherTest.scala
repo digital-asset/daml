@@ -1329,7 +1329,7 @@ private[protocol] object MessageDispatcherTest {
     val name: String = "TestRegularMediatorResult"
 
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> UnsupportedProtoCodec(ProtocolVersion.v30)
+      ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v30)
     )
 
     override protected def deserializationErrorK(error: ProtoDeserializationError): Unit = ()

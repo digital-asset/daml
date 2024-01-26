@@ -5,21 +5,22 @@ package com.digitalasset.canton.domain.mediator.admin.gprc
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.SigningPublicKey
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.{v30, v30old}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 trait InitializeMediatorResponse {
-  def toProtoV0: v0.InitializeMediatorResponse // make public
+  def toProtoV30old: v30old.InitializeMediatorResponse
+
   def toEither: Either[String, SigningPublicKey]
 }
 
 object InitializeMediatorResponse {
   final case class Success(mediatorKey: SigningPublicKey) extends InitializeMediatorResponse {
-    override def toProtoV0: v0.InitializeMediatorResponse =
-      v0.InitializeMediatorResponse(
-        v0.InitializeMediatorResponse.Value.Success(
-          v0.InitializeMediatorResponse.Success(
+    override def toProtoV30old: v30old.InitializeMediatorResponse =
+      v30old.InitializeMediatorResponse(
+        v30old.InitializeMediatorResponse.Value.Success(
+          v30old.InitializeMediatorResponse.Success(
             Some(mediatorKey.toProtoV30)
           )
         )
@@ -29,10 +30,10 @@ object InitializeMediatorResponse {
   }
 
   final case class Failure(reason: String) extends InitializeMediatorResponse {
-    override def toProtoV0: v0.InitializeMediatorResponse =
-      v0.InitializeMediatorResponse(
-        v0.InitializeMediatorResponse.Value.Failure(
-          v0.InitializeMediatorResponse.Failure(
+    override def toProtoV30old: v30old.InitializeMediatorResponse =
+      v30old.InitializeMediatorResponse(
+        v30old.InitializeMediatorResponse.Value.Failure(
+          v30old.InitializeMediatorResponse.Failure(
             reason
           )
         )
@@ -41,11 +42,11 @@ object InitializeMediatorResponse {
     override def toEither: Either[String, SigningPublicKey] = Left(reason)
   }
 
-  def fromProtoV0(
-      responseP: v0.InitializeMediatorResponse
+  def fromProtoV30old(
+      responseP: v30old.InitializeMediatorResponse
   ): ParsingResult[InitializeMediatorResponse] = {
     def success(
-        successP: v0.InitializeMediatorResponse.Success
+        successP: v30old.InitializeMediatorResponse.Success
     ): ParsingResult[InitializeMediatorResponse] =
       for {
         mediatorKey <- ProtoConverter.parseRequired(
@@ -56,29 +57,29 @@ object InitializeMediatorResponse {
       } yield InitializeMediatorResponse.Success(mediatorKey)
 
     def failure(
-        failureP: v0.InitializeMediatorResponse.Failure
+        failureP: v30old.InitializeMediatorResponse.Failure
     ): ParsingResult[InitializeMediatorResponse] =
       Right(InitializeMediatorResponse.Failure(failureP.reason))
 
     responseP.value match {
-      case v0.InitializeMediatorResponse.Value.Empty =>
+      case v30old.InitializeMediatorResponse.Value.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("value"))
-      case v0.InitializeMediatorResponse.Value.Success(value) => success(value)
-      case v0.InitializeMediatorResponse.Value.Failure(value) => failure(value)
+      case v30old.InitializeMediatorResponse.Value.Success(value) => success(value)
+      case v30old.InitializeMediatorResponse.Value.Failure(value) => failure(value)
     }
   }
 }
 
 final case class InitializeMediatorResponseX() {
-  def toProtoV2: v2.InitializeMediatorResponse = v2.InitializeMediatorResponse()
+  def toProtoV30: v30.InitializeMediatorResponse = v30.InitializeMediatorResponse()
 }
 
 object InitializeMediatorResponseX {
 
-  def fromProtoV2(
-      responseP: v2.InitializeMediatorResponse
+  def fromProtoV30(
+      responseP: v30.InitializeMediatorResponse
   ): ParsingResult[InitializeMediatorResponseX] = {
-    val v2.InitializeMediatorResponse() = responseP
+    val v30.InitializeMediatorResponse() = responseP
     Right(InitializeMediatorResponseX())
   }
 }

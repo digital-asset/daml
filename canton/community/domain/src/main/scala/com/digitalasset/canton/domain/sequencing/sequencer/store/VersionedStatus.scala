@@ -26,7 +26,7 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
     * See the helper `supportedProtoVersion` below to define a `Parser`.
     */
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
+    ProtoVersion(30) -> VersionedProtoConverter
       .storage(
         ReleaseProtocolVersion(ProtocolVersion.v30),
         v30.VersionedStatus.messageCompanion,

@@ -78,7 +78,7 @@ object ContractMetadata
     extends HasVersionedMessageCompanion[ContractMetadata]
     with HasVersionedMessageCompanionDbHelpers[ContractMetadata] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.SerializableContract.Metadata)(fromProtoV30),
       _.toProtoV30.toByteString,

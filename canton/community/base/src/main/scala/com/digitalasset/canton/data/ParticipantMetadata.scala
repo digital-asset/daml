@@ -62,7 +62,7 @@ object ParticipantMetadata
   override val name: String = "ParticipantMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ParticipantMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ParticipantMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

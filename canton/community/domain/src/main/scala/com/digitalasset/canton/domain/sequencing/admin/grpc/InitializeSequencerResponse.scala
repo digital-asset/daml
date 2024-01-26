@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.admin.grpc
 
 import com.digitalasset.canton.crypto.SigningPublicKey
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.{v30, v30old}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
@@ -13,7 +13,7 @@ final case class InitializeSequencerResponse(
     publicKey: SigningPublicKey,
     replicated: Boolean,
 ) {
-  def toProtoV0: v0.InitResponse = v0.InitResponse(
+  def toProtoV30Old: v30old.InitResponse = v30old.InitResponse(
     keyId = keyId,
     publicKey = Some(publicKey.toProtoV30),
     replicated = replicated,
@@ -21,7 +21,7 @@ final case class InitializeSequencerResponse(
 }
 
 object InitializeSequencerResponse {
-  def fromProtoV0(response: v0.InitResponse): ParsingResult[InitializeSequencerResponse] =
+  def fromProtoV30Old(response: v30old.InitResponse): ParsingResult[InitializeSequencerResponse] =
     for {
       publicKey <- ProtoConverter.parseRequired(
         SigningPublicKey.fromProtoV30,
@@ -32,15 +32,15 @@ object InitializeSequencerResponse {
 }
 
 final case class InitializeSequencerResponseX(replicated: Boolean) {
-  def toProtoV2: v2.InitializeSequencerResponse =
-    v2.InitializeSequencerResponse(replicated)
+  def toProtoV30: v30.InitializeSequencerResponse =
+    v30.InitializeSequencerResponse(replicated)
 }
 
 object InitializeSequencerResponseX {
-  def fromProtoV2(
-      response: v2.InitializeSequencerResponse
+  def fromProtoV30(
+      response: v30.InitializeSequencerResponse
   ): ParsingResult[InitializeSequencerResponseX] = {
-    val v2.InitializeSequencerResponse(replicated) = response
+    val v30.InitializeSequencerResponse(replicated) = response
     Right(InitializeSequencerResponseX(replicated))
   }
 }

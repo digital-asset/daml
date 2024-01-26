@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v0;
+package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
 import "google/protobuf/empty.proto";

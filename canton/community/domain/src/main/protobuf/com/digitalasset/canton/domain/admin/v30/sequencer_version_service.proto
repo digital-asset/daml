@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v0;
+package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
 

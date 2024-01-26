@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/domain_params.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "google/protobuf/timestamp.proto";
@@ -81,6 +82,7 @@ message StaticDomainParameters {
   repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 5;
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 6;
   int32 protocol_version = 7;
+  CatchUpConfig catch_up_parameters = 8;
 }
 
 message Envelope {

@@ -3,11 +3,8 @@
 
 module Canton.Internal.Bong where
 
--- import Daml.Script
 import DA.Text
 import DA.List
--- import DA.Time
--- import DA.Date
 
 -- A Bong is a contract that can be exploded into a tree of contracts.
 template BongProposal

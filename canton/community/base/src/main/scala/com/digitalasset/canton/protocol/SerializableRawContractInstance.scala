@@ -5,6 +5,7 @@ package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.Value.ContractInstanceWithAgreement
 import com.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -40,7 +41,12 @@ final case class SerializableRawContractInstance private (
   @throws[SerializationCheckFailed[ValueCoder.EncodeError]]
   protected[this] override def toByteStringChecked: Either[ValueCoder.EncodeError, ByteString] =
     TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, contractInstance)
+      .encodeContractInstance(
+        ValueCoder.CidEncoder,
+        contractInstance.map(
+          ContractInstanceWithAgreement(_, agreementText = "" /* not used anymore */ )
+        ),
+      )
       .map(_.toByteString)
 
   lazy val contractHash: LfHash =
@@ -95,10 +101,11 @@ object SerializableRawContractInstance {
       contractInstanceP <- ProtoConverter.protoParser(
         TransactionOuterClass.ContractInstance.parseFrom
       )(bytes)
-      contractInstance <- TransactionCoder
-        .decodeContractInstance(ValueCoder.CidDecoder, contractInstanceP)
+      contractInstanceAndAgreementText <- TransactionCoder
+        .decodeVersionedContractInstance(ValueCoder.CidDecoder, contractInstanceP)
         .leftMap(error => ValueConversionError("", error.toString))
-    } yield createWithSerialization(contractInstance)(bytes)
+      ContractInstanceWithAgreement(_, _) = contractInstanceAndAgreementText.unversioned
+    } yield createWithSerialization(contractInstanceAndAgreementText.map(_.contractInstance))(bytes)
 
   @VisibleForTesting
   def createWithSerialization(contractInst: LfContractInst)(

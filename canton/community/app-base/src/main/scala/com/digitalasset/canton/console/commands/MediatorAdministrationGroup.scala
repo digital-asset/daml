@@ -26,8 +26,8 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration

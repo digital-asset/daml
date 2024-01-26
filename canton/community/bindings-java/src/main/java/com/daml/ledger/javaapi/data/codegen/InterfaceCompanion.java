@@ -60,6 +60,7 @@ public abstract class InterfaceCompanion<I, Id, View>
   private Contract<Id, View> fromIdAndRecord(
       String contractId,
       Map<Identifier, DamlRecord> interfaceViews,
+      Optional<String> agreementText,
       Set<String> signatories,
       Set<String> observers)
       throws IllegalArgumentException {
@@ -72,7 +73,7 @@ public abstract class InterfaceCompanion<I, Id, View>
             record -> {
               View view = valueDecoder.decode(record);
               return new ContractWithInterfaceView<>(
-                  this, id, view, signatories, observers);
+                  this, id, view, agreementText, signatories, observers);
             })
         .orElseThrow(
             () ->
@@ -93,6 +94,7 @@ public abstract class InterfaceCompanion<I, Id, View>
     return fromIdAndRecord(
         event.getContractId(),
         event.getInterfaceViews(),
+        event.getAgreementText(),
         event.getSignatories(),
         event.getObservers());
   }

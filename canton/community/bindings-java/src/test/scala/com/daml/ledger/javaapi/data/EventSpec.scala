@@ -52,6 +52,7 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
       base.getCreatedEventBlob,
       mutatingIVs,
       mutatingFIVs,
+      base.getAgreementText,
       base.getContractKey,
       mutatingSignatories,
       mutatingObservers,

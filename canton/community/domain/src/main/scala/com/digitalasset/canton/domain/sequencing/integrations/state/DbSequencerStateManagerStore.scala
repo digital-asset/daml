@@ -13,7 +13,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.protocol.v0
+import com.digitalasset.canton.domain.protocol.v30
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.*
@@ -650,10 +650,10 @@ object DbSequencerStateManagerStore {
     @transient override protected lazy val companionObj: AggregatedSignaturesOfSender.type =
       AggregatedSignaturesOfSender
 
-    private def toProtoV0: v0.AggregatedSignaturesOfSender =
-      v0.AggregatedSignaturesOfSender(
+    private def toProtoV30: v30.AggregatedSignaturesOfSender =
+      v30.AggregatedSignaturesOfSender(
         signaturesByEnvelope = signaturesByEnvelope.map(sigs =>
-          v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV30))
+          v30.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV30))
         )
       )
   }
@@ -664,22 +664,22 @@ object DbSequencerStateManagerStore {
     override def name: String = "AggregatedSignaturesOfSender"
 
     override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> VersionedProtoConverter.storage(
+      ProtoVersion(30) -> VersionedProtoConverter.storage(
         ReleaseProtocolVersion(ProtocolVersion.v30),
-        v0.AggregatedSignaturesOfSender,
+        v30.AggregatedSignaturesOfSender,
       )(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
       )
     )
 
-    private def fromProtoV0(
-        proto: v0.AggregatedSignaturesOfSender
+    private def fromProtoV30(
+        proto: v30.AggregatedSignaturesOfSender
     ): ParsingResult[AggregatedSignaturesOfSender] = {
-      val v0.AggregatedSignaturesOfSender(sigsP) = proto
+      val v30.AggregatedSignaturesOfSender(sigsP) = proto
       for {
         sigs <- sigsP.traverse {
-          case v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
+          case v30.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
             sigsForEnvelope.traverse(Signature.fromProtoV30)
         }
       } yield AggregatedSignaturesOfSender(sigs)(protocolVersionRepresentativeFor(ProtoVersion(0)))

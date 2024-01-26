@@ -244,7 +244,7 @@ object LocalReject extends LocalRejectionGroup {
           ]
       ) extends LocalRejectImpl(
             _causePrefix = s"Rejected transaction is referring to locked contracts ",
-            _resourcesType = Some(CantonErrorResource.ContractId),
+            _resourcesType = Some(ErrorResource.ContractId),
           )
 
       object Reject {
@@ -270,7 +270,7 @@ object LocalReject extends LocalRejectionGroup {
           ]
       ) extends LocalRejectImpl(
             _causePrefix = "Rejected transaction is referring to inactive contracts ",
-            _resourcesType = Some(CantonErrorResource.ContractId),
+            _resourcesType = Some(ErrorResource.ContractId),
           )
 
       object Reject {
@@ -479,7 +479,7 @@ object LocalReject extends LocalRejectionGroup {
           ]
       ) extends Malformed(
             _causePrefix = "Rejected transaction would create contract(s) that already exist ",
-            _resourcesType = Some(CantonErrorResource.ContractId),
+            _resourcesType = Some(ErrorResource.ContractId),
           )
 
       object Reject {

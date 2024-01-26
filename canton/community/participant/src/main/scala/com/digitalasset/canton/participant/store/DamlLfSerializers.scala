@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.lf.CantonOnly
 import com.daml.lf.transaction.{Node, TransactionCoder, TransactionOuterClass, Versioned}
-import com.daml.lf.value.Value.ContractInstance
+import com.daml.lf.value.Value.ContractInstanceWithAgreement
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.canton.protocol
@@ -44,16 +44,20 @@ private[store] object DamlLfSerializers {
       contract: LfContractInst
   ): Either[EncodeError, ByteString] =
     TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, contract)
+      .encodeContractInstance(
+        ValueCoder.CidEncoder,
+        contract.map(ContractInstanceWithAgreement(_, agreementText = "" /* not used anymore */ )),
+      )
       .map(_.toByteString)
 
   def deserializeContract(
       bytes: ByteString
-  ): Either[DecodeError, Versioned[ContractInstance]] =
-    TransactionCoder.decodeContractInstance(
-      ValueCoder.CidDecoder,
-      TransactionOuterClass.ContractInstance.parseFrom(bytes),
-    )
+  ): Either[DecodeError, Versioned[ContractInstanceWithAgreement]] =
+    TransactionCoder
+      .decodeVersionedContractInstance(
+        ValueCoder.CidDecoder,
+        TransactionOuterClass.ContractInstance.parseFrom(bytes),
+      )
 
   private def deserializeNode(
       proto: TransactionOuterClass.Node

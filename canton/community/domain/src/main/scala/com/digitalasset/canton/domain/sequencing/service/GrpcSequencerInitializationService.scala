@@ -4,9 +4,9 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
-import com.digitalasset.canton.domain.admin.v0.InitResponse
-import com.digitalasset.canton.domain.admin.v0.SequencerInitializationServiceGrpc.SequencerInitializationService
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.v30old
+import com.digitalasset.canton.domain.admin.v30old.InitResponse
+import com.digitalasset.canton.domain.admin.v30old.SequencerInitializationServiceGrpc.SequencerInitializationService
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
@@ -35,14 +35,14 @@ class GrpcSequencerInitializationService(
     with NamedLogging
     with NoTracing {
 
-  override def initV2(requestP: v2.InitRequest): Future[InitResponse] =
-    initInternal(requestP, InitializeSequencerRequest.fromProtoV2)
+  override def initV2(requestP: v30old.InitRequest): Future[InitResponse] =
+    initInternal(requestP, InitializeSequencerRequest.fromProtoV30Old)
 
   /** Process requests sequentially */
   def initInternal[P](
       requestP: P,
       deserializer: P => ParsingResult[InitializeSequencerRequest],
-  ): Future[v0.InitResponse] = {
+  ): Future[v30old.InitResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     // ensure here we don't process initialization requests concurrently
     val result = for {
@@ -52,7 +52,7 @@ class GrpcSequencerInitializationService(
         .leftMap(Status.INVALID_ARGUMENT.withDescription)
       response <- initialize(Traced(request))
         .leftMap(Status.FAILED_PRECONDITION.withDescription)
-      responseP = response.toProtoV0
+      responseP = response.toProtoV30Old
     } yield responseP
     EitherTUtil.toFutureUnlessShutdown(result.leftMap(_.asRuntimeException())).asGrpcResponse
   }

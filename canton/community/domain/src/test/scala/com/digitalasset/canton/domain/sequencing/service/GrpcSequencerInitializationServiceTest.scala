@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.v30old
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
@@ -34,7 +34,7 @@ class GrpcSequencerInitializationServiceTest extends AsyncWordSpec with BaseTest
   "GrpcSequencerInitializationService" should {
     "call given initialize function (v2) " in {
       val initRequest =
-        v2.InitRequest(
+        v30old.InitRequest(
           domainId = domainId.toProtoPrimitive,
           topologySnapshot = Some(StoredTopologyTransactions.empty.toProtoV30),
           domainParameters = Some(defaultStaticDomainParameters.toProtoV30),
@@ -50,7 +50,7 @@ class GrpcSequencerInitializationServiceTest extends AsyncWordSpec with BaseTest
       for {
         response <- sut.initV2(initRequest)
       } yield {
-        response shouldBe v0.InitResponse("test", Some(sequencerKey.toProtoV30), false)
+        response shouldBe v30old.InitResponse("test", Some(sequencerKey.toProtoV30), false)
       }
     }
   }

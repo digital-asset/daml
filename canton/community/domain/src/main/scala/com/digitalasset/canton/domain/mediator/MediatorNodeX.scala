@@ -8,7 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
-import com.digitalasset.canton.domain.admin.v2.MediatorInitializationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.MediatorInitializationServiceGrpc
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequestX,
   InitializeMediatorResponseX,

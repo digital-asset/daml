@@ -8,7 +8,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.TopologyBootstrapServiceGrpc
+import com.digitalasset.canton.domain.admin.v30old.TopologyBootstrapServiceGrpc
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory

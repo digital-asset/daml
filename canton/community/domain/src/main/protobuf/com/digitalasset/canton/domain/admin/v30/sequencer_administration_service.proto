@@ -3,11 +3,10 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v0;
+package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
-import "com/digitalasset/canton/domain/admin/v0/sequencer_initialization_snapshot.proto";
-import "com/digitalasset/canton/domain/admin/v1/sequencer_initialization_snapshot.proto";
+import "com/digitalasset/canton/domain/admin/v30/sequencer_initialization_snapshot.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -46,7 +45,7 @@ message Snapshot {
     }
   }
   message Success {
-    com.digitalasset.canton.domain.admin.v1.SequencerSnapshot state = 1;
+    SequencerSnapshot state = 1;
   }
   message Failure {
     string reason = 1;

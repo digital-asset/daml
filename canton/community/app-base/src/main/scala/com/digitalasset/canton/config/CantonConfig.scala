@@ -70,11 +70,13 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
+import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -374,6 +376,8 @@ trait CantonConfig {
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        journalGarbageCollectionDelay =
+          participantParameters.journalGarbageCollectionDelay.toInternal,
       )
     }
 
@@ -875,6 +879,8 @@ object CantonConfig {
       deriveReader[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigReader: ConfigReader[DomainParametersConfig] =
       deriveReader[DomainParametersConfig]
+    lazy implicit val catchUpParametersConfigReader: ConfigReader[CatchUpConfig] =
+      deriveReader[CatchUpConfig]
     lazy implicit val domainNodeParametersConfigReader: ConfigReader[DomainNodeParametersConfig] =
       deriveReader[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
@@ -1279,6 +1285,8 @@ object CantonConfig {
       deriveWriter[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigWriter: ConfigWriter[DomainParametersConfig] =
       deriveWriter[DomainParametersConfig]
+    lazy implicit val catchUpParametersConfigWriter: ConfigWriter[CatchUpConfig] =
+      deriveWriter[CatchUpConfig]
     lazy implicit val domainNodeParametersConfigWriter: ConfigWriter[DomainNodeParametersConfig] =
       deriveWriter[DomainNodeParametersConfig]
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
