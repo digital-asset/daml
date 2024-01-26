@@ -114,7 +114,6 @@ da_java_library(
     name = "community_lib_Blake2b",
     srcs = glob(["community/lib/Blake2b/src/main/**/*.java"]),
     tags = [
-        # TODO: is this okay?
         "javadoc_root_packages=org.bouncycastle.crypto.digests.canton",
         "maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__",
     ],
