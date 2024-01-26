@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.utils.DeserializedCantonError
+import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
@@ -91,7 +91,7 @@ object Verdict
     override def logWithContext(extra: Map[String, String])(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): Unit =
-      DeserializedCantonError.fromGrpcStatus(status) match {
+      DecodedCantonError.fromGrpcStatus(status) match {
         case Right(error) => error.logWithContext(extra)
         case Left(err) =>
           contextualizedErrorLogger.warn(s"Failed to parse mediator rejection: $err")
@@ -100,7 +100,7 @@ object Verdict
     override def rpcStatusWithoutLoggingContext(): Status = status
 
     override def isTimeoutDeterminedByMediator: Boolean =
-      DeserializedCantonError.fromGrpcStatus(status).exists(_.code.id == MediatorError.Timeout.id)
+      DecodedCantonError.fromGrpcStatus(status).exists(_.code.id == MediatorError.Timeout.id)
   }
 
   object MediatorReject {

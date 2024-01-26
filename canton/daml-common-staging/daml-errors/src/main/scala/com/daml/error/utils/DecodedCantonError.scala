@@ -4,13 +4,14 @@
 package com.daml.error.utils
 
 import cats.implicits.toTraverseOps
+import cats.syntax.either.*
 import com.daml.error.BaseError.SecuritySensitiveMessage
 import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.daml.error.*
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
 import com.google.rpc.status.Status as RpcStatus
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 import org.slf4j.event.Level
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
@@ -26,7 +27,7 @@ import scala.util.Try
   * Note: Do NOT use this class for explicitly instantiating errors.
   *       Instead, use or create a fully-typed error instance.
   */
-final case class DeserializedCantonError(
+final case class DecodedCantonError(
     code: ErrorCode,
     cause: String,
     correlationId: Option[String],
@@ -37,15 +38,19 @@ final case class DeserializedCantonError(
   def toRpcStatusWithForwardedRequestId: RpcStatus = super.rpcStatus(None)(
     new NoLogging(properties = Map.empty, correlationId = correlationId, traceId = traceId)
   )
+
+  def retryIn: Option[FiniteDuration] = code.category.retryable.map(_.duration)
+
+  def isRetryable: Boolean = retryIn.nonEmpty
 }
 
-object DeserializedCantonError {
+object DecodedCantonError {
 
-  /** Deserializes a [[com.google.rpc.status.Status]] to [[DeserializedCantonError]].
+  /** Deserializes a [[com.google.rpc.status.Status]] to [[DecodedCantonError]].
     * With the exception of throwables, all serialized error information is extracted,
     * making this method an inverse of [[BaseError.rpcStatus]].
     */
-  def fromGrpcStatus(status: RpcStatus): Either[String, DeserializedCantonError] = {
+  def fromGrpcStatus(status: RpcStatus): Either[String, DecodedCantonError] = {
     val rawDetails = status.details
 
     val statusCode = Status.fromCodeValue(status.code).getCode
@@ -62,10 +67,21 @@ object DeserializedCantonError {
     }
   }
 
+  def fromStatusRuntimeException(
+      statusRuntimeException: StatusRuntimeException
+  ): Either[String, DecodedCantonError] =
+    Either
+      .catchOnly[IllegalArgumentException](
+        io.grpc.protobuf.StatusProto.fromThrowable(statusRuntimeException)
+      )
+      .leftMap(ex => s"Failed to decode error from exception: ${ex.getMessage}")
+      .map(RpcStatus.fromJavaProto)
+      .flatMap(fromGrpcStatus)
+
   private def tryDeserializeStatus(
       status: RpcStatus,
       rawDetails: Seq[any.Any],
-  ): Either[String, DeserializedCantonError] =
+  ): Either[String, DecodedCantonError] =
     for {
       errorInfoSeq <- extractErrorDetail[ErrorInfo](rawDetails)
       errorInfo <- errorInfoSeq.exactlyOne
@@ -75,7 +91,7 @@ object DeserializedCantonError {
       retryInfo <- retryInfoSeq.atMostOne
       resourceInfo <- extractErrorDetail[ResourceInfo](rawDetails)
       resources = resourceInfo.map { resourceInfo =>
-        GenericErrorResource(resourceInfo.resourceType) -> resourceInfo.resourceName
+        ErrorResource(resourceInfo.resourceType) -> resourceInfo.resourceName
       }
       errorCategory <- extractErrorCategory(
         errorInfo = errorInfo,
@@ -89,7 +105,7 @@ object DeserializedCantonError {
       correlationId = requestInfo.collect {
         case requestInfo if !traceId.contains(requestInfo.requestId) => requestInfo.requestId
       }
-    } yield DeserializedCantonError(
+    } yield DecodedCantonError(
       code = GenericErrorCode(id = errorInfo.reason, category = errorCategory),
       cause = cause,
       context = errorInfo.metadata,
@@ -110,8 +126,8 @@ object DeserializedCantonError {
       grpcCode: Status.Code,
       correlationId: Option[String],
       traceId: Option[String],
-  ): DeserializedCantonError =
-    DeserializedCantonError(
+  ): DecodedCantonError =
+    DecodedCantonError(
       code = GenericErrorCode(
         id = "NA",
         category = GenericErrorCategory(
@@ -187,7 +203,7 @@ object DeserializedCantonError {
   }
 
   /** Dummy error class for the purpose of creating the [[GenericErrorCode]].
-    * It has no effect on documentation as its intended user ([[DeserializedCantonError]])
+    * It has no effect on documentation as its intended user ([[DecodedCantonError]])
     * does not appear in documentation.
     */
   private implicit val genericErrorClass: ErrorClass = ErrorClass(
@@ -199,9 +215,4 @@ object DeserializedCantonError {
       override val id: String,
       override val category: ErrorCategory,
   ) extends ErrorCode(id, category)
-
-  /** Generic wrapper for error resources parsed from deserialized gRPC-statuses */
-  private final case class GenericErrorResource(resourceType: String) extends ErrorResource {
-    override def asString: String = resourceType
-  }
 }

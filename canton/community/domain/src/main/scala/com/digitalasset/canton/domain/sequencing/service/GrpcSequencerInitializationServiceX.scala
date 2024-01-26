@@ -7,8 +7,8 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
-import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc.SequencerInitializationService
-import com.digitalasset.canton.domain.admin.v2.{
+import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
+import com.digitalasset.canton.domain.admin.v30.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
 }
@@ -50,7 +50,7 @@ class GrpcSequencerInitializationServiceX(
         CantonError,
         InitializeSequencerResponseX,
       ]
-    } yield result.toProtoV2
+    } yield result.toProtoV30
     mapErrNew(res)
   }
 }

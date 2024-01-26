@@ -107,8 +107,8 @@ class TopologyStateProcessorX(
     type Lft = Seq[GenericValidatedTopologyTransactionX]
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
-    val preloadTxsForMappingF = preloadTxsForMapping(EffectiveTime.MaxValue, transactions)
-    val preloadProposalsForTxF = preloadProposalsForTx(EffectiveTime.MaxValue, transactions)
+    val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
+    val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
     val duplicatesF = findDuplicates(effective, transactions)
     // TODO(#14064) preload authorization data
     val ret = for {
@@ -335,13 +335,11 @@ class TopologyStateProcessorX(
         else {
           // check that the transaction has not been added before (but allow it if it has a different version ...)
           store
-            .findStored(tx)
+            .findStored(timestamp.value, tx)
             .map(
               _.filter(x =>
-                // if the stored transaction was stored at an earlier effective time
-                x.validFrom.value < timestamp.value &&
-                  // and the transaction to validate has the same proto version
-                  x.transaction.protoVersion == tx.protoVersion &&
+                // if the transaction to validate has the same proto version
+                x.transaction.protoVersion == tx.protoVersion &&
                   // and the transaction to validate doesn't add new signatures
                   tx.signatures.diff(x.transaction.signatures).isEmpty
               ).map(_.validFrom)

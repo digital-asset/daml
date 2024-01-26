@@ -18,7 +18,6 @@ object PruningDto {
   final case class EventCreate(seqId: Long)
   final case class EventConsuming(seqId: Long)
   final case class EventNonConsuming(seqId: Long)
-  final case class EventDivulgence(seqId: Long)
 
   final case class FilterCreateStakeholder(seqId: Long, party: Long)
   final case class FilterCreateNonStakeholder(seqId: Long, party: Long)
@@ -46,9 +45,6 @@ class PruningDtoQueries {
   def eventNonConsuming(implicit c: Connection): Seq[EventNonConsuming] =
     SQL"SELECT event_sequential_id FROM participant_events_non_consuming_exercise ORDER BY event_sequential_id"
       .asVectorOf(seqIdParser(EventNonConsuming))(c)
-  def eventDivulgence(implicit c: Connection): Seq[EventDivulgence] =
-    SQL"SELECT event_sequential_id FROM participant_events_divulgence ORDER BY event_sequential_id"
-      .asVectorOf(seqIdParser(EventDivulgence))(c)
 
   def filterCreateStakeholder(implicit c: Connection): Seq[FilterCreateStakeholder] =
     SQL"SELECT event_sequential_id, party_id FROM pe_create_id_filter_stakeholder ORDER BY event_sequential_id, party_id"

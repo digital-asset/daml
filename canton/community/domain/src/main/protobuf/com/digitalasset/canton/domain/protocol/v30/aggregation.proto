@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.protocol.v0;
+package com.digitalasset.canton.domain.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "scalapb/scalapb.proto";

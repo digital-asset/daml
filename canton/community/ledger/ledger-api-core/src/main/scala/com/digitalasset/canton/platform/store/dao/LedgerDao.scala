@@ -265,7 +265,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       hostedWitnesses: List[Party],
       recordTime: Timestamp,

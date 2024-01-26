@@ -340,6 +340,7 @@ object TestingTimeServiceConfig {
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
+  * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -367,6 +368,8 @@ final case class ParticipantNodeParameterConfig(
     enableContractUpgrading: Boolean = false,
     iterationsBetweenInterruptions: Long =
       10000, // 10000 is the default value in the engine configuration
+    journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
+      config.NonNegativeFiniteDuration.ofSeconds(0),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

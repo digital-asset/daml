@@ -10,17 +10,14 @@ import com.daml.ledger.api.v1.admin.package_management_service.PackageManagement
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
-import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.daml.ledger.api.v1.package_service.PackageServiceGrpc as PackageServiceGrpcV1
 import com.daml.ledger.api.v1.trace_context.TraceContext as LedgerApiTraceContext
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc as CommandServiceGrpcV2
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc as PackageServiceGrpcV2
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
+import com.daml.ledger.api.v2.version_service.VersionServiceGrpc
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
@@ -28,11 +25,8 @@ import com.digitalasset.canton.ledger.client.configuration.{
 }
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.admin.*
-import com.digitalasset.canton.ledger.client.services.commands.{
-  CommandClientV1,
-  CommandServiceClient,
-}
-import com.digitalasset.canton.ledger.client.services.pkg.{PackageClient, PackageClientV1}
+import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
@@ -78,24 +72,15 @@ final class LedgerClient private (
     lazy val updateService = new UpdateServiceClient(
       LedgerClient.stub(UpdateServiceGrpc.stub(channel), config.token)
     )
-  }
 
-  lazy val commandClient: CommandClientV1 =
-    new CommandClientV1(
-      LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
-      LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
-      config.applicationId,
-      config.commandClient,
-      loggerFactory,
-    )
+    lazy val versionClient: VersionClient =
+      new VersionClient(LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
+  }
 
   lazy val identityProviderConfigClient: IdentityProviderConfigClient =
     new IdentityProviderConfigClient(
       LedgerClient.stub(IdentityProviderConfigServiceGrpc.stub(channel), config.token)
     )
-
-  lazy val packageClient: PackageClientV1 =
-    new PackageClientV1(LedgerClient.stub(PackageServiceGrpcV1.stub(channel), config.token))
 
   lazy val meteringReportClient: MeteringReportClient =
     new MeteringReportClient(
@@ -111,9 +96,6 @@ final class LedgerClient private (
     new PartyManagementClient(
       LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
     )
-
-  lazy val versionClient: VersionClient =
-    new VersionClient(LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
 
   lazy val userManagementClient: UserManagementClient =
     new UserManagementClient(

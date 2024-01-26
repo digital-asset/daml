@@ -18,7 +18,6 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
       delete from package_entries cascade;
       delete from parameters cascade;
       delete from participant_command_completions cascade;
-      delete from participant_events_divulgence cascade;
       delete from participant_events_create cascade;
       delete from participant_events_consuming_exercise cascade;
       delete from participant_events_non_consuming_exercise cascade;

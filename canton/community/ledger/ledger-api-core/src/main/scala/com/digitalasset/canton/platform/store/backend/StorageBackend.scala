@@ -237,12 +237,6 @@ trait ContractStorageBackend {
   def assignedContracts(contractIds: Seq[ContractId])(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
-  def activeContractWithArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[ContractStorageBackend.RawContract]
-  def activeContractWithoutArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String]
 }
 
 object ContractStorageBackend {

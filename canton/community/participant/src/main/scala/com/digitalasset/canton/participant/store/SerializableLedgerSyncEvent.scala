@@ -145,7 +145,7 @@ private[store] object SerializableLedgerSyncEvent
 
   override val supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(0) -> VersionedProtoConverter
+      ProtoVersion(30) -> VersionedProtoConverter
         .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.LedgerSyncEvent)(
           supportedProtoVersion(_)(fromProtoV0),
           _.toProtoV0.toByteString,
@@ -662,6 +662,7 @@ private[store] final case class SerializableDivulgedContract(divulgedContract: D
     val DivulgedContract(contractId, contractInst) = divulgedContract
     v30.DivulgedContract(
       contractId = contractId.toProtoPrimitive,
+      // This is fine to use empty agreement text for divulged contract
       contractInst = serializeContract(contractInst)
         .valueOr(err =>
           throw new DbSerializationException(

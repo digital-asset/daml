@@ -10,6 +10,12 @@ import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";
 
+// catch-up configuration parameters
+message CatchUpConfig {
+  uint32 catchup_interval_skip = 1;
+  uint32 nr_intervals_to_trigger_catchup = 2;
+}
+
 message StaticDomainParametersX {
   repeated com.digitalasset.canton.crypto.v30.SigningKeyScheme required_signing_key_schemes = 1;
   repeated com.digitalasset.canton.crypto.v30.EncryptionKeyScheme required_encryption_key_schemes = 2;
@@ -17,6 +23,7 @@ message StaticDomainParametersX {
   repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
   int32 protocol_version = 7;
+  CatchUpConfig catch_up_parameters = 8;
 }
 
 // individual per participant limits

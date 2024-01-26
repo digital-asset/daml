@@ -32,8 +32,6 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM packages WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM participant_command_completions WHERE ${queryStrategy
           .offsetIsGreater("completion_offset", ledgerOffset)}",
-      SQL"DELETE FROM participant_events_divulgence WHERE ${queryStrategy
-          .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM participant_events_create WHERE ${queryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM participant_events_consuming_exercise WHERE ${queryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",

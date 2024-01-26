@@ -45,6 +45,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, TransactionIsolation}
 import slick.sql.SqlStreamingAction
@@ -207,8 +208,10 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     }
   }
 
-  // TODO(#14048) only a temporary crutch to inspect the topology state
-  override def dumpStoreContent()(implicit traceContext: TraceContext): Unit = {
+  @VisibleForTesting
+  override protected[topology] def dumpStoreContent()(implicit
+      traceContext: TraceContext
+  ): Future[GenericStoredTopologyTransactionsX] = {
     // Helper case class to produce comparable output to the InMemoryStore
     case class TopologyStoreEntry(
         transaction: GenericSignedTopologyTransactionX,
@@ -220,7 +223,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
     val query =
       sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM topology_transactions_x WHERE store_id = $transactionStoreIdName ORDER BY id"
-    val entries = timeouts.io.await("dumpStoreContent")(readTime.event {
+    val entriesF = (readTime.event {
       storage
         .query(
           query.as[
@@ -245,11 +248,16 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         })
     })
 
-    logger.debug(
-      entries
-        .map(_.toString)
-        .mkString("Topology Store Content[", ", ", "]")
-    )
+    entriesF.map { entries =>
+      logger.debug(
+        entries
+          .map(_.toString)
+          .mkString("Topology Store Content[", ", ", "]")
+      )
+      StoredTopologyTransactionsX(
+        entries.map(e => StoredTopologyTransactionX(e.sequenced, e.from, e.until, e.transaction))
+      )
+    }
   }
 
   override def inspect(
@@ -498,19 +506,21 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   }
 
   override def findStored(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericSignedTopologyTransactionX,
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]] = {
-    logger.debug(s"Querying for transaction $transaction")
+    logger.debug(s"Querying for transaction at $asOfExclusive: $transaction")
 
-    findStoredSql(transaction.transaction, includeRejected = includeRejected).map(
+    findStoredSql(asOfExclusive, transaction.transaction, includeRejected = includeRejected).map(
       _.result.lastOption
     )
   }
 
   override def findStoredForVersion(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -521,6 +531,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     logger.debug(s"Querying for transaction $transaction with protocol version $protocolVersion")
 
     findStoredSql(
+      asOfExclusive,
       transaction,
       subQuery = sql" AND representative_protocol_version = ${rpv.representative}",
     ).map(_.result.lastOption)
@@ -697,6 +708,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   }
 
   private def findStoredSql(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       subQuery: SQLActionBuilder = sql"",
       includeRejected: Boolean = false,
@@ -708,6 +720,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       // Query for leading fields of `topology_transactions_x_idx` to enable use of this index
       sql" AND transaction_type = ${mapping.code} AND namespace = ${mapping.namespace} AND identifier = ${mapping.maybeUid
           .fold(String185.empty)(_.id.toLengthLimitedString)}"
+        ++ sql" AND valid_from < $asOfExclusive"
         ++ sql" AND mapping_key_hash = ${mapping.uniqueKey.hash.toLengthLimitedHexString}"
         ++ sql" AND serial_counter = ${transaction.serial}"
         ++ sql" AND tx_hash = ${transaction.hash.hash.toLengthLimitedHexString}"

@@ -12,21 +12,6 @@ sealed trait DbDto
 
 object DbDto {
 
-  final case class EventDivulgence(
-      event_offset: Option[String],
-      command_id: Option[String],
-      workflow_id: Option[String],
-      application_id: Option[String],
-      submitters: Option[Set[String]],
-      contract_id: String,
-      template_id: Option[String],
-      tree_event_witnesses: Set[String],
-      create_argument: Option[Array[Byte]],
-      create_argument_compression: Option[Int],
-      event_sequential_id: Long,
-      domain_id: Option[String] = None,
-  ) extends DbDto
-
   final case class EventCreate(
       event_offset: Option[String],
       transaction_id: Option[String],

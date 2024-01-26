@@ -15,22 +15,22 @@ import org.scalatest.{Assertion, EitherValues, OptionValues}
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
-class DeserializedCantonErrorSpec
+class DecodedCantonErrorSpec
     extends AnyFlatSpec
     with Matchers
     with EitherValues
     with OptionValues
     with ScalaCheckPropertyChecks {
-  behavior of DeserializedCantonError.getClass.getSimpleName
+  behavior of DecodedCantonError.getClass.getSimpleName
 
   it should s"correctly deserialize a gRPC status code to a ${BaseError.getClass.getSimpleName}" in
     forAll(errorCategoriesTable) { errorCategory =>
       forAll(propertyMapTable) { propertyMap =>
         forAll(correlationIdTable) { correlationId =>
           forAll(traceIdTable) { traceId =>
-            val fromGrpc: RpcStatus => DeserializedCantonError =
-              DeserializedCantonError.fromGrpcStatus(_).value
-            val toGrpc: DeserializedCantonError => RpcStatus = _.toRpcStatusWithForwardedRequestId
+            val fromGrpc: RpcStatus => DecodedCantonError =
+              DecodedCantonError.fromGrpcStatus(_).value
+            val toGrpc: DecodedCantonError => RpcStatus = _.toRpcStatusWithForwardedRequestId
 
             val someGrpcStatus =
               createGrpcStatus(errorCategory, propertyMap, correlationId, traceId)
@@ -46,7 +46,7 @@ class DeserializedCantonErrorSpec
 
     val nonStandardMessage = "!!!Some non-standard message"
     val error = BenignError.Reject("nvm").rpcStatus().copy(message = nonStandardMessage)
-    val deserializedError = DeserializedCantonError.fromGrpcStatus(error).value
+    val deserializedError = DecodedCantonError.fromGrpcStatus(error).value
 
     deserializedError.cause shouldBe nonStandardMessage
   }
@@ -61,7 +61,7 @@ class DeserializedCantonErrorSpec
       errorGrpcStatus.details.filterNot(_ is ErrorInfo) :+ Any.pack(modifiedErrInfo)
     )
 
-    DeserializedCantonError.fromGrpcStatus(modifiedErrorGrpcStatus).left.value should include(
+    DecodedCantonError.fromGrpcStatus(modifiedErrorGrpcStatus).left.value should include(
       "category key not found in error metadata"
     )
   }
@@ -98,7 +98,7 @@ class DeserializedCantonErrorSpec
         errorDetails.filterNot(_ is expectedTypeCompanion) ++ (1 to times).map(_ => errDetail)
       )
 
-      val actual = DeserializedCantonError.fromGrpcStatus(modifiedStatus)
+      val actual = DecodedCantonError.fromGrpcStatus(modifiedStatus)
 
       if (expectPass)
         actual.isRight shouldBe true

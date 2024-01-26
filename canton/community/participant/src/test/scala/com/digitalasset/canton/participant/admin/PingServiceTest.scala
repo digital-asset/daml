@@ -118,7 +118,6 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
           initiator.toProtoPrimitive,
           responder.toProtoPrimitive,
         ),
-        java.util.Optional.empty,
         Set.empty[String].asJava,
         Set.empty[String].asJava,
       )
@@ -145,7 +144,6 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
           List().asJava,
           clock.now.plusSeconds(15).toInstant,
         ),
-        java.util.Optional.empty,
         Set.empty[String].asJava,
         Set.empty[String].asJava,
       )

@@ -235,12 +235,12 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
   }
 
-  override def lookupContractStateWithoutDivulgence(contractId: Value.ContractId)(implicit
+  override def lookupContractState(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[ContractState] =
     Timed.future(
-      metrics.daml.services.index.lookupContractStateWithoutDivulgence,
-      delegate.lookupContractStateWithoutDivulgence(contractId),
+      metrics.daml.services.index.lookupContractState,
+      delegate.lookupContractState(contractId),
     )
 
   override def latestPrunedOffsets()(implicit

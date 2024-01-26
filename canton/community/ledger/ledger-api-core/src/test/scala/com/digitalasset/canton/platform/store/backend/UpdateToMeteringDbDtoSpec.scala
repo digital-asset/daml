@@ -72,7 +72,6 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       ),
       transactionId = Ref.TransactionId.assertFromString("TransactionId"),
       recordTime = someRecordTime,
-      divulgedContracts = List.empty,
       blindingInfoO = None,
       hostedWitnesses = Nil,
       Map.empty,

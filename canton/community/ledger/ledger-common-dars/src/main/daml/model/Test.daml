@@ -530,22 +530,6 @@ template Witnesses
      do
       create this with p_signatory = p_actor
 
--- Contract used to divulge instances of Witnesses to the actor
--- of witnesses. Otherwise we cannot exercise!
-template DivulgeWitnesses
-  with
-    p_signatory: Party
-    p_actor: Party
-  where
-    signatory p_actor
-    observer p_signatory
-
-    choice Divulge: ()
-      with toFetch: ContractId Witnesses
-      controller p_signatory
-      do _ <- fetch toFetch
-         return ()
-
 template MaintainerNotSignatory
   with
     p: Party
@@ -678,31 +662,3 @@ template WithKeyCreatorAlternative
       controller p2
       do create (WithKey p1)
 
-template WithKeyFetcher
-  with
-    p1 : Party
-    p2 : Party
-  where
-    signatory p1
-    observer p2
-    choice WithKeyFetcher_Fetch : WithKey
-      with
-        contractId : ContractId WithKey
-      controller p2
-      do fetch contractId
-
-
-template WithKeyDivulgenceHelper
-  with
-    divulgedTo : Party
-    withKeyOwner : Party
-  where
-    signatory divulgedTo
-    observer withKeyOwner
-
-    nonconsuming choice WithKeyDivulgenceHelper_Fetch: ()
-      with
-        withKeyToFetch: ContractId WithKey
-      controller withKeyOwner
-      do _ <- fetch withKeyToFetch
-         return ()

@@ -11,7 +11,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.error.utils.DeserializedCantonError
+import com.daml.error.utils.DecodedCantonError
 import com.daml.lf.data.ImmArray
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
@@ -1106,7 +1106,7 @@ class TransactionProcessingSteps(
     rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
     val rejectionReasonStatus = rejectionReason.rpcStatusWithoutLoggingContext()
     val mappedRejectionReason =
-      DeserializedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
+      DecodedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
         case Right(error) => rejectionReasonStatus
         case Left(err) =>
           logger.warn(s"Failed to parse the rejection reason: $err")
@@ -1446,7 +1446,26 @@ class TransactionProcessingSteps(
           EitherT.right[TransactionProcessorError](
             Future.failed(new IllegalArgumentException("Timeout message after decision time"))
           )
-      res <- getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+
+      resultTopologySnapshot <- EitherT.right[TransactionProcessorError](
+        crypto.ips.awaitSnapshot(ts)
+      )
+      mediatorActiveAtResultTs <- EitherT.right[TransactionProcessorError](
+        resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
+      )
+      res <-
+        if (mediatorActiveAtResultTs) getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+        else {
+          // Additional validation requested during security audit as DIA-003-013.
+          // Activeness of the mediator already gets checked in Phase 3,
+          // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
+          rejected(
+            LocalReject.MalformedRejects.MalformedRequest.Reject(
+              s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back.",
+              protocolVersion,
+            )
+          )
+        }
     } yield res
   }
 

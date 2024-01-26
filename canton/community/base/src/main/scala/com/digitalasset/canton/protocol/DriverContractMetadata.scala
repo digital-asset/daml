@@ -37,7 +37,7 @@ object DriverContractMetadata extends HasVersionedMessageCompanion[DriverContrac
   override def name: String = "driver contract metadata"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.DriverContractMetadata)(fromProtoV30),
       _.toProtoV30.toByteString,
