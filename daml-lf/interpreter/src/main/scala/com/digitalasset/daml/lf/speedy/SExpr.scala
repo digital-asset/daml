@@ -105,22 +105,6 @@ private[lf] object SExpr {
 
   object SEValue extends SValueContainer[SEValue] // used by Compiler
 
-  /** Function application with general arguments (deprecated)
-    * Although 'fun' is atomic, 'args' are still any kind of expression.
-    * This case would not exist if we performed a full/standard ANF pass.
-    * Because this case exists we must retain the complicated/slow path in the
-    * speedy-machine: executeApplication
-    */
-  @deprecated("Prefer SEAppAtomic or SEApp helper instead.", since = "2.4.0")
-  final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
-      extends SExpr
-      with SomeArrayEquals {
-    override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
-      val vfun = fun.lookupValue(machine)
-      machine.executeApplication(vfun, args)
-    }
-  }
-
   object SEApp {
     // Helper: build an application of an unrestricted expression, to value-arguments.
     def apply(fun: SExpr, args: Array[SValue]): SExpr = {
