@@ -168,8 +168,8 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
-        "//test-common/canton:__subpackages__",
         "//language-support/java/bindings-rxjava:__subpackages__",
+        "//test-common/canton:__subpackages__",
     ],
     deps = [
         ":daml-common-staging_daml-errors",
@@ -265,8 +265,8 @@ da_scala_library(
         "//compiler/repl-service:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
+        "//ledger-service/utils:__subpackages__",
         "//test-common/canton:__subpackages__",
-        "//ledger-service/utils:__subpackages__"
     ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",

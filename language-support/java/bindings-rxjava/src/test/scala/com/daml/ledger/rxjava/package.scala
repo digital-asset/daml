@@ -8,8 +8,14 @@ import java.util.UUID
 import org.apache.pekko.actor.ActorSystem
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.auth.{Claim, ClaimActAsParty, ClaimAdmin, ClaimPublic, ClaimReadAsParty, ClaimSet}
-
+import com.digitalasset.canton.ledger.api.auth.{
+  Claim,
+  ClaimActAsParty,
+  ClaimAdmin,
+  ClaimPublic,
+  ClaimReadAsParty,
+  ClaimSet,
+}
 
 package object rxjava {
 

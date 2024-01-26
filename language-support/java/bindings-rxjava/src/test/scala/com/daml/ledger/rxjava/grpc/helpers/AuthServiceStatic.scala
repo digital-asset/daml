@@ -17,7 +17,7 @@ import io.grpc.Metadata
   */
 final class AuthServiceStatic(claims: PartialFunction[String, ClaimSet]) extends AuthService {
   override def decodeMetadata(headers: Metadata)(implicit
-    traceContext: TraceContext
+      traceContext: TraceContext
   ): CompletionStage[ClaimSet] = {
     if (headers.containsKey(AUTHORIZATION_KEY)) {
       val authorizationValue = headers.get(AUTHORIZATION_KEY).stripPrefix("Bearer ")

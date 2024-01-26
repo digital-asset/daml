@@ -287,7 +287,8 @@ object CantonRunner {
       scope = Some(targetScope.getOrElse("daml_ledger_api")),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writePayload(payload).compactPrint)
+    val jwt =
+      DecodedJwt[String](header, auth.AuthServiceJWTCodec.writePayload(payload).compactPrint)
     JwtSigner.HMAC256.sign(jwt, secret).toEither match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)
