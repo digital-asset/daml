@@ -14,7 +14,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v0 as adminProto
+import com.digitalasset.canton.topology.admin.v30old as adminProto
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -41,13 +41,13 @@ final case class BaseQuery(
     filterSigningKey: String,
     protocolVersion: Option[ProtocolVersion],
 ) {
-  def toProtoV0: adminProto.BaseQuery =
+  def toProtoV30: adminProto.BaseQuery =
     adminProto.BaseQuery(
       filterStore,
       useStateStore,
       ops.map(_.toProto).getOrElse(TopologyChangeOp.Add.toProto),
       ops.nonEmpty,
-      timeQuery.toProtoV0,
+      timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitiveS),
     )
@@ -61,7 +61,7 @@ object BaseQuery {
       useStateStore = baseQuery.useStateStore
       filterSignedKey = baseQuery.filterSignedKey
       timeQuery <- TimeQuery.fromProto(baseQuery.timeQuery, "time_query")
-      opsRaw <- TopologyChangeOp.fromProtoV0(baseQuery.operation)
+      opsRaw <- TopologyChangeOp.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
     } yield BaseQuery(
       filterStore,
@@ -232,7 +232,7 @@ class GrpcTopologyManagerReadService(
         .map { case (context, elem) =>
           new adminProto.ListPartyToParticipantResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.toProtoV0),
+            item = Some(elem.toProtoV30),
           )
         }
       adminProto.ListPartyToParticipantResult(results = results)
@@ -268,7 +268,7 @@ class GrpcTopologyManagerReadService(
         .map { case (context, elem) =>
           new adminProto.ListOwnerToKeyMappingResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.toProtoV0),
+            item = Some(elem.toProtoV30),
             keyFingerprint = elem.key.fingerprint.unwrap,
           )
         }
@@ -294,7 +294,7 @@ class GrpcTopologyManagerReadService(
         .map { case (context, elem) =>
           new adminProto.ListNamespaceDelegationResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.toProtoV0),
+            item = Some(elem.toProtoV30),
             targetKeyFingerprint = elem.target.fingerprint.unwrap,
           )
         }
@@ -321,7 +321,7 @@ class GrpcTopologyManagerReadService(
         .map { case (context, elem) =>
           new adminProto.ListIdentifierDelegationResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.toProtoV0),
+            item = Some(elem.toProtoV30),
             targetKeyFingerprint = elem.target.fingerprint.unwrap,
           )
         }
@@ -355,7 +355,7 @@ class GrpcTopologyManagerReadService(
               if elem.domain.filterString.startsWith(request.filterDomain) =>
             new adminProto.ListParticipantDomainStateResult.Result(
               context = Some(createBaseResult(context)),
-              item = Some(elem.toProtoV0),
+              item = Some(elem.toProtoV30),
             )
         }
       adminProto.ListParticipantDomainStateResult(results = results)
@@ -382,7 +382,7 @@ class GrpcTopologyManagerReadService(
         .map { case (context, elem) =>
           new adminProto.ListSignedLegalIdentityClaimResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.toProtoV0),
+            item = Some(elem.toProtoV30),
           )
         }
       adminProto.ListSignedLegalIdentityClaimResult(results = results)
@@ -423,7 +423,7 @@ class GrpcTopologyManagerReadService(
             )
           )
       }
-      adminProto.ListAllResponse(result = Some(res.toProtoV0))
+      adminProto.ListAllResponse(result = Some(res.toProtoV30))
     }
     CantonGrpcUtil.mapErrNew(res)
   }
@@ -444,7 +444,7 @@ class GrpcTopologyManagerReadService(
         .collect { case (context, vetted: VettedPackages) =>
           new adminProto.ListVettedPackagesResult.Result(
             context = Some(createBaseResult(context)),
-            item = Some(vetted.toProtoV0),
+            item = Some(vetted.toProtoV30),
           )
         }
       adminProto.ListVettedPackagesResult(results = results)
@@ -468,7 +468,7 @@ class GrpcTopologyManagerReadService(
       val results = res
         .collect { case (context, domainParametersChange: DomainParametersChange) =>
           val parameters =
-            Some(Result.Parameters.V1(domainParametersChange.domainParameters.toProtoV2))
+            Some(Result.Parameters.V1(domainParametersChange.domainParameters.toProtoV30))
 
           parameters.map { parameters =>
             adminProto.ListDomainParametersChangesResult.Result(
@@ -501,7 +501,7 @@ class GrpcTopologyManagerReadService(
               if elem.domain.filterString.startsWith(request.filterDomain) =>
             new adminProto.ListMediatorDomainStateResult.Result(
               context = Some(createBaseResult(context)),
-              item = Some(elem.toProtoV0),
+              item = Some(elem.toProtoV30),
             )
         }
       adminProto.ListMediatorDomainStateResult(results = results)

@@ -28,22 +28,14 @@ object Generate {
         val writers = new CantonConfig.ConfigWriters(confidential = false)
         import writers.*
 
-        config.participantsByStringX.map(x => (x._1, x._2.toRemoteConfig)).foreach {
-          case (name, config) => write(name, "participants-x", config)
-        }
-        config.sequencersByStringX.map(x => (x._1, x._2.toRemoteConfig)).foreach {
-          case (name, config) => write(name, "sequencers-x", config)
-        }
-        config.mediatorsByStringX.map(x => (x._1, x._2.toRemoteConfig)).foreach {
-          case (name, config) => write(name, "mediators-x", config)
-        }
-
-        // legacy
         config.participantsByString.map(x => (x._1, x._2.toRemoteConfig)).foreach {
           case (name, config) => write(name, "participants", config)
         }
-        config.domainsByString.map(x => (x._1, x._2.toRemoteConfig)).foreach {
-          case (name, config) => write(name, "domains", config)
+        config.sequencersByString.map(x => (x._1, x._2.toRemoteConfig)).foreach {
+          case (name, config) => write(name, "sequencers", config)
+        }
+        config.mediatorsByString.map(x => (x._1, x._2.toRemoteConfig)).foreach {
+          case (name, config) => write(name, "mediators", config)
         }
     }
 

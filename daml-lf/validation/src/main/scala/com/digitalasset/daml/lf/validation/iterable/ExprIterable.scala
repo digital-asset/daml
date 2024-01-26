@@ -165,13 +165,12 @@ private[validation] object ExprIterable {
             param @ _,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
             implements,
           ) =>
-        Iterator(precond, signatories, agreementText) ++
+        Iterator(precond, signatories) ++
           choices.values.iterator.flatMap(iterator(_)) ++
           Iterator(observers) ++
           key.iterator.flatMap(iterator(_)) ++

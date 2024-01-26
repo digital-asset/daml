@@ -18,6 +18,7 @@ import com.digitalasset.canton.environment.{
   * @param general the node parameters required by the base class
   * @param protocol related parameters which are configured differently (not all nodes have the same set of parameters)
   */
+// TODO(#15160): Deep remove domain nodes
 final case class DomainNodeParameters(
     general: CantonNodeParameters.General,
     protocol: CantonNodeParameters.Protocol,

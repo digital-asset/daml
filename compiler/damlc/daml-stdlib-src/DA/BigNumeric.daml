@@ -109,10 +109,6 @@ shiftLeft n x = shiftRight (-n) x
 -- 1.23457
 -- ```
 roundToNumeric : forall n. NumericScale n => RoundingMode -> BigNumeric -> Numeric n
-#ifndef DAML_NAT_TYPE_ERASURE
-roundToNumeric r x = fromBigNumeric (round (numericScale (aunit : Numeric n)) r x)
-#else
 roundToNumeric r x = fromBigNumeric (round (numericScale @n) r x)
-#endif
 
 #endif

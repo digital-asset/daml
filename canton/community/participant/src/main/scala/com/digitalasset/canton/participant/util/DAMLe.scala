@@ -73,7 +73,6 @@ object DAMLe {
       stakeholders: Set[LfPartyId],
       templateId: LfTemplateId,
       keyWithMaintainers: Option[LfGlobalKeyWithMaintainers],
-      agreementText: AgreementText,
   ) {
     def metadataWithGlobalKey: ContractMetadata =
       ContractMetadata.tryCreate(
@@ -239,7 +238,7 @@ class DAMLe(
         Some(DAMLe.zeroSeed),
         expectFailure = false,
       )
-      (transaction, _metadata, _resolver) = transactionWithMetadata
+      (transaction, _, _) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
         case nc: LfNodeCreate =>
           ContractWithMetadata(
@@ -252,7 +251,6 @@ class DAMLe(
             nc.stakeholders,
             nc.templateId,
             nc.keyOpt,
-            AgreementText(nc.agreementText),
           )
         case node => throw new RuntimeException(s"DAMLe reinterpreted a create node as $node")
       }

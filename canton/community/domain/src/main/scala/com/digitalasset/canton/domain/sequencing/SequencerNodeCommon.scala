@@ -43,6 +43,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
+// TODO(#15161): Fold SequencerNodeBootstrapCommon into SequencerNodeBootstrapX
 trait SequencerNodeBootstrapCommon[
     T <: CantonNode,
     NC <: LocalNodeConfig & SequencerNodeConfigCommon,
@@ -227,6 +228,7 @@ trait SequencerNodeBootstrapCommon[
 
 }
 
+// TODO(#15161): Fold SequencerNodeCommon into SequencerNodeX
 class SequencerNodeCommon(
     config: SequencerNodeConfigCommon,
     metrics: SequencerMetrics,

@@ -24,9 +24,9 @@ final case class CreatedContract private (
   // Note that on behalf of rolledBack contracts we still send the SerializableContract along with the contract instance
   // mainly to support DAMLe.reinterpret on behalf of a top-level CreateActionDescription under a rollback node because
   // we need the contract instance to construct the LfCreateCommand.
-  def toProtoV1: v1.CreatedContract =
-    v1.CreatedContract(
-      contract = Some(contract.toProtoV1),
+  def toProtoV30: v30.CreatedContract =
+    v30.CreatedContract(
+      contract = Some(contract.toProtoV30),
       consumedInCore = consumedInCore,
       rolledBack = rolledBack,
     )
@@ -67,16 +67,16 @@ object CreatedContract {
       rolledBack = rolledBack,
     ).valueOr(err => throw new IllegalArgumentException(err))
 
-  def fromProtoV1(
-      createdContractP: v1.CreatedContract
+  def fromProtoV30(
+      createdContractP: v30.CreatedContract
   ): ParsingResult[CreatedContract] = {
-    val v1.CreatedContract(contractP, consumedInCore, rolledBack) =
+    val v30.CreatedContract(contractP, consumedInCore, rolledBack) =
       createdContractP
 
     for {
       contract <- ProtoConverter
         .required("contract", contractP)
-        .flatMap(SerializableContract.fromProtoV1)
+        .flatMap(SerializableContract.fromProtoV30)
       createdContract <- create(
         contract = contract,
         consumedInCore = consumedInCore,

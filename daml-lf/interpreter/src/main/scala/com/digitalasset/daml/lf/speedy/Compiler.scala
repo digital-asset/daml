@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
 import com.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -362,10 +361,7 @@ private[lf] final class Compiler(
 
   // speedy compilation phases 2,3 (i.e post translate-from-LF)
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
-    flattenToAnf(
-      closureConvert(sexpr),
-      evaluationOrder = config.allowedLanguageVersions.majorVersion.evaluationOrder,
-    )
+    flattenToAnf(closureConvert(sexpr))
 
   private[this] def compileModule(
       pkgId: PackageId,
@@ -400,7 +396,6 @@ private[lf] final class Compiler(
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, optTargetTemplateId))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
-      addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
       addDef(compileToContractInfo(tmplId, tmpl))
@@ -826,14 +821,6 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileAgreementText(
-      tmplId: Identifier,
-      tmpl: Template,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction1(t.AgreementTextDefRef(tmplId)) { (tmplArgPos, env) =>
-      translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.agreementText)
-    }
-
   private[this] def compileSignatories(
       tmplId: Identifier,
       tmpl: Template,
@@ -860,47 +847,41 @@ private[lf] final class Compiler(
       // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
         let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
-          let(env, t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-            (agreementTextPos, env) =>
-              let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-                (signatoriesPos, env) =>
-                  let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
-                    (observersPos, env) =>
-                      val body = tmpl.key match {
-                        case None =>
-                          s.SEValue.None
-                        case Some(tmplKey) =>
-                          s.SECase(
-                            env.toSEVar(mbKeyPos),
-                            List(
-                              s.SCaseAlt(
-                                t.SCPNone,
-                                let(
-                                  env,
-                                  translateExp(
-                                    env.bindExprVar(tmpl.param, tmplArgPos),
-                                    tmplKey.body,
-                                  ),
-                                ) { (keyPos, env) =>
-                                  SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                                },
-                              ),
-                              s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
-                            ),
-                          )
-                      }
-                      let(env, body) { (bodyPos, env) =>
-                        SBuildContractInfoStruct(
-                          env.toSEVar(typePos),
-                          env.toSEVar(tmplArgPos),
-                          env.toSEVar(agreementTextPos),
-                          env.toSEVar(signatoriesPos),
-                          env.toSEVar(observersPos),
-                          env.toSEVar(bodyPos),
-                        )
-                      }
-                  }
+          let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) { (signatoriesPos, env) =>
+            let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) { (observersPos, env) =>
+              val body = tmpl.key match {
+                case None =>
+                  s.SEValue.None
+                case Some(tmplKey) =>
+                  s.SECase(
+                    env.toSEVar(mbKeyPos),
+                    List(
+                      s.SCaseAlt(
+                        t.SCPNone,
+                        let(
+                          env,
+                          translateExp(
+                            env.bindExprVar(tmpl.param, tmplArgPos),
+                            tmplKey.body,
+                          ),
+                        ) { (keyPos, env) =>
+                          SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                        },
+                      ),
+                      s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                    ),
+                  )
               }
+              let(env, body) { (bodyPos, env) =>
+                SBuildContractInfoStruct(
+                  env.toSEVar(typePos),
+                  env.toSEVar(tmplArgPos),
+                  env.toSEVar(signatoriesPos),
+                  env.toSEVar(observersPos),
+                  env.toSEVar(bodyPos),
+                )
+              }
+            }
           }
         }
       }
@@ -975,7 +956,7 @@ private[lf] final class Compiler(
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = checkPreCondition(tmplId, <tmplArg>)
-    //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
+    //   in $create <tmplArg>
     topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
       translateCreateBody(tmplId, tmpl, tmplArgPos, env)
     )

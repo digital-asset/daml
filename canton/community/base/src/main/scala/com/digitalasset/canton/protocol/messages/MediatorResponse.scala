@@ -10,9 +10,9 @@ import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.MediatorResponse.InvalidMediatorResponse
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -121,20 +121,20 @@ case class MediatorResponse private (
 
   @transient override protected lazy val companionObj: MediatorResponse.type = MediatorResponse
 
-  protected def toProtoV2: v2.MediatorResponse =
-    v2.MediatorResponse(
+  protected def toProtoV30: v30.MediatorResponse =
+    v30.MediatorResponse(
       requestId = Some(requestId.toProtoPrimitive),
       sender = sender.toProtoPrimitive,
-      viewPosition = viewPositionO.map(_.toProtoV2),
-      localVerdict = Some(localVerdict.toProtoV1),
+      viewPosition = viewPositionO.map(_.toProtoV30),
+      localVerdict = Some(localVerdict.toProtoV30),
       rootHash = rootHash.fold(ByteString.EMPTY)(_.toProtoPrimitive),
       confirmingParties = confirmingParties.toList,
       domainId = domainId.toProtoPrimitive,
     )
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MediatorResponse(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MediatorResponse(
       getCryptographicEvidence
     )
 
@@ -157,9 +157,9 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
   override val name: String = "MediatorResponse"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.MediatorResponse)(
-      supportedProtoVersionMemoized(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.MediatorResponse)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -253,10 +253,10 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
   val confirmingPartiesUnsafe: Lens[MediatorResponse, Set[LfPartyId]] =
     GenLens[MediatorResponse](_.confirmingParties)
 
-  private def fromProtoV2(mediatorResponseP: v2.MediatorResponse)(
+  private def fromProtoV30(mediatorResponseP: v30.MediatorResponse)(
       bytes: ByteString
   ): ParsingResult[MediatorResponse] = {
-    val v2.MediatorResponse(
+    val v30.MediatorResponse(
       requestIdPO,
       senderP,
       localVerdictPO,
@@ -273,11 +273,11 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       sender <- ParticipantId.fromProtoPrimitive(senderP, "MediatorResponse.sender")
       localVerdict <- ProtoConverter
         .required("MediatorResponse.local_verdict", localVerdictPO)
-        .flatMap(LocalVerdict.fromProtoV1)
+        .flatMap(LocalVerdict.fromProtoV30)
       rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
-      viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV2)
+      viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV30)
       response <- Either
         .catchOnly[InvalidMediatorResponse](
           MediatorResponse(

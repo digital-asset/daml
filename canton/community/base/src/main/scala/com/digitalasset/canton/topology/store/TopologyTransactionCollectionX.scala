@@ -8,7 +8,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -33,9 +33,9 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
     result.map(_.transaction.transaction.mapping).toList
 
   // note, we are reusing v0, as v0 just expects bytestrings ...
-  def toProtoV0: v0.TopologyTransactions = v0.TopologyTransactions(
+  def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
     items = result.map { item =>
-      v0.TopologyTransactions.Item(
+      v30.TopologyTransactions.Item(
         sequenced = Some(item.sequenced.toProtoPrimitive),
         validFrom = Some(item.validFrom.toProtoPrimitive),
         validUntil = item.validUntil.map(_.toProtoPrimitive),
@@ -137,16 +137,16 @@ object StoredTopologyTransactionsX
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(0) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v0.TopologyTransactions)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      supportedProtoVersion(v30.TopologyTransactions)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV0(
-      value: v0.TopologyTransactions
+  def fromProtoV30(
+      value: v30.TopologyTransactions
   ): ParsingResult[GenericStoredTopologyTransactionsX] = {
     def parseItem(
-        item: v0.TopologyTransactions.Item
+        item: v30.TopologyTransactions.Item
     ): ParsingResult[GenericStoredTopologyTransactionX] = {
       for {
         sequenced <- ProtoConverter.parseRequired(

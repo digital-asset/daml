@@ -1,11 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its
 -- affiliates. All rights reserved.
 
--- @WARN range=23:3-23:4; Defined but not used
-
--- Testing with template-let warning disabled until the feature is removed
--- https://github.com/digital-asset/daml/issues/17263
-{-# OPTIONS_GHC -Wno-template-let #-}
+-- @WARN range=19:3-19:4; Defined but not used
 
 {-# OPTIONS_GHC -Wunused-matches #-}
 {-# OPTIONS_GHC -Wunused-foralls #-}
@@ -20,28 +16,40 @@ module UnusedMatchTests where
 -- It should be OK to enable -Wunused-* and not get warnings from
 -- template desugared code.
 
-f x = 12 -- Defined but not used 'x'; prove unsed match detection.
+f x = 12 -- Defined but not used 'x'; prove unused match detection.
 
 template T
   with
     p : Party
     q : Party
   where
-    -- Include interaction with local binds.
-    let revokeRetVal = ()
-        (sig, obs) = (p, q)
-        assertion = True
-        plainEnglish = "Chop wood, carry water."
-        ident = "123"
     -- None of the below should generate defined but not used
     -- warnings.
-    signatory sig
-    observer obs
-    ensure assertion
-    agreement plainEnglish
-    key (sig, ident): (Party, Text)
+    signatory sig this
+    observer obs this
+    ensure assertion this
+    agreement plainEnglish this
+    key (sig this, ident this): (Party, Text)
     maintainer key._1
     choice Revoke: () with
       controller p
       do
-        pure revokeRetVal
+        pure (revokeRetVal this)
+
+revokeRetVal : T -> ()
+revokeRetVal _ = ()
+
+assertion : T -> Bool
+assertion _ = True
+
+sig : T -> Party
+sig T {p} = p
+
+obs : T -> Party
+obs T {q} = q
+
+plainEnglish : T -> Text
+plainEnglish _ = "Chop wood, carry water."
+
+ident : T -> Text
+ident _ = "123"

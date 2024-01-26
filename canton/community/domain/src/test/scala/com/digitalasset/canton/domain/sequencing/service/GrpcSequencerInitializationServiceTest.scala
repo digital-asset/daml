@@ -36,8 +36,8 @@ class GrpcSequencerInitializationServiceTest extends AsyncWordSpec with BaseTest
       val initRequest =
         v2.InitRequest(
           domainId = domainId.toProtoPrimitive,
-          topologySnapshot = Some(StoredTopologyTransactions.empty.toProtoV0),
-          domainParameters = Some(defaultStaticDomainParameters.toProtoV1),
+          topologySnapshot = Some(StoredTopologyTransactions.empty.toProtoV30),
+          domainParameters = Some(defaultStaticDomainParameters.toProtoV30),
           snapshot = ByteString.EMPTY,
         )
 
@@ -50,7 +50,7 @@ class GrpcSequencerInitializationServiceTest extends AsyncWordSpec with BaseTest
       for {
         response <- sut.initV2(initRequest)
       } yield {
-        response shouldBe v0.InitResponse("test", Some(sequencerKey.toProtoV0), false)
+        response shouldBe v0.InitResponse("test", Some(sequencerKey.toProtoV30), false)
       }
     }
   }

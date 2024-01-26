@@ -404,7 +404,7 @@ class LocalParticipantPartiesAdministrationGroupX(
 object TopologySynchronisationX {
 
   def awaitTopologyObserved[T <: ParticipantReferenceX](
-      reference: ParticipantReferenceX,
+      participant: ParticipantReferenceX,
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration,
   )(implicit env: ConsoleEnvironment): Unit =
@@ -413,12 +413,12 @@ object TopologySynchronisationX {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.domains.all.forall { domain =>
-          val domainId = domain.id
-          !reference.domains.active(domain) || {
-            val timestamp = reference.testing.fetch_domain_time(domainId)
+        env.sequencersX.all.forall { sequencer =>
+          val domainId = sequencer.domain_id
+          !participant.domains.is_connected(domainId) || {
+            val timestamp = participant.testing.fetch_domain_time(domainId)
             partiesWithId.subsetOf(
-              reference.parties
+              participant.parties
                 .list(asOf = Some(timestamp.toInstant))
                 .flatMap(res => res.participants.map(par => (res.party, par.participant)))
                 .toSet

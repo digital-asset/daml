@@ -30,13 +30,13 @@ paintDomainOwner.topology.domain_parameters
 
 
 // connect participants to the domains
-participant1.domains.connect_local(iou_sequencer, alias = Some(iouAlias))
-participant2.domains.connect_local(iou_sequencer, alias = Some(iouAlias))
-participant3.domains.connect_local(iou_sequencer, alias = Some(iouAlias))
-participant2.domains.connect_local(paint_sequencer, alias = Some(paintAlias))
-participant3.domains.connect_local(paint_sequencer, alias = Some(paintAlias))
-participant4.domains.connect_local(iou_sequencer, alias = Some(iouAlias))
-participant5.domains.connect_local(iou_sequencer, alias = Some(iouAlias))
+participant1.domains.connect_local(iou_sequencer, alias = iouAlias)
+participant2.domains.connect_local(iou_sequencer, alias = iouAlias)
+participant3.domains.connect_local(iou_sequencer, alias = iouAlias)
+participant2.domains.connect_local(paint_sequencer, alias = paintAlias)
+participant3.domains.connect_local(paint_sequencer, alias = paintAlias)
+participant4.domains.connect_local(iou_sequencer, alias = iouAlias)
+participant5.domains.connect_local(iou_sequencer, alias = iouAlias)
 
 // create the parties
 val Bank = participant1.parties.enable("Bank")

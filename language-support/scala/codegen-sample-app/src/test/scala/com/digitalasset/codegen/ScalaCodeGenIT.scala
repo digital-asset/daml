@@ -62,10 +62,6 @@ class ScalaCodeGenIT
 
   private val emptyCommandId = CommandId("")
 
-  private val emptyAgreementText = Some(
-    ""
-  ) // this is by design, starting from release: 0.12.18 it is a required field
-
   private def withFixture[A](
       testFn: ScalaCodeGenITFixture => Future[A]
   ): Future[A] = for {
@@ -107,13 +103,7 @@ class ScalaCodeGenIT
         ledger,
         contract,
         alice,
-        expectedAgreementText = Some(expectedAgreementAsDefinedInDaml(contract)),
       )
-  }
-
-  private def expectedAgreementAsDefinedInDaml(contract: MkListExample): String = {
-    val sum: P.Int64 = contract.xs.sum
-    s"I am worth $sum"
   }
 
   "alice creates TemplateWithSelfReference contract and receives corresponding event" in withFixture {
@@ -233,13 +223,10 @@ class ScalaCodeGenIT
       inside(bobTx1.events) { case Seq(archiveEvent, createEvent) =>
         archiveEvent.event.isArchived shouldBe true
         val payOut = PayOut(receiver = bob, giver = alice)
-        assertCreateEvent(createEvent)(payOut, Some(expectedAgreementAsDefinedInDaml(payOut)))
+        assertCreateEvent(createEvent)(payOut)
       }
     }
   }
-
-  private def expectedAgreementAsDefinedInDaml(contract: PayOut): String =
-    s"'${P.Party.unwrap(contract.giver): String}' must pay to '${P.Party.unwrap(contract.receiver): String}' the sum of five pounds."
 
   "alice creates CallablePayout contract, bob exercises Transfer to charlie" in withFixture {
     fixture =>
@@ -278,7 +265,7 @@ class ScalaCodeGenIT
         charlieTx1.workflowId shouldBe exerciseWorkflowId
         inside(charlieTx1.events) { case Seq(createEvent) =>
           createEvent.event.isCreated shouldBe true
-          assertCreateEvent(createEvent)(CallablePayout(alice, charlie), emptyAgreementText)
+          assertCreateEvent(createEvent)(CallablePayout(alice, charlie))
         }
       }
   }
@@ -413,10 +400,7 @@ class ScalaCodeGenIT
         ledger,
         contract.createAnd.exerciseGo(),
         alice,
-        assertCreateEvent(_)(
-          exerciseConsequence,
-          Some(expectedAgreementAsDefinedInDaml(exerciseConsequence)),
-        ),
+        assertCreateEvent(_)(exerciseConsequence),
       )
   }
 
@@ -424,13 +408,12 @@ class ScalaCodeGenIT
       ledger: LedgerClient,
       contract: Template[AnyRef],
       party: P.Party,
-      expectedAgreementText: Option[String] = emptyAgreementText,
   ): Future[Assertion] =
     testCommandAndReceiveEvent(
       ledger,
       contract.create,
       party,
-      assertCreateEvent(_)(contract, expectedAgreementText),
+      assertCreateEvent(_)(contract),
     )
 
   private def testCommandAndReceiveEvent(
@@ -579,14 +562,12 @@ class ScalaCodeGenIT
 
   private def assertCreateEvent(
       event: Event
-  )(expectedContract: Template[AnyRef], expectedAgreement: Option[String]): Assertion = {
+  )(expectedContract: Template[AnyRef]): Assertion = {
     event.event.isCreated shouldBe true
     decoder(event.getCreated) match {
       case Left(e) => fail(e.toString)
-      case Right(Contract(_, contract, agreementText, signatories, observers, key)) =>
+      case Right(Contract(_, contract, signatories, observers, key)) =>
         contract shouldBe expectedContract
-        agreementText shouldBe expectedAgreement
-        agreementText shouldBe event.getCreated.agreementText
         signatories shouldBe event.getCreated.signatories
         observers shouldBe event.getCreated.observers
         key shouldBe event.getCreated.contractKey

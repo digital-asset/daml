@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, v0, v3}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -59,17 +59,17 @@ case class TransactionResultMessage private (
   @transient override protected lazy val companionObj: TransactionResultMessage.type =
     TransactionResultMessage
 
-  protected def toProtoV3: v3.TransactionResultMessage =
-    v3.TransactionResultMessage(
+  protected def toProtoV30: v30.TransactionResultMessage =
+    v30.TransactionResultMessage(
       requestId = Some(requestId.toProtoPrimitive),
-      verdict = Some(verdict.toProtoV3),
+      verdict = Some(verdict.toProtoV30),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
     )
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
       getCryptographicEvidence
     )
 
@@ -92,10 +92,10 @@ object TransactionResultMessage
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v3.TransactionResultMessage
+      v30.TransactionResultMessage
     )(
-      supportedProtoVersionMemoized(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -111,10 +111,10 @@ object TransactionResultMessage
       None,
     )
 
-  private def fromProtoV3(protoResultMessage: v3.TransactionResultMessage)(
+  private def fromProtoV30(protoResultMessage: v30.TransactionResultMessage)(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] = {
-    val v3.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
+    val v30.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
       protoResultMessage
     for {
       requestId <- ProtoConverter
@@ -122,7 +122,7 @@ object TransactionResultMessage
         .flatMap(RequestId.fromProtoPrimitive)
       transactionResult <- ProtoConverter
         .required("verdict", verdictPO)
-        .flatMap(Verdict.fromProtoV3)
+        .flatMap(Verdict.fromProtoV30)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
     } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId)(

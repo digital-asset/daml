@@ -62,10 +62,8 @@ object CommunityConfigValidations
   private[config] def genericValidations[C <: CantonConfig]
       : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
-      developmentProtocolSafetyCheckDomains,
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
-      warnIfUnsafeProtocolVersionEmbeddedDomain,
       adminTokenSafetyCheckParticipants,
     )
 
@@ -134,7 +132,11 @@ object CommunityConfigValidations
       config: CantonCommunityConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val dbAccessToNodes =
-      extractNormalizedDbAccess(config.participantsByString, config.domainsByString)
+      extractNormalizedDbAccess(
+        config.participantsByString,
+        config.sequencersByString,
+        config.mediatorsByString,
+      )
 
     dbAccessToNodes.toSeq
       .traverse_ {
@@ -151,13 +153,9 @@ object CommunityConfigValidations
       config: CantonCommunityConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val CantonCommunityConfig(
-      domains,
-      participants,
       participantsX,
       sequencersX,
       mediatorsX,
-      remoteDomains,
-      remoteParticipants,
       remoteParticipantsX,
       remoteSequencersX,
       remoteMediatorsX,
@@ -168,10 +166,6 @@ object CommunityConfigValidations
       config
     Validated.cond(
       Seq(
-        domains,
-        participants,
-        remoteDomains,
-        remoteParticipants,
         participantsX,
         remoteParticipantsX,
         mediatorsX,
@@ -184,17 +178,6 @@ object CommunityConfigValidations
       NonEmpty(Seq, "At least one node must be defined in the configuration"),
     )
 
-  }
-
-  private def developmentProtocolSafetyCheckDomains(
-      config: CantonConfig
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
-    developmentProtocolSafetyCheck(
-      config.parameters.nonStandardConfig,
-      config.domains.toSeq.map { case (k, v) =>
-        (k, v.init.domainParameters)
-      },
-    )
   }
 
   private def developmentProtocolSafetyCheckParticipants(
@@ -233,17 +216,6 @@ object CommunityConfigValidations
 
       if (isMinimumDeprecatedVersion && !config.parameters.dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnParticipant(name, minimum).discard
-    }
-    Validated.valid(())
-  }
-
-  private def warnIfUnsafeProtocolVersionEmbeddedDomain(
-      config: CantonConfig
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
-    config.domains.toSeq.foreach { case (name, config) =>
-      val pv = config.init.domainParameters.protocolVersion.unwrap
-      if (pv.isDeprecated && !config.init.domainParameters.dontWarnOnDeprecatedPV)
-        DeprecatedProtocolVersion.WarnDomain(name, pv).discard
     }
     Validated.valid(())
   }

@@ -1111,7 +1111,7 @@ object TransactionSpec {
       packageName = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(cid("#dummyCid")),
-      agreementText = "dummyAgreement",
+      agreementText = "", // to be removed
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,

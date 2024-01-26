@@ -51,7 +51,7 @@ object SequencerTestUtils extends BaseTest {
       case Some(bytes) =>
         // Somehow ugly way to tweak the `deserializedFrom` attribute of Deliver
         SequencedEvent
-          .fromProtoV1(deliver.toProtoV1)(bytes)
+          .fromProtoV30(deliver.toProtoV30)(bytes)
           .value
           .asInstanceOf[Deliver[ClosedEnvelope]]
 

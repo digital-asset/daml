@@ -79,38 +79,6 @@ final case class CommunityMediatorNodeXConfig(
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorXAdminApiPort.setDefaultPort)
   }
-
-  /** the following case class match will help us detect any additional configuration options added
-    * for "classic" non-X nodes that may apply to X-nodes as well.
-    */
-  private def _completenessCheck(
-      classicConfig: CommunityMediatorNodeConfig
-  ): CommunityMediatorNodeXConfig =
-    classicConfig match {
-      case CommunityMediatorNodeConfig(
-            adminApi,
-            storage,
-            crypto,
-            init,
-            timeTracker,
-            sequencerClient,
-            caching,
-            parameters,
-            monitoring,
-            topologyX,
-          ) =>
-        CommunityMediatorNodeXConfig(
-          adminApi,
-          storage,
-          crypto,
-          init,
-          timeTracker,
-          sequencerClient,
-          caching,
-          parameters,
-          monitoring,
-        )
-    }
 }
 
 class MediatorNodeBootstrapX(

@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v1 as topoV1
+import com.digitalasset.canton.topology.admin.v30 as topoV30
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
@@ -343,35 +343,36 @@ object TopologyStoreX {
 }
 
 sealed trait TimeQueryX {
-  def toProtoV1: topoV1.BaseQuery.TimeQuery
+  def toProtoV30: topoV30.BaseQuery.TimeQuery
 }
+
 object TimeQueryX {
   object HeadState extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery =
-      topoV1.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
   }
   final case class Snapshot(asOf: CantonTimestamp) extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery =
-      topoV1.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
   }
   final case class Range(from: Option[CantonTimestamp], until: Option[CantonTimestamp])
       extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery = topoV1.BaseQuery.TimeQuery.Range(
-      topoV1.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery = topoV30.BaseQuery.TimeQuery.Range(
+      topoV30.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
     )
   }
 
   def fromProto(
-      proto: topoV1.BaseQuery.TimeQuery,
+      proto: topoV30.BaseQuery.TimeQuery,
       fieldName: String,
   ): ParsingResult[TimeQueryX] =
     proto match {
-      case topoV1.BaseQuery.TimeQuery.Empty =>
+      case topoV30.BaseQuery.TimeQuery.Empty =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
-      case topoV1.BaseQuery.TimeQuery.Snapshot(value) =>
+      case topoV30.BaseQuery.TimeQuery.Snapshot(value) =>
         CantonTimestamp.fromProtoPrimitive(value).map(Snapshot)
-      case topoV1.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
-      case topoV1.BaseQuery.TimeQuery.Range(value) =>
+      case topoV30.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
+      case topoV30.BaseQuery.TimeQuery.Range(value) =>
         for {
           fromO <- value.from.traverse(CantonTimestamp.fromProtoPrimitive)
           toO <- value.until.traverse(CantonTimestamp.fromProtoPrimitive)

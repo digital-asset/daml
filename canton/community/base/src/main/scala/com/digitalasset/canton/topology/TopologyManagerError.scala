@@ -265,8 +265,9 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object UnauthorizedTransaction extends AlarmErrorCode(id = "UNAUTHORIZED_TOPOLOGY_TRANSACTION") {
 
-    final case class Failure()(implicit override val loggingContext: ErrorLoggingContext)
-        extends Alarm(cause = "Topology transaction is not properly authorized")
+    final case class Failure(reason: String)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends Alarm(cause = s"Topology transaction is not properly authorized: $reason")
         with TopologyManagerError
   }
 

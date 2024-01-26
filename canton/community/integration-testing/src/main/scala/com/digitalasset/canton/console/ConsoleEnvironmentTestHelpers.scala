@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.topology.*
-
 /** Utilities for accessing the console environment
   */
 trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
@@ -18,22 +16,8 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
       )
   }
 
-  // helpers for creating participant and domain references by name
+  // helpers for creating participant, sequencer, and mediator references by name
   // unknown names will throw
-  def lp(name: String): LocalParticipantReference =
-    participants.local
-      .find(_.name == name)
-      .getOrElse(sys.error(s"participant [$name] not configured"))
-
-  def rp(name: String): RemoteParticipantReference =
-    participants.remote
-      .find(_.name == name)
-      .getOrElse(sys.error(s"remote participant [$name] not configured"))
-
-  def p(name: String): ParticipantReference = participants.all
-    .find(_.name == name)
-    .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
-
   def lpx(name: String): LocalParticipantReferenceX = participantsX.local
     .find(_.name == name)
     .getOrElse(sys.error(s"participant x [$name] not configured"))
@@ -46,11 +30,6 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
   def px(name: String): ParticipantReferenceX = participantsX.all
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant x [$name] is configured"))
-
-  def d(name: String): CE#DomainLocalRef =
-    domains.local
-      .find(_.name == name)
-      .getOrElse(sys.error(s"domain [$name] not configured"))
 
   def sx(name: String): SequencerNodeReferenceX =
     sequencersX.all
@@ -81,6 +60,4 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     mediatorsX.remote
       .find(_.name == name)
       .getOrElse(sys.error(s"remote mediator-x [$name] not configured"))
-
-  def mediatorIdForDomain(domain: String): MediatorId = MediatorId(d(domain).id)
 }

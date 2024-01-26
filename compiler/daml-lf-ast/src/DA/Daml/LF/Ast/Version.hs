@@ -120,24 +120,6 @@ featureMinVersion :: Feature -> MajorVersion -> Maybe Version
 featureMinVersion Feature{featureVersionReq = VersionReq rangeForMajor} major =
   Version major <$> R.minBound (rangeForMajor major)
 
--- | Kept for serialization of stable packages.
-featureStringInterning :: Feature
-featureStringInterning = Feature
-    { featureName = "String interning"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Nothing
-    }
-
--- | Kept for serialization of stable packages.
-featureTypeInterning :: Feature
-featureTypeInterning = Feature
-    { featureName = "Type interning"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Nothing
-    }
-
 -- Unstable, experimental features. This should stay in x.dev forever.
 -- Features implemented with this flag should be moved to a separate
 -- feature flag once the decision to add them permanently has been made.
@@ -162,22 +144,6 @@ featureExceptions = Feature
     , featureVersionReq = VersionReq \case
           V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_EXCEPTIONS"
-    }
-
-featureNatSynonyms :: Feature
-featureNatSynonyms = Feature
-    { featureName = "Nat type synonyms"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_NAT_SYN"
-    }
-
-featureSimpleInterfaces :: Feature
-featureSimpleInterfaces = Feature
-    { featureName = "Daml Interfaces"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_INTERFACE"
     }
 
 featureExtendedInterfaces :: Feature
@@ -216,33 +182,6 @@ featurePackageUpgrades = Feature
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
-featureNatTypeErasure :: Feature
-featureNatTypeErasure = Feature
-    { featureName = "Erasing types of kind Nat"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
-    }
-
--- This feature does not impact the compiler, but does control the evaluation
--- order integration tests via @SUPPORTS-LF-FEATURE.
-featureRightToLeftEvaluation :: Feature
-featureRightToLeftEvaluation = Feature
-    { featureName = "Right-to-left evaluation order"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_RIGHT_TO_LEFT_EVALUATION"
-    }
-
--- This is used to remove references to Scenarios in LFv2
-featureScenarios :: Feature
-featureScenarios = Feature
-    { featureName = "Scenarios"
-    , featureVersionReq = VersionReq \case
-          V2 -> noMinorVersion
-    , featureCppFlag = Just "DAML_SCENARIOS"
-    }
-
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -250,27 +189,30 @@ featureExperimental = Feature
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
+-- | CPP flags of past features that have become part of LF but that some
+-- clients might still depend on being defined.
+foreverCppFlags :: [T.Text]
+foreverCppFlags =
+    [ "DAML_NAT_SYN"
+    , "DAML_NAT_TYPE_ERASURE"
+    , "DAML_INTERFACE"
+    , "DAML_RIGHT_TO_LEFT_EVALUATION"
+    ]
+
 -- TODO: https://github.com/digital-asset/daml/issues/15882
 -- Ought we have "featureChoiceAuthority" ?
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureStringInterning
-    , featureTypeInterning
-    , featureBigNumeric
+    [ featureBigNumeric
     , featureExceptions
-    , featureNatSynonyms
-    , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
-    , featureScenarios
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
     , featurePackageUpgrades
-    , featureNatTypeErasure
-    , featureRightToLeftEvaluation
     ]
 
 -- | A map from feature CPP flags to features.

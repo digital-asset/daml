@@ -70,6 +70,7 @@ final case class CommunityPublicServerConfig(
 ) extends PublicServerConfig
     with CommunityServerConfig
 
+// TODO(#15160): Deep remove domain nodes
 trait DomainBaseConfig extends LocalNodeConfig {
 
   /** determines how this node is initialized */
@@ -99,6 +100,7 @@ trait DomainBaseConfig extends LocalNodeConfig {
 }
 
 /** Configuration parameters for a single domain. */
+// TODO(#15160): Deep remove domain nodes
 trait DomainConfig extends DomainBaseConfig {
 
   override val nodeTypeName: String = "domain"
@@ -129,6 +131,7 @@ final case class DomainNodeParametersConfig(
     caching: CachingConfigs = CachingConfigs(),
 ) extends LocalNodeParametersConfig
 
+// TODO(#15160): Deep remove domain nodes
 final case class CommunityDomainConfig(
     override val init: DomainInitConfig = DomainInitConfig(),
     override val auditLogging: Boolean = false,

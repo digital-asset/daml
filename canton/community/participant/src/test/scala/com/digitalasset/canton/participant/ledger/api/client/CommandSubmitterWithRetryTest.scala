@@ -3,35 +3,33 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.error.{ErrorCategory, ErrorClass, ErrorCode}
+import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitRequest,
-}
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitForUpdateIdResponse
+import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.util.SingleUseCell
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
-import io.grpc.protobuf.StatusProto
 import org.scalatest.*
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
+import scala.jdk.DurationConverters.ScalaDurationOps
 
 @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
 class CommandSubmitterWithRetryTest
     extends FixtureAsyncWordSpec
     with BaseTest
     with PekkoBeforeAndAfterAll {
-  private val maxRetries = 10
-  private val timeout = Duration.fromNanos(1337L)
+
+  private val timeout = 5.seconds
   private val commands = Commands(
-    ledgerId = "ledgerId",
     workflowId = "workflowId",
     applicationId = "applicationId",
     commandId = "commandId",
@@ -40,37 +38,30 @@ class CommandSubmitterWithRetryTest
   )
 
   final class Fixture {
+
     private var sut: CommandSubmitterWithRetry = _
 
     def runTest(
         expectedCommands: Commands,
-        result: Future[Either[Status, String]],
+        result: => Future[Either[Status, String]],
     )(
-        test: (CommandSubmitterWithRetry, SynchronousCommandClient) => Future[Assertion]
+        test: (CommandSubmitterWithRetry, CommandServiceClient, SimClock) => Future[Assertion]
     ): Future[Assertion] = {
-      val synchronousCommandClient = mock[SynchronousCommandClient]
-      val request = SubmitAndWaitRequest(Some(expectedCommands))
-      when(synchronousCommandClient.submitAndWaitForTransactionId(request, None, Some(timeout)))
-        .thenReturn(
-          result.flatMap(
-            _.fold(
-              nonZeroStatus =>
-                Future.failed(
-                  StatusProto.toStatusRuntimeException(Status.toJavaProto(nonZeroStatus))
-                ),
-              tId => Future.successful(SubmitAndWaitForTransactionIdResponse(transactionId = tId)),
-            )
-          )
+      val synchronousCommandClient = mock[CommandServiceClient]
+      val simClock = new SimClock(loggerFactory = loggerFactory)
+      when(synchronousCommandClient.submitAndWaitForUpdateId(expectedCommands, Some(timeout)))
+        .thenAnswer(
+          result.map(_.map(updateId => SubmitAndWaitForUpdateIdResponse(updateId = updateId)))
         )
       sut = new CommandSubmitterWithRetry(
-        10,
         synchronousCommandClient,
+        simClock,
         FutureSupervisor.Noop,
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )
 
-      test(sut, synchronousCommandClient)
+      test(sut, synchronousCommandClient, simClock)
     }
 
     def close(): Unit = sut.close()
@@ -91,7 +82,7 @@ class CommandSubmitterWithRetryTest
   "CommandSubmitterWithRetry" should {
     val transactionId = "txId"
     "complete successfully" in { f =>
-      f.runTest(commands, Future.successful(Right(transactionId))) { (sut, _) =>
+      f.runTest(commands, Future.successful(Right(transactionId))) { (sut, _, _) =>
         for {
           result <- sut.submitCommands(commands, timeout)
         } yield result shouldBe CommandResult.Success(transactionId)
@@ -100,48 +91,63 @@ class CommandSubmitterWithRetryTest
 
     "complete with failure" in { f =>
       val errorStatus = Status(Code.FAILED_PRECONDITION.value, "oh no man", Nil)
-      f.runTest(commands, Future.successful(Left(errorStatus))) { (sut, _) =>
+      f.runTest(commands, Future.successful(Left(errorStatus))) { (sut, _, _) =>
         for {
           result <- sut.submitCommands(commands, timeout)
         } yield result shouldBe CommandResult.Failed(commands.commandId, errorStatus)
       }
     }
 
-    "retry on timeouts at most given maxRetries" in { f =>
-      val code =
-        new ErrorCode(id = "TIMEOUT", ErrorCategory.ContentionOnSharedResources)(
+    "retry on retryable until expired" in { f =>
+      val errorCode =
+        new ErrorCode(id = "CONTENTION", ErrorCategory.ContentionOnSharedResources)(
           new ErrorClass(Nil)
         ) {
           override def errorConveyanceDocString: Option[String] = None
         }
-      val errorStatus = Status(Code.ABORTED.value, code.toMsg(s"now try that", None), Nil)
+      val errorStatus = CommandServiceClient
+        .statusFromThrowable(
+          errorCode
+            .asGrpcError(new BaseError() {
+              override def code: ErrorCode = errorCode
+              override def cause: String = "now try that"
+            })
+        )
+        .valueOrFail("Could not create error status")
 
-      f.runTest(commands, Future.successful(Left(errorStatus))) { (sut, commandClient) =>
+      val responded = new SingleUseCell[SimClock]()
+
+      f.runTest(
+        commands, {
+          responded.get.foreach(_.advance(1.second.toJava)) // advance clock in every response
+          Future.successful(Left(errorStatus))
+        },
+      ) { (sut, commandClient, clock) =>
+        responded.putIfAbsent(clock)
         loggerFactory.suppressWarningsAndErrors {
           for {
             result <- sut.submitCommands(commands, timeout)
           } yield {
-            verify(commandClient, times(maxRetries + 1))
-              .submitAndWaitForTransactionId(
-                SubmitAndWaitRequest(Some(commands)),
-                None,
+            verify(commandClient, times(4))
+              .submitAndWaitForUpdateId(
+                commands,
                 Some(timeout),
               )
-            result shouldBe CommandResult.MaxRetriesReached(commands.commandId, errorStatus)
+            result shouldBe CommandResult.TimeoutReached(commands.commandId, errorStatus)
           }
         }
       }
     }
 
     "Gracefully reject commands submitted after closing" in { f =>
-      f.runTest(commands, Future.never) { (sut, _) =>
+      f.runTest(commands, Future.never) { (sut, _, _) =>
         sut.close()
         sut.submitCommands(commands, timeout).map(_ shouldBe CommandResult.AbortedDueToShutdown)
       }
     }
 
     "Gracefully reject pending commands when closing" in { f =>
-      f.runTest(commands, Future.never) { (sut, _) =>
+      f.runTest(commands, Future.never) { (sut, _, _) =>
         val result =
           sut.submitCommands(commands, timeout).map(_ shouldBe CommandResult.AbortedDueToShutdown)
         sut.close()

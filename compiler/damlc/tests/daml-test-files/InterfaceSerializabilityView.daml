@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 -- @ERROR range=18:11-18:12; error type checking interface InterfaceSerializabilityView.I : expected serializable type: * reason: view * found: InterfaceSerializabilityView:NonSerializable * problem: unserializable data type InterfaceSerializabilityView:NonSerializable
 module InterfaceSerializabilityView where
 

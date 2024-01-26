@@ -5,7 +5,7 @@ package com.digitalasset.canton.scheduler
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
-import com.digitalasset.canton.admin.pruning.v0
+import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.scheduler.Cron.*
@@ -34,7 +34,7 @@ final case class PruningSchedule(
     override val maxDuration: PositiveSeconds,
     retention: PositiveSeconds,
 ) extends Schedule(cron, maxDuration) {
-  def toProtoV0: v0.PruningSchedule = v0.PruningSchedule(
+  def toProtoV0: v30.PruningSchedule = v30.PruningSchedule(
     cron = cron.toProtoPrimitive,
     maxDuration = Some(maxDuration.toProtoPrimitive),
     retention = Some(retention.toProtoPrimitive),
@@ -42,7 +42,7 @@ final case class PruningSchedule(
 }
 
 object PruningSchedule {
-  def fromProtoV0(schedule: v0.PruningSchedule): ParsingResult[PruningSchedule] =
+  def fromProtoV0(schedule: v30.PruningSchedule): ParsingResult[PruningSchedule] =
     for {
       cron <- Cron.fromProtoPrimitive(schedule.cron)
       maxDuration <- PositiveSeconds.fromProtoPrimitiveO("maxDuration")(schedule.maxDuration)

@@ -1,0 +1,26 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.time.v30;
+
+import "google/protobuf/duration.proto";
+
+// these structures are only used for where the configuration can be adjusted
+// at runtime using the participant domain connectivity commands and services.
+// however they are defined here in common to be sat alongside the scala definitions
+// themselves.
+
+message TimeProofRequestConfig {
+  google.protobuf.Duration initial_retry_delay = 1;
+  google.protobuf.Duration max_retry_delay = 2;
+  google.protobuf.Duration max_sequencing_delay = 3;
+}
+
+message DomainTimeTrackerConfig {
+  google.protobuf.Duration observation_latency = 1;
+  google.protobuf.Duration patience_duration = 2;
+  google.protobuf.Duration min_observation_duration = 3;
+  TimeProofRequestConfig time_proof_request = 4;
+}

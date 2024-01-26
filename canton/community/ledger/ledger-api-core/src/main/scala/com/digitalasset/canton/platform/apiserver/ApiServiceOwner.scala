@@ -9,8 +9,8 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
@@ -31,6 +31,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
 import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
@@ -39,7 +40,6 @@ import com.digitalasset.canton.platform.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
@@ -67,7 +67,7 @@ object ApiServiceOwner {
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
-      enableExplicitDisclosure: Boolean = false,
+      tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       multiDomainEnabled: Boolean,
       upgradingEnabled: Boolean,
       // immutable configuration parameters
@@ -116,6 +116,8 @@ object ApiServiceOwner {
       userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
       pekkoScheduler = actorSystem.scheduler,
       jwtTimestampLeeway = jwtTimestampLeeway,
+      tokenExpiryGracePeriodForStreams =
+        tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )
@@ -161,7 +163,6 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,
-        enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         upgradingEnabled = upgradingEnabled,

@@ -230,7 +230,10 @@ proto_jars(
 
 scala_library(
     name = "community_ledger_ledger-common",
-    srcs = glob(["community/ledger/ledger-common/src/main/scala/**/*.scala"]),
+    srcs = glob([
+        "community/ledger/ledger-common/src/main/scala/**/*.scala",
+        "community/ledger/ledger-common/src/main/scala/**/*.java",
+    ]),
     resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
     resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     scalacopts = [
@@ -240,6 +243,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
+        ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -256,13 +260,16 @@ scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
@@ -574,7 +581,6 @@ scala_library(
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
-        ":pekko-stream-patch",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
@@ -588,7 +594,6 @@ scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/executors",
-        "//libs-scala/grpc-utils",
         "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -626,8 +631,6 @@ scala_library(
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_services",
@@ -848,7 +851,7 @@ proto_gen(
 
 genrule(
     name = "community_participant_admin-workflows_dar",
-    srcs = glob(["community/participant/src/main/daml/*"]) + [
+    srcs = glob(["community/participant/src/main/daml/**/*"]) + [
         "//daml-script/daml3:daml3-script-2.1.dar",
     ],
     outs = ["AdminWorkflows.dar"],
@@ -867,33 +870,9 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "community_participant_admin-workflows-with-vacuuming_dar",
-    srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
-        ":community_participant_admin-workflows_dar",
-        "//daml-script/daml3:daml3-script-2.1.dar",
-    ],
-    outs = ["AdminWorkflowsWithVacuuming.dar"],
-    cmd = """
-      set -euo pipefail
-      project_dir=$$(dirname $(location community/participant/src/main/daml/ping-pong-vacuum/daml.yaml))
-      tmpdir=$$(mktemp -d)
-      trap "rm -rf $$tmpdir" EXIT
-      cp -r $$project_dir/* $$tmpdir
-      cp $(location :community_participant_admin-workflows_dar) $$tmpdir
-      cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
-      sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
-      sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
-      sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
-      $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
-    """.format(sdk_version = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
 dar_to_java(
-    name = "community_participant_admin-workflows-with-vacuuming_java",
-    src = ":community_participant_admin-workflows-with-vacuuming_dar",
+    name = "community_participant_admin-workflows_java",
+    src = ":community_participant_admin-workflows_dar",
     package_prefix = "com.digitalasset.canton.participant.admin.workflows.java",
 )
 
@@ -911,7 +890,6 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton",
     resources = [
-        ":community_participant_admin-workflows-with-vacuuming_dar",
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
     ],
@@ -933,7 +911,7 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
-        ":community_participant_admin-workflows-with-vacuuming_java",
+        ":community_participant_admin-workflows_java",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -984,6 +962,7 @@ scala_library(
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_grpc_1_6",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",

@@ -169,7 +169,6 @@ final case class RemoteParticipantConfig(
   * @param databaseConnectionTimeout database connection timeout
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -193,7 +192,6 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
     additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
-    enableExplicitDisclosure: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
@@ -421,11 +419,13 @@ object JournalPruningConfig {
   *                           Only configurable to reduce the amount of secure random numbers consumed by tests and to avoid flaky timeouts during continuous integration.
   * @param indexer            parameters how the participant populates the index db used to serve the ledger api
   * @param jwtTimestampLeeway leeway parameters for JWTs
+  * @param tokenExpiryGracePeriodForStreams grace periods for streams that postpone termination beyond the JWT expiry
   */
 final case class LedgerApiServerParametersConfig(
     contractIdSeeding: Seeding = Seeding.Strong,
     indexer: IndexerConfig = IndexerConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )
 

@@ -116,7 +116,7 @@ object CantonRunner {
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
          |
-         |  sequencers-x {
+         |  sequencers {
          |    sequencer1 {
          |        admin-api.port = ${sequencerAdminApi.port}
          |        public-api.port = ${sequencerPublicApi.port}
@@ -128,13 +128,13 @@ object CantonRunner {
          |    }
          |  }
          |
-         |  mediators-x {
+         |  mediators {
          |    mediator1 {
          |        admin-api.port = ${mediatorAdminApi.port}
          |    }
          |  }
          |
-         |  participants-x {
+         |  participants {
          |    ${participantsConfig}
          |  }
          |}
@@ -143,7 +143,7 @@ object CantonRunner {
 
     val bootstrapConnectParticipants =
       config.participantIds
-        .map(id => s"$id.domains.connect_local(sequencer1)")
+        .map(id => s"$id.domains.connect_local(sequencer1, \"mydomain\")")
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>

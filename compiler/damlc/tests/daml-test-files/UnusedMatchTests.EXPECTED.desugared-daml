@@ -16,65 +16,25 @@ instance DA.Internal.Record.HasField "q" T Party where
 data Revoke
   = Revoke {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_templateLet_T this@T {..}
-  = let revokeRetVal = () in
-    let (sig, obs) = userWrittenTuple (p, q) in
-    let assertion = True in
-    let plainEnglish = "Chop wood, carry water." in
-    let ident = "123" in
-    let _ = this
-    in (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
-    = DA.Internal.Desugar.toParties (sig)
+    = DA.Internal.Desugar.toParties (sig this)
     where
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-          = _templateLet_T this
-        _ = revokeRetVal
-        _ = sig
-        _ = obs
-        _ = assertion
-        _ = plainEnglish
-        _ = ident
         _ = this
 instance DA.Internal.Desugar.HasObserver T where
   observer this@T {..}
-    = DA.Internal.Desugar.toParties (obs)
+    = DA.Internal.Desugar.toParties (obs this)
     where
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-          = _templateLet_T this
-        _ = revokeRetVal
-        _ = sig
-        _ = obs
-        _ = assertion
-        _ = plainEnglish
-        _ = ident
         _ = this
 instance DA.Internal.Desugar.HasEnsure T where
   ensure this@T {..}
-    = assertion
+    = assertion this
     where
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-          = _templateLet_T this
-        _ = revokeRetVal
-        _ = sig
-        _ = obs
-        _ = assertion
-        _ = plainEnglish
-        _ = ident
         _ = this
 instance DA.Internal.Desugar.HasAgreement T where
   agreement this@T {..}
-    = plainEnglish
+    = plainEnglish this
     where
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-          = _templateLet_T this
-        _ = revokeRetVal
-        _ = sig
-        _ = obs
-        _ = assertion
-        _ = plainEnglish
-        _ = ident
         _ = this
 instance DA.Internal.Desugar.HasArchive T where
   archive cid
@@ -140,29 +100,12 @@ _choice$_T$Revoke :
 _choice$_T$Revoke
   = (DA.Internal.Desugar.Consuming, 
      \ this@T {..} arg@Revoke
-       -> let
-            (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-              = _templateLet_T this in
-          let _ = revokeRetVal in
-          let _ = sig in
-          let _ = obs in
-          let _ = assertion in
-          let _ = plainEnglish in
-          let _ = ident in
-          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@T {..} arg@Revoke
-       -> let
-            (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-              = _templateLet_T this in
-          let _ = revokeRetVal in
-          let _ = sig in
-          let _ = obs in
-          let _ = assertion in
-          let _ = plainEnglish in
-          let _ = ident in
-          let _ = self in
-          let _ = this in let _ = arg in do pure revokeRetVal)
+       -> let _ = self in
+          let _ = this in let _ = arg in do pure (revokeRetVal this))
 instance DA.Internal.Desugar.HasExerciseByKey T (Party,
                                                  Text) DA.Internal.Desugar.Archive (()) where
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
@@ -171,16 +114,8 @@ instance DA.Internal.Desugar.HasExerciseByKey T (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey T (Party, Text) where
   key this@T {..}
-    = userWrittenTuple (sig, ident)
+    = userWrittenTuple (sig this, ident this)
     where
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
-          = _templateLet_T this
-        _ = revokeRetVal
-        _ = sig
-        _ = obs
-        _ = assertion
-        _ = plainEnglish
-        _ = ident
         _ = this
 instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
   _maintainer _ key
@@ -198,3 +133,15 @@ instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
 instance DA.Internal.Desugar.HasFromAnyContractKey T (Party,
                                                       Text) where
   _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
+revokeRetVal : T -> ()
+revokeRetVal _ = ()
+assertion : T -> Bool
+assertion _ = True
+sig : T -> Party
+sig T {p} = p
+obs : T -> Party
+obs T {q} = q
+plainEnglish : T -> Text
+plainEnglish _ = "Chop wood, carry water."
+ident : T -> Text
+ident _ = "123"

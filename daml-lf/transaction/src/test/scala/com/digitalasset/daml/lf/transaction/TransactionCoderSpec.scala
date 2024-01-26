@@ -205,7 +205,7 @@ class TransactionCoderSpec
           packageName = None,
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
-          agreementText = "agreement",
+          agreementText = "", // to be removed
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           keyOpt = None,
@@ -381,9 +381,7 @@ class TransactionCoderSpec
 
         val normalizedCreate =
           adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         TransactionCoder
           .encodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
       }
@@ -525,15 +523,13 @@ class TransactionCoderSpec
       forAll(
         malformedCreateNodeGen(),
         minSuccessful(5),
-      ) { (create) =>
+      ) { create =>
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
           TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val Right(decoded) =
-          TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
+          TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, encoded)
 
         decoded shouldBe instance
       }
@@ -580,9 +576,7 @@ class TransactionCoderSpec
         val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
 
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
           TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val wrongProto = encoded.toBuilder.setPackageName(wrongPackageName.getOrElse("")).build()

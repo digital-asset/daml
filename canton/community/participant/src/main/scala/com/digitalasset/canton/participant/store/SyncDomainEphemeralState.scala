@@ -144,7 +144,6 @@ class SyncDomainEphemeralState(
 
   val phase37Synchronizer =
     new Phase37Synchronizer(
-      startingPoints.cleanReplay.nextRequestCounter,
       loggerFactory,
       futureSupervisor,
       timeouts,

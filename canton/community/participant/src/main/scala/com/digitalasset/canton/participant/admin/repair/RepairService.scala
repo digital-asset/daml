@@ -49,7 +49,6 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
@@ -454,16 +453,16 @@ final class RepairService(
     )
   }
 
-  /** Participant repair utility for manually moving contracts from a source domain to a target domain in an offline
-    * fashion.
+  /** Participant repair utility to manually change assignation of contracts
+    * from a source domain to a target domain in an offline fashion.
     *
-    * @param contractIds    ids of contracts to move that reside in the sourceDomain
-    * @param sourceDomain alias of source domain from which to move contracts
-    * @param targetDomain alias of target domain to which to move contracts
-    * @param skipInactive   whether to only move contracts that are active in the source domain
-    * @param batchSize      how big the batches should be used during the migration
+    * @param contractIds    IDs of contracts that will change assignation
+    * @param sourceDomain   alias of source domain the contracts are assigned to before the change
+    * @param targetDomain   alias of target domain the contracts will be assigned to after the change
+    * @param skipInactive   whether to only change assignment of contracts that are active in the source domain
+    * @param batchSize      how big the batches should be used during the change assignation process
     */
-  def changeDomainAwait(
+  def changeAssignationAwait(
       contractIds: Seq[LfContractId],
       sourceDomain: DomainAlias,
       targetDomain: DomainAlias,
@@ -471,14 +470,14 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change domain request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
+      s"Change assignation request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
     )
     lockAndAwaitEitherT(
-      "repair.change_domain", {
+      "repair.change_assignation", {
         for {
           sourceDomainId <- aliasToUnconnectedDomainId(sourceDomain)
           targetDomainId <- aliasToUnconnectedDomainId(targetDomain)
-          _ <- changeDomain(
+          _ <- changeAssignation(
             contractIds,
             sourceDomainId,
             targetDomainId,
@@ -490,7 +489,7 @@ final class RepairService(
     )
   }
 
-  /** Change the association of a contract from one domain to another
+  /** Change the assignation of a contract from one domain to another
     *
     * This function here allows us to manually insert a transfer out / in into the respective
     * journals in order to move a contract from one domain to another. The procedure will result in
@@ -499,7 +498,7 @@ final class RepairService(
     *
     * @param skipInactive if true, then the migration will skip contracts in the contractId list that are inactive
     */
-  def changeDomain(
+  def changeAssignation(
       contractIds: Seq[LfContractId],
       sourceDomainId: DomainId,
       targetDomainId: DomainId,
@@ -517,17 +516,17 @@ final class RepairService(
           repairSource <- initRepairRequestAndVerifyPreconditions(sourceDomainId, numberOfContracts)
           repairTarget <- initRepairRequestAndVerifyPreconditions(targetDomainId, numberOfContracts)
 
-          migration =
+          changeAssignationData =
             contractIds
               .zip(repairSource.timesOfChange)
               .zip(repairTarget.timesOfChange)
-              .map { case (((contractId, sourceToc), targetToc)) =>
-                MigrateContracts.Data(contractId, sourceToc, targetToc)
+              .map { case ((contractId, sourceToc), targetToc) =>
+                ChangeAssignation.Data(contractId, sourceToc, targetToc)
               }
 
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-          _ <- migrateContractsBatched(
-            migration,
+          _ <- changeAssignationBatched(
+            changeAssignationData,
             repairSource,
             repairTarget,
             skipInactive,
@@ -616,7 +615,7 @@ final class RepairService(
     EitherT.fromEither[Future](
       for {
         rawContractInstance <- SerializableRawContractInstance
-          .create(computed.instance, computed.agreementText)
+          .create(computed.instance)
           .leftMap(err =>
             log(s"Failed to serialize contract ${inputContract.contractId}: ${err.errorMessage}")
           )
@@ -779,8 +778,8 @@ final class RepairService(
     } yield contractToArchiveInEvent
   }
 
-  private def migrateContractsBatched(
-      contractIds: Seq[MigrateContracts.Data[LfContractId]],
+  private def changeAssignationBatched(
+      contractIds: Seq[ChangeAssignation.Data[LfContractId]],
       repairSource: RepairRequest,
       repairTarget: RepairRequest,
       skipInactive: Boolean,
@@ -790,7 +789,7 @@ final class RepairService(
       .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
         contractIds
       )(
-        MigrateContracts(
+        ChangeAssignation(
           _,
           repairSource,
           repairTarget,
@@ -1323,7 +1322,7 @@ object RepairService {
          and will discard this value.
          */
         serializableRawContractInst <- SerializableRawContractInstance
-          .create(lfContractInst, AgreementText.empty)
+          .create(lfContractInst)
           .leftMap(_.errorMessage)
 
         signatoriesAsParties <- signatories.toList.traverse(LfPartyId.fromString).map(_.toSet)

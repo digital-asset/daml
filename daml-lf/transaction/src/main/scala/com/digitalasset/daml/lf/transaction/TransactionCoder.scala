@@ -90,18 +90,17 @@ object TransactionCoder {
     */
   def encodeContractInstance(
       encodeCid: ValueCoder.EncodeCid,
-      coinst: Versioned[Value.ContractInstanceWithAgreement],
+      coinst: Versioned[Value.ContractInstance],
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     for {
       value <- ValueCoder
-        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.contractInstance.arg)
-      pkgName <- encodePackageName(coinst.unversioned.contractInstance.packageName, coinst.version)
+        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
+      pkgName <- encodePackageName(coinst.unversioned.packageName, coinst.version)
     } yield TransactionOuterClass.ContractInstance
       .newBuilder()
       .setPackageName(pkgName)
-      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
+      .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
       .setArgVersioned(value)
-      .setAgreement(coinst.unversioned.agreementText)
       .build()
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
@@ -161,26 +160,11 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
-    decodeVersionedContractInstance(decodeCid, protoCoinst).map(_.map(_.contractInstance))
-
-  def decodeVersionedContractInstance(
-      decodeCid: ValueCoder.DecodeCid,
-      protoCoinst: TransactionOuterClass.ContractInstance,
-  ): Either[DecodeError, Versioned[Value.ContractInstanceWithAgreement]] =
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
       pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
-    } yield value.map(arg =>
-      Value.ContractInstanceWithAgreement(
-        Value.ContractInstance(
-          pkgName,
-          id,
-          arg,
-        ),
-        protoCoinst.getAgreement,
-      )
-    )
+    } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,
@@ -272,7 +256,6 @@ object TransactionCoder {
                   builder
                     .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                     .setArgUnversioned(arg)
-                    .setAgreement(nc.agreementText)
                 )
                 encodedPkgName <- encodePackageName(nc.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
@@ -507,7 +490,7 @@ object TransactionCoder {
           packageName = pkgName,
           templateId = tmplId,
           arg = arg,
-          agreementText = protoCreate.getAgreement,
+          agreementText = "", // to be removed
           signatories = signatories,
           stakeholders = stakeholders,
           keyOpt = keyOpt,

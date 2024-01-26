@@ -5,7 +5,7 @@ package com.digitalasset.canton.traffic
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.admin.traffic.v0.MemberTrafficStatus as MemberTrafficStatusP
+import com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus as MemberTrafficStatusP
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.serialization.ProtoConverter

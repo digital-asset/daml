@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
-import com.digitalasset.canton.admin.participant.v0.{ExportAcsRequest, ExportAcsResponse}
+import com.digitalasset.canton.admin.participant.v30.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
@@ -269,28 +269,28 @@ abstract class LocalParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Move contracts with specified Contract IDs from one domain to another.")
+  @Help.Summary("Change assignation of contracts from one domain to another.")
   @Help.Description(
     """This is a last resort command to recover from data corruption in scenarios in which a domain is
-        |irreparably broken and formerly connected participants need to move contracts to another, healthy domain.
-        |The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain". Also as of now
-        |the target domain cannot have had any inflight requests.
-        |Contracts already present in the target domain will be skipped, and this makes it possible to invoke this
+        |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
+        |healthy domain. The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain".
+        |The target domain cannot have had any inflight requests.
+        |Contracts already assigned to the target domain will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
-        |The "skipInactive" flag makes it possible to only move active contracts in the "sourceDomain".
+        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceDomain".
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
         |contract ids passed in. Be sure to not connect the participant to either domain until the call returns.
 
         Arguments:
-        - contractIds - set of contract ids that should be moved to the new domain
+        - contractIds - set of contract ids that should change assignation to the new domain
         - sourceDomain - alias of the source domain
         - targetDomain - alias of the target domain
         - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
         - batchSize - (default 100) how many contracts to write at once to the database"""
   )
-  def change_domain(
+  def change_assignation(
       contractIds: Seq[LfContractId],
       sourceDomain: DomainAlias,
       targetDomain: DomainAlias,
@@ -299,7 +299,7 @@ abstract class LocalParticipantRepairAdministration(
   ): Unit =
     runRepairCommand(tc =>
       access(
-        _.sync.repairService.changeDomainAwait(
+        _.sync.repairService.changeAssignationAwait(
           contractIds,
           sourceDomain,
           targetDomain,

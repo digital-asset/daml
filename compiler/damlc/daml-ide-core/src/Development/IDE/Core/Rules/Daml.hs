@@ -297,7 +297,7 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
-        pure $! case Serializability.inferModule world lfVersion rawDalf of
+        pure $! case Serializability.inferModule world rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let diags = LF.checkModule world lfVersion dalf
@@ -441,7 +441,7 @@ generateSerializedDalfRule options =
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                    case Serializability.inferModule world lfVersion simplified of
+                                    case Serializability.inferModule world simplified of
                                         Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf

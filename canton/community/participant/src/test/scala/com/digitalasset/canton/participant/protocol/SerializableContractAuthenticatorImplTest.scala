@@ -79,10 +79,10 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
           )
           testFailedAuthentication(
             _.copy(rawContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(changedContractInstance, "")
+              ExampleTransactionFactory.asSerializableRaw(changedContractInstance)
             ),
             testedContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(changedContractInstance, ""),
+              ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
           )
         }
       }
@@ -225,8 +225,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     createIndex = 0,
     ledgerCreateTime = LedgerCreateTime(ledgerTime),
     metadata = contractMetadata,
-    suffixedContractInstance =
-      ExampleTransactionFactory.asSerializableRaw(contractInstance, agreementText = ""),
+    suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
     contractIdVersion = contractIdVersion,
   )
 
@@ -242,7 +241,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       metadata = contractMetadata,
       ledgerTime = ledgerTime,
       contractSalt = Some(contractSalt.unwrap),
-      unvalidatedAgreementText = AgreementText.empty,
     ).valueOrFail("Failed creating serializable contract instance")
 
   protected def testFailedAuthentication(
@@ -250,7 +248,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       testedSalt: Salt = contractSalt.unwrap,
       testedLedgerTime: CantonTimestamp = ledgerTime,
       testedContractInstance: SerializableRawContractInstance =
-        ExampleTransactionFactory.asSerializableRaw(contractInstance, ""),
+        ExampleTransactionFactory.asSerializableRaw(contractInstance),
       testedSignatories: Set[LfPartyId] = signatories,
       testedObservers: Set[LfPartyId] = observers,
       testedContractKey: Option[Versioned[protocol.LfGlobalKeyWithMaintainers]] = Some(contractKey),

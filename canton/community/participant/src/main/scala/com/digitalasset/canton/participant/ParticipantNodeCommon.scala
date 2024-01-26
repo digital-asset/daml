@@ -10,7 +10,7 @@ import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.Engine
 import com.digitalasset.canton.LedgerParticipantId
-import com.digitalasset.canton.admin.participant.v0.*
+import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
@@ -19,7 +19,7 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{DbConfig, H2DbConfig}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiProvider}
-import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
+import com.digitalasset.canton.domain.api.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.environment.{CantonNode, CantonNodeBootstrapCommon}
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
@@ -352,6 +352,12 @@ trait ParticipantNodeBootstrapCommon {
         loggerFactory,
       )
 
+      partyNotifier <- EitherT
+        .rightT[Future, String](
+          createPartyNotifierAndSubscribe(ephemeralState.participantEventPublisher)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       domainRegistry = new GrpcDomainRegistry(
         participantId,
         syncDomainPersistentStateManager,
@@ -368,6 +374,7 @@ trait ParticipantNodeBootstrapCommon {
         packageId => packageDependencyResolver.packageDependencies(List(packageId)),
         arguments.metrics.domainMetrics,
         sequencerInfoLoader,
+        partyNotifier,
         futureSupervisor,
         loggerFactory,
       )
@@ -377,12 +384,6 @@ trait ParticipantNodeBootstrapCommon {
         loggerFactory,
         futureSupervisor,
       )
-
-      partyNotifier <- EitherT
-        .rightT[Future, String](
-          createPartyNotifierAndSubscribe(ephemeralState.participantEventPublisher)
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
       // an interrupted prune after a shutdown or crash, which touches the domain stores.

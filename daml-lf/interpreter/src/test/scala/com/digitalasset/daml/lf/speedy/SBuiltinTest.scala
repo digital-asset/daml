@@ -1784,7 +1784,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = pkg.name,
           templateId = templateId,
           value = disclosedContract.argument,
-          agreementText = "",
           signatories = Set(alice),
           observers = Set.empty,
           keyOpt = None,
@@ -1792,7 +1791,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
-          SEValue(SText("")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(None)),
@@ -1845,7 +1843,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = pkg.name,
           templateId = templateId,
           value = disclosedContract.argument,
-          agreementText = "agreement",
           signatories = Set(alice),
           observers = Set.empty,
           keyOpt = Some(cachedKey),
@@ -1853,7 +1850,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
-          SEValue(SText("agreement")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(Some(keyWithMaintainers))),

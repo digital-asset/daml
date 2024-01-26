@@ -1,0 +1,122 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
+import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
+import "google/protobuf/duration.proto";
+
+/**
+ * Domain connectivity service for adding and connecting to domains
+ *
+ * The domain connectivity service allows to register to new domains and control the
+ * participants domain connections.
+ */
+service DomainConnectivityService {
+  // reconnect to domains
+  rpc ReconnectDomains(ReconnectDomainsRequest) returns (ReconnectDomainsResponse);
+  // configure a new domain connection
+  rpc RegisterDomain(RegisterDomainRequest) returns (RegisterDomainResponse);
+  // reconfigure a domain connection
+  rpc ModifyDomain(ModifyDomainRequest) returns (ModifyDomainResponse);
+  // connect to a configured domain
+  rpc ConnectDomain(ConnectDomainRequest) returns (ConnectDomainResponse);
+  // disconnect from a configured domain
+  rpc DisconnectDomain(DisconnectDomainRequest) returns (DisconnectDomainResponse);
+  // list connected domains
+  rpc ListConnectedDomains(ListConnectedDomainsRequest) returns (ListConnectedDomainsResponse);
+  // list configured domains
+  rpc ListConfiguredDomains(ListConfiguredDomainsRequest) returns (ListConfiguredDomainsResponse);
+  // Get the domain id of the given domain alias
+  rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
+}
+
+message DomainConnectionConfig {
+  // participant local identifier of the target domain
+  string domain_alias = 1;
+  // connection information to sequencers
+  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 2;
+  // if false, then domain needs to be manually connected to (default false)
+  bool manual_connect = 3;
+  // optional domainId (if TLS isn't to be trusted)
+  string domain_id = 4;
+  // optional. Influences whether the participant submits to this domain, if several domains are eligible
+  int32 priority = 5;
+  // initial delay before an attempt to reconnect to the sequencer
+  google.protobuf.Duration initial_retry_delay = 6;
+  // maximum delay before an attempt to reconnect to the sequencer
+  google.protobuf.Duration max_retry_delay = 7;
+  // configuration for how time is tracked and requested on this domain
+  com.digitalasset.canton.admin.time.v30.DomainTimeTrackerConfig time_tracker = 8;
+  // If true, allows a participant to connect to a domain that it was previously connected to,
+  // without issuing a new domain trust certificate.
+  bool initialize_from_trusted_domain = 10;
+}
+
+message ReconnectDomainsRequest {
+  /* if set to true, the connection attempt will succeed even if one of the connection attempts failed */
+  bool ignore_failures = 1;
+}
+message ReconnectDomainsResponse {}
+
+/** Register and optionally auto-connect to a new domain */
+message RegisterDomainRequest {
+  DomainConnectionConfig add = 1;
+}
+
+message RegisterDomainResponse {}
+
+message ModifyDomainRequest {
+  DomainConnectionConfig modify = 1;
+}
+
+message ModifyDomainResponse {}
+
+message ListConfiguredDomainsRequest {}
+
+message ListConfiguredDomainsResponse {
+  message Result {
+    DomainConnectionConfig config = 1;
+    bool connected = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ConnectDomainRequest {
+  string domain_alias = 1;
+  /* if retry is set to true, we will keep on retrying if the domain is unavailable */
+  bool retry = 2;
+}
+
+message ConnectDomainResponse {
+  /* true if the domain is connected, false if the domain is offline, exception on any other error */
+  bool connected_successfully = 1;
+}
+
+message DisconnectDomainRequest {
+  string domain_alias = 1;
+}
+
+message DisconnectDomainResponse {}
+
+message ListConnectedDomainsRequest {}
+
+message ListConnectedDomainsResponse {
+  message Result {
+    string domain_alias = 1;
+    string domain_id = 2;
+    bool healthy = 3;
+  }
+  repeated Result connected_domains = 1;
+}
+
+message GetDomainIdRequest {
+  string domain_alias = 1;
+}
+
+message GetDomainIdResponse {
+  string domain_id = 2;
+}

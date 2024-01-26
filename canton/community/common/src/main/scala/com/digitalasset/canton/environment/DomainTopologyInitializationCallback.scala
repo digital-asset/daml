@@ -10,6 +10,7 @@ import com.digitalasset.canton.sequencing.protocol.TopologyStateForInitRequest
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.TopologyStoreX
 import com.digitalasset.canton.tracing.TraceContext
@@ -25,7 +26,7 @@ trait DomainTopologyInitializationCallback {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, String, GenericStoredTopologyTransactionsX]
 }
 
 class StoreBasedDomainTopologyInitializationCallback(
@@ -39,7 +40,7 @@ class StoreBasedDomainTopologyInitializationCallback(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, GenericStoredTopologyTransactionsX] = {
     for {
       response <- transport.downloadTopologyStateForInit(
         TopologyStateForInitRequest(
@@ -56,7 +57,7 @@ class StoreBasedDomainTopologyInitializationCallback(
           .getOrElse(Future.unit)
       )
     } yield {
-      ()
+      response.topologyTransactions.value
     }
   }
 

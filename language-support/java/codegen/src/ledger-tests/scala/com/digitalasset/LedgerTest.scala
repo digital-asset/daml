@@ -8,7 +8,6 @@ import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.lf.data.Numeric
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
@@ -119,17 +118,6 @@ trait LedgerTest
       glook.data.name shouldEqual glookofly.name
       glookosruq.data.name shouldEqual s"${sruquito.name}-${glookofly.name}"
       glookosruq.data.timeOfBirth shouldEqual tob
-  }
-
-  it should "provide the agreement text" in withUniqueParty { (alice, glookofly, _, client) =>
-    sendCmd(client, alice, glookofly.create())
-
-    val wolpertinger :: _ =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
-
-    wolpertinger.agreementText.isPresent shouldBe true
-    wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${Numeric
-        .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
   }
 
   it should "provide the key" in withUniqueParty { (alice, glookofly, _, client) =>

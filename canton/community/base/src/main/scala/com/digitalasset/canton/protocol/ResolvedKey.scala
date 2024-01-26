@@ -9,26 +9,26 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 final case class ResolvedKey(key: LfGlobalKey, resolution: SerializableKeyResolution) {
-  def toProtoV3: v3.ViewParticipantData.ResolvedKey =
-    v3.ViewParticipantData.ResolvedKey(
+  def toProtoV30: v30.ViewParticipantData.ResolvedKey =
+    v30.ViewParticipantData.ResolvedKey(
       // oddity: pass the version from resolution to the proto-key
       key = Some(GlobalKeySerialization.assertToProto(LfVersioned(resolution.version, key))),
-      resolution = resolution.toProtoOneOfV0,
+      resolution = resolution.toProtoOneOfV30,
     )
 }
 
 object ResolvedKey {
-  def fromProtoV3(
-      resolvedKeyP: v3.ViewParticipantData.ResolvedKey
+  def fromProtoV30(
+      resolvedKeyP: v30.ViewParticipantData.ResolvedKey
   ): ParsingResult[ResolvedKey] = {
-    val v3.ViewParticipantData.ResolvedKey(keyP, resolutionP) = resolvedKeyP
+    val v30.ViewParticipantData.ResolvedKey(keyP, resolutionP) = resolvedKeyP
     for {
       keyWithVersion <- ProtoConverter
         .required("ResolvedKey.key", keyP)
-        .flatMap(GlobalKeySerialization.fromProtoV0)
+        .flatMap(GlobalKeySerialization.fromProtoV30)
       LfVersioned(version, key) = keyWithVersion
       // oddity: pass the version from the proto-key to resolution
-      resolution <- SerializableKeyResolution.fromProtoOneOfV3(resolutionP, version)
+      resolution <- SerializableKeyResolution.fromProtoOneOfV30(resolutionP, version)
     } yield ResolvedKey(key, resolution)
   }
 }

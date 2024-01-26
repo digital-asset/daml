@@ -46,7 +46,7 @@ sealed trait SimplestPingXCommunityIntegrationTest
 
     participantsX.local.start()
 
-    participantsX.local.domains.connect_local(sequencer1x)
+    participantsX.local.domains.connect_local(sequencer1x, "da")
     mediator1x.testing
       .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
     participant1x.health.ping(participant2x)

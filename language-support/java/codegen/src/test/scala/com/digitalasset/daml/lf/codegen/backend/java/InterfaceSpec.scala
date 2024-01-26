@@ -50,7 +50,6 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             Map(ic.TEMPLATE_ID -> data.toValue).asJava,
             emptyMap,
             Optional.empty,
-            Optional.empty,
             emptyList,
             emptyList,
             Instant.EPOCH,

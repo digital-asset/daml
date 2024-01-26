@@ -413,31 +413,32 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
             if (newTransactionsOrAdditionalSignatures.isEmpty)
               EitherT.pure[Future, TopologyManagerError](())
             else {
-              for {
-                // validate incrementally and apply to in-memory state
-                _ <- processor
-                  .validateAndApplyAuthorization(
-                    SequencedTime(ts),
-                    EffectiveTime(ts),
-                    newTransactionsOrAdditionalSignatures,
-                    abortIfCascading = !force,
-                    expectFullAuthorization,
-                  )
-                  .leftMap { res =>
-                    // a "duplicate rejection" is not a reason to report an error as it's just a no-op
-                    res.flatMap(_.nonDuplicateRejectionReason).headOption match {
-                      case Some(rejection) => rejection.toTopologyManagerError
-                      case None =>
-                        TopologyManagerError.InternalError
-                          .Other(
-                            "Topology transaction validation failed but there are no rejections"
-                          )
-                    }
-                  }
-                _ <- EitherT.right[TopologyManagerError](
-                  notifyObservers(ts, newTransactionsOrAdditionalSignatures)
+              // validate incrementally and apply to in-memory state
+              processor
+                .validateAndApplyAuthorization(
+                  SequencedTime(ts),
+                  EffectiveTime(ts),
+                  newTransactionsOrAdditionalSignatures,
+                  abortIfCascading = !force,
+                  expectFullAuthorization,
                 )
-              } yield ()
+                .leftFlatMap(rejectedTransactions =>
+                  // a "duplicate rejection" is not a reason to report an error as it's just a no-op
+                  EitherT.fromEither[Future](
+                    rejectedTransactions
+                      .flatMap(_.nonDuplicateRejectionReason)
+                      .headOption
+                      .map(_.toTopologyManagerError)
+                      // if the only rejections where duplicates (i.e. headOption returns None),
+                      // we filter them out and proceed with all other validated transactions, because the
+                      // TopologyStateProcessor will have treated them as such as well.
+                      // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
+                      .toLeft(rejectedTransactions.filter(tx => tx.rejectionReason.isEmpty))
+                  )
+                )
+                .map { acceptedTransactions =>
+                  notifyObservers(ts, acceptedTransactions.map(_.transaction))
+                }
             }
         } yield ()
       },

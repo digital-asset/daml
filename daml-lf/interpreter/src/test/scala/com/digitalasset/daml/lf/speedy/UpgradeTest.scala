@@ -168,7 +168,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
-        agreementText = "meh",
         signatories = Set.empty,
         observers = Set.empty,
         keyOpt = None,

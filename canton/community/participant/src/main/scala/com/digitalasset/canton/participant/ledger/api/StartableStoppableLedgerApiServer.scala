@@ -4,12 +4,6 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalExplicitDisclosure,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
@@ -327,8 +321,9 @@ class StartableStoppableLedgerApiServer(
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
+        tokenExpiryGracePeriodForStreams =
+          config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
         meteringReportKey = config.meteringReportKey,
-        enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
         multiDomainEnabled = multiDomainEnabled,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -411,20 +406,7 @@ class StartableStoppableLedgerApiServer(
     .toList
 
   private def getLedgerFeatures: LedgerFeatures = LedgerFeatures(
-    staticTime = config.testingTimeService.isDefined,
-    CommandDeduplicationFeatures.of(
-      Some(
-        CommandDeduplicationPeriodSupport.of(
-          offsetSupport = CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NATIVE_SUPPORT,
-          durationSupport =
-            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_CONVERT_TO_OFFSET,
-        )
-      ),
-      CommandDeduplicationType.ASYNC_AND_CONCURRENT_SYNC,
-      maxDeduplicationDurationEnforced = false,
-    ),
-    explicitDisclosure =
-      ExperimentalExplicitDisclosure.of(config.serverConfig.enableExplicitDisclosure),
+    staticTime = config.testingTimeService.isDefined
   )
 
   private def startHttpApiIfEnabled: ResourceOwner[Unit] =

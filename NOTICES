@@ -537,7 +537,7 @@ libghc-monoid-subclasses-prof 1.1.3 : BSD 3-clause "New" or "Revised" License
 liftup 3.0.1 : MIT License
 livereload-js 2.4.0 : MIT License
 ljharb/object.assign 4.1.4 : MIT License
-Lodash 4.17.21 : MIT License
+Lodash   4.17.21 : MIT License
 lodash.isequal 4.5.0 : MIT License
 lodash.isfinite 3.3.2 : MIT License
 lodash.memoize 3.0.4 : MIT License
@@ -13455,7 +13455,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(grunt-known-options 2.0.0, Lodash 4.17.21, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
+(grunt-known-options 2.0.0, Lodash   4.17.21, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
 
 ====
 

@@ -11,9 +11,6 @@ template PayOut
   where
     signatory receiver
     signatory giver
-    agreement
-      show giver <> " must pay to "
-      <> show receiver <> " the sum of five pounds."
 
 template CallablePayout
   with

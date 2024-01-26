@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.MerkleTree.BlindingCommand
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndexFromRoot}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, ViewHash, v1}
+import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, ViewHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
@@ -20,7 +20,7 @@ import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
 final case class TransactionSubviews private[data] (
     subviews: MerkleSeq[TransactionView]
 ) extends PrettyPrinting {
-  def toProtoV1: v1.MerkleSeq = subviews.toProtoV1
+  def toProtoV30: v30.MerkleSeq = subviews.toProtoV30
 
   lazy val unblindedElementsWithIndex: Seq[(TransactionView, MerklePathElement)] =
     subviews.unblindedElementsWithIndex
@@ -82,7 +82,7 @@ final case class TransactionSubviews private[data] (
     if (blindedElements.isEmpty) unblindedElements.map(_.viewHash)
     else
       throw new IllegalStateException(
-        "Attempting to get subviewHashes from a TransactionSubviewsV1 with blinded elements"
+        "Attempting to get subviewHashes from a TransactionSubviews with blinded elements"
       )
   }
 
@@ -96,15 +96,15 @@ final case class TransactionSubviews private[data] (
 }
 
 object TransactionSubviews {
-  private[data] def fromProtoV1(
+  private[data] def fromProtoV30(
       context: (HashOps, ConfirmationPolicy, ProtocolVersion),
-      subviewsPO: Option[v1.MerkleSeq],
+      subviewsPO: Option[v30.MerkleSeq],
   ): ParsingResult[TransactionSubviews] = {
     val (hashOps, _, _) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
       tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(1))(context)
-      subviews <- MerkleSeq.fromProtoV1((hashOps, tvParser), subviewsP)
+      subviews <- MerkleSeq.fromProtoV30((hashOps, tvParser), subviewsP)
     } yield TransactionSubviews(subviews)
   }
 

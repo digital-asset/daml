@@ -3,4 +3,5 @@
 
 module AdminWorkflows where
 
-import PingPong()
+import Canton.Internal.Ping()
+import Canton.Internal.Bong()

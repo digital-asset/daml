@@ -45,8 +45,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import slick.jdbc.GetResult
 import slick.jdbc.canton.SQLActionBuilder
+import slick.jdbc.{GetResult, TransactionIsolation}
 import slick.sql.SqlStreamingAction
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -194,10 +194,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
     updatingTime.event {
       storage.update_(
-        DBIO.seq(
-          if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
-          if (additions.nonEmpty) insertAdditions else DBIO.successful(0),
-        ),
+        DBIO
+          .seq(
+            if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
+            if (additions.nonEmpty) insertAdditions
+            else DBIO.successful(0),
+          )
+          .transactionally
+          .withTransactionIsolation(TransactionIsolation.Serializable),
         operationName = "update-topology-transactions",
       )
     }

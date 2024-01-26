@@ -39,21 +39,22 @@ class AuthenticationValidator()(implicit
         case Right(submitterMetadata: SubmitterMetadata) =>
           signatureO match {
             case Some(signature) =>
-              (for {
-                // check for an invalid signature
-                _ <- snapshot.verifySignature(
+              // check for an invalid signature
+              snapshot
+                .verifySignature(
                   view.rootHash.unwrap,
                   submitterMetadata.submitterParticipant,
                   signature,
                 )
-              } yield ()).value.map {
-                _.swap.toOption.map(cause =>
+                .swap
+                .toOption
+                .map { cause =>
                   (
                     view.viewPosition,
                     err(s"View ${view.viewPosition} has an invalid signature: ${cause.show}."),
                   )
-                )
-              }
+                }
+                .value
 
             case None =>
               // the signature is missing
@@ -71,7 +72,7 @@ class AuthenticationValidator()(implicit
     }
 
     for {
-      decryptionResult <- rootViews.forgetNE.parTraverseFilter(verifySignature)
-    } yield decryptionResult.toMap
+      signatureCheckErrors <- rootViews.forgetNE.parTraverseFilter(verifySignature)
+    } yield signatureCheckErrors.toMap
   }
 }

@@ -1,7 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_INTERFACE_EXTENDED
 -- @ERROR Guarded exercises are only available with --target=1.dev
 

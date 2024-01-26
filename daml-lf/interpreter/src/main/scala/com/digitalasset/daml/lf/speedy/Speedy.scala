@@ -132,7 +132,6 @@ private[lf] object Speedy {
       packageName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       value: SValue,
-      agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
       keyOpt: Option[CachedKey],
@@ -148,7 +147,7 @@ private[lf] object Speedy {
         packageName = packageName,
         templateId = templateId,
         arg = arg,
-        agreementText = agreementText,
+        agreementText = "", // to be removed
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
