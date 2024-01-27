@@ -59,8 +59,9 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             _ <- update(store, ts6, add = Seq(tx6_MDS))
 
             maxTs <- store.maxTimestamp()
-            retrievedTx <- store.findStored(tx1_NSD_Proposal)
+            retrievedTx <- store.findStored(CantonTimestamp.MaxValue, tx1_NSD_Proposal)
             txProtocolVersion <- store.findStoredForVersion(
+              CantonTimestamp.MaxValue,
               tx1_NSD_Proposal.transaction,
               ProtocolVersion.v30,
             )
@@ -89,9 +90,9 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               ts4,
               removeMapping = Set(tx1_NSD_Proposal.transaction.mapping.uniqueKey),
             )
-            removedByMappingHash <- store.findStored(tx1_NSD_Proposal)
+            removedByMappingHash <- store.findStored(CantonTimestamp.MaxValue, tx1_NSD_Proposal)
             _ <- update(store, ts4, removeTxs = Set(tx2_OTK.transaction.hash))
-            removedByTxHash <- store.findStored(tx2_OTK)
+            removedByTxHash <- store.findStored(CantonTimestamp.MaxValue, tx2_OTK)
 
             mdsTx <- store.findFirstMediatorStateForMediator(
               tx6_MDS.transaction.mapping.active.headOption.getOrElse(fail())
@@ -102,8 +103,6 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             )
 
           } yield {
-            store.dumpStoreContent()
-
             assert(maxTs.contains((SequencedTime(ts6), EffectiveTime(ts6))))
             retrievedTx.map(_.transaction) shouldBe Some(tx1_NSD_Proposal)
             txProtocolVersion.map(_.transaction) shouldBe Some(tx1_NSD_Proposal)

@@ -117,7 +117,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
   override def name: String = "crypto key pair"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
       _.toProtoCryptoKeyPairV30.toByteString,
@@ -215,7 +215,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
   override def name: String = "PublicKeyWithName"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
       _.toProtoV30.toByteString,

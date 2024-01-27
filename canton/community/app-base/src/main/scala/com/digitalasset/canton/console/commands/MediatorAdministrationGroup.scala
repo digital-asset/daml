@@ -4,7 +4,6 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseMediatorAdministrationCommands.{
-  Initialize,
   InitializeX,
   LocatePruningTimestampCommand,
   Prune,
@@ -24,16 +23,12 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
-import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions
-import com.digitalasset.canton.topology.transaction.TopologyChangeOp
-import com.digitalasset.canton.topology.{DomainId, MediatorId}
+import com.digitalasset.canton.topology.DomainId
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -74,8 +69,10 @@ class MediatorPruningAdministrationGroup(
 ) extends PruningSchedulerAdministration(
       runner,
       consoleEnvironment,
-      new PruningSchedulerCommands[MediatorAdministrationServiceStub](
-        MediatorAdministrationServiceGrpc.stub,
+      new PruningSchedulerCommands[
+        v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
+      ](
+        v30.MediatorAdministrationServiceGrpc.stub,
         _.setSchedule(_),
         _.clearSchedule(_),
         _.setCron(_),
@@ -128,71 +125,6 @@ class MediatorPruningAdministrationGroup(
     consoleEnvironment.run {
       runner.adminCommand(LocatePruningTimestampCommand(index))
     }
-
-}
-
-class MediatorAdministrationGroup(
-    runner: AdminCommandRunner,
-    consoleEnvironment: ConsoleEnvironment,
-    loggerFactory: NamedLoggerFactory,
-) extends MediatorPruningAdministrationGroup(runner, consoleEnvironment, loggerFactory) {
-
-  private lazy val testing_ = new MediatorTestingGroup(runner, consoleEnvironment, loggerFactory)
-  @Help.Summary("Testing functionality for the mediator")
-  @Help.Group("Testing")
-  def testing: MediatorTestingGroup = testing_
-
-}
-
-@Help.Summary("Manage the mediator component")
-@Help.Group("Mediator")
-class MediatorAdministrationGroupWithInit(
-    runner: AdminCommandRunner,
-    consoleEnvironment: ConsoleEnvironment,
-    loggerFactory: NamedLoggerFactory,
-) extends MediatorAdministrationGroup(runner, consoleEnvironment, loggerFactory) {
-
-  @Help.Summary("Initialize a mediator")
-  def initialize(
-      domainId: DomainId,
-      mediatorId: MediatorId,
-      domainParameters: StaticDomainParameters,
-      sequencerConnections: SequencerConnections,
-      topologySnapshot: Option[StoredTopologyTransactions[TopologyChangeOp.Positive]],
-      signingKeyFingerprint: Option[Fingerprint] = None,
-  ): PublicKey = consoleEnvironment.run {
-    runner.adminCommand(
-      Initialize(
-        domainId,
-        mediatorId,
-        topologySnapshot,
-        domainParameters.toInternal,
-        sequencerConnections,
-        signingKeyFingerprint,
-      )
-    )
-  }
-
-  @Help.Summary("Initialize a mediator")
-  def initialize(
-      domainId: DomainId,
-      mediatorId: MediatorId,
-      domainParameters: StaticDomainParameters,
-      sequencerConnection: SequencerConnection,
-      topologySnapshot: Option[StoredTopologyTransactions[TopologyChangeOp.Positive]],
-      signingKeyFingerprint: Option[Fingerprint],
-  ): PublicKey = consoleEnvironment.run {
-    runner.adminCommand(
-      Initialize(
-        domainId,
-        mediatorId,
-        topologySnapshot,
-        domainParameters.toInternal,
-        SequencerConnections.single(sequencerConnection),
-        signingKeyFingerprint,
-      )
-    )
-  }
 
 }
 

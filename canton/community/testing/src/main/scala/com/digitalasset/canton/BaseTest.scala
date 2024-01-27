@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -366,7 +366,8 @@ object BaseTest {
     defaultStaticDomainParametersWith()
 
   def defaultStaticDomainParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+      catchUpParameters: Option[CatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters.create(
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
@@ -374,6 +375,7 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
+    catchUpParameters = catchUpParameters,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =

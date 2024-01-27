@@ -156,30 +156,6 @@ class ExecutionMetrics(
     }
 
     @MetricDoc.Tag(
-      summary =
-        "The number of lookups trying to resolve divulged contracts on active contracts cache hits.",
-      description = """Divulged contracts are not cached in the contract state caches. On active
-                      |contract cache hits, where stakeholders are not within the submission readers,
-                      |a contract activeness lookup is performed against the Index database. On such
-                      |lookups, this counter is incremented.""",
-      qualification = Debug,
-    )
-    val resolveDivulgenceLookup: Counter =
-      dropWizardMetricsFactory.counter(prefix :+ "resolve_divulgence_lookup")
-
-    @MetricDoc.Tag(
-      summary =
-        "The number of lookups trying to resolve divulged contracts on archived contracts cache hits.",
-      description = """Divulged contracts are not cached in the contract state caches. On archived
-                      |contract cache hits, where stakeholders are not within the submission readers,
-                      |a full contract activeness lookup (including fetching contract arguments) is
-                      |performed against the Index database. On such lookups, this counter is incremented.""",
-      qualification = Debug,
-    )
-    val resolveFullLookup: Counter =
-      dropWizardMetricsFactory.counter(prefix :+ "resolve_full_lookup")
-
-    @MetricDoc.Tag(
       summary = "The number of cache read-throughs resulting in not found contracts.",
       description =
         """On cache misses, a read-through query is performed against the Index database.

@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUtil
@@ -35,6 +36,7 @@ private[participant] class JournalGarbageCollector(
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
     domainId: DomainId,
+    journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
@@ -57,7 +59,9 @@ private[participant] class JournalGarbageCollector(
             domainId,
             checkForOutstandingCommitments = false,
           )
-        _ <- safeToPruneTsO.fold(Future.unit)(prune(_))
+        _ <- safeToPruneTsO.fold(Future.unit)(ts =>
+          prune(ts.minusSeconds(journalGarbageCollectionDelay.duration.toSeconds))
+        )
       } yield ()
     }
   }

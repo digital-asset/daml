@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.implicits.{toBifunctorOps, toFunctorFilterOps}
+import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.CreatedEvent as ScalaCreatedEvent
 import com.daml.ledger.api.v2.commands.Commands
@@ -19,7 +20,6 @@ import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervi
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.DecodedRpcStatus
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -27,13 +27,14 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   HasCloseContext,
   Lifecycle,
-  PromiseUnlessShutdown,
   PromiseUnlessShutdownFactory,
-  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.PingService.SyncServiceHandle
+import com.digitalasset.canton.participant.admin.PingService.{
+  AdditionalRetryOnKnownRaceConditions,
+  SyncServiceHandle,
+}
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.participant.ledger.api.client.{
   CommandResult,
@@ -108,6 +109,9 @@ class PingService(
   private def applicationId = "PingService"
 
   override def onClosed(): Unit = {
+    // Note that we can not time out pings nicely here on shutdown as the admin
+    // server is closed first, which means that our ping requests will never
+    // return proper on shutdown abort
     Lifecycle.close(retrySubmitter, connection)(logger)
   }
 
@@ -123,13 +127,10 @@ class PingService(
   private def decideRetry: Status => Option[FiniteDuration] = status =>
     if (isActive && retries) {
       LedgerClientUtils.defaultRetryRules(status).orElse {
-        DecodedRpcStatus.fromScalaStatus(status) match {
-          case Some(decoded)
-              if PingService.AdditionalRetryOnKnownRaceConditions.contains(decoded.id) =>
-            Some(
-              PingService.DefaultRetryableDelay
-            )
-          case _ => None
+        DecodedCantonError.fromGrpcStatus(status).toOption.collect {
+          case decodedError
+              if AdditionalRetryOnKnownRaceConditions.contains(decodedError.code.id) =>
+            PingService.DefaultRetryableDelay
         }
       }
     } else None
@@ -594,13 +595,21 @@ object PingService {
             FutureUtil.doNotAwait(
               clock
                 .scheduleAfter(request.pingTimedout, timeout.duration)
-                .onShutdown(()),
+                .onShutdown {
+                  // normally, the admin server is shutdown before the ping services
+                  // this is to avoid that any new command arrives while we are shutting down.
+                  // unfortunately, this means we can't expire the ping requests nicely.
+                  // there is a trick though: the clock is also shutdown before the admin server,
+                  // so if we just react on the shutdown event there, we can terminate the pings
+                  request.promise.trySuccess {
+                    PingService.Failure("Aborting ping due to shutdown")
+                  }.discard
+                  ()
+                },
               "cleaning up the request",
             )
             request.submit()
-            request.promise.futureUS.onShutdown(
-              PingService.Failure("Aborting ping due to shutdown")
-            )
+            request.promise.future
           case Some(_) => reject(s"Duplicate ping request $id")
         }
       }
@@ -623,13 +632,12 @@ object PingService {
     )(implicit val traceContext: TraceContext)
         extends PrettyPrinting {
 
-      /** The promise which will be fulfilled once the ping completes */
-      val promise: PromiseUnlessShutdown[PingService.Result] =
-        mkPromise(
-          "ping",
-          futureSupervisor,
-          logAfter = timeout.toScala.plus(10.seconds), // should timeout automatically
-        )
+      /** The promise which will be fulfilled once the ping completes
+        *
+        * We don't use FutureUnlessShutdown as we control the shutdown manually and use
+        * a trick to cancel the pings before the admin server shuts down
+        */
+      val promise: Promise[PingService.Result] = Promise[PingService.Result]()
 
       def observed(): Unit = {
         logger.info("Observed creation of ping contract, waiting for archival by responder")
@@ -645,7 +653,7 @@ object PingService {
             s"Observed archival of ping contract after ${LoggerUtil.roundDurationForHumans(duration.toScala)}"
           )
           promise
-            .trySuccess(UnlessShutdown.Outcome(PingService.Success(duration, respondedBy)))
+            .trySuccess(PingService.Success(duration, respondedBy))
             .discard
 
         } else {
@@ -672,7 +680,7 @@ object PingService {
             logger.info(
               s"Ping $id timeout ($reason) out after ${LoggerUtil.roundDurationForHumans((now - started).toScala)}"
             )
-            promise.trySuccess(UnlessShutdown.Outcome(Failure(s"Timeout: $reason"))).discard
+            promise.trySuccess(Failure(s"Timeout: $reason")).discard
           }
         }
       }
@@ -682,7 +690,7 @@ object PingService {
         LoggerUtil.logAtLevel(level, str)
         requests
           .remove(id)
-          .foreach(_.promise.trySuccess(UnlessShutdown.Outcome(Failure(str))))
+          .foreach(_.promise.trySuccess(Failure(str)))
       }
 
       override def pretty: Pretty[PingRequest] = prettyOfClass(
@@ -762,7 +770,7 @@ object PingService {
               .remove(id)
               .foreach(
                 _.promise
-                  .trySuccess(UnlessShutdown.Outcome(Failure("Internal error due to exception")))
+                  .trySuccess(Failure("Internal error due to exception"))
               )
         }(directEc) // parasitic to avoid shutdown issues
 

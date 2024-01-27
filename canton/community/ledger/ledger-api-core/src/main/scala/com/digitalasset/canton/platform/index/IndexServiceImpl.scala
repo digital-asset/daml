@@ -533,10 +533,10 @@ private[index] class IndexServiceImpl(
       .Reject("Index Service")(ErrorLoggingContext(logger, loggingContext))
       .asGrpcError
 
-  override def lookupContractStateWithoutDivulgence(contractId: ContractId)(implicit
+  override def lookupContractState(contractId: ContractId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[ContractState] =
-    contractStore.lookupContractStateWithoutDivulgence(contractId)
+    contractStore.lookupContractState(contractId)
 
   override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContextWithTrace

@@ -10,23 +10,23 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
+import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.store.db.DbTopologyStoreXHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
-class TopologyTransactionProcessorXTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+abstract class TopologyTransactionProcessorXTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext {
 
   private val crypto = new SymbolicPureCrypto()
 
-  private def mkStore: InMemoryTopologyStoreX[TopologyStoreId.DomainStore] =
-    new InMemoryTopologyStoreX(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
-      loggerFactory,
-      timeouts,
-    )
+  protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore]
 
   private def mk(
       store: TopologyStoreX[TopologyStoreId.DomainStore] = mkStore
@@ -113,7 +113,8 @@ class TopologyTransactionProcessorXTest extends AnyWordSpec with BaseTest with H
       val st2 = fetch(store, ts(2).immediateSuccessor)
 
       // finds the most recently stored version of a transaction, including rejected ones
-      val rejected_ns1k1_k1O = store.findStored(ns1k1_k1, includeRejected = true).futureValue
+      val rejected_ns1k1_k1O =
+        store.findStored(CantonTimestamp.MaxValue, ns1k1_k1, includeRejected = true).futureValue
       val rejected_ns1k1_k1 =
         rejected_ns1k1_k1O.valueOrFail("Unable to find ns1k1_k1 in the topology store")
       // the rejected ns1k1_k1 should not be valid
@@ -154,21 +155,38 @@ class TopologyTransactionProcessorXTest extends AnyWordSpec with BaseTest with H
 
     "idempotent / crash recovery" in {
       val (proc, store) = mk()
-      val block1 = List(ns1k1_k1, dmp1_k1)
+      val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
       val block2 = List(ns1k2_k1, dtcp1_k1)
       val block3 = List(okm1bk5_k1)
+      val block4 = List(dnd_proposal_k1)
+      val block5 = List(dnd_proposal_k2)
+      val block6 = List(dnd_proposal_k3)
       process(proc, ts(0), 0, block1)
       process(proc, ts(1), 1, block2)
       process(proc, ts(2), 2, block3)
+      process(proc, ts(3), 3, block4)
+      process(proc, ts(4), 4, block5)
+      process(proc, ts(5), 5, block6)
+      val storeAfterProcessing = store.dumpStoreContent().futureValue
+      val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
+        .find(_.code == TopologyMappingX.Code.DecentralizedNamespaceDefinitionX)
+        .valueOrFail("Couldn't find DND")
+
       val proc2 = mk(store)._1
       process(proc2, ts(0), 0, block1)
       process(proc2, ts(1), 1, block2)
       process(proc2, ts(2), 2, block3)
-      val st2 = fetch(store, ts(1).immediateSuccessor)
-      val st3 = fetch(store, ts(2).immediateSuccessor)
+      process(proc2, ts(3), 3, block4)
+      process(proc2, ts(4), 4, block5)
+      process(proc2, ts(5), 5, block6)
+      val storeAfterReplay = store.dumpStoreContent().futureValue
 
-      validate(st2, block1 ++ block2)
-      validate(st3, block1 ++ block2 ++ block3)
+      storeAfterReplay.result.size shouldBe storeAfterProcessing.result.size
+      storeAfterReplay.result.zip(storeAfterProcessing.result).foreach {
+        case (replayed, original) => replayed shouldBe original
+      }
+      DNDafterProcessing shouldBe dnd_proposal_k1.mapping
+      DNDafterProcessing shouldBe dnd_proposal_k1.mapping
     }
 
     // TODO(#12390) enable test after support for cascading updates
@@ -227,4 +245,22 @@ class TopologyTransactionProcessorXTest extends AnyWordSpec with BaseTest with H
 
   }
 
+}
+
+class TopologyTransactionProcessorXTestInMemory extends TopologyTransactionProcessorXTest {
+  protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore] =
+    new InMemoryTopologyStoreX(
+      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      loggerFactory,
+      timeouts,
+    )
+
+}
+class TopologyTransactionProcessorXTestPostgres
+    extends TopologyTransactionProcessorXTest
+    with DbTest
+    with DbTopologyStoreXHelper
+    with PostgresTest {
+  override protected def mkStore: TopologyStoreX[TopologyStoreId.DomainStore] =
+    createTopologyStore()
 }

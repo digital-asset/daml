@@ -1,0 +1,75 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.admin.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+message SequencerSnapshot {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  google.protobuf.Timestamp latest_timestamp = 1;
+  repeated MemberCounter head_member_counters = 2;
+  SequencerPruningStatus status = 3;
+  ImplementationSpecificInfo additional = 4;
+  repeated InFlightAggregationWithId in_flight_aggregations = 5;
+  repeated MemberTrafficSnapshot traffic_snapshots = 6;
+
+  message MemberCounter {
+    string member = 1;
+    int64 sequencer_counter = 2;
+  }
+
+  message InFlightAggregationWithId {
+    bytes aggregation_id = 1;
+    com.digitalasset.canton.protocol.v30.AggregationRule aggregation_rule = 2;
+    google.protobuf.Timestamp max_sequencing_time = 3;
+    repeated AggregationBySender aggregated_senders = 4;
+  }
+
+  message AggregationBySender {
+    string sender = 1;
+    google.protobuf.Timestamp sequencing_timestamp = 2;
+    repeated SignaturesForEnvelope signatures_by_envelope = 3;
+  }
+
+  message SignaturesForEnvelope {
+    repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
+  }
+
+  message MemberTrafficSnapshot {
+    string member = 1;
+    uint64 extra_traffic_remainder = 2;
+    uint64 extra_traffic_consumed = 3;
+    uint64 base_traffic_remainder = 4;
+    google.protobuf.Timestamp sequencing_timestamp = 5;
+  }
+}
+
+message SequencerMemberStatus {
+  string member = 1;
+  google.protobuf.Timestamp registered_at = 2;
+  google.protobuf.Timestamp last_acknowledged = 3;
+  bool enabled = 4;
+}
+
+message SequencerPruningStatus {
+  // current time according to the sequencer
+  google.protobuf.Timestamp now = 1;
+  // the earliest event we are currently storing
+  google.protobuf.Timestamp earliest_event_timestamp = 2;
+  // details of each member registered on the sequencer
+  repeated SequencerMemberStatus members = 3;
+}
+
+// additional sequencer implementation specific piece of data
+message ImplementationSpecificInfo {
+  string implementation_name = 1;
+  bytes info = 2;
+}

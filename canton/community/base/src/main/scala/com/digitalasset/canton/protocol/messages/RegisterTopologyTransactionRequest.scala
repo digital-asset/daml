@@ -67,7 +67,7 @@ object RegisterTopologyTransactionRequest
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.RegisterTopologyTransactionRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),

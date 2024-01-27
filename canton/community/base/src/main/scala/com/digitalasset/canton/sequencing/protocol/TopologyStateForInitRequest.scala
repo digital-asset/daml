@@ -30,7 +30,7 @@ object TopologyStateForInitRequest
   override val name: String = "TopologyStateForInitRequest"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.TopologyStateForInitRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),

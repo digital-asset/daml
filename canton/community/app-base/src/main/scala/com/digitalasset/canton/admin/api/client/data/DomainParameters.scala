@@ -20,6 +20,7 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters.{
   protocolVersionRepresentativeFor,
 }
 import com.digitalasset.canton.protocol.{
+  CatchUpConfig,
   DynamicDomainParameters as DynamicDomainParametersInternal,
   OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
@@ -46,6 +47,7 @@ final case class StaticDomainParameters(
     requiredHashAlgorithms: Set[HashAlgorithm],
     requiredCryptoKeyFormats: Set[CryptoKeyFormat],
     protocolVersion: ProtocolVersion,
+    catchUpParameters: Option[CatchUpConfig],
 ) {
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
@@ -68,6 +70,7 @@ final case class StaticDomainParameters(
         requiredCryptoKeyFormats.map(_.transformInto[DomainCrypto.CryptoKeyFormat])
       ),
       protocolVersion = protocolVersion,
+      catchUpParameters = catchUpParameters,
     )
 }
 
@@ -118,6 +121,7 @@ object StaticDomainParameters {
       requiredCryptoKeyFormats =
         domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
       protocolVersion = domain.protocolVersion,
+      catchUpParameters = domain.catchUpParameters,
     )
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {

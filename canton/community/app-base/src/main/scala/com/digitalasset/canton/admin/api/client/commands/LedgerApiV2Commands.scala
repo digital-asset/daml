@@ -100,6 +100,37 @@ import scala.concurrent.{ExecutionContext, Future}
 // TODO(#15280) delete LedgerApiCommands, and rename this to LedgerApiCommands
 object LedgerApiV2Commands {
 
+  trait SubscribeBase[Req, Resp, Res] extends GrpcAdminCommand[Req, AutoCloseable, AutoCloseable] {
+    // The subscription should never be cut short because of a gRPC timeout
+    override def timeoutType: TimeoutType = ServerEnforcedTimeout
+
+    def observer: StreamObserver[Res]
+
+    def doRequest(
+        service: this.Svc,
+        request: Req,
+        rawObserver: StreamObserver[Resp],
+    ): Unit
+
+    def extractResults(response: Resp): IterableOnce[Res]
+
+    implicit def loggingContext: ErrorLoggingContext
+
+    override def submitRequest(
+        service: this.Svc,
+        request: Req,
+    ): Future[AutoCloseable] = {
+      val rawObserver = new ForwardingStreamObserver[Resp, Res](observer, extractResults)
+      val context = Context.current().withCancellation()
+      context.run(() => doRequest(service, request, rawObserver))
+      Future.successful(context)
+    }
+
+    override def handleResponse(response: AutoCloseable): Either[String, AutoCloseable] = Right(
+      response
+    )
+  }
+
   object UpdateService {
 
     sealed trait UpdateTreeWrapper {
@@ -156,12 +187,9 @@ object LedgerApiV2Commands {
         UpdateServiceGrpc.stub(channel)
     }
 
-    trait SubscribeBase[Resp, Res]
-        extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable] {
-      // The subscription should never be cut short because of a gRPC timeout
-      override def timeoutType: TimeoutType = ServerEnforcedTimeout
-
-      def observer: StreamObserver[Res]
+    trait SubscribeUpdateBase[Resp, Res]
+        extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
+        with SubscribeBase[GetUpdatesRequest, Resp, Res] {
 
       def beginExclusive: ParticipantOffset
 
@@ -171,16 +199,6 @@ object LedgerApiV2Commands {
 
       def verbose: Boolean
 
-      def doRequest(
-          service: UpdateServiceStub,
-          request: GetUpdatesRequest,
-          rawObserver: StreamObserver[Resp],
-      ): Unit
-
-      def extractResults(response: Resp): IterableOnce[Res]
-
-      implicit def loggingContext: ErrorLoggingContext
-
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
           beginExclusive = Some(beginExclusive),
@@ -189,20 +207,6 @@ object LedgerApiV2Commands {
           filter = Some(filter),
         )
       }
-
-      override def submitRequest(
-          service: UpdateServiceStub,
-          request: GetUpdatesRequest,
-      ): Future[AutoCloseable] = {
-        val rawObserver = new ForwardingStreamObserver[Resp, Res](observer, extractResults)
-        val context = Context.current().withCancellation()
-        context.run(() => doRequest(service, request, rawObserver))
-        Future.successful(context)
-      }
-
-      override def handleResponse(response: AutoCloseable): Either[String, AutoCloseable] = Right(
-        response
-      )
     }
 
     final case class SubscribeTrees(
@@ -212,7 +216,7 @@ object LedgerApiV2Commands {
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
-        extends SubscribeBase[GetUpdateTreesResponse, UpdateTreeWrapper] {
+        extends SubscribeUpdateBase[GetUpdateTreesResponse, UpdateTreeWrapper] {
       override def doRequest(
           service: UpdateServiceStub,
           request: GetUpdatesRequest,
@@ -235,7 +239,7 @@ object LedgerApiV2Commands {
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
-        extends SubscribeBase[GetUpdatesResponse, UpdateWrapper] {
+        extends SubscribeUpdateBase[GetUpdatesResponse, UpdateWrapper] {
       override def doRequest(
           service: UpdateServiceStub,
           request: GetUpdatesRequest,
@@ -587,6 +591,7 @@ object LedgerApiV2Commands {
     }
 
     final case class GetActiveContracts(
+        observer: StreamObserver[GetActiveContractsResponse],
         parties: Set[LfPartyId],
         limit: PositiveInt,
         templateFilter: Seq[TemplateId] = Seq.empty,
@@ -594,10 +599,13 @@ object LedgerApiV2Commands {
         verbose: Boolean = true,
         timeout: FiniteDuration,
         includeCreatedEventBlob: Boolean = false,
-    )(scheduler: ScheduledExecutorService)
-        extends BaseCommand[GetActiveContractsRequest, Seq[GetActiveContractsResponse], Seq[
-          GetActiveContractsResponse
-        ]] {
+    )(override implicit val loggingContext: ErrorLoggingContext)
+        extends BaseCommand[GetActiveContractsRequest, AutoCloseable, AutoCloseable]
+        with SubscribeBase[
+          GetActiveContractsRequest,
+          GetActiveContractsResponse,
+          GetActiveContractsResponse,
+        ] {
 
       override def createRequest(): Either[String, GetActiveContractsRequest] = {
         val filter =
@@ -621,33 +629,19 @@ object LedgerApiV2Commands {
         )
       }
 
-      override def submitRequest(
+      override def doRequest(
           service: StateServiceStub,
           request: GetActiveContractsRequest,
-      ): Future[Seq[GetActiveContractsResponse]] = {
-        GrpcAdminCommand.streamedResponse[
-          GetActiveContractsRequest,
-          GetActiveContractsResponse,
-          GetActiveContractsResponse,
-        ](
-          service.getActiveContracts,
-          List(_),
-          request,
-          limit.value,
-          timeout,
-          scheduler,
-        )
-      }
+          rawObserver: StreamObserver[GetActiveContractsResponse],
+      ): Unit =
+        service.getActiveContracts(request, rawObserver)
 
-      override def handleResponse(
-          response: Seq[GetActiveContractsResponse]
-      ): Either[String, Seq[GetActiveContractsResponse]] = {
-        Right(response)
-      }
+      override def extractResults(
+          response: GetActiveContractsResponse
+      ): IterableOnce[GetActiveContractsResponse] = List(response)
 
       // fetching ACS might take long if we fetch a lot of data
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
     }
   }
 

@@ -28,11 +28,7 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
    * @hidden
    */
   protected ContractWithKey(
-      Id id,
-      Data data,
-      Optional<Key> key,
-      Set<String> signatories,
-      Set<String> observers) {
+      Id id, Data data, Optional<Key> key, Set<String> signatories, Set<String> observers) {
     super(id, data, signatories, observers);
     this.key = key;
   }
@@ -46,8 +42,7 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
 
   @Override
   public final int hashCode() {
-    return Objects.hash(
-        this.id, this.data, this.key, this.signatories, this.observers);
+    return Objects.hash(this.id, this.data, this.key, this.signatories, this.observers);
   }
 
   @Override

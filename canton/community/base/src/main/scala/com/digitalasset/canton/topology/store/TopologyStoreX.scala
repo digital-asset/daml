@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,13 +50,10 @@ final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
 ) extends PrettyPrinting {
   override def pretty: Pretty[StoredTopologyTransactionX.this.type] =
     prettyOfClass(
+      unnamedParam(_.transaction),
       param("sequenced", _.sequenced.value),
       param("validFrom", _.validFrom.value),
       paramIfDefined("validUntil", _.validUntil.map(_.value)),
-      param("op", _.transaction.transaction.op),
-      param("serial", _.transaction.transaction.serial),
-      param("mapping", _.transaction.transaction.mapping),
-      param("signatures", _.transaction.signatures),
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -80,7 +78,7 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     transaction: SignedTopologyTransactionX[Op, M],
     rejectionReason: Option[TopologyTransactionRejection] = None,
     expireImmediately: Boolean = false,
-) {
+) extends PrettyPrinting {
   def nonDuplicateRejectionReason: Option[TopologyTransactionRejection] = rejectionReason match {
     case Some(Duplicate(_)) => None
     case otherwise => otherwise
@@ -93,6 +91,13 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
   def collectOf[TargetO <: TopologyChangeOpX: ClassTag, TargetM <: TopologyMappingX: ClassTag]
       : Option[ValidatedTopologyTransactionX[TargetO, TargetM]] =
     transaction.select[TargetO, TargetM].map(tx => copy[TargetO, TargetM](transaction = tx))
+
+  override def pretty: Pretty[ValidatedTopologyTransactionX.this.type] =
+    prettyOfClass(
+      unnamedParam(_.transaction),
+      paramIfDefined("rejectionReason", _.rejectionReason),
+      paramIfTrue("expireImmediately", _.expireImmediately),
+    )
 }
 
 object ValidatedTopologyTransactionX {
@@ -152,8 +157,10 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  // TODO(#14048) only a temporary crutch to inspect the topology state
-  def dumpStoreContent()(implicit traceContext: TraceContext): Unit
+  @VisibleForTesting
+  protected[topology] def dumpStoreContent()(implicit
+      traceContext: TraceContext
+  ): Future[GenericStoredTopologyTransactionsX]
 
   /** store an initial set of topology transactions as given into the store */
   def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
@@ -209,7 +216,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   override def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransactionX
   )(implicit traceContext: TraceContext): Future[Boolean] = {
-    findStored(transaction).map(_.forall { inStore =>
+    findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
       transaction.signatures.diff(inStore.transaction.signatures.forgetNE).nonEmpty &&
       // but only if the transaction in the target store is a valid proposal
@@ -231,8 +238,23 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   ): Future[GenericStoredTopologyTransactionsX]
 
   def findStoredForVersion(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       protocolVersion: ProtocolVersion,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[GenericStoredTopologyTransactionX]]
+
+  final def exists(transaction: GenericSignedTopologyTransactionX)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = findStored(CantonTimestamp.MaxValue, transaction).map(
+    _.exists(signedTxFromStoredTx(_) == transaction)
+  )
+
+  def findStored(
+      asOfExclusive: CantonTimestamp,
+      transaction: GenericSignedTopologyTransactionX,
+      includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]]
@@ -333,10 +355,7 @@ object TopologyStoreX {
     client.await(
       // we know that the transaction is stored and effective once we find it in the target
       // domain store and once the effective time (valid from) is smaller than the client timestamp
-      sp =>
-        target
-          .findStored(transaction, includeRejected = true)
-          .map(_.exists(_.validFrom.value < sp.timestamp)),
+      sp => target.findStored(sp.timestamp, transaction, includeRejected = true).map(_.nonEmpty),
       timeout,
     )
   }

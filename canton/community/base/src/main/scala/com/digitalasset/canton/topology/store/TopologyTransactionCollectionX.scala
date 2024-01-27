@@ -135,7 +135,7 @@ object StoredTopologyTransactionsX
     StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.TopologyTransactions)(fromProtoV30),
       _.toProtoV30.toByteString,

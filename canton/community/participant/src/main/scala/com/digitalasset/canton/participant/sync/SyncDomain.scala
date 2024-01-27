@@ -234,6 +234,7 @@ class SyncDomain(
     persistent.submissionTrackerStore,
     participantNodePersistentState.map(_.inFlightSubmissionStore),
     domainId,
+    parameters.journalGarbageCollectionDelay,
     timeouts,
     loggerFactory,
   )
@@ -249,6 +250,7 @@ class SyncDomain(
       journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
+      staticDomainParameters.catchUpParameters,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,

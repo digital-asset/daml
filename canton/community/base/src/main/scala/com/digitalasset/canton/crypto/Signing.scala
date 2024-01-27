@@ -161,7 +161,7 @@ object Signature
   val noSignatures = NonEmpty(Set, noSignature)
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.Signature)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -342,7 +342,7 @@ object SigningPublicKey
   override def name: String = "signing public key"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.SigningPublicKey)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -415,7 +415,7 @@ final case class SigningPrivateKey private[crypto] (
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.SigningPrivateKey)(fromProtoV30),
       _.toProtoV30.toByteString,

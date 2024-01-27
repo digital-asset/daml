@@ -200,9 +200,6 @@ class MainIndexDBMetrics(
   val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
-  val lookupDivulgedActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
-    "lookup_divulged_active_contract"
-  )
   val lookupCreatedContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_created_contracts")
   val lookupAssignedContractsDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_assigned_contracts"

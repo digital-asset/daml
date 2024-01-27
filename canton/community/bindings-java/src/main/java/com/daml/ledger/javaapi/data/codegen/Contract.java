@@ -34,11 +34,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
    *
    * @hidden
    */
-  protected Contract(
-      Id id,
-      Data data,
-      Set<String> signatories,
-      Set<String> observers) {
+  protected Contract(Id id, Data data, Set<String> signatories, Set<String> observers) {
     this.id = id;
     this.data = data;
     this.signatories = signatories;
@@ -89,10 +85,6 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public String toString() {
     return String.format(
         "%s.Contract(%s, %s, %s, %s)",
-        getCompanion().TEMPLATE_CLASS_NAME,
-        this.id,
-        this.data,
-        this.signatories,
-        this.observers);
+        getCompanion().TEMPLATE_CLASS_NAME, this.id, this.data, this.signatories, this.observers);
   }
 }

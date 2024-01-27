@@ -61,8 +61,8 @@ class ServicesMetrics(
     val lookupActiveContract: Timer =
       dropWizardMetricsFactory.timer(prefix :+ "lookup_active_contract")
     @MetricDoc.FanInstanceTag
-    val lookupContractStateWithoutDivulgence: Timer = dropWizardMetricsFactory.timer(
-      prefix :+ "lookup_contract_state_without_divulgence"
+    val lookupContractState: Timer = dropWizardMetricsFactory.timer(
+      prefix :+ "lookup_contract_state"
     )
     @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = dropWizardMetricsFactory.timer(prefix :+ "lookup_contract_key")

@@ -70,7 +70,7 @@ object SubmissionTrackingData
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
+    ProtoVersion(30) -> VersionedProtoConverter
       .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.SubmissionTrackingData)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
