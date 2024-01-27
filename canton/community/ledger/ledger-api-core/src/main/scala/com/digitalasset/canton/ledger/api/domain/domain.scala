@@ -22,15 +22,9 @@ import java.net.URL
 import scala.collection.immutable
 import scala.util.Try
 
-final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
-  def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
-    filtersByParty.get(party).fold(false)(_.apply(template))
-}
+final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
 
-final case class Filters(inclusive: Option[InclusiveFilters]) {
-  def apply(identifier: Ref.Identifier): Boolean =
-    inclusive.fold(true)(_.templateFilters.exists(_.templateId == identifier))
-}
+final case class Filters(inclusive: Option[InclusiveFilters])
 
 object Filters {
   val noFilter: Filters = Filters(None)
@@ -45,9 +39,17 @@ final case class InterfaceFilter(
 )
 
 final case class TemplateFilter(
-    templateId: Ref.Identifier,
+    templateTypeRef: Ref.TypeConRef,
     includeCreatedEventBlob: Boolean,
 )
+
+object TemplateFilter {
+  def apply(templateId: Ref.Identifier, includeCreatedEventBlob: Boolean): TemplateFilter =
+    TemplateFilter(
+      Ref.TypeConRef(Ref.PackageRef.Id(templateId.packageId), templateId.qualifiedName),
+      includeCreatedEventBlob,
+    )
+}
 
 final case class InclusiveFilters(
     templateFilters: immutable.Set[TemplateFilter],

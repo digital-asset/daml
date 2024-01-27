@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.store
 
 import cats.kernel.Order
-import cats.syntax.foldable.*
 import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -18,8 +18,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{RequestCounter, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.util.CheckedT
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.immutable.SortedMap
@@ -82,12 +81,12 @@ trait ActiveContractStore
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this creation is later than the earliest archival of the contract.</li>
     *         </ul>
     */
-  def markContractsActive(contracts: Seq[(LfContractId, TransferCounterO)], toc: TimeOfChange)(
-      implicit traceContext: TraceContext
+  def markContractsActive(contracts: Seq[LfContractId], toc: TimeOfChange)(implicit
+      traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   /** Shorthand for `markContractsActive(Seq(contractId), toc)` */
-  def markContractActive(contract: (LfContractId, TransferCounterO), toc: TimeOfChange)(implicit
+  def markContractActive(contract: LfContractId, toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     markContractsActive(Seq(contract), toc)
@@ -95,17 +94,6 @@ trait ActiveContractStore
   /** Marks the given contracts as archived from `toc`'s timestamp (inclusive) onwards.
     *
     * @param contractIds The contract IDs of the contracts to be archived
-    *                    Note: this method should not take as parameter the transfer counter
-    *                    for the archived contract IDs, because one cannot know the correct
-    *                    transfer counter for an archival at request finalization time, which
-    *                    is when this method is called.
-    *                    The [[com.digitalasset.canton.participant.event.RecordOrderPublisher]]
-    *                    determines the correct transfer counter for an archival only when
-    *                    all requests preceding the archival (i.e., with a lower request
-    *                    counter than the archival transaction) were processed. Therefore, we determine
-    *                    the transfer counter for archivals in the
-    *                    [[com.digitalasset.canton.participant.event.RecordOrderPublisher]], when
-    *                    the record order publisher triggers an acs change event.
     * @param toc The time of change consisting of
     *            <ul>
     *              <li>The request counter of the confirmation request that archives the contracts.</li>
@@ -154,7 +142,7 @@ trait ActiveContractStore
 
   /** Marks the given contracts as transferred in from `toc`'s timestamp (inclusive) onwards.
     *
-    * @param transferIns The contract IDs to transfer-in, each with its source domain, transfer counter and time of change.
+    * @param transferIns The contract IDs to transfer-in, each with its source domain and time of change.
     * @return The future completes when the contract states have been updated.
     *         The following irregularities are reported:
     *         <ul>
@@ -162,26 +150,24 @@ trait ActiveContractStore
     *             has been added with the same timestamp.</li>
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this timestamp is after the earliest archival of the contract.</li>
     *           <li>[[ActiveContractStore.ChangeBeforeCreation]] if this timestamp is before the latest creation of the contract.</li>
-    *           <li>[[ActiveContractStore.TransferCounterShouldIncrease]] if the transfer counter does not increase monotonically.</li>
     *         </ul>
     */
   def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounterO, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   def transferInContract(
       contractId: LfContractId,
       toc: TimeOfChange,
       sourceDomain: SourceDomainId,
-      transferCounter: TransferCounterO,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    transferInContracts(Seq((contractId, sourceDomain, transferCounter, toc)))
+    transferInContracts(Seq((contractId, sourceDomain, toc)))
 
   /** Marks the given contracts as [[ActiveContractStore.TransferredAway]] from `toc`'s timestamp (inclusive) onwards.
     *
-    * @param transferOuts The contract IDs to transfer out, each with its target domain, transfer counter and time of change.
+    * @param transferOuts The contract IDs to transfer out, each with its target domain and time of change.
     * @return The future completes when the contract state has been updated.
     *         The following irregularities are reported:
     *         <ul>
@@ -189,22 +175,20 @@ trait ActiveContractStore
     *             has been added with the same timestamp.</li>
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this timestamp is after the earliest archival of the contract.</li>
     *           <li>[[ActiveContractStore.ChangeBeforeCreation]] if this timestamp is before the latest creation of the contract.</li>
-    *           <li>[[ActiveContractStore.TransferCounterShouldIncrease]] if the transfer counter does not increase monotonically.</li>
     *         </ul>
     */
   def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounterO, TimeOfChange)]
+      transferOuts: Seq[(LfContractId, TargetDomainId, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   def transferOutContract(
       contractId: LfContractId,
       toc: TimeOfChange,
       targetDomain: TargetDomainId,
-      transferCounter: TransferCounterO,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    transferOutContracts(Seq((contractId, targetDomain, transferCounter, toc)))
+    transferOutContracts(Seq((contractId, targetDomain, toc)))
 
   /** Deletes all entries about archived contracts whose status hasn't changed after the timestamp.
     *
@@ -250,51 +234,34 @@ object ActiveContractStore {
   sealed trait ActivenessChangeDetail extends Product with Serializable {
     def unwrap: Option[DomainId]
     def isTransfer: Boolean
-
-    val transferCounter: TransferCounterO
   }
 
-  /** Starting protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    * transfer counter should be defined for Creations.
-    */
   final case class TransferDetails(
-      remoteDomainId: DomainId,
-      transferCounter: TransferCounterO,
+      remoteDomainId: DomainId
   ) extends ActivenessChangeDetail {
     override def unwrap: Option[DomainId] = Some(remoteDomainId)
     override def isTransfer: Boolean = true
   }
 
   object TransferDetails {
-    def apply(domain: TransferDomainId, transferCounter: TransferCounterO): TransferDetails =
-      TransferDetails(domain.unwrap, transferCounter)
+    def apply(domain: TransferDomainId): TransferDetails = TransferDetails(domain.unwrap)
   }
 
   object ActivenessChangeDetail {
 
     def apply(
-        domainIdO: Option[DomainId],
-        transferCounter: TransferCounterO,
+        domainIdO: Option[DomainId]
     ): ActivenessChangeDetail =
       domainIdO match {
-        case None => CreationArchivalDetail(transferCounter)
-        case Some(domainId) => TransferDetails(domainId, transferCounter)
+        case None => CreationArchivalDetail
+        case Some(domainId) => TransferDetails(domainId)
       }
 
     private[store] implicit val orderForActivenessChangeDetail: Order[ActivenessChangeDetail] =
       Order.by[ActivenessChangeDetail, Option[DomainId]](_.unwrap)
   }
 
-  /** Starting protocol version [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    * transfer counter should be defined for creations.
-    *
-    * The transfer counter for archivals stored in the acs is always None, because we cannot
-    * determine the correct transfer counter when the contract is archived.
-    * We only determine the transfer counter later, when the record order publisher triggers the
-    * computation of acs commitments, but we never store it in the acs.
-    */
-  final case class CreationArchivalDetail(transferCounter: TransferCounterO)
-      extends ActivenessChangeDetail {
+  case object CreationArchivalDetail extends ActivenessChangeDetail {
     override def unwrap: None.type = None
 
     override def isTransfer: Boolean = false
@@ -356,50 +323,28 @@ object ActiveContractStore {
       change: TimeOfChange,
   ) extends AcsWarning
 
-  /** TransferCounter should increase monotonically with the time of change. */
-  final case class TransferCounterShouldIncrease(
-      contractId: LfContractId,
-      current: TransferCounter,
-      currentToc: TimeOfChange,
-      next: TransferCounter,
-      nextToc: TimeOfChange,
-      strict: Boolean,
-  ) extends AcsWarning {
-    def reason: String =
-      s"""The transfer counter $current of the contract state at $currentToc should be smaller than ${if (
-          strict
-        ) ""
-        else "or equal to "} the transfer counter $next at $nextToc"""
-  }
-
   /** Status of a contract in the ACS */
   sealed trait Status extends Product with Serializable with PrettyPrinting with HasPrunable {
 
     /** Returns whether pruning may delete a contract in this state */
     override def prunable: Boolean
     def isActive: Boolean = this match {
-      case Active(_) => true
+      case Active => true
       case _ => false
     }
-
-    val transferCounter: TransferCounterO
   }
 
   /** The contract has been created and is active. */
-  final case class Active(transferCounter: TransferCounterO) extends Status {
+  case object Active extends Status {
     override def prunable: Boolean = false
 
-    override def pretty: Pretty[Active] = prettyOfClass(
-      paramIfDefined("transfer counter", _.transferCounter)
-    )
+    override def pretty: Pretty[Active.type] = prettyOfObject[Active.type]
   }
 
   /** The contract has been archived and it is not active. */
   case object Archived extends Status {
     override def prunable: Boolean = true
     override def pretty: Pretty[Archived.type] = prettyOfObject[Archived.type]
-    override val transferCounter: TransferCounterO =
-      None // transfer counters remain None, because we do not write them back to the acs
   }
 
   /** The contract has been transferred out to the given `targetDomain` after it had resided on this domain.
@@ -411,12 +356,9 @@ object ActiveContractStore {
     *   <li>The contract now resides on the target domain.</li>
     *   <li>The contract is active or archived on any other domain.</li>
     * </ul>
-    *
-    * @param transferCounter If defined, this is the transfer counter of the transfer-out request that transferred the contract away.
     */
   final case class TransferredAway(
-      targetDomain: TargetDomainId,
-      transferCounter: TransferCounterO,
+      targetDomain: TargetDomainId
   ) extends Status {
     override def prunable: Boolean = true
     override def pretty: Pretty[TransferredAway] = prettyOfClass(unnamedParam(_.targetDomain))
@@ -433,65 +375,6 @@ object ActiveContractStore {
       override def name: String = "transfer-in"
     }
   }
-  private[store] final case class TransferCounterAtChangeInfo(
-      timeOfChange: TimeOfChange,
-      transferCounter: TransferCounterO,
-  )
-
-  private[store] def checkTransferCounterAgainstLatestBefore(
-      contractId: LfContractId,
-      timeOfChange: TimeOfChange,
-      transferCounter: TransferCounter,
-      latestBeforeO: Option[TransferCounterAtChangeInfo],
-      transferType: TransferType,
-  ): Checked[Nothing, TransferCounterShouldIncrease, Unit] =
-    latestBeforeO.flatMap { latestBefore =>
-      latestBefore.transferCounter.map { previousTransferCounter =>
-        if (previousTransferCounter < transferCounter) Checked.unit
-        else {
-          val error = TransferCounterShouldIncrease(
-            contractId,
-            previousTransferCounter,
-            latestBefore.timeOfChange,
-            transferCounter,
-            timeOfChange,
-            strict = true,
-          )
-          Checked.continue(error)
-        }
-      }
-    }.sequence_
-
-  private[store] def checkTransferCounterAgainstEarliestAfter(
-      contractId: LfContractId,
-      timeOfChange: TimeOfChange,
-      transferCounter: TransferCounter,
-      earliestAfterO: Option[TransferCounterAtChangeInfo],
-      transferType: TransferType,
-  ): Checked[Nothing, TransferCounterShouldIncrease, Unit] =
-    earliestAfterO.flatMap { earliestAfter =>
-      earliestAfter.transferCounter.map { nextTransferCounter =>
-        val (condition, strict) = transferType match {
-          case TransferType.TransferIn =>
-            (transferCounter <= nextTransferCounter) -> false
-          case TransferType.TransferOut =>
-            (transferCounter < nextTransferCounter) -> true
-        }
-        if (condition) Checked.unit
-        else {
-          val error = TransferCounterShouldIncrease(
-            contractId,
-            transferCounter,
-            timeOfChange,
-            nextTransferCounter,
-            earliestAfter.timeOfChange,
-            strict,
-          )
-          Checked.continue(error)
-        }
-      }
-    }.sequence_
-
 }
 
 /** Provides snapshotting for active contracts. */
@@ -517,7 +400,7 @@ trait ActiveContractSnapshot {
     */
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]]
+  ): Future[SortedMap[LfContractId, CantonTimestamp]]
 
   /** Returns all contracts that were active right after the given request counter,
     * and when the contract became active for the last time before or at the given request counter.
@@ -539,7 +422,7 @@ trait ActiveContractSnapshot {
     */
   def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounterO)]]
+  ): Future[SortedMap[LfContractId, RequestCounter]]
 
   /** Returns Some(contractId) if an active contract belonging to package `pkg` exists, otherwise returns None.
     * The returned contractId may be any active contract from package `pkg`.
@@ -565,44 +448,6 @@ trait ActiveContractSnapshot {
       traceContext: TraceContext
   ): Future[Map[LfContractId, CantonTimestamp]]
 
-  /** Returns a map to the latest transfer counter of the contract before the given request counter.
-    * If the contract does not exist in the ACS, it returns a None.
-    *
-    * @param requestCounter The request counter *immediately before* which the state of the contracts shall be determined.
-    *
-    * @throws java.lang.IllegalArgumentException if `requestCounter` is equal to RequestCounter.MinValue`.
-    */
-  def bulkContractsTransferCounterSnapshot(
-      contractIds: Set[LfContractId],
-      requestCounter: RequestCounter,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounterO]]
-
-  /** Returns all changes to the active contract set between the two timestamps
-    * (exclusive lower bound timestamp, inclusive upper bound timestamp)
-    * in the order of their changes.
-    * The provided lower bound must not be larger than the upper bound.
-    *
-    * @param fromExclusive The lower bound for the changes. Must not be larger than the upper bound.
-    * @param toInclusive The upper bound for the changes. Must not be smaller than the lower bound.
-    * @throws java.lang.IllegalArgumentException If the intervals are in the wrong order.
-    */
-  /*
-   * In contrast to creates, transfer-ins and transfer-outs, the DB does not store transfer counters
-   * for archivals. As such, to retrieve transfer counters for archivals, for every contract `cid`
-   * archived with request counter `rc`, we retrieve the biggest transfer counter from an activation event
-   * (create or transfer in) with a request counter rc' <= rc.
-   * Some contracts archived between (`fromExclusive`, `toInclusive`] might have been activated last at time
-   * lastActivationTime <= `fromExclusive`. Therefore, for retrieving the transfer counter of archived contracts,
-   * we may need to look at activations between (`fromExclusive`, `toInclusive`], and at activations taking
-   * place at a time <= `fromExclusive`.
-   *
-   * The implementation assumes that:
-   * - transfer counters for a contract are strictly increasing for different activations of that contract
-   * - the activations/deactivations retrieved from the DB really describe a well-formed
-   * set of contracts, e.g., a contract is not archived twice, etc TODO(i12904)
-   */
   def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]]
@@ -635,8 +480,7 @@ object ContractChange {
 /** Type of state change of a contract as returned by [[com.digitalasset.canton.participant.store.ActiveContractStore.changesBetween]]
   * through a [[com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange]]
   */
-final case class StateChangeType(change: ContractChange, transferCounter: TransferCounterO)
-    extends PrettyPrinting {
+final case class StateChangeType(change: ContractChange) extends PrettyPrinting {
   override def pretty: Pretty[StateChangeType] =
-    prettyOfClass(param("", _.change), paramIfDefined("", _.transferCounter))
+    prettyOfClass(param("", _.change))
 }

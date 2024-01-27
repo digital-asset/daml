@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.domain.api.{v0, v1}
+import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
@@ -95,9 +95,6 @@ final case class SequencerConnections private (
     prettyOfParam(_.aliasToConnection.forgetNE)
 
   def toProtoV0: Seq[v0.SequencerConnection] = connections.map(_.toProtoV0)
-
-  def toProtoV1: v1.SequencerConnections =
-    new v1.SequencerConnections(connections.map(_.toProtoV0), sequencerTrustThreshold.unwrap)
 
   override protected def companionObj: HasVersionedMessageCompanionCommon[SequencerConnections] =
     SequencerConnections
@@ -191,13 +188,6 @@ object SequencerConnections
       .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnection, _))
   }
 
-  def fromProtoV1(
-      sequencerConnections: v1.SequencerConnections
-  ): ParsingResult[SequencerConnections] =
-    ProtoConverter
-      .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnections.sequencerConnections, _))
-
   override def name: String = "sequencer connections"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
@@ -205,11 +195,6 @@ object SequencerConnections
       ProtocolVersion.v3,
       supportedProtoVersion(v0.SequencerConnection)(fromProtoV0),
       _.default.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> ProtoCodec(
-      ProtocolVersion.CNTestNet,
-      supportedProtoVersion(v1.SequencerConnections)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    )
   )
 }

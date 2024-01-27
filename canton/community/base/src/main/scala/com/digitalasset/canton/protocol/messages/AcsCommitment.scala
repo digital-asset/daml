@@ -144,12 +144,6 @@ abstract sealed case class AcsCommitment private (
       : v0.SignedProtocolMessage.SomeSignedProtocolMessage =
     v0.SignedProtocolMessage.SomeSignedProtocolMessage.AcsCommitment(getCryptographicEvidence)
 
-  override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
-      getCryptographicEvidence
-    )
-
   override def hashPurpose: HashPurpose = HashPurpose.AcsCommitment
 
   override lazy val pretty: Pretty[AcsCommitment] = {

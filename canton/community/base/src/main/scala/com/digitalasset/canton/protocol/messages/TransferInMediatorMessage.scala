@@ -34,8 +34,7 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree)
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-out view must be blinded")
@@ -112,9 +111,6 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree)
       someEnvelopeContent =
         v3.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
     )
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
 
   def toProtoV0: v0.TransferInMediatorMessage =
     v0.TransferInMediatorMessage(tree = Some(tree.toProtoV0))

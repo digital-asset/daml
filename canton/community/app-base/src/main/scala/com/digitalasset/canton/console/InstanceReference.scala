@@ -23,12 +23,7 @@ import com.digitalasset.canton.participant.config.{
   RemoteParticipantConfig,
 }
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.participant.{
-  ParticipantNode,
-  ParticipantNodeBootstrapX,
-  ParticipantNodeCommon,
-  ParticipantNodeX,
-}
+import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeCommon}
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.topology.{DomainId, NodeIdentity, ParticipantId}
 import com.digitalasset.canton.tracing.NoTracing
@@ -90,24 +85,6 @@ trait InstanceReferenceCommon
 trait InstanceReference extends InstanceReferenceCommon {
   def parties: PartiesAdministrationGroup
   override def topology: TopologyAdministrationGroup
-}
-
-/** InstanceReferenceX with different topology administration x
-  */
-trait InstanceReferenceX extends InstanceReferenceCommon {
-  override def topology: TopologyAdministrationGroupX
-
-  private lazy val trafficControl_ =
-    new TrafficControlAdministrationGroup(
-      this,
-      topology,
-      this,
-      consoleEnvironment,
-      loggerFactory,
-    )
-  @Help.Summary("Traffic control related commands")
-  @Help.Group("Traffic")
-  def traffic_control: TrafficControlAdministrationGroup = trafficControl_
 }
 
 /** Pointer for a potentially running instance by instance type (domain/participant) and its id.
@@ -225,7 +202,6 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 }
 
 trait LocalInstanceReference extends LocalInstanceReferenceCommon with InstanceReference
-trait LocalInstanceReferenceX extends LocalInstanceReferenceCommon with InstanceReferenceX
 
 trait RemoteInstanceReference extends InstanceReferenceCommon {
   @Help.Summary("Manage public and secret keys")
@@ -691,122 +667,4 @@ class LocalParticipantReference(
   override def startingNode: Option[CantonNodeBootstrap[ParticipantNode]] =
     consoleEnvironment.environment.participants.getStarting(name)
 
-}
-
-abstract class ParticipantReferenceX(
-    override val consoleEnvironment: ConsoleEnvironment,
-    val name: String,
-) extends ParticipantReferenceCommon
-    with InstanceReferenceX {
-
-  override protected val instanceType: String = ParticipantReferenceX.InstanceType
-  override protected def runner: AdminCommandRunner = this
-
-  @Help.Summary("Health and diagnostic related commands")
-  @Help.Group("Health")
-  override def health: ParticipantHealthAdministrationX =
-    new ParticipantHealthAdministrationX(this, consoleEnvironment, loggerFactory)
-
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  def parties: ParticipantPartiesAdministrationGroupX
-
-  private lazy val topology_ =
-    new TopologyAdministrationGroupX(
-      this,
-      health.status.successOption.map(_.topologyQueue),
-      consoleEnvironment,
-      loggerFactory,
-    )
-  @Help.Summary("Topology management related commands")
-  @Help.Group("Topology")
-  @Help.Description("This group contains access to the full set of topology management commands.")
-  def topology: TopologyAdministrationGroupX = topology_
-  override protected def vettedPackagesOfParticipant(): Set[PackageId] = topology.vetted_packages
-    .list(filterStore = "Authorized", filterParticipant = id.filterString)
-    .flatMap(_.item.packageIds)
-    .toSet
-  override protected def participantIsActiveOnDomain(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  ): Boolean = topology.domain_trust_certificates.active(domainId, participantId)
-
-}
-object ParticipantReferenceX {
-  val InstanceType = "ParticipantX"
-}
-
-class RemoteParticipantReferenceX(environment: ConsoleEnvironment, override val name: String)
-    extends ParticipantReferenceX(environment, name)
-    with GrpcRemoteInstanceReference
-    with RemoteParticipantReferenceCommon {
-
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  override def parties: ParticipantPartiesAdministrationGroupX = partiesGroup
-
-  // above command needs to be def such that `Help` works.
-  lazy private val partiesGroup =
-    new ParticipantPartiesAdministrationGroupX(id, this, consoleEnvironment)
-
-  @Help.Summary("Return remote participant config")
-  def config: RemoteParticipantConfig =
-    consoleEnvironment.environment.config.remoteParticipantsByStringX(name)
-
-  override def equals(obj: Any): Boolean = {
-    obj match {
-      case x: RemoteParticipantReference =>
-        x.consoleEnvironment == consoleEnvironment && x.name == name
-      case _ => false
-    }
-  }
-
-}
-
-class LocalParticipantReferenceX(
-    override val consoleEnvironment: ConsoleEnvironment,
-    name: String,
-) extends ParticipantReferenceX(consoleEnvironment, name)
-    with LocalParticipantReferenceCommon
-    with LocalInstanceReferenceX
-    with BaseInspection[ParticipantNodeX] {
-
-  override private[console] val nodes = consoleEnvironment.environment.participantsX
-
-  @Help.Summary("Return participant config")
-  def config: LocalParticipantConfig =
-    consoleEnvironment.environment.config.participantsByStringX(name)
-
-  override def runningNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getRunning(name)
-
-  override def startingNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getStarting(name)
-
-  /** secret, not publicly documented way to get the admin token */
-  def adminToken: Option[String] = underlying.map(_.adminToken.secret)
-
-  // TODO(#14048) these are "remote" groups. the normal participant node has "local" versions.
-  //   but rather than keeping this, we should make local == remote and add local methods separately
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  def parties: LocalParticipantPartiesAdministrationGroupX = partiesGroup
-  // above command needs to be def such that `Help` works.
-  lazy private val partiesGroup =
-    new LocalParticipantPartiesAdministrationGroupX(this, this, consoleEnvironment, loggerFactory)
-
-  private lazy val testing_ = new ParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
-  @Help.Summary("Commands used for development and testing", FeatureFlag.Testing)
-  @Help.Group("Testing")
-  override def testing: ParticipantTestingGroup = testing_
-
-  private lazy val repair_ =
-    new LocalParticipantRepairAdministration(consoleEnvironment, this, loggerFactory) {
-      override protected def access[T](handler: ParticipantNodeCommon => T): T =
-        LocalParticipantReferenceX.this.access(handler)
-    }
-
-  @Help.Summary("Commands to repair the local participant contract state", FeatureFlag.Repair)
-  @Help.Group("Repair")
-  def repair: LocalParticipantRepairAdministration = repair_
 }

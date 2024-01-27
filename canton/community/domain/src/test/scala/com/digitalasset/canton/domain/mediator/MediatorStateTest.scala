@@ -63,15 +63,14 @@ class MediatorStateTest
         TransactionSubviews.empty(testedProtocolVersion, hashOps),
         testedProtocolVersion,
       )
-      val commonMetadata = CommonMetadata
-        .create(hashOps, testedProtocolVersion)(
-          ConfirmationPolicy.Signatory,
-          domainId,
-          MediatorRef(mediatorId),
-          s(5417),
-          new UUID(0, 0),
-        )
-        .value
+      val commonMetadata = CommonMetadata(hashOps, testedProtocolVersion)(
+        ConfirmationPolicy.Signatory,
+        domainId,
+        MediatorRef(mediatorId),
+        s(5417),
+        new UUID(0, 0),
+      )
+
       FullInformeeTree.tryCreate(
         GenTransactionTree.tryCreate(hashOps)(
           BlindedNode(rh(11)),

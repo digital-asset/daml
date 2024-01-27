@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Signature}
 import com.digitalasset.canton.data.{
@@ -46,7 +45,6 @@ final class GeneratorsMessages(
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import com.digitalasset.canton.version.GeneratorsVersion.*
-  import org.scalatest.EitherValues.*
   import generatorsData.*
   import generatorsDataTime.*
   import generatorsProtocol.*
@@ -192,12 +190,8 @@ final class GeneratorsMessages(
       : Arbitrary[SignedProtocolMessage[SignedProtocolMessageContent]] = Arbitrary(for {
     typedMessage <- Arbitrary
       .arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]]
-    rpv = SignedProtocolMessage.protocolVersionRepresentativeFor(protocolVersion)
-    signatures <- nonEmptyListGen(implicitly[Arbitrary[Signature]]).map { signatures =>
-      if (rpv >= SignedProtocolMessage.multipleSignaturesSupportedSince) signatures
-      else NonEmpty(List, signatures.head1)
-    }
-  } yield SignedProtocolMessage.create(typedMessage, signatures, rpv).value)
+    signature <- implicitly[Arbitrary[Signature]].arbitrary
+  } yield SignedProtocolMessage(typedMessage, signature, protocolVersion))
 
   private implicit val emptyTraceContext: TraceContext = TraceContext.empty
   private lazy val syncCrypto = GeneratorsCrypto.cryptoFactory.headSnapshot
@@ -232,8 +226,6 @@ final class GeneratorsMessages(
     domainTopologyTransactionMessageArb.arbitrary
   private def protocolMessageV3Gen: Gen[ProtocolMessageV3] =
     domainTopologyTransactionMessageArb.arbitrary
-  private def unsignedProtocolMessageV4Gen: Gen[UnsignedProtocolMessageV4] =
-    domainTopologyTransactionMessageArb.arbitrary
   private def UnsignedProtocolMessageGen: Gen[UnsignedProtocolMessage] =
     domainTopologyTransactionMessageArb.arbitrary
 
@@ -244,7 +236,6 @@ final class GeneratorsMessages(
     protocolMessageV1Gen,
     protocolMessageV2Gen,
     protocolMessageV3Gen,
-    unsignedProtocolMessageV4Gen,
     UnsignedProtocolMessageGen,
   )
 
@@ -255,7 +246,6 @@ final class GeneratorsMessages(
       EnvelopeContent.representativeV1 -> protocolMessageV1Gen,
       EnvelopeContent.representativeV2 -> protocolMessageV2Gen,
       EnvelopeContent.representativeV3 -> protocolMessageV3Gen,
-      EnvelopeContent.representativeV4 -> unsignedProtocolMessageV4Gen,
     )(EnvelopeContent.protocolVersionRepresentativeFor(protocolVersion))
   } yield EnvelopeContent.tryCreate(protocolMessage, protocolVersion))
 

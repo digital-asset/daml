@@ -160,12 +160,11 @@ class SequencedEventTestFixture(
       MessageId.tryCreate("test").some,
       Batch(
         List(
-          ClosedEnvelope.tryCreate(
+          ClosedEnvelope(
             serializedOverride.getOrElse(
               EnvelopeContent.tryCreate(message, testedProtocolVersion).toByteString
             ),
             Recipients.cc(subscriberId),
-            Seq.empty,
             testedProtocolVersion,
           )
         ),

@@ -132,7 +132,6 @@ object EmbeddedMediatorInitialization {
           topologyClient,
           topologyProcessor,
           None,
-          None,
           timeTrackerConfig,
           cantonParameterConfig,
           protocolVersion,

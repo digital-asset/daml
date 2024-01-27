@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.Top
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
@@ -38,7 +38,6 @@ final case class RegisterTopologyTransactionRequest private (
     with ProtocolMessageV1
     with ProtocolMessageV2
     with ProtocolMessageV3
-    with UnsignedProtocolMessageV4
     with PrettyPrinting {
 
   override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
@@ -60,9 +59,6 @@ final case class RegisterTopologyTransactionRequest private (
     v3.EnvelopeContent(
       v3.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionRequest(toProtoV0)
     )
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionRequest(toProtoV0)
 
   def toProtoV0: v0.RegisterTopologyTransactionRequest =
     v0.RegisterTopologyTransactionRequest(

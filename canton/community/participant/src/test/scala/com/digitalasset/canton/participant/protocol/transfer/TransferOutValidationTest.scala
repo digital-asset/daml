@@ -9,9 +9,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  IncompatibleProtocolVersions,
   StakeholdersMismatch,
-  TemplateIdMismatch,
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
@@ -19,7 +17,6 @@ import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackages}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -46,9 +43,6 @@ class TransferOutValidationTest
   ).toLf
 
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
-
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -111,7 +105,6 @@ class TransferOutValidationTest
         stakeholders,
         sourcePV,
         templateId,
-        initialTransferCounter,
       )
       for {
         _ <- validation.valueOrFailShutdown("validation failed")
@@ -125,7 +118,6 @@ class TransferOutValidationTest
       stakeholders.union(Set(receiverParty2)),
       sourcePV,
       templateId,
-      initialTransferCounter,
     )
     for {
       res <- validation.leftOrFailShutdown("couldn't get left from transfer out validation")
@@ -142,41 +134,12 @@ class TransferOutValidationTest
   "detect template id mismatch" in {
     // template id does not match the one in the contract
     val validation =
-      mkTransferOutValidation(stakeholders, sourcePV, wrongTemplateId, initialTransferCounter).value
+      mkTransferOutValidation(stakeholders, sourcePV, wrongTemplateId).value
     for {
       res <- validation.failOnShutdown
       // leftOrFailShutdown("couldn't get left from transfer out validation")
     } yield {
-      if (sourcePV.v < ProtocolVersion.CNTestNet) {
-        res shouldBe Right(())
-      } else res shouldBe Left(TemplateIdMismatch(templateId.leftSide, wrongTemplateId.leftSide))
-    }
-  }
-
-  "disallow transfers between domains with incompatible protocol versions" in {
-    val newSourcePV = SourceProtocolVersion(ProtocolVersion.CNTestNet)
-    val transferCounter = TransferCounter.forCreatedContract(newSourcePV.v)
-    val validation = mkTransferOutValidation(
-      stakeholders,
-      newSourcePV,
-      templateId,
-      transferCounter,
-    ).value
-
-    for {
-      res <- validation.failOnShutdown
-    } yield {
-      if (targetPV.v == newSourcePV.v) {
-        res shouldBe Right(())
-      } else {
-        res shouldBe Left(
-          IncompatibleProtocolVersions(
-            contractId,
-            newSourcePV,
-            targetPV,
-          )
-        )
-      }
+      res shouldBe Right(())
     }
   }
 
@@ -184,7 +147,6 @@ class TransferOutValidationTest
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
-      transferCounter: TransferCounterO,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     val transferOutRequest = TransferOutRequest(
       submitterInfo(submitterParty1),
@@ -199,7 +161,6 @@ class TransferOutValidationTest
       targetDomain,
       targetPV,
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      transferCounter,
     )
     val fullTransferOutTree = transferOutRequest
       .toFullTransferOutTree(
@@ -208,7 +169,6 @@ class TransferOutValidationTest
         seed,
         uuid,
       )
-      .value
 
     TransferOutValidation(
       fullTransferOutTree,

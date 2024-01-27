@@ -55,9 +55,6 @@ object TransferOutProcessorError {
       s"Cannot transfer-out contract `$contractId` because it's not active. Current status $status"
   }
 
-  final case object TransferCounterOverflow extends TransferProcessorError {
-    override def message: String = "Transfer counter overflow"
-  }
   final case class InvalidResult(
       transferId: TransferId,
       result: DeliveredTransferOutResult.InvalidTransferOutResult,

@@ -8,7 +8,6 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.{
   GeneratorsProtocol as GeneratorsProtocolSequencing,
   MaxRequestSizeToDeserialize,
@@ -74,12 +73,6 @@ class SerializationDeserializationTest
         testProtocolVersioned(AcsCommitment)
         testProtocolVersioned(Verdict)
         testProtocolVersioned(MediatorResponse)
-        if (version >= ProtocolVersion.CNTestNet) {
-          testMemoizedProtocolVersionedWithCtx(
-            TypedSignedProtocolMessageContent,
-            (TestHash, version),
-          )
-        }
         if (version >= ProtocolVersion.v5) {
           testProtocolVersionedWithCtx(SignedProtocolMessage, (TestHash, version))
         }
@@ -87,18 +80,18 @@ class SerializationDeserializationTest
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
         testProtocolVersioned(MalformedMediatorRequestResult)
-        if (version >= ProtocolVersion.v4 && version < ProtocolVersion.CNTestNet) {
+        if (version >= ProtocolVersion.v4) {
           testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
         }
-        if (version >= ProtocolVersion.CNTestNet) {
+        if (version >= ProtocolVersion.v5) {
+          /*
+          With pv < 5, the TransactionResultMessage expects a NotificationTree that we cannot generate yet.
+          Generating merkle trees will be done in the future.
+           */
           testMemoizedProtocolVersionedWithCtx(TransactionResultMessage, (TestHash, version))
         }
 
         testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AcknowledgeRequest)
-
-        if (version >= ProtocolVersion.CNTestNet) {
-          testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AggregationRule)
-        }
         testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.ClosedEnvelope)
 
         testVersioned(ContractMetadata)(
@@ -129,12 +122,11 @@ class SerializationDeserializationTest
           }
         }
 
-        if (version < ProtocolVersion.CNTestNet) {
-          testMemoizedProtocolVersionedWithCtx(
-            SignedTopologyTransaction,
-            ProtocolVersionValidation(version),
-          )
-        }
+        testMemoizedProtocolVersionedWithCtx(
+          SignedTopologyTransaction,
+          ProtocolVersionValidation(version),
+        )
+
         testMemoizedProtocolVersioned(LegalIdentityClaim)
 
         testMemoizedProtocolVersionedWithCtx(
@@ -147,17 +139,7 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(
-          com.digitalasset.canton.sequencing.SequencerConnections,
-          List(
-            SerializationDeserializationTestHelpers
-              .DefaultValueUntilExclusive[SequencerConnections](
-                transformer = (sc: SequencerConnections) =>
-                  SequencerConnections.single(
-                    sc.default
-                  ),
-                untilExclusive = ProtocolVersion.CNTestNet,
-              )
-          ),
+          com.digitalasset.canton.sequencing.SequencerConnections
         )
       }
 
@@ -168,7 +150,12 @@ class SerializationDeserializationTest
     val requiredTests =
       findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
 
-    val missingTests = requiredTests.diff(testedClasses.toList)
+    val notSerializedTests = Seq(
+      // Used for ACS commitments but not serialized
+      "com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent"
+    )
+
+    val missingTests = requiredTests.diff(testedClasses.toList).diff(notSerializedTests)
 
     /*
         If this test fails, it means that one class inheriting from HasProtocolVersionWrapper in the

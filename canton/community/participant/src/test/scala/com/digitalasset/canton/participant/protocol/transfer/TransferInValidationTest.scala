@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submitterParticipant
 import com.digitalasset.canton.protocol.*
@@ -17,7 +16,6 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -51,9 +49,6 @@ class TransferInValidationTest
   private val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
-
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -139,7 +134,6 @@ class TransferInValidationTest
       targetDomain,
       TargetProtocolVersion(testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      initialTransferCounter,
     )
     val uuid = new UUID(3L, 4L)
     val seed = seedGenerator.generateSaltSeed()
@@ -150,7 +144,6 @@ class TransferInValidationTest
         seed,
         uuid,
       )
-      .value
     val transferData =
       TransferData(
         SourceProtocolVersion(testedProtocolVersion),
@@ -215,72 +208,6 @@ class TransferInValidationTest
         _ <- inValidated
       } yield { succeed }
     }
-
-    "complain about inconsistent transfer counters" in {
-      val inRequestWithWrongCounter = makeFullTransferInTree(
-        party1,
-        Set(party1),
-        contract,
-        transactionId1,
-        targetDomain,
-        targetMediator,
-        transferOutResult,
-        transferCounter = transferData.transferCounter.map(_ + 1),
-      )
-      for {
-        result <-
-          transferInValidation
-            .validateTransferInRequest(
-              CantonTimestamp.Epoch,
-              inRequestWithWrongCounter,
-              Some(transferData),
-              cryptoSnapshot,
-              transferringParticipant = true,
-            )
-            .value
-      } yield {
-        if (testedProtocolVersion < ProtocolVersion.CNTestNet) {
-          result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
-        } else {
-          result shouldBe Left(
-            InconsistentTransferCounter(
-              transferId,
-              inRequestWithWrongCounter.transferCounter,
-              transferData.transferCounter,
-            )
-          )
-        }
-      }
-    }
-
-    "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
-      val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.CNTestNet))
-      for {
-        result <-
-          transferInValidation
-            .validateTransferInRequest(
-              CantonTimestamp.Epoch,
-              inRequest,
-              Some(transferDataSourceDomainPVCNTestNet),
-              cryptoSnapshot,
-              transferringParticipant = true,
-            )
-            .value
-      } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.CNTestNet) {
-          result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
-        } else {
-          result shouldBe Left(
-            IncompatibleProtocolVersions(
-              transferDataSourceDomainPVCNTestNet.contract.contractId,
-              transferDataSourceDomainPVCNTestNet.sourceProtocolVersion,
-              transferOutRequest.targetProtocolVersion,
-            )
-          )
-        }
-      }
-    }
   }
 
   private def testInstance(
@@ -317,7 +244,6 @@ class TransferInValidationTest
       targetMediator: MediatorId,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
-      transferCounter: TransferCounterO = initialTransferCounter,
   ): FullTransferInTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(
@@ -327,7 +253,6 @@ class TransferInValidationTest
         submitterInfo(submitter),
         stakeholders,
         contract,
-        transferCounter,
         creatingTransactionId,
         targetDomain,
         MediatorRef(targetMediator),

@@ -19,8 +19,6 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParameters,
   DynamicDomainParametersWithValidity,
 }
-import com.digitalasset.canton.sequencing.TrafficControlParameters
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfResponse,
@@ -29,7 +27,6 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
 import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessingSubscriber,
   TopologyTransactionProcessingSubscriberCommon,
-  TopologyTransactionProcessingSubscriberX,
 }
 import com.digitalasset.canton.topology.transaction.LegalIdentityClaimEvidence.X509Cert
 import com.digitalasset.canton.topology.transaction.*
@@ -285,10 +282,6 @@ trait PartyTopologySnapshotClient {
       parties: List[LfPartyId]
   ): EitherT[Future, Set[LfPartyId], Set[ParticipantId]]
 
-  def partiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  ): Future[Set[LfPartyId]]
-
   /** Returns a list of all known parties on this domain */
   def inspectKnownParties(
       filterParty: String,
@@ -309,14 +302,13 @@ object PartyTopologySnapshotClient {
   final case class AuthorityOfResponse(response: Map[LfPartyId, AuthorityOfDelegation])
 
   final case class PartyInfo(
-      groupAddressing: Boolean,
       threshold: PositiveInt, // > 1 for consortium parties
       participants: Map[ParticipantId, ParticipantAttributes],
   )
 
   object PartyInfo {
     def nonConsortiumPartyInfo(participants: Map[ParticipantId, ParticipantAttributes]): PartyInfo =
-      PartyInfo(groupAddressing = false, threshold = PositiveInt.one, participants = participants)
+      PartyInfo(threshold = PositiveInt.one, participants = participants)
 
     lazy val EmptyPartyInfo: PartyInfo = nonConsortiumPartyInfo(Map.empty)
   }
@@ -369,7 +361,7 @@ trait MediatorDomainStateClient {
   /** returns the list of currently known mediators */
   @deprecated(since = "2.7", message = "Use mediatorGroups instead.")
   final def mediators(): Future[Seq[MediatorId]] =
-    mediatorGroups().map(_.flatMap(mg => mg.active ++ mg.passive))
+    mediatorGroups().map(_.map(_.active))
 
   def mediatorGroups(): Future[Seq[MediatorGroup]]
 
@@ -377,42 +369,13 @@ trait MediatorDomainStateClient {
     mediatorGroups().map(_.exists { group =>
       // Note: mediator in group.passive should still be able to authenticate and process MediatorResponses,
       // only sending the verdicts is disabled and verdicts from a passive mediator should not pass the checks
-      group.isActive && (group.active.contains(mediatorId) || group.passive.contains(mediatorId))
+      group.active == mediatorId
     })
 
-  def isMediatorActive(mediator: MediatorRef): Future[Boolean] = {
+  def isMediatorActive(mediator: MediatorRef): Future[Boolean] =
     mediator match {
-      case MediatorRef.Single(mediatorId) =>
-        isMediatorActive(mediatorId)
-      case MediatorRef.Group(mediatorsOfDomain) =>
-        mediatorGroup(mediatorsOfDomain.group).map {
-          case Some(group) => group.isActive
-          case None => false
-        }
+      case MediatorRef(mediatorId) => isMediatorActive(mediatorId)
     }
-  }
-
-  def mediatorGroupsOfAll(
-      groups: Seq[MediatorGroupIndex]
-  ): EitherT[Future, Seq[MediatorGroupIndex], Seq[MediatorGroup]] =
-    if (groups.isEmpty) EitherT.rightT(Seq.empty)
-    else
-      EitherT(
-        mediatorGroups()
-          .map { mediatorGroups =>
-            val existingGroupIndices = mediatorGroups.map(_.index)
-            val nonExisting = groups.filterNot(existingGroupIndices.contains)
-            Either.cond(
-              nonExisting.isEmpty,
-              mediatorGroups.filter(g => groups.contains(g.index)),
-              nonExisting,
-            )
-          }
-      )
-
-  def mediatorGroup(index: MediatorGroupIndex): Future[Option[MediatorGroup]] = {
-    mediatorGroups().map(_.find(_.index == index))
-  }
 }
 
 /** The subset of the topology client providing sequencer state information */
@@ -462,13 +425,6 @@ trait VettedPackagesSnapshotClient {
 
 trait DomainGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
-
-  def trafficControlParameters[A](
-      protocolVersion: ProtocolVersion
-  )(implicit tc: TraceContext): Future[Option[TrafficControlParameters]] = {
-    findDynamicDomainParametersOrDefault(protocolVersion)
-      .map(_.trafficControlParameters)
-  }
 
   def findDynamicDomainParametersOrDefault(
       protocolVersion: ProtocolVersion,
@@ -526,10 +482,6 @@ trait TopologySnapshot
 trait DomainTopologyClientWithInitOld
     extends DomainTopologyClientWithInit
     with TopologyTransactionProcessingSubscriber
-
-trait DomainTopologyClientWithInitX
-    extends DomainTopologyClientWithInit
-    with TopologyTransactionProcessingSubscriberX
 
 /** The internal domain topology client interface used for initialisation and efficient processing */
 trait DomainTopologyClientWithInit
@@ -759,9 +711,6 @@ private[client] trait PartyTopologySnapshotLoader
       parties: Seq[LfPartyId]
   ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]] =
     loadAndMapPartyInfos(parties, _.participants)
-
-  final override def partiesWithGroupAddressing(parties: Seq[LfPartyId]): Future[Set[LfPartyId]] =
-    loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
 
   final def consortiumThresholds(parties: Set[LfPartyId]): Future[Map[LfPartyId, PositiveInt]] =
     loadAndMapPartyInfos(parties.toSeq, _.threshold)

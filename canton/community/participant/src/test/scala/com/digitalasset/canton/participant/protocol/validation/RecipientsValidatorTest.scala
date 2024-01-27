@@ -11,12 +11,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.WrongRecip
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.TestViewTree
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash}
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  Recipient,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.sequencing.protocol.{Recipient, Recipients, RecipientsTree}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{Member, ParticipantId, TestingTopology}
@@ -66,11 +61,11 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
   ): Recipients = (groupsViewToRoot: @unchecked) match {
     case Seq() => Recipients(NonEmpty.from(acc).value)
     case Seq(head, tail @ _*) =>
-      mkRecipients(tail, Seq(RecipientsTree(head.map(MemberRecipient), acc)))
+      mkRecipients(tail, Seq(RecipientsTree(head.map(Recipient(_)), acc)))
   }
 
   def mkGroup(member: Member, members: Member*): NonEmpty[Set[Recipient]] =
-    NonEmpty(Set, member, members *).map(MemberRecipient)
+    NonEmpty(Set, member, members *).map(Recipient(_))
 
   def mkInput1(
       informees: Seq[LfPartyId],
@@ -215,7 +210,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             .futureValue,
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"""Received a request with id $requestId where the view at List("") has missing recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
+            _ shouldBe s"""Received a request with id $requestId where the view at List("") has missing recipients Set(Recipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
           ),
         )
 
@@ -245,7 +240,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             .futureValue,
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has missing recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
+            _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has missing recipients Set(Recipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
           ),
         )
 
@@ -264,7 +259,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             .futureValue,
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"""Received a request with id $requestId where the view at List("") has extra recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
+            _ shouldBe s"""Received a request with id $requestId where the view at List("") has extra recipients Set(Recipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
           ),
         )
 
@@ -292,7 +287,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             .futureValue,
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has extra recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
+            _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has extra recipients Set(Recipient(PAR::participant2::default)) for the view at List(""). Continue processing...""",
           ),
         )
 
@@ -425,7 +420,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
             ),
             _.shouldBeCantonError(
               SyncServiceAlarm,
-              _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has missing recipients Set(MemberRecipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
+              _ shouldBe s"""Received a request with id $requestId where the view at List("", "") has missing recipients Set(Recipient(PAR::participant2::default)) for the view at List(""). Discarding List("") with all ancestors...""",
             ),
           )
 

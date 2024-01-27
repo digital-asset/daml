@@ -13,7 +13,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.FlagCloseable
@@ -43,10 +42,9 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
   val messageId = MessageId.tryCreate("test-message-id")
   def mkBatch(recipients: Set[Member]): Batch[ClosedEnvelope] =
     Batch[ClosedEnvelope](
-      ClosedEnvelope.tryCreate(
+      ClosedEnvelope(
         ByteString.EMPTY,
         Recipients.ofSet(recipients).value,
-        Seq.empty,
         testedProtocolVersion,
       ) :: Nil,
       testedProtocolVersion,
@@ -58,7 +56,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       isRequest = true,
       mkBatch(to),
       CantonTimestamp.MaxValue,
-      None,
       None,
       testedProtocolVersion,
     )
@@ -161,10 +158,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
     override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
       ???
-
-    override def trafficStatus(members: Seq[Member])(implicit
-        traceContext: TraceContext
-    ): Future[SequencerTrafficStatus] = ???
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

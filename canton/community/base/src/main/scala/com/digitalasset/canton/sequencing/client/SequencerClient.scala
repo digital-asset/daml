@@ -76,7 +76,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       timestampOfSigningKey: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit]
 
@@ -275,7 +274,6 @@ class SequencerClientImpl(
       timestampOfSigningKey: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     member match {
@@ -286,7 +284,6 @@ class SequencerClientImpl(
           timestampOfSigningKey = timestampOfSigningKey,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
-          aggregationRule = aggregationRule,
           callback = callback,
         )
       case _: UnauthenticatedMemberId =>
@@ -306,7 +303,6 @@ class SequencerClientImpl(
       timestampOfSigningKey: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     for {
@@ -320,10 +316,7 @@ class SequencerClientImpl(
       // TODO(#12950): Validate that group addresses map to at least one member
       _ <- EitherT.cond[Future](
         timestampOfSigningKey.isEmpty || batch.envelopes.forall(
-          _.recipients.allRecipients.forall {
-            case MemberRecipient(m) => m.isAuthenticated
-            case _ => true
-          }
+          _.recipients.allRecipients.forall(_.member.isAuthenticated)
         ),
         (),
         SendAsyncClientError.RequestInvalid(
@@ -337,7 +330,6 @@ class SequencerClientImpl(
         timestampOfSigningKey,
         maxSequencingTime,
         messageId,
-        aggregationRule,
         callback,
       )
     } yield result
@@ -368,7 +360,6 @@ class SequencerClientImpl(
         None,
         maxSequencingTime,
         messageId,
-        None,
         callback,
       )
 
@@ -399,7 +390,6 @@ class SequencerClientImpl(
       timestampOfSigningKey: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
-      aggregationRule: Option[AggregationRule],
       callback: SendCallback,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
@@ -411,7 +401,6 @@ class SequencerClientImpl(
           Batch.closeEnvelopes(batch),
           maxSequencingTime,
           timestampOfSigningKey,
-          aggregationRule,
           SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion),
         )
         .leftMap(err =>

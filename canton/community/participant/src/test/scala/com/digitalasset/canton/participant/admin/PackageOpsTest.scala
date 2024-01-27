@@ -5,12 +5,8 @@ package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, HashPurpose, Signature}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
@@ -26,22 +22,9 @@ import com.digitalasset.canton.participant.topology.{
 }
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
-  TopologyStoreX,
-}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Add, Remove}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManagerX,
-  DomainId,
-  ParticipantId,
-  UniqueIdentifier,
-}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
 import org.mockito.ArgumentMatchersSugar
 import org.mockito.captor.ArgCaptor
@@ -316,175 +299,5 @@ class PackageOpsTest extends PackageOpsTestBase {
         eqTo(false),
       )(anyTraceContext)
     ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
-  }
-}
-
-class PackageOpsXTest extends PackageOpsTestBase {
-  protected type T = TestSetupX
-  protected def buildSetup: T = new TestSetupX()
-  protected def sutName: String = classOf[PackageOpsX].getSimpleName
-
-  s"$sutName.vetPackages" should {
-    "add a new vetted package" when {
-      "it was not vetted" in withTestSetup { env =>
-        import env.*
-
-        arrangeCurrentlyVetted(List(pkgId1))
-        expectNewVettingState(List(pkgId1, pkgId2))
-        packageOps
-          .vetPackages(Seq(pkgId1, pkgId2), synchronize = false)
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) => succeed })
-      }
-    }
-
-    "not authorize a topology change" when {
-      "the vetted package set is unchanged" in withTestSetup { env =>
-        import env.*
-
-        // Not ordered to prove that we check set-equality not ordered
-        arrangeCurrentlyVetted(List(pkgId2, pkgId1))
-        packageOps
-          .vetPackages(Seq(pkgId1, pkgId2), synchronize = false)
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManagerX, never).proposeAndAuthorize(
-              any[TopologyChangeOpX],
-              any[TopologyMappingX],
-              any[Option[PositiveInt]],
-              any[Seq[Fingerprint]],
-              any[ProtocolVersion],
-              anyBoolean,
-              anyBoolean,
-            )(anyTraceContext)
-
-            succeed
-          })
-      }
-    }
-  }
-
-  s"$sutName.revokeVettingForPackages" should {
-    "revoke vetting for packages" when {
-      "they were vetted" in withTestSetup { env =>
-        import env.*
-
-        arrangeCurrentlyVetted(List(pkgId1, pkgId2, pkgId3))
-        expectNewVettingState(List(pkgId3))
-        packageOps
-          .revokeVettingForPackages(
-            pkgId1,
-            List(pkgId1, pkgId2),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
-          )
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) => succeed })
-      }
-    }
-
-    "not authorize a topology change" when {
-      "the vetted package set is unchanged" in withTestSetup { env =>
-        import env.*
-
-        // Not ordered to prove that we check set-equality not ordered
-        arrangeCurrentlyVetted(List(pkgId2, pkgId1))
-        packageOps
-          .revokeVettingForPackages(
-            pkgId3,
-            List(pkgId3),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
-          )
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManagerX, never).proposeAndAuthorize(
-              any[TopologyChangeOpX],
-              any[TopologyMappingX],
-              any[Option[PositiveInt]],
-              any[Seq[Fingerprint]],
-              any[ProtocolVersion],
-              anyBoolean,
-              anyBoolean,
-            )(anyTraceContext)
-
-            succeed
-          })
-      }
-    }
-  }
-
-  protected class TestSetupX extends CommonTestSetup {
-    val topologyManagerX = mock[AuthorizedTopologyManagerX]
-
-    private val nodeId: UniqueIdentifier = UniqueIdentifier.tryCreate("node", "one")
-    val packageOps = new PackageOpsX(
-      participantId = participantId,
-      headAuthorizedTopologySnapshot = headAuthorizedTopologySnapshot,
-      manager = stateManager,
-      topologyManager = topologyManagerX,
-      nodeId = nodeId,
-      initialProtocolVersion = testedProtocolVersion,
-      loggerFactory = loggerFactory,
-      timeouts = ProcessingTimeout(),
-    )
-
-    val topologyStoreX = mock[TopologyStoreX[AuthorizedStore]]
-    when(topologyManagerX.store).thenReturn(topologyStoreX)
-    val txSerial = PositiveInt.tryCreate(1)
-    def arrangeCurrentlyVetted(currentlyVettedPackages: List[LfPackageId]) =
-      when(
-        topologyStoreX.findPositiveTransactions(
-          eqTo(CantonTimestamp.MaxValue),
-          eqTo(true),
-          eqTo(false),
-          eqTo(Seq(VettedPackagesX.code)),
-          eqTo(Some(Seq(nodeId))),
-          eqTo(None),
-        )(anyTraceContext)
-      ).thenReturn(Future.successful(packagesVettedStoredTx(currentlyVettedPackages)))
-
-    def expectNewVettingState(newVettedPackagesState: List[LfPackageId]) =
-      when(
-        topologyManagerX.proposeAndAuthorize(
-          eqTo(TopologyChangeOpX.Replace),
-          eqTo(VettedPackagesX(participantId, None, newVettedPackagesState)),
-          eqTo(Some(txSerial.tryAdd(1))),
-          eqTo(Seq(participantId.uid.namespace.fingerprint)),
-          eqTo(testedProtocolVersion),
-          eqTo(true),
-          eqTo(false),
-        )(anyTraceContext)
-      ).thenReturn(EitherT.rightT(signedTopologyTransactionX(List(pkgId2))))
-
-    def packagesVettedStoredTx(vettedPackages: List[LfPackageId]) =
-      StoredTopologyTransactionsX(
-        Seq(
-          StoredTopologyTransactionX(
-            sequenced = SequencedTime(CantonTimestamp.MaxValue),
-            validFrom = EffectiveTime(CantonTimestamp.MinValue),
-            validUntil = None,
-            transaction = signedTopologyTransactionX(vettedPackages),
-          )
-        )
-      )
-
-    private def signedTopologyTransactionX(vettedPackages: List[LfPackageId]) =
-      SignedTopologyTransactionX(
-        transaction = TopologyTransactionX(
-          op = TopologyChangeOpX.Replace,
-          serial = txSerial,
-          mapping = VettedPackagesX(participantId, None, vettedPackages),
-          protocolVersion = testedProtocolVersion,
-        ),
-        signatures = NonEmpty(Set, Signature.noSignature),
-        isProposal = false,
-      )(
-        SignedTopologyTransactionX.supportedProtoVersions.protocolVersionRepresentativeFor(
-          testedProtocolVersion
-        )
-      )
   }
 }

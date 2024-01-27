@@ -17,7 +17,6 @@ import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -26,7 +25,6 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
-  MemberRecipient,
   SendAsyncError,
   SignedContent,
   SubmissionRequest,
@@ -243,25 +241,6 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Unit] =
     for {
-      // TODO(#12405) Support aggregatable submissions in the DB sequencer
-      _ <- EitherT.cond[Future](
-        submission.aggregationRule.isEmpty,
-        (),
-        SendAsyncError.RequestRefused(
-          "Aggregatable submissions are not yet supported by this database sequencer"
-        ),
-      )
-      // TODO(#12363) Support group addresses in the DB Sequencer
-      _ <- EitherT.cond[Future](
-        !submission.batch.allRecipients.exists {
-          case _: MemberRecipient => false
-          case _ => true
-        },
-        (),
-        SendAsyncError.RequestRefused(
-          "Group addresses are not yet supported by this database sequencer"
-        ),
-      )
       _ <- writer.send(submission)
     } yield ()
 
@@ -395,9 +374,4 @@ class DatabaseSequencer(
   ): EitherT[Future, String, Unit] =
     // see [[isLedgerIdentityRegistered]]
     EitherT.leftT("authorizeLedgerIdentity is not implemented for database sequencers")
-
-  override def trafficStatus(members: Seq[Member])(implicit
-      traceContext: TraceContext
-  ): Future[SequencerTrafficStatus] =
-    Future.successful(SequencerTrafficStatus(Seq.empty))
 }

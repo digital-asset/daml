@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.protocol.{v0, v1}
+import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
@@ -33,14 +33,13 @@ import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordered.orderingToOrdered
 
 /** @param timestampOfSigningKey The timestamp of the topology snapshot that was used for signing the content.
   *                              [[scala.None$]] if the signing timestamp can be derived from the content.
-  * @param signatures            Signatures of the content provided by the different sequencers. For protocol versions
-  *                              before [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] must not look at signatures except for the last one.
+  * @param signatures            Signatures of the content provided by the different sequencers.
+  *                              Must not look at signatures except for the last one.
   */
-// TODO(#15153) Remove comment: remove second sentence of comment about signatures
+// TODO(#16587) Change signatures to `signature: Signature`
 final case class SignedContent[+A <: HasCryptographicEvidence] private (
     content: A,
     signatures: NonEmpty[Seq[Signature]],
@@ -56,13 +55,6 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
     v0.SignedContent(
       Some(content.getCryptographicEvidence),
       Some(signatures.last1.toProtoV0),
-      timestampOfSigningKey.map(_.toProtoPrimitive),
-    )
-
-  private def toProtoV1: v1.SignedContent =
-    v1.SignedContent(
-      Some(content.getCryptographicEvidence),
-      signatures.map(_.toProtoV0),
       timestampOfSigningKey.map(_.toProtoPrimitive),
     )
 
@@ -117,15 +109,8 @@ object SignedContent
     ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SignedContent)(
       supportedProtoVersion(_)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v1.SignedContent)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    )
   )
-
-  val multipleSignaturesSupportedSince: RepresentativeProtocolVersion[SignedContent.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
 
   // TODO(i12076): Start using multiple signatures
   def apply[A <: HasCryptographicEvidence](
@@ -142,20 +127,6 @@ object SignedContent
     )
   )
 
-  def apply[A <: HasCryptographicEvidence](
-      content: A,
-      signatures: NonEmpty[Seq[Signature]],
-      timestampOfSigningKey: Option[CantonTimestamp],
-      protoVersion: ProtoVersion,
-  ): SignedContent[A] = checked( // There is only a single signature
-    SignedContent.tryCreate(
-      content,
-      signatures,
-      timestampOfSigningKey,
-      protocolVersionRepresentativeFor(protoVersion),
-    )
-  )
-
   def create[A <: HasCryptographicEvidence](
       content: A,
       signatures: NonEmpty[Seq[Signature]],
@@ -163,12 +134,9 @@ object SignedContent
       representativeProtocolVersion: RepresentativeProtocolVersion[SignedContent.type],
   ): Either[InvariantViolation, SignedContent[A]] =
     Either.cond(
-      representativeProtocolVersion >= multipleSignaturesSupportedSince ||
-        signatures.sizeCompare(1) == 0,
+      signatures.sizeCompare(1) == 0,
       new SignedContent(content, signatures, timestampOfSigningKey)(representativeProtocolVersion),
-      InvariantViolation(
-        s"Multiple signatures are supported only from protocol version ${multipleSignaturesSupportedSince} on"
-      ),
+      InvariantViolation(s"Multiple signatures are not supported"),
     )
 
   def tryCreate[A <: HasCryptographicEvidence](
@@ -238,27 +206,6 @@ object SignedContent
         NonEmpty(Seq, signature),
         ts,
         protocolVersionRepresentativeFor(ProtoVersion(0)),
-      ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
-    } yield signedContent
-  }
-
-  private def fromProtoV1(
-      signedValueP: v1.SignedContent
-  ): ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] = {
-    val v1.SignedContent(content, signatures, timestampOfSigningKey) = signedValueP
-    for {
-      contentB <- ProtoConverter.required("content", content)
-      signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
-        "signature",
-        signatures,
-      )
-      ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
-      signedContent <- create(
-        BytestringWithCryptographicEvidence(contentB),
-        signatures,
-        ts,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
       ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
     } yield signedContent
   }

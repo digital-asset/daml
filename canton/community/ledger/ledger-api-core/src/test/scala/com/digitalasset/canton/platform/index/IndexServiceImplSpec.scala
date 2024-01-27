@@ -4,7 +4,8 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -15,7 +16,7 @@ import com.digitalasset.canton.ledger.api.domain.{
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.index.IndexServiceImpl.{
-  checkUnknownTemplatesOrInterfaces,
+  checkUnknownIdentifiers,
   memoizedTransactionFilterProjection,
   templateFilter,
   wildcardFilter,
@@ -23,12 +24,17 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.{
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+  LocalPackagePreference,
+  PackageResolution,
+}
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import org.mockito.MockitoSugar
+import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar with EitherValues {
 
   behavior of "IndexServiceImpl.memoizedTransactionFilterProjection"
 
@@ -284,62 +290,79 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   behavior of "IndexServiceImpl.unknownTemplatesOrInterfaces"
 
   it should "provide an empty list in case of empty filter and package metadata" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(Map.empty),
-      PackageMetadata(),
-    ) shouldBe List()
+    checkUnknownIdentifiers(TransactionFilter(Map.empty), PackageMetadata()) shouldBe Right(())
   }
 
   it should "return an unknown template for not known template" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
+    checkUnknownIdentifiers(
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
       PackageMetadata(),
-    ) shouldBe List(Left(template1))
+    ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
+      unknownTemplatesOrInterfaces = Seq(Left(template1))
+    )
   }
 
   it should "return an unknown interface for not known interface" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
+    checkUnknownIdentifiers(
+      TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))),
+      PackageMetadata(),
+    ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
+      unknownTemplatesOrInterfaces = Seq(Right(iface1))
+    )
+  }
+
+  it should "return a package name on unknown package name" in new Scope {
+    checkUnknownIdentifiers(
+      TransactionFilter(
+        Map(
+          party -> Filters(
+            InclusiveFilters(
+              Set(template1Filter, packageNameScopedTemplateFilter),
+              Set(iface1Filter),
+            )
+          )
+        )
       ),
       PackageMetadata(),
-    ) shouldBe List(Right(iface1))
+    ).left.value shouldBe RequestValidationErrors.NotFound.PackageNamesNotFound.Reject(
+      unknownPackageNames = Set(packageName1)
+    )
   }
 
-  it should "return zero unknown interfaces for known interface" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(iface1Filter))))
+  it should "succeed for all query filter identifiers known" in new Scope {
+    checkUnknownIdentifiers(
+      TransactionFilter(
+        Map(
+          party -> Filters(
+            InclusiveFilters(
+              Set(template1Filter, packageNameScopedTemplateFilter),
+              Set(iface1Filter),
+            )
+          )
+        )
       ),
-      PackageMetadata(interfaces = Set(iface1)),
-    ) shouldBe List()
-
-  }
-
-  it should "return zero unknown templates for known templates" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(Map(party -> Filters(InclusiveFilters(Set(template1Filter), Set())))),
-      PackageMetadata(templates = Set(template1)),
-    ) shouldBe List()
+      PackageMetadata(
+        interfaces = Set(iface1),
+        templates = Set(template1),
+        packageNameMap = Map(packageName1 -> dummyPackageResolution),
+      ),
+    ) shouldBe Right(())
   }
 
   it should "only return unknown templates and interfaces" in new Scope {
-    checkUnknownTemplatesOrInterfaces(
-      new TransactionFilter(
+    checkUnknownIdentifiers(
+      TransactionFilter(
         Map(
-          party -> Filters(
-            InclusiveFilters(Set(template1Filter), Set(iface1Filter))
-          ),
+          party -> Filters(InclusiveFilters(Set(template1Filter), Set(iface1Filter))),
           party2 -> Filters(
             InclusiveFilters(Set(template2Filter, template3Filter), Set(iface2Filter))
           ),
         )
       ),
-      PackageMetadata(
-        templates = Set(template1),
-        interfaces = Set(iface1),
-      ),
-    ) shouldBe List(Right(iface2), Left(template2), Left(template3))
+      PackageMetadata(templates = Set(template1), interfaces = Set(iface1)),
+    ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
+      unknownTemplatesOrInterfaces = Seq(Left(template2), Left(template3), Right(iface2))
+    )
   }
 
   behavior of "IndexServiceImpl.invalidTemplateOrInterfaceMessage"
@@ -353,18 +376,14 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
   it should "combine a message containing invalid interfaces and templates together" in new Scope {
     RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
-      .Reject(
-        List(Right(iface2), Left(template2), Left(template3))
-      )
-      .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]. Interfaces do not exist: [PackageName:ModuleName:iface2]."
+      .Reject(List(Right(iface2), Left(template2), Left(template3)))
+      .cause shouldBe "Templates do not exist: [PackageId:ModuleName:template2, PackageId:ModuleName:template3]. Interfaces do not exist: [PackageId:ModuleName:iface2]."
   }
 
   it should "provide a message for invalid templates" in new Scope {
     RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
-      .Reject(
-        List(Left(template2), Left(template3))
-      )
-      .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]."
+      .Reject(List(Left(template2), Left(template3)))
+      .cause shouldBe "Templates do not exist: [PackageId:ModuleName:template2, PackageId:ModuleName:template3]."
   }
 
   it should "provide a message for invalid interfaces" in new Scope {
@@ -372,7 +391,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
       .Reject(
         List(Right(iface1), Right(iface2))
       )
-      .cause shouldBe "Interfaces do not exist: [PackageName:ModuleName:iface1, PackageName:ModuleName:iface2]."
+      .cause shouldBe "Interfaces do not exist: [PackageId:ModuleName:iface1, PackageId:ModuleName:iface2]."
   }
 }
 
@@ -382,27 +401,45 @@ object IndexServiceImplSpec {
     val party2: Party = Party.assertFromString("party2")
     val templateQualifiedName1: QualifiedName =
       QualifiedName.assertFromString("ModuleName:template1")
-    val template1: Identifier = Identifier.assertFromString("PackageName:ModuleName:template1")
+
+    val packageName1: Ref.PackageName = Ref.PackageName.assertFromString("PackageName1")
+    val packageName2: Ref.PackageName = Ref.PackageName.assertFromString("PackageName2")
+    val template1: Identifier = Identifier.assertFromString("PackageId:ModuleName:template1")
     val template1Filter: TemplateFilter =
       TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
-    val template2: Identifier = Identifier.assertFromString("PackageName:ModuleName:template2")
+
+    val packageNameScopedTemplateFilter: TemplateFilter =
+      TemplateFilter(
+        templateTypeRef = TypeConRef.assertFromString(
+          s"${Ref.PackageRef.Name(packageName1).toString}:ModuleName:template1"
+        ),
+        includeCreatedEventBlob = false,
+      )
+    val template2: Identifier = Identifier.assertFromString("PackageId:ModuleName:template2")
     val template2Filter: TemplateFilter =
       TemplateFilter(templateId = template2, includeCreatedEventBlob = false)
-    val template3: Identifier = Identifier.assertFromString("PackageName:ModuleName:template3")
+    val template3: Identifier = Identifier.assertFromString("PackageId:ModuleName:template3")
     val template3Filter: TemplateFilter =
       TemplateFilter(templateId = template3, includeCreatedEventBlob = false)
-    val iface1: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface1")
+    val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
     val iface1Filter: InterfaceFilter = InterfaceFilter(
       iface1,
       includeView = true,
       includeCreatedEventBlob = false,
     )
-    val iface2: Identifier = Identifier.assertFromString("PackageName:ModuleName:iface2")
+    val iface2: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface2")
     val iface2Filter: InterfaceFilter = InterfaceFilter(
       iface2,
       includeView = true,
       includeCreatedEventBlob = false,
     )
     val view: PackageMetadataView = mock[PackageMetadataView]
+    val dummyPackageResolution: PackageResolution = PackageResolution(
+      preference = LocalPackagePreference(
+        Ref.PackageVersion.assertFromString("0.1"),
+        Ref.PackageId.assertFromString("pId"),
+      ),
+      allPackageIdsForName = Set.empty,
+    )
   }
 }

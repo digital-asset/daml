@@ -26,7 +26,7 @@ import com.digitalasset.canton.protocol.{v0, *}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
@@ -207,7 +207,7 @@ final case class EncryptedViewMessageV0[+VT <: ViewType](
     with ProtocolMessageV0 {
 
   protected[messages] override def recipientsInfo: Option[RecipientsInfo] = Some(
-    RecipientsInfo(randomnessMap.keySet, Set.empty, Set.empty)
+    RecipientsInfo(randomnessMap.keySet)
   )
 
   override val representativeProtocolVersion
@@ -313,8 +313,7 @@ final case class EncryptedViewMessageV2[+VT <: ViewType](
 )(
     val recipientsInfo: Option[RecipientsInfo]
 ) extends EncryptedViewMessage[VT]
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
 
   def copy[A <: ViewType](
       submitterParticipantSignature: Option[Signature] = this.submitterParticipantSignature,
@@ -351,9 +350,6 @@ final case class EncryptedViewMessageV2[+VT <: ViewType](
 
   override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
     v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.EncryptedViewMessage(toProtoV2))
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.EncryptedViewMessage(toProtoV2)
 
   override protected def updateView[VT2 <: ViewType](
       newView: EncryptedView[VT2]
@@ -447,9 +443,7 @@ object EncryptedViewMessageV0 {
 object EncryptedViewMessageV1 {
 
   final case class RecipientsInfo(
-      informeeParticipants: Set[ParticipantId],
-      partiesWithGroupAddressing: Set[PartyId],
-      participantsAddressedByGroupAddress: Set[ParticipantId],
+      informeeParticipants: Set[ParticipantId]
   )
 
   private def serializeRandomnessEntry(

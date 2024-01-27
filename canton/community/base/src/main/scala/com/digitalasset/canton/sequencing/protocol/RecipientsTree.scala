@@ -44,21 +44,12 @@ final case class RecipientsTree(
     }
 
   def forMember(
-      member: Member,
-      groupRecipients: Set[GroupRecipient],
+      member: Member
   ): Seq[RecipientsTree] =
-    if (
-      recipientGroup
-        .exists {
-          case MemberRecipient(m) => member == m
-          case g: GroupRecipient =>
-            groupRecipients.contains(g)
-        }
-    ) {
+    if (recipientGroup.exists(_.member == member))
       Seq(this)
-    } else {
-      children.flatMap(c => c.forMember(member, groupRecipients))
-    }
+    else
+      children.flatMap(_.forMember(member))
 
   lazy val leafRecipients: NonEmpty[Set[Recipient]] = children match {
     case NonEmpty(cs) => cs.toNEF.reduceLeftTo(_.leafRecipients)(_ ++ _.leafRecipients)
@@ -81,23 +72,20 @@ object RecipientsTree {
   def ofMembers(
       recipientGroup: NonEmpty[Set[Member]],
       children: Seq[RecipientsTree],
-  ): RecipientsTree = RecipientsTree(recipientGroup.map(MemberRecipient), children)
+  ): RecipientsTree = RecipientsTree(recipientGroup.map(Recipient(_)), children)
 
   def leaf(group: NonEmpty[Set[Member]]): RecipientsTree =
-    RecipientsTree(group.map(MemberRecipient), Seq.empty)
+    RecipientsTree(group.map(Recipient(_)), Seq.empty)
 
   def recipientsLeaf(group: NonEmpty[Set[Recipient]]): RecipientsTree =
     RecipientsTree(group, Seq.empty)
 
   def fromProtoV0(
-      treeProto: v0.RecipientsTree,
-      supportGroupAddressing: Boolean,
+      treeProto: v0.RecipientsTree
   ): ParsingResult[RecipientsTree] = {
     for {
       members <- treeProto.recipients.traverse(str =>
-        if (supportGroupAddressing)
-          Recipient.fromProtoPrimitive(str, "RecipientsTreeProto.recipients")
-        else Member.fromProtoPrimitive(str, "RecipientsTreeProto.recipients").map(MemberRecipient)
+        Member.fromProtoPrimitive(str, "RecipientsTreeProto.recipients").map(Recipient(_))
       )
       recipientsNonEmpty <- NonEmpty
         .from(members)
@@ -108,7 +96,7 @@ object RecipientsTree {
           )
         )
       children = treeProto.children
-      childTrees <- children.toList.traverse(fromProtoV0(_, supportGroupAddressing))
+      childTrees <- children.toList.traverse(fromProtoV0)
     } yield RecipientsTree(
       recipientsNonEmpty.toSet,
       childTrees,

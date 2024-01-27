@@ -9,22 +9,15 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandleWithProcessor,
   SequencerBasedRegisterTopologyTransactionHandle,
-  SequencerBasedRegisterTopologyTransactionHandleX,
 }
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout, TopologyXConfig}
+import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.topology.{
-  DomainOnboardingOutbox,
-  DomainOnboardingOutboxX,
-}
-import com.digitalasset.canton.protocol.messages.{
-  RegisterTopologyTransactionResponseResult,
-  TopologyTransactionsBroadcastX,
-}
+import com.digitalasset.canton.participant.topology.DomainOnboardingOutbox
+import com.digitalasset.canton.protocol.messages.RegisterTopologyTransactionResponseResult
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RequestSigner.UnauthenticatedRequestSigner
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
@@ -33,9 +26,8 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, Deliv
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreX}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.{SignedTopologyTransaction, TopologyChangeOp}
 import com.digitalasset.canton.topology.{
   DomainId,
@@ -270,84 +262,6 @@ class ParticipantInitializeTopology(
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
     DomainOnboardingOutbox
-      .initiateOnboarding(
-        alias,
-        domainId,
-        protocolVersion,
-        participantId,
-        handle,
-        authorizedStore,
-        targetStore,
-        processingTimeout,
-        loggerFactory,
-        crypto,
-      )
-
-}
-
-class ParticipantInitializeTopologyX(
-    domainId: DomainId,
-    alias: DomainAlias,
-    participantId: ParticipantId,
-    authorizedStore: TopologyStoreX[AuthorizedStore],
-    targetStore: TopologyStoreX[DomainStore],
-    clock: Clock,
-    timeTracker: DomainTimeTrackerConfig,
-    processingTimeout: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
-    sequencerClientFactory: SequencerClientFactory,
-    connections: SequencerConnections,
-    crypto: Crypto,
-    config: TopologyXConfig,
-    protocolVersion: ProtocolVersion,
-    expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
-) extends ParticipantInitializeTopologyCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-    ](
-      alias,
-      participantId,
-      clock,
-      processingTimeout,
-      timeTracker,
-      loggerFactory,
-      sequencerClientFactory,
-      connections,
-      crypto,
-      protocolVersion,
-      expectedSequencers,
-    ) {
-
-  override protected def createHandler(
-      client: SequencerClient,
-      member: UnauthenticatedMemberId,
-  )(implicit
-      ec: ExecutionContext
-  ): RegisterTopologyTransactionHandleWithProcessor[
-    GenericSignedTopologyTransactionX,
-    TopologyTransactionsBroadcastX.State,
-  ] =
-    new SequencerBasedRegisterTopologyTransactionHandleX(
-      client,
-      domainId,
-      participantId,
-      clock,
-      config,
-      protocolVersion,
-      processingTimeout,
-      loggerFactory,
-    )
-
-  protected def initiateOnboarding(
-      handle: RegisterTopologyTransactionHandleWithProcessor[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ]
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
-    DomainOnboardingOutboxX
       .initiateOnboarding(
         alias,
         domainId,

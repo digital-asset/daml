@@ -1727,15 +1727,3 @@ class ParticipantHealthAdministration(
     )
     with FeatureFlagFilter
     with ParticipantHealthAdministrationCommon
-
-class ParticipantHealthAdministrationX(
-    val runner: AdminCommandRunner,
-    val consoleEnvironment: ConsoleEnvironment,
-    override val loggerFactory: NamedLoggerFactory,
-) extends HealthAdministrationX(
-      runner,
-      consoleEnvironment,
-      ParticipantStatus.fromProtoV0,
-    )
-    with FeatureFlagFilter
-    with ParticipantHealthAdministrationCommon

@@ -98,12 +98,6 @@ case class TransactionResultMessage private (
       : v0.SignedProtocolMessage.SomeSignedProtocolMessage.TransactionResult =
     v0.SignedProtocolMessage.SomeSignedProtocolMessage.TransactionResult(getCryptographicEvidence)
 
-  override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
-      getCryptographicEvidence
-    )
-
   override def hashPurpose: HashPurpose = HashPurpose.TransactionResultSignature
 
   override def pretty: Pretty[TransactionResultMessage] =

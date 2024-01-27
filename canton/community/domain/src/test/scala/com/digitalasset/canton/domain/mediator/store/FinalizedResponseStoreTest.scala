@@ -64,15 +64,14 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       TransactionSubviews.empty(testedProtocolVersion, hashOps),
       testedProtocolVersion,
     )
-    val commonMetadata = CommonMetadata
-      .create(hashOps, testedProtocolVersion)(
-        ConfirmationPolicy.Signatory,
-        domainId,
-        MediatorRef(mediatorId),
-        s(5417),
-        new UUID(0L, 0L),
-      )
-      .value
+    val commonMetadata = CommonMetadata(hashOps, testedProtocolVersion)(
+      ConfirmationPolicy.Signatory,
+      domainId,
+      MediatorRef(mediatorId),
+      s(5417),
+      new UUID(0L, 0L),
+    )
+
     FullInformeeTree.tryCreate(
       GenTransactionTree.tryCreate(hashOps)(
         BlindedNode(rh(11)),

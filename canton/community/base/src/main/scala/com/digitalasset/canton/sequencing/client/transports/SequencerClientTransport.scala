@@ -59,10 +59,6 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit]
-
-  def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, TopologyStateForInitResponse]
 }
 
 /** Implementation dependent operations for a client to read and write to a domain sequencer. */

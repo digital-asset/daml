@@ -11,6 +11,7 @@ import com.digitalasset.canton.store.db.RequiredTypesCodec.nonNegativeLongOption
 import slick.jdbc.{GetResult, SetParameter}
 
 /** Traffic state stored in the sequencer per event needed for enforcing traffic control */
+// TODO(#16588) Finish the removal of traffic control related code
 final case class TrafficState(
     extraTrafficRemainder: NonNegativeLong,
     extraTrafficConsumed: NonNegativeLong,

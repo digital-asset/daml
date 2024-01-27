@@ -55,13 +55,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  DomainAlias,
-  LedgerTransactionId,
-  LfPartyId,
-  RequestCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, LfPartyId, RequestCounter}
 
 import java.io.OutputStream
 import java.time.Instant
@@ -131,13 +125,13 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounterO)]] =
+  ): EitherT[Future, AcsError, Map[LfContractId, CantonTimestamp]] =
     OptionT(
       syncDomainPersistentStateManager
         .getByAlias(domainAlias)
         .map(AcsInspection.getCurrentSnapshot)
         .sequence
-    ).widen[Map[LfContractId, (CantonTimestamp, TransferCounterO)]]
+    ).widen[Map[LfContractId, CantonTimestamp]]
       .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
 
   /** searches the pcs and returns the contract and activeness flag */
@@ -194,13 +188,12 @@ final class SyncStateInspection(
           val useProtocolVersion = protocolVersion.getOrElse(state.protocolVersion)
           val ret = for {
             _ <- AcsInspection
-              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-                case (contract, _) =>
-                  val domainToContract =
-                    SerializableContractWithDomainId(domainIdForExport, contract)
-                  val encodedContract = domainToContract.encode(useProtocolVersion)
-                  outputStream.write(encodedContract.getBytes)
-                  Right(outputStream.flush())
+              .forEachVisibleActiveContract(domainId, state, parties, timestamp) { contract =>
+                val domainToContract =
+                  SerializableContractWithDomainId(domainIdForExport, contract)
+                val encodedContract = domainToContract.encode(useProtocolVersion)
+                outputStream.write(encodedContract.getBytes)
+                Right(outputStream.flush())
               }
           } yield ()
           // re-enable journal cleaning after the dump
@@ -235,25 +228,24 @@ final class SyncStateInspection(
 
           val ret = for {
             _ <- AcsInspection
-              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-                case (contract, transferCounter) =>
-                  val activeContractE =
-                    ActiveContract.create(domainIdForExport, contract, transferCounter)(
-                      protocolVersion
-                    )
+              .forEachVisibleActiveContract(domainId, state, parties, timestamp) { contract =>
+                val activeContractE =
+                  ActiveContract.create(domainIdForExport, contract)(
+                    protocolVersion
+                  )
 
-                  activeContractE match {
-                    case Left(e) =>
-                      Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
-                    case Right(bundle) =>
-                      bundle.writeDelimitedTo(outputStream) match {
-                        case Left(errorMessage) =>
-                          Left(SerializationIssue(domainId, contract.contractId, errorMessage))
-                        case Right(_) =>
-                          outputStream.flush()
-                          Right(())
-                      }
-                  }
+                activeContractE match {
+                  case Left(e) =>
+                    Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
+                  case Right(bundle) =>
+                    bundle.writeDelimitedTo(outputStream) match {
+                      case Left(errorMessage) =>
+                        Left(SerializationIssue(domainId, contract.contractId, errorMessage))
+                      case Right(_) =>
+                        outputStream.flush()
+                        Right(())
+                    }
+                }
 
               }
           } yield ()

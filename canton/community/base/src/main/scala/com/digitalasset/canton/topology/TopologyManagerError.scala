@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology
 
 import com.daml.error.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
@@ -13,9 +12,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGr
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
 
 sealed trait TopologyManagerError extends CantonError
@@ -92,24 +89,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError {
       override lazy val logOnCreation: Boolean = false
     }
-  }
-
-  @Explanation("This error indicates that a topology transaction could not be found.")
-  @Resolution(
-    "The topology transaction either has been rejected, is not valid anymore, is not yet valid, or does not yet exist."
-  )
-  object TopologyTransactionNotFound
-      extends ErrorCode(
-        id = "TOPOLOGY_TRANSACTION_NOT_FOUND",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Failure(txHash: TxHash, effective: EffectiveTime)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"Topology transaction with hash ${txHash} does not exist or is not active or is not an active proposal at $effective"
-        )
-        with TopologyManagerError
   }
 
   @Explanation(
@@ -225,14 +204,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             "A matching topology mapping authorized with the same key already exists in this state"
-        )
-        with TopologyManagerError
-
-    final case class FailureX(existing: TopologyMappingX, keys: NonEmpty[Set[Fingerprint]])(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            "A matching topology mapping x authorized with the same keys already exists in this state"
         )
         with TopologyManagerError
   }

@@ -54,7 +54,6 @@ trait LocalNodeConfig extends NodeConfig {
   def crypto: CryptoConfig
   def sequencerClient: SequencerClientConfig
   def monitoring: NodeMonitoringConfig
-  def topologyX: TopologyXConfig
 
   /** Various cache sizes */
   // TODO(#15221) move into parameters

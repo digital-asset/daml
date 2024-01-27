@@ -4,12 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -30,8 +27,4 @@ trait IndexPackagesService {
   def packageEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PackageEntry, NotUsed]
-
-  def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
-      loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Set[Ref.PackageId]]
 }

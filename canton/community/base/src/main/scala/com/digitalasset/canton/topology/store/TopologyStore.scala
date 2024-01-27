@@ -217,14 +217,6 @@ object TopologyStoreId {
   ): Option[TopologyStore[StoreId]] = if (checker.isOfType(store.storeId))
     Some(store.asInstanceOf[TopologyStore[StoreId]])
   else None
-
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def selectX[StoreId <: TopologyStoreId](store: TopologyStoreX[TopologyStoreId])(implicit
-      checker: IdTypeChecker[StoreId]
-  ): Option[TopologyStoreX[StoreId]] = if (checker.isOfType(store.storeId))
-    Some(store.asInstanceOf[TopologyStoreX[StoreId]])
-  else None
-
 }
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting {

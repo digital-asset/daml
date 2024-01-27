@@ -22,7 +22,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -53,7 +52,7 @@ private final class MigrateContracts(
       )
       _ = logger.debug(s"Contracts status at source: $contractStatusAtSource")
       sourceContractsToMigrate <- determineSourceContractsToMigrate(contractStatusAtSource)
-      sourceContractIdsToMigrate = sourceContractsToMigrate.map(_.payload._1)
+      sourceContractIdsToMigrate = sourceContractsToMigrate.map(_.payload)
       _ = logger.debug(s"Contracts to migrate from source: $sourceContractIdsToMigrate")
       contractStatusAtTarget <- EitherT.right(
         repairTarget.domain.persistentState.activeContractStore
@@ -77,7 +76,7 @@ private final class MigrateContracts(
       source: Map[LfContractId, ContractState]
   )(implicit
       executionContext: ExecutionContext
-  ): EitherT[Future, String, List[MigrateContracts.Data[(LfContractId, TransferCounterO)]]] =
+  ): EitherT[Future, String, List[MigrateContracts.Data[LfContractId]]] =
     EitherT.fromEither(
       contractIds
         .map(cid => (cid, source.get(cid.payload).map(_.status)))
@@ -89,15 +88,15 @@ private final class MigrateContracts(
               None,
               s"Contract $cid does not exist in source domain and cannot be moved.",
             )
-          case (cid, Some(ActiveContractStore.Active(transferCounter))) =>
-            Right(Some(cid.copy(payload = (cid.payload, transferCounter))))
+          case (cid, Some(ActiveContractStore.Active)) =>
+            Right(Some(cid.copy(payload = cid.payload)))
           case (cid, Some(ActiveContractStore.Archived)) =>
             Either.cond(
               skipInactive,
               None,
               s"Contract $cid has been archived and cannot be moved.",
             )
-          case (cid, Some(ActiveContractStore.TransferredAway(target, _transferCounter))) =>
+          case (cid, Some(ActiveContractStore.TransferredAway(target))) =>
             Either
               .cond(
                 skipInactive,
@@ -109,21 +108,19 @@ private final class MigrateContracts(
     )
 
   private def determineTargetContractsToMigrate(
-      sourceContracts: List[MigrateContracts.Data[(LfContractId, TransferCounterO)]],
+      sourceContracts: List[MigrateContracts.Data[LfContractId]],
       targetStatus: Map[LfContractId, ContractState],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, List[MigrateContracts.Data[(LfContractId, TransferCounterO)]]] = {
+  ): EitherT[Future, String, List[MigrateContracts.Data[LfContractId]]] = {
     val filteredE =
       sourceContracts
-        .traverse { case data @ MigrateContracts.Data((cid, transferCounter), _, _) =>
+        .traverse { case data @ MigrateContracts.Data(cid, _, _) =>
           val targetStatusOfContract = targetStatus.get(cid).map(_.status)
           targetStatusOfContract match {
-            case None | Some(ActiveContractStore.TransferredAway(_, _)) =>
-              transferCounter
-                .traverse(_.increment)
-                .map(incrementedTc => data.copy(payload = (cid, incrementedTc)))
+            case None | Some(ActiveContractStore.TransferredAway(_)) =>
+              Right(data)
             case Some(targetState) =>
               Left(
                 s"Active contract $cid in source domain exists in target domain with status $targetState. Use 'repair.add' or 'repair.purge' instead."
@@ -133,7 +130,7 @@ private final class MigrateContracts(
 
     for {
       filtered <- EitherT.fromEither[Future](filteredE)
-      filteredContractIds = filtered.map(_.payload._1)
+      filteredContractIds = filtered.map(_.payload)
       stakeholders <- stakeholdersAtSource(filteredContractIds.toSet)
       _ <- filteredContractIds.parTraverse_ { contractId =>
         atLeastOneHostedStakeholderAtTarget(
@@ -167,37 +164,34 @@ private final class MigrateContracts(
       )
 
   private def readContractsFromSource(
-      contractIdsWithTransferCounters: List[MigrateContracts.Data[(LfContractId, TransferCounterO)]]
+      cids: List[MigrateContracts.Data[LfContractId]]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, List[
-    (SerializableContract, MigrateContracts.Data[(LfContractId, TransferCounterO)])
+    (SerializableContract, MigrateContracts.Data[LfContractId])
   ]] =
     repairSource.domain.persistentState.contractStore
-      .lookupManyUncached(contractIdsWithTransferCounters.map(_.payload._1))
-      .map(_.map(_.contract).zip(contractIdsWithTransferCounters))
+      .lookupManyUncached(cids.map(_.payload))
+      .map(_.map(_.contract).zip(cids))
       .leftMap(contractId =>
         s"Failed to look up contract $contractId in domain ${repairSource.domain.alias}"
       )
 
   private def readContracts(
-      contractIdsWithTransferCounters: List[MigrateContracts.Data[(LfContractId, TransferCounterO)]]
+      contractIds: List[MigrateContracts.Data[LfContractId]]
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
     String,
     List[MigrateContracts.Data[MigratedContract]],
   ] =
-    readContractsFromSource(contractIdsWithTransferCounters).flatMap {
+    readContractsFromSource(contractIds).flatMap {
       _.parTraverse {
         case (
               serializedSource,
-              data @ MigrateContracts.Data((contractId, transferCounter), _, _),
+              data @ MigrateContracts.Data(contractId, _, _),
             ) =>
           for {
-            transferCounter <- EitherT.fromEither[Future](
-              transferCounter.fold(TransferCounter.Genesis.increment)(Right(_))
-            )
             serializedTargetO <- EitherT.right(
               repairTarget.domain.persistentState.contractStore.lookupContract(contractId).value
             )
@@ -209,9 +203,7 @@ private final class MigrateContracts(
                 )
               }
               .getOrElse(EitherT.rightT[Future, String](()))
-          } yield data.copy(payload =
-            MigratedContract(serializedSource, transferCounter, serializedTargetO.isEmpty)
-          )
+          } yield data.copy(payload = MigratedContract(serializedSource, serializedTargetO.isEmpty))
       }
     }
 
@@ -283,16 +275,12 @@ private final class MigrateContracts(
       traceContext: TraceContext,
   ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] = {
 
-    def whenTransferCounterIsSupported(r: RepairRequest)(tc: TransferCounter): TransferCounterO =
-      Option.when(r.domain.parameters.protocolVersion >= ProtocolVersion.CNTestNet)(tc)
-
     val outF = repairSource.domain.persistentState.activeContractStore
       .transferOutContracts(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
             targetDomainId,
-            whenTransferCounterIsSupported(repairSource)(contract.payload.transferCounter),
             contract.sourceTimeOfChange,
           )
         }
@@ -305,7 +293,6 @@ private final class MigrateContracts(
           (
             contract.payload.contract.contractId,
             sourceDomainId,
-            whenTransferCounterIsSupported(repairTarget)(contract.payload.transferCounter),
             contract.targetTimeOfChange,
           )
         }
@@ -386,7 +373,6 @@ private final class MigrateContracts(
         isTransferringParticipant = false,
         hostedStakeholders =
           hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
-        transferCounter = contract.payload.transferCounter,
       ),
       localOffset = contract.sourceTimeOfChange.asLocalOffset,
       requestSequencerCounter = None,
@@ -415,7 +401,6 @@ private final class MigrateContracts(
         isTransferringParticipant = false,
         hostedStakeholders =
           hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
-        transferCounter = contract.payload.transferCounter,
       ),
       localOffset = contract.targetTimeOfChange.asLocalOffset,
       requestSequencerCounter = None,
@@ -433,12 +418,10 @@ private[repair] object MigrateContracts {
   )
 
   /** @param contract Contract to be migrated
-    * @param transferCounter Transfer counter
     * @param isNew true if the contract was not seen before, false if already in the store
     */
   final case class MigratedContract(
       contract: SerializableContract,
-      transferCounter: TransferCounter,
       isNew: Boolean,
   )
 

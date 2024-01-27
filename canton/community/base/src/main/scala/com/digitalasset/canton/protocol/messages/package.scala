@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.data.ViewType.TransactionViewType
-import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnvelope}
+import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
 
 /** This package contains data structures used in the transaction protocol.
   * However, generic data structures, e.g. [[com.digitalasset.canton.data.MerkleTree]] etc. are
@@ -21,15 +21,4 @@ package object messages {
   type TransactionViewMessage = EncryptedViewMessage[TransactionViewType]
 
   type DefaultOpenEnvelope = OpenEnvelope[ProtocolMessage]
-  object DefaultOpenEnvelopesFilter {
-    def containsTopologyX(envelopes: Seq[DefaultOpenEnvelope]): Boolean = envelopes.exists {
-      envelope =>
-        val broadcastO = ProtocolMessage.select[TopologyTransactionsBroadcastX](envelope)
-        val envelopeIsValidBroadcast =
-          broadcastO.exists(_.recipients.allRecipients.contains(AllMembersOfDomain))
-
-        envelopeIsValidBroadcast
-    }
-  }
-
 }

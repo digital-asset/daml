@@ -352,7 +352,7 @@ class ConfirmationRequestFactoryTest
               encryptedView,
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
-            )(Some(RecipientsInfo(participants, Set.empty, Set.empty)))
+            )(Some(RecipientsInfo(participants)))
           } else if (testedProtocolVersion >= ProtocolVersion.v4)
             EncryptedViewMessageV1(
               signature,
@@ -361,7 +361,7 @@ class ConfirmationRequestFactoryTest
               encryptedView,
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
-            )(Some(RecipientsInfo(participants, Set.empty, Set.empty)))
+            )(Some(RecipientsInfo(participants)))
           else
             EncryptedViewMessageV0(
               signature,

@@ -523,12 +523,9 @@ class DomainSnapshotSyncCryptoApi(
         }
       )
       validKeysWithMember <- EitherT.right(
-        mediatorGroup.active
-          .parFlatTraverse { mediatorId =>
-            ipsSnapshot
-              .signingKeys(mediatorId)
-              .map(keys => keys.map(key => (key.id, (mediatorId, key))))
-          }
+        ipsSnapshot
+          .signingKeys(mediatorGroup.active)
+          .map(keys => keys.map(key => (key.id, (mediatorGroup.active, key))))
           .map(_.toMap)
       )
       validKeys = validKeysWithMember.view.mapValues(_._2).toMap

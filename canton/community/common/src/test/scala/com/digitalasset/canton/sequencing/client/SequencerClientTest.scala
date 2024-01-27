@@ -965,10 +965,6 @@ class SequencerClientTest
         request: SubscriptionRequest,
         handler: SerializedEventHandler[E],
     )(implicit traceContext: TraceContext): SequencerSubscription[E] = ???
-
-    override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, String, TopologyStateForInitResponse] = ???
   }
 
   private implicit class RichSequencerClient(client: SequencerClientImpl) {

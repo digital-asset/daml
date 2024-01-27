@@ -362,36 +362,28 @@ class RecordOrderPublisher(
     override def perform(): FutureUnlessShutdown[Unit] = {
       // If the requestCounterCommitSetPairO is not set, then by default the commit set is empty, and
       // the request counter is the smallest possible value that does not throw an exception in
-      // ActiveContractStore.bulkContractsTransferCounterSnapshot, i.e., Genesis
-      val (requestCounter, commitSet) =
+      val (_requestCounter, commitSet) =
         requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
-      // Augments the commit set with the updated transfer counters for archive events,
-      // computes the acs change and publishes it
+      // Computes the acs change and publishes it
       logger.debug(
         show"The received commit set contains creations ${commitSet.creations}" +
           show"transfer-ins ${commitSet.transferIns}" +
           show"archivals ${commitSet.archivals} transfer-outs ${commitSet.transferOuts}"
       )
-      val acsChangePublish =
-        for {
-          // Retrieves the transfer counters of the archived contracts from the latest state in the active contract store
-          archivalsWithTransferCountersOnly <- activeContractSnapshot
-            .bulkContractsTransferCounterSnapshot(commitSet.archivals.keySet, requestCounter)
 
-        } yield {
-          // Computes the ACS change by decorating the archive events in the commit set with their transfer counters
-          val acsChange = AcsChange.fromCommitSet(commitSet, archivalsWithTransferCountersOnly)
-          logger.debug(
-            s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
-          )
-          def recordTime: RecordTime =
-            RecordTime(
-              timestamp,
-              requestCounterCommitSetPairO.map(_._1.unwrap).getOrElse(RecordTime.lowestTiebreaker),
-            )
-          acsChangeListener.get.foreach(_.publish(recordTime, acsChange))
-        }
-      FutureUnlessShutdown.outcomeF(acsChangePublish)
+      // Computes the ACS change by decorating the archive events in the commit set
+      val acsChange = AcsChange.fromCommitSet(commitSet)
+      logger.debug(
+        s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
+      )
+      def recordTime: RecordTime =
+        RecordTime(
+          timestamp,
+          requestCounterCommitSetPairO.map(_._1.unwrap).getOrElse(RecordTime.lowestTiebreaker),
+        )
+      acsChangeListener.get.foreach(_.publish(recordTime, acsChange))
+
+      FutureUnlessShutdown.pure(())
     }
 
     override def pretty: Pretty[this.type] =

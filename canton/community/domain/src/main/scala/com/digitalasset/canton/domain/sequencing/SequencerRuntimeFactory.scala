@@ -14,7 +14,6 @@ import com.digitalasset.canton.domain.admin.v0.EnterpriseSequencerAdministration
 import com.digitalasset.canton.domain.config.DomainConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommunityDatabaseSequencerFactory,
   CommunitySequencerConfig,
@@ -30,7 +29,6 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -65,8 +63,6 @@ trait SequencerRuntimeFactory {
       metrics: SequencerMetrics,
       indexedStringStore: IndexedStringStore,
       futureSupervisor: FutureSupervisor,
-      topologyStateForInitializationService: Option[TopologyStateForInitializationService],
-      rateLimitManager: Option[SequencerRateLimitManager],
       topologyManagerStatusO: Option[TopologyManagerStatus],
       loggerFactory: NamedLoggerFactory,
       logger: TracedLogger,
@@ -101,8 +97,6 @@ object SequencerRuntimeFactory {
         metrics: SequencerMetrics,
         indexedStringStore: IndexedStringStore,
         futureSupervisor: FutureSupervisor,
-        topologyStateForInitializationService: Option[TopologyStateForInitializationService],
-        rateLimitManager: Option[SequencerRateLimitManager],
         topologyManagerStatusO: Option[TopologyManagerStatus],
         loggerFactory: NamedLoggerFactory,
         logger: TracedLogger,
@@ -146,8 +140,6 @@ object SequencerRuntimeFactory {
               clock,
               syncCrypto,
               futureSupervisor,
-              rateLimitManager,
-              implicitMemberRegistration = false,
             )
         )
 
@@ -179,7 +171,6 @@ object SequencerRuntimeFactory {
           futureSupervisor,
           agreementManager,
           memberAuthenticationServiceFactory,
-          topologyStateForInitializationService,
           loggerFactory,
         )
 

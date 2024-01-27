@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -35,7 +36,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{RequestCounter, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
@@ -127,8 +127,6 @@ private[participant] class ConflictDetector(
 
   private[this] val directExecutionContext: DirectExecutionContext =
     DirectExecutionContext(noTracingLogger)
-
-  private[this] val initialTransferCounter = TransferCounter.forCreatedContract(protocolVersion)
 
   /** Registers a pending activeness set.
     * This marks all contracts and keys in the `activenessSet` with a pending activeness check.
@@ -431,22 +429,16 @@ private[participant] class ConflictDetector(
             } else {
               logger.trace(withRC(rc, s"Deactivating contract $coid."))
             }
-            val transferCounter = transferOuts.get(coid).flatMap(_.unwrap.transferCounter)
             val newStatus = optTargetDomain.fold[Status](Archived) { targetDomain =>
-              TransferredAway(targetDomain, transferCounter)
+              TransferredAway(targetDomain)
             }
             contractStates.setStatusPendingWrite(coid, newStatus, toc)
             pendingContractWrites += coid
           } else if (isActivation) {
-            val transferCounter = transferIns.get(coid) match {
-              case Some(value) => value.unwrap.transferCounter
-              case None => creations.get(coid).flatMap(_.unwrap.transferCounter)
-            }
-
             logger.trace(withRC(rc, s"Activating contract $coid."))
             contractStates.setStatusPendingWrite(
               coid,
-              Active(transferCounter),
+              Active,
               toc,
             )
             pendingContractWrites += coid
@@ -498,15 +490,15 @@ private[participant] class ConflictDetector(
           logger.trace(withRC(rc, s"About to write commit set to the conflict detection stores"))
           val archivalWrites = acs.archiveContracts(archivals.keySet.to(LazyList), toc)
           val creationWrites = acs.markContractsActive(
-            creations.keySet.map(cid => cid -> initialTransferCounter).to(LazyList),
+            creations.keySet.to(LazyList),
             toc,
           )
           val transferOutWrites =
             acs.transferOutContracts(
               transferOuts
                 .map { case (coid, wrapped) =>
-                  val CommitSet.TransferOutCommit(targetDomain, _, transferCounter) = wrapped.unwrap
-                  (coid, targetDomain, transferCounter, toc)
+                  val CommitSet.TransferOutCommit(targetDomain, _) = wrapped.unwrap
+                  (coid, targetDomain, toc)
                 }
                 .to(LazyList)
             )
@@ -515,9 +507,9 @@ private[participant] class ConflictDetector(
             acs.transferInContracts(
               transferIns
                 .map { case (coid, wrapped) =>
-                  val CommitSet.TransferInCommit(transferId, _contractMetadata, transferCounter) =
+                  val CommitSet.TransferInCommit(transferId, _contractMetadata) =
                     wrapped.unwrap
-                  (coid, transferId.sourceDomain, transferCounter, toc)
+                  (coid, transferId.sourceDomain, toc)
                 }
                 .to(LazyList)
             )

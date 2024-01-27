@@ -12,12 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.TransferViewType
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  TransferCommonData,
-  TransferSubmitterMetadata,
-  ViewType,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -536,14 +531,6 @@ object TransferProcessingSteps {
     )
   }
 
-  // Disallow reassignments from a source domains that support transfer counters to a
-  // destination domain that does not support them
-  def incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-  ): Boolean =
-    (sourcePV.v >= TransferCommonData.minimumPvForTransferCounter) && (targetPV.v < TransferCommonData.minimumPvForTransferCounter)
-
   def PVSourceDestinationDomainsAreCompatible(
       sourcePV: SourceProtocolVersion,
       targetPV: TargetProtocolVersion,
@@ -555,26 +542,8 @@ object TransferProcessingSteps {
     val isSourceProtocolVersionRequired = sourcePV.v >= ProtocolVersion.v4
 
     condUnitET[FutureUnlessShutdown](
-      !(missingSourceProtocolVersionInTransferIn && isSourceProtocolVersionRequired) && !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-        sourcePV,
-        targetPV,
-      ),
+      !(missingSourceProtocolVersionInTransferIn && isSourceProtocolVersionRequired),
       IncompatibleProtocolVersions(contractId, sourcePV, targetPV),
     )
   }
-
-  def checkIncompatiblePV(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  ): Either[IncompatibleProtocolVersions, Unit] =
-    Either.cond(
-      !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(sourcePV, targetPV),
-      (),
-      IncompatibleProtocolVersions(
-        contractId,
-        sourcePV,
-        targetPV,
-      ),
-    )
 }

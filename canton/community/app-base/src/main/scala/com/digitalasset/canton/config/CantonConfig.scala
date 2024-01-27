@@ -366,18 +366,6 @@ trait CantonConfig {
     n.unwrap -> c
   }
 
-  /** all participants that this Canton process can operate or connect to
-    *
-    * participants are grouped by their local name
-    */
-  def participantsX: Map[InstanceName, ParticipantConfigType]
-
-  /** Use `participantsX` instead!
-    */
-  def participantsByStringX: Map[String, ParticipantConfigType] = participantsX.map { case (n, c) =>
-    n.unwrap -> c
-  }
-
   /** all remotely running domains to which the console can connect and operate on */
   def remoteDomains: Map[InstanceName, RemoteDomainConfig]
 
@@ -390,19 +378,9 @@ trait CantonConfig {
   /** all remotely running participants to which the console can connect and operate on */
   def remoteParticipants: Map[InstanceName, RemoteParticipantConfig]
 
-  /** all remotely running participants to which the console can connect and operate on */
-  def remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig]
-
   /** Use `remoteParticipants` instead!
     */
   def remoteParticipantsByString: Map[String, RemoteParticipantConfig] = remoteParticipants.map {
-    case (n, c) =>
-      n.unwrap -> c
-  }
-
-  /** Use `remoteParticipantsX` instead!
-    */
-  def remoteParticipantsByStringX: Map[String, RemoteParticipantConfig] = remoteParticipantsX.map {
     case (n, c) =>
       n.unwrap -> c
   }
@@ -440,7 +418,7 @@ trait CantonConfig {
     domainNodeParameters(InstanceName.tryCreate(name))
 
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
-    (participants ++ participantsX).fmap { participantConfig =>
+    participants.fmap { participantConfig =>
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
@@ -866,8 +844,6 @@ object CantonConfig {
       deriveReader[PackageMetadataViewConfig]
     lazy implicit val identityConfigReader: ConfigReader[TopologyConfig] =
       deriveReader[TopologyConfig]
-    lazy implicit val topologyXConfigReader: ConfigReader[TopologyXConfig] =
-      deriveReader[TopologyXConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileReader
         : ConfigReader[SequencerConnectionConfig.CertificateFile] =
       deriveReader[SequencerConnectionConfig.CertificateFile]
@@ -1250,8 +1226,6 @@ object CantonConfig {
       deriveWriter[PackageMetadataViewConfig]
     lazy implicit val identityConfigWriter: ConfigWriter[TopologyConfig] =
       deriveWriter[TopologyConfig]
-    lazy implicit val topologyXConfigWriter: ConfigWriter[TopologyXConfig] =
-      deriveWriter[TopologyXConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileWriter
         : ConfigWriter[SequencerConnectionConfig.CertificateFile] =
       deriveWriter[SequencerConnectionConfig.CertificateFile]

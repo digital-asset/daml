@@ -6,6 +6,7 @@ package com.daml.ledger.javaapi.data.codegen;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoder;
 
 /**
  * A superclass for all codegen-generated Contracts whose templates have a {@code key} defined.
@@ -61,5 +62,18 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
         this.key,
         this.signatories,
         this.observers);
+  }
+
+  // Returns an encoder for the key if present, or null otherwise.
+  // TODO(raphael-speyer-da): Make abstract once https://github.com/digital-asset/daml/pull/18198
+  // goes through and all generated classes do in fact define this method.
+  public JsonLfEncoder keyJsonEncoder() {
+    return null;
+  }
+
+  public String keyToJson() {
+    JsonLfEncoder enc = keyJsonEncoder();
+    if (enc == null) return null;
+    return enc.intoString();
   }
 }

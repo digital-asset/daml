@@ -514,13 +514,6 @@ trait ParticipantNodeBootstrapCommon {
 
       adminServerRegistry
         .addServiceU(
-          TrafficControlServiceGrpc.bindService(
-            new GrpcTrafficControlService(sync, loggerFactory),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
           PartyNameManagementServiceGrpc.bindService(
             new GrpcPartyNameManagementService(partyNotifier),
             executionContext,

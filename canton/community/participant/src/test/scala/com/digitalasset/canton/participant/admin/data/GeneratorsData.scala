@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin.data
 
-import com.digitalasset.canton.Generators.*
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.GeneratorsTopology.*
@@ -21,9 +20,8 @@ final class GeneratorsData(
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
       contract <- generatorsProtocol.serializableContractArb.arbitrary
-      transferCounter <- transferCounterOGen(protocolVersion)
 
-      ac = ActiveContract.create(domainId, contract, transferCounter)(protocolVersion)
+      ac = ActiveContract.create(domainId, contract)(protocolVersion)
 
     } yield ac.value)
 

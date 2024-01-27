@@ -110,7 +110,6 @@ class DomainTopologyManagerEventHandlerTest extends AsyncWordSpec with BaseTest 
             any[Option[CantonTimestamp]],
             any[CantonTimestamp],
             any[MessageId],
-            any[Option[AggregationRule]],
             any[SendCallback],
           )(any[TraceContext])
         ).thenAnswer {
@@ -120,7 +119,6 @@ class DomainTopologyManagerEventHandlerTest extends AsyncWordSpec with BaseTest 
               _: Option[CantonTimestamp],
               _: CantonTimestamp,
               _: MessageId,
-              _: Option[AggregationRule],
               callback: SendCallback,
           ) =>
             callback.apply(UnlessShutdown.Outcome(SendResult.Success(null)))

@@ -9,6 +9,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -23,9 +24,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.EitherUtil.condUnitE
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -188,38 +187,6 @@ private[transfer] class TransferInValidation(
               } yield if (source && target) Some(stakeholder) else None
             }
           )
-
-          // Disallow reassignments from a source domains that support transfer counters to a
-          // destination domain that does not support them
-          _ <- condUnitET[Future](
-            !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-              transferData.sourceProtocolVersion,
-              targetProtocolVersion,
-            ),
-            IncompatibleProtocolVersions(
-              transferData.contract.contractId,
-              transferData.sourceProtocolVersion,
-              targetProtocolVersion,
-            ): TransferProcessorError,
-          )
-
-          _ <- EitherT.cond[Future](
-            // transfer counter is the same in transfer-out and transfer-in requests
-            transferInRequest.transferCounter == transferData.transferCounter || (
-              // Be lenient if the transfer-out happened on a domain without transfer counters
-              // and the transfer-in happens on a domain with transfer counters
-              transferInRequest.transferCounter.contains(TransferCounter.Genesis) &&
-                transferData.transferCounter.isEmpty &&
-                allowTransferCounterReset(transferData.sourceProtocolVersion, targetProtocolVersion)
-            ),
-            (),
-            InconsistentTransferCounter(
-              transferId,
-              transferInRequest.transferCounter,
-              transferData.transferCounter,
-            ): TransferProcessorError,
-          )
-
         } yield Some(TransferInValidationResult(confirmingParties.toSet))
       case None =>
         for {
@@ -247,17 +214,6 @@ private[transfer] class TransferInValidation(
 }
 
 object TransferInValidation {
-
-  /** Should we allow a transfer counter to be reset to [[com.digitalasset.canton.data.CounterCompanion.Genesis]]
-    * when transferring from source to target protocol version?
-    */
-  def allowTransferCounterReset(
-      sourceProtocolVersion: SourceProtocolVersion,
-      targetProtocolVersion: TargetProtocolVersion,
-  ): Boolean =
-    // TODO(#15179) Review the question above when releasing BFT
-    sourceProtocolVersion.v < ProtocolVersion.CNTestNet && targetProtocolVersion.v >= ProtocolVersion.CNTestNet
-
   final case class TransferInValidationResult(confirmingParties: Set[LfPartyId])
 
   private[transfer] sealed trait TransferInValidationError extends TransferProcessorError
@@ -321,14 +277,4 @@ object TransferInValidation {
     override def message: String =
       s"Cannot transfer-in `$transferId`: creating transaction id mismatch"
   }
-
-  final case class InconsistentTransferCounter(
-      transferId: TransferId,
-      declaredTransferCounter: TransferCounterO,
-      expectedTransferCounter: TransferCounterO,
-  ) extends TransferInValidationError {
-    override def message: String =
-      s"Cannot transfer-in $transferId: Transfer counter $declaredTransferCounter in transfer-in does not match $expectedTransferCounter from the transfer-out"
-  }
-
 }

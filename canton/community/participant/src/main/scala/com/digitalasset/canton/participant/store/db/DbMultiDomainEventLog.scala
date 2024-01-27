@@ -799,7 +799,6 @@ class DbMultiDomainEventLog private[db] (
   }
 }
 
-// TODO Raf: check queries here
 object DbMultiDomainEventLog {
 
   def apply(

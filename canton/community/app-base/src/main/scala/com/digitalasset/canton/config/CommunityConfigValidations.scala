@@ -155,10 +155,8 @@ object CommunityConfigValidations
     val CantonCommunityConfig(
       domains,
       participants,
-      participantsX,
       remoteDomains,
       remoteParticipants,
-      remoteParticipantsX,
       _,
       _,
       _,
@@ -170,8 +168,6 @@ object CommunityConfigValidations
         participants,
         remoteDomains,
         remoteParticipants,
-        participantsX,
-        remoteParticipantsX,
       )
         .exists(_.nonEmpty),
       (),

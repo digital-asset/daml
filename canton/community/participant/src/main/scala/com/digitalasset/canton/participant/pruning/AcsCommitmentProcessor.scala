@@ -12,6 +12,7 @@ import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
@@ -22,12 +23,7 @@ import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.event.{
-  AcsChange,
-  AcsChangeListener,
-  ContractMetadataAndTransferCounter,
-  RecordTime,
-}
+import com.digitalasset.canton.participant.event.{AcsChange, AcsChangeListener, RecordTime}
 import com.digitalasset.canton.participant.metrics.PruningMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.store.*
@@ -53,14 +49,11 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
-import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.collection.immutable.{Map, SortedSet}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -1236,48 +1229,37 @@ object AcsCommitmentProcessor extends HasLoggerName {
     def update(rt: RecordTime, change: AcsChange)(implicit
         loggingContext: NamedLoggingContext
     ): Unit = {
-      /*
-      The concatenate function is guaranteed to be safe when contract IDs always have the same length.
-      Otherwise, a longer contract ID without a transfer counter might collide with a
-      shorter contract ID with a transfer counter.
-      In the current implementation collisions cannot happen, because either all contracts in a commitment
-      have a transfer counter or none, depending on the protocol version.
-       */
       def concatenate(
           contractHash: LfHash,
           contractId: LfContractId,
-          transferCounter: TransferCounterO,
       ): Array[Byte] =
         (
           contractHash.bytes.toByteString // hash always 32 bytes long per lf.crypto.Hash.underlyingLength
             concat contractId.encodeDeterministically
-            concat transferCounter.fold(ByteString.EMPTY)(TransferCounter.encodeDeterministically)
         ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
         lock.synchronized {
           this.rt = rt
-          change.activations.foreach {
-            case (cid, WithContractHash(metadataAndTransferCounter, hash)) =>
-              val sortedStakeholders =
-                SortedSet(metadataAndTransferCounter.contractMetadata.stakeholders.toSeq: _*)
-              val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.add(concatenate(hash, cid, metadataAndTransferCounter.transferCounter))
-              loggingContext.debug(
-                s"Adding to commitment activation cid $cid transferCounter ${metadataAndTransferCounter.transferCounter}"
-              )
-              deltaB += sortedStakeholders -> h
+          change.activations.foreach { case (cid, WithContractHash(metadata, hash)) =>
+            val sortedStakeholders =
+              SortedSet(metadata.stakeholders.toSeq: _*)
+            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+            h.add(concatenate(hash, cid))
+            loggingContext.debug(
+              s"Adding to commitment activation cid $cid"
+            )
+            deltaB += sortedStakeholders -> h
           }
-          change.deactivations.foreach {
-            case (cid, WithContractHash(stakeholdersAndTransferCounter, hash)) =>
-              val sortedStakeholders =
-                SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq: _*)
-              val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.remove(concatenate(hash, cid, stakeholdersAndTransferCounter.transferCounter))
-              loggingContext.debug(
-                s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
-              )
-              deltaB += sortedStakeholders -> h
+          change.deactivations.foreach { case (cid, WithContractHash(contractStakeholders, hash)) =>
+            val sortedStakeholders =
+              SortedSet(contractStakeholders.stakeholders.toSeq: _*)
+            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+            h.remove(concatenate(hash, cid))
+            loggingContext.debug(
+              s"Removing from commitment deactivation cid $cid}"
+            )
+            deltaB += sortedStakeholders -> h
           }
         }
       }
@@ -1667,24 +1649,21 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
 
     def lookupChangeMetadata(
-        activations: Map[LfContractId, TransferCounterO]
+        activations: Iterable[LfContractId]
     ): Future[AcsChange] = {
       for {
         // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
           parallelism = PositiveInt.tryCreate(20),
           chunkSize = PositiveInt.tryCreate(500),
-        )(activations.keySet.toSeq)(withMetadataSeq)
+        )(activations.toSeq)(withMetadataSeq)
       } yield {
         AcsChange(
           activations = storedActivatedContracts
             .map(c =>
               c.contractId -> WithContractHash.fromContract(
                 c.contract,
-                ContractMetadataAndTransferCounter(
-                  c.contract.metadata,
-                  activations(c.contractId),
-                ),
+                c.contract.metadata,
               )
             )
             .toMap,
@@ -1698,9 +1677,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         activeContracts <- activeContractStore.snapshot(toInclusive)(
           namedLoggingContext.traceContext
         )
-        activations = activeContracts.map { case (cid, (toc, transferCounter)) =>
-          (cid, transferCounter)
-        }
+        activations = activeContracts.map { case (cid, _toc) => cid }
         change <- lookupChangeMetadata(activations)
       } yield {
         val emptyRunningCommitments =

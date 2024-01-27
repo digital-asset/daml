@@ -33,7 +33,6 @@ import com.digitalasset.canton.domain.mediator.{
 import com.digitalasset.canton.domain.metrics.DomainMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerVersionService
 import com.digitalasset.canton.domain.sequencing.{SequencerRuntime, SequencerRuntimeFactory}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
@@ -73,12 +72,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{
-  DomainTopologyStore,
-  TopologyStateForInitializationService,
-  TopologyStore,
-  TopologyStoreId,
-}
+import com.digitalasset.canton.topology.store.{DomainTopologyStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -528,8 +522,6 @@ class DomainNodeBootstrap(
             arguments.metrics.sequencer,
             indexedStringStore,
             futureSupervisor,
-            Option.empty[TopologyStateForInitializationService],
-            Option.empty[SequencerRateLimitManager],
             Option.empty[TopologyManagerStatus],
             loggerFactory,
             logger,

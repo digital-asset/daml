@@ -171,12 +171,6 @@ case class MediatorResponse private (
       : v0.SignedProtocolMessage.SomeSignedProtocolMessage.MediatorResponse =
     v0.SignedProtocolMessage.SomeSignedProtocolMessage.MediatorResponse(getCryptographicEvidence)
 
-  override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MediatorResponse(
-      getCryptographicEvidence
-    )
-
   override def hashPurpose: HashPurpose = HashPurpose.MediatorResponseSignature
 
   override def pretty: Pretty[this.type] =

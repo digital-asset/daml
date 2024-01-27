@@ -12,15 +12,10 @@ import com.digitalasset.canton.data.LightTransactionViewTree.InvalidLightTransac
 import com.digitalasset.canton.data.MerkleTree.RevealIfNeedBe
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  ParticipantsOfParty,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.sequencing.protocol.{Recipient, Recipients, RecipientsTree}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTestWordSpec,
@@ -590,9 +585,6 @@ class GenTransactionTreeTest
             case (party, map) if parties.contains(party) => (party, map.keySet)
           })
         }
-      when(topology.partiesWithGroupAddressing(any[List[LfPartyId]]))
-        // parties 3 and 6 will use group addressing
-        .thenReturn(Future.successful(Set(party(3), party(6))))
 
       val witnesses = mkWitnesses(
         NonEmpty(Seq, Set(1, 2), Set(1, 3), Set(2, 4), Set(1, 2, 5), Set(6))
@@ -605,7 +597,7 @@ class GenTransactionTreeTest
         NonEmpty(
           Seq,
           RecipientsTree.ofRecipients(
-            NonEmpty.mk(Set, ParticipantsOfParty(PartyId.tryFromLfParty(party(6)))),
+            NonEmpty.mk(Set, Recipient(participant(16))),
             Seq(
               RecipientsTree.ofMembers(
                 NonEmpty(Set, 11, 12, 13, 15).map(participant),
@@ -616,8 +608,8 @@ class GenTransactionTreeTest
                       RecipientsTree.ofRecipients(
                         NonEmpty.mk(
                           Set,
-                          MemberRecipient(participant(11)),
-                          ParticipantsOfParty(PartyId.tryFromLfParty(party(3))),
+                          Recipient(participant(11)),
+                          Recipient(participant(13)),
                         ),
                         Seq(
                           RecipientsTree.leaf(NonEmpty.mk(Set, participant(11), participant(12)))
@@ -726,15 +718,13 @@ class GenTransactionTreeTest
       )
 
     def mkCommonMetadata(protocolVersion: ProtocolVersion): CommonMetadata =
-      CommonMetadata
-        .create(factory.cryptoOps, protocolVersion)(
-          factory.confirmationPolicy,
-          factory.domainId,
-          factory.mediatorRef,
-          mkTestSalt(0),
-          factory.transactionUuid,
-        )
-        .value
+      CommonMetadata(factory.cryptoOps, protocolVersion)(
+        factory.confirmationPolicy,
+        factory.domainId,
+        factory.mediatorRef,
+        mkTestSalt(0),
+        factory.transactionUuid,
+      )
 
     def mkParticipantMetadata(protocolVersion: ProtocolVersion): ParticipantMetadata =
       ParticipantMetadata(factory.cryptoOps)(

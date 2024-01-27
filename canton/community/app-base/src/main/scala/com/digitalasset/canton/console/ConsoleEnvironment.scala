@@ -328,18 +328,6 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         .toSeq,
     )
 
-  lazy val participantsX: NodeReferences[
-    ParticipantReferenceX,
-    RemoteParticipantReferenceX,
-    LocalParticipantReferenceX,
-  ] =
-    NodeReferences(
-      environment.config.participantsByStringX.keys.map(createParticipantReferenceX).toSeq,
-      environment.config.remoteParticipantsByStringX.keys
-        .map(createRemoteParticipantReferenceX)
-        .toSeq,
-    )
-
   lazy val domains: NodeReferences[DomainReference, DomainRemoteRef, DomainLocalRef] =
     NodeReferences(
       environment.config.domainsByString.keys.map(createDomainReference).toSeq,
@@ -360,8 +348,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     LocalInstanceReferenceCommon,
   ] = {
     NodeReferences(
-      mergeLocalInstances(participants.local, participantsX.local, domains.local),
-      mergeRemoteInstances(participants.remote, participantsX.remote, domains.remote),
+      mergeLocalInstances(participants.local, domains.local),
+      mergeRemoteInstances(participants.remote, domains.remote),
     )
   }
 
@@ -401,14 +389,6 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       participants.remote.map(p =>
         TopLevelValue(p.name, helpText("remote participant", p.name), p, nodeTopic)
       )
-    val localParticipantXBinds: Seq[TopLevelValue[_]] =
-      participantsX.local.map(p =>
-        TopLevelValue(p.name, helpText("participant x", p.name), p, nodeTopic)
-      )
-    val remoteParticipantXBinds: Seq[TopLevelValue[_]] =
-      participantsX.remote.map(p =>
-        TopLevelValue(p.name, helpText("remote participant x", p.name), p, nodeTopic)
-      )
     val localDomainBinds: Seq[TopLevelValue[_]] =
       domains.local.map(d =>
         localDomainTopLevelValue(
@@ -429,18 +409,11 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       )
     val referencesTopic = Seq(topicGenericNodeReferences)
     localParticipantBinds ++ remoteParticipantBinds ++
-      localParticipantXBinds ++ remoteParticipantXBinds ++
       localDomainBinds ++ remoteDomainBinds ++ clockBinds.toList :+
       TopLevelValue(
         "participants",
         "All participant nodes" + genericNodeReferencesDoc,
         participants,
-        referencesTopic,
-      ) :+
-      TopLevelValue(
-        "participantsX",
-        "All participant x nodes" + genericNodeReferencesDoc,
-        participantsX,
         referencesTopic,
       ) :+
       domainsTopLevelValue(
@@ -482,11 +455,6 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     new LocalParticipantReference(this, name)
   private def createRemoteParticipantReference(name: String): RemoteParticipantReference =
     new RemoteParticipantReference(this, name)
-  private def createParticipantReferenceX(name: String): LocalParticipantReferenceX =
-    new LocalParticipantReferenceX(this, name)
-  private def createRemoteParticipantReferenceX(name: String): RemoteParticipantReferenceX =
-    new RemoteParticipantReferenceX(this, name)
-
   protected def createDomainReference(name: String): DomainLocalRef
   protected def createRemoteDomainReference(name: String): DomainRemoteRef
 
@@ -573,7 +541,6 @@ object ConsoleEnvironment {
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
     implicit def toParticipantId(reference: ParticipantReference): ParticipantId = reference.id
-    implicit def toParticipantIdX(reference: ParticipantReferenceX): ParticipantId = reference.id
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

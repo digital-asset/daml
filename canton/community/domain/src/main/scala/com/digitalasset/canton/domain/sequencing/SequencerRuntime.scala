@@ -44,7 +44,6 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
@@ -92,7 +91,6 @@ class SequencerRuntime(
     futureSupervisor: FutureSupervisor,
     agreementManager: Option[ServiceAgreementManager],
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
-    topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext,
@@ -104,8 +102,6 @@ class SequencerRuntime(
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
   protected val isTopologyInitializedPromise = Promise[Unit]()
-
-  protected def domainOutboxO: Option[DomainOutboxHandle] = None
 
   def initialize(
       topologyInitIsCompleted: Boolean = true
@@ -160,11 +156,6 @@ class SequencerRuntime(
       loggerFactory,
     )
 
-  /** Only SequencerXs expect MediatorXs to expose "topology_request_address" and
-    * allow corresponding unauthenticated messages upon initial bootstrap.
-    */
-  protected def mediatorsProcessParticipantTopologyRequests: Boolean = false
-
   private val sequencerService = GrpcSequencerService(
     sequencer,
     metrics,
@@ -173,8 +164,6 @@ class SequencerRuntime(
     sequencerDomainParamsLookup,
     localNodeParameters,
     staticDomainParameters.protocolVersion,
-    topologyStateForInitializationService,
-    mediatorsProcessParticipantTopologyRequests,
     loggerFactory,
   )
 
@@ -244,7 +233,7 @@ class SequencerRuntime(
 
   def topologyQueue: TopologyQueueStatus = TopologyQueueStatus(
     manager = topologyManagerStatusO.map(_.queueSize).getOrElse(0),
-    dispatcher = domainOutboxO.map(_.queueSize).getOrElse(0),
+    dispatcher = 0,
     clients = topologyClient.numPendingChanges,
   )
 

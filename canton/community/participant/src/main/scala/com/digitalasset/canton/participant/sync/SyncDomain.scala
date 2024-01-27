@@ -26,12 +26,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
-import com.digitalasset.canton.participant.event.{
-  AcsChange,
-  ContractMetadataAndTransferCounter,
-  ContractStakeholdersAndTransferCounter,
-  RecordTime,
-}
+import com.digitalasset.canton.participant.event.{AcsChange, ContractStakeholders, RecordTime}
 import com.digitalasset.canton.participant.metrics.{PruningMetrics, SyncDomainMetrics}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
@@ -56,9 +51,7 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.{
-  ContractChange,
   ParticipantNodePersistentState,
-  StateChangeType,
   StoredContract,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
@@ -66,7 +59,6 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
@@ -88,7 +80,6 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -129,7 +120,6 @@ class SyncDomain(
     clock: Clock,
     pruningMetrics: PruningMetrics,
     metrics: SyncDomainMetrics,
-    trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
     skipRecipientsCheck: Boolean,
@@ -330,9 +320,6 @@ class SyncDomain(
       traceContext: TraceContext
   ): Unit = journalGarbageCollector.removeOneLock()
 
-  def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
-    trafficStateController.getState
-
   def authorityOfInSnapshotApproximation(requestingAuthority: Set[LfPartyId])(implicit
       traceContext: TraceContext
   ): Future[AuthorityOfResponse] =
@@ -376,10 +363,7 @@ class SyncDomain(
             .map(c =>
               c.contractId -> WithContractHash.fromContract(
                 c.contract,
-                ContractMetadataAndTransferCounter(
-                  c.contract.metadata,
-                  change.activations(c.contractId).transferCounter,
-                ),
+                c.contract.metadata,
               )
             )
             .toMap,
@@ -388,10 +372,7 @@ class SyncDomain(
               c.contractId -> WithContractHash
                 .fromContract(
                   c.contract,
-                  ContractStakeholdersAndTransferCounter(
-                    c.contract.metadata.stakeholders,
-                    change.deactivations(c.contractId).transferCounter,
-                  ),
+                  ContractStakeholders(c.contract.metadata.stakeholders),
                 )
             )
             .toMap,
@@ -426,17 +407,7 @@ class SyncDomain(
         contractIdChanges <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive)
         changes <- contractIdChanges.parTraverse { case (toc, change) =>
-          val changeWithAdjustedTransferCountersForUnassignments = ActiveContractIdsChange(
-            change.activations,
-            change.deactivations.fmap {
-              case StateChangeType(ContractChange.Unassigned, transferCounter) =>
-                StateChangeType(ContractChange.Unassigned, transferCounter.map(_ - 1))
-              case change => change
-            },
-          )
-          lookupChangeMetadata(changeWithAdjustedTransferCountersForUnassignments).map(ch =>
-            (RecordTime.fromTimeOfChange(toc), ch)
-          )
+          lookupChangeMetadata(change).map(ch => (RecordTime.fromTimeOfChange(toc), ch))
         }
       } yield {
         logger.info(
@@ -640,7 +611,6 @@ class SyncDomain(
           ): HandlerResult = {
             tracedEvents.withTraceContext { traceContext => closedEvents =>
               val openEvents = closedEvents.map { event =>
-                trafficStateController.updateState(event)
                 val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
                   staticDomainParameters.protocolVersion,
                   domainCrypto.crypto.pureCrypto,
@@ -978,7 +948,6 @@ object SyncDomain {
         clock: Clock,
         pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
-        trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
@@ -1006,7 +975,6 @@ object SyncDomain {
         clock: Clock,
         pruningMetrics: PruningMetrics,
         syncDomainMetrics: SyncDomainMetrics,
-        trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
@@ -1032,7 +1000,6 @@ object SyncDomain {
         clock,
         pruningMetrics,
         syncDomainMetrics,
-        trafficStateController,
         futureSupervisor,
         loggerFactory,
         skipRecipientsCheck = skipRecipientsCheck,

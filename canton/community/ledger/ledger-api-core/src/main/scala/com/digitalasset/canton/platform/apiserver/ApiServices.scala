@@ -167,12 +167,7 @@ object ApiServices {
         executionContext: ExecutionContext
     ): List[BindableService] = {
 
-      val transactionFilterValidator =
-        new TransactionFilterValidator(
-          resolveAllUpgradablePackagesForName =
-            packagesService.resolveUpgradablePackagesForName(_)(_),
-          upgradingEnabled = upgradingEnabled,
-        )
+      val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
         new TransactionServiceRequestValidator(
           ledgerId = ledgerId,

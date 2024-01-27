@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v0, v1, v2, v3}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -37,8 +37,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[InformeeMessage.type] =
     InformeeMessage.protocolVersionRepresentativeFor(protocolVersion)
@@ -64,7 +63,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
   ): TransactionResultMessage = {
-    if (protocolVersion >= ProtocolVersion.v5) {
+    if (protocolVersion > ProtocolVersion.v4) {
       TransactionResultMessage(
         requestId,
         verdict,
@@ -118,9 +117,6 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
 
   override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
     v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV1))
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV1)
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt =
     fullInformeeTree.confirmationPolicy.minimumThreshold(informees)

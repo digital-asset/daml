@@ -39,10 +39,6 @@ import scala.concurrent.Future
 /** When a we make a send request to the sequencer it will not be sequenced until some point in the future and may not
   * be sequenced at all. To track a request call `send` with the messageId and max-sequencing-time of the request,
   * the tracker then observes sequenced events and will notify the provided handler whether the send times out.
-  * For aggregatable submission requests, the send tracker notifies the handler of successful sequencing of the submission request,
-  * not of successful delivery of the envelopes when the
-  * [[com.digitalasset.canton.sequencing.protocol.AggregationRule.threshold]] has been reached.
-  * In fact, there is no notification of whether the threshold was reached before the max sequencing time.
   */
 class SendTracker(
     initialPendingSends: Map[MessageId, CantonTimestamp],

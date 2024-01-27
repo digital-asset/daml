@@ -5,13 +5,12 @@ package com.digitalasset.canton.participant.store.memory
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
   SyncDomainPersistentStateOld,
-  SyncDomainPersistentStateX,
 }
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.IndexedDomain
@@ -20,10 +19,8 @@ import com.digitalasset.canton.store.memory.{
   InMemorySequencedEventStore,
   InMemorySequencerCounterTrackerStore,
 }
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.memory.{InMemoryTopologyStore, InMemoryTopologyStoreX}
-import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManagerX}
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -76,46 +73,5 @@ class InMemorySyncDomainPersistentStateOld(
 
   val topologyStore =
     new InMemoryTopologyStore(DomainStore(domainId.item), loggerFactory, timeouts, futureSupervisor)
-
-}
-
-class InMemorySyncDomainPersistentStateX(
-    clock: Clock,
-    crypto: Crypto,
-    domainId: IndexedDomain,
-    val protocolVersion: ProtocolVersion,
-    enableAdditionalConsistencyChecks: Boolean,
-    enableTopologyTransactionValidation: Boolean,
-    loggerFactory: NamedLoggerFactory,
-    val timeouts: ProcessingTimeout,
-    val futureSupervisor: FutureSupervisor,
-)(implicit ec: ExecutionContext)
-    extends InMemorySyncDomainPersistentStateCommon(
-      domainId,
-      crypto.pureCrypto,
-      enableAdditionalConsistencyChecks,
-      loggerFactory,
-      timeouts,
-    )
-    with SyncDomainPersistentStateX {
-
-  override val topologyStore =
-    new InMemoryTopologyStoreX(
-      DomainStore(domainId.item),
-      loggerFactory,
-      timeouts,
-    )
-
-  override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
-  override val topologyManager = new DomainTopologyManagerX(
-    clock,
-    crypto,
-    topologyStore,
-    domainOutboxQueue,
-    enableTopologyTransactionValidation,
-    timeouts,
-    futureSupervisor,
-    loggerFactory,
-  )
 
 }

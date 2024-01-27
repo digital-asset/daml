@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
@@ -40,7 +41,6 @@ import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -206,20 +206,8 @@ object DeliverErrorStoreEvent {
   def serializeError(
       error: SequencerDeliverError,
       protocolVersion: ProtocolVersion,
-  ): (String256M, Option[ByteString]) = {
-    if (protocolVersion >= ProtocolVersion.CNTestNet) {
-      (
-        String256M.empty,
-        Some(
-          VersionedStatus
-            .create(error.rpcStatusWithoutLoggingContext(), protocolVersion)
-            .toByteString
-        ),
-      )
-    } else {
-      (String256M(error.cause)(), None)
-    }
-  }
+  ): (String256M, Option[ByteString]) =
+    (String256M(error.cause)(), None)
 
   def create(
       sender: SequencerMemberId,
@@ -256,24 +244,13 @@ object DeliverErrorStoreEvent {
       errorMessage: String256M,
       serializedErrorO: Option[ByteString],
       protocolVersion: ProtocolVersion,
-  ): ParsingResult[Status] = {
-    if (protocolVersion >= ProtocolVersion.CNTestNet) {
-      serializedErrorO.fold[ParsingResult[Status]](
-        Left(ProtoDeserializationError.FieldNotSet("error"))
-      )(serializedError =>
-        VersionedStatus
-          .fromByteString(protocolVersion)(serializedError)
-          .map(_.status)
-      )
+  ): ParsingResult[Status] =
+    Right(
+      SequencerErrors
+        .SubmissionRequestRefused(errorMessage.unwrap)
+        .rpcStatusWithoutLoggingContext()
+    )
 
-    } else {
-      Right(
-        SequencerErrors
-          .SubmissionRequestRefused(errorMessage.unwrap)
-          .rpcStatusWithoutLoggingContext()
-      )
-    }
-  }
 }
 
 final case class Presequenced[+E <: StoreEvent[_]](

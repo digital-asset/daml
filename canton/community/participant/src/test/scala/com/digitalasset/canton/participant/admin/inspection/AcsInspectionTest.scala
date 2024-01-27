@@ -38,7 +38,6 @@ import com.digitalasset.canton.{
   LfVersioned,
   RequestCounter,
   RequestCounterDiscriminator,
-  TransferCounter,
 }
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
@@ -167,7 +166,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
 
     val allContractIds = contracts.keys ++ missingContracts
 
-    val snapshot = allContractIds.map(_ -> (CantonTimestamp.Epoch, Option.empty[TransferCounter]))
+    val snapshot = allContractIds.map(_ -> CantonTimestamp.Epoch)
 
     val acs = mock[ActiveContractStore]
     when(acs.snapshot(any[CantonTimestamp]))
@@ -206,10 +205,9 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
     TraceContext.withNewTraceContext { implicit tc =>
       val builder = Vector.newBuilder[SerializableContract]
       AcsInspection
-        .forEachVisibleActiveContract(FakeDomainId, state, parties, timestamp = None) {
-          case (contract, _) =>
-            builder += contract
-            Right(())
+        .forEachVisibleActiveContract(FakeDomainId, state, parties, timestamp = None) { contract =>
+          builder += contract
+          Right(())
         }
         .map(_ => builder.result())
         .value

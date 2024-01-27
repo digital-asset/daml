@@ -62,7 +62,6 @@ import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfPackageId,
   ProtoDeserializationError,
-  TransferCounter,
 }
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status as RpcStatus
@@ -1082,7 +1081,6 @@ private[store] final case class SerializableTransferredOut(
       workflowId,
       isTransferringParticipant,
       hostedStakeholders,
-      transferCounter,
     ) = transferOut
     v0.TransferredOut(
       updateId = updateId,
@@ -1099,7 +1097,7 @@ private[store] final case class SerializableTransferredOut(
       workflowId = workflowId.getOrElse(""),
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.toProtoPrimitive,
+      transferCounter = Long.MinValue,
     )
   }
 }
@@ -1122,7 +1120,7 @@ private[store] object SerializableTransferredOut {
       templateIdP,
       isTransferringParticipant,
       hostedStakeholdersP,
-      transferCounterP,
+      _transferCounterP,
     ) = transferOutP
 
     for {
@@ -1156,7 +1154,6 @@ private[store] object SerializableTransferredOut {
       workflowId = workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders.toList,
-      transferCounter = TransferCounter(transferCounterP),
     )
   }
 }
@@ -1178,7 +1175,6 @@ final case class SerializableTransferredIn(transferIn: LedgerSyncEvent.Transferr
       workflowId,
       isTransferringParticipant,
       hostedStakeholders,
-      transferCounter,
     ) = transferIn
     val contractMetadataP = contractMetadata.toByteString
     val createNodeByteString = SerializableLedgerSyncEvent.trySerializeNode(createNode)
@@ -1197,7 +1193,7 @@ final case class SerializableTransferredIn(transferIn: LedgerSyncEvent.Transferr
       workflowId = workflowId.getOrElse(""),
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.toProtoPrimitive,
+      transferCounter = Long.MinValue,
     )
 
   }
@@ -1220,7 +1216,7 @@ private[store] object SerializableTransferredIn {
       workflowIdP,
       isTransferringParticipant,
       hostedStakeholdersP,
-      transferCounterP,
+      _transferCounterP,
     ) = transferInP
 
     for {
@@ -1259,7 +1255,6 @@ private[store] object SerializableTransferredIn {
       workflowId = workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders.toList,
-      transferCounter = TransferCounter(transferCounterP),
     )
   }
 }

@@ -5,7 +5,6 @@ package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseMediatorAdministrationCommands.{
   Initialize,
-  InitializeX,
   LocatePruningTimestampCommand,
   Prune,
 }
@@ -193,40 +192,4 @@ class MediatorAdministrationGroupWithInit(
       )
     )
   }
-
-}
-
-trait MediatorXAdministrationGroupWithInit extends ConsoleCommandGroup {
-
-  @Help.Summary("Methods used to initialize the node")
-  object setup extends ConsoleCommandGroup.Impl(this) with InitNodeId {
-
-    @Help.Summary("Assign a mediator to a domain")
-    def assign(
-        domainId: DomainId,
-        domainParameters: StaticDomainParameters,
-        sequencerConnections: SequencerConnections,
-    ): Unit = consoleEnvironment.run {
-      runner.adminCommand(
-        InitializeX(
-          domainId,
-          domainParameters.toInternal,
-          sequencerConnections,
-        )
-      )
-    }
-
-  }
-
-  private lazy val testing_ = new MediatorTestingGroup(runner, consoleEnvironment, loggerFactory)
-  @Help.Summary("Testing functionality for the mediator")
-  @Help.Group("Testing")
-  def testing: MediatorTestingGroup = testing_
-
-  private lazy val pruning_ =
-    new MediatorPruningAdministrationGroup(runner, consoleEnvironment, loggerFactory)
-  @Help.Summary("Pruning functionality for the mediator")
-  @Help.Group("Testing")
-  def pruning: MediatorPruningAdministrationGroup = pruning_
-
 }

@@ -34,8 +34,7 @@ final case class TransferOutMediatorMessage(
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
   require(tree.commonData.isFullyUnblinded, "The transfer-out common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-out view must be blinded")
 
@@ -104,9 +103,6 @@ final case class TransferOutMediatorMessage(
 
   override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
     v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV1))
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV1)
 
   override def rootHash: Option[RootHash] = Some(tree.rootHash)
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
-import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
@@ -149,14 +148,13 @@ final class RepairService(
               ContractToAdd(
                 repairContract.contract,
                 repairContract.witnesses.map(_.toLf),
-                repairContract.transferCounter,
                 None,
                 keyToAssign,
               )
             )
           }
           .toEitherT[Future]
-      case Some(ActiveContractStore.Active(_)) =>
+      case Some(ActiveContractStore.Active) =>
         if (ignoreAlreadyAdded) {
           logger.debug(s"Skipping contract $contractId because it is already active")
           for {
@@ -187,41 +185,25 @@ final class RepairService(
             s"Cannot add previously archived contract ${repairContract.contract.contractId} as archived contracts cannot become active."
           )
         )
-      case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
+      case Some(ActiveContractStore.TransferredAway(targetDomain)) =>
         log(
           s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
 
-        val isTransferCounterIncreasing = (transferCounter, repairContract.transferCounter)
-          .mapN { case (tc, repairTc) => repairTc > tc }
-          .getOrElse(true)
-
-        if (isTransferCounterIncreasing) {
-          keyState
-            .traverse(_.checkAssignable(domain))
-            .map { keyToAssign =>
-              Option(
-                ContractToAdd(
-                  repairContract.contract,
-                  repairContract.witnesses.map(_.toLf),
-                  repairContract.transferCounter,
-                  Option(SourceDomainId(targetDomain.unwrap)),
-                  keyToAssign,
-                )
+        keyState
+          .traverse(_.checkAssignable(domain))
+          .map { keyToAssign =>
+            Option(
+              ContractToAdd(
+                repairContract.contract,
+                repairContract.witnesses.map(_.toLf),
+                Option(SourceDomainId(targetDomain.unwrap)),
+                keyToAssign,
               )
-            }
-            .toEitherT[Future]
-        } else {
-          EitherT.leftT(
-            log(
-              s"The transfer counter ${repairContract.transferCounter} of the contract " +
-                s"${repairContract.contract.contractId} needs to be strictly larger than the transfer counter " +
-                s"$transferCounter at the time of the transfer-out."
             )
-          )
-        }
-
+          }
+          .toEitherT[Future]
     }
   }
 
@@ -748,20 +730,17 @@ final class RepairService(
       }
 
       _persistedInAcs <- contractToAdd.transferringFrom
-        .map(_ -> contractToAdd.transferCounter)
         .fold(
           persistCreation(
             repair,
             contractId,
-            contractToAdd.transferCounter,
             timeOfChange,
           )
-        ) { case (sourceDomainId, transferCounter) =>
+        ) { sourceDomainId =>
           persistTransferIn(
             repair,
             sourceDomainId,
             contractId,
-            transferCounter,
             timeOfChange,
           )
         }
@@ -790,7 +769,7 @@ final class RepairService(
               s"Contract $cid does not exist in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip non-existing contracts."
             ),
           )
-        case Some(ActiveContractStore.Active(_)) =>
+        case Some(ActiveContractStore.Active) =>
           for {
             contract <- EitherT
               .fromOption[Future](
@@ -828,15 +807,15 @@ final class RepairService(
               s"Contract $cid is already archived in domain ${repair.domain.alias} and cannot be purged. Set ignoreAlreadyPurged = true to skip archived contracts."
             ),
           )
-        case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
+        case Some(ActiveContractStore.TransferredAway(targetDomain)) =>
           log(
             s"Purging contract $cid previously marked as transferred away to $targetDomain. " +
               s"Marking contract as transferred-in from $targetDomain (even though contract may have since been transferred to yet another domain) and subsequently as archived."
           ).discard
+
+          val sourceDomain = SourceDomainId(targetDomain.unwrap)
           for {
-            newTransferCounter <- EitherT.fromEither[Future](transferCounter.traverse(_.increment))
-            sourceDomain = SourceDomainId(targetDomain.unwrap)
-            _ <- persistTransferIn(repair, sourceDomain, cid, newTransferCounter, timeOfChange)
+            _ <- persistTransferIn(repair, sourceDomain, cid, timeOfChange)
             _ <- persistArchival(repair, timeOfChange)(cid)
           } yield contractO
       }
@@ -908,16 +887,12 @@ final class RepairService(
   private def persistCreation(
       repair: RepairRequest,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     repair.domain.persistentState.activeContractStore
-      .markContractActive(
-        cid -> transferCounter,
-        timeOfChange,
-      )
+      .markContractActive(cid, timeOfChange)
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to create contract $cid in ActiveContractStore: $e"))
   }
@@ -926,22 +901,15 @@ final class RepairService(
       repair: RepairRequest,
       sourceDomain: SourceDomainId,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     repair.domain.persistentState.activeContractStore
-      .transferInContract(cid, timeOfChange, sourceDomain, transferCounter)
+      .transferInContract(cid, timeOfChange, sourceDomain)
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to transfer in contract ${cid} in ActiveContractStore: ${e}"))
 
-  /*
-  We do not store transfer counters for archivals in the repair service,
-  given that we do not store them as part of normal transaction processing either.
-  The latter is due to the fact that we do not know the correct transfer counters
-  at the time we persist the deactivation in the ACS.
-   */
   private def persistArchival(
       repair: RepairRequest,
       timeOfChange: TimeOfChange,
@@ -1456,7 +1424,6 @@ object RepairService {
   private final case class ContractToAdd(
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
-      transferCounter: TransferCounterO,
       transferringFrom: Option[SourceDomainId],
       keyToAssign: Option[LfGlobalKey],
   ) {

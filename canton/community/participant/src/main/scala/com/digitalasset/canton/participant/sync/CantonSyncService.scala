@@ -86,7 +86,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 }
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.traffic.TrafficStateController
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.*
@@ -1182,14 +1181,6 @@ class CantonSyncService(
           loggerFactory,
         )
 
-        trafficStateController = new TrafficStateController(
-          participantId,
-          loggerFactory,
-          domainHandle.topologyClient,
-          metrics.domainMetrics(domainAlias),
-          clock,
-        )
-
         syncDomain = syncDomainFactory.create(
           domainId,
           domainHandle,
@@ -1209,7 +1200,6 @@ class CantonSyncService(
               missingKeysAlerter,
               domainHandle.topologyClient,
               domainCrypto,
-              trafficStateController,
               ephemeral.recordOrderPublisher,
               domainHandle.staticParameters.protocolVersion,
             ),
@@ -1219,7 +1209,6 @@ class CantonSyncService(
           clock,
           metrics.pruning,
           domainMetrics,
-          trafficStateController,
           futureSupervisor,
           domainLoggerFactory,
           skipRecipientsCheck = skipRecipientsCheck,

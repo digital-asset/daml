@@ -265,10 +265,3 @@ class SequencerAdministrationGroup(
     }
 
 }
-
-trait SequencerAdministrationGroupX extends SequencerAdministrationGroupCommon {
-
-  @Help.Summary("Methods used for repairing the node")
-  object repair extends ConsoleCommandGroup.Impl(this) with SequencerAdministrationDisableMember {}
-
-}
