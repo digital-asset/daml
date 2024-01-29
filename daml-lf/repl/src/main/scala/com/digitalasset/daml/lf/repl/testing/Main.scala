@@ -670,7 +670,7 @@ object Repl {
     private val seed = nextSeed()
 
     val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V1))) {
+      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V2))) {
         transaction.TransactionVersion.DevVersions
       } else {
         transaction.TransactionVersion.StableVersions
