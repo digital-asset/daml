@@ -8,11 +8,11 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.{
+import com.digitalasset.canton.domain.admin.v30.{
   SequencerAdministrationServiceGrpc,
   SequencerVersionServiceGrpc,
 }
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.{
@@ -32,14 +32,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.service.*
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
-import com.digitalasset.canton.domain.service.grpc.GrpcDomainService
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
+import com.digitalasset.canton.protocol.{
+  DomainParametersLookup,
+  DynamicDomainParametersLookup,
+  StaticDomainParameters,
+}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -52,11 +54,9 @@ import com.digitalasset.canton.{DiscardOps, config}
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import org.apache.pekko.actor.ActorSystem
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class SequencerAuthenticationConfig(
-    agreementManager: Option[ServiceAgreementManager],
     nonceExpirationTime: config.NonNegativeFiniteDuration,
     tokenExpirationTime: config.NonNegativeFiniteDuration,
 ) {
@@ -90,7 +90,6 @@ class SequencerRuntime(
     additionalAdminServiceFactory: Sequencer => Option[ServerServiceDefinition],
     staticMembersToRegister: Seq[Member],
     futureSupervisor: FutureSupervisor,
-    agreementManager: Option[ServiceAgreementManager],
     memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
     topologyStateForInitializationService: Option[TopologyStateForInitializationService],
     protected val loggerFactory: NamedLoggerFactory,
@@ -151,7 +150,8 @@ class SequencerRuntime(
     }
   }
 
-  protected val sequencerDomainParamsLookup: DomainParametersLookup[SequencerDomainParameters] =
+  protected val sequencerDomainParamsLookup
+      : DynamicDomainParametersLookup[SequencerDomainParameters] =
     DomainParametersLookup.forSequencerDomainParameters(
       staticDomainParameters,
       publicServerConfig.overrideMaxRequestSize,
@@ -213,7 +213,6 @@ class SequencerRuntime(
     val authenticationService = memberAuthenticationServiceFactory.createAndSubscribe(
       syncCrypto,
       MemberAuthenticationStore(storage, timeouts, loggerFactory, closeContext),
-      agreementManager,
       // closing the subscription when the token expires will force the client to try to reconnect
       // immediately and notice it is unauthenticated, which will cause it to also start reauthenticating
       // it's important to disconnect the member AFTER we expired the token, as otherwise, the member
@@ -268,22 +267,15 @@ class SequencerRuntime(
     additionalAdminServiceFactory(sequencer).foreach(register)
   }
 
-  @nowarn("cat=deprecation")
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
     {
-      v0.DomainServiceGrpc.bindService(
-        new GrpcDomainService(authenticationConfig.agreementManager, loggerFactory),
-        executionContext,
-      )
-    }, {
       ServerInterceptors.intercept(
-        v0.SequencerConnectServiceGrpc.bindService(
+        v30.SequencerConnectServiceGrpc.bindService(
           new GrpcSequencerConnectService(
             domainId,
             sequencerId,
             staticDomainParameters,
             syncCrypto,
-            agreementManager,
             loggerFactory,
           )(
             ec
@@ -298,7 +290,7 @@ class SequencerRuntime(
         ec,
       )
     }, {
-      v0.SequencerAuthenticationServiceGrpc
+      v30.SequencerAuthenticationServiceGrpc
         .bindService(authenticationServices.sequencerAuthenticationService, ec)
     }, {
       import scala.jdk.CollectionConverters.*
@@ -307,7 +299,7 @@ class SequencerRuntime(
       val interceptors = List(authenticationServices.authenticationInterceptor).asJava
 
       ServerInterceptors.intercept(
-        v0.SequencerServiceGrpc.bindService(sequencerService, ec),
+        v30.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
       )
     },
@@ -315,6 +307,7 @@ class SequencerRuntime(
 
   override def onClosed(): Unit =
     Lifecycle.close(
+      syncCrypto,
       topologyClient,
       sequencerService,
       authenticationServices.memberAuthenticationService,

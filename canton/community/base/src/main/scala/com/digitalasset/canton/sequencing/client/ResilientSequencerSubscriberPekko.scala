@@ -11,6 +11,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
@@ -135,10 +136,10 @@ class ResilientSequencerSubscriberPekko[E](
           }
       }
       Option.when(canRetry) {
-        val newDelay = retryDelayRule.nextDelay(lastState.delay, hasReceivedEvent)
+        val currentDelay = lastState.delay
         val logMessage =
-          s"Waiting ${LoggerUtil.roundDurationForHumans(newDelay)} before reconnecting"
-        if (newDelay < retryDelayRule.warnDelayDuration) {
+          s"Waiting ${LoggerUtil.roundDurationForHumans(currentDelay)} before reconnecting"
+        if (currentDelay < retryDelayRule.warnDelayDuration) {
           logger.debug(logMessage)
         } else if (lastState.health.isFailed) {
           logger.info(logMessage)
@@ -151,7 +152,8 @@ class ResilientSequencerSubscriberPekko[E](
         val nextCounter = lastEmittedElement.fold(lastState.startingCounter)(
           _.fold(_.lastSequencerCounter, _.counter)
         )
-        lastState.delay -> lastState.copy(startingCounter = nextCounter, delay = newDelay)
+        val newDelay = retryDelayRule.nextDelay(currentDelay, hasReceivedEvent)
+        currentDelay -> lastState.copy(startingCounter = nextCounter, delay = newDelay)
       }
     }
   }
@@ -265,7 +267,7 @@ object ResilientSequencerSubscriberPekko {
   }
 }
 
-trait SequencerSubscriptionFactoryPekko[E] {
+trait SequencerSubscriptionFactoryPekko[E] extends HasSequencerSubscriptionFactoryPekko[E] {
 
   /** The ID of the sequencer this factory creates subscriptions to */
   def sequencerId: SequencerId
@@ -275,6 +277,8 @@ trait SequencerSubscriptionFactoryPekko[E] {
   )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[E]
 
   def retryPolicy: SubscriptionErrorRetryPolicyPekko[E]
+
+  override def subscriptionFactory: this.type = this
 }
 
 object SequencerSubscriptionFactoryPekko {
@@ -284,25 +288,25 @@ object SequencerSubscriptionFactoryPekko {
     * Changes to the underlying gRPC transport are not supported by the [[ResilientSequencerSubscriberPekko]];
     * these can be done via the sequencer aggregator.
     */
-  def fromTransport(
+  def fromTransport[E](
       sequencerID: SequencerId,
-      transport: SequencerClientTransportPekko,
+      transport: SequencerClientTransportPekko.Aux[E],
       requiresAuthentication: Boolean,
       member: Member,
       protocolVersion: ProtocolVersion,
-  ): SequencerSubscriptionFactoryPekko[transport.SubscriptionError] =
-    new SequencerSubscriptionFactoryPekko[transport.SubscriptionError] {
+  ): SequencerSubscriptionFactoryPekko[E] =
+    new SequencerSubscriptionFactoryPekko[E] {
       override def sequencerId: SequencerId = sequencerID
 
       override def create(startingCounter: SequencerCounter)(implicit
           traceContext: TraceContext
-      ): SequencerSubscriptionPekko[transport.SubscriptionError] = {
+      ): SequencerSubscriptionPekko[E] = {
         val request = SubscriptionRequest(member, startingCounter, protocolVersion)
         if (requiresAuthentication) transport.subscribe(request)
         else transport.subscribeUnauthenticated(request)
       }
 
-      override val retryPolicy: SubscriptionErrorRetryPolicyPekko[transport.SubscriptionError] =
+      override val retryPolicy: SubscriptionErrorRetryPolicyPekko[E] =
         transport.subscriptionRetryPolicyPekko
     }
 }

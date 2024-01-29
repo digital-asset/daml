@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eu
@@ -75,6 +75,7 @@ com/daml/ledger/api/v2/command_submission_service.proto
 com/daml/ledger/api/v2/commands.proto
 com/daml/ledger/api/v2/completion.proto
 com/daml/ledger/api/v2/event_query_service.proto
+com/daml/ledger/api/v2/experimental_features.proto
 com/daml/ledger/api/v2/package_service.proto
 com/daml/ledger/api/v2/participant_offset.proto
 com/daml/ledger/api/v2/reassignment.proto

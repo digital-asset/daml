@@ -3,6 +3,9 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError
 
@@ -14,7 +17,18 @@ import com.digitalasset.canton.sequencing.protocol.SendAsyncError
   */
 sealed trait SendAsyncClientError extends Product with Serializable with PrettyPrinting
 
-object SendAsyncClientError {
+object SendAsyncClientError extends SequencerErrorGroup {
+
+  @Explanation("This error indicates that a message could not be sent through the sequencer.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "SEQUENCER_SEND_ASYNC_CLIENT_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Wrap(reason: SendAsyncClientError)
+        extends BaseCantonError.Impl(cause = "Unable to send through the sequencer")
+  }
 
   /** The [[SequencerClient]] decided that the request is invalid so did not attempt to send it to the sequencer */
   final case class RequestInvalid(message: String) extends SendAsyncClientError {

@@ -23,7 +23,7 @@ class HmacTest extends AnyWordSpec with BaseTest {
           Hmac
             .compute(secret, ByteString.copyFromUtf8(longString), algorithm)
             .valueOr(err => fail(err.toString))
-        val hmacP = hmac.toProtoV0
+        val hmacP = hmac.toProtoV30
         Hmac.fromProtoV0(hmacP).value shouldBe (hmac)
       }
 

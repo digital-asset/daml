@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -11,7 +11,7 @@ import java.nio.file.Paths
 class Daml2ScriptTestRunner extends DamlScriptTestRunner {
   self: Suite =>
 
-  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v1.dar"))
+  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in

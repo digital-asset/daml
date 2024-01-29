@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
@@ -31,9 +30,9 @@ import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoTransactionsReader,
 }
-import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.serialization.Compression
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
@@ -206,7 +205,7 @@ private[dao] final class TransactionsReader(
 
 }
 
-private[platform] object TransactionsReader {
+private[dao] object TransactionsReader {
 
   def endSpanOnTermination[Mat](
       span: Span
@@ -312,38 +311,6 @@ private[platform] object TransactionsReader {
           observers = rawCreatedEvent.observers.toList,
           agreementText = rawCreatedEvent.agreementText.orElse(Some("")),
           createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
-        )
-      )
-
-  def deserializeCreatedEvent(
-      lfValueTranslation: LfValueTranslation,
-      requestingParties: Set[Ref.Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(createdEvent: TransactionLogUpdate.CreatedEvent)(implicit
-      lc: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[CreatedEvent] =
-    lfValueTranslation
-      .deserializeEvent(
-        createArgument = createdEvent.createArgument,
-        createKey = createdEvent.contractKey,
-        templateId = createdEvent.templateId,
-        witnesses = createdEvent.flatEventWitnesses.toSet[String],
-        eventProjectionProperties = eventProjectionProperties,
-      )
-      .map(apiContractData =>
-        CreatedEvent(
-          eventId = createdEvent.eventId.toLedgerString,
-          contractId = createdEvent.contractId.coid,
-          templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-          contractKey = apiContractData.contractKey,
-          createArguments = apiContractData.createArguments,
-          interfaceViews = apiContractData.interfaceViews,
-          witnessParties = createdEvent.flatEventWitnesses.intersect(requestingParties).toList,
-          signatories = createdEvent.createSignatories.toList,
-          observers = createdEvent.createObservers.toList,
-          agreementText = createdEvent.createAgreementText.orElse(Some("")),
-          createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
         )
       )
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -499,7 +499,7 @@ runRepl importPkgs opts replClient logger ideState = do
                           }
                    let world = LF.initWorldSelf pkgs (buildPackage pkgMeta lfVersion [])
                    let simplified = LF.simplifyModule world lfVersion v
-                   case Serializability.inferModule world lfVersion simplified of
+                   case Serializability.inferModule world simplified of
                        Left err -> handleIdeResult (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                        Right dalf -> do
                            let (_diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf

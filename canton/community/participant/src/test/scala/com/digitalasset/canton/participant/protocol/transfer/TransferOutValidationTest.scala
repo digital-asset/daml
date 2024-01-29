@@ -9,7 +9,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  IncompatibleProtocolVersions,
   StakeholdersMismatch,
   TemplateIdMismatch,
   TransferProcessorError,
@@ -19,7 +18,6 @@ import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackages}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -48,7 +46,7 @@ class TransferOutValidationTest
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -145,42 +143,12 @@ class TransferOutValidationTest
       mkTransferOutValidation(stakeholders, sourcePV, wrongTemplateId, initialTransferCounter).value
     for {
       res <- validation.failOnShutdown
-      // leftOrFailShutdown("couldn't get left from transfer out validation")
     } yield {
-      if (sourcePV.v < ProtocolVersion.CNTestNet) {
-        res shouldBe Right(())
-      } else res shouldBe Left(TemplateIdMismatch(templateId.leftSide, wrongTemplateId.leftSide))
+      res shouldBe Left(TemplateIdMismatch(templateId.leftSide, wrongTemplateId.leftSide))
     }
   }
 
-  "disallow transfers between domains with incompatible protocol versions" in {
-    val newSourcePV = SourceProtocolVersion(ProtocolVersion.CNTestNet)
-    val transferCounter = TransferCounter.forCreatedContract(newSourcePV.v)
-    val validation = mkTransferOutValidation(
-      stakeholders,
-      newSourcePV,
-      templateId,
-      transferCounter,
-    ).value
-
-    for {
-      res <- validation.failOnShutdown
-    } yield {
-      if (targetPV.v == newSourcePV.v) {
-        res shouldBe Right(())
-      } else {
-        res shouldBe Left(
-          IncompatibleProtocolVersions(
-            contractId,
-            newSourcePV,
-            targetPV,
-          )
-        )
-      }
-    }
-  }
-
-  def mkTransferOutValidation(
+  private def mkTransferOutValidation(
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
@@ -208,7 +176,6 @@ class TransferOutValidationTest
         seed,
         uuid,
       )
-      .value
 
     TransferOutValidation(
       fullTransferOutTree,

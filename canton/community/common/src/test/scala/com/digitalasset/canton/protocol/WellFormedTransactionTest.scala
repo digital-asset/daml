@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{State, WithSuffixes, WithoutSuffixes}
@@ -19,7 +18,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
   val lfAbs: LfContractId = suffixedId(0, 0)
 
   val contractInst = contractInstance()
-  val serContractInst = asSerializableRaw(contractInst, "")
+  val serContractInst = asSerializableRaw(contractInst)
 
   def createNode(
       cid: LfContractId,
@@ -33,7 +32,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
       signatories = signatories,
       contractInstance = contractInstance,
       key = key,
-      agreementText = agreementText,
     )
 
   def fetchNode(cid: LfContractId): LfNodeFetch =
@@ -273,12 +271,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             signatories = Set(signatory),
             key = Some(
               LfGlobalKeyWithMaintainers
-                .assertBuild(
-                  templateId,
-                  contractInst.unversioned.arg,
-                  Set.empty,
-                  Util.sharedKey(ExampleTransactionFactory.languageVersion),
-                )
+                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty, shared = true)
             ),
           ),
           ExampleTransactionFactory.exerciseNode(
@@ -290,7 +283,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                 templateId,
                 contractInst.unversioned.arg,
                 Set.empty,
-                Util.sharedKey(ExampleTransactionFactory.languageVersion),
+                shared = true,
               )
             ),
           ),

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
@@ -34,14 +34,6 @@ main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    v1TestArgs <- do
-        let targetDevVersion = LF.version1_dev
-        let exceptionsVersion = minExceptionVersion LF.V1
-        let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
-        let lfVersionTestPairs = lfVersionTestPairsV1
-        return TestArgs{..}
     v2TestArgs <- do
         let targetDevVersion = LF.version2_dev
         let exceptionsVersion = minExceptionVersion LF.V2
@@ -50,7 +42,7 @@ main = withSdkVersions $ do
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
-    let testTrees = map tests [v1TestArgs, v2TestArgs]
+    let testTrees = map tests [v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
     minExceptionVersion major =
@@ -81,25 +73,6 @@ darPackageIds fp = do
     Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
-
--- | We test two sets of versions:
--- 1. Versions no longer supported as output versions by damlc are tested against
---    1.14.
--- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev)
-lfVersionTestPairsV1 :: [(LF.Version, LF.Version)]
-lfVersionTestPairsV1 =
-    let supportedInputVersions =
-            sortOn LF.versionMinor $
-                filter (hasMajorVersion LF.V1) LF.supportedInputVersions
-        supportedOutputVersions =
-            sortOn LF.versionMinor $
-                filter (hasMajorVersion LF.V1) LF.supportedOutputVersions
-        legacyPairs = map (,LF.version1_14) (supportedInputVersions \\ supportedOutputVersions)
-        nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
-        selfPair = (LF.version1_dev, LF.version1_dev)
-     in selfPair : concat [legacyPairs, nPlusOnePairs]
-  where
-    hasMajorVersion major v = LF.versionMajor v == major
 
 -- | We test each version against the next one + extra (2.dev, 2.dev)
 lfVersionTestPairsV2 :: [(LF.Version, LF.Version)]

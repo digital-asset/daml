@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -46,7 +46,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       packageName = pkgName,
       templateId = templateId,
       value = SValue.SRecord(templateId, ImmArray(), ArrayList()),
-      agreementText = "agreement",
       signatories = Set(party),
       observers = Set.empty,
       keyOpt = None,

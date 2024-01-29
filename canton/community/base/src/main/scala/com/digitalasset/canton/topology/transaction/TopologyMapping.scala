@@ -10,7 +10,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, Unrecogni
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, v0, v1}
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
@@ -80,10 +80,10 @@ final case class NamespaceDelegation(
     s"Root certificate for $namespace needs to be set as isRootDelegation = true",
   )
 
-  def toProtoV0: v0.NamespaceDelegation =
-    v0.NamespaceDelegation(
+  def toProtoV30: v30.NamespaceDelegation =
+    v30.NamespaceDelegation(
       namespace = namespace.fingerprint.unwrap,
-      targetKey = Some(target.toProtoV0),
+      targetKey = Some(target.toProtoV30),
       isRootDelegation = isRootDelegation,
     )
 
@@ -94,7 +94,7 @@ final case class NamespaceDelegation(
   override def dbType: DomainTopologyTransactionType = NamespaceDelegation.dbType
 
   override def requiredAuth: RequiredAuth =
-    RequiredAuth.Ns(namespace, true)
+    RequiredAuth.Ns(namespace, rootDelegation = true)
 
 }
 
@@ -111,13 +111,13 @@ object NamespaceDelegation {
       case _ => false
     }
 
-  def fromProtoV0(
-      value: v0.NamespaceDelegation
+  def fromProtoV30(
+      value: v30.NamespaceDelegation
   ): ParsingResult[NamespaceDelegation] =
     for {
       namespace <- Fingerprint.fromProtoPrimitive(value.namespace).map(Namespace(_))
       target <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV0,
+        SigningPublicKey.fromProtoV30,
         "target_key",
         value.targetKey,
       )
@@ -133,10 +133,10 @@ object NamespaceDelegation {
 final case class IdentifierDelegation(identifier: UniqueIdentifier, target: SigningPublicKey)
     extends TopologyStateUpdateMapping {
   // architecture-handbook-entry-end: IdentifierDelegation
-  def toProtoV0: v0.IdentifierDelegation =
-    v0.IdentifierDelegation(
+  def toProtoV30: v30.IdentifierDelegation =
+    v30.IdentifierDelegation(
       uniqueIdentifier = identifier.toProtoPrimitive,
-      targetKey = Some(target.toProtoV0),
+      targetKey = Some(target.toProtoV30),
     )
 
   // TODO(i4933) include hash over content
@@ -153,13 +153,13 @@ object IdentifierDelegation {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.IdentifierDelegation
 
-  def fromProtoV0(
-      value: v0.IdentifierDelegation
+  def fromProtoV30(
+      value: v30.IdentifierDelegation
   ): ParsingResult[IdentifierDelegation] =
     for {
       identifier <- UniqueIdentifier.fromProtoPrimitive(value.uniqueIdentifier, "uniqueIdentifier")
       target <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV0,
+        SigningPublicKey.fromProtoV30,
         "target_key",
         value.targetKey,
       )
@@ -173,13 +173,13 @@ object IdentifierDelegation {
   * sequencer (which provides the communication infrastructure for the members).
   */
 // architecture-handbook-entry-begin: OwnerToKeyMapping
-final case class OwnerToKeyMapping(owner: KeyOwner, key: PublicKey)
+final case class OwnerToKeyMapping(owner: Member, key: PublicKey)
     extends TopologyStateUpdateMapping {
   // architecture-handbook-entry-end: OwnerToKeyMapping
-  def toProtoV0: v0.OwnerToKeyMapping =
-    v0.OwnerToKeyMapping(
+  def toProtoV30: v30.OwnerToKeyMapping =
+    v30.OwnerToKeyMapping(
       keyOwner = owner.toProtoPrimitive,
-      publicKey = Some(key.toProtoPublicKeyV0),
+      publicKey = Some(key.toProtoPublicKeyV30),
     )
 
   override def uniquePath(id: TopologyElementId): UniquePath =
@@ -195,13 +195,13 @@ object OwnerToKeyMapping {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.OwnerToKeyMapping
 
-  def fromProtoV0(
-      value: v0.OwnerToKeyMapping
+  def fromProtoV30(
+      value: v30.OwnerToKeyMapping
   ): ParsingResult[OwnerToKeyMapping] =
     for {
-      owner <- KeyOwner.fromProtoPrimitive(value.keyOwner, "keyOwner")
+      owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
       key <- ProtoConverter
-        .parseRequired(PublicKey.fromProtoPublicKeyV0, "public_key", value.publicKey)
+        .parseRequired(PublicKey.fromProtoPublicKeyV30, "public_key", value.publicKey)
     } yield OwnerToKeyMapping(owner, key)
 
 }
@@ -213,10 +213,10 @@ final case class SignedLegalIdentityClaim private (
     signature: Signature,
 ) extends TopologyStateUpdateMapping
     with PrettyPrinting {
-  def toProtoV0: v0.SignedLegalIdentityClaim =
-    v0.SignedLegalIdentityClaim(
+  def toProtoV30: v30.SignedLegalIdentityClaim =
+    v30.SignedLegalIdentityClaim(
       claim = claim,
-      signature = signature.toProtoV0.some,
+      signature = signature.toProtoV30.some,
     )
 
   override def pretty: Pretty[SignedLegalIdentityClaim] =
@@ -240,12 +240,16 @@ object SignedLegalIdentityClaim {
   def create(claim: LegalIdentityClaim, signature: Signature): SignedLegalIdentityClaim =
     SignedLegalIdentityClaim(claim.uid, claim.toByteString, signature)
 
-  def fromProtoV0(
+  def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
-      value: v0.SignedLegalIdentityClaim,
+      value: v30.SignedLegalIdentityClaim,
   ): ParsingResult[SignedLegalIdentityClaim] =
     for {
-      signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", value.signature)
+      signature <- ProtoConverter.parseRequired(
+        Signature.fromProtoV30,
+        "signature",
+        value.signature,
+      )
       claim <- LegalIdentityClaim.fromByteString(protocolVersionValidation)(value.claim)
     } yield SignedLegalIdentityClaim(claim.uid, value.claim, signature)
 }
@@ -262,8 +266,8 @@ final case class LegalIdentityClaim private (
     with HasProtocolVersionedWrapper[LegalIdentityClaim] {
   @transient override protected lazy val companionObj: LegalIdentityClaim.type = LegalIdentityClaim
 
-  protected def toProtoV0: v0.LegalIdentityClaim =
-    v0.LegalIdentityClaim(
+  protected def toProtoV30: v30.LegalIdentityClaim =
+    v30.LegalIdentityClaim(
       uniqueIdentifier = uid.toProtoPrimitive,
       evidence = evidence.toProtoOneOf,
     )
@@ -279,9 +283,9 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
   override val name: String = "LegalIdentityClaim"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.LegalIdentityClaim)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LegalIdentityClaim)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -295,8 +299,8 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
       None,
     )
 
-  private def fromProtoV0(
-      claimP: v0.LegalIdentityClaim
+  private def fromProtoV30(
+      claimP: v30.LegalIdentityClaim
   )(bytes: ByteString): ParsingResult[LegalIdentityClaim] =
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(claimP.uniqueIdentifier, "uniqueIdentifier")
@@ -308,25 +312,26 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
 }
 
 sealed trait LegalIdentityClaimEvidence {
-  def toProtoOneOf: v0.LegalIdentityClaim.Evidence
+  def toProtoOneOf: v30.LegalIdentityClaim.Evidence
 }
 
 object LegalIdentityClaimEvidence {
   final case class X509Cert(pem: X509CertificatePem) extends LegalIdentityClaimEvidence {
-    override def toProtoOneOf: v0.LegalIdentityClaim.Evidence.X509Cert =
-      v0.LegalIdentityClaim.Evidence.X509Cert(pem.unwrap)
+    override def toProtoOneOf: v30.LegalIdentityClaim.Evidence.X509Cert =
+      v30.LegalIdentityClaim.Evidence.X509Cert(pem.unwrap)
   }
 
   def fromProtoOneOf(
-      evidenceP: v0.LegalIdentityClaim.Evidence
+      evidenceP: v30.LegalIdentityClaim.Evidence
   ): ParsingResult[LegalIdentityClaimEvidence] = {
     evidenceP match {
-      case v0.LegalIdentityClaim.Evidence.X509Cert(pem) =>
+      case v30.LegalIdentityClaim.Evidence.X509Cert(pem) =>
         X509CertificatePem
           .fromBytes(pem)
           .map(X509Cert)
           .leftMap(err => ProtoDeserializationError.OtherError(s"Failed to parse PEM: $err"))
-      case v0.LegalIdentityClaim.Evidence.Empty => FieldNotSet("LegalIdentityClaim.evidence").asLeft
+      case v30.LegalIdentityClaim.Evidence.Empty =>
+        FieldNotSet("LegalIdentityClaim.evidence").asLeft
     }
   }
 
@@ -342,7 +347,7 @@ object LegalIdentityClaimEvidence {
   */
 sealed trait RequestSide {
 
-  def toProtoEnum: v0.RequestSide
+  def toProtoEnum: v30.RequestSide
 
   def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth
 
@@ -351,17 +356,17 @@ sealed trait RequestSide {
 object RequestSide {
 
   case object From extends RequestSide {
-    val toProtoEnum = v0.RequestSide.From
+    val toProtoEnum = v30.RequestSide.From
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(left))
   }
   case object To extends RequestSide {
-    val toProtoEnum = v0.RequestSide.To
+    val toProtoEnum = v30.RequestSide.To
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(right))
   }
   case object Both extends RequestSide {
-    val toProtoEnum = v0.RequestSide.Both
+    val toProtoEnum = v30.RequestSide.Both
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(left, right))
   }
@@ -374,13 +379,13 @@ object RequestSide {
       throw new IllegalArgumentException("should never flip request side of type " + Both.toString)
   }
 
-  def fromProtoEnum(side: v0.RequestSide): ParsingResult[RequestSide] =
+  def fromProtoEnum(side: v30.RequestSide): ParsingResult[RequestSide] =
     side match {
-      case v0.RequestSide.Both => Right(RequestSide.Both)
-      case v0.RequestSide.From => Right(RequestSide.From)
-      case v0.RequestSide.To => Right(RequestSide.To)
-      case v0.RequestSide.MissingRequestSide => Left(FieldNotSet(side.name))
-      case v0.RequestSide.Unrecognized(x) => Left(UnrecognizedEnum(side.name, x))
+      case v30.RequestSide.Both => Right(RequestSide.Both)
+      case v30.RequestSide.From => Right(RequestSide.From)
+      case v30.RequestSide.To => Right(RequestSide.To)
+      case v30.RequestSide.MissingRequestSide => Left(FieldNotSet(side.name))
+      case v30.RequestSide.Unrecognized(x) => Left(UnrecognizedEnum(side.name, x))
     }
 
   /** sides accumulator, used in folds in order to figure out if we've seen both sides */
@@ -408,10 +413,11 @@ final case class ParticipantState(
   )
   // architecture-handbook-entry-end: ParticipantState
 
-  def toParticipantAttributes: ParticipantAttributes = ParticipantAttributes(permission, trustLevel)
+  def toParticipantAttributes: ParticipantAttributes =
+    ParticipantAttributes(permission, trustLevel, None)
 
-  def toProtoV0: v0.ParticipantState = {
-    v0.ParticipantState(
+  def toProtoV30: v30.ParticipantState = {
+    v30.ParticipantState(
       side = side.toProtoEnum,
       domain = domain.toProtoPrimitive,
       participant = participant.uid.toProtoPrimitive,
@@ -446,8 +452,8 @@ object ParticipantState {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.ParticipantState
 
-  def fromProtoV0(
-      parsed: v0.ParticipantState
+  def fromProtoV30(
+      parsed: v30.ParticipantState
   ): ParsingResult[ParticipantState] =
     for {
       side <- RequestSide.fromProtoEnum(parsed.side)
@@ -468,8 +474,8 @@ final case class MediatorDomainState(
 
   // architecture-handbook-entry-end: MediatorDomainState
 
-  def toProtoV0: v0.MediatorDomainState = {
-    v0.MediatorDomainState(
+  def toProtoV30: v30.MediatorDomainState = {
+    v30.MediatorDomainState(
       side = side.toProtoEnum,
       domain = domain.toProtoPrimitive,
       mediator = mediator.uid.toProtoPrimitive,
@@ -502,8 +508,8 @@ object MediatorDomainState {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.MediatorDomainState
 
-  def fromProtoV0(
-      parsed: v0.MediatorDomainState
+  def fromProtoV30(
+      parsed: v30.MediatorDomainState
   ): ParsingResult[MediatorDomainState] =
     for {
       side <- RequestSide.fromProtoEnum(parsed.side)
@@ -532,8 +538,8 @@ final case class PartyToParticipant(
     s"Unable to allocate party ${party.uid}, as it has the same name as the participant's admin party.",
   )
 
-  def toProtoV0: v0.PartyToParticipant =
-    v0.PartyToParticipant(
+  def toProtoV30: v30.PartyToParticipant =
+    v30.PartyToParticipant(
       side = side.toProtoEnum,
       party = party.toProtoPrimitive,
       participant = participant.toProtoPrimitive,
@@ -564,10 +570,10 @@ object PartyToParticipant {
 
   def dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.PartyToParticipant
 
-  def fromProtoV0(
-      value: v0.PartyToParticipant
+  def fromProtoV30(
+      value: v30.PartyToParticipant
   ): ParsingResult[PartyToParticipant] = {
-    val v0.PartyToParticipant(sideP, partyP, participantP, permissionP) = value
+    val v30.PartyToParticipant(sideP, partyP, participantP, permissionP) = value
     for {
       partyUid <- UniqueIdentifier.fromProtoPrimitive(partyP, "party")
       participant <- ParticipantId.fromProtoPrimitive(participantP, "participant")
@@ -581,8 +587,8 @@ object PartyToParticipant {
 final case class VettedPackages(participant: ParticipantId, packageIds: Seq[LfPackageId])
     extends TopologyStateUpdateMapping
     with PrettyPrinting {
-  def toProtoV0: v0.VettedPackages =
-    v0.VettedPackages(
+  def toProtoV30: v30.VettedPackages =
+    v30.VettedPackages(
       participant =
         participant.uid.toProtoPrimitive, // use UID proto, not participant proto (as this would be Member.toProtoPrimitive) which includes the unnecessary code
       packageIds = packageIds,
@@ -604,8 +610,8 @@ final case class VettedPackages(participant: ParticipantId, packageIds: Seq[LfPa
 object VettedPackages {
   val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.PackageUse
 
-  def fromProtoV0(value: v0.VettedPackages): ParsingResult[VettedPackages] = {
-    val v0.VettedPackages(participantP, packagesP) = value
+  def fromProtoV30(value: v30.VettedPackages): ParsingResult[VettedPackages] = {
+    val v30.VettedPackages(participantP, packagesP) = value
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(participantP, "participant")
       packageIds <- packagesP
@@ -620,14 +626,9 @@ final case class DomainParametersChange(
     domainId: DomainId,
     domainParameters: DynamicDomainParameters,
 ) extends DomainGovernanceMapping {
-  private[transaction] def toProtoV0: v0.DomainParametersChange = v0.DomainParametersChange(
+  private[transaction] def toProtoV30: v30.DomainParametersChange = v30.DomainParametersChange(
     domain = domainId.toProtoPrimitive,
-    Option(domainParameters.toProtoV0),
-  )
-
-  private[transaction] def toProtoV1: v1.DomainParametersChange = v1.DomainParametersChange(
-    domain = domainId.toProtoPrimitive,
-    Option(domainParameters.toProtoV1),
+    Option(domainParameters.toProtoV30),
   )
 
   override def dbType: DomainTopologyTransactionType = DomainParametersChange.dbType
@@ -638,23 +639,13 @@ final case class DomainParametersChange(
 object DomainParametersChange {
   val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.DomainParameters
 
-  private[transaction] def fromProtoV0(
-      value: v0.DomainParametersChange
-  ): ParsingResult[DomainParametersChange] = {
-    for {
-      uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
-      domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
-      domainParameters <- DynamicDomainParameters.fromProtoV0(domainParametersP)
-    } yield DomainParametersChange(DomainId(uid), domainParameters)
-  }
-
   private[transaction] def fromProtoV1(
-      value: v1.DomainParametersChange
+      value: v30.DomainParametersChange
   ): ParsingResult[DomainParametersChange] = {
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
-      domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
-      domainParameters <- DynamicDomainParameters.fromProtoV1(domainParametersP)
+      domainParametersXP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
+      domainParameters <- DynamicDomainParameters.fromProtoV30(domainParametersXP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
   }
 }

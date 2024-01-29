@@ -6,6 +6,7 @@ package com.digitalasset.canton.networking.grpc
 import com.digitalasset.canton.config.ApiLoggingConfig
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
+import com.digitalasset.canton.logging.NamedEventCapturingLogger.eventToString
 import com.digitalasset.canton.logging.{NamedEventCapturingLogger, TracedLogger}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -22,7 +23,7 @@ import org.slf4j.event.Level
 import org.slf4j.event.Level.*
 
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
@@ -165,7 +166,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
     capturingLogger.getLogger(classOf[ApiRequestLoggerTest])
   override protected val logger: TracedLogger = TracedLogger(noTracingLogger)
 
-  class Env(logMessagePayloads: Boolean, maxStringLenth: Int, maxMetadataSize: Int) {
+  class Env(logMessagePayloads: Boolean, maxStringLength: Int, maxMetadataSize: Int) {
     val service: HelloService = mock[HelloService]
 
     val helloServiceDefinition: ServerServiceDefinition =
@@ -175,8 +176,8 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
       new ApiRequestLogger(
         capturingLogger,
         config = ApiLoggingConfig(
-          messagePayloads = Some(logMessagePayloads),
-          maxStringLength = maxStringLenth,
+          messagePayloads = logMessagePayloads,
+          maxStringLength = maxStringLength,
           maxMetadataSize = maxMetadataSize,
         ),
       )
@@ -221,21 +222,26 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
   )(test: Env => T): T = {
     val env = new Env(logMessagePayloads, maxStringLength, maxMetadataSize)
     val cnt = testCounter.incrementAndGet()
+    val result = new AtomicReference[T]
     try {
       progressLogger.debug(s"Starting api-request-logger-test $cnt")
 
-      val result = TraceContextGrpc.withGrpcContext(requestTraceContext) { test(env) }
+      result.set(TraceContextGrpc.withGrpcContext(requestTraceContext) {
+        test(env)
+      })
 
       // Check this, unless test is failing.
       capturingLogger.assertNoMoreEvents()
-      progressLogger.debug(s"Finished api-request-logger-test $cnt with $result")
-      result
+      result.get
     } catch {
       case e: Throwable =>
         progressLogger.info("Test failed with exception", e)
-        env.close()
+        capturingLogger.eventQueue.iterator().forEachRemaining { event =>
+          progressLogger.info(s"Remaining log event: ${eventToString(event)}")
+        }
         throw e
     } finally {
+      progressLogger.debug(s"Finished api-request-logger-test $cnt with ${result.get}")
       env.close()
     }
   }
@@ -362,7 +368,10 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
           when(service.hello(Request)).thenThrow(throwable)
 
-          assertClientFailure(client.hello(Request), Status.UNKNOWN)
+          assertClientFailure(
+            client.hello(Request),
+            Status.UNKNOWN.withDescription("Application error processing RPC"),
+          )
 
           assertRequestLogged
           capturingLogger.assertNextMessageIs(
@@ -617,7 +626,9 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         "log progress and the error" in withEnv() { implicit env =>
           setupStreamedService(_ => throw throwable)
 
-          callStreamedServiceAndCheckClientFailure(Status.UNKNOWN)
+          callStreamedServiceAndCheckClientFailure(
+            Status.UNKNOWN.withDescription("Application error processing RPC")
+          )
 
           assertRequestAndResponsesLogged
           capturingLogger.assertNextMessageIs(

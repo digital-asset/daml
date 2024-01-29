@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -49,14 +48,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     def transform3(e: Expr): Boolean = {
       val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
       val e1 = closureConvert(e0)
-      val _ = flattenToAnf(e1, LeftToRight)
-      true
-    }
-
-    def transform4(e: Expr): Boolean = {
-      val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
-      val e1 = closureConvert(e0)
-      val _ = flattenToAnf(e1, RightToLeft)
+      val _ = flattenToAnf(e1)
       true
     }
 
@@ -172,18 +164,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             runTest(transform3)(depth, recursionPoint)
-          }
-        }
-      }
-    }
-
-    {
-      // TODO https://github.com/digital-asset/daml/issues/13351
-      val depth = 3000
-      s"transform(phase1, closureConversion, flattenToFullAnf), depth = $depth" - {
-        forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
-          name in {
-            runTest(transform4)(depth, recursionPoint)
           }
         }
       }

@@ -68,8 +68,8 @@ abstract class DbSyncDomainPersistentStateCommon(
       protocolVersion,
       batching.maxItemsInSqlClause,
       caching.contractStore,
-      dbQueryBatcherConfig = parameters.dbBatchAggregationConfig,
-      insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+      dbQueryBatcherConfig = batching.aggregator,
+      insertBatchAggregatorConfig = batching.aggregator,
       timeouts,
       loggerFactory,
     )
@@ -94,14 +94,6 @@ abstract class DbSyncDomainPersistentStateCommon(
       timeouts,
       loggerFactory,
     )
-  val contractKeyJournal: DbContractKeyJournal = new DbContractKeyJournal(
-    storage,
-    domainId,
-    batching.maxItemsInSqlClause,
-    parameters.journalPruning.toInternal,
-    timeouts,
-    loggerFactory,
-  )
   private val client = SequencerClientDiscriminator.fromIndexedDomainId(domainId)
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
@@ -114,8 +106,8 @@ abstract class DbSyncDomainPersistentStateCommon(
     domainId,
     storage,
     batching.maxItemsInSqlClause,
-    insertBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
-    replaceBatchAggregatorConfig = parameters.dbBatchAggregationConfig,
+    insertBatchAggregatorConfig = batching.aggregator,
+    replaceBatchAggregatorConfig = batching.aggregator,
     timeouts,
     loggerFactory,
   )
@@ -145,14 +137,13 @@ abstract class DbSyncDomainPersistentStateCommon(
       loggerFactory,
     )
 
-  override def isMemory(): Boolean = false
+  override def isMemory: Boolean = false
 
   override def close(): Unit = Lifecycle.close(
     eventLog,
     contractStore,
     transferStore,
     activeContractStore,
-    contractKeyJournal,
     sequencedEventStore,
     requestJournalStore,
     acsCommitmentStore,

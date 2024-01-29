@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -11,7 +11,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-class AlphaEquivSpecV1 extends AlphaEquivSpec(LanguageMajorVersion.V1)
 class AlphaEquivSpecV2 extends AlphaEquivSpec(LanguageMajorVersion.V2)
 
 class AlphaEquivSpec(majorLanguageVersion: LanguageMajorVersion)

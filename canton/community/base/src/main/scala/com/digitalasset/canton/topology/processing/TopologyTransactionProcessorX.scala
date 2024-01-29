@@ -4,11 +4,12 @@
 package com.digitalasset.canton.topology.processing
 
 import cats.syntax.functorFilter.*
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -20,9 +21,9 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.{
+  CachingDomainTopologyClient,
   DomainTopologyClientWithInitX,
   StoreBasedDomainTopologyClient,
-  StoreBasedDomainTopologyClientX,
 }
 import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
@@ -37,12 +38,14 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.*
 
 class TopologyTransactionProcessorX(
     domainId: DomainId,
-    crypto: Crypto,
+    pureCrypto: CryptoPureApi,
     store: TopologyStoreX[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
+    terminateProcessing: TerminateProcessing,
     enableTopologyTransactionValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
@@ -59,12 +62,17 @@ class TopologyTransactionProcessorX(
 
   override type SubscriberType = TopologyTransactionProcessingSubscriberX
 
+  private val maxSequencedTimeAtInitializationF =
+    TraceContext.withNewTraceContext(implicit traceContext =>
+      maxTimestampFromStore().map(_.map { case (sequenced, _effective) => sequenced })
+    )
+
   private val stateProcessor = new TopologyStateProcessorX(
     store,
     None,
     enableTopologyTransactionValidation,
     new ValidatingTopologyMappingXChecks(store, loggerFactory),
-    crypto,
+    pureCrypto,
     loggerFactory,
   )
 
@@ -107,41 +115,61 @@ class TopologyTransactionProcessorX(
       messages: List[TopologyTransactionsBroadcastX],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val tx = messages.flatMap(_.broadcasts).flatMap(_.transactions)
-    performUnlessClosingEitherU("process-topology-transaction")(
-      stateProcessor
-        .validateAndApplyAuthorization(
-          sequencingTimestamp,
-          effectiveTimestamp,
-          tx,
-          abortIfCascading = false,
-          expectFullAuthorization = false,
-        )
-    ).merge
-      .flatMap { validated =>
-        inspectAndAdvanceTopologyTransactionDelay(
-          sequencingTimestamp,
-          effectiveTimestamp,
-          validated,
-        )
-        logger.debug(
-          s"Notifying listeners of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
-        )
-        import cats.syntax.parallel.*
 
-        for {
-          _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
-            listeners.toList.parTraverse_(
-              _.observed(
-                sequencingTimestamp,
-                effectiveTimestamp,
-                sc,
-                validated.collect { case tx if tx.rejectionReason.isEmpty => tx.transaction },
-              )
-            )
-          )
-        } yield ()
+    // processing an event with a sequencing time less than what was already in the store
+    // when initializing TopologyTransactionProcessor means that is it is being replayed
+    // after crash recovery (eg reconnecting to a domain or restart after a crash)
+    for {
+      maxSequencedTimeAtInitialization <- performUnlessClosingF(
+        "max-sequenced-time-at-initialization"
+      )(
+        maxSequencedTimeAtInitializationF
+      )
+      eventIsBeingReplayed = maxSequencedTimeAtInitialization.exists(_ >= sequencingTimestamp)
 
+      _ = if (eventIsBeingReplayed) {
+        logger.info(
+          s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $tx"
+        )
       }
+      validated <- performUnlessClosingEitherU("process-topology-transaction")(
+        stateProcessor
+          .validateAndApplyAuthorization(
+            sequencingTimestamp,
+            effectiveTimestamp,
+            tx,
+            abortIfCascading = false,
+            expectFullAuthorization = false,
+          )
+      ).merge
+
+      _ = inspectAndAdvanceTopologyTransactionDelay(
+        sequencingTimestamp,
+        effectiveTimestamp,
+        validated,
+      )
+      _ = logger.debug(
+        s"Notifying listeners of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
+      )
+
+      _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
+        listeners.toList.parTraverse_(
+          _.observed(
+            sequencingTimestamp,
+            effectiveTimestamp,
+            sc,
+            validated.collect { case tx if tx.rejectionReason.isEmpty => tx.transaction },
+          )
+        )
+      )
+
+      // TODO(#15089): do not notify the terminate processing for replayed events.
+      //               but for some reason, this is still required, otherwise
+      //               SequencerXOnboardingTombstoneTestPostgres fails
+      _ <- performUnlessClosingF("terminate-processing")(
+        terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
+      )
+    } yield ()
   }
 
   private def inspectAndAdvanceTopologyTransactionDelay(
@@ -194,39 +222,45 @@ object TopologyTransactionProcessorX {
       topologyStore: TopologyStoreX[TopologyStoreId.DomainStore],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      crypto: Crypto,
+      pureCrypto: CryptoPureApi,
       parameters: CantonNodeParameters,
       enableTopologyTransactionValidation: Boolean,
       clock: Clock,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      executionContext: ExecutionContext
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
   ): Future[(TopologyTransactionProcessorX, DomainTopologyClientWithInitX)] = {
 
     val processor = new TopologyTransactionProcessorX(
       domainId,
-      crypto,
+      pureCrypto,
       topologyStore,
       _ => (),
+      TerminateProcessing.NoOpTerminateTopologyProcessing,
       enableTopologyTransactionValidation,
       futureSupervisor,
       parameters.processingTimeouts,
       loggerFactory,
     )
 
-    val client = new StoreBasedDomainTopologyClientX(
+    val cachingClientF = CachingDomainTopologyClient.createX(
       clock,
       domainId,
       protocolVersion,
       topologyStore,
       StoreBasedDomainTopologyClient.NoPackageDependencies,
+      parameters.cachingConfigs,
+      parameters.batchingConfig,
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,
     )
 
-    processor.subscribe(client)
-    Future.successful((processor, client))
+    cachingClientF.map { client =>
+      processor.subscribe(client)
+      (processor, client)
+    }
   }
 }

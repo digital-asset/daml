@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -101,7 +101,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T {signatory} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:T {observer} this] (Nil @Party));
-        agreement TRACE @Text "contract agreement" "";
         choice Choice (self) (arg: M:Either M:Nested Int64) : M:Nested,
           controllers TRACE @(List Party) "template choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
           observers TRACE @(List Party) "template choice observers" (Nil @Party),
@@ -123,7 +122,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition TRACE @Bool "precondition" (M:Human {precond} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
-        agreement TRACE @Text "contract agreement" "";
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
@@ -143,7 +141,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition True;
         signatories Cons @Party [M:Dummy {signatory} this] (Nil @Party);
         observers Nil @Party;
-        agreement "";
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
           to upure @Unit ();
@@ -245,7 +242,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         precondition True;
         signatories Cons @Party [Test:Helper {sig} this] (Nil @Party);
         observers Nil @Party;
-        agreement "";
         choice CreateNonvisibleKey (self) (arg: Unit): ContractId M:T,
           controllers Cons @Party [Test:Helper {obs} this] (Nil @Party),
           observers Nil @Party
@@ -371,7 +367,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        agreementText = "",
         signatories = Set(signatory),
         observers = Set.empty,
         keyOpt = None,
@@ -498,7 +493,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -542,7 +536,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -568,7 +561,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -591,7 +583,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -618,7 +609,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -644,7 +634,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -671,7 +660,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -697,7 +685,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -744,7 +731,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -770,7 +756,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -793,7 +778,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -820,7 +804,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -846,7 +829,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -873,7 +855,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -901,7 +882,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -945,7 +925,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -976,7 +955,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1230,7 +1208,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1259,7 +1236,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1294,7 +1270,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "template choice controllers",
@@ -1340,7 +1315,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "template choice controllers",
@@ -1372,7 +1346,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "queries key",
                 "queries contract",
                 "precondition",
-                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )
@@ -1633,7 +1606,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "template choice controllers",
@@ -1663,7 +1635,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "template choice controllers",
@@ -1729,7 +1700,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "starts test",
                 "queries contract",
                 "precondition",
-                "contract agreement",
                 "contract signatories",
                 "contract observers",
                 "key",
@@ -1777,7 +1747,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "starts test",
                 "queries contract",
                 "precondition",
-                "contract agreement",
                 "contract signatories",
                 "contract observers",
                 "key",
@@ -2046,7 +2015,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2086,7 +2054,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2114,7 +2081,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2355,7 +2321,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "ends test",
@@ -2401,7 +2366,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
             )
@@ -2430,7 +2394,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "queries key",
                 "queries contract",
                 "precondition",
-                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )
@@ -2662,7 +2625,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2707,7 +2669,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "starts test",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2937,7 +2898,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
               "ends test",
@@ -2962,7 +2922,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "queries key",
               "queries contract",
               "precondition",
-              "contract agreement",
               "contract signatories",
               "contract observers",
             )
@@ -2991,7 +2950,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "queries key",
                 "queries contract",
                 "precondition",
-                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )

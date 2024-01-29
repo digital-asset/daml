@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -25,8 +25,6 @@ template GetCash
    amount: Amount
  where
    signatory payer, owner
-   agreement
-     show payer <> " pays " <> amountAsText amount <>" to " <> show owner
 
 template Iou
  with

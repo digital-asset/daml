@@ -14,7 +14,8 @@ import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.*
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.IgnoredSequencedEvent
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.util.PekkoUtilTest.{noOpKillSwitch, withNoOpKillSwitch}
+import com.digitalasset.canton.util.PekkoUtil.noOpKillSwitch
+import com.digitalasset.canton.util.PekkoUtilTest.withNoOpKillSwitch
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import com.google.protobuf.ByteString

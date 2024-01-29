@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,7 +20,7 @@ trait TestNodeBuilder {
 
   private def assertPackageVersion(packageId: PackageId): TransactionVersion =
     packageVersion(packageId).getOrElse(
-      throw new IllegalArgumentException(s"Could not lookup transaction version for ${packageId}")
+      throw new IllegalArgumentException(s"Could not lookup transaction version for $packageId")
     )
 
   private def contractPackageVersion(contract: Node.Create): TransactionVersion =
@@ -37,7 +37,6 @@ trait TestNodeBuilder {
       //  review if we should really provide a defaul package name.
       packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
-      agreementText: String = "",
   ): Node.Create = {
 
     val transactionVersion = version match {
@@ -77,7 +76,7 @@ trait TestNodeBuilder {
         if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
       templateId = templateId,
       arg = argument,
-      agreementText = agreementText,
+      agreementText = "", // to be removed
       signatories = signatories ++ maintainers,
       stakeholders = signatories ++ observers ++ maintainers,
       keyOpt = keyOpt,

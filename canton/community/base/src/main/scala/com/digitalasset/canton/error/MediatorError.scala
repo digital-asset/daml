@@ -6,7 +6,7 @@ package com.digitalasset.canton.error
 import com.daml.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import org.slf4j.event.Level
 
 sealed trait MediatorError extends Product with Serializable with PrettyPrinting
@@ -63,7 +63,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
     ) extends BaseCantonError.Impl(cause)
         with MediatorError {
       override def pretty: Pretty[Reject] = prettyOfClass(
@@ -71,22 +71,6 @@ object MediatorError extends MediatorErrorGroup {
         param("cause", _.cause.unquoted),
       )
     }
-  }
-
-  /** Used as a fallback to represent mediator errors coming from a mediator running a higher version.
-    * Only used for protocol versions from
-    * [[com.digitalasset.canton.protocol.messages.Verdict.MediatorRejectV1.firstApplicableProtocolVersion]]
-    * to [[com.digitalasset.canton.protocol.messages.Verdict.MediatorRejectV1.lastApplicableProtocolVersion]].
-    *
-    * @param id the id of the error code at the mediator. Only pass documented error code ids here, to avoid confusion.
-    */
-  final case class GenericError(
-      override val cause: String,
-      id: String,
-      category: ErrorCategory,
-      _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
-  ) extends BaseCantonError {
-    override def code: ErrorCode = new ErrorCode(id, category) {}
   }
 
   @Explanation(
@@ -99,7 +83,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v0.MediatorRejection.Code = v0.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
     ) extends Alarm(cause)
         with MediatorError
         with BaseCantonError {

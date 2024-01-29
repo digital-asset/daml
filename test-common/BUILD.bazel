@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -25,10 +25,6 @@ alias(
 load("//rules_daml:daml.bzl", "daml_compile")
 
 canonical_lf_versions = [
-    "1.8",
-    "1.14",
-    "1.15",
-    "1.dev",
     "2.1",
     "2.dev",
 ]

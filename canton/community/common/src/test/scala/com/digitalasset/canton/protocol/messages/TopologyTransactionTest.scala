@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.BaseTest.testedProtocolVersionValidation
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*

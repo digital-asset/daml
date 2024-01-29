@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -11,11 +11,10 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResource,
   SuiteResourceManagementAroundAll,
 }
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.Suite
 
@@ -132,12 +131,6 @@ trait CantonFixtureWithResource[A]
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
     config.ledgerClient(ports.head, token, applicationId, maxInboundMessageSize)
-
-  final protected def defaultLedgerClientWithoutId(
-      token: Option[String] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext): LedgerClientWithoutId =
-    config.ledgerClientWithoutId(ports.head, token, applicationId, maxInboundMessageSize)
 
   final protected def ledgerClients(
       token: Option[String] = None,

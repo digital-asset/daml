@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -15,7 +15,7 @@ daml_compile(
         ["daml/**/*.daml"],
         exclude = ["daml/Hidden.daml"],
     ),
-    target = "1.dev",
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -23,7 +23,7 @@ daml_compile(
     name = "hidden",
     srcs = ["daml/Hidden.daml"],
     data_dependencies = ["//language-support/ts/codegen/tests:build-and-lint.dar"],
-    target = "1.dev",
+    target = "2.dev",
 )
 
 # build-and-lint
@@ -94,7 +94,9 @@ sh_test(
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
-        "$(location //test-common:model-tests-default.dar)",
+        # TODO(#14706): revert to model-tests-default once the default major
+        #  version is 2
+        "$(location //test-common:model-tests-2.1.dar)",
         "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
         "$(POSIX_DIFF)",
@@ -108,7 +110,9 @@ sh_test(
         "//canton:community_app_deploy.jar",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
-        "//test-common:model-tests-default.dar",
+        # TODO(#14706): revert to model-tests-default once the default major
+        #  version is 2
+        "//test-common:model-tests-2.1.dar",
         "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],
@@ -155,11 +159,15 @@ sh_test(
 daml_compile(
     name = "npmcheck1",
     srcs = ["daml/Npm1.daml"],
+    # TODO(#14706): remove explicit target once the default major version is 2
+    target = "2.1",
 )
 
 daml_compile(
     name = "npmcheck2",
     srcs = ["daml/Npm2.daml"],
+    # TODO(#14706): remove explicit target once the default major version is 2
+    target = "2.1",
 )
 
 da_haskell_library(

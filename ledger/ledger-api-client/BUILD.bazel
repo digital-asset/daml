@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -76,66 +76,5 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_test_suite(
-    name = "ledger-api-client-integration-tests",
-    srcs = glob(["src/it/**/*.scala"]),
-    data = [
-        "//test-common:dar-files-default",
-        "//test-common:upgrades-MissingChoice-v1.dar",
-        "//test-common:upgrades-MissingChoice-v2.dar",
-        "//test-common:upgrades-MissingDataCon-v1.dar",
-        "//test-common:upgrades-MissingDataCon-v2.dar",
-        "//test-common:upgrades-MissingModule-v1.dar",
-        "//test-common:upgrades-MissingModule-v2.dar",
-        "//test-common:upgrades-MissingTemplate-v1.dar",
-        "//test-common:upgrades-MissingTemplate-v2.dar",
-        "//test-common:upgrades-RecordFieldsNewNonOptional-v1.dar",
-        "//test-common:upgrades-RecordFieldsNewNonOptional-v2.dar",
-        "//test-common:upgrades-TemplateChangedKeyType-v1.dar",
-        "//test-common:upgrades-TemplateChangedKeyType-v2.dar",
-        "//test-common:upgrades-ValidUpgrade-v1.dar",
-        "//test-common:upgrades-ValidUpgrade-v2.dar",
-    ],
-    resources = [
-        "src/it/resources/logback-test.xml",
-    ],
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-    ],
-    tags = ["cpu:4"],
-    deps = [
-        ":ledger-api-client",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//ledger/error",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//libs-scala/caching",
-        "//libs-scala/concurrent",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/grpc-utils",
-        "//libs-scala/jwt",
-        "//libs-scala/ledger-resources",
-        "//libs-scala/logging-entries",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/testing-utils",
-        "//observability/metrics",
-        "//observability/tracing",
-        "//test-common:dar-files-default-lib",
-        "//test-common/canton/it-lib",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_netty_netty_handler",
     ],
 )

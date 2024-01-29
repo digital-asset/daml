@@ -4,12 +4,14 @@
 package com.digitalasset.canton.topology.admin.grpc
 
 import cats.data.EitherT
+import cats.syntax.either.*
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.crypto.store.CryptoPublicStore
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.UniqueIdentifier
-import com.digitalasset.canton.topology.admin.v1 as adminProto
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.topology.admin.v30 as adminProto
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
@@ -19,19 +21,28 @@ class GrpcIdentityInitializationServiceX(
     clock: Clock,
     bootstrap: GrpcIdentityInitializationServiceX.Callback,
     cryptoPublicStore: CryptoPublicStore,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends adminProto.IdentityInitializationServiceXGrpc.IdentityInitializationServiceX {
+    extends adminProto.IdentityInitializationServiceXGrpc.IdentityInitializationServiceX
+    with NamedLogging {
 
   override def initId(request: adminProto.InitIdRequest): Future[adminProto.InitIdResponse] = {
     // TODO(#14048) propagate trace context
-    // implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val adminProto.InitIdRequest(uidP) = request
     // TODO(#14048) proper error reporting
-    val res = for {
-      uid <- EitherT.fromEither[Future](UniqueIdentifier.fromProtoPrimitive_(uidP))
-      _ <- bootstrap.initializeWithProvidedId(uid)
+    for {
+      uid <- Future(
+        UniqueIdentifier
+          .fromProtoPrimitive_(uidP)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
+      )
+      _ <- bootstrap
+        .initializeWithProvidedId(uid)
+        .valueOr(err =>
+          throw io.grpc.Status.FAILED_PRECONDITION.withDescription(err).asRuntimeException()
+        )
     } yield adminProto.InitIdResponse()
-    EitherTUtil.toFuture(CantonGrpcUtil.mapErr(res))
   }
 
   override def getOnboardingTransactions(

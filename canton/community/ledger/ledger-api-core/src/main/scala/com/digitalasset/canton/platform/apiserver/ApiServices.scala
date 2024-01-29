@@ -53,7 +53,6 @@ import com.digitalasset.canton.platform.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -109,7 +108,6 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
-      enableExplicitDisclosure: Boolean,
       authenticateContract: AuthenticateContract,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
@@ -195,13 +193,13 @@ object ApiServices {
           transactionServiceRequestValidator,
         )
 
-      val apiEventQueryService =
+      val apiEventQueryServiceLegacy =
         EventQueryServiceImpl.create(ledgerId, eventQueryService, telemetry, loggerFactory)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId, telemetry, loggerFactory)
 
-      val apiVersionService =
+      val apiVersionServiceLegacy =
         ApiVersionService.create(
           ledgerFeatures,
           userManagementServiceConfig = userManagementServiceConfig,
@@ -209,7 +207,7 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
-      val apiPackageService =
+      val apiPackageServiceLegacy =
         ApiPackageService.create(ledgerId, packagesService, telemetry, loggerFactory)
 
       val apiConfigurationService =
@@ -239,7 +237,7 @@ object ApiServices {
           transactionFilterValidator,
         )
 
-      val apiTimeServiceOpt =
+      val apiTimeServiceLegacyOpt =
         optTimeServiceBackend.map(tsb =>
           new TimeServiceAuthorization(
             ApiTimeService
@@ -358,19 +356,19 @@ object ApiServices {
         )
 
       ledgerApiV2Services :::
-        apiTimeServiceOpt.toList :::
+        apiTimeServiceLegacyOpt.toList :::
         writeServiceBackedApiServices :::
         List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
-          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new PackageServiceAuthorization(apiPackageServiceLegacy, authorizer),
           new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
           new TransactionServiceAuthorization(apiTransactionService, authorizer),
-          new EventQueryServiceAuthorization(apiEventQueryService, authorizer),
+          new EventQueryServiceAuthorization(apiEventQueryServiceLegacy, authorizer),
           new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,
           apiHealthService,
-          apiVersionService,
+          apiVersionServiceLegacy,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
         ) ::: userManagementServices
     }
@@ -411,7 +409,6 @@ object ApiServices {
           ledgerId = ledgerId,
           resolveToTemplateId = resolveTemplateNameTo(_.primary)(indexService),
           upgradingEnabled = upgradingEnabled,
-          enableExplicitDisclosure = enableExplicitDisclosure,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(
@@ -470,26 +467,17 @@ object ApiServices {
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(
           configManagementService,
-          writeService,
-          timeProvider,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
         )
 
-        val participantPruningService = Option
-          .when(!multiDomainEnabled)( // TODO(i13540): pruning is not supported for multi domain
-            new ParticipantPruningServiceAuthorization(
-              ApiParticipantPruningService.createApiService(
-                indexService,
-                writeService,
-                metrics,
-                telemetry,
-                loggerFactory,
-              ),
-              authorizer,
-            )
-          )
-          .toList
+        val participantPruningService = ApiParticipantPruningService.createApiService(
+          indexService,
+          writeService,
+          metrics,
+          telemetry,
+          loggerFactory,
+        )
 
         val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
           val apiSubmissionServiceV2 = new ApiCommandSubmissionServiceV2(
@@ -535,7 +523,8 @@ object ApiServices {
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
           new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
-        ) ::: participantPruningService ::: ledgerApiV2Services
+          new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
+        ) ::: ledgerApiV2Services
       }
     }
   }

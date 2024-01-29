@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -104,22 +104,6 @@ private[lf] object SExpr {
   }
 
   object SEValue extends SValueContainer[SEValue] // used by Compiler
-
-  /** Function application with general arguments (deprecated)
-    * Although 'fun' is atomic, 'args' are still any kind of expression.
-    * This case would not exist if we performed a full/standard ANF pass.
-    * Because this case exists we must retain the complicated/slow path in the
-    * speedy-machine: executeApplication
-    */
-  @deprecated("Prefer SEAppAtomic or SEApp helper instead.", since = "2.4.0")
-  final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
-      extends SExpr
-      with SomeArrayEquals {
-    override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
-      val vfun = fun.lookupValue(machine)
-      machine.executeApplication(vfun, args)
-    }
-  }
 
   object SEApp {
     // Helper: build an application of an unrestricted expression, to value-arguments.
@@ -422,7 +406,6 @@ private[lf] object SExpr {
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class AgreementTextDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ContractKeyWithMaintainersDefRef(ref: DefinitionRef) extends SDefinitionRef

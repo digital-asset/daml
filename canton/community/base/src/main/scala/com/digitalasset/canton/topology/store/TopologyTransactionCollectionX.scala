@@ -8,7 +8,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -33,9 +33,9 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
     result.map(_.transaction.transaction.mapping).toList
 
   // note, we are reusing v0, as v0 just expects bytestrings ...
-  def toProtoV0: v0.TopologyTransactions = v0.TopologyTransactions(
+  def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
     items = result.map { item =>
-      v0.TopologyTransactions.Item(
+      v30.TopologyTransactions.Item(
         sequenced = Some(item.sequenced.toProtoPrimitive),
         validFrom = Some(item.validFrom.toProtoPrimitive),
         validUntil = item.validUntil.map(_.toProtoPrimitive),
@@ -55,6 +55,20 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
       result.mapFilter(_.selectMapping[T])
     )
 
+  def collectOfMapping(
+      codes: TopologyMappingX.Code*
+  ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
+    val codeSet = codes.toSet
+    StoredTopologyTransactionsX(
+      result.filter(tx => codeSet(tx.transaction.mapping.code))
+    )
+  }
+
+  def filter(
+      pred: SignedTopologyTransactionX[Op, M] => Boolean
+  ): StoredTopologyTransactionsX[Op, M] =
+    StoredTopologyTransactionsX(result.filter(stored => pred(stored.transaction)))
+
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(
       result
@@ -73,7 +87,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
     val certTypes = Set(
       TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.UnionspaceDefinitionX,
+      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
       TopologyMappingX.Code.IdentifierDelegationX,
     )
     val empty = Seq.empty[GenericStoredTopologyTransactionX]
@@ -121,29 +135,18 @@ object StoredTopologyTransactionsX
     StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> ProtoCodec(
-      ProtocolVersion.minimum,
-      _ =>
-        throw new UnsupportedOperationException(
-          s"Cannot deserialize: StoredTopologyTransactionsX are only supported from protocol version ${ProtocolVersion.CNTestNet}"
-        ),
-      _ =>
-        throw new UnsupportedOperationException(
-          s"Cannot serialize: StoredTopologyTransactionsX are only supported from protocol version ${ProtocolVersion.CNTestNet}"
-        ),
-    ),
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.CNTestNet,
-      supportedProtoVersion(v0.TopologyTransactions)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.TopologyTransactions)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
-  def fromProtoV0(
-      value: v0.TopologyTransactions
+  def fromProtoV30(
+      value: v30.TopologyTransactions
   ): ParsingResult[GenericStoredTopologyTransactionsX] = {
     def parseItem(
-        item: v0.TopologyTransactions.Item
+        item: v30.TopologyTransactions.Item
     ): ParsingResult[GenericStoredTopologyTransactionX] = {
       for {
         sequenced <- ProtoConverter.parseRequired(

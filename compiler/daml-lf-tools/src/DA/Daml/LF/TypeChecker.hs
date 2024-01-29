@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker
@@ -35,8 +35,7 @@ checkPackage ::
   -> [Diagnostic]
 checkPackage world version = concatMap (checkModuleInWorld world version) modules
     where
-      package = getWorldSelf world
-      modules = NM.toList (packageModules package)
+      modules = NM.toList (getWorldSelfPkgModules world)
 
 checkModuleInWorld :: World -> Version -> Module -> [Diagnostic]
 checkModuleInWorld world version m =

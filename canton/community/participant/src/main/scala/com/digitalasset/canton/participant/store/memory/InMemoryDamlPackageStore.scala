@@ -140,6 +140,15 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
     OptionT.fromOption(withoutDar)
   }
 
+  override def determinePackagesExclusivelyInDar(
+      packages: Seq[PackageId],
+      removeDar: DarDescriptor,
+  )(implicit tc: TraceContext): Future[Seq[PackageId]] = {
+    val packagesInOtherDars = Monoid.combineAll(darPackages.toMap.removed(removeDar.hash).values)
+    val packagesNotInAnyOtherDars = packages.toSet.diff(packagesInOtherDars)
+    Future.successful(packagesNotInAnyOtherDars.toSeq)
+  }
+
   override def removeDar(
       hash: Hash
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {

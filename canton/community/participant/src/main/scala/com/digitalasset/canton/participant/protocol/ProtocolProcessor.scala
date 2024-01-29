@@ -158,7 +158,9 @@ abstract class ProtocolProcessor[
       result <- {
         submission match {
           case untracked: steps.UntrackedSubmission =>
-            submitWithoutTracking(submissionParam, untracked)
+            submitWithoutTracking(submissionParam, untracked).tapLeft(submissionError =>
+              logger.warn(s"Failed to submit submission due to $submissionError")
+            )
           case tracked: steps.TrackedSubmission => submitWithTracking(submissionParam, tracked)
         }
       }
@@ -804,9 +806,11 @@ abstract class ProtocolProcessor[
               logger.error(
                 s"Mediator $declaredMediator declared in views is not the recipient $mediator of the root hash message"
               )
-              EitherT.right[steps.RequestError](
-                prepareForMediatorResultOfBadRequest(rc, sc, ts)
-              )
+              EitherT
+                .right[steps.RequestError](
+                  prepareForMediatorResultOfBadRequest(rc, sc, ts)
+                )
+                .thereafter(_ => handleRequestData.complete(None))
             }
 
             for {
@@ -969,7 +973,6 @@ abstract class ProtocolProcessor[
             pendingDataAndResponses <- steps.constructPendingDataAndResponse(
               pendingDataAndResponseArgs,
               ephemeral.transferCache,
-              ephemeral.contractStore,
               requestFuturesF.flatMap(_.activenessResult),
               mediator,
               freshOwnTimelyTx,
@@ -1042,7 +1045,7 @@ abstract class ProtocolProcessor[
                   }
               s"approved=${approved}, rejected=${rejected}" }"
           )
-          sendResponses(requestId, rc, signedResponsesTo, Some(messageId))
+          sendResponses(requestId, signedResponsesTo, Some(messageId))
             .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
             .mapK(FutureUnlessShutdown.outcomeK)
         } else {
@@ -1085,7 +1088,7 @@ abstract class ProtocolProcessor[
           signResponse(snapshot, response).map(_ -> recipients)
         })
 
-        _ <- sendResponses(requestId, rc, messages)
+        _ <- sendResponses(requestId, messages)
           .leftMap(err => steps.embedRequestError(SequencerRequestError(err)))
 
         _ = handleRequestData.complete(None)
@@ -1197,13 +1200,7 @@ abstract class ProtocolProcessor[
   ): EitherT[Future, steps.ResultError, EitherT[FutureUnlessShutdown, steps.ResultError, Unit]] = {
     ephemeral.recordOrderPublisher.tick(sc, resultTs)
 
-    val snapshotTs =
-      if (protocolVersion >= ProtocolVersion.v5) requestId.unwrap
-      else {
-        // Keeping legacy behavior to enforce a consistent behavior in old protocol versions.
-        // If different participants pick different values, this could result in a ledger fork.
-        resultTs
-      }
+    val snapshotTs = requestId.unwrap
 
     for {
       snapshot <- EitherT.right(
@@ -1341,7 +1338,6 @@ abstract class ProtocolProcessor[
           _verdict,
           resultRootHash,
           _domainId,
-          _,
         ) <- unsignedResultE.toOption
         case WrappedPendingRequestData(pendingRequestData) <- Some(pendingRequestDataOrReplayData)
         case PendingTransaction(txId, _, _, _, _, requestTime, _, _, _, _) <- Some(

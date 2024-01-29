@@ -3,12 +3,14 @@
 
 -- @ SCRIPT-V2
 
+-- @ WARN range=13:1-13:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
 {-# LANGUAGE ApplicativeDo #-}
 
 module Daml3ScriptTrySubmit where
 
 import Daml.Script
-import Daml.Script.Questions
+import Daml.Script.Internal
 import DA.Assert
 import DA.Exception
 import DA.Text
@@ -131,18 +133,6 @@ contractNotActive = script do
 --     Right _ -> error "contractNotActive incorrectly succeeded"
 
 -- DisclosedContractKeyHashingError: Cannot test DisclosedContractKeyHashingError yet, scripts does not support this functionality
-
-duplicateContractKey : Script ()
-duplicateContractKey = script do
-  alice <- allocateParty "alice"
-  alice `submit` createCmd T1 with t1_p = alice
-  res <- alice `trySubmit` createCmd T1 with t1_p = alice
-  case res of
-    Left (DuplicateContractKey (Some (fromAnyContractKey @T1 -> Some shouldBeAlice))) -> shouldBeAlice === alice
-    -- Key is often not provided when using canton
-    Left (DuplicateContractKey None) -> pure ()
-    Left e -> error $ "duplicateContractKey incorrect error: " <> show e
-    Right _ -> error "duplicateContractKey incorrectly succeeded"
 
 -- InconsistentContractKey: I don't know how to trigger an InconsistentContractKey error
 

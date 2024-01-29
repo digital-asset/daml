@@ -332,10 +332,10 @@ class StoreBackedCommandExecutorSpec
 
       val store = mock[ContractStore]
       when(
-        store.lookupContractStateWithoutDivulgence(any[LfContractId])(any[LoggingContextWithTrace])
+        store.lookupContractState(any[LfContractId])(any[LoggingContextWithTrace])
       ).thenReturn(Future.successful(ContractState.NotFound))
       when(
-        store.lookupContractStateWithoutDivulgence(same(stakeholderContractId))(
+        store.lookupContractState(same(stakeholderContractId))(
           any[LoggingContextWithTrace]
         )
       ).thenReturn(
@@ -344,7 +344,7 @@ class StoreBackedCommandExecutorSpec
         )
       )
       when(
-        store.lookupContractStateWithoutDivulgence(same(archivedContractId))(
+        store.lookupContractState(same(archivedContractId))(
           any[LoggingContextWithTrace]
         )
       ).thenReturn(Future.successful(ContractState.Archived))
@@ -403,21 +403,14 @@ class StoreBackedCommandExecutorSpec
         Some(divulgedContractId),
         Some(
           Some(
-            s"Contract with $divulgedContractId was not found or it refers to a divulged contract."
+            s"Contract with $divulgedContractId was not found."
           )
         ),
       )
     }
 
     "disallow archived contracts" in {
-      doTest(
-        Some(archivedContractId),
-        Some(
-          Some(
-            s"Contract with $archivedContractId was not found or it refers to a divulged contract."
-          )
-        ),
-      )
+      doTest(Some(archivedContractId), Some(Some("Contract archived")))
     }
 
     "disallow unauthorized disclosed contracts" in {

@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.apply.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
-import com.digitalasset.canton.domain.api.v0.SequencedEventTrafficState as SequencedEventTrafficStateP
+import com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState as SequencedEventTrafficStateP
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*

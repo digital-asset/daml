@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
@@ -21,7 +21,7 @@ pattern Daml2ScriptModule <- ModuleIn Daml2ScriptPackage "Daml.Script"
 pattern Daml3ScriptPackage :: GHC.UnitId
 pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitIdFS -> Just _)
 pattern Daml3ScriptInternalModule :: GHC.Module
-pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal"
+pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal.LowLevel"
 
 substUnit :: TyVar -> Type -> Type
 substUnit tyVar ty = TyCoRep.substTy (setTvSubstEnv emptyTCvSubst $ mkVarEnv [(tyVar, TyConApp unitTyCon [])]) ty

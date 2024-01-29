@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -132,7 +132,6 @@ private[lf] object Speedy {
       packageName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       value: SValue,
-      agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
       keyOpt: Option[CachedKey],
@@ -148,7 +147,7 @@ private[lf] object Speedy {
         packageName = packageName,
         templateId = templateId,
         arg = arg,
-        agreementText = agreementText,
+        agreementText = "", // to be removed
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
@@ -1226,70 +1225,6 @@ private[lf] object Speedy {
       }
     }
 
-    /** The function has been evaluated to a value, now start evaluating the arguments. */
-    private[speedy] final def executeApplication(
-        vfun: SValue,
-        newArgs: Array[SExpr],
-    ): Control[Nothing] = {
-      vfun match {
-        case SValue.SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-
-          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          discard[Boolean](actuals.addAll(actualsSoFar))
-
-          val othersLength = newArgs.length - missing
-
-          // Not enough arguments. Push a continuation to construct the PAP.
-          if (othersLength < 0) {
-            this.pushKont(KPap(prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              val others = new Array[SExpr](othersLength)
-              System.arraycopy(newArgs, missing, others, 0, othersLength)
-              this.pushKont(KArg(this, others))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case closure: SValue.PClosure =>
-                // Push a continuation to execute the function body when the arguments have been evaluated
-                this.pushKont(KFun(this, closure, actuals))
-
-              case SValue.PBuiltin(builtin) =>
-                // Push a continuation to execute the builtin when the arguments have been evaluated
-                this.pushKont(KBuiltin(this, builtin, actuals))
-            }
-          }
-          this.evaluateArguments(actuals, newArgs, newArgsLimit)
-
-        case _ =>
-          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
-      }
-    }
-
-    /** Evaluate the first 'n' arguments in 'args'.
-      *      'args' will contain at least 'n' expressions, but it may contain more(!)
-      *
-      *      This is because, in the call from 'executeApplication' below, although over-applied
-      *      arguments are pushed into a continuation, they are not removed from the original array
-      *      which is passed here as 'args'.
-      */
-    private[speedy] final def evaluateArguments(
-        actuals: util.ArrayList[SValue],
-        args: Array[SExpr],
-        n: Int,
-    ): Control[Nothing] = {
-      var i = 1
-      while (i < n) {
-        val arg = args(n - i)
-        this.pushKont(KPushTo(this, actuals, arg))
-        i = i + 1
-      }
-      Control.Expression(args(0))
-    }
-
     // This translates a well-typed LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
     // Note the method does not check the value is well-typed as opposed as
@@ -1710,28 +1645,6 @@ private[lf] object Speedy {
   object KOverApp {
     def apply[Q](machine: Machine[Q], newArgs: Array[SExprAtomic]): KOverApp[Q] =
       KOverApp(machine, machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
-  }
-
-  /** The function has been evaluated to a value. Now restore the environment and execute the application */
-  private[speedy] final case class KArg[Q] private (
-      machine: Machine[Q],
-      savedBase: Int,
-      frame: Frame,
-      actuals: Actuals,
-      newArgs: Array[SExpr],
-  ) extends Kont[Q]
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute(vfun: SValue): Control[Nothing] = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
-      machine.executeApplication(vfun, newArgs)
-    }
-  }
-
-  object KArg {
-    def apply[Q](machine: Machine[Q], newArgs: Array[SExpr]): KArg[Q] =
-      KArg(machine, machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */

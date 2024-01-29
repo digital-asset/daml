@@ -278,7 +278,7 @@ class SendTracker(
         MonadUtil.sequentialTraverse_(pendingSends.keys)(
           removePendingSendUnlessTimeout(_, Some(UnlessShutdown.AbortedDueToShutdown), None)
         ),
-        timeouts.shutdownProcessing.duration,
+        timeouts.shutdownProcessing,
       ),
       SyncCloseable("send-tracker-store", store.close()),
     )

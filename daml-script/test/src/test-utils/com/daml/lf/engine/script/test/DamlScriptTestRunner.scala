@@ -1,11 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import org.scalatest.{Assertion, Suite}
 import org.scalatest.matchers.should.Matchers

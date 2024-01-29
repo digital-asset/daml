@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -30,7 +30,6 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
            |Daml3ScriptTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
            |Daml3ScriptTrySubmit:createEmptyContractKeyMaintainers SUCCESS
            |Daml3ScriptTrySubmit:devError SUCCESS
-           |Daml3ScriptTrySubmit:duplicateContractKey SUCCESS
            |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
            |Daml3ScriptTrySubmit:truncatedError FAILURE (com.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
            |Daml3ScriptTrySubmit:unhandledException SUCCESS

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -40,18 +40,6 @@ class TransactionCoderSpec
     Table("transaction version", TransactionVersion.All: _*)
 
   "encode-decode" should {
-
-    "do contractInstance" in {
-      forAll(versionedContraactInstanceWithAgreement)(coinst =>
-        TransactionCoder.decodeVersionedContractInstance(
-          ValueCoder.CidDecoder,
-          TransactionCoder
-            .encodeContractInstance(ValueCoder.CidEncoder, coinst)
-            .toOption
-            .get,
-        ) shouldBe Right(normalizeContract(coinst))
-      )
-    }
 
     "do Node.Create" in {
       forAll(malformedCreateNodeGen(), versionInIncreasingOrder()) {
@@ -217,7 +205,7 @@ class TransactionCoderSpec
           packageName = None,
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
-          agreementText = "agreement",
+          agreementText = "", // to be removed
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           keyOpt = None,
@@ -393,9 +381,7 @@ class TransactionCoderSpec
 
         val normalizedCreate =
           adjustStakeholders(normalizeCreate(create).copy(packageName = wrongPackageName))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         TransactionCoder
           .encodeContractInstance(ValueCoder.CidEncoder, instance) shouldBe a[Left[_, _]]
       }
@@ -537,15 +523,13 @@ class TransactionCoderSpec
       forAll(
         malformedCreateNodeGen(),
         minSuccessful(5),
-      ) { (create) =>
+      ) { create =>
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
           TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val Right(decoded) =
-          TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, encoded)
+          TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, encoded)
 
         decoded shouldBe instance
       }
@@ -592,9 +576,7 @@ class TransactionCoderSpec
         val wrongPackageName = pkgName.filter(_ => create.version < TransactionVersion.minUpgrade)
 
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
-        val instance = normalizedCreate.versionedCoinst.map(
-          Value.ContractInstanceWithAgreement(_, normalizedCreate.agreementText)
-        )
+        val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
           TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
         val wrongProto = encoded.toBuilder.setPackageName(wrongPackageName.getOrElse("")).build()
@@ -810,6 +792,7 @@ class TransactionCoderSpec
           }
         }
       }
+
     }
 
     "reject FatContractInstance with nonSignatoryStakeholders containing nonMaintainerSignatories" in {
@@ -826,8 +809,10 @@ class TransactionCoderSpec
           time,
           data.Bytes.fromByteString(salt),
         )
-        val nonMaintainerSignatories = instance.nonMaintainerSignatories + party
-        val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party
+        val party_ = makePartyFresh(party, create)
+
+        val nonMaintainerSignatories = instance.nonMaintainerSignatories + party_
+        val nonSignatoryStakeholders = instance.nonSignatoryStakeholders + party_
 
         val bytes = hackProto(
           instance,
@@ -1179,6 +1164,11 @@ class TransactionCoderSpec
     )
   }
 
+  private[this] def makePartyFresh(party: Party, create: Node.Create): Party = {
+    val contractParties = create.stakeholders ++ create.keyOpt.fold(Set.empty[Party])(_.maintainers)
+    Iterator.iterate(party)(p => Party.assertFromString(p + "_")).filterNot(contractParties).next()
+  }
+
   private[this] val dummyPackageName = Some(PackageName.assertFromString("package-name"))
 
   private[this] def normalizeCreate(
@@ -1257,15 +1247,6 @@ class TransactionCoderSpec
         key.globalKey.templateId,
         normalize(key.value, version),
         GlobalKey.isShared(key.globalKey),
-      )
-    )
-
-  private[this] def normalizeContract(contract: Versioned[Value.ContractInstanceWithAgreement]) =
-    contract.map(
-      _.copy(contractInstance =
-        contract.unversioned.contractInstance.copy(
-          arg = normalize(contract.unversioned.contractInstance.arg, contract.version)
-        )
       )
     )
 

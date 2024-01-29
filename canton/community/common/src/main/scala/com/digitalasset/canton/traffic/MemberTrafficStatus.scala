@@ -5,11 +5,11 @@ package com.digitalasset.canton.traffic
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus as MemberTrafficStatusP
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.traffic.v0.MemberTrafficStatus as MemberTrafficStatusP
 
 final case class MemberTrafficStatus(
     member: Member,

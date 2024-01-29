@@ -48,7 +48,7 @@ final case class TransferData(
 
   def sourceMediator: MediatorRef = transferOutRequest.mediator
 
-  def transferCounter: TransferCounterO = transferOutRequest.transferCounter
+  def transferCounter: TransferCounterO = Some(transferOutRequest.transferCounter)
 
   def addTransferOutResult(result: DeliveredTransferOutResult): Option[TransferData] =
     mergeTransferOutResult(Some(result))

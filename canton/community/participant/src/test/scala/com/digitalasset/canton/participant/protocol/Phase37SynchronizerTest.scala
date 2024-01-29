@@ -21,8 +21,8 @@ import scala.concurrent.Future
 
 class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private def mk(initRc: RequestCounter = RequestCounter(0)): Phase37Synchronizer =
-    new Phase37Synchronizer(initRc, loggerFactory, FutureSupervisor.Noop, timeouts)
+  private def mk(): Phase37Synchronizer =
+    new Phase37Synchronizer(loggerFactory, FutureSupervisor.Noop, timeouts)
 
   private val requestId1 = RequestId(CantonTimestamp.ofEpochSecond(1))
   private val requestId2 = RequestId(CantonTimestamp.ofEpochSecond(2))

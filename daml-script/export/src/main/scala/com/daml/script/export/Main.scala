@@ -1,19 +1,19 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -55,6 +55,7 @@ object Main {
             config.ledgerPort,
             clientConfig(config),
             clientChannelConfig(config),
+            NamedLoggerFactory.root,
           )
           parties <- LedgerUtils.getAllParties(client, config.accessToken, config.partyConfig)
           acs <- LedgerUtils.getACS(client, parties, config.start)
@@ -82,7 +83,6 @@ object Main {
 
   private def clientConfig(config: Config): LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = "script-export",
-    ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     token = config.accessToken.flatMap(_.token),
   )

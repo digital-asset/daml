@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import {
   Choice,
@@ -9,7 +9,6 @@ import {
   Party,
   Template,
   TemplateOrInterface,
-  Text,
   lookupTemplate,
 } from "@daml/types";
 import * as jtv from "@mojotech/json-type-validation";
@@ -127,7 +126,6 @@ export type CreateEvent<
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
-  agreementText: Text;
   key: K;
   payload: T;
 };
@@ -185,7 +183,6 @@ const decodeCreateEvent = <T extends object, K, I extends string>(
     contractId: ContractId(template).decoder,
     signatories: List(Party).decoder,
     observers: List(Party).decoder,
-    agreementText: Text.decoder,
     key: template.keyDecoder,
     payload: template.decoder,
   });

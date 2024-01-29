@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 module GenMapMod {
@@ -12,7 +12,6 @@ module GenMapMod {
     precondition True;
     signatories (PartyMod:one (GenMapMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement GenMapMod:Box";
   };
 
   val insert :

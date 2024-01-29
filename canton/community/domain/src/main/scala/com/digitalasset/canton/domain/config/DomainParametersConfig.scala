@@ -3,10 +3,8 @@
 
 package com.digitalasset.canton.domain.config
 
-import cats.syntax.contravariantSemigroupal.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{CryptoConfig, PositiveDurationSeconds, ProtocolConfig}
+import com.digitalasset.canton.config.{CommunityCryptoConfig, CryptoConfig, ProtocolConfig}
 import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionKeyScheme,
   selectAllowedHashAlgorithms,
@@ -15,7 +13,6 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
 
@@ -25,30 +22,16 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
   * for further information.
   *
-  * @param reconciliationInterval determines the time between sending two successive ACS commitments.
-  *                               Must be a multiple of 1 second.
-  * @param maxRatePerParticipant maximum number of messages sent per participant per second
-  * @param maxInboundMessageSize maximum size of messages (in bytes) that the domain can receive through the public API
-  * @param uniqueContractKeys When set, participants connected to this domain will check that contract keys are unique.
-  *                           When a participant is connected to a domain with unique contract keys support,
-  *                           it must not connect nor have ever been connected to any other domain.
   * @param requiredSigningKeySchemes The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredEncryptionKeySchemes The optional required encryption key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredSymmetricKeySchemes The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredHashAlgorithms The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
   * @param requiredCryptoKeyFormats The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param protocolVersion                        The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
+  * @param protocolVersion          The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
   * @param dontWarnOnDeprecatedPV If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
-  * @param resetStoredStaticConfig DANGEROUS: If true, then the stored static configuration parameters will be reset to the ones in the configuration file
   * @param catchUpParameters  The optional catch up parameters of type [[com.digitalasset.canton.protocol.CatchUpConfig]]. If None is specified, then the catch-up mode is disabled.
   */
 final case class DomainParametersConfig(
-    reconciliationInterval: PositiveDurationSeconds =
-      StaticDomainParameters.defaultReconciliationInterval.toConfig,
-    maxRatePerParticipant: NonNegativeInt = StaticDomainParameters.defaultMaxRatePerParticipant,
-    maxInboundMessageSize: MaxRequestSize =
-      StaticDomainParameters.defaultMaxRequestSize, // TODO(#15221) Rename to maxRequestSize
-    uniqueContractKeys: Boolean = true,
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
     requiredEncryptionKeySchemes: Option[NonEmpty[Set[EncryptionKeyScheme]]] = None,
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
@@ -57,19 +40,14 @@ final case class DomainParametersConfig(
     protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
       ProtocolVersion.latest
     ),
-    catchUpParameters: Option[CatchUpConfig] =
-      StaticDomainParameters.defaultCatchUpParameters.defaultValue,
-    override val devVersionSupport: Boolean = false,
+    catchUpParameters: Option[CatchUpConfig] = None,
+    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+    override val devVersionSupport: Boolean = true,
     override val dontWarnOnDeprecatedPV: Boolean = false,
-    resetStoredStaticConfig: Boolean = false,
 ) extends ProtocolConfig
     with PrettyPrinting {
 
   override def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
-    param("reconciliationInterval", _.reconciliationInterval),
-    param("maxRatePerParticipant", _.maxRatePerParticipant),
-    param("maxInboundMessageSize", _.maxInboundMessageSize.value),
-    param("uniqueContractKeys", _.uniqueContractKeys),
     param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
     param("requiredEncryptionKeySchemes", _.requiredEncryptionKeySchemes),
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
@@ -78,7 +56,6 @@ final case class DomainParametersConfig(
     param("protocolVersion", _.protocolVersion.version),
     param("devVersionSupport", _.devVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
-    param("resetStoredStaticConfig", _.resetStoredStaticConfig),
     param("catchUpParameters", _.catchUpParameters),
   )
 
@@ -89,7 +66,7 @@ final case class DomainParametersConfig(
     * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.
     */
   def toStaticDomainParameters(
-      cryptoConfig: CryptoConfig
+      cryptoConfig: CryptoConfig = CommunityCryptoConfig()
   ): Either[String, StaticDomainParameters] = {
 
     def selectSchemes[S](
@@ -109,8 +86,6 @@ final case class DomainParametersConfig(
 
     // Set to allowed schemes if none required schemes are specified
     for {
-      _ <- validateNonDefaultValues()
-
       newRequiredSigningKeySchemes <- selectSchemes(
         requiredSigningKeySchemes,
         selectAllowedSigningKeyScheme,
@@ -132,10 +107,6 @@ final case class DomainParametersConfig(
       )
     } yield {
       StaticDomainParameters.create(
-        reconciliationInterval = reconciliationInterval.toInternal,
-        maxRatePerParticipant = maxRatePerParticipant,
-        maxRequestSize = maxInboundMessageSize,
-        uniqueContractKeys = uniqueContractKeys,
         requiredSigningKeySchemes = newRequiredSigningKeySchemes,
         requiredEncryptionKeySchemes = newRequiredEncryptionKeySchemes,
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,
@@ -143,67 +114,6 @@ final case class DomainParametersConfig(
         requiredCryptoKeyFormats = newCryptoKeyFormats,
         protocolVersion = protocolVersion.unwrap,
         catchUpParameters = catchUpParameters,
-      )
-    }
-  }
-
-  /** Return an error if one parameter which is dynamic has non-default
-    * value specified in the config. The reason for the error is that
-    * such a config value would be ignored.
-    */
-  private def validateNonDefaultValues(): Either[String, Unit] = {
-
-    def errorMessage(
-        name: String,
-        setConsoleCommand: String,
-        configuredValue: String,
-        defaultValue: String,
-    ) =
-      s"""|Starting from protocol version ${ProtocolVersion.v4}, $name is a dynamic parameter that cannot be configured within the configuration file.
-          |The configured value `$configuredValue` is ignored. The default value is ${defaultValue}.
-          |Please use the admin api to set this parameter: domain-name.service.$setConsoleCommand($configuredValue)
-          |""".stripMargin
-
-    val currentPV = protocolVersion.version
-
-    if (currentPV < ProtocolVersion.v4) {
-      Right(())
-    } else {
-      val reconciliationIntervalValid = Either.cond(
-        reconciliationInterval == StaticDomainParameters.defaultReconciliationInterval.toConfig,
-        (),
-        errorMessage(
-          "reconciliation interval",
-          "set_reconciliation_interval",
-          reconciliationInterval.underlying.toString(),
-          StaticDomainParameters.defaultReconciliationInterval.toFiniteDuration.toString(),
-        ),
-      )
-
-      val maxRatePerParticipantValid = Either.cond(
-        maxRatePerParticipant == StaticDomainParameters.defaultMaxRatePerParticipant,
-        (),
-        errorMessage(
-          "max rate per participant",
-          "set_max_rate_per_participant",
-          maxRatePerParticipant.value.toString,
-          StaticDomainParameters.defaultMaxRatePerParticipant.value.toString,
-        ),
-      )
-
-      val maxRequestSizeValid = Either.cond(
-        maxInboundMessageSize == StaticDomainParameters.defaultMaxRequestSize,
-        (),
-        errorMessage(
-          "max request size (previously: max inbound message size)",
-          "set_max_request_size",
-          maxInboundMessageSize.unwrap.toString,
-          StaticDomainParameters.defaultMaxRequestSize.unwrap.toString,
-        ),
-      )
-
-      (reconciliationIntervalValid, maxRatePerParticipantValid, maxRequestSizeValid).tupled.map(_ =>
-        ()
       )
     }
   }

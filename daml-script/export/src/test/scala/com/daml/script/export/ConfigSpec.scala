@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -7,7 +7,7 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Path, Paths}
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, OptionValues}
@@ -25,42 +25,44 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
       "--start begin" in {
         val args = defaultRequiredArgs ++ Array("--start", "begin")
         val optConfig = Config.parse(args)
-        optConfig.value.start shouldBe LedgerOffset().withBoundary(
-          LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+        optConfig.value.start shouldBe ParticipantOffset().withBoundary(
+          ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
         )
       }
       "--start end" in {
         val args = defaultRequiredArgs ++ Array("--start", "end")
         val optConfig = Config.parse(args)
-        optConfig.value.start shouldBe LedgerOffset().withBoundary(
-          LedgerOffset.LedgerBoundary.LEDGER_END
+        optConfig.value.start shouldBe ParticipantOffset().withBoundary(
+          ParticipantOffset.ParticipantBoundary.PARTICIPANT_END
         )
       }
       "--start offset" in {
         val args = defaultRequiredArgs ++ Array("--start", "00100")
         val optConfig = Config.parse(args)
-        optConfig.value.start shouldBe LedgerOffset().withAbsolute("00100")
+        optConfig.value.start shouldBe ParticipantOffset.of(
+          ParticipantOffset.Value.Absolute("00100")
+        )
       }
     }
     "--end" - {
       "--end begin" in {
         val args = defaultRequiredArgs ++ Array("--end", "begin")
         val optConfig = Config.parse(args)
-        optConfig.value.end shouldBe LedgerOffset().withBoundary(
-          LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+        optConfig.value.end shouldBe ParticipantOffset().withBoundary(
+          ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
         )
       }
       "--end end" in {
         val args = defaultRequiredArgs ++ Array("--end", "end")
         val optConfig = Config.parse(args)
-        optConfig.value.end shouldBe LedgerOffset().withBoundary(
-          LedgerOffset.LedgerBoundary.LEDGER_END
+        optConfig.value.end shouldBe ParticipantOffset().withBoundary(
+          ParticipantOffset.ParticipantBoundary.PARTICIPANT_END
         )
       }
       "--end offset" in {
         val args = defaultRequiredArgs ++ Array("--end", "00100")
         val optConfig = Config.parse(args)
-        optConfig.value.end shouldBe LedgerOffset().withAbsolute("00100")
+        optConfig.value.end shouldBe ParticipantOffset.of(ParticipantOffset.Value.Absolute("00100"))
       }
     }
     "--party or --all-parties" - {

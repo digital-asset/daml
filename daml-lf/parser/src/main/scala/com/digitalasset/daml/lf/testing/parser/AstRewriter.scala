@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -278,7 +278,6 @@ private[daml] class AstRewriter(
             param,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
@@ -288,7 +287,6 @@ private[daml] class AstRewriter(
           param,
           apply(precond),
           apply(signatories),
-          apply(agreementText),
           choices.transform { (_, x) =>
             apply(x)
           },

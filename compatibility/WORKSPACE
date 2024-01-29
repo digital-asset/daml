@@ -291,7 +291,6 @@ local_repository(
 )
 
 daml_sdk_head(
-    create_daml_app_patch = "@head_sdk//:messaging.patch",
     daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
     daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
@@ -302,8 +301,6 @@ daml_sdk_head(
 [
     daml_sdk(
         # See the explanation in UpdateVersions.hs
-        create_daml_app_patch = None if version_sha256s.get(ver).get("create_daml_app_patch") else "@daml-sdk-1.1.1//:create_daml_app.patch",
-        create_daml_app_patch_sha256 = version_sha256s.get(ver).get("create_daml_app_patch"),
         daml_ledger_sha256 = version_sha256s.get(ver).get("daml_ledger"),
         daml_react_sha256 = version_sha256s.get(ver).get("daml_react"),
         daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),

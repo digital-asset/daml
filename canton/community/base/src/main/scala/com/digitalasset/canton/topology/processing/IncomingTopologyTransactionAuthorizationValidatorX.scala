@@ -11,9 +11,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransactionX.{
+  AuthorizedDecentralizedNamespaceDefinitionX,
   AuthorizedIdentifierDelegationX,
   AuthorizedNamespaceDelegationX,
-  AuthorizedUnionspaceDefinitionX,
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
 import com.digitalasset.canton.topology.store.*
@@ -56,8 +56,8 @@ private[processing] final case class UpdateAggregationX(
     case IdentifierDelegationX(uid, _) =>
       // change in identifier delegation requires full recompute for uid
       this.copy(cascadingUids = cascadingUids + uid, authChecks = authChecks + uid)
-    case UnionspaceDefinitionX(ns, _, owners) =>
-      // change in unionspace definition requires full recompute
+    case DecentralizedNamespaceDefinitionX(ns, _, owners) =>
+      // change in decentralized namespace definition requires full recompute
       this.copy(cascadingNamespaces = cascadingNamespaces + ns ++ owners)
     case x =>
       this.copy(authChecks =
@@ -112,7 +112,7 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
   def reset(): Unit = {
     namespaceCache.clear()
     identifierDelegationCache.clear()
-    unionspaceCache.clear()
+    decentralizedNamespaceCache.clear()
   }
 
   /** Validates the provided topology transactions and applies the certificates to the auth state
@@ -186,11 +186,14 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
       )
     }
 
-    val resultUs = toValidate.selectMapping[UnionspaceDefinitionX].map { sigTx =>
-      processUnionspaceDefinition(sigTx.transaction.op, AuthorizedTopologyTransactionX(sigTx))
+    val resultDns = toValidate.selectMapping[DecentralizedNamespaceDefinitionX].map { sigTx =>
+      processDecentralizedNamespaceDefinition(
+        sigTx.transaction.op,
+        AuthorizedTopologyTransactionX(sigTx),
+      )
     }
-    val processedUs = resultUs.forall(_._1)
-    val mappingSpecificCheck = processedNs && processedIdent && processedUs
+    val processedDns = resultDns.forall(_._1)
+    val mappingSpecificCheck = processedNs && processedIdent && processedDns
 
     val rejectionOrMissingAuthorizers = isCurrentlyAuthorized(toValidate, inStore)
 
@@ -198,7 +201,7 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     val hasSufficientAuthorizers =
       mappingSpecificCheck && rejectionOrMissingAuthorizers.exists(_.isEmpty)
     // Conversely a failing mappingSpecificCheck implies missing authorizers irrespective
-    // of whether the generic auth check finds missing signatures (e.g. in a unionspace
+    // of whether the generic auth check finds missing signatures (e.g. in a decentralizedNamespace
     // only the mappingSpecificCheck sees if the USD owner threshold is satisfied).
     val hasMissingAuthorizers =
       rejectionOrMissingAuthorizers.exists(!_.isEmpty || !mappingSpecificCheck)
@@ -211,14 +214,16 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     val isFullyAuthorized =
       NamespaceDelegationX.isRootCertificate(toValidate) || hasSufficientAuthorizers
 
-    // If a unionspace transaction is fully authorized, reflect so in the unionspace cache.
+    // If a decentralizedNamespace transaction is fully authorized, reflect so in the decentralizedNamespace cache.
     // Note: It seems a bit unsafe to update the caches on the assumption that the update will also be eventually
     // persisted by the caller (a few levels up the call chain in TopologyStateProcessorX.validateAndApplyAuthorization
     // as the caller performs additional checks such as the numeric value of the serial number).
-    // But at least this is safer than where the check was previously (inside processUnionspaceDefinition before even
+    // But at least this is safer than where the check was previously (inside processDecentralizedNamespaceDefinition before even
     // `isCurrentlyAuthorized` above had finished all checks).
     if (isFullyAuthorized) {
-      resultUs.foreach { case (_, updateUnionspaceCache) => updateUnionspaceCache() }
+      resultDns.foreach { case (_, updateDecentralizedNamespaceCache) =>
+        updateDecentralizedNamespaceCache()
+      }
     }
 
     val acceptMissingAuthorizers = !expectFullAuthorization && hasMissingAuthorizers
@@ -231,9 +236,17 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     } else {
       ValidatedTopologyTransactionX(
         toValidate,
-        rejectionOrMissingAuthorizers.left.toOption.orElse(
-          Some(TopologyTransactionRejection.NotAuthorized)
-        ),
+        rejectionOrMissingAuthorizers match {
+          case Left(rejection) => Some(rejection)
+          case Right(missingAuthorizers) =>
+            if (!missingAuthorizers.isEmpty) {
+              logger.debug(s"Missing authorizers for $toValidate: $missingAuthorizers")
+            }
+            if (!mappingSpecificCheck) {
+              logger.debug(s"Mapping specific check failed for $toValidate")
+            }
+            Some(TopologyTransactionRejection.NotAuthorized)
+        },
       )
     }
   }
@@ -294,47 +307,50 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     }
   }
 
-  /** Process unionspace definition
+  /** Process decentralized namespace definition
     *
-    * return whether unionspace definition mapping is authorizable along with a "cache-update function" to be invoked
+    * return whether decentralized namespace definition mapping is authorizable along with a "cache-update function" to be invoked
     * by the caller once the mapping is to be committed.
     */
-  private def processUnionspaceDefinition(
+  private def processDecentralizedNamespaceDefinition(
       op: TopologyChangeOpX,
-      tx: AuthorizedUnionspaceDefinitionX,
+      tx: AuthorizedDecentralizedNamespaceDefinitionX,
   ): (Boolean, () => Unit) = {
-    val unionspace = tx.mapping.unionspace
-    val (auth, usGraph) = unionspaceCache
-      .get(unionspace)
-      .map { case (_, usGraph) =>
-        val auth = usGraph.areValidAuthorizationKeys(tx.signingKeys, false)
-        auth -> usGraph
+    val decentralizedNamespace = tx.mapping.namespace
+    val (auth, dnsGraph) = decentralizedNamespaceCache
+      .get(decentralizedNamespace)
+      .map { case (_, dnsGraph) =>
+        val auth = dnsGraph.areValidAuthorizationKeys(tx.signingKeys, false)
+        auth -> dnsGraph
       }
       .getOrElse {
-        val directUnionspaceGraph = namespaceCache.getOrElseUpdate(
-          unionspace,
+        val directDecentralizedNamespaceGraph = namespaceCache.getOrElseUpdate(
+          decentralizedNamespace,
           new AuthorizationGraphX(
-            unionspace,
+            decentralizedNamespace,
             extraDebugInfo = false,
             loggerFactory,
           ),
         )
         val ownerGraphs = tx.mapping.owners.forgetNE.toSeq.map(getAuthorizationGraphForNamespace)
-        val newUnionspaceGraph = UnionspaceAuthorizationGraphX(
+        val newDecentralizedNamespaceGraph = DecentralizedNamespaceAuthorizationGraphX(
           tx.mapping,
-          directUnionspaceGraph,
+          directDecentralizedNamespaceGraph,
           ownerGraphs,
         )
-        val auth = newUnionspaceGraph.areValidAuthorizationKeys(tx.signingKeys, false)
-        (auth, newUnionspaceGraph)
+        val auth = newDecentralizedNamespaceGraph.areValidAuthorizationKeys(tx.signingKeys, false)
+        (auth, newDecentralizedNamespaceGraph)
       }
 
     (
       auth,
       () => {
         val ownerGraphs = tx.mapping.owners.forgetNE.toSeq.map(getAuthorizationGraphForNamespace)
-        unionspaceCache
-          .put(unionspace, (tx.mapping, usGraph.copy(us = tx.mapping, ownerGraphs = ownerGraphs)))
+        decentralizedNamespaceCache
+          .put(
+            decentralizedNamespace,
+            (tx.mapping, dnsGraph.copy(dnd = tx.mapping, ownerGraphs = ownerGraphs)),
+          )
           .discard
       },
     )

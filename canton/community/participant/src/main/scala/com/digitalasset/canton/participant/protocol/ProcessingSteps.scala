@@ -28,7 +28,6 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessin
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.PendingTransferOut
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
-  ContractLookup,
   SyncDomainEphemeralState,
   SyncDomainEphemeralStateLookup,
   TransferLookup,
@@ -436,7 +435,6 @@ trait ProcessingSteps[
     *
     * @param pendingDataAndResponseArgs Implementation-specific data passed from [[decryptViews]]
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
-    * @param contractLookup             Read-only interface to the [[com.digitalasset.canton.participant.store.ContractStore]]
     * @param activenessResultFuture     Future of the result of the activeness check<
     * @param mediatorId                 The mediator that handles this request
     * @return Returns the `requestType.PendingRequestData` to be stored until Phase 7 and the responses to be sent to the mediator.
@@ -444,7 +442,6 @@ trait ProcessingSteps[
   def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup, // TODO(#15152): remove after DAML 3.0
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
@@ -526,7 +523,7 @@ trait ProcessingSteps[
     *
     * Called after the request reached the state [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean]]
     * in the request journal, if the participant is the submitter.
-    * Also called if a timeout occurs with [[com.digitalasset.canton.protocol.messages.Verdict.MediatorRejectV1]].
+    * Also called if a timeout occurs with [[com.digitalasset.canton.protocol.messages.Verdict.MediatorReject]].
     *
     * @param verdict The verdict on the request
     */

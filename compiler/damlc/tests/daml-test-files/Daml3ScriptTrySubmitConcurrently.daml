@@ -3,6 +3,8 @@
 
 -- @ SCRIPT-V2
 
+-- @ WARN range=19:1-19:52; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
 {-# LANGUAGE ApplicativeDo #-}
 
 module Daml3ScriptTrySubmitConcurrently where
@@ -14,7 +16,7 @@ import DA.Exception (PreconditionFailed (..), fromAnyException, throw)
 import DA.Foldable (mapA_, sequence_)
 import DA.NonEmpty qualified (singleton)
 import Daml.Script
-import Daml.Script.Questions.Submit (trySubmitConcurrently)
+import Daml.Script.Internal (trySubmitConcurrently)
 
 --------------------------------------------------------------------------------
 
@@ -76,45 +78,6 @@ template Tpl
         pure i
 
 exception OddException with i : Int
-
---------------------------------------------------------------------------------
-
--- | Tests that a concurrent submission of 'create' commands with clashing
--- keys will result in exactly one success given that before the submission
--- no contract with that key exists.
-keyCollision : Script ()
-keyCollision = do
-  alice <- allocateParty "alice"
-  (errs, cids) <-
-    partitionEithers <$>
-      alice `trySubmitConcurrently`
-        replicate n (createCmd Keyed with p = alice)
-  length cids === 1
-  length errs === n - 1
-  mapA_ (matchDuplicateContractKey alice) errs
-  where
-    n = 10
-
-    matchDuplicateContractKey : Party -> SubmitError -> Script ()
-    matchDuplicateContractKey p err = case err of
-      DuplicateContractKey (Some k)
-        | k == expectedKey -> pure ()
-      LocalVerdictLockedKeys _ ->
-        -- TODO: check that the key is present in the argument
-        -- https://github.com/DACH-NY/canton/issues/15071
-        pure ()
-      err ->
-        assertFail $ "Expected DuplicateContractKey(Some(" <> show expectedKey <> ")) but got: " <> show err
-      where
-        expectedKey = toAnyContractKey @Keyed p
-
-template Keyed
-  with
-    p : Party
-  where
-    signatory p
-    key p : Party
-    maintainer key
 
 --------------------------------------------------------------------------------
 

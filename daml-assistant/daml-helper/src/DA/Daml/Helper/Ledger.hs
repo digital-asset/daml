@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -277,29 +277,25 @@ fetchDar args rootPid saveAs = do
   let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
-        | (pid,Just pkg) <- Map.toList (Map.delete rootPid pkgs)
-        , let txt = recoverPackageName pkg pid
+        | Just pkg <- Map.elems (Map.delete rootPid pkgs)
+        , let txt = recoverPackageName pkg
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
   let (pName,pVersion) = do
         let LF.Package {packageMetadata} = rootPkg
         case packageMetadata of
-          Nothing -> (LF.PackageName $ T.pack "reconstructed",Nothing)
-          Just LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
+          LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
   let pSdkVersion = unresolvedBuiltinSdkVersion
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
   createDarFile loggerH saveAs za
   return $ Map.size pkgs
 
-recoverPackageName :: LF.Package -> LF.PackageId -> T.Text
-recoverPackageName pkg pid= do
-  let LF.Package {packageMetadata} = pkg
-  case packageMetadata of
-    Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName
-    -- fallback, manufacture a name from the pid
-    Nothing -> LF.unPackageId pid
+recoverPackageName :: LF.Package -> T.Text
+recoverPackageName pkg = do
+  let LF.Package{packageMetadata = LF.PackageMetadata{packageName}} = pkg
+  LF.unPackageName packageName
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
 downloadAllReachablePackages ::
@@ -358,8 +354,8 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 data RemoteDalf = RemoteDalf
-    { remoteDalfName :: Maybe LF.PackageName
-    , remoteDalfVersion :: Maybe LF.PackageVersion
+    { remoteDalfName :: LF.PackageName
+    , remoteDalfVersion :: LF.PackageVersion
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
     , remoteDalfPkgId :: LF.PackageId
@@ -384,10 +380,10 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
             , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
             , let LF.Package {packageMetadata} = pkg
             , let remoteDalfPkgId = pid
-            , let remoteDalfName = LF.packageName <$> packageMetadata
+            , let remoteDalfName = LF.packageName packageMetadata
             , let remoteDalfBs = BSL.toStrict bsl
             , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
-            , let remoteDalfVersion = LF.packageVersion <$> packageMetadata
+            , let remoteDalfVersion = LF.packageVersion packageMetadata
             ]
 
 runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
@@ -413,11 +409,8 @@ runLedgerListPackages0 flags = do
         , versionM <- [remoteDalfVersion]
         ]
   where
-    suffix (Just name) (Just version) =
+    suffix name version =
         "(" <> LF.unPackageName name <> "-" <> LF.unPackageVersion version <> ")"
-    suffix (Just name) Nothing = "(" <> LF.unPackageName name <> ")"
-    suffix Nothing (Just _version) = ""
-    suffix Nothing Nothing = ""
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =

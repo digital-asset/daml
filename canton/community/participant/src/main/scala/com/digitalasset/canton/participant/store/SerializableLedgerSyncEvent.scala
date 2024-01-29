@@ -11,7 +11,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes as LfBytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.canton
 import com.digitalasset.canton.ProtoDeserializationError.{
   TimeModelConversionError,
   ValueConversionError,
@@ -19,12 +18,11 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.configuration.*
 import com.digitalasset.canton.ledger.participant.state.v2.*
-import com.digitalasset.canton.participant.protocol.{ProcessingSteps, v0}
+import com.digitalasset.canton.participant.protocol.{ProcessingSteps, v30}
 import com.digitalasset.canton.participant.store.DamlLfSerializers.*
 import com.digitalasset.canton.participant.sync.LedgerSyncEvent
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   LfActionNode,
   LfCommittedTransaction,
   LfNodeCreate,
@@ -70,8 +68,8 @@ import com.google.rpc.status.Status as RpcStatus
 /** Wrapper for converting a [[com.digitalasset.canton.participant.sync.LedgerSyncEvent]] to its protobuf companion.
   * Currently only Intended only for storage due to the unusual exceptions which are thrown that are only permitted in a storage context.
   *
-  * @throws canton.store.db.DbSerializationException if transactions or contracts fail to serialize
-  * @throws canton.store.db.DbDeserializationException if transactions or contracts fail to deserialize
+  * @throws com.digitalasset.canton.store.db.DbSerializationException if transactions or contracts fail to serialize
+  * @throws com.digitalasset.canton.store.db.DbDeserializationException if transactions or contracts fail to deserialize
   */
 private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEvent)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -82,55 +80,59 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
   @transient override protected lazy val companionObj: SerializableLedgerSyncEvent.type =
     SerializableLedgerSyncEvent
 
-  def toProtoV0: v0.LedgerSyncEvent = {
-    val SyncEventP = v0.LedgerSyncEvent.Value
+  def toProtoV0: v30.LedgerSyncEvent = {
+    val SyncEventP = v30.LedgerSyncEvent.Value
 
-    v0.LedgerSyncEvent(
+    v30.LedgerSyncEvent(
       event match {
         case configurationChanged: LedgerSyncEvent.ConfigurationChanged =>
           SyncEventP.ConfigurationChanged(
-            SerializableConfigurationChanged(configurationChanged).toProtoV0
-          )
-        case configurationChangeRejected: LedgerSyncEvent.ConfigurationChangeRejected =>
-          SyncEventP.ConfigurationChangeRejected(
-            SerializableConfigurationChangeRejected(configurationChangeRejected).toProtoV0
+            SerializableConfigurationChanged(configurationChanged).toProtoV30
           )
         case partyAddedToParticipant: LedgerSyncEvent.PartyAddedToParticipant =>
           SyncEventP.PartyAddedToParticipant(
-            SerializablePartyAddedToParticipant(partyAddedToParticipant).toProtoV0
+            SerializablePartyAddedToParticipant(partyAddedToParticipant).toProtoV30
           )
         case partyAllocationRejected: LedgerSyncEvent.PartyAllocationRejected =>
           SyncEventP.PartyAllocationRejected(
-            SerializablePartyAllocationRejected(partyAllocationRejected).toProtoV0
+            SerializablePartyAllocationRejected(partyAllocationRejected).toProtoV30
           )
         case publicPackageUpload: LedgerSyncEvent.PublicPackageUpload =>
           SyncEventP.PublicPackageUpload(
-            SerializablePublicPackageUpload(publicPackageUpload).toProtoV0
+            SerializablePublicPackageUpload(publicPackageUpload).toProtoV30
           )
         case publicPackageUploadRejected: LedgerSyncEvent.PublicPackageUploadRejected =>
           SyncEventP.PublicPackageUploadRejected(
-            SerializablePublicPackageUploadRejected(publicPackageUploadRejected).toProtoV0
+            SerializablePublicPackageUploadRejected(publicPackageUploadRejected).toProtoV30
           )
         case transactionAccepted: LedgerSyncEvent.TransactionAccepted =>
           SyncEventP.TransactionAccepted(
-            SerializableTransactionAccepted(transactionAccepted).toProtoV0
+            SerializableTransactionAccepted(transactionAccepted).toProtoV30
           )
         case contractsAdded: LedgerSyncEvent.ContractsAdded =>
           SyncEventP.ContractsAdded(
-            SerializableContractsAdded(contractsAdded).toProtoV0
+            SerializableContractsAdded(contractsAdded).toProtoV30
           )
         case contractsPurged: LedgerSyncEvent.ContractsPurged =>
           SyncEventP.ContractsPurged(
-            SerializableContractsPurged(contractsPurged).toProtoV0
+            SerializableContractsPurged(contractsPurged).toProtoV30
           )
         case commandRejected: LedgerSyncEvent.CommandRejected =>
-          SyncEventP.CommandRejected(SerializableCommandRejected(commandRejected).toProtoV0)
+          SyncEventP.CommandRejected(SerializableCommandRejected(commandRejected).toProtoV30)
 
         case transferOut: LedgerSyncEvent.TransferredOut =>
-          SyncEventP.TransferredOut(SerializableTransferredOut(transferOut).toProtoV0)
+          SyncEventP.TransferredOut(SerializableTransferredOut(transferOut).toProtoV30)
 
         case transferIn: LedgerSyncEvent.TransferredIn =>
-          SyncEventP.TransferredIn(SerializableTransferredIn(transferIn).toProtoV0)
+          SyncEventP.TransferredIn(SerializableTransferredIn(transferIn).toProtoV30)
+
+        case partiesAdded: LedgerSyncEvent.PartiesAddedToParticipant =>
+          SyncEventP.PartiesAdded(SerializablePartiesAddedToParticipant(partiesAdded).toProtoV30)
+
+        case partiesRemoved: LedgerSyncEvent.PartiesRemovedFromParticipant =>
+          SyncEventP.PartiesRemoved(
+            SerializablePartiesRemovedFromParticipant(partiesRemoved).toProtoV30
+          )
       }
     )
   }
@@ -141,13 +143,14 @@ private[store] object SerializableLedgerSyncEvent
     with ProtocolVersionedCompanionDbHelpers[SerializableLedgerSyncEvent] {
   override val name: String = "SerializableLedgerSyncEvent"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
-      .storage(ReleaseProtocolVersion(ProtocolVersion.v3), v0.LedgerSyncEvent)(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
-      )
-  )
+  override val supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter
+        .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.LedgerSyncEvent)(
+          supportedProtoVersion(_)(fromProtoV0),
+          _.toProtoV0.toByteString,
+        )
+    )
 
   def apply(
       event: LedgerSyncEvent,
@@ -184,36 +187,45 @@ private[store] object SerializableLedgerSyncEvent
     deserializeNode(DamlLfSerializers.deserializeExerciseNode)
 
   def fromProtoV0(
-      ledgerSyncEventP: v0.LedgerSyncEvent
+      ledgerSyncEventP: v30.LedgerSyncEvent
   ): ParsingResult[SerializableLedgerSyncEvent] = {
-    val SyncEventP = v0.LedgerSyncEvent.Value
+    val SyncEventP = v30.LedgerSyncEvent.Value
     val ledgerSyncEvent = ledgerSyncEventP.value match {
       case SyncEventP.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("LedgerSyncEvent.value"))
       case SyncEventP.ConfigurationChanged(configurationChanged) =>
-        SerializableConfigurationChanged.fromProtoV0(configurationChanged)
-      case SyncEventP.ConfigurationChangeRejected(configurationChangeRejected) =>
-        SerializableConfigurationChangeRejected.fromProtoV0(configurationChangeRejected)
+        SerializableConfigurationChanged.fromProtoV30(configurationChanged)
+      // Canton was never able to produce ConfigurationChangeRejected message
+      case SyncEventP.ConfigurationChangeRejected(_) =>
+        Left(
+          ProtoDeserializationError.OtherError(
+            "Unexpected LedgerSyncEvent.ConfigurationChangeRejected"
+          )
+        )
       case SyncEventP.PartyAddedToParticipant(partyAddedToParticipant) =>
         SerializablePartyAddedToParticipant.fromProtoV0(partyAddedToParticipant)
       case SyncEventP.PartyAllocationRejected(partyAllocationRejected) =>
-        SerializablePartyAllocationRejected.fromProtoV0(partyAllocationRejected)
+        SerializablePartyAllocationRejected.fromProtoV30(partyAllocationRejected)
       case SyncEventP.PublicPackageUpload(publicPackageUpload) =>
-        SerializablePublicPackageUpload.fromProtoV0(publicPackageUpload)
+        SerializablePublicPackageUpload.fromProtoV30(publicPackageUpload)
       case SyncEventP.PublicPackageUploadRejected(publicPackageUploadRejected) =>
-        SerializablePublicPackageUploadRejected.fromProtoV0(publicPackageUploadRejected)
+        SerializablePublicPackageUploadRejected.fromProtoV30(publicPackageUploadRejected)
       case SyncEventP.TransactionAccepted(transactionAccepted) =>
-        SerializableTransactionAccepted.fromProtoV0(transactionAccepted)
+        SerializableTransactionAccepted.fromProtoV30(transactionAccepted)
       case SyncEventP.CommandRejected(commandRejected) =>
-        SerializableCommandRejected.fromProtoV0(commandRejected)
+        SerializableCommandRejected.fromProtoV30(commandRejected)
       case SyncEventP.TransferredOut(transferOut) =>
-        SerializableTransferredOut.fromProtoV0(transferOut)
+        SerializableTransferredOut.fromProtoV30(transferOut)
       case SyncEventP.TransferredIn(transferIn) =>
-        SerializableTransferredIn.fromProtoV0(transferIn)
+        SerializableTransferredIn.fromProtoV30(transferIn)
       case SyncEventP.ContractsAdded(contractsAdded) =>
-        SerializableContractsAdded.fromProtoV0(contractsAdded)
+        SerializableContractsAdded.fromProtoV30(contractsAdded)
       case SyncEventP.ContractsPurged(contractsPurged) =>
-        SerializableContractsPurged.fromProtoV0(contractsPurged)
+        SerializableContractsPurged.fromProtoV30(contractsPurged)
+      case SyncEventP.PartiesAdded(partiesAddedToParticipant) =>
+        SerializablePartiesAddedToParticipant.fromProtoV30(partiesAddedToParticipant)
+      case SyncEventP.PartiesRemoved(partiesRemovedFromParticipant) =>
+        SerializablePartiesRemovedFromParticipant.fromProtoV30(partiesRemovedFromParticipant)
     }
 
     ledgerSyncEvent.map(
@@ -229,7 +241,7 @@ trait ConfigurationParamsDeserializer {
       recordTimeP: Option[com.google.protobuf.timestamp.Timestamp],
       submissionIdP: String,
       participantIdP: String,
-      configurationP: (String, Option[v0.Configuration]),
+      configurationP: (String, Option[v30.Configuration]),
   ): Either[
     ProtoDeserializationError,
     (Timestamp, LedgerSubmissionId, LedgerParticipantId, Configuration),
@@ -242,7 +254,7 @@ trait ConfigurationParamsDeserializer {
           )
           submissionId <- ProtoConverter.parseLFSubmissionId(submissionIdP)
           participantId <- ProtoConverter.parseLfParticipantId(participantIdP)
-          configuration <- required(field, configP).flatMap(SerializableConfiguration.fromProtoV0)
+          configuration <- required(field, configP).flatMap(SerializableConfiguration.fromProtoV30)
         } yield (recordTime, submissionId, participantId, configuration)
     }
 }
@@ -250,7 +262,7 @@ trait ConfigurationParamsDeserializer {
 private[store] final case class SerializableConfigurationChanged(
     configurationChanged: LedgerSyncEvent.ConfigurationChanged
 ) {
-  def toProtoV0: v0.ConfigurationChanged = {
+  def toProtoV30: v30.ConfigurationChanged = {
     val LedgerSyncEvent.ConfigurationChanged(
       recordTime,
       submissionId,
@@ -258,20 +270,20 @@ private[store] final case class SerializableConfigurationChanged(
       newConfiguration,
     ) =
       configurationChanged
-    v0.ConfigurationChanged(
+    v30.ConfigurationChanged(
       submissionId,
-      Some(SerializableConfiguration(newConfiguration).toProtoV0),
+      Some(SerializableConfiguration(newConfiguration).toProtoV30),
       participantId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
     )
   }
 }
 
 private[store] object SerializableConfigurationChanged extends ConfigurationParamsDeserializer {
-  def fromProtoV0(
-      configurationChangedP: v0.ConfigurationChanged
+  def fromProtoV30(
+      configurationChangedP: v30.ConfigurationChanged
   ): ParsingResult[LedgerSyncEvent.ConfigurationChanged] = {
-    val v0.ConfigurationChanged(submissionIdP, configurationP, participantIdP, recordTimeP) =
+    val v30.ConfigurationChanged(submissionIdP, configurationP, participantIdP, recordTimeP) =
       configurationChangedP
     for {
       cfg <- fromProtoV0(
@@ -290,63 +302,10 @@ private[store] object SerializableConfigurationChanged extends ConfigurationPara
   }
 }
 
-private[store] final case class SerializableConfigurationChangeRejected(
-    configurationChangeRejected: LedgerSyncEvent.ConfigurationChangeRejected
-) {
-  def toProtoV0: v0.ConfigurationChangeRejected = {
-    val LedgerSyncEvent.ConfigurationChangeRejected(
-      recordTime,
-      submissionId,
-      participantId,
-      proposedConfiguration,
-      reason,
-    ) =
-      configurationChangeRejected
-    v0.ConfigurationChangeRejected(
-      submissionId,
-      reason,
-      participantId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
-      Some(SerializableConfiguration(proposedConfiguration).toProtoV0),
-    )
-  }
-}
-
-private[store] object SerializableConfigurationChangeRejected
-    extends ConfigurationParamsDeserializer {
-  def fromProtoV0(
-      configurationChangeRejected: v0.ConfigurationChangeRejected
-  ): Either[canton.ProtoDeserializationError, LedgerSyncEvent.ConfigurationChangeRejected] = {
-    val v0.ConfigurationChangeRejected(
-      submissionIdP,
-      reason,
-      participantIdP,
-      recordTimeP,
-      proposedConfigurationP,
-    ) =
-      configurationChangeRejected
-    for {
-      cfg <- fromProtoV0(
-        recordTimeP,
-        submissionIdP,
-        participantIdP,
-        ("proposedConfiguration", proposedConfigurationP),
-      )
-      (recordTime, submissionId, participantId, proposedConfiguration) = cfg
-    } yield LedgerSyncEvent.ConfigurationChangeRejected(
-      recordTime,
-      submissionId,
-      participantId,
-      proposedConfiguration,
-      reason,
-    )
-  }
-}
-
 private[store] final case class SerializablePartyAddedToParticipant(
     partyAddedToParticipant: LedgerSyncEvent.PartyAddedToParticipant
 ) {
-  def toProtoV0: v0.PartyAddedToParticipant = {
+  def toProtoV30: v30.PartyAddedToParticipant = {
     val LedgerSyncEvent.PartyAddedToParticipant(
       party,
       displayName,
@@ -355,11 +314,11 @@ private[store] final case class SerializablePartyAddedToParticipant(
       submissionId,
     ) =
       partyAddedToParticipant
-    v0.PartyAddedToParticipant(
+    v30.PartyAddedToParticipant(
       party,
       displayName,
       participantId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
       submissionId.fold("")(_.toString),
     )
   }
@@ -367,9 +326,15 @@ private[store] final case class SerializablePartyAddedToParticipant(
 
 private[store] object SerializablePartyAddedToParticipant {
   def fromProtoV0(
-      partyAddedToParticipant: v0.PartyAddedToParticipant
+      partyAddedToParticipant: v30.PartyAddedToParticipant
   ): ParsingResult[LedgerSyncEvent.PartyAddedToParticipant] = {
-    val v0.PartyAddedToParticipant(partyP, displayName, participantIdP, recordTime, submissionIdP) =
+    val v30.PartyAddedToParticipant(
+      partyP,
+      displayName,
+      participantIdP,
+      recordTime,
+      submissionIdP,
+    ) =
       partyAddedToParticipant
     for {
       party <- ProtoConverter.parseLfPartyId(partyP)
@@ -392,7 +357,7 @@ private[store] object SerializablePartyAddedToParticipant {
 private[store] final case class SerializablePartyAllocationRejected(
     partyAllocationRejected: LedgerSyncEvent.PartyAllocationRejected
 ) {
-  def toProtoV0: v0.PartyAllocationRejected = {
+  def toProtoV30: v30.PartyAllocationRejected = {
     val LedgerSyncEvent.PartyAllocationRejected(
       submissionId,
       participantId,
@@ -400,20 +365,20 @@ private[store] final case class SerializablePartyAllocationRejected(
       rejectionReason,
     ) =
       partyAllocationRejected
-    v0.PartyAllocationRejected(
+    v30.PartyAllocationRejected(
       submissionId,
       participantId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
       rejectionReason,
     )
   }
 }
 
 private[store] object SerializablePartyAllocationRejected {
-  def fromProtoV0(
-      partyAllocationRejected: v0.PartyAllocationRejected
+  def fromProtoV30(
+      partyAllocationRejected: v30.PartyAllocationRejected
   ): ParsingResult[LedgerSyncEvent.PartyAllocationRejected] = {
-    val v0.PartyAllocationRejected(submissionIdP, participantIdP, recordTime, rejectionReason) =
+    val v30.PartyAllocationRejected(submissionIdP, participantIdP, recordTime, rejectionReason) =
       partyAllocationRejected
     for {
       submissionId <- ProtoConverter.parseLFSubmissionId(submissionIdP)
@@ -433,13 +398,13 @@ private[store] object SerializablePartyAllocationRejected {
 private[store] final case class SerializablePublicPackageUpload(
     publicPackageUpload: LedgerSyncEvent.PublicPackageUpload
 ) {
-  def toProtoV0: v0.PublicPackageUpload = {
+  def toProtoV30: v30.PublicPackageUpload = {
     val LedgerSyncEvent.PublicPackageUpload(archives, sourceDescription, recordTime, submissionId) =
       publicPackageUpload
-    v0.PublicPackageUpload(
+    v30.PublicPackageUpload(
       archives.map(_.toByteString),
       sourceDescription,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
       submissionId.getOrElse(""),
     )
   }
@@ -448,10 +413,10 @@ private[store] final case class SerializablePublicPackageUpload(
 private[store] object SerializablePublicPackageUpload {
   import cats.syntax.traverse.*
 
-  def fromProtoV0(
-      publicPackageUploadP: v0.PublicPackageUpload
+  def fromProtoV30(
+      publicPackageUploadP: v30.PublicPackageUpload
   ): ParsingResult[LedgerSyncEvent.PublicPackageUpload] = {
-    val v0.PublicPackageUpload(archivesP, sourceDescription, recordTime, submissionIdP) =
+    val v30.PublicPackageUpload(archivesP, sourceDescription, recordTime, submissionIdP) =
       publicPackageUploadP
     for {
       archives <- archivesP.toList.traverse(protoParser(Archive.parseFrom))
@@ -472,22 +437,22 @@ private[store] object SerializablePublicPackageUpload {
 private[store] final case class SerializablePublicPackageUploadRejected(
     publicPackageUploadRejected: LedgerSyncEvent.PublicPackageUploadRejected
 ) {
-  def toProtoV0: v0.PublicPackageUploadRejected = {
+  def toProtoV30: v30.PublicPackageUploadRejected = {
     val LedgerSyncEvent.PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =
       publicPackageUploadRejected
-    v0.PublicPackageUploadRejected(
+    v30.PublicPackageUploadRejected(
       submissionId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
       rejectionReason,
     )
   }
 }
 
 private[store] object SerializablePublicPackageUploadRejected {
-  def fromProtoV0(
-      publicPackageUploadRejectedP: v0.PublicPackageUploadRejected
+  def fromProtoV30(
+      publicPackageUploadRejectedP: v30.PublicPackageUploadRejected
   ): ParsingResult[LedgerSyncEvent.PublicPackageUploadRejected] = {
-    val v0.PublicPackageUploadRejected(submissionIdP, recordTime, rejectionReason) =
+    val v30.PublicPackageUploadRejected(submissionIdP, recordTime, rejectionReason) =
       publicPackageUploadRejectedP
     for {
       submissionId <- ProtoConverter.parseLFSubmissionId(submissionIdP)
@@ -501,7 +466,7 @@ private[store] object SerializablePublicPackageUploadRejected {
 private[store] final case class SerializableTransactionAccepted(
     transactionAccepted: LedgerSyncEvent.TransactionAccepted
 ) {
-  def toProtoV0: v0.TransactionAccepted = {
+  def toProtoV30: v30.TransactionAccepted = {
     val LedgerSyncEvent.TransactionAccepted(
       optCompletionInfo,
       transactionMeta,
@@ -512,13 +477,14 @@ private[store] final case class SerializableTransactionAccepted(
       blindingInfo,
       hostedWitnesses,
       contractMetadata,
+      domainId,
     ) = transactionAccepted
     val contractMetadataP = contractMetadata.view.map { case (contractId, bytes) =>
       contractId.toProtoPrimitive -> bytes.toByteString
     }.toMap
-    v0.TransactionAccepted(
-      optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV0),
-      Some(SerializableTransactionMeta(transactionMeta).toProtoV0),
+    v30.TransactionAccepted(
+      optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV30),
+      Some(SerializableTransactionMeta(transactionMeta).toProtoV30),
       serializeTransaction(
         committedTransaction
       ) // LfCommittedTransaction implicitly turned into LfVersionedTransaction by LF
@@ -528,20 +494,21 @@ private[store] final case class SerializableTransactionAccepted(
           )
         ),
       transactionId,
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
-      divulgedContracts.map(SerializableDivulgedContract(_).toProtoV0),
-      blindingInfo.map(SerializableBlindingInfo(_).toProtoV0),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
+      divulgedContracts.map(SerializableDivulgedContract(_).toProtoV30),
+      blindingInfo.map(SerializableBlindingInfo(_).toProtoV30),
       contractMetadata = contractMetadataP,
       hostedWitnesses = hostedWitnesses,
+      domainId = domainId.toProtoPrimitive,
     )
   }
 }
 
 private[store] object SerializableTransactionAccepted {
-  def fromProtoV0(
-      transactionAcceptedP: v0.TransactionAccepted
+  def fromProtoV30(
+      transactionAcceptedP: v30.TransactionAccepted
   ): ParsingResult[LedgerSyncEvent.TransactionAccepted] = {
-    val v0.TransactionAccepted(
+    val v30.TransactionAccepted(
       completionInfoP,
       transactionMetaP,
       transactionP,
@@ -551,11 +518,12 @@ private[store] object SerializableTransactionAccepted {
       blindingInfoP,
       contractMetadataP,
       hostedWitnessesP,
+      domainIdP,
     ) = transactionAcceptedP
     for {
-      optCompletionInfo <- completionInfoP.traverse(SerializableCompletionInfo.fromProtoV0)
+      optCompletionInfo <- completionInfoP.traverse(SerializableCompletionInfo.fromProtoV30)
       transactionMeta <- required("transactionMeta", transactionMetaP)
-        .flatMap(SerializableTransactionMeta.fromProtoV0)
+        .flatMap(SerializableTransactionMeta.fromProtoV30)
       committedTransaction = deserializeTransaction(transactionP)
         .leftMap(err =>
           new DbDeserializationException(
@@ -568,11 +536,11 @@ private[store] object SerializableTransactionAccepted {
         SerializableLfTimestamp.fromProtoPrimitive
       )
       divulgedContracts <- divulgedContractsP.toList.traverse(
-        SerializableDivulgedContract.fromProtoV0
+        SerializableDivulgedContract.fromProtoV30
       )
       blindingInfo <- blindingInfoP.fold(
         Right(None): ParsingResult[Option[BlindingInfo]]
-      )(SerializableBlindingInfo.fromProtoV0(_).map(Some(_)))
+      )(SerializableBlindingInfo.fromProtoV30(_).map(Some(_)))
       contractMetadataSeq <- contractMetadataP.toList.traverse {
         case (contractIdP, driverContractMetadataBytes) =>
           ProtoConverter
@@ -581,6 +549,7 @@ private[store] object SerializableTransactionAccepted {
       }
       contractMetadata = contractMetadataSeq.toMap
       hostedWitnesses <- hostedWitnessesP.traverse(ProtoConverter.parseLfPartyId)
+      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
     } yield LedgerSyncEvent.TransactionAccepted(
       optCompletionInfo,
       transactionMeta,
@@ -591,6 +560,7 @@ private[store] object SerializableTransactionAccepted {
       blindingInfo,
       hostedWitnesses.toList,
       contractMetadata = contractMetadata,
+      domainId = domainId,
     )
   }
 }
@@ -598,16 +568,16 @@ private[store] object SerializableTransactionAccepted {
 private[store] final case class SerializableContractsAdded(
     e: LedgerSyncEvent.ContractsAdded
 ) {
-  def toProtoV0: v0.ContractsAdded = {
+  def toProtoV30: v30.ContractsAdded = {
     val contractMetadataP = e.contractMetadata.view.map { case (contractId, bytes) =>
       contractId.toProtoPrimitive -> bytes.toByteString
     }.toMap
-    v0.ContractsAdded(
+    v30.ContractsAdded(
       transactionId = e.transactionId,
       contracts = e.contracts.map(SerializableLedgerSyncEvent.trySerializeNode),
       domainId = e.domainId.toProtoPrimitive,
-      ledgerTime = Option(SerializableLfTimestamp(e.ledgerTime).toProtoV0),
-      recordTime = Option(SerializableLfTimestamp(e.recordTime).toProtoV0),
+      ledgerTime = Option(SerializableLfTimestamp(e.ledgerTime).toProtoV30),
+      recordTime = Option(SerializableLfTimestamp(e.recordTime).toProtoV30),
       hostedWitnesses = e.hostedWitnesses,
       contractMetadata = contractMetadataP,
       workflowId = e.workflowId.getOrElse(""),
@@ -616,8 +586,8 @@ private[store] final case class SerializableContractsAdded(
 }
 
 private[store] object SerializableContractsAdded {
-  def fromProtoV0(
-      e: v0.ContractsAdded
+  def fromProtoV30(
+      e: v30.ContractsAdded
   ): ParsingResult[LedgerSyncEvent.ContractsAdded] =
     for {
       transactionId <- parseLedgerTransactionId(e.transactionId)
@@ -654,19 +624,19 @@ private[store] object SerializableContractsAdded {
 private[store] final case class SerializableContractsPurged(
     c: LedgerSyncEvent.ContractsPurged
 ) {
-  def toProtoV0: v0.ContractsPurged =
-    v0.ContractsPurged(
+  def toProtoV30: v30.ContractsPurged =
+    v30.ContractsPurged(
       transactionId = c.transactionId,
       contracts = c.contracts.map(SerializableLedgerSyncEvent.trySerializeNode),
       domainId = c.domainId.toProtoPrimitive,
-      recordTime = Option(SerializableLfTimestamp(c.recordTime).toProtoV0),
+      recordTime = Option(SerializableLfTimestamp(c.recordTime).toProtoV30),
       hostedWitnesses = c.hostedWitnesses,
     )
 }
 
 private[store] object SerializableContractsPurged {
-  def fromProtoV0(
-      c: v0.ContractsPurged
+  def fromProtoV30(
+      c: v30.ContractsPurged
   ): ParsingResult[LedgerSyncEvent.ContractsPurged] =
     for {
       transactionId <- parseLedgerTransactionId(c.transactionId)
@@ -688,12 +658,12 @@ private[store] object SerializableContractsPurged {
 }
 
 private[store] final case class SerializableDivulgedContract(divulgedContract: DivulgedContract) {
-  def toProtoV0: v0.DivulgedContract = {
+  def toProtoV30: v30.DivulgedContract = {
     val DivulgedContract(contractId, contractInst) = divulgedContract
-    v0.DivulgedContract(
+    v30.DivulgedContract(
       contractId = contractId.toProtoPrimitive,
       // This is fine to use empty agreement text for divulged contract
-      contractInst = serializeContract(contractInst, AgreementText.empty)
+      contractInst = serializeContract(contractInst)
         .valueOr(err =>
           throw new DbSerializationException(
             s"Failed to serialize contract: ${err.errorMessage}"
@@ -704,48 +674,47 @@ private[store] final case class SerializableDivulgedContract(divulgedContract: D
 }
 
 private[store] object SerializableDivulgedContract {
-  def fromProtoV0(
-      divulgedContract: v0.DivulgedContract
+  def fromProtoV30(
+      divulgedContract: v30.DivulgedContract
   ): ParsingResult[DivulgedContract] = {
-    val v0.DivulgedContract(contractIdP, contractInstP) = divulgedContract
+    val v30.DivulgedContract(contractIdP, contractInstP) = divulgedContract
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
-      contractInstAndAgreementText <- deserializeContract(contractInstP).leftMap(err =>
+      contractInstance <- deserializeContract(contractInstP).leftMap(err =>
         ValueConversionError("contractInst", err.errorMessage)
       )
-      contractInst = contractInstAndAgreementText.map(_.contractInstance)
-    } yield DivulgedContract(contractId, contractInst)
+    } yield DivulgedContract(contractId, contractInstance)
   }
 }
 
 private[store] final case class SerializableCommandRejected(
     commandRejected: LedgerSyncEvent.CommandRejected
 ) {
-  def toProtoV0: v0.CommandRejected = {
+  def toProtoV30: v30.CommandRejected = {
     val LedgerSyncEvent.CommandRejected(recordTime, completionInfo, reason, commandKind, domainId) =
       commandRejected
 
     val commandKindP = commandKind match {
-      case ProcessingSteps.RequestType.Transaction => v0.CommandKind.Transaction
-      case ProcessingSteps.RequestType.TransferOut => v0.CommandKind.TransferOut
-      case ProcessingSteps.RequestType.TransferIn => v0.CommandKind.TransferIn
+      case ProcessingSteps.RequestType.Transaction => v30.CommandKind.Transaction
+      case ProcessingSteps.RequestType.TransferOut => v30.CommandKind.TransferOut
+      case ProcessingSteps.RequestType.TransferIn => v30.CommandKind.TransferIn
     }
 
-    v0.CommandRejected(
-      Some(SerializableCompletionInfo(completionInfo).toProtoV0),
-      Some(SerializableLfTimestamp(recordTime).toProtoV0),
-      Some(SerializableRejectionReasonTemplate(reason).toProtoV0),
+    v30.CommandRejected(
+      Some(SerializableCompletionInfo(completionInfo).toProtoV30),
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
+      Some(SerializableRejectionReasonTemplate(reason).toProtoV30),
       commandKindP,
-      domainId.map(_.toProtoPrimitive),
+      domainId.toProtoPrimitive,
     )
   }
 }
 
 private[store] object SerializableCommandRejected {
-  def fromProtoV0(
-      commandRejectedP: v0.CommandRejected
+  def fromProtoV30(
+      commandRejectedP: v30.CommandRejected
   ): ParsingResult[LedgerSyncEvent.CommandRejected] = {
-    val v0.CommandRejected(
+    val v30.CommandRejected(
       completionInfoP,
       recordTimeP,
       rejectionReasonP,
@@ -755,10 +724,10 @@ private[store] object SerializableCommandRejected {
       commandRejectedP
 
     val commandTypeE: ParsingResult[ProcessingSteps.RequestType.Values] = commandTypeP match {
-      case v0.CommandKind.Transaction => Right(ProcessingSteps.RequestType.Transaction)
-      case v0.CommandKind.TransferOut => Right(ProcessingSteps.RequestType.TransferOut)
-      case v0.CommandKind.TransferIn => Right(ProcessingSteps.RequestType.TransferIn)
-      case v0.CommandKind.Unrecognized(unrecognizedValue) =>
+      case v30.CommandKind.Transaction => Right(ProcessingSteps.RequestType.Transaction)
+      case v30.CommandKind.TransferOut => Right(ProcessingSteps.RequestType.TransferOut)
+      case v30.CommandKind.TransferIn => Right(ProcessingSteps.RequestType.TransferIn)
+      case v30.CommandKind.Unrecognized(unrecognizedValue) =>
         Left(ProtoDeserializationError.UnrecognizedEnum("command kind", unrecognizedValue))
     }
 
@@ -767,13 +736,13 @@ private[store] object SerializableCommandRejected {
         SerializableLfTimestamp.fromProtoPrimitive
       )
       completionInfo <- required("completionInfo", completionInfoP).flatMap(
-        SerializableCompletionInfo.fromProtoV0
+        SerializableCompletionInfo.fromProtoV30
       )
       rejectionReason <- required("rejectionReason", rejectionReasonP).flatMap(
-        SerializableRejectionReasonTemplate.fromProtoV0
+        SerializableRejectionReasonTemplate.fromProtoV30
       )
       commandType <- commandTypeE
-      domainId <- domainIdP.map(DomainId.fromProtoPrimitive(_, "domain_id")).sequence
+      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
     } yield LedgerSyncEvent.CommandRejected(
       recordTime,
       completionInfo,
@@ -785,7 +754,7 @@ private[store] object SerializableCommandRejected {
 }
 
 private[store] final case class SerializableLfTimestamp(timestamp: Timestamp) {
-  def toProtoV0: com.google.protobuf.timestamp.Timestamp =
+  def toProtoV30: com.google.protobuf.timestamp.Timestamp =
     InstantConverter.toProtoPrimitive(timestamp.toInstant)
 }
 
@@ -803,23 +772,23 @@ private[store] object SerializableLfTimestamp {
 }
 
 private[store] final case class SerializableConfiguration(configuration: Configuration) {
-  def toProtoV0: v0.Configuration = configuration match {
+  def toProtoV30: v30.Configuration = configuration match {
     case Configuration(generation, timeModel, maxDeduplicationDuration) =>
-      v0.Configuration(
+      v30.Configuration(
         generation,
-        Some(SerializableTimeModel(timeModel).toProtoV0),
+        Some(SerializableTimeModel(timeModel).toProtoV30),
         Some(DurationConverter.toProtoPrimitive(maxDeduplicationDuration)),
       )
   }
 }
 
 private[store] object SerializableConfiguration {
-  def fromProtoV0(
-      configuration: v0.Configuration
+  def fromProtoV30(
+      configuration: v30.Configuration
   ): ParsingResult[Configuration] = {
-    val v0.Configuration(generationP, timeModelP, maxDeduplicationDurationP) = configuration
+    val v30.Configuration(generationP, timeModelP, maxDeduplicationDurationP) = configuration
     for {
-      timeModel <- required("timeModel", timeModelP).flatMap(SerializableTimeModel.fromProtoV0)
+      timeModel <- required("timeModel", timeModelP).flatMap(SerializableTimeModel.fromProtoV30)
       maxDeduplicationDuration <- required("maxDeduplicationDuration", maxDeduplicationDurationP)
         .flatMap(
           DurationConverter.fromProtoPrimitive
@@ -829,9 +798,9 @@ private[store] object SerializableConfiguration {
 }
 
 private[store] final case class SerializableTimeModel(timeModel: LedgerTimeModel) {
-  def toProtoV0: v0.TimeModel =
+  def toProtoV30: v30.TimeModel =
     // uses direct field access as TimeModel is a trait rather than interface
-    v0.TimeModel(
+    v30.TimeModel(
       Some(DurationConverter.toProtoPrimitive(timeModel.avgTransactionLatency)),
       Some(DurationConverter.toProtoPrimitive(timeModel.minSkew)),
       Some(DurationConverter.toProtoPrimitive(timeModel.maxSkew)),
@@ -839,8 +808,8 @@ private[store] final case class SerializableTimeModel(timeModel: LedgerTimeModel
 }
 
 private[store] object SerializableTimeModel {
-  def fromProtoV0(timeModelP: v0.TimeModel): ParsingResult[LedgerTimeModel] = {
-    val v0.TimeModel(avgTransactionLatencyP, minSkewP, maxSkewP) =
+  def fromProtoV30(timeModelP: v30.TimeModel): ParsingResult[LedgerTimeModel] = {
+    val v30.TimeModel(avgTransactionLatencyP, minSkewP, maxSkewP) =
       timeModelP
     for {
       // abbreviations are due to not being able to use full names as they'd be considered accessors in the time model definition below
@@ -862,7 +831,7 @@ private[store] object SerializableTimeModel {
 }
 
 final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
-  def toProtoV0: v0.CompletionInfo = {
+  def toProtoV30: v30.CompletionInfo = {
     val CompletionInfo(
       actAs,
       applicationId,
@@ -876,27 +845,27 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
       statistics.isEmpty,
       "Statistics are only set before emitting CompletionInfo in CantonSyncService",
     )
-    v0.CompletionInfo(
+    v30.CompletionInfo(
       actAs,
       applicationId,
       commandId,
-      deduplicateUntil.map(SerializableDeduplicationPeriod(_).toProtoV0),
+      deduplicateUntil.map(SerializableDeduplicationPeriod(_).toProtoV30),
       submissionId.getOrElse(""),
     )
   }
 }
 
 object SerializableCompletionInfo {
-  def fromProtoV0(
-      completionInfoP: v0.CompletionInfo
+  def fromProtoV30(
+      completionInfoP: v30.CompletionInfo
   ): ParsingResult[CompletionInfo] = {
-    val v0.CompletionInfo(actAsP, applicationIdP, commandIdP, deduplicateUntilP, submissionIdP) =
+    val v30.CompletionInfo(actAsP, applicationIdP, commandIdP, deduplicateUntilP, submissionIdP) =
       completionInfoP
     for {
       actAs <- actAsP.toList.traverse(ProtoConverter.parseLfPartyId)
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
       commandId <- ProtoConverter.parseCommandId(commandIdP)
-      deduplicateUntil <- deduplicateUntilP.traverse(SerializableDeduplicationPeriod.fromProtoV0)
+      deduplicateUntil <- deduplicateUntilP.traverse(SerializableDeduplicationPeriod.fromProtoV30)
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
     } yield CompletionInfo(
       actAs,
@@ -910,13 +879,13 @@ object SerializableCompletionInfo {
 }
 
 private[store] final case class SerializableNodeSeed(nodeId: LfNodeId, seedHash: LfHash) {
-  def toProtoV0: v0.NodeSeed =
-    v0.NodeSeed(nodeId.index, ByteString.copyFrom(seedHash.bytes.toByteArray))
+  def toProtoV30: v30.NodeSeed =
+    v30.NodeSeed(nodeId.index, ByteString.copyFrom(seedHash.bytes.toByteArray))
 }
 
 private[store] object SerializableNodeSeed {
-  def fromProtoV0(nodeSeed: v0.NodeSeed): ParsingResult[(LfNodeId, LfHash)] = {
-    val v0.NodeSeed(nodeIndex, seedHashP) = nodeSeed
+  def fromProtoV30(nodeSeed: v30.NodeSeed): ParsingResult[(LfNodeId, LfHash)] = {
+    val v30.NodeSeed(nodeIndex, seedHashP) = nodeSeed
     for {
       nodeId <- Right(LfNodeId(nodeIndex))
       nodeSeedHash <- LfHash
@@ -927,7 +896,7 @@ private[store] object SerializableNodeSeed {
 }
 
 private[store] final case class SerializableTransactionMeta(transactionMeta: TransactionMeta) {
-  def toProtoV0: v0.TransactionMeta = {
+  def toProtoV30: v30.TransactionMeta = {
     val TransactionMeta(
       ledgerTime,
       workflowId,
@@ -936,20 +905,18 @@ private[store] final case class SerializableTransactionMeta(transactionMeta: Tra
       optUsedPackages,
       optNodeSeeds,
       optByKeyNodes,
-      optDomainId,
     ) = transactionMeta
-    v0.TransactionMeta(
+    v30.TransactionMeta(
       ledgerTime = Some(InstantConverter.toProtoPrimitive(ledgerTime.toInstant)),
       workflowId = workflowId,
       submissionTime = Some(InstantConverter.toProtoPrimitive(submissionTime.toInstant)),
       submissionSeed = ByteString.copyFrom(submissionSeed.bytes.toByteArray),
       usedPackages = optUsedPackages.fold(Seq.empty[String])(_.map(_.toString).toSeq),
-      nodeSeeds = optNodeSeeds.fold(Seq.empty[v0.NodeSeed])(_.map { case (nodeId, seedHash) =>
-        SerializableNodeSeed(nodeId, seedHash).toProtoV0
+      nodeSeeds = optNodeSeeds.fold(Seq.empty[v30.NodeSeed])(_.map { case (nodeId, seedHash) =>
+        SerializableNodeSeed(nodeId, seedHash).toProtoV30
       }.toSeq),
-      domainId = optDomainId.map(_.toProtoPrimitive),
       byKeyNodes = optByKeyNodes.map(byKeyNodes =>
-        v0.TransactionMeta.ByKeyNodes(byKeyNodes.map(_.index).toSeq)
+        v30.TransactionMeta.ByKeyNodes(byKeyNodes.map(_.index).toSeq)
       ),
     )
   }
@@ -957,10 +924,10 @@ private[store] final case class SerializableTransactionMeta(transactionMeta: Tra
 
 private[store] object SerializableTransactionMeta {
 
-  def fromProtoV0(
-      transactionMetaP: v0.TransactionMeta
+  def fromProtoV30(
+      transactionMetaP: v30.TransactionMeta
   ): ParsingResult[TransactionMeta] = {
-    val v0.TransactionMeta(
+    val v30.TransactionMeta(
       ledgerTimeP,
       workflowIdP,
       submissionTimeP,
@@ -968,7 +935,6 @@ private[store] object SerializableTransactionMeta {
       usedPackagesP,
       nodeSeedsP,
       byKeyNodesP,
-      domainIdP,
     ) =
       transactionMetaP
     for {
@@ -990,12 +956,11 @@ private[store] object SerializableTransactionMeta {
             .map(packageList => Some(packageList.toSet))
       }
       optNodeSeeds <- nodeSeedsP
-        .traverse(SerializableNodeSeed.fromProtoV0)
+        .traverse(SerializableNodeSeed.fromProtoV30)
         .map(list => Some(list.to(ImmArray)))
       optByKeyNodes = byKeyNodesP.map(byKeyNodes =>
         byKeyNodes.byKeyNode.map(LfNodeId(_)).to(ImmArray)
       )
-      domainId <- domainIdP.map(DomainId.fromProtoPrimitive(_, "domain_id")).sequence
     } yield TransactionMeta(
       ledgerTime,
       workflowId,
@@ -1004,27 +969,26 @@ private[store] object SerializableTransactionMeta {
       optUsedPackages,
       optNodeSeeds,
       optByKeyNodes,
-      domainId,
     )
   }
 }
 
 private[store] final case class SerializableBlindingInfo(blindingInfo: BlindingInfo) {
-  def toProtoV0: v0.BlindingInfo = {
+  def toProtoV30: v30.BlindingInfo = {
     val BlindingInfo(disclosure, divulgence) = blindingInfo
 
-    v0.BlindingInfo(
-      disclosure.map { case (LfNodeId(nodeId), parties) => nodeId -> v0.Parties(parties.toSeq) },
-      divulgence.map { case (contractId, parties) => contractId.coid -> v0.Parties(parties.toSeq) },
+    v30.BlindingInfo(
+      disclosure.map { case (LfNodeId(nodeId), parties) => nodeId -> v30.Parties(parties.toSeq) },
+      divulgence.map { case (contractId, parties) => contractId.coid -> v30.Parties(parties.toSeq) },
     )
   }
 }
 
 private[store] object SerializableBlindingInfo {
-  def fromProtoV0(
-      blindingInfoP: v0.BlindingInfo
+  def fromProtoV30(
+      blindingInfoP: v30.BlindingInfo
   ): ParsingResult[BlindingInfo] = {
-    val v0.BlindingInfo(disclosureP, divulgenceP) = blindingInfoP
+    val v30.BlindingInfo(disclosureP, divulgenceP) = blindingInfoP
     for {
       disclosure <- disclosureP.toList
         .traverse { case (nodeIdAsInt, parties) =>
@@ -1051,13 +1015,13 @@ private[store] object SerializableBlindingInfo {
 final case class SerializableRejectionReasonTemplate(
     rejectionReason: LedgerSyncEvent.CommandRejected.FinalReason
 ) {
-  def toProtoV0: v0.CommandRejected.GrpcRejectionReasonTemplate =
-    v0.CommandRejected.GrpcRejectionReasonTemplate(rejectionReason.status.toByteString)
+  def toProtoV30: v30.CommandRejected.GrpcRejectionReasonTemplate =
+    v30.CommandRejected.GrpcRejectionReasonTemplate(rejectionReason.status.toByteString)
 }
 
 object SerializableRejectionReasonTemplate {
-  def fromProtoV0(
-      reasonP: v0.CommandRejected.GrpcRejectionReasonTemplate
+  def fromProtoV30(
+      reasonP: v30.CommandRejected.GrpcRejectionReasonTemplate
   ): ParsingResult[LedgerSyncEvent.CommandRejected.FinalReason] = {
     for {
       rpcStatus <- ProtoConverter.protoParser(RpcStatus.parseFrom)(reasonP.status)
@@ -1068,7 +1032,7 @@ object SerializableRejectionReasonTemplate {
 private[store] final case class SerializableTransferredOut(
     transferOut: LedgerSyncEvent.TransferredOut
 ) {
-  def toProtoV0: v0.TransferredOut = {
+  def toProtoV30: v30.TransferredOut = {
     val LedgerSyncEvent.TransferredOut(
       updateId,
       optCompletionInfo,
@@ -1084,18 +1048,18 @@ private[store] final case class SerializableTransferredOut(
       hostedStakeholders,
       transferCounter,
     ) = transferOut
-    v0.TransferredOut(
+    v30.TransferredOut(
       updateId = updateId,
-      completionInfo = optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV0),
+      completionInfo = optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV30),
       submitter = submitter.getOrElse(""),
       recordTime =
-        Some(SerializableLfTimestamp(transferId.transferOutTimestamp.underlying).toProtoV0),
+        Some(SerializableLfTimestamp(transferId.transferOutTimestamp.underlying).toProtoV30),
       contractId = contractId.toProtoPrimitive,
       templateId = templateId.map(_.toString).getOrElse(""),
       contractStakeholders = contractStakeholders.toSeq,
       sourceDomain = transferId.sourceDomain.toProtoPrimitive,
       targetDomain = target.toProtoPrimitive,
-      transferInExclusivity = transferInExclusivity.map(SerializableLfTimestamp(_).toProtoV0),
+      transferInExclusivity = transferInExclusivity.map(SerializableLfTimestamp(_).toProtoV30),
       workflowId = workflowId.getOrElse(""),
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
@@ -1105,10 +1069,10 @@ private[store] final case class SerializableTransferredOut(
 }
 
 private[store] object SerializableTransferredOut {
-  def fromProtoV0(
-      transferOutP: v0.TransferredOut
+  def fromProtoV30(
+      transferOutP: v30.TransferredOut
   ): ParsingResult[LedgerSyncEvent.TransferredOut] = {
-    val v0.TransferredOut(
+    val v30.TransferredOut(
       updateIdP,
       optCompletionInfoP,
       submitterP,
@@ -1127,7 +1091,7 @@ private[store] object SerializableTransferredOut {
 
     for {
       updateId <- ProtoConverter.parseLedgerTransactionId(updateIdP)
-      optCompletionInfo <- optCompletionInfoP.traverse(SerializableCompletionInfo.fromProtoV0)
+      optCompletionInfo <- optCompletionInfoP.traverse(SerializableCompletionInfo.fromProtoV30)
       submitter <- ProtoConverter.parseLfPartyIdO(submitterP)
       recordTime <- required("record_time", recordTimeP).flatMap(
         SerializableLfTimestamp.fromProtoPrimitive
@@ -1162,7 +1126,7 @@ private[store] object SerializableTransferredOut {
 }
 
 final case class SerializableTransferredIn(transferIn: LedgerSyncEvent.TransferredIn) {
-  def toProtoV0: v0.TransferredIn = {
+  def toProtoV30: v30.TransferredIn = {
     val LedgerSyncEvent.TransferredIn(
       updateId,
       optCompletionInfo,
@@ -1182,16 +1146,16 @@ final case class SerializableTransferredIn(transferIn: LedgerSyncEvent.Transferr
     ) = transferIn
     val contractMetadataP = contractMetadata.toByteString
     val createNodeByteString = SerializableLedgerSyncEvent.trySerializeNode(createNode)
-    v0.TransferredIn(
+    v30.TransferredIn(
       updateId = updateId,
-      completionInfo = optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV0),
+      completionInfo = optCompletionInfo.map(SerializableCompletionInfo(_).toProtoV30),
       submitter = submitter.getOrElse(""),
-      recordTime = Some(SerializableLfTimestamp(recordTime).toProtoV0),
-      ledgerCreateTime = Some(SerializableLfTimestamp(ledgerCreateTime).toProtoV0),
+      recordTime = Some(SerializableLfTimestamp(recordTime).toProtoV30),
+      ledgerCreateTime = Some(SerializableLfTimestamp(ledgerCreateTime).toProtoV30),
       contractMetadata = contractMetadataP,
       createNode = createNodeByteString,
       creatingTransactionId = creatingTransactionId,
-      transferOutId = Some(transferOutId.toProtoV0),
+      transferOutId = Some(transferOutId.toProtoV30),
       targetDomain = targetDomain.toProtoPrimitive,
       createTransactionAccepted = createTransactionAccepted,
       workflowId = workflowId.getOrElse(""),
@@ -1204,8 +1168,8 @@ final case class SerializableTransferredIn(transferIn: LedgerSyncEvent.Transferr
 }
 
 private[store] object SerializableTransferredIn {
-  def fromProtoV0(transferInP: v0.TransferredIn): ParsingResult[LedgerSyncEvent.TransferredIn] = {
-    val v0.TransferredIn(
+  def fromProtoV30(transferInP: v30.TransferredIn): ParsingResult[LedgerSyncEvent.TransferredIn] = {
+    val v30.TransferredIn(
       updateIdP,
       optCompletionInfoP,
       submitterP,
@@ -1225,7 +1189,7 @@ private[store] object SerializableTransferredIn {
 
     for {
       updateId <- ProtoConverter.parseLedgerTransactionId(updateIdP)
-      optCompletionInfo <- optCompletionInfoP.traverse(SerializableCompletionInfo.fromProtoV0)
+      optCompletionInfo <- optCompletionInfoP.traverse(SerializableCompletionInfo.fromProtoV30)
       submitter <- ProtoConverter.parseLfPartyIdO(submitterP)
       recordTime <- required("record_time", recordTimeP).flatMap(
         SerializableLfTimestamp.fromProtoPrimitive
@@ -1235,7 +1199,7 @@ private[store] object SerializableTransferredIn {
       )
       contractMetadata = LfBytes.fromByteString(contractMetadataP)
       transferId <- ProtoConverter.parseRequired(
-        TransferId.fromProtoV0,
+        TransferId.fromProtoV30,
         "transfer_id",
         transferOutIdP,
       )
@@ -1260,6 +1224,102 @@ private[store] object SerializableTransferredIn {
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders.toList,
       transferCounter = TransferCounter(transferCounterP),
+    )
+  }
+}
+
+private[store] final case class SerializablePartiesAddedToParticipant(
+    partiesAddedToParticipant: LedgerSyncEvent.PartiesAddedToParticipant
+) {
+  def toProtoV30: v30.PartiesAddedToParticipant = {
+    val LedgerSyncEvent.PartiesAddedToParticipant(
+      parties,
+      participantId,
+      recordTime,
+      effectiveTime,
+    ) =
+      partiesAddedToParticipant
+    v30.PartiesAddedToParticipant(
+      parties.forgetNE.toSeq,
+      participantId,
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
+      Some(SerializableLfTimestamp(effectiveTime).toProtoV30),
+    )
+  }
+}
+
+private[store] object SerializablePartiesAddedToParticipant {
+  def fromProtoV30(
+      partyAddedToParticipant: v30.PartiesAddedToParticipant
+  ): ParsingResult[LedgerSyncEvent.PartiesAddedToParticipant] = {
+    val v30.PartiesAddedToParticipant(partiesP, participantIdP, recordTimeP, effectiveTimeP) =
+      partyAddedToParticipant
+    for {
+      partiesNE <- ProtoConverter.parseRequiredNonEmpty(
+        ProtoConverter.parseLfPartyId,
+        "parties",
+        partiesP,
+      )
+      participantId <- ProtoConverter.parseLfParticipantId(participantIdP)
+      recordTime <- required("recordTime", recordTimeP).flatMap(
+        SerializableLfTimestamp.fromProtoPrimitive
+      )
+      effectiveTime <- required("effectiveTime", effectiveTimeP).flatMap(
+        SerializableLfTimestamp.fromProtoPrimitive
+      )
+    } yield LedgerSyncEvent.PartiesAddedToParticipant(
+      partiesNE.toSet,
+      participantId,
+      recordTime,
+      effectiveTime,
+    )
+  }
+}
+
+private[store] final case class SerializablePartiesRemovedFromParticipant(
+    partiesRemovedFromParticipant: LedgerSyncEvent.PartiesRemovedFromParticipant
+) {
+  def toProtoV30: v30.PartiesRemovedFromParticipant = {
+    val LedgerSyncEvent.PartiesRemovedFromParticipant(
+      parties,
+      participantId,
+      recordTime,
+      effectiveTime,
+    ) =
+      partiesRemovedFromParticipant
+    v30.PartiesRemovedFromParticipant(
+      parties.forgetNE.toSeq,
+      participantId,
+      Some(SerializableLfTimestamp(recordTime).toProtoV30),
+      Some(SerializableLfTimestamp(effectiveTime).toProtoV30),
+    )
+  }
+}
+
+private[store] object SerializablePartiesRemovedFromParticipant {
+  def fromProtoV30(
+      partyRemovedFromParticipant: v30.PartiesRemovedFromParticipant
+  ): ParsingResult[LedgerSyncEvent.PartiesRemovedFromParticipant] = {
+    val v30.PartiesRemovedFromParticipant(partiesP, participantIdP, recordTimeP, effectiveTimeP) =
+      partyRemovedFromParticipant
+    for {
+      partiesNE <- ProtoConverter.parseRequiredNonEmpty(
+        ProtoConverter.parseLfPartyId,
+        "parties",
+        partiesP,
+      )
+      participantId <- ProtoConverter.parseLfParticipantId(participantIdP)
+      recordTime <- required("recordTime", recordTimeP).flatMap(
+        SerializableLfTimestamp.fromProtoPrimitive
+      )
+      effectiveTime <- required("effectiveTime", effectiveTimeP).flatMap(
+        SerializableLfTimestamp.fromProtoPrimitive
+      )
+    } yield LedgerSyncEvent.PartiesRemovedFromParticipant(
+      partiesNE.toSet,
+      participantId,
+      recordTime,
+      effectiveTime,
     )
   }
 }

@@ -5,10 +5,10 @@ package com.digitalasset.canton.fetchcontracts
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.daml.lf
 import util.ClientUtil.boxedRecord
 import com.daml.nonempty.NonEmpty
-import scalaz.std.list.*
 import scalaz.std.option.*
 import scalaz.std.string.*
 import scalaz.syntax.std.option.*
@@ -36,6 +36,7 @@ package object domain {
 
 package domain {
 
+  import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
   import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
   import scalaz.\/-
 
@@ -57,19 +58,16 @@ package domain {
     def unwrap(x: Offset): String = tag.unwrap(x)
 
     def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
+        offset: ParticipantOffset
     ): Option[Offset] =
-      Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
+      offset.value.absolute.filter(_.nonEmpty).map(x => Offset(x))
 
-    def fromLedgerApi(
-        gler: lav1.transaction_service.GetLedgerEndResponse
-    ): Option[Offset] =
-      gler.offset.flatMap(_.value.absolute).filter(_.nonEmpty).map(x => Offset(x))
+    def fromLedgerApi(tx: lav2.transaction.Transaction): Offset = Offset(tx.offset)
 
-    def fromLedgerApi(tx: lav1.transaction.Transaction): Offset = Offset(tx.offset)
-
-    def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
-      lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
+    def toLedgerApi(o: Offset): lav2.participant_offset.ParticipantOffset =
+      lav2.participant_offset.ParticipantOffset(
+        lav2.participant_offset.ParticipantOffset.Value.Absolute(unwrap(o))
+      )
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
@@ -89,15 +87,6 @@ package domain {
     type ResolvedCtTyId[+LfV] = ActiveContract[ContractTypeId.Resolved, LfV]
 
     case object IgnoreInterface
-
-    def fromLedgerApi[RQ, CtTyId](
-        resolvedQuery: RQ,
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    )(implicit
-        RQ: ForQuery[RQ, CtTyId]
-    ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
-    }
 
     def fromLedgerApi[RQ, CtTyId](
         resolvedQuery: RQ,

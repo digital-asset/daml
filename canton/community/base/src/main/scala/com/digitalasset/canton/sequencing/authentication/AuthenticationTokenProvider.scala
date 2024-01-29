@@ -8,14 +8,13 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.common.domain.ServiceAgreementId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0.Authentication.Response.Value
-import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
-import com.digitalasset.canton.domain.api.v0.{Authentication, Challenge}
+import com.digitalasset.canton.domain.api.v30.Authentication.Response.Value
+import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
+import com.digitalasset.canton.domain.api.v30.{Authentication, Challenge}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
@@ -50,7 +49,6 @@ object AuthenticationTokenManagerConfig {
 class AuthenticationTokenProvider(
     domainId: DomainId,
     member: Member,
-    agreementId: Option[ServiceAgreementId],
     crypto: Crypto,
     supportedProtocolVersions: Seq[ProtocolVersion],
     config: AuthenticationTokenManagerConfig,
@@ -95,7 +93,7 @@ class AuthenticationTokenProvider(
   private def getChallenge(
       authenticationClient: SequencerAuthenticationServiceStub
   ): EitherT[Future, Status, Challenge.Success] = EitherT {
-    import com.digitalasset.canton.domain.api.v0.Challenge.Response.Value.{Empty, Failure, Success}
+    import com.digitalasset.canton.domain.api.v30.Challenge.Response.Value.{Empty, Failure, Success}
     authenticationClient
       .challenge(
         Challenge
@@ -138,7 +136,6 @@ class AuthenticationTokenProvider(
           nonce,
           domainId,
           fingerprintsNel,
-          agreementId,
           crypto,
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))
@@ -147,7 +144,7 @@ class AuthenticationTokenProvider(
           .authenticate(
             Authentication.Request(
               member = member.toProtoPrimitive,
-              signature = signature.toProtoV0.some,
+              signature = signature.toProtoV30.some,
               nonce = nonce.toProtoPrimitive,
             )
           )

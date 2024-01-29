@@ -36,8 +36,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.rpc.status.Status as RpcStatus
@@ -272,12 +271,12 @@ class CommandSubmissionServiceImplSpec
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,
-      optDomainId = None,
     )
     val estimatedInterpretationCost = 5L
     val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
+      optDomainId = None,
       transactionMeta = transactionMeta,
       transaction = transaction,
       dependsOnLedgerTime = false,
@@ -297,6 +296,7 @@ class CommandSubmissionServiceImplSpec
     when(
       writeService.submitTransaction(
         eqTo(submitterInfo),
+        eqTo(None),
         eqTo(transactionMeta),
         eqTo(transaction),
         eqTo(estimatedInterpretationCost),

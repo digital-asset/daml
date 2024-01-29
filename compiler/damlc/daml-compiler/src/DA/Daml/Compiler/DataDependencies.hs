@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -120,11 +120,8 @@ buildWorld Config{..} =
         self <- MS.lookup configSelfPkgId configPackages
         Just (LF.initWorldSelf extPackages self)
 
-worldLfVersion :: LF.World -> LF.Version
-worldLfVersion = LF.packageLfVersion . LF.getWorldSelf
-
 envLfVersion :: Env -> LF.Version
-envLfVersion = worldLfVersion . envWorld
+envLfVersion = LF.getWorldSelfPkgLfVersion . envWorld
 
 data DependencyInfo = DependencyInfo
   { depClassMap :: !DepClassMap
@@ -178,7 +175,7 @@ envLookupDepClass synName env =
 expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
 expandSynonyms world ty =
     fmap (ExpandedType . fst) $ -- Ignore warnings from runGamma
-    LF.runGamma world (worldLfVersion world) $
+    LF.runGamma world (LF.getWorldSelfPkgLfVersion world) $
     LF.expandTypeSynonyms ty
 
 -- | Determine whether two type synonym definitions are similar enough to
@@ -1219,7 +1216,7 @@ buildHiddenRefMap config world =
     visitRef !refGraph ref
         | HMS.member ref refGraph
             = refGraph -- already in the map
-        | ref == RTypeCon (erasedTCon (LF.versionMajor (worldLfVersion world)))
+        | ref == RTypeCon (erasedTCon (LF.versionMajor (LF.getWorldSelfPkgLfVersion world)))
             = HMS.insert ref (True, []) refGraph -- Erased is always erased
 
         | RTypeCon tcon <- ref
@@ -1238,7 +1235,7 @@ buildHiddenRefMap config world =
         | RValue val <- ref
         , Right dval <- LF.lookupValue val world
         , -- we only care about typeclass instances
-          refs <- if hasDFunSig (LF.versionMajor (worldLfVersion world)) dval
+          refs <- if hasDFunSig (LF.versionMajor (LF.getWorldSelfPkgLfVersion world)) dval
             then DL.toList (refsFromDFun dval)
             else mempty
         , refGraph' <- HMS.insert ref (False, refs) refGraph
@@ -1279,10 +1276,10 @@ rootRefs :: Config -> LF.World -> DL.DList Ref
 rootRefs config world =
     fold
         [ modRootRefs
-            (LF.versionMajor (worldLfVersion world))
+            (LF.versionMajor (LF.getWorldSelfPkgLfVersion world))
             (configSelfPkgId config)
             mod
-        | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
+        | mod <- NM.toList (LF.getWorldSelfPkgModules world)
         ]
 
 modRootRefs :: LF.MajorVersion -> LF.PackageId -> LF.Module -> DL.DList Ref

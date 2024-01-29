@@ -3,15 +3,21 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.syntax.order.*
 import com.digitalasset.canton.ProtoDeserializationError.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** If [[trustLevel]] is [[TrustLevel.Vip]],
   * then [[permission]]`.`[[ParticipantPermission.canConfirm canConfirm]] must hold.
   */
-final case class ParticipantAttributes(permission: ParticipantPermission, trustLevel: TrustLevel) {
+final case class ParticipantAttributes(
+    permission: ParticipantPermission,
+    trustLevel: TrustLevel,
+    loginAfter: Option[CantonTimestamp] = None,
+) {
   // Make sure that VIPs can always confirm so that
   // downstream code does not have to handle VIPs that cannot confirm.
   require(
@@ -23,6 +29,7 @@ final case class ParticipantAttributes(permission: ParticipantPermission, trustL
     ParticipantAttributes(
       permission = ParticipantPermission.lowerOf(permission, elem.permission),
       trustLevel = TrustLevel.lowerOf(trustLevel, elem.trustLevel),
+      loginAfter = loginAfter.max(elem.loginAfter),
     )
 
 }
@@ -35,7 +42,7 @@ sealed trait ParticipantPermission extends Product with Serializable {
   def canConfirm: Boolean = false // can confirm transactions
   def isActive: Boolean = true // can receive messages
   val level: Byte // used for serialization and ordering.
-  def toProtoEnum: v0.ParticipantPermission
+  def toProtoEnum: v30.ParticipantPermission
 
   def tryToX: ParticipantPermissionX = this match {
     case ParticipantPermission.Submission => ParticipantPermissionX.Submission
@@ -52,37 +59,38 @@ object ParticipantPermission {
   case object Submission extends ParticipantPermission {
     override val canConfirm = true
     val level = 1
-    val toProtoEnum: v0.ParticipantPermission = v0.ParticipantPermission.Submission
+    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Submission
   }
   case object Confirmation extends ParticipantPermission {
     override val canConfirm = true
     val level = 2
-    val toProtoEnum: v0.ParticipantPermission = v0.ParticipantPermission.Confirmation
+    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Confirmation
   }
   case object Observation extends ParticipantPermission {
     val level = 3
-    val toProtoEnum: v0.ParticipantPermission = v0.ParticipantPermission.Observation
+    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Observation
   }
   // in 3.0, participants can't be disabled anymore. they can be purged for good
+  // The permission may still be used in the old topology management, but should not be used from the new topology management.
   @Deprecated(since = "3.0.0")
   case object Disabled extends ParticipantPermission {
     override def isActive = false
     val level = 4
-    val toProtoEnum = v0.ParticipantPermission.Disabled
+    val toProtoEnum = v30.ParticipantPermission.Disabled
   }
   // TODO(i2213): add purging of participants
 
   def fromProtoEnum(
-      permission: v0.ParticipantPermission
+      permission: v30.ParticipantPermission
   ): ParsingResult[ParticipantPermission] = {
     permission match {
-      case v0.ParticipantPermission.Observation => Right(ParticipantPermission.Observation)
-      case v0.ParticipantPermission.Confirmation => Right(ParticipantPermission.Confirmation)
-      case v0.ParticipantPermission.Submission => Right(ParticipantPermission.Submission)
-      case v0.ParticipantPermission.Disabled => Right(ParticipantPermission.Disabled)
-      case v0.ParticipantPermission.MissingParticipantPermission =>
+      case v30.ParticipantPermission.Observation => Right(ParticipantPermission.Observation)
+      case v30.ParticipantPermission.Confirmation => Right(ParticipantPermission.Confirmation)
+      case v30.ParticipantPermission.Submission => Right(ParticipantPermission.Submission)
+      case v30.ParticipantPermission.Disabled => Right(ParticipantPermission.Disabled)
+      case v30.ParticipantPermission.MissingParticipantPermission =>
         Left(FieldNotSet(permission.name))
-      case v0.ParticipantPermission.Unrecognized(x) => Left(UnrecognizedEnum(permission.name, x))
+      case v30.ParticipantPermission.Unrecognized(x) => Left(UnrecognizedEnum(permission.name, x))
     }
   }
 
@@ -106,7 +114,7 @@ object ParticipantPermission {
 /** The trust level of the participant. Can be either Ordinary or Vip
   */
 sealed trait TrustLevel extends Product with Serializable with PrettyPrinting {
-  def toProtoEnum: v0.TrustLevel
+  def toProtoEnum: v30.TrustLevel
   def rank: Byte
 
   override def pretty: Pretty[TrustLevel] = prettyOfObject[TrustLevel]
@@ -124,20 +132,20 @@ object TrustLevel {
   def higherOf(fst: TrustLevel, snd: TrustLevel): TrustLevel = if (fst.rank > snd.rank) fst else snd
 
   case object Ordinary extends TrustLevel {
-    override def toProtoEnum: v0.TrustLevel = v0.TrustLevel.Ordinary
+    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.Ordinary
     override def rank: Byte = 0;
   }
   case object Vip extends TrustLevel {
-    override def toProtoEnum: v0.TrustLevel = v0.TrustLevel.Vip
+    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.Vip
     override def rank: Byte = 1;
   }
 
-  def fromProtoEnum(value: v0.TrustLevel): ParsingResult[TrustLevel] =
+  def fromProtoEnum(value: v30.TrustLevel): ParsingResult[TrustLevel] =
     value match {
-      case v0.TrustLevel.Vip => Right(Vip)
-      case v0.TrustLevel.Ordinary => Right(Ordinary)
-      case v0.TrustLevel.MissingTrustLevel => Left(FieldNotSet("trustLevel"))
-      case v0.TrustLevel.Unrecognized(x) => Left(UnrecognizedEnum("trustLevel", x))
+      case v30.TrustLevel.Vip => Right(Vip)
+      case v30.TrustLevel.Ordinary => Right(Ordinary)
+      case v30.TrustLevel.MissingTrustLevel => Left(FieldNotSet("trustLevel"))
+      case v30.TrustLevel.Unrecognized(x) => Left(UnrecognizedEnum("trustLevel", x))
     }
 
   implicit val orderingTrustLevel: Ordering[TrustLevel] = Ordering.by[TrustLevel, Byte](_.rank)

@@ -15,6 +15,7 @@ import com.digitalasset.canton.common.domain.{
   SequencerBasedRegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
+import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -119,10 +120,11 @@ trait ParticipantTopologyDispatcherCommon extends TopologyDispatcherCommon {
 }
 
 abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistentState](
-    state: SyncDomainPersistentStateManagerImpl[S]
-)(implicit
-    val ec: ExecutionContext
-) extends ParticipantTopologyDispatcherCommon {
+    state: SyncDomainPersistentStateManagerImpl[S],
+    override protected val futureSupervisor: FutureSupervisor,
+)(implicit override protected val executionContext: ExecutionContext)
+    extends ParticipantTopologyDispatcherCommon
+    with HasFutureSupervision {
 
   /** map of active domain outboxes, i.e. where we are connected and actively try to push topology state onto the domains */
   private[topology] val domains = new TrieMap[DomainAlias, NonEmpty[Seq[DomainOutboxCommon]]]()
@@ -143,12 +145,17 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
       domain: DomainAlias
   )(implicit traceContext: TraceContext): Unit = {
     domains.remove(domain) match {
-      case Some(outbox) =>
-        outbox.foreach(_.close())
+      case Some(outboxes) =>
+        state.domainIdForAlias(domain).foreach(disconnectOutboxXes)
+        outboxes.foreach(_.close())
       case None =>
         logger.debug(s"Topology pusher already disconnected from $domain")
     }
   }
+
+  protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit
 
   override def awaitIdle(domain: DomainAlias, timeout: Duration)(implicit
       traceContext: TraceContext
@@ -196,9 +203,13 @@ class ParticipantTopologyDispatcher(
     crypto: Crypto,
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateOld](state) {
+    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateOld](
+      state,
+      futureSupervisor,
+    ) {
 
   override protected def managerQueueSize: Int = manager.queueSize
 
@@ -254,6 +265,7 @@ class ParticipantTopologyDispatcher(
             timeouts,
             loggerFactory.append("domainId", domainId.toString),
             crypto,
+            futureSupervisor = futureSupervisor,
           )
           ErrorUtil.requireState(
             !domains.contains(domain),
@@ -308,6 +320,10 @@ class ParticipantTopologyDispatcher(
       )).run()
     }
   }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = ()
 }
 
 class ParticipantTopologyDispatcherX(
@@ -318,9 +334,13 @@ class ParticipantTopologyDispatcherX(
     clock: Clock,
     config: LocalNodeConfig,
     override protected val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateX](state) {
+    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateX](
+      state,
+      futureSupervisor,
+    ) {
 
   override protected def managerQueueSize: Int =
     manager.queueSize + state.getAll.values.map(_.topologyManager.queueSize).sum
@@ -343,14 +363,14 @@ class ParticipantTopologyDispatcherX(
   override def trustDomain(domainId: DomainId, parameters: StaticDomainParameters)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    def alreadyTrusted(
-        state: SyncDomainPersistentStateX
+    def alreadyTrustedInStore(
+        store: TopologyStoreX[?]
     ): EitherT[FutureUnlessShutdown, String, Boolean] =
       for {
         alreadyTrusted <- EitherT
           .right[String](
             performUnlessClosingF(functionFullName)(
-              state.topologyStore
+              store
                 .findPositiveTransactions(
                   asOf = CantonTimestamp.MaxValue,
                   asOfInclusive = true,
@@ -369,32 +389,34 @@ class ParticipantTopologyDispatcherX(
     def trustDomain(
         state: SyncDomainPersistentStateX
     ): EitherT[FutureUnlessShutdown, String, Unit] =
-      performUnlessClosingEitherUSF(functionFullName)(
-        manager
-          .proposeAndAuthorize(
-            TopologyChangeOpX.Replace,
-            DomainTrustCertificateX(
-              participantId,
-              domainId,
-              transferOnlyToGivenTargetDomains = false,
-              targetDomains = Seq.empty,
-            ),
-            serial = None,
-            // TODO(#12390) auto-determine signing keys
-            signingKeys = Seq(participantId.uid.namespace.fingerprint),
-            protocolVersion = state.protocolVersion,
-            expectFullAuthorization = true,
-            force = false,
-          )
-          // TODO(#14048) improve error handling
-          .leftMap(_.cause)
-      ).map(_ => ())
-    // check if cert already exists
+      performUnlessClosingEitherUSF(functionFullName) {
+        MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
+          manager
+            .proposeAndAuthorize(
+              TopologyChangeOpX.Replace,
+              DomainTrustCertificateX(
+                participantId,
+                domainId,
+                transferOnlyToGivenTargetDomains = false,
+                targetDomains = Seq.empty,
+              ),
+              serial = None,
+              // TODO(#12390) auto-determine signing keys
+              signingKeys = Seq(participantId.uid.namespace.fingerprint),
+              protocolVersion = state.protocolVersion,
+              expectFullAuthorization = true,
+              force = false,
+            )
+            // TODO(#14048) improve error handling
+            .leftMap(_.cause)
+        }
+      }
+    // check if cert already exists in the domain store
     val ret = for {
       state <- getState(domainId).leftMap(_.cause)
-      have <- alreadyTrusted(state)
+      alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
       _ <-
-        if (have) EitherT.rightT[FutureUnlessShutdown, String](())
+        if (alreadyTrustedInDomainStore) EitherT.rightT[FutureUnlessShutdown, String](())
         else trustDomain(state)
     } yield ()
     ret
@@ -487,6 +509,7 @@ class ParticipantTopologyDispatcherX(
               timeouts,
               loggerFactory,
               crypto,
+              futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(
               !domains.contains(domain),
@@ -516,6 +539,13 @@ class ParticipantTopologyDispatcherX(
       override def processor: EnvelopeHandler = handle.processor
 
     }
+  }
+
+  override protected def disconnectOutboxXes(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    logger.debug("Clearing domain topology manager observers")
+    state.get(domainId).foreach(_.topologyManager.clearObservers())
   }
 
 }

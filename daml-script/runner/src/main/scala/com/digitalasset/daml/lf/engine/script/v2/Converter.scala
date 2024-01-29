@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -6,8 +6,9 @@ package engine
 package script
 package v2
 
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
@@ -16,7 +17,7 @@ import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -61,7 +62,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       tree: ScriptLedgerClient.TransactionTree,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
-    def damlTree(s: String) = scriptIds.damlScriptModule("Daml.Script.Questions.TransactionTree", s)
+    def damlTree(s: String) =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.TransactionTree", s)
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
       case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
         for {
@@ -128,7 +130,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       commandResult: ScriptLedgerClient.CommandResult,
       enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
-    def scriptCommands(s: String) = scriptIds.damlScriptModule("Daml.Script.Commands", s)
+    def scriptCommands(s: String) =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Commands", s)
     commandResult match {
       case ScriptLedgerClient.CreateResult(contractId) =>
         Right(
@@ -405,12 +408,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       case _ => Left(s"Expected command but got $v")
     }
 
-  // Encodes as Daml.Script.Questions.Packages.PackageName
+  // Encodes as Daml.Script.Internal.Questions.Packages.PackageName
   def fromReadablePackageId(
       scriptIds: ScriptIds,
       packageName: ScriptLedgerClient.ReadablePackageId,
   ): SValue = {
-    val packageNameTy = scriptIds.damlScriptModule("Daml.Script.Questions.Packages", "PackageName")
+    val packageNameTy =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Packages", "PackageName")
     record(
       packageNameTy,
       ("name", SText(packageName.name.toString)),

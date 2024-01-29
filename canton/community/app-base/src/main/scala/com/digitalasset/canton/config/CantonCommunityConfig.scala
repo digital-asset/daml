@@ -8,15 +8,14 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.domain.config.{
-  CommunityDomainConfig,
-  DomainBaseConfig,
-  RemoteDomainConfig,
+import com.digitalasset.canton.domain.mediator.{CommunityMediatorNodeXConfig, RemoteMediatorConfig}
+import com.digitalasset.canton.domain.sequencing.config.{
+  CommunitySequencerNodeXConfig,
+  RemoteSequencerConfig,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
-  LocalParticipantConfig,
   RemoteParticipantConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,20 +28,21 @@ import java.io.File
 import scala.annotation.nowarn
 
 final case class CantonCommunityConfig(
-    domains: Map[InstanceName, CommunityDomainConfig] = Map.empty,
     participants: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
-    participantsX: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
-    remoteDomains: Map[InstanceName, RemoteDomainConfig] = Map.empty,
+    sequencers: Map[InstanceName, CommunitySequencerNodeXConfig] = Map.empty,
+    mediators: Map[InstanceName, CommunityMediatorNodeXConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
-    remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
+    remoteSequencers: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
+    remoteMediators: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
     monitoring: MonitoringConfig = MonitoringConfig(),
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
 ) extends CantonConfig
     with ConfigDefaults[DefaultPorts, CantonCommunityConfig] {
 
-  override type DomainConfigType = CommunityDomainConfig
   override type ParticipantConfigType = CommunityParticipantConfig
+  override type MediatorNodeXConfigType = CommunityMediatorNodeXConfig
+  override type SequencerNodeXConfigType = CommunitySequencerNodeXConfig
 
   /** renders the config as json (used for dumping config for diagnostic purposes) */
   override def dumpString: String = CantonCommunityConfig.makeConfidentialString(this)
@@ -52,28 +52,16 @@ final case class CantonCommunityConfig(
 
   override def withDefaults(ports: DefaultPorts): CantonCommunityConfig =
     this
-      .focus(_.domains)
-      .modify(_.fmap(_.withDefaults(ports)))
       .focus(_.participants)
       .modify(_.fmap(_.withDefaults(ports)))
-      .focus(_.participantsX)
+      .focus(_.sequencers)
+      .modify(_.fmap(_.withDefaults(ports)))
+      .focus(_.mediators)
       .modify(_.fmap(_.withDefaults(ports)))
 }
 
 @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object CantonCommunityConfig {
-
-  /** Combine together deprecated implicits for types that define them
-    * This setup allows the compiler to pick the implicit for the most specific type when applying deprecations.
-    * For instance,
-    *   ConfigReader[LocalParticipantConfig].applyDeprecations will pick up the deprecations implicit defined in
-    *   LocalParticipantConfig instead of LocalNodeConfig
-    *   despite LocalParticipantConfig being a subtype of LocalNodeConfig.
-    */
-  object CantonDeprecationImplicits
-      extends LocalNodeConfig.LocalNodeConfigDeprecationImplicits
-      with LocalParticipantConfig.LocalParticipantDeprecationsImplicits
-      with DomainBaseConfig.DomainBaseConfigDeprecationImplicits
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[CantonCommunityConfig])
   private val elc = ErrorLoggingContext(
@@ -86,18 +74,16 @@ object CantonCommunityConfig {
 
   // Implemented as a def so we can pass the ErrorLoggingContext to be used during parsing
   @nowarn("cat=unused")
-  private implicit def cantonCommunityConfigReader(implicit
-      elc: ErrorLoggingContext
-  ): ConfigReader[CantonCommunityConfig] = { // memoize it so we get the same instance every time
-    val configReaders: ConfigReaders = new ConfigReaders()
-    import configReaders.*
+  private implicit val cantonCommunityConfigReader: ConfigReader[CantonCommunityConfig] = {
+    import ConfigReaders.*
     import DeprecatedConfigUtils.*
-    import CantonDeprecationImplicits.*
 
-    implicit val communityDomainConfigReader: ConfigReader[CommunityDomainConfig] =
-      deriveReader[CommunityDomainConfig].applyDeprecations
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
-      deriveReader[CommunityParticipantConfig].applyDeprecations
+      deriveReader[CommunityParticipantConfig]
+    implicit val communitySequencerNodeXConfigReader: ConfigReader[CommunitySequencerNodeXConfig] =
+      deriveReader[CommunitySequencerNodeXConfig]
+    implicit val communityMediatorNodeXConfigReader: ConfigReader[CommunityMediatorNodeXConfig] =
+      deriveReader[CommunityMediatorNodeXConfig]
 
     deriveReader[CantonCommunityConfig]
   }
@@ -106,10 +92,12 @@ object CantonCommunityConfig {
   private lazy implicit val cantonCommunityConfigWriter: ConfigWriter[CantonCommunityConfig] = {
     val writers = new CantonConfig.ConfigWriters(confidential = true)
     import writers.*
-    implicit val communityDomainConfigWriter: ConfigWriter[CommunityDomainConfig] =
-      deriveWriter[CommunityDomainConfig]
     implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
       deriveWriter[CommunityParticipantConfig]
+    implicit val communitySequencerNodeXConfigWriter: ConfigWriter[CommunitySequencerNodeXConfig] =
+      deriveWriter[CommunitySequencerNodeXConfig]
+    implicit val communityMediatorNodeXConfigWriter: ConfigWriter[CommunityMediatorNodeXConfig] =
+      deriveWriter[CommunityMediatorNodeXConfig]
 
     deriveWriter[CantonCommunityConfig]
   }

@@ -32,7 +32,7 @@ import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.ShowUtil.HashLength
 import com.digitalasset.canton.util.{ErrorUtil, HexString}
-import com.digitalasset.canton.{LedgerApplicationId, LfPartyId, LfTimestamp}
+import com.digitalasset.canton.{LedgerApplicationId, LfPartyId, LfTimestamp, Uninhabited}
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
@@ -43,6 +43,7 @@ import java.lang.Long as JLong
 import java.net.URI
 import java.time.{Duration as JDuration, Instant}
 import java.util.UUID
+import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /** Collects instances of [[Pretty]] for common types.
@@ -52,9 +53,12 @@ trait PrettyInstances {
   import Pretty.*
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  implicit def prettyPrettyPrinting[T <: PrettyPrinting]: Pretty[T] =
-    // Cast is required to make IDEA happy.
-    inst => inst.pretty.treeOf(inst.asInstanceOf[inst.type])
+  implicit def prettyPrettyPrinting[T <: PrettyPrinting]: Pretty[T] = inst =>
+    if (inst == null) PrettyUtil.nullTree
+    else {
+      // Cast is required to make IDEA happy.
+      inst.pretty.treeOf(inst.asInstanceOf[inst.type])
+    }
 
   implicit def prettyTree[T <: Tree]: Pretty[T] = identity
 
@@ -73,6 +77,9 @@ trait PrettyInstances {
   implicit val prettyUnit: Pretty[Unit] = prettyOfString(_ => "()")
 
   implicit def prettySeq[T: Pretty]: Pretty[Seq[T]] = treeOfIterable("Seq", _)
+
+  @nowarn("msg=dead code following this construct")
+  implicit val prettyUninhabited: Pretty[Uninhabited] = (_: Uninhabited) => ???
 
   implicit def prettyNonempty[T: Pretty]: Pretty[NonEmpty[T]] =
     NonEmptyUtil.instances.prettyNonEmpty
@@ -224,8 +231,7 @@ trait PrettyInstances {
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
     case LfContractId.V1(discriminator, suffix)
         // Shorten only Canton contract ids
-        if suffix.startsWith(NonAuthenticatedContractIdVersion.versionPrefixBytes) ||
-          suffix.startsWith(AuthenticatedContractIdVersion.versionPrefixBytes) =>
+        if suffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes) =>
       val prefixBytesSize = CantonContractIdVersion.versionPrefixBytesSize
 
       val cantonVersionPrefix = suffix.slice(0, prefixBytesSize)
@@ -284,6 +290,13 @@ trait PrettyInstances {
       unnamedParamIfDefined(_.status),
       param("commandId", _.commandId.singleQuoted),
       param("transactionId", _.transactionId.singleQuoted, _.transactionId.nonEmpty),
+    )
+
+  implicit def prettyCompletionV2: Pretty[com.daml.ledger.api.v2.completion.Completion] =
+    prettyOfClass(
+      unnamedParamIfDefined(_.status),
+      param("commandId", _.commandId.singleQuoted),
+      param("updateId", _.updateId.singleQuoted, _.updateId.nonEmpty),
     )
 
   implicit def prettyRpcStatus: Pretty[com.google.rpc.status.Status] =

@@ -68,7 +68,7 @@ object ContractStreamStepTest {
 
   private val offGen: Gen[domain.Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
   private val acsGen = arbitrary[Inserts[Cid]] map (Acs(_))
-  private val noAcsLBGen = Gen const LiveBegin(LedgerBegin)
+  private val noAcsLBGen = Gen const LiveBegin(ParticipantBegin)
   private val postAcsGen = offGen map (o => LiveBegin(AbsoluteBookmark(o)))
   private val txnGen = ^(arbitrary[IDS], offGen)(Txn(_, _))
 

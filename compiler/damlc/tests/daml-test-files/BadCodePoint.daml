@@ -3,7 +3,7 @@
 
 -- Check that invalid code points cause failure.
 -- @ERROR invalid code point
--- @SINCE-LF 1.6 2.0
+-- @SINCE-LF 2.1
 
 module BadCodePoint where
 

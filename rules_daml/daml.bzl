@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -128,7 +128,7 @@ def _daml_build_impl(ctx):
             # Having to produce all the daml.yaml files via a genrule is annoying
             # so we allow hardcoded version numbers and patch them here.
             {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
-            {sed} -i 's/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
+            {sed} -i 's/daml-script$/daml-script.dar/;s/daml3-script$/daml3-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar}

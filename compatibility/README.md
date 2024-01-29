@@ -58,11 +58,3 @@ guarantee backwards compatibility here.
 
 We test that we can import DARs built in older SDK versions via
 `data-dependencies`. We only test backwards compatibility here.
-
-#### Cross-version compatibility for create-daml-app
-
-We test that we can run the create-daml-app tests with JS client
-libraries and codegen from one version against the JSON API and
-Sandbox from another version. We test all version combinations
-here. Currently we do not test different versions of the JSON API and
-Sandbox.

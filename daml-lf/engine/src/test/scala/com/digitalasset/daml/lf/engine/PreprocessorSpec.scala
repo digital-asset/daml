@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,7 +22,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.transaction.Util
 
-class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
 class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -305,7 +304,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithoutKey {owners} this;
             observers Mod:WithoutKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithoutKey {owners} this),
               observers Nil @Party
@@ -318,7 +316,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithKey {owners} this;
             observers Mod:WithKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithKey {owners} this),
               observers Nil @Party

@@ -42,9 +42,9 @@ import com.digitalasset.canton.platform.apiserver.services.{
   ApiCommandSubmissionService,
   ErrorCause,
   RejectionGenerators,
+  TimeProviderType,
   logging,
 }
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
@@ -253,6 +253,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     writeService
       .submitTransaction(
         result.submitterInfo,
+        result.optDomainId,
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,

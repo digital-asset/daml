@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.experimental_features.*
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v2.experimental_features.*
+import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionService
+import com.daml.ledger.api.v2.version_service.{
   FeaturesDescriptor,
   GetLedgerApiVersionResponse,
   UserManagementFeature,
+  *,
 }
-import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionService
-import com.daml.ledger.api.v2.version_service.*
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
@@ -26,7 +26,6 @@ import com.digitalasset.canton.platform.apiserver.LedgerFeatures
 import com.digitalasset.canton.platform.config.UserManagementServiceConfig
 import io.grpc.ServerServiceDefinition
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
@@ -65,19 +64,7 @@ private[apiserver] final class ApiVersionServiceV2(
       ),
       experimental = Some(
         ExperimentalFeatures.of(
-          selfServiceErrorCodes = Some(ExperimentalSelfServiceErrorCodes()): @nowarn(
-            "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
-          ),
-          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
-          commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
-          optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
-          contractIds = Some(ledgerFeatures.contractIdFeatures),
-          committerEventLog = Some(ledgerFeatures.committerEventLog),
-          explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
-          userAndPartyLocalMetadataExtensions =
-            Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
-          acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
-          templateFilters = Some(TransactionsWithTemplateFilters(supported = true)),
+          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime))
         )
       ),
     )

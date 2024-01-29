@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.InformeeTree.InvalidInformeeTree
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{v0, *}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -88,11 +88,8 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     tree.commonMetadata.tryUnwrap
   ).confirmationPolicy
 
-  def toProtoV0: v0.FullInformeeTree =
-    v0.FullInformeeTree(tree = Some(tree.toProtoV0))
-
-  def toProtoV1: v1.FullInformeeTree =
-    v1.FullInformeeTree(tree = Some(tree.toProtoV1))
+  def toProtoV30: v30.FullInformeeTree =
+    v30.FullInformeeTree(tree = Some(tree.toProtoV30))
 
   override def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
 }
@@ -102,14 +99,10 @@ object FullInformeeTree
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.FullInformeeTree)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.FullInformeeTree)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   /** Creates a full informee tree from a [[GenTransactionTree]].
@@ -142,27 +135,13 @@ object FullInformeeTree
       fullInformeeTree => FullInformeeTree(newTree)(fullInformeeTree.representativeProtocolVersion)
     )
 
-  def fromProtoV0(
+  def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoInformeeTree: v0.FullInformeeTree,
+      protoInformeeTree: v30.FullInformeeTree,
   ): ParsingResult[FullInformeeTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV0(context, protoTree)
-      fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(0)))
-        .leftMap(e =>
-          ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
-        )
-    } yield fullInformeeTree
-
-  def fromProtoV1(
-      context: (HashOps, ProtocolVersion),
-      protoInformeeTree: v1.FullInformeeTree,
-  ): ParsingResult[FullInformeeTree] =
-    for {
-      protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      tree <- GenTransactionTree.fromProtoV30(context, protoTree)
       fullInformeeTree <- FullInformeeTree
         .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
         .leftMap(e =>

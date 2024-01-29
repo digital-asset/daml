@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.Monad
 import cats.syntax.either.*
+import cats.syntax.foldable.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.domain.api.{v0, v1}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
@@ -53,7 +55,7 @@ final case class SequencerConnections private (
   def modify(
       sequencerAlias: SequencerAlias,
       m: SequencerConnection => SequencerConnection,
-  ): SequencerConnections =
+  ): SequencerConnections = {
     aliasToConnection
       .get(sequencerAlias)
       .map { connection =>
@@ -66,23 +68,43 @@ final case class SequencerConnections private (
         )
       }
       .getOrElse(this)
+  }
+
+  private def modifyM[M[_]](
+      sequencerAlias: SequencerAlias,
+      m: SequencerConnection => M[SequencerConnection],
+  )(implicit M: Monad[M]): M[SequencerConnections] =
+    aliasToConnection
+      .get(sequencerAlias)
+      .map { connection =>
+        M.map(m(connection)) { x =>
+          SequencerConnections(
+            aliasToConnection.updated(
+              sequencerAlias,
+              x,
+            ),
+            sequencerTrustThreshold,
+          )
+        }
+      }
+      .getOrElse(M.pure(this))
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnections =
-    (Seq(connection) ++ additionalConnections).foldLeft(this) { case (acc, elem) =>
-      acc.modify(sequencerAlias, _.addEndpoints(elem))
+  ): Either[String, SequencerConnections] =
+    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
+      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
     }
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnections =
-    (Seq(connection) ++ additionalConnections).foldLeft(this) { case (acc, elem) =>
-      acc.modify(sequencerAlias, _.addEndpoints(elem))
+  ): Either[String, SequencerConnections] =
+    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
+      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
     }
 
   def withCertificates(
@@ -94,10 +116,8 @@ final case class SequencerConnections private (
   override def pretty: Pretty[SequencerConnections] =
     prettyOfParam(_.aliasToConnection.forgetNE)
 
-  def toProtoV0: Seq[v0.SequencerConnection] = connections.map(_.toProtoV0)
-
-  def toProtoV1: v1.SequencerConnections =
-    new v1.SequencerConnections(connections.map(_.toProtoV0), sequencerTrustThreshold.unwrap)
+  def toProtoV30: v30.SequencerConnections =
+    new v30.SequencerConnections(connections.map(_.toProtoV30), sequencerTrustThreshold.unwrap)
 
   override protected def companionObj: HasVersionedMessageCompanionCommon[SequencerConnections] =
     SequencerConnections
@@ -143,9 +163,9 @@ object SequencerConnections
     )
   }
 
-  private def fromProtoV0V1(
+  private def fromProtoV0(
       fieldName: String,
-      connections: Seq[v0.SequencerConnection],
+      connections: Seq[v30.SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
   ): ParsingResult[SequencerConnections] = for {
     sequencerConnectionsNes <- parseRequiredNonEmpty(
@@ -166,50 +186,20 @@ object SequencerConnections
     )
   } yield sequencerConnections
 
-  def fromProtoV0(
-      sequencerConnection: v0.SequencerConnection
-  ): ParsingResult[SequencerConnections] =
-    fromProtoV0V1("sequencer_connection", Seq(sequencerConnection), PositiveInt.tryCreate(1))
-
-  def fromProtoV0(
-      sequencerConnection: Seq[v0.SequencerConnection],
-      sequencerTrustThreshold: Int,
-  ): ParsingResult[SequencerConnections] =
-    ProtoConverter
-      .parsePositiveInt(sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnection, _))
-
-  def fromLegacyProtoV0(
-      sequencerConnection: Seq[v0.SequencerConnection],
-      providedSequencerTrustThreshold: Int,
-  ): ParsingResult[SequencerConnections] = {
-    val sequencerTrustThreshold =
-      if (providedSequencerTrustThreshold == 0) sequencerConnection.size
-      else providedSequencerTrustThreshold
-    ProtoConverter
-      .parsePositiveInt(sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnection, _))
-  }
-
-  def fromProtoV1(
-      sequencerConnections: v1.SequencerConnections
+  def fromProtoV30(
+      sequencerConnections: v30.SequencerConnections
   ): ParsingResult[SequencerConnections] =
     ProtoConverter
       .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
-      .flatMap(fromProtoV0V1("sequencer_connections", sequencerConnections.sequencerConnections, _))
+      .flatMap(fromProtoV0("sequencer_connections", sequencerConnections.sequencerConnections, _))
 
   override def name: String = "sequencer connections"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.SequencerConnection)(fromProtoV0),
-      _.default.toProtoV0.toByteString,
-    ),
     ProtoVersion(1) -> ProtoCodec(
-      ProtocolVersion.CNTestNet,
-      supportedProtoVersion(v1.SequencerConnections)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.SequencerConnections)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 }

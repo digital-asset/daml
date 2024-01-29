@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, execFileSync, spawn } from "child_process";
@@ -80,6 +80,7 @@ let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
 let jsonApiPort: number | undefined = undefined;
 const JSON_API_PORT_FILE = "json-api.port";
+const COMPLETION_FILE = "completion_marker";
 const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
@@ -112,6 +113,8 @@ beforeAll(async () => {
       "daemon",
       "-c",
       "./src/__tests__/canton.conf",
+      "--bootstrap",
+      "./src/__tests__/bootstrap.canton",
       "-C",
       "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
       "-C",
@@ -119,11 +122,10 @@ beforeAll(async () => {
       "-C",
       "canton.participants.build-and-lint-test.http-ledger-api-experimental.server.port-file=" +
         JSON_API_PORT_FILE,
-      "--auto-connect-local",
     ],
     ["-Dpekko.http.server.request-timeout=60s"],
   );
-  await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
+  await waitOn({ resources: [`file:${COMPLETION_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
     encoding: "utf8",
   });
@@ -147,25 +149,18 @@ beforeAll(async () => {
   // Only the participant party should exist on the ledger at this point
   PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
 
+  async function allocateParty(partyName: string): Promise<string> {
+    const party = await ledger.allocateParty({
+      displayName: partyName,
+      identifierHint: partyName,
+    });
+    return party.identifier;
+  }
+
   console.log("Explicitly allocating parties");
-  ALICE_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: ALICE_PARTY,
-      displayName: ALICE_PARTY,
-    })
-  ).identifier;
-  BOB_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: BOB_PARTY,
-      displayName: BOB_PARTY,
-    })
-  ).identifier;
-  CHARLIE_PARTY = (
-    await ledger.allocateParty({
-      identifierHint: CHARLIE_PARTY,
-      displayName: CHARLIE_PARTY,
-    })
-  ).identifier;
+  ALICE_PARTY = await allocateParty(ALICE_PARTY);
+  BOB_PARTY = await allocateParty(BOB_PARTY);
+  CHARLIE_PARTY = await allocateParty(CHARLIE_PARTY);
 
   ALICE_TOKEN = computeToken(ALICE_PARTY);
   BOB_TOKEN = computeToken(BOB_PARTY);
@@ -801,7 +796,6 @@ describe("interfaces", () => {
       contractId: Asset.toInterface(Token, contract.contractId),
       signatories: [ALICE_PARTY],
       observers: [],
-      agreementText: "",
       payload: expectedView,
     };
     expect(acs).toContainEqual(expectedAc);

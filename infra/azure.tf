@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 locals {
@@ -146,7 +146,7 @@ disable_agent() (
   curl --silent \
        --fail \
        -u :$AZURE_PAT \
-       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id" \
+       "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool_id/agents/$agent_id?api-version=5.0" \
        -X 'PATCH' \
        -H 'Content-Type: application/json' \
        --data-binary '{"id":'$agent_id',"enabled":false}' \
@@ -183,6 +183,7 @@ for platform in '{"name":"u","pool":18}' '{"name":"w","pool":11}'; do
         echo "$(date -Is -u) > $agent_name: disabling agent and waiting for job to finish."
         disable_agent $pool_id $agent_id
         while agent_is_busy $pool_id $agent_id; do
+          echo "$(date -Is -u) > $agent_name: waiting for jobs to finish."
           sleep 30
         done
         echo "$(date -Is -u) > $agent_name: removing from Azure Pipelines."
@@ -254,6 +255,7 @@ resource "azurerm_role_definition" "daily-reset" {
 
   permissions {
     actions = [
+      "Microsoft.Compute/virtualMachineScaleSets/delete/action",
       "Microsoft.Compute/virtualMachineScaleSets/read",
       "Microsoft.Compute/virtualMachineScaleSets/write",
     ]

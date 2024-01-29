@@ -11,8 +11,10 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters as DynamicDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v0
-import com.digitalasset.canton.topology.admin.v0.ListDomainParametersChangesResult.Result.Parameters
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore
+import com.digitalasset.canton.topology.admin.v30old.ListDomainParametersChangesResult.Result.Parameters
+import com.digitalasset.canton.topology.admin.{v30, v30old}
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
@@ -25,34 +27,34 @@ object ListPartiesResult {
   final case class DomainPermission(domain: DomainId, permission: ParticipantPermission)
   final case class ParticipantDomains(participant: ParticipantId, domains: Seq[DomainPermission])
 
-  private def fromProtoV0(
-      value: v0.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions
+  private def fromProtoV30(
+      value: v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions
   ): ParsingResult[DomainPermission] =
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       permission <- ParticipantPermission.fromProtoEnum(value.permission)
     } yield DomainPermission(domainId, permission)
 
-  private def fromProtoV0(
-      value: v0.ListPartiesResponse.Result.ParticipantDomains
+  private def fromProtoV30(
+      value: v30.ListPartiesResponse.Result.ParticipantDomains
   ): ParsingResult[ParticipantDomains] =
     for {
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-      domains <- value.domains.traverse(fromProtoV0)
+      domains <- value.domains.traverse(fromProtoV30)
     } yield ParticipantDomains(participantId, domains)
 
-  def fromProtoV0(
-      value: v0.ListPartiesResponse.Result
+  def fromProtoV30(
+      value: v30.ListPartiesResponse.Result
   ): ParsingResult[ListPartiesResult] =
     for {
       partyUid <- UniqueIdentifier.fromProtoPrimitive(value.party, "party")
-      participants <- value.participants.traverse(fromProtoV0)
+      participants <- value.participants.traverse(fromProtoV30)
     } yield ListPartiesResult(PartyId(partyUid), participants)
 }
 
 final case class ListKeyOwnersResult(
     store: DomainId,
-    owner: KeyOwner,
+    owner: Member,
     signingKeys: Seq[SigningPublicKey],
     encryptionKeys: Seq[EncryptionPublicKey],
 ) {
@@ -63,19 +65,19 @@ final case class ListKeyOwnersResult(
 }
 
 object ListKeyOwnersResult {
-  def fromProtoV0(
-      value: v0.ListKeyOwnersResponse.Result
+  def fromProtoV30(
+      value: v30.ListKeyOwnersResponse.Result
   ): ParsingResult[ListKeyOwnersResult] =
     for {
       domain <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      owner <- KeyOwner.fromProtoPrimitive(value.keyOwner, "keyOwner")
-      signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV0)
-      encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV0)
+      owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
+      signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV30)
+      encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV30)
     } yield ListKeyOwnersResult(domain, owner, signingKeys, encryptionKeys)
 }
 
 final case class BaseResult(
-    domain: String,
+    store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
     operation: TopologyChangeOp,
@@ -84,28 +86,32 @@ final case class BaseResult(
 )
 
 object BaseResult {
-  def fromProtoV0(value: v0.BaseResult): ParsingResult[BaseResult] =
+  def fromProtoV30(value: v30old.BaseResult): ParsingResult[BaseResult] =
     for {
       protoValidFrom <- ProtoConverter.required("valid_from", value.validFrom)
       validFrom <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoValidFrom)
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
-      operation <- TopologyChangeOp.fromProtoV0(value.operation)
+      operation <- TopologyChangeOp.fromProtoV30(value.operation)
       signedBy <- Fingerprint.fromProtoPrimitive(value.signedByFingerprint)
-
-    } yield BaseResult(value.store, validFrom, validUntil, operation, value.serialized, signedBy)
+      store <-
+        if (value.store == AuthorizedStore.dbString.unwrap)
+          Right(TopologyStore.Authorized)
+        else
+          DomainId.fromProtoPrimitive(value.store, "store").map(TopologyStore.Domain)
+    } yield BaseResult(store, validFrom, validUntil, operation, value.serialized, signedBy)
 }
 
 final case class ListPartyToParticipantResult(context: BaseResult, item: PartyToParticipant)
 
 object ListPartyToParticipantResult {
-  def fromProtoV0(
-      value: v0.ListPartyToParticipantResult.Result
+  def fromProtoV30(
+      value: v30old.ListPartyToParticipantResult.Result
   ): ParsingResult[ListPartyToParticipantResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- PartyToParticipant.fromProtoV0(itemProto)
+      item <- PartyToParticipant.fromProtoV30(itemProto)
     } yield ListPartyToParticipantResult(context, item)
 }
 
@@ -116,14 +122,14 @@ final case class ListOwnerToKeyMappingResult(
 )
 
 object ListOwnerToKeyMappingResult {
-  def fromProtoV0(
-      value: v0.ListOwnerToKeyMappingResult.Result
+  def fromProtoV30(
+      value: v30old.ListOwnerToKeyMappingResult.Result
   ): ParsingResult[ListOwnerToKeyMappingResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- OwnerToKeyMapping.fromProtoV0(itemProto)
+      item <- OwnerToKeyMapping.fromProtoV30(itemProto)
       key <- Fingerprint.fromProtoPrimitive(value.keyFingerprint)
     } yield ListOwnerToKeyMappingResult(context, item, key)
 }
@@ -135,14 +141,14 @@ final case class ListNamespaceDelegationResult(
 )
 
 object ListNamespaceDelegationResult {
-  def fromProtoV0(
-      value: v0.ListNamespaceDelegationResult.Result
+  def fromProtoV30(
+      value: v30old.ListNamespaceDelegationResult.Result
   ): ParsingResult[ListNamespaceDelegationResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- NamespaceDelegation.fromProtoV0(itemProto)
+      item <- NamespaceDelegation.fromProtoV30(itemProto)
       targetKey <- Fingerprint.fromProtoPrimitive(value.targetKeyFingerprint)
     } yield ListNamespaceDelegationResult(context, item, targetKey)
 }
@@ -154,14 +160,14 @@ final case class ListIdentifierDelegationResult(
 )
 
 object ListIdentifierDelegationResult {
-  def fromProtoV0(
-      value: v0.ListIdentifierDelegationResult.Result
+  def fromProtoV30(
+      value: v30old.ListIdentifierDelegationResult.Result
   ): ParsingResult[ListIdentifierDelegationResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- IdentifierDelegation.fromProtoV0(itemProto)
+      item <- IdentifierDelegation.fromProtoV30(itemProto)
       targetKey <- Fingerprint.fromProtoPrimitive(value.targetKeyFingerprint)
     } yield ListIdentifierDelegationResult(context, item, targetKey)
 }
@@ -169,14 +175,14 @@ object ListIdentifierDelegationResult {
 final case class ListSignedLegalIdentityClaimResult(context: BaseResult, item: LegalIdentityClaim)
 
 object ListSignedLegalIdentityClaimResult {
-  def fromProtoV0(
-      value: v0.ListSignedLegalIdentityClaimResult.Result
+  def fromProtoV30(
+      value: v30old.ListSignedLegalIdentityClaimResult.Result
   ): ParsingResult[ListSignedLegalIdentityClaimResult] = {
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SignedLegalIdentityClaim.fromProtoV0(
+      item <- SignedLegalIdentityClaim.fromProtoV30(
         ProtocolVersionValidation.NoValidation,
         itemProto,
       )
@@ -190,14 +196,14 @@ object ListSignedLegalIdentityClaimResult {
 final case class ListParticipantDomainStateResult(context: BaseResult, item: ParticipantState)
 
 object ListParticipantDomainStateResult {
-  def fromProtoV0(
-      value: v0.ListParticipantDomainStateResult.Result
+  def fromProtoV30(
+      value: v30old.ListParticipantDomainStateResult.Result
   ): ParsingResult[ListParticipantDomainStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- ParticipantState.fromProtoV0(itemProto)
+      item <- ParticipantState.fromProtoV30(itemProto)
     } yield ListParticipantDomainStateResult(context, item)
 
 }
@@ -205,14 +211,14 @@ object ListParticipantDomainStateResult {
 final case class ListMediatorDomainStateResult(context: BaseResult, item: MediatorDomainState)
 
 object ListMediatorDomainStateResult {
-  def fromProtoV0(
-      value: v0.ListMediatorDomainStateResult.Result
+  def fromProtoV30(
+      value: v30old.ListMediatorDomainStateResult.Result
   ): ParsingResult[ListMediatorDomainStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- MediatorDomainState.fromProtoV0(itemProto)
+      item <- MediatorDomainState.fromProtoV30(itemProto)
     } yield ListMediatorDomainStateResult(context, item)
 
 }
@@ -220,15 +226,15 @@ object ListMediatorDomainStateResult {
 final case class ListVettedPackagesResult(context: BaseResult, item: VettedPackages)
 
 object ListVettedPackagesResult {
-  def fromProtoV0(
-      value: v0.ListVettedPackagesResult.Result
+  def fromProtoV30(
+      value: v30old.ListVettedPackagesResult.Result
   ): ParsingResult[ListVettedPackagesResult] = {
-    val v0.ListVettedPackagesResult.Result(contextPO, itemPO) = value
+    val v30old.ListVettedPackagesResult.Result(contextPO, itemPO) = value
     for {
       contextProto <- ProtoConverter.required("context", contextPO)
-      context <- BaseResult.fromProtoV0(contextProto)
+      context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", itemPO)
-      item <- VettedPackages.fromProtoV0(itemProto)
+      item <- VettedPackages.fromProtoV30(itemProto)
     } yield ListVettedPackagesResult(context, item)
   }
 }
@@ -239,16 +245,15 @@ final case class ListDomainParametersChangeResult(
 )
 
 object ListDomainParametersChangeResult {
-  def fromProtoV0(
-      value: v0.ListDomainParametersChangesResult.Result
+  def fromProtoV30(
+      value: v30old.ListDomainParametersChangesResult.Result
   ): ParsingResult[ListDomainParametersChangeResult] = for {
     contextP <- value.context.toRight(ProtoDeserializationError.FieldNotSet("context"))
-    context <- BaseResult.fromProtoV0(contextP)
+    context <- BaseResult.fromProtoV30(contextP)
     dynamicDomainParametersInternal <- value.parameters match {
       case Parameters.Empty => Left(ProtoDeserializationError.FieldNotSet("parameters"))
-      case Parameters.V0(v0) => DynamicDomainParametersInternal.fromProtoV0(v0)
-      case Parameters.V1(v1) => DynamicDomainParametersInternal.fromProtoV1(v1)
+      case Parameters.V1(ddpX) => DynamicDomainParametersInternal.fromProtoV30(ddpX)
     }
-    item <- DynamicDomainParameters(dynamicDomainParametersInternal)
+    item = DynamicDomainParameters(dynamicDomainParametersInternal)
   } yield ListDomainParametersChangeResult(context, item)
 }

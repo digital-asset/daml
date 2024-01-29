@@ -17,8 +17,8 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArg
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.pekkostreams.dispatcher.SignalDispatcher
 import com.digitalasset.canton.platform.apiserver.TimeServiceBackend
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SignalDispatcher
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.empty.Empty
 import io.grpc.stub.StreamObserver

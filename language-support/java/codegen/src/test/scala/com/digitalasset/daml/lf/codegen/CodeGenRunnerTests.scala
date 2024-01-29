@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen
@@ -10,7 +10,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
-import com.daml.lf.language.{Reference, StablePackagesV1}
+import com.daml.lf.language.{Reference, StablePackagesV2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -20,8 +20,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "configureCodeGenScope"
 
-  // Codegen is no longer supported in daml3, so we can restrict ourselves to testing LF1.
-  val stablePackageIds = StablePackagesV1.allPackages.map(_.packageId)
+  val stablePackageIds = StablePackagesV2.allPackages.map(_.packageId)
 
   it should "read interfaces from a single DAR file without a prefix" in {
 
@@ -48,6 +47,9 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   // Test case reproducing #15341
+  // TODO(#17366): once we've got two 2.x compilers with different std libs, compile
+  //  testDarWithSameDependenciesButDifferentTargetVersion with one of these compilers and revert
+  //  the expectation to 6.
   it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
 
     val scope =
@@ -62,7 +64,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     // + `daml-prim` from different LF version
     // + `daml-stdlib` from different LF version
     // + testDarWithSameDependenciesButDifferentTargetVersion
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(23)
     scope.packagePrefixes should ===(Map.empty)
     scope.toBeGenerated should ===(Set.empty)
   }

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Tests
@@ -302,7 +302,7 @@ typeSynTests =
     , testGroup "bad" (map (mkBadTestcase version) badDefSets)
     , testGroup "bigger" (map (mkBiggerTestcase version) biggerExamples)
     ]
-    | version <- [version1_dev, version2_dev]
+    | version <- [version2_dev]
   ]
   where
 

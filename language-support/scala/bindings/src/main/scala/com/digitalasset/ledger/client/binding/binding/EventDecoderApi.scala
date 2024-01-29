@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -32,7 +32,6 @@ abstract class EventDecoderApi(val templateTypes: Seq[TemplateCompanion[_]]) {
     } yield Contract(
       Primitive.substContractId[Id, Nothing](ApiTypes.ContractId(createdEvent.contractId)),
       tadt,
-      createdEvent.agreementText,
       createdEvent.signatories,
       createdEvent.observers,
       createdEvent.contractKey,

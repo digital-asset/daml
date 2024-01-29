@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.testing.utils
@@ -8,7 +8,8 @@ import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.api.refinements.ApiTypes._
 

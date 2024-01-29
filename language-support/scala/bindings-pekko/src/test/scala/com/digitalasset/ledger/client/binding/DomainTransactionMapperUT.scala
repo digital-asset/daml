@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -22,7 +22,7 @@ import scala.collection.immutable
 
 class DomainTransactionMapperUT extends AnyWordSpec with Matchers with PekkoTest {
   private val mockContract =
-    Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty, None)
+    Contract(Primitive.ContractId("contractId"), MockTemplate(), Seq.empty, Seq.empty, None)
   private val transactionMapper = new DomainTransactionMapper(_ => Right(mockContract))
 
   private def getResult(source: immutable.Iterable[Transaction]): Seq[DomainTransaction] =

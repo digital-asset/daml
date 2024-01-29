@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -7,7 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerMainConfig(
     darPath: File,

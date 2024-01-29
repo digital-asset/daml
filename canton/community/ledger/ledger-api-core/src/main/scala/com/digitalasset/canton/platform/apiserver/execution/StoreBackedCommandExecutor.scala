@@ -46,7 +46,6 @@ import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationR
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   DriverContractMetadata,
   SerializableContract,
@@ -107,7 +106,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
+      _ <- Future.sequence(coids.map(contractStore.lookupContractState))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -154,6 +153,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
       ),
+      optDomainId = commands.domainId,
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,
         commands.workflowId.map(_.unwrap),
@@ -166,7 +166,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
             .to(ImmArray)
         ),
-        commands.domainId,
       ),
       transaction = updateTx,
       dependsOnLedgerTime = meta.dependsOnTime,
@@ -462,8 +461,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           metadata = recomputedMetadata,
           ledgerTime = ledgerTime,
           contractSalt = Some(salt),
-          // The agreement text is unused on contract authentication
-          unvalidatedAgreementText = AgreementText.empty,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
         _ <- authenticateContract(contract).leftMap { contractAuthenticationError =>
           val firstParticle =
@@ -480,15 +477,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
 
+    // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =
       EitherT(
         contractStore
-          .lookupContractStateWithoutDivulgence(coid)
+          .lookupContractState(coid)
           .map {
             case active: ContractState.Active =>
               UpgradeVerificationContractData
                 .fromActiveContract(coid, active, recomputedContractMetadata)
-            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
+            case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
+            case ContractState.NotFound => Left(ContractNotFound)
           }
       )
 
@@ -505,26 +504,22 @@ private[apiserver] final class StoreBackedCommandExecutor(
         EitherT.leftT(DeprecatedDisclosedContractFormat: UpgradeVerificationResult)
     }
 
-    val handleVerificationResult: UpgradeVerificationResult => Option[String] = { result =>
-      val response: Option[String] = result match {
-        case Valid => None
-        case UpgradeFailure(message) => Some(message)
-        case ContractNotFound =>
-          // During submission the ResultNeedUpgradeVerification should only be called
-          // for contracts that are being upgraded. We do not support the upgrading of
-          // divulged contracts.
-          Some(s"Contract with $coid was not found or it refers to a divulged contract.")
-        case MissingDriverMetadata =>
-          Some(
-            s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
-          )
-        case DeprecatedDisclosedContractFormat =>
-          Some(
-            s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-          )
-      }
-      response.foreach(message => logger.info(message))
-      response
+    val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
+      case Valid => None
+      case UpgradeFailure(message) => Some(message)
+      case ContractNotFound =>
+        // During submission the ResultNeedUpgradeVerification should only be called
+        // for contracts that are being upgraded. We do not support the upgrading of
+        // divulged contracts.
+        Some(s"Contract with $coid was not found.")
+      case MissingDriverMetadata =>
+        Some(
+          s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+        )
+      case DeprecatedDisclosedContractFormat =>
+        Some(
+          s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
+        )
     }
 
     disclosedContracts
@@ -566,11 +561,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
                 Versioned(
                   unusedTxVersion,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
+                    .assertBuild(disclosedContract.templateId, value, maintainers, shared = true),
                 )
             },
         ),

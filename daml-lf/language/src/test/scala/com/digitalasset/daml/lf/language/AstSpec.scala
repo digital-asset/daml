@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -55,7 +55,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       param = Name.assertFromString("x"),
       precond = ETrue,
       signatories = eParties,
-      agreementText = eText,
       choices = Map.empty,
       observers = eParties,
       key = None,
@@ -309,7 +308,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         param = Name.assertFromString("x"),
         precond = ETrue,
         signatories = eParties,
-        agreementText = eText,
         choices = List.empty,
         observers = eParties,
         key = None,
@@ -321,7 +319,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           param = Name.assertFromString("x"),
           precond = ETrue,
           signatories = eParties,
-          agreementText = eText,
           choices = List.empty,
           observers = eParties,
           key = None,
@@ -336,7 +333,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         param = Name.assertFromString("x"),
         precond = ETrue,
         signatories = eParties,
-        agreementText = eText,
         choices = List(
           choiceBuilder(choice1, TUnit, EUnit),
           choiceBuilder(choice2, TBool, ETrue),
@@ -352,7 +348,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           param = Name.assertFromString("x"),
           precond = ETrue,
           signatories = eParties,
-          agreementText = eText,
           choices = List(
             choiceBuilder(choice1, TUnit, EUnit),
             choiceBuilder(choice2, TBool, ETrue),

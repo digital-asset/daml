@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -36,7 +36,6 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 import scala.Ordering.Implicits._
 
-class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
 class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
@@ -1785,7 +1784,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = pkg.name,
           templateId = templateId,
           value = disclosedContract.argument,
-          agreementText = "",
           signatories = Set(alice),
           observers = Set.empty,
           keyOpt = None,
@@ -1793,7 +1791,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
-          SEValue(SText("")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(None)),
@@ -1846,7 +1843,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = pkg.name,
           templateId = templateId,
           value = disclosedContract.argument,
-          agreementText = "agreement",
           signatories = Set(alice),
           observers = Set.empty,
           keyOpt = Some(cachedKey),
@@ -1854,7 +1850,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfoSExpr = SBuildContractInfoStruct(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
-          SEValue(SText("agreement")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(Some(keyWithMaintainers))),
@@ -1939,7 +1934,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
             observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
-            agreement "Agreement";
             implements Mod:Iface { view = Mod:MyUnit {}; };
           };
 
@@ -1950,7 +1944,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Mod:IouWithKey {i} this] (Nil @Party);
             observers Cons @Party [Mod:IouWithKey {u} this] (Nil @Party);
-            agreement "Agreement";
             implements Mod:Iface { view = Mod:MyUnit {}; };
             key @Mod:Key
               (Mod:Key { label = "test-key", maintainers = (Cons @Party [Mod:IouWithKey {k} this] (Nil @Party)) })

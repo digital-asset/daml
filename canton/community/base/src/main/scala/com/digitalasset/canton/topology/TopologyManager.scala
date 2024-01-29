@@ -104,7 +104,7 @@ abstract class TopologyManager[E <: CantonError](
     }
 
   protected def keyRevocationIsNotDangerous(
-      owner: KeyOwner,
+      owner: Member,
       key: PublicKey,
       elementId: TopologyElementId,
       force: Boolean,
@@ -151,7 +151,7 @@ abstract class TopologyManager[E <: CantonError](
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
 
     lazy val unauthorizedTransaction: TopologyManagerError =
-      TopologyManagerError.UnauthorizedTransaction.Failure()
+      TopologyManagerError.UnauthorizedTransaction.Failure("Unauthorized")
 
     lazy val removingKeyWithDanglingTransactionsMustBeForcedError: TopologyManagerError =
       TopologyManagerError.RemovingKeyWithDanglingTransactionsMustBeForced

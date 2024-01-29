@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,7 +14,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedg
 import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}

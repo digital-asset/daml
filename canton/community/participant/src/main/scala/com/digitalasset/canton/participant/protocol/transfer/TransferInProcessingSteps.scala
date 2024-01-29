@@ -15,8 +15,8 @@ import com.digitalasset.canton.data.ViewType.TransferInViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -48,7 +48,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -105,7 +104,6 @@ private[transfer] class TransferInProcessingSteps(
     participantId,
     engine,
     transferCoordination,
-    targetProtocolVersion,
     loggerFactory,
   )
 
@@ -270,7 +268,6 @@ private[transfer] class TransferInProcessingSteps(
         sessionKeyStore,
         envelope.protocolMessage,
         participantId,
-        targetProtocolVersion.v,
       ) { bytes =>
         FullTransferInTree
           .fromByteString(snapshot.pureCrypto, targetProtocolVersion.v)(bytes)
@@ -328,8 +325,6 @@ private[transfer] class TransferInProcessingSteps(
         transferIds =
           if (transferringParticipant) Set(txInRequest.transferOutResultEvent.transferId)
           else Set.empty,
-        // We check keys on only domains with unique contract key semantics and there cannot be transfers on such domains
-        keys = ActivenessCheck.empty,
       )
     } yield CheckActivenessAndWritePendingContracts(
       activenessSet,
@@ -347,7 +342,6 @@ private[transfer] class TransferInProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
@@ -456,7 +450,6 @@ private[transfer] class TransferInProcessingSteps(
                 .create(
                   requestId,
                   participantId,
-                  Some(txInRequest.viewHash),
                   Some(ViewPosition.root),
                   localVerdict,
                   txInRequest.toBeSigned,
@@ -528,7 +521,6 @@ private[transfer] class TransferInProcessingSteps(
                 ),
               )
           ),
-          keyUpdates = Map.empty,
         )
         val commitSetO = Some(Future.successful(commitSet))
         val contractsToBeStored = Seq(WithTransactionId(contract, creatingTransactionId))
@@ -548,7 +540,7 @@ private[transfer] class TransferInProcessingSteps(
           timestampEvent = Some(
             TimestampedEvent(
               event,
-              LocalOffset(requestCounter),
+              RequestOffset(requestId.unwrap, requestCounter),
               Some(requestSequencerCounter),
             )
           )
@@ -690,48 +682,21 @@ object TransferInProcessingSteps {
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-  )(implicit
-      loggingContext: ErrorLoggingContext
   ): Either[TransferProcessorError, FullTransferInTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
 
+    val commonData = TransferInCommonData
+      .create(pureCrypto)(
+        commonDataSalt,
+        targetDomain,
+        targetMediator,
+        stakeholders,
+        transferInUuid,
+        targetProtocolVersion,
+      )
+
     for {
-      _ <- checkIncompatiblePV(sourceProtocolVersion, targetProtocolVersion, contract.contractId)
-
-      // If transfer is initiated from a domain where the transfers counters are not yet defined, we set it to 0
-      // And if we transfer to a domain that does not support transfer counters and the source domain also does not
-      // support them, we omit it
-      // Otherwise, due to the PV compatibility check above, both domains must support transfer counters and we
-      // keep the transfer counter unchanged
-      revisedTransferCounter = {
-        if (
-          sourceProtocolVersion.v < TransferCommonData.minimumPvForTransferCounter &&
-          targetProtocolVersion.v >= TransferCommonData.minimumPvForTransferCounter
-        )
-          Some(TransferCounter.Genesis)
-        else if (
-          targetProtocolVersion.v < TransferCommonData.minimumPvForTransferCounter && sourceProtocolVersion.v < TransferCommonData.minimumPvForTransferCounter
-        ) None
-        else if (
-          targetProtocolVersion.v >= TransferCommonData.minimumPvForTransferCounter && sourceProtocolVersion.v >= TransferCommonData.minimumPvForTransferCounter
-        ) transferCounter
-        else
-          ErrorUtil.invalidState(
-            s"The source domain PV ${sourceProtocolVersion.v} and target domains PV ${targetProtocolVersion.v} are incompatible"
-          )
-      }
-
-      commonData <- TransferInCommonData
-        .create(pureCrypto)(
-          commonDataSalt,
-          targetDomain,
-          targetMediator,
-          stakeholders,
-          transferInUuid,
-          targetProtocolVersion,
-        )
-        .leftMap(reason => InvalidTransferCommonData(reason))
       view <- TransferInView
         .create(pureCrypto)(
           viewSalt,
@@ -741,7 +706,7 @@ object TransferInProcessingSteps {
           transferOutResult,
           sourceProtocolVersion,
           targetProtocolVersion,
-          revisedTransferCounter,
+          transferCounter,
         )
         .leftMap(reason => InvalidTransferView(reason))
       tree = TransferInViewTree(commonData, view)(pureCrypto)

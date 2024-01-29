@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,38 +19,21 @@ private[lf] final class CommandPreprocessor(
 
   import Preprocessor._
 
-  // config for creteArgument in ApiCommand
+  // config for createArgument in ApiCommand
   private[this] val LenientCreateArgTranslateConfig =
     if (enableContractUpgrading)
-      ValueTranslator.Config(
-        allowFieldReordering = false,
-        ignorePackageId = true,
-        enableUpgrade = true,
-      )
+      ValueTranslator.Config.Upgradeable
     else
-      ValueTranslator.Config(
-        allowFieldReordering = true,
-        ignorePackageId = false,
-        enableUpgrade = false,
-      )
+      ValueTranslator.Config.Strict
 
-  // config for creteArgument in ApiCommand
+  // config for non createArgument in ApiCommand
   private[this] val LenientNonCreateArgTranslateConfig =
     if (enableContractUpgrading)
       // in case of upgrade
       // - we need to ignore package id
-      // - for the sake of consistency we forbid field reordering
-      ValueTranslator.Config(
-        allowFieldReordering = false,
-        ignorePackageId = true,
-        enableUpgrade = false,
-      )
+      ValueTranslator.Config.Coerceable
     else
-      ValueTranslator.Config(
-        allowFieldReordering = true,
-        ignorePackageId = false,
-        enableUpgrade = false,
-      )
+      ValueTranslator.Config.Strict
 
   // Config for all values translation in ReplayCommand and explicit disclosure
   // is it strict in the sens, upgrade is completely disable.
@@ -58,11 +41,7 @@ private[lf] final class CommandPreprocessor(
   //  We allow field reordering for backward compatibility reason
   //  However we probably could and should prevent it
   private[this] val StrictTranslateConfig =
-    ValueTranslator.Config(
-      allowFieldReordering = true,
-      ignorePackageId = false,
-      enableUpgrade = false,
-    )
+    ValueTranslator.Config.Strict
 
   private val valueTranslator =
     new ValueTranslator(
@@ -88,9 +67,9 @@ private[lf] final class CommandPreprocessor(
 
   // This is used by value enricher,
   // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This should problaby use ValueTranslator.Config.Legacy
+  //  This should problaby use ValueTranslator.Config.Strict
   def unsafeStrictTranslateValue(typ: Ast.Type, value: Value) =
-    valueTranslator.unsafeTranslateValue(typ, value, ValueTranslator.Config.Legacy)
+    valueTranslator.unsafeTranslateValue(typ, value, ValueTranslator.Config.Strict)
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContract(

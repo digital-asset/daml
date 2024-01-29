@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -29,7 +29,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTestV1 extends CompilerTest(LanguageMajorVersion.V1)
 class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
 class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
@@ -504,7 +503,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Module:Record {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
           };
 
           record @serializable PreCondRecord = { precond: Bool, party: Party };
@@ -512,7 +510,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition Module:PreCondRecord {precond} this;
             signatories Cons @Party [Module:PreCondRecord {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
           };
 
           record @serializable Key = { label: Text, party: Party };
@@ -521,7 +518,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             precondition True;
             signatories Cons @Party [Module:RecordKey {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "Agreement";
             key @Module:Key
               (Module:Key { label = Module:RecordKey {label} this, party = Module:RecordKey {party} this })
               (\(key: Module:Key) -> (Cons @Party [Module:Key {party} key] (Nil @Party)));

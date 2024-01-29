@@ -5,6 +5,8 @@ package com.digitalasset.canton.topology.store.memory
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -25,8 +27,10 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
+import com.google.common.annotations.VisibleForTesting
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
@@ -53,13 +57,27 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
   }
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
+  // the unique key is defined in the database migration file for the topology_transactions table
+  private val topologyTransactionsStoreUniqueIndex = mutable.Set.empty[
+    (
+        MappingHash,
+        PositiveInt,
+        EffectiveTime,
+        TopologyChangeOpX,
+        RepresentativeProtocolVersion[SignedTopologyTransactionX.type],
+        Hash,
+    )
+  ]
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransactionX]] = findFilter(
-    asOfExclusive,
-    entry => hashes.contains(entry.transaction.transaction.hash),
-  )
+  ): Future[Seq[GenericSignedTopologyTransactionX]] =
+    if (hashes.isEmpty) Future.successful(Seq.empty)
+    else
+      findFilter(
+        asOfExclusive,
+        entry => hashes.contains(entry.transaction.transaction.hash),
+      )
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
@@ -128,35 +146,53 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
             topologyTransactionStore.update(idx, tx.copy(until = Some(effective)))
           }
         }
-        topologyTransactionStore.appendAll(
-          additions.map(tx =>
-            TopologyStoreEntry(
-              tx.transaction,
-              sequenced,
-              from = effective,
-              rejected = tx.rejectionReason.map(_.toString),
-              until = Option.when(
-                tx.rejectionReason.nonEmpty || tx.expireImmediately
-              )(effective),
-            )
+        additions.foreach { tx =>
+          val uniqueKey = (
+            tx.transaction.mapping.uniqueKey,
+            tx.transaction.transaction.serial,
+            effective,
+            tx.transaction.operation,
+            tx.transaction.representativeProtocolVersion,
+            tx.transaction.hashOfSignatures,
           )
-        )
+          if (topologyTransactionsStoreUniqueIndex.add(uniqueKey)) {
+            topologyTransactionStore.append(
+              TopologyStoreEntry(
+                tx.transaction,
+                sequenced,
+                from = effective,
+                rejected = tx.rejectionReason.map(_.toString),
+                until = Option.when(
+                  tx.rejectionReason.nonEmpty || tx.expireImmediately
+                )(effective),
+              )
+            )
+          }
+        }
         Future.unit
       }
     }
 
-  // TODO(#14048) only a temporary crutch to inspect the topology state
-  override def dumpStoreContent()(implicit traceContext: TraceContext): Unit = {
-    blocking {
+  @VisibleForTesting
+  override protected[topology] def dumpStoreContent()(implicit
+      traceContext: TraceContext
+  ): Future[GenericStoredTopologyTransactionsX] = {
+    val entries = blocking {
       synchronized {
         logger.debug(
           topologyTransactionStore
             .map(_.toString)
             .mkString("Topology Store Content[", ", ", "]")
         )
+        topologyTransactionStore.toSeq
 
       }
     }
+    Future.successful(
+      StoredTopologyTransactionsX(
+        entries.map(e => StoredTopologyTransactionX(e.sequenced, e.from, e.until, e.transaction))
+      )
+    )
   }
 
   private def asOfFilter(
@@ -199,6 +235,10 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
       // not rejected
       entry.rejected.isEmpty &&
+      // is not a proposal
+      !entry.transaction.isProposal &&
+      // is of type Replace
+      entry.transaction.operation == TopologyChangeOpX.Replace &&
       // matches a party to participant mapping (with appropriate filters)
       (entry.transaction.transaction.mapping match {
         case ptp: PartyToParticipantX =>
@@ -462,27 +502,33 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
     )
 
   override def findStored(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericSignedTopologyTransactionX,
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]] =
     allTransactions(includeRejected).map(
-      _.result.findLast(_.transaction.transaction.hash == transaction.transaction.hash)
+      _.result.findLast(tx =>
+        tx.transaction.transaction.hash == transaction.transaction.hash && tx.validFrom.value < asOfExclusive
+      )
     )
 
   override def findStoredForVersion(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransactionX]] =
+  ): Future[Option[GenericStoredTopologyTransactionX]] = {
+    val rpv = TopologyTransactionX.protocolVersionRepresentativeFor(protocolVersion)
+
     allTransactions().map(
       _.result.findLast(tx =>
-        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == TopologyTransactionX
-          .protocolVersionRepresentativeFor(protocolVersion)
+        tx.transaction.transaction == transaction && tx.transaction.representativeProtocolVersion == rpv && tx.validFrom.value < asOfExclusive
       )
     )
+  }
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,

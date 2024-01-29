@@ -8,11 +8,11 @@ import com.digitalasset.canton.tracing.TraceContext
 
 /** Aliases to manage a sequence of instances in a REPL environment
   */
-trait LocalInstancesExtensions extends Helpful {
+trait LocalInstancesExtensions[LocalInstanceRef <: LocalInstanceReferenceCommon] extends Helpful {
 
   import ConsoleCommandResult.runAll
 
-  def instances: Seq[LocalInstanceReferenceCommon]
+  def instances: Seq[LocalInstanceRef]
 
   @Help.Summary("Database management related operations")
   @Help.Group("Database")
@@ -64,12 +64,6 @@ trait LocalInstancesExtensions extends Helpful {
 }
 
 object LocalInstancesExtensions {
-  class Impl(val instances: Seq[LocalInstanceReferenceCommon]) extends LocalInstancesExtensions {}
-}
-
-class LocalDomainReferencesExtensions(domains: Seq[LocalDomainReference])
-    extends LocalInstancesExtensions {
-
-  override def instances: Seq[LocalDomainReference] = domains
-
+  class Impl[LocalInstanceRef <: LocalInstanceReferenceCommon](val instances: Seq[LocalInstanceRef])
+      extends LocalInstancesExtensions[LocalInstanceRef] {}
 }

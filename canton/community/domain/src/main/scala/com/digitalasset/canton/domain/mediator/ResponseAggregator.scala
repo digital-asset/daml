@@ -234,7 +234,7 @@ object ViewKey {
   implicit case object ViewHashKey extends ViewKey[ViewHash] {
     override def name: String = "view hash"
 
-    override def keyOfResponse(response: MediatorResponse): Option[ViewHash] = response.viewHashO
+    override def keyOfResponse(response: MediatorResponse): Option[ViewHash] = None
 
     override def informeesAndThresholdByKey(
         request: MediatorRequest

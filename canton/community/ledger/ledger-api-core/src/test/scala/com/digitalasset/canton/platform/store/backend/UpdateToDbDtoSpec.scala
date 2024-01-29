@@ -10,7 +10,7 @@ import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Util}
+import com.daml.lf.transaction.{GlobalKey, Util}
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.index.index.StatusDetails
@@ -81,29 +81,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           typ = JdbcLedgerDao.acceptType,
           configuration = Configuration.encode(update.newConfiguration).toByteArray,
           rejection_reason = None,
-        )
-      )
-    }
-
-    "handle ConfigurationChangeRejected" in {
-      val rejectionReason = "Test rejection reason"
-      val update = state.Update.ConfigurationChangeRejected(
-        someRecordTime,
-        someSubmissionId,
-        someParticipantId,
-        someConfiguration,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.ConfigurationEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = someSubmissionId,
-          typ = JdbcLedgerDao.rejectType,
-          configuration = Configuration.encode(someConfiguration).toByteArray,
-          rejection_reason = Some(rejectionReason),
         )
       )
     }
@@ -248,7 +225,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        domainId = Some(someDomainId1),
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -280,7 +257,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
-        domainId = Some(someDomainId1),
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update, multiDomainEnabled = true)
 
@@ -333,10 +310,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -432,10 +409,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         hostedWitnesses = Nil,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update, multiDomainEnabled = true)
 
@@ -463,7 +440,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue, Util.sharedKey(createNode.version))
+            .assertBuild(contractTemplate, keyValue, shared = Util.sharedKey(createNode.version))
             .hash
             .bytes
             .toHexString
@@ -539,10 +516,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -641,10 +618,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update, multiDomainEnabled = true)
 
@@ -745,10 +722,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -841,10 +818,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update, multiDomainEnabled = true)
 
@@ -965,10 +942,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -1154,10 +1131,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update, multiDomainEnabled = true)
 
@@ -1329,10 +1306,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -1397,10 +1374,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -1445,21 +1422,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
           party_id = "divulgee",
-        ),
-        DbDto.EventDivulgence(
-          event_offset = Some(someOffset.toHexString),
-          command_id = Some(completionInfo.commandId),
-          workflow_id = transactionMeta.workflowId,
-          application_id = Some(completionInfo.applicationId),
-          submitters = Some(completionInfo.actAs.toSet),
-          contract_id = exerciseNode.targetCoid.coid,
-          template_id =
-            None, // No contract details stored. That's ok because the participant sees the create event.
-          tree_event_witnesses = Set("divulgee"),
-          create_argument =
-            None, // No contract details stored. That's ok because the participant sees the create event.
-          create_argument_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
@@ -1521,10 +1483,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         hostedWitnesses = Nil,
         blindingInfoO = None,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -1600,22 +1562,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         party_id = "divulgee",
       )
-      dtos(7) shouldEqual DbDto.EventDivulgence(
-        event_offset = Some(someOffset.toHexString),
-        command_id = Some(completionInfo.commandId),
-        workflow_id = transactionMeta.workflowId,
-        application_id = Some(completionInfo.applicationId),
-        submitters = Some(completionInfo.actAs.toSet),
-        contract_id = exerciseNode.targetCoid.coid,
-        template_id =
-          None, // No contract details stored. That's ok because the participant sees the create event.
-        tree_event_witnesses = Set("divulgee"),
-        create_argument =
-          None, // No contract details stored.  That's ok because the participant sees the create event.
-        create_argument_compression = compressionAlgorithmId,
-        event_sequential_id = 0,
-      )
-      dtos(8) shouldEqual DbDto.CommandCompletion(
+      dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = update.recordTime.micros,
         application_id = completionInfo.applicationId,
@@ -1632,135 +1579,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_start = None,
         trace_context = serializedEmptyTraceContext,
       )
-      dtos(9) shouldEqual DbDto.TransactionMeta(
+      dtos(8) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
-      dtos.size shouldEqual 10
-    }
-
-    "handle TransactionAccepted (explicit blinding info)" in {
-      val completionInfo = someCompletionInfo
-      val transactionMeta = someTransactionMeta
-      val builder = TxBuilder()
-      val createNode = builder.create(
-        id = builder.newCid,
-        templateId = "M:T",
-        argument = Value.ValueUnit,
-        signatories = List("signatory"),
-        observers = List("observer"),
-      )
-      val exerciseNode = builder.exercise(
-        contract = createNode,
-        choice = "someChoice",
-        consuming = true,
-        actingParties = Set("signatory"),
-        argument = Value.ValueUnit,
-        result = Some(Value.ValueUnit),
-        choiceObservers = Set.empty,
-        byKey = false,
-      )
-      val exerciseNodeId = builder.add(exerciseNode)
-      val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
-        completionInfoO = Some(completionInfo),
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        transactionId = transactionId,
-        recordTime = someRecordTime,
-        divulgedContracts =
-          List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
-        blindingInfoO = Some(
-          BlindingInfo(
-            disclosure = Map(exerciseNodeId -> Set(Ref.Party.assertFromString("disclosee"))),
-            divulgence = Map(createNode.coid -> Set(Ref.Party.assertFromString("divulgee"))),
-          )
-        ),
-        hostedWitnesses = Nil,
-        contractMetadata = Map.empty,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos(0) shouldEqual DbDto.EventExercise(
-        consuming = true,
-        event_offset = Some(someOffset.toHexString),
-        transaction_id = Some(update.transactionId),
-        ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
-        command_id = Some(completionInfo.commandId),
-        workflow_id = transactionMeta.workflowId,
-        application_id = Some(completionInfo.applicationId),
-        submitters = Some(completionInfo.actAs.toSet),
-        node_index = Some(exerciseNodeId.index),
-        event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
-        contract_id = exerciseNode.targetCoid.coid,
-        template_id = Some(exerciseNode.templateId.toString),
-        flat_event_witnesses = Set("signatory", "observer"),
-        tree_event_witnesses = Set("disclosee"), // taken from explicit blinding info
-        create_key_value = None,
-        exercise_choice = Some(exerciseNode.choiceId),
-        exercise_argument = Some(emptyArray),
-        exercise_result = Some(emptyArray),
-        exercise_actors = Some(Set("signatory")),
-        exercise_child_event_ids = Some(Vector.empty),
-        create_key_value_compression = compressionAlgorithmId,
-        exercise_argument_compression = compressionAlgorithmId,
-        exercise_result_compression = compressionAlgorithmId,
-        event_sequential_id = 0,
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(1) shouldEqual DbDto.IdFilterConsumingStakeholder(
-        event_sequential_id = 0,
-        template_id = exerciseNode.templateId.toString,
-        party_id = "signatory",
-      )
-      dtos(2) shouldEqual DbDto.IdFilterConsumingStakeholder(
-        event_sequential_id = 0,
-        template_id = exerciseNode.templateId.toString,
-        party_id = "observer",
-      )
-      dtos(3) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
-        event_sequential_id = 0,
-        party_id = "disclosee",
-      )
-      dtos(4) shouldEqual DbDto.EventDivulgence(
-        event_offset = Some(someOffset.toHexString),
-        command_id = Some(completionInfo.commandId),
-        workflow_id = transactionMeta.workflowId,
-        application_id = Some(completionInfo.applicationId),
-        submitters = Some(completionInfo.actAs.toSet),
-        contract_id = exerciseNode.targetCoid.coid,
-        template_id = Some(createNode.templateId.toString), // taken from explicit divulgedContracts
-        tree_event_witnesses = Set("divulgee"), // taken from explicit blinding info
-        create_argument = Some(emptyArray), // taken from explicit divulgedContracts
-        create_argument_compression = compressionAlgorithmId,
-        event_sequential_id = 0,
-      )
-      dtos(5) shouldEqual DbDto.CommandCompletion(
-        completion_offset = someOffset.toHexString,
-        record_time = update.recordTime.micros,
-        application_id = completionInfo.applicationId,
-        submitters = completionInfo.actAs.toSet,
-        command_id = completionInfo.commandId,
-        transaction_id = Some(update.transactionId),
-        rejection_status_code = None,
-        rejection_status_message = None,
-        rejection_status_details = None,
-        submission_id = completionInfo.submissionId,
-        deduplication_offset = None,
-        deduplication_duration_nanos = None,
-        deduplication_duration_seconds = None,
-        deduplication_start = None,
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(6) shouldEqual DbDto.TransactionMeta(
-        transaction_id = transactionId,
-        event_offset = someOffset.toHexString,
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
-      )
-      dtos should have length 7
+      dtos.size shouldEqual 9
     }
 
     "handle TransactionAccepted (rollback node)" in {
@@ -1769,7 +1594,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       //    ├─ #2 Create
       //    └─ #3 Exercise (divulges #2 to divulgee)
       // - Create and Exercise events must not be visible
-      // - Divulgence events from rolled back Exercise/Fetch nodes must be visible
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TxBuilder()
@@ -1801,30 +1625,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
-        // Note: this divulgence event references a contract that was never created. This is correct:
-        // the divulgee only sees the exercise node under the rollback node, it doesn't know that the contract creation
-        // was rolled back (similar to how divulgees may not learn that a contract divulged to them was archived).
-        DbDto.EventDivulgence(
-          event_offset = Some(someOffset.toHexString),
-          command_id = Some(completionInfo.commandId),
-          workflow_id = transactionMeta.workflowId,
-          application_id = Some(completionInfo.applicationId),
-          submitters = Some(completionInfo.actAs.toSet),
-          contract_id = exerciseNode.targetCoid.coid,
-          template_id = None,
-          tree_event_witnesses = Set("divulgee"),
-          create_argument = None,
-          create_argument_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-        ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.micros,
@@ -1872,10 +1680,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -1935,10 +1743,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = transactionId,
         recordTime = someRecordTime,
-        divulgedContracts = List.empty,
         blindingInfoO = None,
         hostedWitnesses = Nil,
         contractMetadata = Map.empty,
+        domainId = someDomainId1,
       )
       val dtos = updateToDtos(update)
 
@@ -2018,7 +1826,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             someRecordTime,
             completionInfo,
             state.Update.CommandRejected.FinalReason(status),
-            domainId = None,
+            domainId = someDomainId1,
           )
           val dtos = updateToDtos(update)
 
@@ -2072,10 +1880,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             transaction = transaction,
             transactionId = transactionId,
             recordTime = someRecordTime,
-            divulgedContracts = List.empty,
             blindingInfoO = None,
             hostedWitnesses = Nil,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
+            domainId = someDomainId1,
           )
           val dtos = updateToDtos(update)
 
@@ -2404,8 +2212,6 @@ object UpdateToDbDtoSpec {
   private val someConfiguration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
-  private val someParty2 = Ref.Party.assertFromString("UpdateToDbDtoSpecParty2")
-  private val someParty3 = Ref.Party.assertFromString("UpdateToDbDtoSpecParty3")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
   private val someArchive1 = DamlLf.Archive.newBuilder
@@ -2435,7 +2241,6 @@ object UpdateToDbDtoSpec {
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,
-    optDomainId = Some(someDomainId1),
   )
   private val someContractDriverMetadata = Bytes.assertFromString("00abcd")
 

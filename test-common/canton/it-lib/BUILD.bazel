@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,11 +26,13 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//libs-scala/fs-utils",

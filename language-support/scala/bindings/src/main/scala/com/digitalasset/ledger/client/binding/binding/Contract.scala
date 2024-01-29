@@ -1,17 +1,14 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
 
 import com.daml.ledger.api.v1.{value => rpcvalue}
 
-/** A class representing a Daml contract of specific type (Daml template) with assigned contract ID and agreement text.
+/** A class representing a Daml contract of specific type (Daml template) with assigned contract ID.
   *
   * @param contractId     Contract ID.
-  * @param value          Contract instance as defined in Daml template (without `contractId` and `agreementText`).
-  * @param agreementText  Agreement text. `None` means that we did not receive the `agreementText` from the server.
-  *                       `Some("")` is a valid case, this means that the contract has `agreementText` set to an empty string
-  *                       or agreement was not defined in Daml, which defaults to an empty string.
+  * @param value          Contract instance as defined in Daml template (without `contractId`).
   * @param signatories    Signatories of the contract as defined in the Daml template
   * @param observers      Observers of the contract, both explicitly as defined in the Daml template and implicitly as
   *                       choice controllers.
@@ -22,7 +19,6 @@ import com.daml.ledger.api.v1.{value => rpcvalue}
 final case class Contract[+T](
     contractId: Primitive.ContractId[T],
     value: T with Template[T],
-    agreementText: Option[String],
     signatories: Seq[String],
     observers: Seq[String],
     key: Option[rpcvalue.Value],

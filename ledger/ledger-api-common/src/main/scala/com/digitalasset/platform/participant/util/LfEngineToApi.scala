@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.participant.util
@@ -213,7 +213,6 @@ object LfEngineToApi {
           witnessParties = node.stakeholders.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.agreementText),
         )
       )
     )
@@ -258,7 +257,6 @@ object LfEngineToApi {
           witnessParties = witnessParties.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.agreementText),
         )
       )
     )

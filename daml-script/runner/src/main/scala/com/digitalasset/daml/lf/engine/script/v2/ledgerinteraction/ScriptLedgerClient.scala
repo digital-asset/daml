@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -6,7 +6,8 @@ package v2.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.lf.CompiledPackages
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -16,6 +17,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.OneAnd
 import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -76,7 +78,8 @@ object ScriptLedgerClient {
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
       enableContractUpgrading: Boolean,
-  ): ScriptLedgerClient =
+      compiledPackages: CompiledPackages,
+  )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
         new grpcLedgerClient.GrpcLedgerClient(
@@ -84,15 +87,22 @@ object ScriptLedgerClient {
           applicationId,
           oAdminClient,
           enableContractUpgrading,
+          compiledPackages,
         )
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The JSON client does not support Upgrades")
         new JsonLedgerClient(uri, token, envIface, actorSystem)
-      case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
+      case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
-        new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
+        new IdeLedgerClient(
+          pureCompiledPackages,
+          traceLog,
+          warningLog,
+          canceled,
+          namedLoggerFactory,
+        )
     }
 
   // Essentially PackageMetadata but without the possibility of extension

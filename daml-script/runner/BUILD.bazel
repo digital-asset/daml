@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -29,7 +29,8 @@ da_scala_library(
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
-            "//canton:community_participant_admin_proto_scala",
+            "//canton:community_admin-api_proto_scala",
+            "//canton:community_admin-api-src",
         ],
     override_scalacopts = [
         copt
@@ -39,6 +40,8 @@ da_scala_library(
             "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
             "-P:wartremover:traverser:org.wartremover.warts.Product",
             "-P:wartremover:traverser:org.wartremover.warts.Serializable",
+            # ProtocolVersionAnnotation.scala violates this warning
+            "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
         ]
     ],
     scala_deps = [
@@ -59,6 +62,10 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//canton:daml-common-staging_daml-errors",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -70,15 +77,7 @@ da_scala_library(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-script/converter",
-        "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",
-        "//ledger/error",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-auth-client",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/participant-local-store",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",
@@ -121,12 +120,12 @@ da_scala_test(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -160,7 +159,9 @@ da_scala_binary(
     daml_compile(
         name = "test-script{n}".format(n = n),
         srcs = glob(["src/test/resources/TestScript.daml"]),
-        dependencies = ["//daml-script/daml:daml-script.dar"],
+        dependencies = ["//daml-script/daml3:daml3-script.dar"],
+        # TODO(#17366): delete the explicit target once the default major version is 2.
+        target = "2.1",
     )
     for n in range(
         1,

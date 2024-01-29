@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.protocol.{v0, *}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -42,9 +42,7 @@ final case class InformeeTree private (tree: GenTransactionTree)(
 
   def mediator: MediatorRef = commonMetadata.mediator
 
-  def toProtoV0: v0.InformeeTree = v0.InformeeTree(tree = Some(tree.toProtoV0))
-
-  def toProtoV1: v1.InformeeTree = v1.InformeeTree(tree = Some(tree.toProtoV1))
+  def toProtoV30: v30.InformeeTree = v30.InformeeTree(tree = Some(tree.toProtoV30))
 }
 
 object InformeeTree
@@ -52,14 +50,10 @@ object InformeeTree
   override val name: String = "InformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.InformeeTree)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.InformeeTree)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.InformeeTree)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   /** Creates an informee tree from a [[GenTransactionTree]].
@@ -170,25 +164,13 @@ object InformeeTree
   /** Indicates an attempt to create an invalid [[InformeeTree]] or [[FullInformeeTree]]. */
   final case class InvalidInformeeTree(message: String) extends RuntimeException(message) {}
 
-  def fromProtoV0(
+  private def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoInformeeTree: v0.InformeeTree,
+      protoInformeeTree: v30.InformeeTree,
   ): ParsingResult[InformeeTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV0(context, protoTree)
-      informeeTree <- InformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(0)))
-        .leftMap(e => ProtoDeserializationError.OtherError(s"Unable to create informee tree: $e"))
-    } yield informeeTree
-
-  def fromProtoV1(
-      context: (HashOps, ProtocolVersion),
-      protoInformeeTree: v1.InformeeTree,
-  ): ParsingResult[InformeeTree] =
-    for {
-      protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      tree <- GenTransactionTree.fromProtoV30(context, protoTree)
       informeeTree <- InformeeTree
         .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
         .leftMap(e => ProtoDeserializationError.OtherError(s"Unable to create informee tree: $e"))

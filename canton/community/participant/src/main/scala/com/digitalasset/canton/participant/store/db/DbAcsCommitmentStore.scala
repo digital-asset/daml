@@ -74,7 +74,7 @@ class DbAcsCommitmentStore(
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>
     SignedProtocolMessage
-      .fromByteString(cryptoApi, protocolVersion)(
+      .fromByteString(protocolVersion)(
         ByteString.copyFrom(r.<<[Array[Byte]])
       )
       .fold(

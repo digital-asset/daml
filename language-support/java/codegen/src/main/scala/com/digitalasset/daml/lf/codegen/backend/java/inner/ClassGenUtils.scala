@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -28,8 +28,6 @@ private[inner] object ClassGenUtils {
   val emptyOptional = CodeBlock.of("$T.empty()", classOf[Optional[_]])
   val emptySet = CodeBlock.of("$T.emptySet()", classOf[java.util.Collections])
   val getContractId = CodeBlock.of("event.getContractId()")
-  val getArguments = CodeBlock.of("event.getArguments()")
-  val getAgreementText = CodeBlock.of("event.getAgreementText()")
 
   def getContractKey(t: Type)(implicit packagePrefixes: PackagePrefixes) =
     CodeBlock.of(

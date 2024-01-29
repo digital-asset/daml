@@ -52,7 +52,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * pure part [[CryptoPureApi]] and the more complicated part, the [[SyncCryptoApi]] such that from the transaction
   * protocol perspective, we can conveniently use methods like [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
   *
-  * The abstraction creates the following hierarchy of classes to resolve the state for a given [[KeyOwner]]
+  * The abstraction creates the following hierarchy of classes to resolve the state for a given [[Member]]
   * on a per (domainId, timestamp)
   *
   * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a node accessible
@@ -117,7 +117,9 @@ final case class TestingTopology(
   ): TestingTopology =
     this.copy(participants =
       participants
-        .map(_ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary))
+        .map(
+          _ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary, None)
+        )
         .toMap
     )
 
@@ -218,7 +220,7 @@ class TestingIdentityFactory(
       participantsTxs(defaultPermissionByParticipant) ++ topology.packages.map(mkAdd)
 
     val domainMembers =
-      (Seq[KeyOwner](
+      (Seq[Member](
         DomainTopologyManagerId(domainId),
         SequencerId(domainId),
       ) ++ topology.mediators.toSeq)
@@ -302,7 +304,7 @@ class TestingIdentityFactory(
     )
 
   private def genKeyCollection(
-      owner: KeyOwner
+      owner: Member
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Add]] = {
     val keyPurposes = topology.keyPurposes
 
@@ -358,7 +360,7 @@ class TestingIdentityFactory(
         )
       val attributes = topology.participants.getOrElse(
         participantId,
-        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary),
+        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary, None),
       )
       genKeyCollection(participantId) :+ mkAdd(
         ParticipantState(
@@ -371,8 +373,9 @@ class TestingIdentityFactory(
       )
     }
 
-  def newSigningPublicKey(owner: KeyOwner): SigningPublicKey =
+  def newSigningPublicKey(owner: Member): SigningPublicKey = {
     SymbolicCrypto.signingPublicKey(TestingIdentityFactory.keyFingerprintForOwner(owner))
+  }
 
 }
 
@@ -446,7 +449,7 @@ trait TestingTopologyTransactionFactory extends NoTracing {
 
 /** something used often: somebody with keys and ability to created signed transactions */
 class TestingOwnerWithKeys(
-    val keyOwner: KeyOwner,
+    val keyOwner: Member,
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
 ) extends TestingTopologyTransactionFactory {
@@ -596,7 +599,7 @@ object TestingIdentityFactory {
   def pureCrypto(): CryptoPureApi = new SymbolicPureCrypto
 
   def domainClientForOwner(
-      owner: KeyOwner,
+      owner: Member,
       domainId: DomainId,
       store: TopologyStore[DomainStore],
       clock: Clock,
@@ -606,7 +609,7 @@ object TestingIdentityFactory {
       cryptoO: Option[Crypto] = None,
       packageDependencies: Option[PackageId => EitherT[Future, PackageId, Set[PackageId]]] = None,
       useStateTxs: Boolean = true,
-      initKeys: Map[KeyOwner, Seq[SigningPublicKey]] = Map(),
+      initKeys: Map[Member, Seq[SigningPublicKey]] = Map(),
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -646,13 +649,13 @@ object TestingIdentityFactory {
     Await.result(initF, 30.seconds)
   }
 
-  private def keyFingerprintForOwner(owner: KeyOwner): Fingerprint =
+  private def keyFingerprintForOwner(owner: Member): Fingerprint =
     // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
     // problematic if this function wasn't only used for testing
     Fingerprint.tryCreate(owner.uid.id.toLengthLimitedString.unwrap)
 
   def newCrypto(loggerFactory: NamedLoggerFactory)(
-      owner: KeyOwner,
+      owner: Member,
       signingFingerprints: Seq[Fingerprint] = Seq(),
       fingerprintSuffixes: Seq[String] = Seq(),
   ): Crypto = {

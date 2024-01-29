@@ -19,13 +19,12 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
-import com.digitalasset.canton.platform.common.{MismatchException, ParticipantIdNotFoundException}
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.store.DbSupport
-import com.digitalasset.canton.platform.store.cache.{PackageLanguageVersionCache, *}
+import com.digitalasset.canton.platform.store.backend.common.MismatchException
+import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
   BufferedTransactionsReader,
-  CachedEventsReader,
   ContractLoader,
   LfValueTranslation,
 }
@@ -61,15 +60,11 @@ final class IndexServiceOwner(
   private val initializationMaxAttempts = 3000 // give up after 5min
 
   def acquire()(implicit context: ResourceContext): Resource[IndexService] = {
-
     val ledgerDao = createLedgerReadDao(
       ledgerEndCache = inMemoryState.ledgerEndCache,
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
     )
-
-    val packageLanguageVersionCache =
-      new PackageLanguageVersionCache(ledgerDao, metrics, loggerFactory)(servicesExecutionContext)
 
     for {
       _ <- Resource.fromFuture(verifyParticipantId(ledgerDao))
@@ -113,32 +108,16 @@ final class IndexServiceOwner(
         loggerFactory = loggerFactory,
       )(inMemoryFanOutExecutionContext)
 
-      eventsReader = inMemoryState.eventsByContractKeyCache
-        .map(eventsByContractKeyCache =>
-          new CachedEventsReader(
-            delegate = ledgerDao.eventsReader,
-            eventsByContractKeyCache = eventsByContractKeyCache,
-            lfValueTranslation = lfValueTranslation,
-            loggerFactory = loggerFactory,
-          )
-        )
-        .getOrElse(ledgerDao.eventsReader)
-
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
         participantId = participantId,
         ledgerDao = ledgerDao,
         transactionsReader = bufferedTransactionsReader,
         commandCompletionsReader = bufferedCommandCompletionsReader,
-        eventsReader = eventsReader,
         contractStore = contractStore,
-        pruneBuffers = offset => {
-          inMemoryState.inMemoryFanoutBuffer.prune(offset)
-          inMemoryState.eventsByContractKeyCache.foreach(_.flush())
-        },
+        pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
-        packageLanguageVersionCache = packageLanguageVersionCache,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
@@ -8,7 +8,6 @@ da_haskell_library(
     srcs = [
         "src/DA/Daml/LF/Proto3/Archive/Encode.hs",
         "src/DA/Daml/LF/Proto3/Encode.hs",
-        "src/DA/Daml/LF/Proto3/EncodeV1.hs",
         "src/DA/Daml/LF/Proto3/EncodeV2.hs",
     ],
     hackage_deps = [

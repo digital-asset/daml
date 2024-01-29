@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -56,7 +56,7 @@ private[daml] class EncodeCommon(languageVersion: LV) {
         pkg.metadata.foreach { metadata =>
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
-          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
+          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version.toString))
           metadata.upgradedPackageId match {
             case None =>
             case Some(pid) =>
@@ -954,7 +954,6 @@ private[daml] class EncodeCommon(languageVersion: LV) {
       setString(template.param, b.setParamStr, b.setParamInternedStr)
       b.setPrecond(template.precond)
       b.setSignatories(template.signatories)
-      b.setAgreement(template.agreementText)
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))

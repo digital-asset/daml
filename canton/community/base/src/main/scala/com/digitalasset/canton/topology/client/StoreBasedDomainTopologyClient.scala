@@ -317,7 +317,7 @@ class StoreBasedDomainTopologyClient(
     val domainId: DomainId,
     val protocolVersion: ProtocolVersion,
     store: TopologyStore[TopologyStoreId],
-    initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
+    initKeys: Map[Member, Seq[SigningPublicKey]],
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
@@ -365,7 +365,7 @@ object StoreBasedDomainTopologyClient {
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
     store: TopologyStore[TopologyStoreId],
-    initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
+    initKeys: Map[Member, Seq[SigningPublicKey]],
     useStateTxs: Boolean,
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     val loggerFactory: NamedLoggerFactory,
@@ -500,7 +500,7 @@ class StoreBasedTopologySnapshot(
             val participantState =
               participantStateMap.getOrElse(
                 participantId,
-                ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary),
+                ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary, None),
               )
             // using the lowest permission available
             val reducedPerm = ParticipantPermission.lowerOf(
@@ -511,7 +511,7 @@ class StoreBasedTopologySnapshot(
                   participantState.permission,
                 ),
             )
-            (participantId, ParticipantAttributes(reducedPerm, participantState.trustLevel))
+            (participantId, ParticipantAttributes(reducedPerm, participantState.trustLevel, None))
           }
           // filter out in-active
           .filter(_._2.permission.isActive)
@@ -527,7 +527,7 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  override def allKeys(owner: KeyOwner): Future[KeyCollection] =
+  override def allKeys(owner: Member): Future[KeyCollection] =
     findTransactions(
       asOfInclusive = false,
       includeSecondary = false,
@@ -580,7 +580,7 @@ class StoreBasedTopologySnapshot(
         ps: ParticipantState,
     ): (Option[ParticipantAttributes], Option[ParticipantAttributes]) = {
       val (from, to) = current
-      val rel = ParticipantAttributes(ps.permission, ps.trustLevel)
+      val rel = ParticipantAttributes(ps.permission, ps.trustLevel, None)
 
       def mix(cur: Option[ParticipantAttributes]) = Some(cur.getOrElse(rel).merge(rel))
 
@@ -622,6 +622,7 @@ class StoreBasedTopologySnapshot(
                   ParticipantAttributes(
                     ParticipantPermission.lowerOf(lft.permission, rght.permission),
                     lft.trustLevel,
+                    None,
                   )
                 )
               case (None, None) => None
@@ -637,45 +638,12 @@ class StoreBasedTopologySnapshot(
   ): Future[Option[ParticipantAttributes]] =
     loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
-  override def findParticipantCertificate(
-      participantId: ParticipantId
-  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] = {
-    import cats.implicits.*
-    findTransactions(
-      asOfInclusive = false,
-      includeSecondary = false,
-      types = Seq(DomainTopologyTransactionType.SignedLegalIdentityClaim),
-      filterUid = Some(Seq(participantId.uid)),
-      filterNamespace = None,
-    ).map(_.toTopologyState.reverse.collectFirstSome {
-      case TopologyStateUpdateElement(_id, SignedLegalIdentityClaim(_, claimBytes, _signature)) =>
-        val result = for {
-          claim <- LegalIdentityClaim
-            .fromByteString(protocolVersionValidation)(claimBytes)
-            .leftMap(err => s"Failed to parse legal identity claim proto: $err")
-
-          certOpt = claim.evidence match {
-            case cert: LegalIdentityClaimEvidence.X509Cert if claim.uid == participantId.uid =>
-              Some(cert)
-            case _ => None
-          }
-        } yield certOpt
-
-        result.valueOr { err =>
-          logger.error(s"Failed to inspect domain topology state for participant certificate: $err")
-          None
-        }
-
-      case _ => None
-    })
-  }
-
   /** Returns a list of all known parties on this domain */
   override def inspectKeys(
       filterOwner: String,
-      filterOwnerType: Option[KeyOwnerCode],
+      filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] = {
+  ): Future[Map[Member, KeyCollection]] = {
     store
       .inspect(
         stateStore = useStateTxs,

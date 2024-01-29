@@ -41,11 +41,6 @@ instance DA.Internal.Desugar.HasEnsure K where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement K where
-  agreement this@K {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive K where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -191,11 +186,6 @@ instance DA.Internal.Desugar.HasObserver T where
 instance DA.Internal.Desugar.HasEnsure T where
   ensure this@T {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement T where
-  agreement this@T {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive T where
@@ -656,11 +646,6 @@ instance DA.Internal.Desugar.HasObserver Fetcher where
 instance DA.Internal.Desugar.HasEnsure Fetcher where
   ensure this@Fetcher {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Fetcher where
-  agreement this@Fetcher {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Fetcher where

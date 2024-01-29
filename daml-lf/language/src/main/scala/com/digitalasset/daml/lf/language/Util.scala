@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -102,6 +102,8 @@ object Util {
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
+
+  val EEmptyString = EPrimLit(PLText(""))
 
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
@@ -242,10 +244,9 @@ object Util {
 
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key, implements) =>
+      case Template(param, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
-          (),
           (),
           (),
           choices.transform((_, v) => toSignature(v)),

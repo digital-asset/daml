@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology
 
-import com.digitalasset.canton.BaseTest.testedProtocolVersionValidation
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.protocol.TestDomainParameters
@@ -75,7 +74,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
       )
     }
     "owner to key mapping" should {
-      val owners = Seq[KeyOwner](
+      val owners = Seq[Member](
         ParticipantId(uid),
         MediatorId(uid),
         SequencerId(uid),

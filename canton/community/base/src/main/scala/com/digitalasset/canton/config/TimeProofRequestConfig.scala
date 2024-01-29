@@ -4,10 +4,10 @@
 package com.digitalasset.canton.config
 
 import cats.syntax.option.*
+import com.digitalasset.canton.admin.time.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.admin.v0
 
 /** @param initialRetryDelay The initial retry delay if the request to send a sequenced event fails
   * @param maxRetryDelay The max retry delay if the request to send a sequenced event fails
@@ -19,7 +19,7 @@ final case class TimeProofRequestConfig(
     maxRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxRetryDelay,
     maxSequencingDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxSequencingDelay,
 ) extends PrettyPrinting {
-  private[config] def toProtoV0: v0.TimeProofRequestConfig = v0.TimeProofRequestConfig(
+  private[config] def toProtoV30: v30.TimeProofRequestConfig = v30.TimeProofRequestConfig(
     initialRetryDelay.toProtoPrimitive.some,
     maxRetryDelay.toProtoPrimitive.some,
     maxSequencingDelay.toProtoPrimitive.some,
@@ -56,7 +56,7 @@ object TimeProofRequestConfig {
     NonNegativeFiniteDuration.ofSeconds(10)
 
   private[config] def fromProtoV0(
-      configP: v0.TimeProofRequestConfig
+      configP: v30.TimeProofRequestConfig
   ): ParsingResult[TimeProofRequestConfig] =
     for {
       initialRetryDelay <- ProtoConverter.parseRequired(

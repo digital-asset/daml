@@ -32,8 +32,6 @@ final class StoreBasedTopologyStateForInitializationService(
     * 4. Find the maximum effective time of the transactions returned in 3. (here ts1')
     * 5. Set all validUntil > ts1' to None
     *
-    * TODO(#13394) adapt this logic to allow onboarding of a previously offboarded member
-    *
     * {{{
     *
     * t0 , t1   ... sequenced time

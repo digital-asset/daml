@@ -1,10 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.{SExpr => expr}
@@ -48,13 +47,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
   def transform2(e: SExpr): Boolean = {
     val e1: target.SExpr = closureConvert(e)
-    val _ = flattenToAnf(e1, evaluationOrder = LeftToRight)
-    true
-  }
-
-  def transform3(e: SExpr): Boolean = {
-    val e1: target.SExpr = closureConvert(e)
-    val _ = flattenToAnf(e1, evaluationOrder = RightToLeft)
+    val _ = flattenToAnf(e1)
     true
   }
 
@@ -106,21 +99,10 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
     {
       val depth = 10000
-      s"transform(closureConversion, left-to-right ANF), depth = $depth" - {
+      s"transform(closureConversion, ANF), depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(transform2)(depth, recursionPoint)
-          }
-        }
-      }
-    }
-
-    {
-      val depth = 10000
-      s"transform(closureConversion, right-to-left ANF), depth = $depth" - {
-        forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
-          name in {
-            runTest(transform3)(depth, recursionPoint)
           }
         }
       }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -33,7 +33,6 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class OrderingSpecV1 extends OrderingSpec(LanguageMajorVersion.V1)
 class OrderingSpecV2 extends OrderingSpec(LanguageMajorVersion.V2)
 
 class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)

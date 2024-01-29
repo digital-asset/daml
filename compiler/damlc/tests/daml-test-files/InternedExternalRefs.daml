@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ SINCE-LF 1.6 2.0
+-- @ SINCE-LF 2.1
 -- @QUERY-LF [$pkg | .modules[] | .values[] | .expr.val.module.package_ref | select(has("package_id_interned_str"))] | length == 2
 -- @QUERY-LF $pkg | .interned_strings | length >= 2
 

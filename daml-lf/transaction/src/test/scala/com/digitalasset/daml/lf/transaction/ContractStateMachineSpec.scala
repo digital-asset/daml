@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -89,7 +89,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       packageName = pkgName,
       templateId = templateId,
       arg = unit,
-      agreementText = "",
+      agreementText = "", // to be removed
       signatories = aliceS,
       stakeholders = aliceS,
       keyOpt = toOptKeyWithMaintainers(templateId, key),

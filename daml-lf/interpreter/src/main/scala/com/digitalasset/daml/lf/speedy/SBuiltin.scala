@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -2055,12 +2055,6 @@ private[lf] object SBuiltin {
         throw SErrorCrash(where, s"value not a list of parties or party: $v")
     }
 
-  private[this] def extractText(where: String, v: SValue): String =
-    v match {
-      case SText(text) => text
-      case _ => throw SErrorCrash(where, s"value not a text: $v")
-    }
-
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
     Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.maintainersFieldName))
 
@@ -2097,7 +2091,7 @@ private[lf] object SBuiltin {
     }
 
   private[this] val contractInfoStructFieldNames =
-    List("type", "value", "agreementText", "signatories", "observers", "mbKey").map(
+    List("type", "value", "signatories", "observers", "mbKey").map(
       Ref.Name.assertFromString
     )
 
@@ -2107,7 +2101,6 @@ private[lf] object SBuiltin {
   private[this] val List(
     contractInfoStructTypeFieldIdx,
     contractInfoStructArgIdx,
-    contractInfoStructAgreementTextIdx,
     contractInfoStructSignatoriesIdx,
     contractInfoStructObserversIdx,
     contractInfoStructKeyIdx,
@@ -2151,10 +2144,6 @@ private[lf] object SBuiltin {
           packageName = pkgName,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
-          agreementText = extractText(
-            NameOf.qualifiedNameOfCurrentFunc,
-            vals.get(contractInfoStructAgreementTextIdx),
-          ),
           signatories = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(contractInfoStructSignatoriesIdx),

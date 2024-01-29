@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -137,7 +137,6 @@ verify_backup() (
 check_release() (
     release=$1
     tag=$(echo $release | jq -r .tag)
-    echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag"
     tmp_dir=$(mktemp -d)
     trap "cd; rm -rf $tmp_dir" EXIT
     cd $tmp_dir
@@ -146,13 +145,83 @@ check_release() (
     verify_backup $tag
 )
 
-setup_gpg
-releases=$(get_releases)
+create_record() (
+  listing=$1
+  release=$2
+  gcloud_resp=$(mktemp)
+  gcloud storage ls "gs://daml-data/releases/$release/**/*" --json \
+    > $gcloud_resp
+  github_resp=$(mktemp)
+  curl --fail \
+       --silent \
+       --location \
+       -H "$AUTH" \
+       -H "$USER_AGENT" \
+       -H "X-GitHub-Api-Version: 2022-11-28" \
+       "https://api.github.com/repos/digital-asset/daml/releases/tags/v$release" \
+    | jq '[.assets[] | {name, created_at, updated_at, uploader: .uploader.login}]' \
+    > $github_resp
+  jq -n '{gcloud: input, github: input}' $gcloud_resp $github_resp > $listing
+)
 
-if [ "" != "$MAX_RELEASES" ]; then
+remote_record_location() (
+  release=$1
+  echo "gs://daml-data/checked-releases/$release"
+)
+
+has_record() (
+  release=$1
+  gcloud storage ls $(remote_record_location $release) &>/dev/null
+)
+
+matches_record() (
+  listing=$1
+  release=$2
+  remote=$(mktemp)
+  gcloud storage cat $(remote_record_location $release) > $remote
+  diff $remote $listing
+)
+
+record_success() (
+  record_before=$1
+  release=$2
+  record_after=$3
+  create_record $record_after $release
+  if diff $record_before $record_after; then
+    echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: saving record."
+    gsutil -q cp $record_before $(remote_record_location $release)
+  else
+    echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: artifacts have changed while verifying."
+    exit 1
+  fi
+)
+
+main() (
+  setup_gpg
+  releases=$(get_releases)
+
+  if [ "" != "$MAX_RELEASES" ]; then
     releases=$( (echo "$releases" | head -n $MAX_RELEASES) || test $? -eq 141)
-fi
+  fi
 
-for r in $releases; do
-    check_release $r
-done
+  for r in $releases; do
+    listing=$(mktemp)
+    tag=$(echo $r | jq -r .tag)
+    create_record $listing $tag
+    if has_record $tag; then
+      if matches_record $listing $tag; then
+        echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: matches record, skipping."
+      else
+        echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: does not match records, see above for differences."
+      fi
+    else
+      echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: verifying."
+      check_release $r
+      record_success $listing $tag
+    fi
+  done
+)
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

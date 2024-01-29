@@ -6,15 +6,15 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LedgerTransactionId
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.admin.v0.InspectionServiceGrpc.InspectionService
-import com.digitalasset.canton.participant.admin.v0.{
+import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
+import com.digitalasset.canton.admin.participant.v30.{
   LookupContractDomain,
   LookupOffsetByIndex,
   LookupOffsetByTime,
   LookupTransactionDomain,
 }
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*

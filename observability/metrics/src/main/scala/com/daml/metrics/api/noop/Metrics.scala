@@ -1,10 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics.api.noop
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
@@ -31,11 +32,15 @@ case object NoOpTimerHandle extends TimerHandle {
 
 case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
 
-  override def updateValue(newValue: T): Unit = ()
+  private val ref = new AtomicReference[T](value)
 
-  override def getValue: T = value
+  override def updateValue(newValue: T): Unit = ref.set(newValue)
 
-  override def updateValue(f: T => T): Unit = ()
+  override def getValue: T = ref.get()
+
+  override def updateValue(f: T => T): Unit = {
+    val _ = ref.updateAndGet(f(_))
+  }
 
   override def close(): Unit = ()
 }

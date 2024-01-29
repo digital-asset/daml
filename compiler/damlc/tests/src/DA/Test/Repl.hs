@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.Repl (main) where
@@ -45,7 +45,6 @@ main = do
         --  LF 2.x dars.
         let runCantonInDevMode = major == LF.V2
         scriptDar <- locateRunfiles $ case major of
-            LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
             LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
         testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test-v" <> prettyMajor <.> "dar")
         multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test-v"<> prettyMajor <.>"dar")
