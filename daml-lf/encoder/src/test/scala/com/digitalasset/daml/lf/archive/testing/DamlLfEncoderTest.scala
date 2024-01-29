@@ -5,7 +5,7 @@ package com.daml.lf.testing.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
+import com.daml.daml_lf_dev.DamlLf2
 import com.daml.lf.archive.{
   ArchivePayload,
   Dar,
@@ -61,9 +61,10 @@ class DamlLfEncoderTest
         "ExceptionMod",
         "InterfaceMod",
         "InterfaceMod0",
-        "InterfaceExtMod",
       )
-      val modules_2_dev = modules_2_1
+      val modules_2_dev = modules_2_1 ++ Set[DottedName](
+        "InterfaceExtMod"
+      )
 
       val versions = Table(
         "versions" -> "modules",
@@ -93,33 +94,10 @@ class DamlLfEncoderTest
       payload <- dar.all
       ArchivePayload(_, pkg, version) = payload
       name <- version match {
-        case LanguageVersion(Major.V1, _) => getNonEmptyModules(version, pkg.getDamlLf1)
         case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg.getDamlLf2)
+        case _ => throw new RuntimeException(s"Unsupported language version: $version")
       }
     } yield name
-  }
-
-  private def getNonEmptyModules(
-      version: LanguageVersion,
-      pkg: DamlLf1.Package,
-  ): Seq[ModuleName] = {
-    val internedStrings = pkg.getInternedStringsList.asScala.toArray
-    val dottedNames = pkg.getInternedDottedNamesList.asScala.map(
-      _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
-    )
-    for {
-      segments <- pkg.getModulesList.asScala.toSeq.map {
-        case mod
-            if mod.getSynonymsCount != 0 ||
-              mod.getDataTypesCount != 0 ||
-              mod.getValuesCount != 0 ||
-              mod.getTemplatesCount != 0 =>
-          if (version < LanguageVersion.Features.internedStrings)
-            mod.getNameDname.getSegmentsList.asScala
-          else
-            dottedNames(mod.getNameInternedDname)
-      }
-    } yield DottedName.assertFromSegments(segments)
   }
 
   private def getNonEmptyModules(pkg: DamlLf2.Package): Seq[DottedName] = {
@@ -145,7 +123,6 @@ class DamlLfEncoderTest
 
     "contains all builtins " in {
       forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v2_1 <= _): _*)) {
-        // We do not check package older that 1.11 as they are used for stable packages only
         version =>
           val Right(dar) =
             UniversalArchiveDecoder
