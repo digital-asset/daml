@@ -53,53 +53,53 @@ object LanguageVersion {
   //    them as a just a version number. Instead we'll need a richer specification of which versions
   //    support which feature. See PR #17334.
   object Features {
-    val default = v1_6
-    val internedPackageId = v1_6
-    val internedStrings = v1_7
-    val internedDottedNames = v1_7
-    val numeric = v1_7
-    val anyType = v1_7
-    val typeRep = v1_7
-    val typeSynonyms = v1_8
-    val packageMetadata = v1_8
-    val genComparison = v1_11
-    val genMap = v1_11
-    val scenarioMustFailAtMsg = v1_11
-    val contractIdTextConversions = v1_11
-    val exerciseByKey = v1_11
-    val internedTypes = v1_11
-    val choiceObservers = v1_11
-    val bigNumeric = v1_13
-    val exceptions = v1_14
-    val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
-    val choiceAuthority = v1_dev
-    val natTypeErasure = v1_dev
-    val packageUpgrades = v1_dev
-    val dynamicExercise = v1_dev
-    val sharedKeys = v1_dev
+    val default = v2_1
+    val internedPackageId = v2_1
+    val internedStrings = v2_1
+    val internedDottedNames = v2_1
+    val numeric = v2_1
+    val anyType = v2_1
+    val typeRep = v2_1
+    val typeSynonyms = v2_1
+    val packageMetadata = v2_1
+    val genComparison = v2_1
+    val genMap = v2_1
+    val scenarioMustFailAtMsg = v2_1
+    val contractIdTextConversions = v2_1
+    val exerciseByKey = v2_1
+    val internedTypes = v2_1
+    val choiceObservers = v2_1
+    val bigNumeric = v2_1
+    val exceptions = v2_1
+    val basicInterfaces = v2_1
+    val natTypeErasure = v2_1
+    val packageUpgrades = v2_1
+    val sharedKeys = v2_1
+    val choiceFuncs = v2_dev
+    val choiceAuthority = v2_dev
+    val dynamicExercise = v2_dev
 
     /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v1_dev
+    val templateTypeRepToText = v2_dev
 
     /** Guards in interfaces */
-    val extendedInterfaces = v1_dev
+    val extendedInterfaces = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.
       */
-    val unstable = v1_dev
+    val unstable = v2_dev
 
   }
 
   // All the stable versions.
   val StableVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_15)
+    VersionRange(min = v2_1, max = v2_1)
 
-  // All versions compatible with legacy contract ID scheme.
+  // Versions of LF that are no longer supported.
   val LegacyVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_8)
+    VersionRange(min = v1_6, max = v1_15)
 
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
@@ -109,23 +109,23 @@ object LanguageVersion {
   // All the versions
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
-      case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
+      case Major.V1 => throw new IllegalArgumentException("V1 is not supported")
       case Major.V2 => VersionRange(v2_1, v2_dev)
     }
   }
 
   // This refers to the default output LF version in the compiler
-  val default: LanguageVersion = v1_14
+  val default: LanguageVersion = v2_1
 }
 
 /** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
 object LanguageVersionRangeOps {
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
-      // TODO(#17366): uncomment once Canton stops using (1.14, 2.dev) as the version range for dev.
-      // require(
-      //  range.min.major == range.max.major,
-      //  s"version range ${range} spans over multiple version LF versions")
+      require(
+        range.min.major == range.max.major,
+        s"version range ${range} spans over multiple version LF versions",
+      )
       range.max.major
     }
   }
