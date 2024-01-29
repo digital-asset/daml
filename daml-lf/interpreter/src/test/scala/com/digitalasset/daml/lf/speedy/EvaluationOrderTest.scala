@@ -49,7 +49,6 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest_V1 extends EvaluationOrderTest(LanguageVersion.v1_dev)
 class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
 
 class EvaluationOrderTest(languageVersion: LanguageVersion)
