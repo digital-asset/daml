@@ -374,7 +374,7 @@ jobs:
            && "$(compat_versions_pr)" == "Succeeded"
            ]]; then
           MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
-          if [ "$(perf_speedy)" == "Skiped" ]; then
+          if [ "$(perf_speedy)" == "Skipped" ]; then
             REPORT="Perf test was skipped."
           else
             REPORT='```speedy_perf: $(speedy_perf)```'
