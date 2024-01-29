@@ -137,31 +137,28 @@ private[apiserver] final class ApiPackageManagementService private (
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     val upgradingPackageId = upgradingPackage.main._1
-    logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
     upgradingPackage.main._2.metadata.flatMap(_.upgradedPackageId) match {
       case Some(upgradedPackageId) =>
+        logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
         for {
           upgradedArchiveMb <- packagesIndex.getLfArchive(upgradedPackageId)
           upgradedPackageMb <- Future.fromTry {
             upgradedArchiveMb.traverse(Decode.decodeArchive(_))
               .handleError(Validation.handleLfArchiveError)
           }
-          _ <- {
-            logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
-            val upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
-            upgradeCheckResult match {
-              case Success(()) => {
-                logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
-                Future(())
-              }
-              case Failure(err: UpgradeError) => {
-                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
-                Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
-              }
-              case Failure(err: Throwable) => {
-                logger.info(s"Typechecking upgrades failed with unknown error.")
-                Future.failed(err)
-              }
+          upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
+          _ <- upgradeCheckResult match {
+            case Success(()) => {
+              logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+              Future(())
+            }
+            case Failure(err: UpgradeError) => {
+              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+              Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
+            }
+            case Failure(err: Throwable) => {
+              logger.info(s"Typechecking upgrades failed with unknown error.")
+              Future.failed(err)
             }
           }
         } yield ()

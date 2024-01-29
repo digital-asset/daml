@@ -184,12 +184,10 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   private def getChoiceNameMap(module: Ast.Module): ChoiceNameMap =
     for {
       (templateName, template) <- module.templates
+      prefix = templateName.segments.init
       (choiceName, choice) <- template.choices
-    } yield {
-      val prefix = templateName.segments.init
-      val fullName = prefix.slowSnoc(choiceName)
-      (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
-    }
+      fullName = prefix.slowSnoc(choiceName)
+    } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
 
   private def dataTypeOrigin(
       moduleWithChoiceNameMap: (Ast.Module, ChoiceNameMap),
