@@ -947,11 +947,11 @@ encodeTemplate Template{..} = do
     defTemplatePrecond <- encodeExpr tplPrecondition
     defTemplateSignatories <- encodeExpr tplSignatories
     defTemplateObservers <- encodeExpr tplObservers
-    defTemplateAgreement <- encodeExpr tplAgreement
     defTemplateChoices <- encodeNameMap encodeTemplateChoice tplChoices
     defTemplateLocation <- traverse encodeSourceLoc tplLocation
     defTemplateKey <- traverse encodeTemplateKey tplKey
     defTemplateImplements <- encodeNameMap encodeTemplateImplements tplImplements
+    let defTemplateAgreement = Nothing
     pure P.DefTemplate{..}
 
 encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements

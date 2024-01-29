@@ -365,7 +365,6 @@ data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
     , tbSignatory :: Maybe (GHC.Expr Var)
     , tbEnsure :: Maybe (GHC.Expr Var)
-    , tbAgreement :: Maybe (GHC.Expr Var)
     , tbObserver :: Maybe (GHC.Expr Var)
     , tbArchive :: Maybe (GHC.Expr Var)
     , tbKeyType :: Maybe GHC.Type
@@ -377,7 +376,7 @@ data TemplateBinds = TemplateBinds
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
 scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
@@ -388,8 +387,6 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
             Just (tpl, \tb -> tb { tbTyCon = Just tpl, tbSignatory = Just expr })
         HasEnsureDFunId tpl ->
             Just (tpl, \tb -> tb { tbEnsure = Just expr })
-        HasAgreementDFunId tpl ->
-            Just (tpl, \tb -> tb { tbAgreement = Just expr })
         HasObserverDFunId tpl ->
             Just (tpl, \tb -> tb { tbObserver = Just expr })
         HasArchiveDFunId tpl ->
@@ -1094,14 +1091,12 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     , Just fSignatory <- tbSignatory
     , Just fObserver <- tbObserver
     , Just fEnsure <- tbEnsure
-    , Just fAgreement <- tbAgreement
     , tplLocation <- convNameLoc (GHC.tyConName tplTyCon)
     = withRange tplLocation $ do
         let tplParam = this
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
         tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
-        tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env mc tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
         tplImplements <- convertImplements env mc tplTypeCon

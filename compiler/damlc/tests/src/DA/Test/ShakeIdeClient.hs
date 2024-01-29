@@ -745,7 +745,6 @@ goToDefinitionTests lfVersion mbScenarioService scriptPackageData = Tasty.testGr
                 , "    owner: Party"
                 , "  where"
                 , "    signatory owner"
-                , "    agreement show owner <> \" has a coin\""
                 ]
             setFilesOfInterest [foo]
             expectNoErrors

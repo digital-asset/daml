@@ -118,7 +118,6 @@ main = do
             , tplPrecondition = mkBool True
             , tplSignatories = tplParties
             , tplObservers = ENil TParty
-            , tplAgreement = mkEmptyText
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | optWithArchiveChoice])
             , tplKey = Nothing
             , tplImplements = NM.empty

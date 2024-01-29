@@ -964,9 +964,6 @@ data Template = Template
   , tplObservers       :: !Expr
     -- ^ Observers of the contract. They have type @List Party@ and the
     -- template paramter in scope.
-  , tplAgreement       :: !Expr
-    -- ^ Agreement text associated with the contract. It has type @Text@ and
-    -- the template paramter in scope.
   , tplChoices         :: !(NM.NameMap TemplateChoice)
     -- ^ Choices of the template.
   , tplKey             :: !(Maybe TemplateKey)
