@@ -4,7 +4,7 @@
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 -- @ERROR range=132:1-132:23; Unhandled exception: ExceptionSemantics:E
 -- @ERROR range=147:1-147:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
--- @ERROR range=173:1-173:11; Attempt to fetch or exercise a contract not visible to the reading parties.
+-- @WARN range=181:3-181:12; Use of divulged contracts is deprecated
 -- @ERROR range=184:1-184:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
@@ -154,8 +154,6 @@ handledArithmeticError = script do
   r <- submit p $ createAndExerciseCmd (T p) CatchArithmeticError
   r === 42
 
--- this test fails on canton
--- the second `createAndExerciseCmd (T p) (NonTransientDuplicate 1)` does not fails
 duplicateKey = script do
   p <- allocateParty "p"
   -- transient duplicate key in rollback

@@ -679,29 +679,6 @@ private[lf] object Speedy {
       }
     }
 
-    @throws[SError]
-    def checkKeyVisibility(
-        gkey: GlobalKey,
-        coid: V.ContractId,
-        handleKeyFound: V.ContractId => Control.Value,
-        contract: ContractInfo,
-    ): Control.Value = {
-      // For local and disclosed contracts, we do not perform visibility checking
-      if (isLocalContract(coid) || isDisclosedContract(coid)) {
-        handleKeyFound(coid)
-      } else {
-        val stakeholders = contract.signatories union contract.observers
-        visibleToStakeholders(stakeholders) match {
-          case SVisibleToStakeholders.Visible =>
-            handleKeyFound(coid)
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            throw SErrorDamlException(
-              interpretation.Error
-                .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-            )
-        }
-      }
-    }
   }
 
   object UpdateMachine {
@@ -1472,6 +1449,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
+                                   readAs: Set[Party] = Set.empty,
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
@@ -1483,7 +1461,7 @@ private[lf] object Speedy {
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
-        readAs = Set.empty,
+        readAs = readAs,
         packageResolution = packageResolution,
         limits = limits,
         traceLog = traceLog,

@@ -58,14 +58,6 @@ object Error {
       declaredHash: crypto.Hash,
   ) extends Error
 
-  final case class ContractKeyNotVisible(
-      coid: ContractId,
-      key: GlobalKey,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      stakeholders: Set[Party],
-  ) extends Error
-
   /** Fetch-by-key failed
     */
   final case class ContractKeyNotFound(
