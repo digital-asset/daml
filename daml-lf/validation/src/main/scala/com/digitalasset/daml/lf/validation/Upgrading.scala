@@ -99,6 +99,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         case _ => None;
       })
 
+    val moduleWithChoiceNameMap = module.map(module => (module, getChoiceNameMap(module)))
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
@@ -110,7 +111,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         module.map(datatypes(_)),
         (_: Ast.DDataType) => UnknownUpgradeError(s"MissingDataCon(t)"),
       )
-      _ <- Try { existingDatatypes.map({ case (name, dt) => checkDatatype(module, name, dt).get }) }
+      _ <- Try { existingDatatypes.map { case (name, dt) => checkDatatype(moduleWithChoiceNameMap, name, dt).get } }
     } yield ()
   }
 
@@ -178,23 +179,26 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
+  type ChoiceNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.ChoiceName)]
+
+  private def getChoiceNameMap(module: Ast.Module): ChoiceNameMap =
+    for {
+      (templateName, template) <- module.templates
+      (choiceName, choice) <- template.choices
+    } yield {
+      val prefix = templateName.segments.init
+      val fullName = prefix.slowSnoc(choiceName)
+      (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
+    }
+
   private def dataTypeOrigin(
-      module: Ast.Module,
+      moduleWithChoiceNameMap: (Ast.Module, ChoiceNameMap),
       name: Ref.DottedName,
   ): UpgradedRecordOrigin = {
-    module.templates.get(name) match {
+    moduleWithChoiceNameMap._1.templates.get(name) match {
       case Some(template @ _) => TemplateBody(name);
       case None => {
-        val choices = for {
-          (templateName, template) <- module.templates
-          (choiceName, choice) <- template.choices
-        } yield {
-          val prefix = templateName.segments.init
-          val fullName = prefix.slowSnoc(choiceName)
-          (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
-        }
-
-        choices.get(name) match {
+        moduleWithChoiceNameMap._2.get(name) match {
           case Some((templateName, choiceName)) =>
             TemplateChoiceInput(templateName, choiceName);
           case _ => TopLevel;
@@ -204,11 +208,11 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkDatatype(
-      module: Upgrading[Ast.Module],
+      moduleWithChoiceNameMap: Upgrading[(Ast.Module, ChoiceNameMap)],
       name: Ref.DottedName,
       datatype: Upgrading[Ast.DDataType],
   ): Try[Unit] = {
-    val origin = module.map(dataTypeOrigin(_, name))
+    val origin = moduleWithChoiceNameMap.map(dataTypeOrigin(_, name))
     if (origin.present != origin.past) {
       Failure(UnknownUpgradeError("RecordChangedOrigin"))
     } else {
