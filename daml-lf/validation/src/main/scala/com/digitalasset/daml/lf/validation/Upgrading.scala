@@ -43,10 +43,9 @@ object TypecheckUpgrades {
   ): Try[Unit] = {
     mbPastPkg match {
       case None => Failure(CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
-      case Some(pastPkg) => {
+      case Some(pastPkg) =>
         val tc = this(Upgrading((pastPackageId, pastPkg), present))
         tc.check()
-      }
     }
   }
 }
