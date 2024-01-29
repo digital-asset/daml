@@ -707,7 +707,7 @@ livereload-js 2.4.0 : MIT License
 ljharb/object.assign 4.1.2 : MIT License
 ljharb/object.assign 4.1.4 : MIT License
 locate-path v5.0.0 : MIT License
-Lodash 4.17.21 : MIT License
+Lodash   4.17.21 : MIT License
 lodash.camelcase 4.3.0 : MIT License
 lodash-es 4.17.21 : MIT License
 lodash.escape 4.0.1 : MIT License
@@ -16340,7 +16340,7 @@ SOFTWARE
 ---
 
 MIT License
-(grunt-known-options 2.0.0, Lodash 4.17.21, lodash-es 4.17.21, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
+(grunt-known-options 2.0.0, Lodash   4.17.21, lodash-es 4.17.21, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
 
 ====
 
