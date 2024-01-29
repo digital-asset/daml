@@ -22,17 +22,6 @@ package object rxjava {
   private val pekkoSystem = ActorSystem("testActorSystem")
   sys.addShutdownHook(pekkoSystem.terminate(): Unit)
 
-//  private[rxjava] val authorizer =
-//    new Authorizer(
-//      () => Clock.systemUTC().instant(),
-//      "testLedgerId",
-//      "testParticipantId",
-//      new InMemoryUserManagementStore(NamedLoggerFactory.root),
-//      ExecutionContext.parasitic,
-//      userRightsCheckIntervalInSeconds = 1,
-//      pekkoScheduler = pekkoSystem.scheduler,
-//    )(LoggingContext.ForTesting)
-
   private[rxjava] val emptyToken = "empty"
   private[rxjava] val publicToken = "public"
   private[rxjava] val adminToken = "admin"

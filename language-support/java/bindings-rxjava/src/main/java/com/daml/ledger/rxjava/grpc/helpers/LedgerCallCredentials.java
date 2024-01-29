@@ -8,7 +8,6 @@ import io.grpc.Metadata;
 import io.grpc.stub.AbstractStub;
 import java.util.concurrent.Executor;
 
-@SuppressWarnings("deprecation")
 public final class LedgerCallCredentials extends CallCredentials {
 
   private static Metadata.Key<String> header =
@@ -32,10 +31,5 @@ public final class LedgerCallCredentials extends CallCredentials {
     metadata.put(
         LedgerCallCredentials.header, token.startsWith("Bearer ") ? token : "Bearer " + token);
     applier.apply(metadata);
-  }
-
-  @Override
-  public void thisUsesUnstableApi() {
-    // No need to implement this, it's used as a warning from upstream
   }
 }
