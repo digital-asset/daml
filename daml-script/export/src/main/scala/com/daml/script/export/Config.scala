@@ -7,7 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.auth.TokenHolder
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.Party
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 

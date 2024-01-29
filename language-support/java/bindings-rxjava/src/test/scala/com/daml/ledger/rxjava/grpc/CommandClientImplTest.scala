@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,

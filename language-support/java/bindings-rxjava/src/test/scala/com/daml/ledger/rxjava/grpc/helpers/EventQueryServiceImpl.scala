@@ -3,8 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.EventQueryServiceAuthorization
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceAuthorization
 import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v1.event_query_service._
 import io.grpc.ServerServiceDefinition

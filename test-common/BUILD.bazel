@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//language-support/scala/codegen:codegen.bzl",
-    "dar_to_scala",
-)
-load(
     "//language-support/java/codegen:codegen.bzl",
     "dar_to_java",
 )

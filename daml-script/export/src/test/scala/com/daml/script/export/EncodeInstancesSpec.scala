@@ -3,7 +3,7 @@
 
 package com.daml.script.export
 
-import com.daml.ledger.api.refinements.ApiTypes
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{value => V}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast

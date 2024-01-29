@@ -9,8 +9,8 @@ import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.{
   LedgerItem,
   ledgerOffsetOrdering,
 }
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.TransactionServiceAuthorization
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.TransactionServiceAuthorization
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset

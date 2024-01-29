@@ -8,13 +8,13 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.auth
+import com.digitalasset.canton.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
-import spray.json.JsString
+import spray.json._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
@@ -287,7 +287,8 @@ object CantonRunner {
       scope = Some(targetScope.getOrElse("daml_ledger_api")),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))
+    val jwt =
+      DecodedJwt[String](header, auth.AuthServiceJWTCodec.writePayload(payload).compactPrint)
     JwtSigner.HMAC256.sign(jwt, secret).toEither match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)

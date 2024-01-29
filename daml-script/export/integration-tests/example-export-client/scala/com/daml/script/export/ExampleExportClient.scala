@@ -11,7 +11,7 @@ import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.Party
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{ParticipantMode, RunnerMain, RunnerMainConfig}
 import com.digitalasset.canton.ledger.client.configuration.{
