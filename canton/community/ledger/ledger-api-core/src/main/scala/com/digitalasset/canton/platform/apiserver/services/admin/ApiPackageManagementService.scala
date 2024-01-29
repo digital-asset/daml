@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.upgrades.{Typecheck, UpgradeError}
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
@@ -148,7 +148,7 @@ private[apiserver] final class ApiPackageManagementService private (
           }
           _ <- {
             logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
-            val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
+            val upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
             upgradeCheckResult match {
               case Success(()) => {
                 logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")

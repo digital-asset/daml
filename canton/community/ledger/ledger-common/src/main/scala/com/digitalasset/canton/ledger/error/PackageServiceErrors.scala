@@ -12,7 +12,7 @@ import com.daml.lf.{VersionRange, language, validation}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
-import com.daml.lf.upgrades.{UpgradeError}
+import com.daml.lf.validation.{UpgradeError}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package upgrades
+package validation
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
@@ -35,7 +35,7 @@ final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.Choic
     extends UpgradedRecordOrigin
 final case object TopLevel extends UpgradedRecordOrigin
 
-object Typecheck {
+object TypecheckUpgrades {
   def typecheckUpgrades(
       present: (Ref.PackageId, Ast.Package),
       pastPackageId: Ref.PackageId,
@@ -51,7 +51,7 @@ object Typecheck {
   }
 }
 
-case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
   lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
   lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 
