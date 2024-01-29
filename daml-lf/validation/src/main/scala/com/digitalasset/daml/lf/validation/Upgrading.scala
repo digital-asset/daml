@@ -52,10 +52,10 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
-  lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
-  lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
+  private lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
+  private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 
-  def extractDelExistNew[K, V](
+  private def extractDelExistNew[K, V](
       arg: Upgrading[Map[K, V]]
   ): (Map[K, V], Map[K, Upgrading[V]], Map[K, V]) =
     (
@@ -67,7 +67,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       arg.present -- arg.past.keySet,
     )
 
-  def checkDeleted[K, V, T <: Throwable](
+  private def checkDeleted[K, V, T <: Throwable](
       arg: Upgrading[Map[K, V]],
       handler: V => T,
   ): Try[(Map[K, Upgrading[V]], Map[K, V])] = {
@@ -78,10 +78,10 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
+  private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try { t.map(f(_).get).toSeq }
 
-  def check(): Try[Unit] = {
+  private def check(): Try[Unit] = {
     for {
       (upgradedModules, newModules @ _) <-
         checkDeleted(
@@ -92,7 +92,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     } yield ()
   }
 
-  def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
+  private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
     def datatypes(module: Ast.Module): Map[Ref.DottedName, Ast.DDataType] =
       module.definitions.flatMap(_ match {
         case (k, v: Ast.DDataType) => Some((k, v));
@@ -114,7 +114,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     } yield ()
   }
 
-  def checkTemplate(template: Upgrading[Ast.Template]): Try[Unit] = {
+  private def checkTemplate(template: Upgrading[Ast.Template]): Try[Unit] = {
     for {
       (existingChoices, _newChoices) <- checkDeleted(
         template.map(_.choices),
@@ -126,13 +126,13 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     } yield ()
   }
 
-  def checkType(typ: Upgrading[Ast.Type]): Boolean = {
+  private def checkType(typ: Upgrading[Ast.Type]): Boolean = {
     AlphaEquiv.alphaEquiv(stripPackageIds(typ.past), stripPackageIds(typ.present))
   }
 
   // TODO: Consider whether we should strip package ids from all packages in the
   // upgrade set, not just within the pair
-  def stripPackageIds(typ: Ast.Type): Ast.Type = {
+  private def stripPackageIds(typ: Ast.Type): Ast.Type = {
     def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
       if (id.packageId == packageId.present) {
         Ref.Identifier(packageId.past, id.qualifiedName)
@@ -152,7 +152,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def checkKey(key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
+  private def checkKey(key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
@@ -170,7 +170,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
+  private def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
     if (checkType(choice.map(_.returnType))) {
       Success(())
     } else {
@@ -178,7 +178,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def dataTypeOrigin(
+  private def dataTypeOrigin(
       module: Ast.Module,
       name: Ref.DottedName,
   ): UpgradedRecordOrigin = {
@@ -203,7 +203,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def checkDatatype(
+  private def checkDatatype(
       module: Upgrading[Ast.Module],
       name: Ref.DottedName,
       datatype: Upgrading[Ast.DDataType],
@@ -223,7 +223,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  def checkFields(records: Upgrading[Ast.DataRecord]): Try[Unit] = {
+  private def checkFields(records: Upgrading[Ast.DataRecord]): Try[Unit] = {
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
       records.map(rec => Map.from(rec.fields.iterator))
     def fieldTypeOptional(typ: Ast.Type): Boolean =
