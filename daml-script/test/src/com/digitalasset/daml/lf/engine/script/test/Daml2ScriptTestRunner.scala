@@ -17,7 +17,30 @@ class Daml2ScriptTestRunner extends DamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs" in
       assertDamlScriptRunnerResult(
         darPath,
-        """MultiTest:disclosuresByKeyTest SUCCESS
+        """AuthFailure:t1_CreateMissingAuthorization FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract1) requires authorizers party, but only party were given
+          |AuthFailure:t2_MaintainersNotSubsetOfSignatories FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract2) has maintainers TreeSet(party) which are not a subset of the signatories TreeSet(party)
+          |AuthFailure:t3_FetchMissingAuthorization FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) requires one of the stakeholders TreeSet(party) of the fetched contract to be an authorizer, but authorizers were TreeSet(party)
+          |AuthFailure:t4_LookupByKeyMissingAuthorization FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) (XXXXXXXX:AuthFailure:TheContract4) requires authorizers TreeSet(party) for lookup by key, but it only has TreeSet(party)
+          |AuthFailure:t5_ExerciseMissingAuthorization FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract5) requires authorizers party, but only party were given
+          |AuthorizedDivulgence:test_authorizedFetch SUCCESS
+          |AuthorizedDivulgence:test_divulgeChoiceTargetContractId SUCCESS
+          |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |AuthorizedDivulgence:test_noDivulgenceOfCreateArguments SUCCESS
+          |DiscloseViaChoiceObserver:test FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |Divulgence:main FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |ExceptionSemantics:divulgence FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |ExceptionSemantics:duplicateKey FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submitMustFail failed: null
+          |ExceptionSemantics:handledArithmeticError SUCCESS
+          |ExceptionSemantics:handledUserException SUCCESS
+          |ExceptionSemantics:rollbackArchive SUCCESS
+          |ExceptionSemantics:tryContext FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |ExceptionSemantics:uncaughtArithmeticError SUCCESS
+          |ExceptionSemantics:uncaughtUserException SUCCESS
+          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 1 0)." }. Details: Last location: [DA.Internal.Template.Functions:247], partial transaction: ...
+          |ExceptionSemantics:unhandledUserException FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: ExceptionSemantics:E@XXXXXXXX{  }. Details: Last location: [DA.Internal.Exception:168], partial transaction: ...
+          |LFContractKeys:lookupTest FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submitMustFail failed: null
+          |MoreChoiceObserverDivulgence:test FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |MultiTest:disclosuresByKeyTest SUCCESS
           |MultiTest:disclosuresTest SUCCESS
           |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.daml.lf.engine.script.Script$FailedCmd: Command submit failed: FAILED_PRECONDITION: UNHANDLED_EXCEPTION(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "Here" }. Details: Last location: [GHC.Err:25], partial transaction: ...
           |MultiTest:listKnownPartiesTest SUCCESS

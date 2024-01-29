@@ -133,7 +133,8 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
@@ -155,9 +156,10 @@ class IdeLedgerClient(
   ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
-      cid,
+      coid = cid,
     ) match {
       case ScenarioLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
         Some(contract)
@@ -229,7 +231,8 @@ class IdeLedgerClient(
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered: Seq[FatContractInstance] = acs.collect {

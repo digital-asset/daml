@@ -50,16 +50,16 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       .linesIterator
       .filter(s => List("SUCCESS", "FAILURE").exists(s.contains))
       .mkString("", f"%n", f"%n")
-      // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
+      // ignore partial transactionsas parties, cids, and package Ids are pretty unpredictable
       .replaceAll("partial transaction: .*", "partial transaction: ...")
       .replaceAll(
-        """UNHANDLED_EXCEPTION\((\d+),\w{8}\)""",
-        "UNHANDLED_EXCEPTION($1,XXXXXXXX)",
+        """([A-Z_]+)\((\d+),[a-f0-9]{8}\)""".stripMargin,
+        "$1($2,XXXXXXXX)",
       )
-      .replaceAll(
-        """DA.Exception.(\w+):(\w+)@\w{8}""",
-        "DA.Exception.$1:$2@XXXXXXXX",
-      )
+      .replaceAll("""([\w\.]+):([\w\.]+)@[a-f0-9]{8}""", "$1:$2@XXXXXXXX")
+      .replaceAll("""[a-f0-9]{64}(:\w+:\w+)""", "XXXXXXXX$1")
+      .replaceAll("id [a-f0-9]{138}", "id XXXXXXXX")
+      .replaceAll("""party-[a-f0-9\-:]+""", "party")
 
     if (cantonFixtureDebugMode) {
       discard(

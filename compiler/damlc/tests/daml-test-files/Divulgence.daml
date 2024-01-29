@@ -1,0 +1,90 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+
+module Divulgence where
+
+import Daml.Script
+import ScriptAssertHelpers
+
+template Secret
+  with
+    p : Party
+    mySecret : Text
+  where
+    signatory p
+
+template RevealYourSecret
+  with
+    p : Party
+    secretCid : ContractId Secret
+  where
+    signatory p
+
+template DelegatedAccess
+  with
+    p : Party
+    spy : Party
+  where
+    signatory p
+    observer spy
+
+    choice ReadSecret : Secret
+      with secretCid : ContractId Secret
+      controller spy
+      do fetch secretCid -- use p's authority to fetch secretCid
+
+template DisclosureDelegation
+  with
+    p : Party
+    actor : Party
+  where
+    signatory p
+    observer actor
+
+    choice Disclose : Secret
+      with secretCid : ContractId Secret
+      controller actor
+      do fetch secretCid -- actor will divulge secretCid to p
+
+-- @ERROR range=51:1-51:5; Attempt to fetch or exercise a contract not visible to the reading parties.
+main = script do
+  me <- allocateParty "Me"
+  spy <- allocateParty "Spy"
+  secretCid <- submit me do
+    createCmd Secret with
+           p = me
+           mySecret = "Password for my Swiss bank account is 874321"
+
+  accCid <-
+    submit me do createCmd DelegatedAccess with p = me; spy
+
+  submit spy do createCmd RevealYourSecret with p = spy; secretCid = secretCid
+
+  -- me can fetch
+  me `canSee` secretCid
+
+  -- spy cannot fetch
+  spy `cantSee` secretCid
+
+  -- spy cannot fetch even via delegation
+  submitMustFail spy do
+    exerciseCmd accCid ReadSecret with secretCid
+
+  -- lets divulge the secret with spy
+  disCid <-
+    submit spy do createCmd DisclosureDelegation with p = spy; actor = me
+  submit me do exerciseCmd disCid Disclose with secretCid
+
+  -- me can still fetch
+  me `canSee` secretCid
+
+  -- spy still cannot fetch
+  spy `cantSee` secretCid
+
+  --  spy still cannot fetch even bt using delegation from me
+  submit spy do
+    exerciseCmd accCid ReadSecret with secretCid
+
+
+

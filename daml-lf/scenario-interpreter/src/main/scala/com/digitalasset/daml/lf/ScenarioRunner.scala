@@ -259,7 +259,8 @@ private[lf] object ScenarioRunner {
       val effectiveAt = ledger.currentTime
 
       ledger.lookupGlobalContract(
-        view = ScenarioLedger.ParticipantView(actAs, readAs),
+        actAs,
+        readAs,
         effectiveAt = effectiveAt,
         acoid,
       ) match {
@@ -314,7 +315,8 @@ private[lf] object ScenarioRunner {
           )
         case Some(acoid) =>
           ledger.lookupGlobalContract(
-            view = ScenarioLedger.ParticipantView(actAs, readAs),
+            actAs,
+            readAs,
             effectiveAt = effectiveAt,
             acoid,
           ) match {

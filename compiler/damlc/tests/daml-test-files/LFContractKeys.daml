@@ -191,13 +191,19 @@ lookupTest = script do
 
   -- TESTING CREATES AND ARCHIVES
 
-  -- Divulgee can not archive
+  -- Divulgee cannot archive
   submitMustFail divulgee do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = divulgee
       keyedCid
-  -- Divulgee can not create
-  submitMustFail divulgee do
+
+  _ <- submit sig do
+    exerciseCmd sigDelegationCid ArchiveKeyed with
+      delegee = sig
+      keyedCid
+
+  -- Divulgee can create
+  keyedCid2 <- submit divulgee do
     exerciseCmd sigDelegationCid CreateKeyed with
       delegee = divulgee
       obs
@@ -206,9 +212,9 @@ lookupTest = script do
   submit obs do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = obs
-      keyedCid = keyedCid
+      keyedCid = keyedCid2
   -- Stakeholder can create
-  keyedCid2 <- submit obs do
+  keyedCid3 <- submit obs do
     exerciseCmd sigDelegationCid CreateKeyed with
       delegee = obs
       obs

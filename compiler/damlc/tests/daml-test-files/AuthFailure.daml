@@ -3,8 +3,8 @@
 
 module AuthFailure where
 
-import DA.Optional(fromSome)
 import Daml.Script
+import DA.Optional(fromSome)
 
 -- Tests for various(all) different forms of authorization failure detected during execution.
 -- Five kinds of authorization failure are tested here.
@@ -82,7 +82,6 @@ t3_FetchMissingAuthorization = script do
     exerciseCmd builder TheChoice with s2 = alice
   disclosedCid <- fromSome <$> queryDisclosure alice cid
   _ <- submitWithDisclosures bob [disclosedCid] (createAndExerciseCmd (Test3 bob cid) Call3)
-  _ <- bob `submit` createAndExerciseCmd (Test3 bob cid) Call3
   abort "t3 finished"
 
 template TheContract4
@@ -107,7 +106,7 @@ template Test4
       controller bob
       do lookupByKey @TheContract4 contractKey
 
--- @ERROR range=112:1-112:35; failed due to a missing authorization from 'Alice'
+-- @ERROR range=111:1-111:35; failed due to a missing authorization from 'Alice'
 t4_LookupByKeyMissingAuthorization : Script ()
 t4_LookupByKeyMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -127,7 +126,7 @@ template TheContract5
       controller cs
       do return ()
 
--- @ERROR range=132:1-132:32; failed due to a missing authorization from 'Bob'
+-- @ERROR range=131:1-131:32; failed due to a missing authorization from 'Bob'
 t5_ExerciseMissingAuthorization : Script ()
 t5_ExerciseMissingAuthorization = script do
   alice <- allocateParty "Alice"
