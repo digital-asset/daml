@@ -77,7 +77,7 @@ class GrpcLedgerClient(
       .getPackageName(compiledPackages, identifier.packageId)
       .getOrElse(throw new IllegalArgumentException("Couldn't get package name"))
     if (explicitPackageId || !enableContractUpgrading) converted
-    else converted.copy(packageId = "n#" + pkgName)
+    else converted.copy(packageId = "#" + pkgName)
   }
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
