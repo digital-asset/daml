@@ -534,7 +534,6 @@ final class GrpcParticipantRepairService(
                           RepairContract(
                             c.contract,
                             Set.empty,
-                            c.transferCounter,
                           )
                         ),
                         ignoreAlreadyAdded = true,
@@ -655,11 +654,6 @@ final class GrpcParticipantRepairService(
         sync.protocolVersionGetter(Traced(domainId)),
         ifNone = s"Domain ID's protocol version not found: $domainId",
       )
-      _ <- EitherT.cond[Future](
-        protocolVersion < ProtocolVersion.CNTestNet,
-        (),
-        s"Refusing to add contracts for a domain running on ${ProtocolVersion.CNTestNet} or higher. Please use export_acs and import_acs commands instead.",
-      )
       alias <- EitherT.fromEither[Future](
         sync.aliasManager
           .aliasForDomainId(domainId)
@@ -668,7 +662,7 @@ final class GrpcParticipantRepairService(
       _ <- EitherT.fromEither[Future](
         sync.repairService.addContracts(
           alias,
-          contracts.map(contract => RepairContract(contract, Set.empty, None)),
+          contracts.map(contract => RepairContract(contract, Set.empty)),
           ignoreAlreadyAdded = true,
           ignoreStakeholderCheck = true,
         )

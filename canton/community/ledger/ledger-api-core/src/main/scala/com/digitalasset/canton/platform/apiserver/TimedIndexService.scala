@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
@@ -38,7 +37,6 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.R
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -272,9 +270,4 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
         keyContinuationToken,
       ),
     )
-
-  override def resolveUpgradablePackagesForName(packageName: Ref.PackageName)(implicit
-      loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Set[Ref.PackageId]] =
-    delegate.resolveUpgradablePackagesForName(packageName)
 }

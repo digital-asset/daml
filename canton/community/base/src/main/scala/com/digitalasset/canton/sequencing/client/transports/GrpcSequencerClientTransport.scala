@@ -5,9 +5,6 @@ package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.domain.api.v0.SequencerConnectServiceGrpc.SequencerConnectServiceStub
@@ -31,16 +28,11 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
-import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, Traced}
-import com.digitalasset.canton.util.EitherTUtil.syntax.*
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
 import io.grpc.{CallOptions, Context, ManagedChannel}
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.Duration
@@ -55,9 +47,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     protected val loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
 )(implicit
-    executionContext: ExecutionContext,
-    esf: ExecutionSequencerFactory,
-    materializer: Materializer,
+    executionContext: ExecutionContext
 ) extends SequencerClientTransportCommon
     with NamedLogging {
 
@@ -307,33 +297,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       .map(_ => logger.debug(s"Acknowledged timestamp: $timestamp"))
   }
 
-  override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, TopologyStateForInitResponse] = {
-    logger.debug("Downloading topology state for initialization")
-
-    ClientAdapter
-      .serverStreaming(request.toProtoV0, sequencerServiceClient.downloadTopologyStateForInit)
-      .map(TopologyStateForInitResponse.fromProtoV0(_))
-      .flatMapConcat { parsingResult =>
-        parsingResult.fold(
-          err => Source.failed(ProtoDeserializationFailure.Wrap(err).asGrpcError),
-          Source.single,
-        )
-      }
-      .runFold(Vector.empty[GenericStoredTopologyTransactionX])((acc, txs) =>
-        acc ++ txs.topologyTransactions.value.result
-      )
-      .toEitherTRight[String]
-      .map { accumulated =>
-        val storedTxs = StoredTopologyTransactionsX(accumulated)
-        logger.debug(
-          s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}:\n${storedTxs.result}"
-        )
-        TopologyStateForInitResponse(Traced(storedTxs))
-      }
-  }
-
   override protected def onClosed(): Unit =
     Lifecycle.close(
       clientAuth,
@@ -350,9 +313,7 @@ class GrpcSequencerClientTransport(
     loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
 )(implicit
-    executionContext: ExecutionContext,
-    esf: ExecutionSequencerFactory,
-    materializer: Materializer,
+    executionContext: ExecutionContext
 ) extends GrpcSequencerClientTransportCommon(
       channel,
       callOptions,

@@ -10,15 +10,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageV1.RecipientsInfo
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  ParticipantsOfParty,
-  Recipient,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.sequencing.protocol.{Recipient, Recipients, RecipientsTree}
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,18 +28,10 @@ object RootHashMessageRecipients {
   )(implicit
       ec: ExecutionContext
   ): EitherT[Future, Set[LfPartyId], RecipientsInfo] = for {
-    partiesWithGroupAddressing <- EitherT.right(
-      ipsSnapshot.partiesWithGroupAddressing(informeeParties)
-    )
-    participantsOfInformessWithoutGroupAddressing <- ipsSnapshot
-      .activeParticipantsOfAll((informeeParties.toSet -- partiesWithGroupAddressing).toList)
-    participantsCoveredByGroupAddressing <- ipsSnapshot
-      .activeParticipantsOfAll(partiesWithGroupAddressing.toList)
+    participantsOfInformess <- ipsSnapshot
+      .activeParticipantsOfAll(informeeParties)
   } yield RecipientsInfo(
-    informeeParticipants =
-      participantsOfInformessWithoutGroupAddressing -- participantsCoveredByGroupAddressing,
-    partiesWithGroupAddressing.map(PartyId.tryFromLfParty),
-    participantsCoveredByGroupAddressing,
+    informeeParticipants = participantsOfInformess
   )
 
   def confirmationRequestRootHashMessagesRecipients(
@@ -53,38 +39,20 @@ object RootHashMessageRecipients {
       mediator: MediatorRef,
   ): List[Recipients] = {
 
-    val participantRecipients = {
-      val participantsAddressedByGroupAddress =
-        recipientInfos.toSet.flatMap[ParticipantId](
-          _.participantsAddressedByGroupAddress
-        )
-      val allInformeeParticipants = recipientInfos.toSet.flatMap[ParticipantId](
+    val participantRecipients = recipientInfos.toSet
+      .flatMap[ParticipantId](
         _.informeeParticipants
       )
-      allInformeeParticipants -- participantsAddressedByGroupAddress
-    }.map(MemberRecipient)
+      .map(Recipient(_))
 
-    val groupRecipients = recipientInfos.toSet
-      .flatMap[PartyId](_.partiesWithGroupAddressing)
-      .map(p => ParticipantsOfParty(p))
-
-    val recipients = participantRecipients ++ groupRecipients
-    val groupAddressingBeingUsed = groupRecipients.nonEmpty
+    val recipients = participantRecipients
 
     NonEmpty
       .from(recipients.toList)
       .map { recipientsNE =>
-        if (groupAddressingBeingUsed) {
-          // if using group addressing, we just place all recipients in one group instead of separately as before (it was separate for legacy reasons)
-          val mediatorSet: NonEmpty[Set[Recipient]] = NonEmpty.mk(Set, mediator.toRecipient)
-          Recipients.recipientGroups(
-            NonEmpty
-              .mk(Seq, recipientsNE.toSet ++ mediatorSet)
-          )
-        } else
-          Recipients.recipientGroups(
-            recipientsNE.map(NonEmpty.mk(Set, _, mediator.toRecipient))
-          )
+        Recipients.recipientGroups(
+          recipientsNE.map(NonEmpty.mk(Set, _, mediator.toRecipient))
+        )
       }
       .toList
   }
@@ -93,26 +61,12 @@ object RootHashMessageRecipients {
       recipients: Recipients,
       participantId: ParticipantId,
       mediator: MediatorRef,
-      participantIsAddressByPartyGroupAddress: (
-          Seq[LfPartyId],
-          ParticipantId,
-      ) => FutureUnlessShutdown[Boolean],
   ): FutureUnlessShutdown[Boolean] =
     recipients.asSingleGroup match {
       case Some(group) =>
-        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator.toRecipient))
+        if (group == NonEmpty.mk(Set, Recipient(participantId), mediator.toRecipient))
           FutureUnlessShutdown.pure(true)
-        else if (group.contains(mediator.toRecipient) && group.size >= 2) {
-          val informeeParty = group.collect { case ParticipantsOfParty(party) =>
-            party.toLf
-          }
-          if (informeeParty.isEmpty) FutureUnlessShutdown.pure(false)
-          else
-            participantIsAddressByPartyGroupAddress(
-              informeeParty.toSeq,
-              participantId,
-            )
-        } else FutureUnlessShutdown.pure(false)
+        else FutureUnlessShutdown.pure(false)
       case _ => FutureUnlessShutdown.pure(false)
     }
 
@@ -124,18 +78,11 @@ object RootHashMessageRecipients {
       recipients.trees.toList.map {
         case tree @ RecipientsTree(group, Seq()) =>
           val participantCount = group.count {
-            case MemberRecipient(_: ParticipantId) => true
+            case Recipient(_: ParticipantId) => true
             case _ => false
           }
-          val groupAddressCount = group.count {
-            case ParticipantsOfParty(_) => true
-            case _ => false
-          }
-          val groupAddressingBeingUsed = groupAddressCount > 0
           Either.cond(
-            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) && group.contains(
-              mediator.toRecipient
-            ) && (participantCount + groupAddressCount > 0),
+            (group.size == 2) && group.contains(mediator.toRecipient) && (participantCount > 0),
             group,
             tree,
           )
@@ -150,35 +97,25 @@ object RootHashMessageRecipients {
       request: MediatorRequest,
       topologySnapshot: TopologySnapshot,
   )(implicit executionContext: ExecutionContext): Future[WrongMembers] = {
-    val informeesAddressedAsGroup = rootHashMessagesRecipients.collect {
-      case ParticipantsOfParty(informee) =>
-        informee.toLf
+    val participants = rootHashMessagesRecipients.collect { case Recipient(p: ParticipantId) =>
+      p
     }
-    val participants = rootHashMessagesRecipients.collect {
-      case MemberRecipient(p: ParticipantId) => p
-    }
-    val informeesNotAddressedAsGroups = request.allInformees -- informeesAddressedAsGroup.toSet
-    val superfluousInformees = informeesAddressedAsGroup.toSet -- request.allInformees
+    val informees = request.allInformees
     for {
-      allNonGroupAddressedInformeeParticipants <-
-        informeesNotAddressedAsGroups.toList
+      allParticipants <-
+        informees.toList
           .parTraverse(topologySnapshot.activeParticipantsOf)
           .map(_.flatMap(_.keySet).toSet)
-      participantsAddressedAsGroup <- informeesAddressedAsGroup.toList
-        .parTraverse(topologySnapshot.activeParticipantsOf)
-        .map(_.flatMap(_.keySet).toSet)
     } yield {
       val participantsSet = participants.toSet
-      val missingInformeeParticipants =
-        allNonGroupAddressedInformeeParticipants diff participantsSet diff participantsAddressedAsGroup
-      val superfluousMembers = participantsSet diff allNonGroupAddressedInformeeParticipants
-      WrongMembers(missingInformeeParticipants, superfluousMembers, superfluousInformees)
+      val missingInformeeParticipants = allParticipants diff participantsSet
+      val superfluousMembers = participantsSet diff allParticipants
+      WrongMembers(missingInformeeParticipants, superfluousMembers)
     }
   }
 
   final case class WrongMembers(
       missingInformeeParticipants: Set[ParticipantId],
       superfluousMembers: Set[ParticipantId],
-      superfluousInformees: Set[LfPartyId],
   )
 }

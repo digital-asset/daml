@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.transfer
 
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferOutTree}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.TransferGlobalOffset
@@ -17,7 +18,6 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.topology.MediatorRef
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
-import com.digitalasset.canton.{RequestCounter, TransferCounterO}
 
 /** Stores the data for a transfer that needs to be passed from the source domain to the target domain. */
 final case class TransferData(
@@ -47,9 +47,6 @@ final case class TransferData(
   def transferId: TransferId = TransferId(transferOutRequest.sourceDomain, transferOutTimestamp)
 
   def sourceMediator: MediatorRef = transferOutRequest.mediator
-
-  def transferCounter: TransferCounterO = transferOutRequest.transferCounter
-
   def addTransferOutResult(result: DeliveredTransferOutResult): Option[TransferData] =
     mergeTransferOutResult(Some(result))
 

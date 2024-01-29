@@ -12,18 +12,14 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc
-import com.digitalasset.canton.domain.admin.{v0, v1, v2}
+import com.digitalasset.canton.domain.admin.{v0, v1}
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
-  InitializeSequencerRequestX,
   InitializeSequencerResponse,
-  InitializeSequencerResponseX,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{LedgerIdentity, SequencerSnapshot}
 import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -129,71 +125,16 @@ object EnterpriseSequencerAdminCommands {
         service.initV1(request)
     }
 
-    final case class V2(
-        domainId: DomainId,
-        topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
-        domainParameters: StaticDomainParameters,
-        snapshotO: Option[SequencerSnapshot],
-    ) extends Initialize[v2.InitRequest] {
-
-      override protected def serializer: InitializeSequencerRequest => v2.InitRequest = _.toProtoV2
-
-      override def submitRequest(
-          service: v0.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-          request: v2.InitRequest,
-      ): Future[v0.InitResponse] =
-        service.initV2(request)
-    }
-
     def apply(
         domainId: DomainId,
         topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
         domainParameters: StaticDomainParameters,
         snapshotO: Option[SequencerSnapshot] = None,
     ): Initialize[_] = {
-      if (domainParameters.protocolVersion >= ProtocolVersion.CNTestNet)
-        V2(domainId, topologySnapshot, domainParameters, snapshotO)
-      else if (domainParameters.protocolVersion >= ProtocolVersion.v4)
+      if (domainParameters.protocolVersion >= ProtocolVersion.v4)
         V1(domainId, topologySnapshot, domainParameters, snapshotO)
       else V0(domainId, topologySnapshot, domainParameters, snapshotO)
     }
-  }
-
-  final case class InitializeX(
-      topologySnapshot: GenericStoredTopologyTransactionsX,
-      domainParameters: com.digitalasset.canton.protocol.StaticDomainParameters,
-      sequencerSnapshot: Option[SequencerSnapshot],
-  ) extends GrpcAdminCommand[
-        v2.InitializeSequencerRequest,
-        v2.InitializeSequencerResponse,
-        InitializeSequencerResponseX,
-      ] {
-    override type Svc = v2.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
-
-    override def createService(
-        channel: ManagedChannel
-    ): SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
-      v2.SequencerInitializationServiceGrpc.stub(channel)
-
-    override def submitRequest(
-        service: SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-        request: v2.InitializeSequencerRequest,
-    ): Future[v2.InitializeSequencerResponse] =
-      service.initialize(request)
-
-    override def createRequest(): Either[String, v2.InitializeSequencerRequest] =
-      Right(
-        InitializeSequencerRequestX(
-          topologySnapshot,
-          domainParameters,
-          sequencerSnapshot,
-        ).toProtoV2
-      )
-
-    override def handleResponse(
-        response: v2.InitializeSequencerResponse
-    ): Either[String, InitializeSequencerResponseX] =
-      InitializeSequencerResponseX.fromProtoV2(response).leftMap(_.toString)
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)

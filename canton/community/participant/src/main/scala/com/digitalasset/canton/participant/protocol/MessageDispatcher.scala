@@ -437,12 +437,6 @@ trait MessageDispatcher { this: NamedLogging =>
                 rootHashMessage.recipients,
                 participantId,
                 mediator,
-                badRootHashMessagesRequestProcessor
-                  .participantIsAddressByPartyGroupAddress(
-                    ts,
-                    _,
-                    _,
-                  ),
               )
             checkedT(recipientsAreValid.map { recipientsAreValid =>
               if (recipientsAreValid) {
@@ -503,11 +497,13 @@ trait MessageDispatcher { this: NamedLogging =>
   )(implicit traceContext: TraceContext): Checked[
     FailedRootHashMessageCheck,
     String,
-    (List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]], Set[MediatorRef]),
+    (
+        List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+        Set[MediatorRef],
+    ),
   ] = {
     def isMediatorId(recipient: Recipient): Boolean = recipient match {
-      case MemberRecipient(_: MediatorId) => true
-      case _: MediatorsOfDomain => true
+      case Recipient(_: MediatorId) => true
       case _ => false
     }
 
@@ -520,9 +516,8 @@ trait MessageDispatcher { this: NamedLogging =>
     val allMediators = rootHashMessagesSentToAMediator.foldLeft(Set.empty[MediatorRef]) {
       (acc, rhm) =>
         val mediators = {
-          rhm.recipients.allRecipients.collect {
-            case MemberRecipient(mediatorId: MediatorId) => MediatorRef(mediatorId)
-            case mediatorsOfDomain @ MediatorsOfDomain(_) => MediatorRef(mediatorsOfDomain)
+          rhm.recipients.allRecipients.collect { case Recipient(mediatorId: MediatorId) =>
+            MediatorRef(mediatorId)
           }
         }
         acc.union(mediators)

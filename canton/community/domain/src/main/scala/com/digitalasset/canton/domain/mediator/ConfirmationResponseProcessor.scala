@@ -140,7 +140,6 @@ private[mediator] class ConfirmationResponseProcessor(
                   _,
                   request,
                   rootHashMessages,
-                  batchAlsoContainsTopologyXTransaction,
                 ) =>
               processRequest(
                 requestId,
@@ -149,7 +148,6 @@ private[mediator] class ConfirmationResponseProcessor(
                 decisionTime,
                 request,
                 rootHashMessages,
-                batchAlsoContainsTopologyXTransaction,
               )
             case MediatorEvent.Response(counter, timestamp, response, recipients) =>
               processResponse(
@@ -214,7 +212,6 @@ private[mediator] class ConfirmationResponseProcessor(
       decisionTime: CantonTimestamp,
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      batchAlsoContainsTopologyXTransaction: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     withSpan("ConfirmationResponseProcessor.processRequest") { implicit traceContext => span =>
       span.setAttribute("request_id", requestId.toString)
@@ -228,7 +225,6 @@ private[mediator] class ConfirmationResponseProcessor(
           request,
           rootHashMessages,
           topologySnapshot,
-          batchAlsoContainsTopologyXTransaction,
         )
 
         // Take appropriate actions based on unitOrVerdictO
@@ -288,7 +284,6 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       topologySnapshot: TopologySnapshot,
-      batchAlsoContainsTopologyXTransaction: Boolean,
   )(implicit
       traceContext: TraceContext
   ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = (for {
@@ -339,21 +334,6 @@ private[mediator] class ConfirmationResponseProcessor(
     _ <-
       validateAuthorizedConfirmingParties(requestId, request, topologySnapshot)
         .leftMap(Option.apply)
-
-    // Reject, if the batch also contains a topology transaction
-    _ <- EitherTUtil
-      .condUnitET(
-        !batchAlsoContainsTopologyXTransaction, {
-          val rejection = MediatorError.MalformedMessage
-            .Reject(
-              s"Received a mediator request with id $requestId also containing a topology transaction.",
-              v0.MediatorRejection.Code.MissingCode,
-            )
-            .reported()
-          MediatorVerdict.MediatorReject(rejection)
-        },
-      )
-      .leftMap(Option.apply)
   } yield ()).value
 
   private def checkDeclaredMediator(
@@ -378,30 +358,11 @@ private[mediator] class ConfirmationResponseProcessor(
     }
 
     (request.mediator match {
-      case MediatorRef.Single(declaredMediatorId) =>
+      case MediatorRef(declaredMediatorId) =>
         EitherTUtil.condUnitET[Future](
           declaredMediatorId == mediatorId,
           rejectWrongMediator(show"incorrect mediator id"),
         )
-      case MediatorRef.Group(declaredMediatorGroup) =>
-        for {
-          mediatorGroupO <- EitherT.right(
-            topologySnapshot.mediatorGroup(declaredMediatorGroup.group)
-          )
-          mediatorGroup <- EitherT.fromOption[Future](
-            mediatorGroupO,
-            rejectWrongMediator(show"unknown mediator group"),
-          )
-          _ <- EitherTUtil.condUnitET[Future](
-            mediatorGroup.isActive,
-            rejectWrongMediator(show"inactive mediator group"),
-          )
-          _ <- EitherTUtil.condUnitET[Future](
-            mediatorGroup.active.contains(mediatorId) || mediatorGroup.passive.contains(mediatorId),
-            rejectWrongMediator(show"this mediator not being part of the mediator group"),
-          )
-
-        } yield ()
     }).map(_ => request.mediator)
   }
 
@@ -424,9 +385,8 @@ private[mediator] class ConfirmationResponseProcessor(
     val rootHashMessagesRecipients = correctRecipients
       .flatMap(recipients =>
         recipients
-          .collect {
-            case m @ MemberRecipient(_: ParticipantId) => m
-            case pop: ParticipantsOfParty => pop
+          .collect { case m @ Recipient(_: ParticipantId) =>
+            m
           }
       )
     def repeatedMembers(recipients: Seq[Recipient]): Seq[Recipient] = {
@@ -495,10 +455,6 @@ private[mediator] class ConfirmationResponseProcessor(
             _ <- EitherTUtil.condUnitET[Future](
               wrongMems.superfluousMembers.isEmpty,
               show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
-            )
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongMems.superfluousInformees.isEmpty,
-              show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
             )
           } yield ()
       }

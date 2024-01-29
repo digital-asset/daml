@@ -4,12 +4,9 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import cats.syntax.traverse.*
 import com.digitalasset.canton.domain.admin.v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
 import com.digitalasset.canton.domain.admin.v0 as adminproto
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
-import com.digitalasset.canton.topology.Member
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -41,28 +38,5 @@ object SequencerAdminCommands {
         response: adminproto.SequencerPruningStatus
     ): Either[String, SequencerPruningStatus] =
       SequencerPruningStatus.fromProtoV0(response).leftMap(_.toString)
-  }
-
-  final case class GetTrafficControlState(members: Seq[Member])
-      extends BaseSequencerAdministrationCommands[
-        adminproto.TrafficControlStateRequest,
-        adminproto.TrafficControlStateResponse,
-        SequencerTrafficStatus,
-      ] {
-    override def createRequest(): Either[String, adminproto.TrafficControlStateRequest] = Right(
-      adminproto.TrafficControlStateRequest(members.map(_.toProtoPrimitive))
-    )
-    override def submitRequest(
-        service: SequencerAdministrationServiceStub,
-        request: adminproto.TrafficControlStateRequest,
-    ): Future[adminproto.TrafficControlStateResponse] =
-      service.trafficControlState(request)
-    override def handleResponse(
-        response: adminproto.TrafficControlStateResponse
-    ): Either[String, SequencerTrafficStatus] =
-      response.trafficStates
-        .traverse(com.digitalasset.canton.traffic.MemberTrafficStatus.fromProtoV0)
-        .leftMap(_.toString)
-        .map(SequencerTrafficStatus)
   }
 }

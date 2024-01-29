@@ -59,12 +59,6 @@ case class TransferResult[+Domain <: TransferDomainId] private (
       : v0.SignedProtocolMessage.SomeSignedProtocolMessage.TransferResult =
     v0.SignedProtocolMessage.SomeSignedProtocolMessage.TransferResult(getCryptographicEvidence)
 
-  override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransferResult(
-      getCryptographicEvidence
-    )
-
   @transient override protected lazy val companionObj: TransferResult.type = TransferResult
 
   private def toProtoV0: v0.TransferResult = {

@@ -13,12 +13,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.client.*
-import com.digitalasset.canton.topology.store.{
-  TopologyStore,
-  TopologyStoreCommon,
-  TopologyStoreId,
-  TopologyStoreX,
-}
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreCommon, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, KeyOwnerCode, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -204,26 +199,4 @@ class GrpcTopologyAggregationService(
     loggerFactory,
     ProtocolVersionValidation.NoValidation,
   )
-}
-
-class GrpcTopologyAggregationServiceX(
-    stores: => Seq[TopologyStoreX[TopologyStoreId.DomainStore]],
-    ips: IdentityProvidingServiceClient,
-    loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
-    extends GrpcTopologyAggregationServiceCommon[TopologyStoreX[TopologyStoreId.DomainStore]](
-      stores,
-      ips,
-      loggerFactory,
-    ) {
-  override protected def getTopologySnapshot(
-      asOf: CantonTimestamp,
-      store: TopologyStoreX[TopologyStoreId.DomainStore],
-  ): TopologySnapshotLoader =
-    new StoreBasedTopologySnapshotX(
-      asOf,
-      store,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
-      loggerFactory,
-    )
 }

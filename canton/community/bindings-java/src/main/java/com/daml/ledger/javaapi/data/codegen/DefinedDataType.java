@@ -6,9 +6,6 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.Value;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfWriter;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.UncheckedIOException;
 
 /**
  * The codegen-decoded form of any of these:
@@ -40,13 +37,6 @@ public interface DefinedDataType<T> {
   }
 
   default String toJson() {
-    var w = new StringWriter();
-    try {
-      this.jsonEncoder().encode(new JsonLfWriter(w));
-    } catch (IOException e) {
-      // Not expected with StringWriter
-      throw new UncheckedIOException(e);
-    }
-    return w.toString();
+    return this.jsonEncoder().intoString();
   }
 }

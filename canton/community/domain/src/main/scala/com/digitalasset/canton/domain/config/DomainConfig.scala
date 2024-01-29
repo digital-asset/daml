@@ -126,7 +126,6 @@ trait DomainBaseConfig extends LocalNodeConfig {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
-  override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed
 }
 
 /** Configuration parameters for a single domain. */

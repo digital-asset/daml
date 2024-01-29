@@ -5,12 +5,9 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.InvariantViolation
 import com.digitalasset.canton.crypto.{
   HashOps,
   HashPurpose,
@@ -23,7 +20,6 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
-import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -39,21 +35,11 @@ import com.digitalasset.canton.version.{
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordered.orderingToOrdered
 
-/** In protocol versions prior to [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-  * the `signatures` field contains a single signature over the `typeMessage`'s
-  * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]].
-  * From [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] on, there can be any number of signatures
-  * and each signature covers the serialization of the `typedMessage` itself rather than just its
-  * [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent.content]], and
-  * every signature needs to be valid.
-  */
-// TODO(#15358) Adapt comment. Most of it can be deleted.
 // sealed because this class is mocked in tests
 sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] private (
     typedMessage: TypedSignedProtocolMessageContent[M],
-    signatures: NonEmpty[Seq[Signature]],
+    signature: Signature,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SignedProtocolMessage.type
@@ -73,68 +59,34 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
   def verifySignature(
       snapshot: SyncCryptoApi,
       member: Member,
-  ): EitherT[Future, SignatureCheckError, Unit] =
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
-    ) {
-      // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        member,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, member, signatures)
-    }
+  ): EitherT[Future, SignatureCheckError, Unit] = {
+    val hashPurpose = message.hashPurpose
+    val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
+    snapshot.verifySignatures(hash, member, NonEmpty.mk(Seq, signature))
+  }
 
   def verifySignature(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
-    ) {
-
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        mediatorGroupIndex,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, mediatorGroupIndex, signatures)
-    }
+    val hashPurpose = message.hashPurpose
+    val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
+    snapshot.verifySignatures(hash, mediatorGroupIndex, NonEmpty.mk(Seq, signature))
   }
 
   def copy[MM <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[MM] = this.typedMessage,
-      signatures: NonEmpty[Seq[Signature]] = this.signatures,
+      signature: Signature = this.signature,
   ): SignedProtocolMessage[MM] =
-    SignedProtocolMessage
-      .create(typedMessage, signatures, representativeProtocolVersion)
-      .valueOr(err => throw new IllegalArgumentException(err.message))
+    SignedProtocolMessage(typedMessage, signature)(representativeProtocolVersion)
 
   override def domainId: DomainId = message.domainId
 
   protected def toProtoV0: v0.SignedProtocolMessage = {
     val content = typedMessage.content.toProtoSomeSignedProtocolMessage
     v0.SignedProtocolMessage(
-      signature = signatures.head1.toProtoV0.some,
+      signature = signature.toProtoV0.some,
       someSignedProtocolMessage = content,
-    )
-  }
-
-  protected def toProtoV1: v1.SignedProtocolMessage = {
-    v1.SignedProtocolMessage(
-      signature = signatures.map(_.toProtoV0),
-      typedSignedProtocolMessageContent = typedMessage.toByteString,
     )
   }
 
@@ -161,7 +113,7 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
   }
 
   override def pretty: Pretty[this.type] =
-    prettyOfClass(unnamedParam(_.message), param("signatures", _.signatures))
+    prettyOfClass(unnamedParam(_.message), param("signatures", _.signature))
 }
 
 object SignedProtocolMessage
@@ -174,58 +126,26 @@ object SignedProtocolMessage
     ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV0),
       _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
-    )(v1.SignedProtocolMessage)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
-  )
-
-  private[messages] val multipleSignaturesSupportedSince = protocolVersionRepresentativeFor(
-    ProtoVersion(1)
-  )
-
-  def create[M <: SignedProtocolMessageContent](
-      typedMessage: TypedSignedProtocolMessageContent[M],
-      signatures: NonEmpty[Seq[Signature]],
-      representativeProtocolVersion: RepresentativeProtocolVersion[SignedProtocolMessage.type],
-  ): Either[InvariantViolation, SignedProtocolMessage[M]] =
-    Either.cond(
-      representativeProtocolVersion >= multipleSignaturesSupportedSince ||
-        signatures.sizeCompare(1) == 0,
-      new SignedProtocolMessage(typedMessage, signatures)(representativeProtocolVersion),
-      InvariantViolation(
-        s"SignedProtocolMessage supports only a single signatures in protocol versions below ${multipleSignaturesSupportedSince.representative}. Got ${signatures.size} signatures)"
-      ),
     )
+  )
 
-  def create[M <: SignedProtocolMessageContent](
+  def apply[M <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[M],
-      signatures: NonEmpty[Seq[Signature]],
-      protocolVersion: ProtocolVersion,
-  ): Either[InvariantViolation, SignedProtocolMessage[M]] =
-    create(typedMessage, signatures, protocolVersionRepresentativeFor(protocolVersion))
-
-  def tryCreate[M <: SignedProtocolMessageContent](
-      typedMessage: TypedSignedProtocolMessageContent[M],
-      signatures: NonEmpty[Seq[Signature]],
+      signature: Signature,
       protocolVersion: ProtocolVersion,
   ): SignedProtocolMessage[M] =
-    create(typedMessage, signatures, protocolVersion).valueOr(err =>
-      throw new IllegalArgumentException(err.message)
+    SignedProtocolMessage(typedMessage, signature)(
+      protocolVersionRepresentativeFor(protocolVersion)
     )
 
   @VisibleForTesting
-  def tryFrom[M <: SignedProtocolMessageContent](
+  def from[M <: SignedProtocolMessageContent](
       message: M,
       protocolVersion: ProtocolVersion,
       signature: Signature,
-      moreSignatures: Signature*
-  ): SignedProtocolMessage[M] = SignedProtocolMessage.tryCreate(
+  ): SignedProtocolMessage[M] = SignedProtocolMessage(
     TypedSignedProtocolMessageContent(message, protocolVersion),
-    NonEmpty(Seq, signature, moreSignatures: _*),
+    signature,
     protocolVersion,
   )
 
@@ -240,7 +160,7 @@ object SignedProtocolMessage
     val typedMessage = TypedSignedProtocolMessageContent(message, protocolVersion)
     for {
       signature <- mkSignature(typedMessage, cryptoApi, protocolVersion)
-    } yield SignedProtocolMessage.tryCreate(typedMessage, NonEmpty(Seq, signature), protocolVersion)
+    } yield SignedProtocolMessage(typedMessage, signature, protocolVersion)
   }
 
   private def mkSignature[M <: SignedProtocolMessageContent](
@@ -310,36 +230,12 @@ object SignedProtocolMessage
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", maybeSignatureP)
-      signedMessage <- create(
+      signedMessage = SignedProtocolMessage(
         TypedSignedProtocolMessageContent(message, ProtoVersion(-1)),
-        NonEmpty(Seq, signature),
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
-      ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
-    } yield signedMessage
-  }
-
-  private def fromProtoV1(
-      context: (HashOps, ProtocolVersion),
-      signedMessageP: v1.SignedProtocolMessage,
-  ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
-    val (_, expectedProtocolVersion) = context
-    val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
-    for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
-        context
+        signature,
       )(
-        typedMessageBytes
+        protocolVersionRepresentativeFor(ProtoVersion(0))
       )
-      signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
-        "signatures",
-        signaturesP,
-      )
-      signedMessage <- create(
-        typedMessage,
-        signatures,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
-      ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
     } yield signedMessage
   }
 

@@ -78,9 +78,6 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
       ): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
         Future.successful(PartyTopologySnapshotClient.AuthorityOfResponse(Map.empty))
 
-      override def partiesWithGroupAddressing(parties: Seq[LfPartyId]): Future[Set[LfPartyId]] =
-        ???
-
       override def consortiumThresholds(
           parties: Set[LfPartyId]
       ): Future[Map[LfPartyId, PositiveInt]] = ???

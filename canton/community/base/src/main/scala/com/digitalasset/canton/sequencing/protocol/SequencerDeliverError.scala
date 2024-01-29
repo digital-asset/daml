@@ -21,9 +21,7 @@ sealed trait SequencerDeliverError extends TransactionError {
     * by turning specific error codes into a BatchRefused (generic one), which existed before.
     */
   def forProtocolVersion(protocolVersion: ProtocolVersion): SequencerDeliverError = {
-    if (
-      protocolVersion < ProtocolVersion.CNTestNet && this.code != SequencerErrors.SubmissionRequestRefused
-    ) {
+    if (this.code != SequencerErrors.SubmissionRequestRefused) {
       SequencerErrors.SubmissionRequestRefused(this.cause)
     } else {
       this

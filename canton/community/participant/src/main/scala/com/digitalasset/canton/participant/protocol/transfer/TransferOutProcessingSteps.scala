@@ -47,14 +47,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{
-  LfPartyId,
-  RequestCounter,
-  SequencerCounter,
-  TransferCounter,
-  TransferCounterO,
-  checked,
-}
+import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -137,22 +130,16 @@ class TransferOutProcessingSteps(
       (timeProof, targetCrypto) = timeProofAndSnapshot
       _ = logger.debug(withDetails(s"Picked time proof ${timeProof.timestamp}"))
 
-      transferCounter <- EitherT(
+      _ <- EitherT(
         ephemeralState.tracker
           .getApproximateStates(Seq(contractId))
           .map(_.get(contractId) match {
-            case Some(state) if state.status.isActive => Right(state.status.transferCounter)
+            case Some(state) if state.status.isActive => Right(())
             case Some(state) =>
               Left(TransferOutProcessorError.DeactivatedContract(contractId, status = state.status))
             case None => Left(TransferOutProcessorError.UnknownContract(contractId))
           })
       ).mapK(FutureUnlessShutdown.outcomeK)
-
-      newTransferCounter <- EitherT.fromEither[FutureUnlessShutdown](
-        transferCounter
-          .traverse(_.increment)
-          .leftMap(_ => TransferOutProcessorError.TransferCounterOverflow)
-      )
 
       creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
         storedContract.creatingTransactionIdO.toRight(CreatingTransactionIdNotFound(contractId))
@@ -172,21 +159,18 @@ class TransferOutProcessingSteps(
         targetProtocolVersion,
         sourceRecentSnapshot.ipsSnapshot,
         targetCrypto.ipsSnapshot,
-        newTransferCounter,
         logger,
       )
 
       transferOutUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
-      fullTree <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          validated.request.toFullTransferOutTree(
-            pureCrypto,
-            pureCrypto,
-            seed,
-            transferOutUuid,
-          )
-        )
+      fullTree = validated.request.toFullTransferOutTree(
+        pureCrypto,
+        pureCrypto,
+        seed,
+        transferOutUuid,
+      )
+
       mediatorMessage = fullTree.mediatorMessage
       rootHash = fullTree.rootHash
       viewMessage <- EncryptedViewMessageFactory
@@ -218,7 +202,7 @@ class TransferOutProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               validated.recipients.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator.toRecipient, Recipient(participant))
               )
             )
           )
@@ -413,26 +397,17 @@ class TransferOutProcessingSteps(
     for {
       // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
-      contractWithTransactionId <-
-        fullTree.tree.view.tryUnwrap match {
-          case view: TransferOutViewCNTestNet =>
-            // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
-            EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](
-              WithTransactionId(view.contract, view.creatingTransactionId)
-            )
-          case _: TransferOutViewV0 | _: TransferOutViewV4 =>
-            for {
-              storedContract <- getStoredContract(contractLookup, fullTree.contractId)
+      contractWithTransactionId <- for {
+        storedContract <- getStoredContract(contractLookup, fullTree.contractId)
 
-              // Since the participant hosts a stakeholder, it should find the creating transaction ID in the contract store
-              creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
-                storedContract.creatingTransactionIdO
-                  .toRight[TransferProcessorError](
-                    CreatingTransactionIdNotFound(storedContract.contractId)
-                  )
-              )
-            } yield WithTransactionId(storedContract.contract, creatingTransactionId)
-        }
+        // Since the participant hosts a stakeholder, it should find the creating transaction ID in the contract store
+        creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
+          storedContract.creatingTransactionIdO
+            .toRight[TransferProcessorError](
+              CreatingTransactionIdNotFound(storedContract.contractId)
+            )
+        )
+      } yield WithTransactionId(storedContract.contract, creatingTransactionId)
 
       WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
 
@@ -476,7 +451,6 @@ class TransferOutProcessingSteps(
         sc,
         fullTree.tree.rootHash,
         WithContractHash.fromContract(contract, fullTree.contractId),
-        fullTree.transferCounter,
         contract.rawContractInstance.contractInstance.unversioned.template,
         transferringParticipant,
         fullTree.submitterMetadata,
@@ -522,7 +496,6 @@ class TransferOutProcessingSteps(
         transferringParticipant,
         activenessResult,
         contract.contractId,
-        fullTree.transferCounter,
         confirmingStakeholders.toSet,
         fullTree.viewHash,
         fullTree.tree.rootHash,
@@ -569,7 +542,6 @@ class TransferOutProcessingSteps(
       requestSequencerCounter,
       rootHash,
       WithContractHash(contractId, contractHash),
-      transferCounter,
       templateId,
       transferringParticipant,
       submitterMetadata,
@@ -592,7 +564,7 @@ class TransferOutProcessingSteps(
           creations = Map.empty,
           transferOuts = Map(
             contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
+              CommitSet.TransferOutCommit(targetDomain, stakeholders),
               contractHash,
             )
           ),
@@ -626,7 +598,6 @@ class TransferOutProcessingSteps(
             rootHash,
             transferInExclusivity,
             isTransferringParticipant = transferringParticipant,
-            transferCounter,
             hostedStakeholders.toList,
           )
         } yield CommitAndStoreContractsAndPublishEvent(
@@ -672,7 +643,6 @@ class TransferOutProcessingSteps(
       rootHash: RootHash,
       transferInExclusivity: Option[CantonTimestamp],
       isTransferringParticipant: Boolean,
-      transferCounter: TransferCounterO,
       hostedStakeholders: List[LfPartyId],
   ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] = {
     for {
@@ -704,9 +674,6 @@ class TransferOutProcessingSteps(
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.getOrElse(
-        TransferCounter.MinValue
-      ),
     )
   }
 
@@ -740,26 +707,17 @@ class TransferOutProcessingSteps(
       transferringParticipant: Boolean,
       activenessResult: ActivenessResult,
       contractId: LfContractId,
-      declaredTransferCounter: TransferCounterO,
       confirmingStakeholders: Set[LfPartyId],
       viewHash: ViewHash,
       rootHash: RootHash,
   ): Option[MediatorResponse] = {
-    val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
-      contractId -> Some(ActiveContractStore.Active(declaredTransferCounter.map(_ - 1)))
-    )
-
-    val successful =
-      declaredTransferCounter.forall(_ > TransferCounter.Genesis) &&
-        activenessResult.isSuccessful &&
-        activenessResult.contracts.priorStates == expectedPriorTransferCounter
     // send a response only if the participant is a transferring participant or the activeness check has failed
-    if (transferringParticipant || !successful) {
+    if (transferringParticipant || !activenessResult.isSuccessful) {
       val adminPartySet =
         if (transferringParticipant) Set(participantId.adminParty.toLf) else Set.empty[LfPartyId]
       val confirmingParties = confirmingStakeholders union adminPartySet
       val localVerdict =
-        if (successful) LocalApprove(sourceDomainProtocolVersion.v)
+        if (activenessResult.isSuccessful) LocalApprove(sourceDomainProtocolVersion.v)
         else
           LocalReject.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
             LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
@@ -804,7 +762,6 @@ object TransferOutProcessingSteps {
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
       contractIdAndHash: WithContractHash[LfContractId],
-      transferCounter: TransferCounterO,
       templateId: LfTemplateId,
       transferringParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,

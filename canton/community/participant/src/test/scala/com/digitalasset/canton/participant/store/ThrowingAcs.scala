@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -16,7 +17,6 @@ import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDom
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{RequestCounter, TransferCounterO}
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,7 +26,7 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   private[this] type M = Checked[AcsError, AcsWarning, Unit]
 
   override def markContractsActive(
-      contracts: Seq[(LfContractId, TransferCounterO)],
+      contracts: Seq[LfContractId],
       toc: TimeOfChange,
   )(implicit
       traceContext: TraceContext
@@ -42,14 +42,14 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
     CheckedT(Future.failed[M](mk(s"archiveContracts for $contracts at $toc")))
 
   override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounterO, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     CheckedT(Future.failed[M](mk(s"transferInContracts for $transferIns")))
 
   override def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounterO, TimeOfChange)]
+      transferOuts: Seq[(LfContractId, TargetDomainId, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
@@ -68,12 +68,12 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] =
+  ): Future[SortedMap[LfContractId, CantonTimestamp]] =
     Future.failed(mk(s"snapshot at $timestamp"))
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounterO)]] =
+  ): Future[SortedMap[LfContractId, RequestCounter]] =
     Future.failed(mk(s"snapshot at $rc"))
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
@@ -81,18 +81,6 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   ): Future[Map[LfContractId, CantonTimestamp]] =
     Future.failed[Map[LfContractId, CantonTimestamp]](
       mk(s"contractSnapshot for $contractIds at $timestamp")
-    )
-
-  override def bulkContractsTransferCounterSnapshot(
-      contractIds: Set[LfContractId],
-      requestCounter: RequestCounter,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounterO]] =
-    Future.failed[Map[LfContractId, TransferCounterO]](
-      mk(
-        s"bulkContractsTransferCounterSnapshot for $contractIds up to but not including $requestCounter"
-      )
     )
 
   override protected[canton] def doPrune(

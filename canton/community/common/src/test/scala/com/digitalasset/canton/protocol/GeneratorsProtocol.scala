@@ -107,11 +107,6 @@ final class GeneratorsProtocol(
         DynamicDomainParameters.defaultMaxRequestSizeUntil,
       )
 
-      trafficControlConfig <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultTrafficControlParametersUntil,
-      )
-
       // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
       updatedMediatorDeduplicationTimeout =
         if (protocolVersion > ProtocolVersion.v3)
@@ -121,7 +116,7 @@ final class GeneratorsProtocol(
 
       // TODO(#14691) Use generator properly when dynamic domain parameters are properly versioned
       sequencerAggregateSubmissionTimeout =
-        DynamicDomainParameters.defaultSequencerAggregateSubmissionTimeoutUntilExclusive.defaultValue
+        DynamicDomainParameters.defaultSequencerAggregateSubmissionTimeout
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         participantResponseTimeout,
@@ -134,7 +129,6 @@ final class GeneratorsProtocol(
         maxRatePerParticipant,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
-        trafficControlConfig,
       )(representativePV)
 
     } yield dynamicDomainParameters

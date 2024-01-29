@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.mediator.admin.gprc
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Fingerprint
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.v0
 import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerRequest
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
@@ -69,47 +69,6 @@ object InitializeMediatorRequest {
       domainParameters,
       SequencerConnections.single(sequencerConnection),
       signingKeyFingerprint,
-    )
-  }
-}
-
-final case class InitializeMediatorRequestX(
-    domainId: DomainId,
-    domainParameters: StaticDomainParameters,
-    sequencerConnections: SequencerConnections,
-) {
-  def toProtoV2: v2.InitializeMediatorRequest =
-    v2.InitializeMediatorRequest(
-      domainId.toProtoPrimitive,
-      Some(domainParameters.toProtoV1),
-      sequencerConnections.toProtoV0,
-      sequencerConnections.sequencerTrustThreshold.unwrap,
-    )
-}
-
-object InitializeMediatorRequestX {
-  def fromProtoV2(
-      requestP: v2.InitializeMediatorRequest
-  ): ParsingResult[InitializeMediatorRequestX] = {
-    val v2.InitializeMediatorRequest(
-      domainIdP,
-      domainParametersP,
-      sequencerConnectionP,
-      sequencerTrustThreshold,
-    ) = requestP
-    for {
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
-      domainParameters <- ProtoConverter
-        .required("domain_parameters", domainParametersP)
-        .flatMap(StaticDomainParameters.fromProtoV1)
-      sequencerConnections <- SequencerConnections.fromProtoV0(
-        sequencerConnectionP,
-        sequencerTrustThreshold,
-      )
-    } yield InitializeMediatorRequestX(
-      domainId,
-      domainParameters,
-      sequencerConnections,
     )
   }
 }

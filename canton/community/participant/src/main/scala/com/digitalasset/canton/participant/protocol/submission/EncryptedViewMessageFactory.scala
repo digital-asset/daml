@@ -28,7 +28,6 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +37,6 @@ object EncryptedViewMessageFactory {
       symmetricViewKeyRandomness: SecureRandomness,
       symmetricViewKey: SymmetricKey,
       recipientsInfo: EncryptedViewMessageV1.RecipientsInfo,
-      usingGroupAddressing: Boolean,
       signature: Option[Signature],
       encryptedView: EncryptedView[VT],
   )
@@ -93,7 +91,6 @@ object EncryptedViewMessageFactory {
             .leftMap(FailedToCreateEncryptionKey)
         )
         recipientsInfo <- getRecipientInfo
-        usingGroupAddressing = recipientsInfo.partiesWithGroupAddressing.nonEmpty
         signature <- viewTree.toBeSigned
           .parTraverse(rootHash =>
             cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage)
@@ -107,7 +104,6 @@ object EncryptedViewMessageFactory {
         symmetricViewKeyRandomness,
         symmetricViewKey,
         recipientsInfo,
-        usingGroupAddressing,
         signature,
         encryptedView,
       )
@@ -205,55 +201,36 @@ object EncryptedViewMessageFactory {
 
     def createEncryptedViewMessageV2(
         evmCommon: EncryptedViewMessageCommon[VT]
-    ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessageV2[VT]] =
-      (if (!evmCommon.usingGroupAddressing) {
-         for {
-           sessionKeyAndRandomnessMap <- getSessionKey(evmCommon.recipientsInfo)
-           (sessionKey, sessionKeyRandomnessMap) = sessionKeyAndRandomnessMap
-           sessionKeyRandomnessMapNE <- EitherT.fromEither[Future](
-             NonEmpty
-               .from(sessionKeyRandomnessMap)
-               .toRight(
-                 UnableToDetermineSessionKeyRandomness(
-                   "The session key randomness map is empty"
-                 )
-               )
-           )
-           encryptedSessionKeyInfo <- encryptRandomnessWithSessionKey(sessionKey).map(
-             encryptedRandomness => (encryptedRandomness, sessionKeyRandomnessMapNE)
-           )
-         } yield encryptedSessionKeyInfo
-       } else {
-         eitherT(
-           Encrypted
-             .fromByteString[SecureRandomness](randomness.unwrap)
-             .leftMap(FailedToDeserializeEncryptedRandomness)
-             .map(encryptedRandomness =>
-               (
-                 encryptedRandomness,
-                 NonEmpty(
-                   Seq,
-                   AsymmetricEncrypted[SecureRandomness](
-                     ByteString.EMPTY,
-                     AsymmetricEncrypted.noEncryptionFingerprint,
-                   ),
-                 ),
-               )
-             )
-         )
-       }).map { case (randomnessV2, sessionKeyMap) =>
-        EncryptedViewMessageV2[VT](
-          evmCommon.signature,
-          viewTree.viewHash,
-          randomnessV2,
-          sessionKeyMap,
-          evmCommon.encryptedView,
-          viewTree.domainId,
-          viewEncryptionScheme,
-        )(
-          Some(evmCommon.recipientsInfo)
+    ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessageV2[VT]] = {
+      for {
+        sessionKeyAndRandomnessMap <- getSessionKey(evmCommon.recipientsInfo)
+        (sessionKey, sessionKeyRandomnessMap) = sessionKeyAndRandomnessMap
+        sessionKeyRandomnessMapNE <- EitherT.fromEither[Future](
+          NonEmpty
+            .from(sessionKeyRandomnessMap)
+            .toRight(
+              UnableToDetermineSessionKeyRandomness(
+                "The session key randomness map is empty"
+              )
+            )
         )
-      }
+        encryptedSessionKeyInfo <- encryptRandomnessWithSessionKey(sessionKey).map(
+          encryptedRandomness => (encryptedRandomness, sessionKeyRandomnessMapNE)
+        )
+      } yield encryptedSessionKeyInfo
+    }.map { case (randomnessV2, sessionKeyMap) =>
+      EncryptedViewMessageV2[VT](
+        evmCommon.signature,
+        viewTree.viewHash,
+        randomnessV2,
+        sessionKeyMap,
+        evmCommon.encryptedView,
+        viewTree.domainId,
+        viewEncryptionScheme,
+      )(
+        Some(evmCommon.recipientsInfo)
+      )
+    }
 
     def createEncryptedViewMessageV1(
         evmCommon: EncryptedViewMessageCommon[VT]

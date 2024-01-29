@@ -19,7 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerPruningStatus,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
-import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
+import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{
   Member,
@@ -28,7 +28,6 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
@@ -177,18 +176,6 @@ trait SequencerStoreTest
         latestTopologyClientTs: Option[CantonTimestamp] = None,
     ): CounterCheckpoint =
       CounterCheckpoint(counter, ts, latestTopologyClientTs)
-
-    "DeliverErrorStoreEvent" should {
-      "be able to serialize to and deserialize the error from protobuf" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
-        val error = SequencerErrors.SigningTimestampTooEarly("too early!")
-        val errorStatus = error.rpcStatusWithoutLoggingContext()
-        val (message, serialized) =
-          DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
-        val deserialized =
-          DeliverErrorStoreEvent.deserializeError(message, serialized, testedProtocolVersion)
-        deserialized shouldBe Right(errorStatus)
-      }
-    }
 
     "member registration" should {
       "be able to register a new member" in {

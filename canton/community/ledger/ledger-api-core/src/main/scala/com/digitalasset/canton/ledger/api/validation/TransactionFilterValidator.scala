@@ -10,20 +10,13 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TemplateFilter,
   TransactionFilter,
 }
-import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
-class TransactionFilterValidator(
-    resolveAllUpgradablePackagesForName: (Ref.PackageName, ContextualizedErrorLogger) => Either[
-      StatusRuntimeException,
-      Iterable[Ref.PackageId],
-    ],
-    upgradingEnabled: Boolean,
-) {
+class TransactionFilterValidator(upgradingEnabled: Boolean) {
 
   import FieldValidator.*
   import ValidationErrors.*
@@ -43,7 +36,6 @@ class TransactionFilterValidator(
             key <- requireParty(party)
             validatedFilters <- validateFilters(
               filters,
-              resolveAllUpgradablePackagesForName(_, contextualizedErrorLogger),
               upgradingEnabled,
             )
           } yield key -> validatedFilters
@@ -55,7 +47,6 @@ class TransactionFilterValidator(
   @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateFilters(
       filters: Filters,
-      resolvePackageIds: Ref.PackageName => Either[StatusRuntimeException, Iterable[Ref.PackageId]],
       upgradingEnabled: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -64,26 +55,22 @@ class TransactionFilterValidator(
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           for {
-            validatedIdents <-
+            validateIdentifiers <-
               inclusive.templateIds.toList
                 .traverse(
                   validateIdentifierWithPackageUpgrading(
                     _,
                     includeCreatedEventBlob = false,
-                    resolvePackageIds,
                   )(upgradingEnabled)
                 )
-                .map(_.flatten)
             validatedTemplates <-
-              inclusive.templateFilters.toList
-                .traverse(validateTemplateFilter(_, resolvePackageIds, upgradingEnabled))
-                .map(_.flatten)
+              inclusive.templateFilters.toList.traverse(validateTemplateFilter(_, upgradingEnabled))
             validatedInterfaces <-
               inclusive.interfaceFilters.toList traverse validateInterfaceFilter
           } yield domain.Filters(
             Some(
               domain.InclusiveFilters(
-                (validatedIdents ++ validatedTemplates).toSet,
+                (validateIdentifiers ++ validatedTemplates).toSet,
                 validatedInterfaces.toSet,
               )
             )
@@ -120,19 +107,15 @@ class TransactionFilterValidator(
 
   private def validateTemplateFilter(
       filter: TemplateFilter,
-      resolveUpgradablePackagesForName: Ref.PackageName => Either[StatusRuntimeException, Iterable[
-        Ref.PackageId
-      ]],
       upgradingEnabled: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Iterable[domain.TemplateFilter]] =
+  ): Either[StatusRuntimeException, domain.TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
       validatedIds <- validateIdentifierWithPackageUpgrading(
         templateId,
         filter.includeCreatedEventBlob,
-        resolveUpgradablePackagesForName,
       )(upgradingEnabled)
     } yield validatedIds
 

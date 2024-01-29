@@ -123,7 +123,7 @@ object DomainTopologyManager {
       // first, check that we have domain parameters
       _ <- EitherT(dbSnapshot.findDynamicDomainParameters())
       // then, check that we have at least one mediator
-      mediators <- EitherT.right(dbSnapshot.mediatorGroups().map(_.flatMap(_.active)))
+      mediators <- EitherT.right(dbSnapshot.mediatorGroups().map(_.map(_.active)))
       _ <- EitherT.cond[Future](
         !mustHaveActiveMediator || mediators.nonEmpty,
         (),

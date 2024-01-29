@@ -42,12 +42,7 @@ import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrack
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
-import com.digitalasset.canton.topology.{
-  DomainId,
-  DomainOutboxStatus,
-  MediatorId,
-  TopologyManagerStatus,
-}
+import com.digitalasset.canton.topology.{DomainId, MediatorId, TopologyManagerStatus}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
@@ -69,7 +64,6 @@ private[mediator] class Mediator(
     private[canton] val syncCrypto: DomainSyncCryptoClient,
     topologyTransactionProcessor: TopologyTransactionProcessorCommon,
     val topologyManagerStatusO: Option[TopologyManagerStatus],
-    val domainOutboxStatusO: Option[DomainOutboxStatus],
     timeTrackerConfig: DomainTimeTrackerConfig,
     state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,

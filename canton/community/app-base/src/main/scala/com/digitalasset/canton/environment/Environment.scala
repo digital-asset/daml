@@ -24,7 +24,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.DomainNodeBootstrap
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
-import com.digitalasset.canton.environment.ParticipantNodes.{ParticipantNodesOld, ParticipantNodesX}
+import com.digitalasset.canton.environment.ParticipantNodes.ParticipantNodesOld
 import com.digitalasset.canton.health.{HealthCheck, HealthServer}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -35,7 +35,6 @@ import com.digitalasset.canton.participant.{
   ParticipantNode,
   ParticipantNodeBootstrap,
   ParticipantNodeBootstrapCommon,
-  ParticipantNodeBootstrapX,
   ParticipantNodeCommon,
 }
 import com.digitalasset.canton.resource.DbMigrationsFactory
@@ -94,8 +93,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     )
   protected def participantNodeFactory
       : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrap]
-  protected def participantNodeFactoryX
-      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrapX]
   protected def domainFactory: DomainNodeBootstrap.Factory[Config#DomainConfigType]
   protected def migrationsFactory: DbMigrationsFactory
 
@@ -287,20 +284,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       config.participantNodeParametersByString,
       loggerFactory,
     )
-  lazy val participantsX =
-    new ParticipantNodesX[Config#ParticipantConfigType](
-      createParticipantX,
-      migrationsFactory,
-      timeouts,
-      config.participantsByStringX,
-      config.participantNodeParametersByString,
-      loggerFactory,
-    )
 
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
   protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(domains, participants, participantsX)
+    List(domains, participants)
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
   private def autoConnectLocalNodes(): Either[StartupError, Unit] = {
@@ -421,7 +409,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     config.parameters.timeouts.processing.unbounded.await("reconnect-particiapnts")(
       MonadUtil
         .parTraverseWithLimit_(config.parameters.getStartupParallelism(numThreads))(
-          (participants.running ++ participantsX.running)
+          participants.running
         )(reconnect)
         .value
     )
@@ -508,30 +496,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         NodeFactoryArguments(
           name,
           participantConfig,
-          config.participantNodeParametersByString(name),
-          createClock(Some(ParticipantNodeBootstrap.LoggerFactoryKeyName -> name)),
-          metricsFactory.forParticipant(name),
-          testingConfig,
-          futureSupervisor,
-          loggerFactory.append(ParticipantNodeBootstrap.LoggerFactoryKeyName, name),
-          writeHealthDumpToFile,
-          configuredOpenTelemetry,
-        ),
-        testingTimeService,
-      )
-      .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
-  }
-
-  protected def createParticipantX(
-      name: String,
-      participantConfig: Config#ParticipantConfigType,
-  ): ParticipantNodeBootstrapX = {
-    participantNodeFactoryX
-      .create(
-        NodeFactoryArguments(
-          name,
-          participantConfig,
-          // this is okay for x-nodes, as we've merged the two parameter sequences
           config.participantNodeParametersByString(name),
           createClock(Some(ParticipantNodeBootstrap.LoggerFactoryKeyName -> name)),
           metricsFactory.forParticipant(name),

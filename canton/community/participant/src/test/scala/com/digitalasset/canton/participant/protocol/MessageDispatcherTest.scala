@@ -322,7 +322,7 @@ trait MessageDispatcherTest {
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val testMediatorResult =
-    SignedProtocolMessage.tryFrom(
+    SignedProtocolMessage.from(
       TestRegularMediatorResult(
         TestViewType,
         domainId,
@@ -333,7 +333,7 @@ trait MessageDispatcherTest {
       dummySignature,
     )
   private val otherTestMediatorResult =
-    SignedProtocolMessage.tryFrom(
+    SignedProtocolMessage.from(
       TestRegularMediatorResult(
         OtherTestViewType,
         domainId,
@@ -397,7 +397,7 @@ trait MessageDispatcherTest {
     when(rawCommitment.pretty).thenReturn(prettyOfString(_ => "test"))
 
     val commitment =
-      SignedProtocolMessage.tryFrom(rawCommitment, testedProtocolVersion, dummySignature)
+      SignedProtocolMessage.from(rawCommitment, testedProtocolVersion, dummySignature)
 
     def malformedVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject =
       if (protocolVersion >= Verdict.MediatorRejectV2.firstApplicableProtocolVersion)
@@ -420,7 +420,7 @@ trait MessageDispatcherTest {
 
     val reject = malformedVerdict(testedProtocolVersion)
     val malformedMediatorRequestResult =
-      SignedProtocolMessage.tryFrom(
+      SignedProtocolMessage.from(
         MalformedMediatorRequestResult.tryCreate(
           RequestId(CantonTimestamp.MinValue),
           domainId,
@@ -793,7 +793,7 @@ trait MessageDispatcherTest {
     "complain about unknown view types in a result" in {
       val sut = mk(initRc = RequestCounter(-11))
       val unknownTestMediatorResult =
-        SignedProtocolMessage.tryFrom(
+        SignedProtocolMessage.from(
           TestRegularMediatorResult(
             UnknownTestViewType,
             domainId,
@@ -1208,7 +1208,7 @@ trait MessageDispatcherTest {
       "malformed mediator requests be sent to the right processor" in {
         def malformed(viewType: ViewType, processor: ProcessorOfFixture): Future[Assertion] = {
           val result =
-            SignedProtocolMessage.tryFrom(
+            SignedProtocolMessage.from(
               MalformedMediatorRequestResult.tryCreate(
                 RequestId(CantonTimestamp.MinValue),
                 domainId,
@@ -1403,11 +1403,6 @@ private[protocol] object MessageDispatcherTest {
 
     override def toProtoSomeSignedProtocolMessage
         : protocolv0.SignedProtocolMessage.SomeSignedProtocolMessage =
-      throw new UnsupportedOperationException(
-        s"${this.getClass.getSimpleName} cannot be serialized"
-      )
-    override def toProtoTypedSomeSignedProtocolMessage
-        : protocolv0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
       throw new UnsupportedOperationException(
         s"${this.getClass.getSimpleName} cannot be serialized"
       )

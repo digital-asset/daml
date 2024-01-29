@@ -28,7 +28,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{CallOptions, Context, ManagedChannel, Status, StatusRuntimeException}
-import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 
 import scala.concurrent.ExecutionContext
@@ -44,7 +43,6 @@ class GrpcSequencerClientTransportPekko(
 )(implicit
     executionContext: ExecutionContext,
     executionSequencerFactory: ExecutionSequencerFactory,
-    materializer: Materializer,
 )
 // TODO(#13789) Extend GrpcSequencerClientTransportCommon and drop support for non-Pekko subscriptions
     extends GrpcSequencerClientTransport(

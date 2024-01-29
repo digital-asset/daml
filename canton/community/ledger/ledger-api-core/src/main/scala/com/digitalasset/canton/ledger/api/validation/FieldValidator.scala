@@ -299,24 +299,16 @@ object FieldValidator {
   def validateIdentifierWithPackageUpgrading(
       identifier: Identifier,
       includeCreatedEventBlob: Boolean,
-      resolveAllUpgradablePackagesForName: Ref.PackageName => Either[
-        StatusRuntimeException,
-        Iterable[Ref.PackageId],
-      ],
   )(upgradingEnabled: Boolean)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Iterable[TemplateFilter]] =
+  ): Either[StatusRuntimeException, TemplateFilter] =
     for {
       typeRef <- validateTypeConRef(identifier)(upgradingEnabled)
-      qn = typeRef.qName
-      pkgIds <- typeRef.pkgRef match {
-        case PackageRef.Name(name) => resolveAllUpgradablePackagesForName(name)
-        case PackageRef.Id(id) => requirePackageId(id, "package_id").map(Seq(_))
-      }
-      // TODO(#16362): We assume that all versions of the same package-name redefine
-      //               the same entities, hence it's safe to blindly construct
-      //               an identifier from the resolved package-ids and the qualified name
-    } yield pkgIds.map(pkgId => TemplateFilter(Ref.Identifier(pkgId, qn), includeCreatedEventBlob))
+      templateFilter = TemplateFilter(
+        templateTypeRef = typeRef,
+        includeCreatedEventBlob = includeCreatedEventBlob,
+      )
+    } yield templateFilter
 
   def optionalString[T](s: String)(
       someValidation: String => Either[StatusRuntimeException, T]

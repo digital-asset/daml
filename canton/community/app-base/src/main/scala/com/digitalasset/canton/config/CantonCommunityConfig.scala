@@ -31,10 +31,8 @@ import scala.annotation.nowarn
 final case class CantonCommunityConfig(
     domains: Map[InstanceName, CommunityDomainConfig] = Map.empty,
     participants: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
-    participantsX: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
     remoteDomains: Map[InstanceName, RemoteDomainConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
-    remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
     monitoring: MonitoringConfig = MonitoringConfig(),
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
@@ -55,8 +53,6 @@ final case class CantonCommunityConfig(
       .focus(_.domains)
       .modify(_.fmap(_.withDefaults(ports)))
       .focus(_.participants)
-      .modify(_.fmap(_.withDefaults(ports)))
-      .focus(_.participantsX)
       .modify(_.fmap(_.withDefaults(ports)))
 }
 

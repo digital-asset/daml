@@ -32,7 +32,6 @@ import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ErrorUtil
@@ -130,18 +129,6 @@ abstract class BaseDomainTopologyClientOld
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    observedInternal(sequencedTimestamp, effectiveTimestamp)
-}
-
-abstract class BaseDomainTopologyClientX
-    extends BaseDomainTopologyClient
-    with DomainTopologyClientWithInitX {
-  override def observed(
-      sequencedTimestamp: SequencedTime,
-      effectiveTimestamp: EffectiveTime,
-      sequencerCounter: SequencerCounter,
-      transactions: Seq[GenericSignedTopologyTransactionX],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     observedInternal(sequencedTimestamp, effectiveTimestamp)
 }
@@ -783,8 +770,7 @@ class StoreBasedTopologySnapshot(
       .map { case (id, index) =>
         MediatorGroup(
           index = NonNegativeInt.tryCreate(index),
-          Seq(id),
-          Seq.empty,
+          id,
           threshold = PositiveInt.one,
         )
       }

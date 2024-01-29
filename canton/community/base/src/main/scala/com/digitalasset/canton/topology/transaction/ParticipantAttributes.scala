@@ -36,16 +36,6 @@ sealed trait ParticipantPermission extends Product with Serializable {
   def isActive: Boolean = true // can receive messages
   val level: Byte // used for serialization and ordering.
   def toProtoEnum: v0.ParticipantPermission
-
-  def tryToX: ParticipantPermissionX = this match {
-    case ParticipantPermission.Submission => ParticipantPermissionX.Submission
-    case ParticipantPermission.Confirmation => ParticipantPermissionX.Confirmation
-    case ParticipantPermission.Observation => ParticipantPermissionX.Observation
-    case ParticipantPermission.Disabled =>
-      throw new RuntimeException(
-        "ParticipantPermission.Disable does not exist in ParticipantPermissionX"
-      )
-  }
 }
 
 object ParticipantPermission {
@@ -110,11 +100,6 @@ sealed trait TrustLevel extends Product with Serializable with PrettyPrinting {
   def rank: Byte
 
   override def pretty: Pretty[TrustLevel] = prettyOfObject[TrustLevel]
-
-  def toX: TrustLevelX = this match {
-    case TrustLevel.Ordinary => TrustLevelX.Ordinary
-    case TrustLevel.Vip => TrustLevelX.Vip
-  }
 }
 
 object TrustLevel {

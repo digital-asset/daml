@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.v0.RegisterTopologyTransactionResponse.Result.State as ProtoStateV0
 import com.digitalasset.canton.protocol.v1.RegisterTopologyTransactionResponse.Result.State as ProtoStateV1
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.{
@@ -37,8 +37,7 @@ final case class RegisterTopologyTransactionResponse[
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
 
   override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
     v0.EnvelopeContent(
@@ -59,9 +58,6 @@ final case class RegisterTopologyTransactionResponse[
     v3.EnvelopeContent(
       v3.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionResponse(toProtoV1)
     )
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionResponse(toProtoV1)
 
   def toProtoV0: v0.RegisterTopologyTransactionResponse =
     v0.RegisterTopologyTransactionResponse(

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.admin.grpc
 
 import com.digitalasset.canton.crypto.SigningPublicKey
-import com.digitalasset.canton.domain.admin.{v0, v2}
+import com.digitalasset.canton.domain.admin.v0
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
@@ -29,18 +29,4 @@ object InitializeSequencerResponse {
         response.publicKey,
       )
     } yield InitializeSequencerResponse(response.keyId, publicKey, response.replicated)
-}
-
-final case class InitializeSequencerResponseX(replicated: Boolean) {
-  def toProtoV2: v2.InitializeSequencerResponse =
-    v2.InitializeSequencerResponse(replicated)
-}
-
-object InitializeSequencerResponseX {
-  def fromProtoV2(
-      response: v2.InitializeSequencerResponse
-  ): ParsingResult[InitializeSequencerResponseX] = {
-    val v2.InitializeSequencerResponse(replicated) = response
-    Right(InitializeSequencerResponseX(replicated))
-  }
 }

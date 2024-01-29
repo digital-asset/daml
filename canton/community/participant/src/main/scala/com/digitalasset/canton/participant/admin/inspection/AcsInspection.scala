@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.data.EitherT
 import cats.syntax.foldable.*
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.{StoredContract, SyncDomainPersistentState}
@@ -13,7 +14,6 @@ import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{LfPartyId, TransferCounterO}
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,17 +51,14 @@ private[inspection] object AcsInspection {
   def getCurrentSnapshot(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] =
+  ): Future[SortedMap[LfContractId, CantonTimestamp]] =
     for {
       cursorHeadO <- state.requestJournalStore.preheadClean
       snapshot <- cursorHeadO.fold(
-        Future.successful(SortedMap.empty[LfContractId, (CantonTimestamp, TransferCounterO)])
+        Future.successful(SortedMap.empty[LfContractId, CantonTimestamp])
       )(cursorHead =>
         state.activeContractStore
           .snapshot(cursorHead.timestamp)
-          .map(_.map { case (id, (timestamp, transferCounter)) =>
-            id -> (timestamp, transferCounter)
-          })
       )
     } yield snapshot
 
@@ -71,7 +68,7 @@ private[inspection] object AcsInspection {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] =
+  ): EitherT[Future, Error, SortedMap[LfContractId, CantonTimestamp]] =
     for {
       _ <- TimestampValidation.beforePrehead(
         domainId,
@@ -85,9 +82,7 @@ private[inspection] object AcsInspection {
         state.activeContractStore.pruningStatus,
         timestamp,
       )
-    } yield snapshot.map { case (id, (timestamp, transferCounter)) =>
-      id -> (timestamp, transferCounter)
-    }
+    } yield snapshot
 
   // sort acs for easier comparison
   private def getAcsSnapshot(
@@ -97,15 +92,13 @@ private[inspection] object AcsInspection {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Iterator[Seq[(LfContractId, TransferCounterO)]]] =
+  ): EitherT[Future, Error, Iterator[Seq[LfContractId]]] =
     timestamp
       .map(getSnapshotAt(domainId, state))
       .getOrElse(EitherT.right(getCurrentSnapshot(state)))
       .map(
         _.iterator
-          .map { case (cid, (_, transferCounter)) =>
-            cid -> transferCounter
-          }
+          .map { case (cid, _) => cid }
           .toSeq
           .grouped(
             AcsInspection.BatchSize.value
@@ -117,7 +110,7 @@ private[inspection] object AcsInspection {
       state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
-  )(f: (SerializableContract, TransferCounterO) => Either[Error, Unit])(implicit
+  )(f: SerializableContract => Either[Error, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Unit] =
@@ -130,31 +123,27 @@ private[inspection] object AcsInspection {
       domainId: DomainId,
       state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
-      f: (SerializableContract, TransferCounterO) => Either[Error, Unit],
-  )(batch: Seq[(LfContractId, TransferCounterO)])(implicit
+      f: SerializableContract => Either[Error, Unit],
+  )(cids: Seq[LfContractId])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Unit] = {
-    val (cids, transferCounters) = batch.unzip
-
     for {
       batch <- state.contractStore
         .lookupManyUncached(cids)
         .leftMap(missingContract => Error.InconsistentSnapshot(domainId, missingContract))
 
-      chop = batch.zip(transferCounters)
-
-      _ <- EitherT.fromEither[Future](applyToBatch(parties, f)(chop))
+      _ <- EitherT.fromEither[Future](applyToBatch(parties, f)(batch))
     } yield ()
   }
 
   private def applyToBatch(
       parties: Set[LfPartyId],
-      f: (SerializableContract, TransferCounterO) => Either[Error, Unit],
-  )(batch: List[(StoredContract, TransferCounterO)]): Either[Error, Unit] =
-    batch.traverse_ { case (storedContract, transferCounter) =>
+      f: SerializableContract => Either[Error, Unit],
+  )(batch: List[StoredContract]): Either[Error, Unit] =
+    batch.traverse_ { case storedContract =>
       if (parties.exists(storedContract.contract.metadata.stakeholders))
-        f(storedContract.contract, transferCounter)
+        f(storedContract.contract)
       else
         Right(())
     }

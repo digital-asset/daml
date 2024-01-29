@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -106,9 +105,9 @@ class MediatorEventDeduplicatorTest
 
   private lazy val response: DefaultOpenEnvelope = {
     val message =
-      SignedProtocolMessage.tryCreate(
+      SignedProtocolMessage(
         mock[TypedSignedProtocolMessageContent[MediatorResponse]],
-        NonEmpty(Seq, SymbolicCrypto.emptySignature),
+        SymbolicCrypto.emptySignature,
         testedProtocolVersion,
       )
     mkDefaultOpenEnvelope(message)
@@ -376,7 +375,6 @@ class MediatorEventDeduplicatorTest
           requestId: RequestId,
           batch: Batch[DefaultOpenEnvelope],
           decisionTime: CantonTimestamp,
-          aggregationRule: Option[AggregationRule],
           sendVerdict: Boolean,
       )(implicit traceContext: TraceContext): Future[Unit] =
         Future.never

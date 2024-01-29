@@ -12,5 +12,5 @@ import com.digitalasset.canton.topology.PartyId
  */
 object SerializableContractWithWitnesses {
   def apply(contract: SerializableContract, witnesses: Set[PartyId]): RepairContract =
-    RepairContract(contract, witnesses, None)
+    RepairContract(contract, witnesses)
 }

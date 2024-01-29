@@ -44,30 +44,19 @@ trait MediatorRuntime extends FlagCloseable {
 
   def timeService: ServerServiceDefinition
   def enterpriseAdministrationService: ServerServiceDefinition
-  def domainOutboxX: Option[DomainOutboxHandle]
-
   def start()(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, Unit] = for {
     _ <- EitherT.right(mediator.start())
-    // start the domainOutbox only after the mediator has been started, otherwise
-    // the future returned by startup will not be complete, because any topology transactions pushed to the
-    // domain aren't actually processed until after the runtime is up and ... running
-    _ <- domainOutboxX
-      .map(_.startup().onShutdown(Left("DomainOutbox startup disrupted due to shutdown")))
-      .getOrElse(EitherT.rightT[Future, String](()))
   } yield ()
 
-  override protected def onClosed(): Unit = {
-    domainOutboxX.foreach(_.close())
+  override protected def onClosed(): Unit =
     mediator.close()
-  }
 }
 
 private[mediator] class CommunityMediatorRuntime(
     override val mediator: Mediator,
-    override val domainOutboxX: Option[DomainOutboxHandle],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit protected val ec: ExecutionContext)
@@ -96,7 +85,6 @@ trait MediatorRuntimeFactory {
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,
       topologyManagerStatusO: Option[TopologyManagerStatus],
-      domainOutboxXFactory: Option[DomainOutboxXFactory],
       timeTrackerConfig: DomainTimeTrackerConfig,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
@@ -123,7 +111,6 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,
       topologyManagerStatusO: Option[TopologyManagerStatus],
-      domainOutboxXFactory: Option[DomainOutboxXFactory],
       timeTrackerConfig: DomainTimeTrackerConfig,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
@@ -162,8 +149,6 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
         loggerFactory,
       )
 
-    val maybeOutboxX = domainOutboxXFactory
-      .map(_.create(protocolVersion, topologyClient, sequencerClient, clock, loggerFactory))
     EitherT.pure[Future, String](
       new CommunityMediatorRuntime(
         new Mediator(
@@ -174,7 +159,6 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
           syncCrypto,
           topologyTransactionProcessor,
           topologyManagerStatusO,
-          maybeOutboxX,
           timeTrackerConfig,
           state,
           sequencerCounterTrackerStore,
@@ -185,7 +169,6 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
           metrics,
           loggerFactory,
         ),
-        maybeOutboxX,
         nodeParameters.processingTimeouts,
         loggerFactory,
       )

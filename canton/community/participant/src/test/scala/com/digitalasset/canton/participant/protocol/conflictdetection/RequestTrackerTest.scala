@@ -14,13 +14,7 @@ import com.digitalasset.canton.participant.store.{ActiveContractStore, ContractK
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{
-  BaseTest,
-  RequestCounter,
-  SequencerCounter,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -37,10 +31,7 @@ private[conflictdetection] trait RequestTrackerTest {
   val coid10: LfContractId = ExampleTransactionFactory.suffixedId(1, 0)
   val coid11: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
 
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
-
-  private val active = Active(initialTransferCounter)
+  private val active = Active
 
   protected def requestTracker(
       genMk: (
@@ -307,16 +298,16 @@ private[conflictdetection] trait RequestTrackerTest {
           acs,
           tsCR0.addMicros(1),
           Map(
-            coid00 -> (tsCR0, initialTransferCounter),
-            coid01 -> (tsCR0, initialTransferCounter),
+            coid00 -> tsCR0,
+            coid01 -> tsCR0,
           ),
         )
         _ <- checkSnapshot(
           acs,
           tsCR1.addMicros(1),
           Map(
-            coid01 -> (tsCR0, initialTransferCounter),
-            coid10 -> (tsCR1, initialTransferCounter),
+            coid01 -> tsCR0,
+            coid10 -> tsCR1,
           ),
         )
       } yield succeed
@@ -1257,7 +1248,7 @@ private[conflictdetection] trait RequestTrackerTest {
   protected def checkSnapshot(
       acs: ActiveContractStore,
       ts: CantonTimestamp,
-      expected: Map[LfContractId, (CantonTimestamp, TransferCounterO)],
+      expected: Map[LfContractId, CantonTimestamp],
   ): Future[Assertion] =
     acs
       .snapshot(ts)

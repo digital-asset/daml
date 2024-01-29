@@ -35,7 +35,6 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessageV1,
   ProtocolMessageV2,
   ProtocolMessageV3,
-  UnsignedProtocolMessageV4,
 }
 import com.digitalasset.canton.protocol.{
   DomainParametersLookup,
@@ -44,7 +43,6 @@ import com.digitalasset.canton.protocol.{
   v1 as protocolV1,
   v2 as protocolV2,
   v3 as protocolV3,
-  v4 as protocolV4,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.client.*
@@ -173,9 +171,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
-      None,
       BaseTest.testedProtocolVersion,
-      enableBroadcastOfUnauthenticatedMessages = false,
     )
   private val connectService = new GrpcSequencerConnectService(
     domainId = domainId,
@@ -411,8 +407,7 @@ class GrpcSequencerIntegrationTest
       with ProtocolMessageV0
       with ProtocolMessageV1
       with ProtocolMessageV2
-      with ProtocolMessageV3
-      with UnsignedProtocolMessageV4 {
+      with ProtocolMessageV3 {
     // no significance to this payload, just need anything valid and this was the easiest to construct
     private val payload =
       protocolV0.SignedProtocolMessage(
@@ -445,8 +440,5 @@ class GrpcSequencerIntegrationTest
       protocolV3.EnvelopeContent(
         protocolV3.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
       )
-
-    override def toProtoSomeEnvelopeContentV4: protocolV4.EnvelopeContent.SomeEnvelopeContent =
-      protocolV4.EnvelopeContent.SomeEnvelopeContent.Empty
   }
 }

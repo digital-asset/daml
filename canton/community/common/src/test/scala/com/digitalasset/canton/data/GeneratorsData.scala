@@ -47,7 +47,6 @@ final class GeneratorsData(
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
-  import org.scalatest.EitherValues.*
   import org.scalatest.OptionValues.*
   import generatorsProtocol.*
   import generatorsDataTime.*
@@ -76,29 +75,18 @@ final class GeneratorsData(
       domainId <- Arbitrary.arbitrary[DomainId]
 
       mediatorRef <- Arbitrary.arbitrary[MediatorRef]
-      singleMediatorRef <- Arbitrary.arbitrary[MediatorRef.Single]
 
       salt <- Arbitrary.arbitrary[Salt]
       uuid <- Gen.uuid
 
-      updatedMediatorRef =
-        if (
-          CommonMetadata.shouldHaveSingleMediator(
-            CommonMetadata.protocolVersionRepresentativeFor(protocolVersion)
-          )
-        ) singleMediatorRef
-        else mediatorRef
-
       hashOps = TestHash // Not used for serialization
-    } yield CommonMetadata
-      .create(hashOps, protocolVersion)(
-        confirmationPolicy,
-        domainId,
-        updatedMediatorRef,
-        salt,
-        uuid,
-      )
-      .value
+    } yield CommonMetadata(hashOps, protocolVersion)(
+      confirmationPolicy,
+      domainId,
+      mediatorRef,
+      salt,
+      uuid,
+    )
   )
 
   implicit val participantMetadataArb: Arbitrary[ParticipantMetadata] = Arbitrary(

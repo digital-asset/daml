@@ -34,10 +34,6 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
 
-  def px(name: String): LocalParticipantReferenceX = participantsX.local
-    .find(_.name == name)
-    .getOrElse(sys.error(s"neither local nor remote participant x [$name] is configured"))
-
   def d(name: String): CE#DomainLocalRef =
     domains.local
       .find(_.name == name)

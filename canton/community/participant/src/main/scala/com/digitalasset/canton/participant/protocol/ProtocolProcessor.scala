@@ -51,7 +51,6 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -170,9 +169,8 @@ abstract class ProtocolProcessor[
   )(implicit traceContext: TraceContext): EitherT[Future, NoMediatorError, MediatorRef] = {
     val fut = for {
       allMediatorGroups <- recentSnapshot.mediatorGroups()
-      allActiveMediatorGroups = allMediatorGroups.filter(_.isActive)
     } yield {
-      val mediatorCount = allActiveMediatorGroups.size
+      val mediatorCount = allMediatorGroups.size
       if (mediatorCount == 0) {
         Left(NoMediatorError(recentSnapshot.timestamp))
       } else {
@@ -190,7 +188,7 @@ abstract class ProtocolProcessor[
           // and then the modulo is negative. We must ensure that it's positive!
           if (mod < 0) mod + mediatorCount else mod
         }
-        val mediator = checked(allActiveMediatorGroups(chosenIndex))
+        val mediator = checked(allMediatorGroups(chosenIndex))
         val chosen = MediatorRef(mediator)
         logger.debug(s"Chose the mediator $chosen")
         Right(chosen)
@@ -1304,17 +1302,13 @@ abstract class ProtocolProcessor[
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
         res <- {
           pendingRequestData.mediator match {
-            case MediatorRef.Single(mediatorId) =>
+            case MediatorRef(mediatorId) =>
               resultE.merge
                 .verifySignature(
                   snapshot,
                   mediatorId,
                 )
                 .value
-            case MediatorRef.Group(MediatorsOfDomain(mediatorGroupIndex: MediatorGroupIndex)) =>
-              (for {
-                signatureCheck <- resultE.merge.verifySignature(snapshot, mediatorGroupIndex)
-              } yield signatureCheck).value
           }
         }
       } yield {

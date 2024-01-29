@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import cats.data.EitherT
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.protocol.{AggregationRule, Batch, MessageId}
+import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
@@ -46,7 +46,6 @@ trait SequencerClientSend {
       timestampOfSigningKey: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit]
 

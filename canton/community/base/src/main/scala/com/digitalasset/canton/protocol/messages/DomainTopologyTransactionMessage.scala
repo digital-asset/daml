@@ -6,13 +6,10 @@ package com.digitalasset.canton.protocol.messages
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.TopologyRequestId
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.{v0, v1, v2, v3}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -42,8 +39,7 @@ final case class DomainTopologyTransactionMessage private (
     with ProtocolMessageV0
     with ProtocolMessageV1
     with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+    with ProtocolMessageV3 {
 
   // Ensures the invariants related to default values hold
   DomainTopologyTransactionMessage
@@ -93,9 +89,6 @@ final case class DomainTopologyTransactionMessage private (
     v3.EnvelopeContent(
       v3.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
     )
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.DomainTopologyTransactionMessage(toProtoV1)
 
   @transient override protected lazy val companionObj: DomainTopologyTransactionMessage.type =
     DomainTopologyTransactionMessage
@@ -302,116 +295,4 @@ object DomainTopologyTransactionMessage
   }
 
   override def name: String = "DomainTopologyTransactionMessage"
-}
-
-final case class TopologyTransactionsBroadcastX private (
-    override val domainId: DomainId,
-    broadcasts: Seq[Broadcast],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TopologyTransactionsBroadcastX.type
-    ]
-) extends UnsignedProtocolMessage
-    with UnsignedProtocolMessageV4 {
-
-  @transient override protected lazy val companionObj: TopologyTransactionsBroadcastX.type =
-    TopologyTransactionsBroadcastX
-
-  override protected[messages] def toProtoSomeEnvelopeContentV4
-      : v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.TopologyTransactionsBroadcast(toProtoV2)
-
-  def toProtoV2: v2.TopologyTransactionsBroadcastX = v2.TopologyTransactionsBroadcastX(
-    domainId.toProtoPrimitive,
-    broadcasts = broadcasts.map(_.toProtoV2),
-  )
-
-}
-
-object TopologyTransactionsBroadcastX
-    extends HasProtocolVersionedWithContextCompanion[
-      TopologyTransactionsBroadcastX,
-      ProtocolVersion,
-    ] {
-
-  def create(
-      domainId: DomainId,
-      broadcasts: Seq[Broadcast],
-      protocolVersion: ProtocolVersion,
-  ): TopologyTransactionsBroadcastX =
-    TopologyTransactionsBroadcastX(domainId = domainId, broadcasts = broadcasts)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
-    )
-
-  override def name: String = "TopologyTransactionsBroadcastX"
-
-  implicit val acceptedTopologyTransactionXMessageCast
-      : ProtocolMessageContentCast[TopologyTransactionsBroadcastX] =
-    ProtocolMessageContentCast.create[TopologyTransactionsBroadcastX](
-      name
-    ) {
-      case att: TopologyTransactionsBroadcastX => Some(att)
-      case _ => None
-    }
-
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.minimum),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(
-      v2.TopologyTransactionsBroadcastX
-    )(
-      supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
-    ),
-  )
-
-  private[messages] def fromProtoV2(
-      expectedProtocolVersion: ProtocolVersion,
-      message: v2.TopologyTransactionsBroadcastX,
-  ): ParsingResult[TopologyTransactionsBroadcastX] = {
-    val v2.TopologyTransactionsBroadcastX(domain, broadcasts) = message
-    for {
-      domainId <- DomainId.fromProtoPrimitive(domain, "domain")
-      broadcasts <- broadcasts.traverse(broadcastFromProtoV2(expectedProtocolVersion))
-    } yield TopologyTransactionsBroadcastX(domainId, broadcasts.toList)(
-      protocolVersionRepresentativeFor(ProtoVersion(2))
-    )
-  }
-
-  private def broadcastFromProtoV2(expectedProtocolVersion: ProtocolVersion)(
-      message: v2.TopologyTransactionsBroadcastX.Broadcast
-  ): ParsingResult[Broadcast] = {
-    val v2.TopologyTransactionsBroadcastX.Broadcast(broadcastId, transactions) = message
-    for {
-      broadcastId <- String255.fromProtoPrimitive(broadcastId, "broadcast_id")
-      transactions <- transactions.traverse(tx =>
-        SignedTopologyTransactionX.fromProtoV2(
-          ProtocolVersionValidation(expectedProtocolVersion),
-          tx,
-        )
-      )
-    } yield Broadcast(broadcastId, transactions.toList)
-  }
-
-  final case class Broadcast(
-      broadcastId: TopologyRequestId,
-      transactions: List[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
-  ) {
-    def toProtoV2: v2.TopologyTransactionsBroadcastX.Broadcast =
-      v2.TopologyTransactionsBroadcastX.Broadcast(
-        broadcastId = broadcastId.toProtoPrimitive,
-        transactions = transactions.map(_.toProtoV2),
-      )
-  }
-
-  /** The state of the submission of a topology transaction broadcast. In combination with the sequencer client
-    * send tracker capability, State reflects that either the sequencer Accepted the submission or that the submission
-    * was Rejected due to an error or a timeout. See DomainTopologyServiceX.
-    */
-  sealed trait State extends Product with Serializable
-
-  object State {
-    case object Failed extends State
-
-    case object Accepted extends State
-  }
 }

@@ -9,13 +9,8 @@ import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.TopologyXConfig
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.{
-  DomainTopologyInitializationCallback,
-  StoreBasedDomainTopologyInitializationCallback,
-}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -24,7 +19,6 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.topology.{
   TopologyComponentFactory,
   TopologyComponentFactoryOld,
-  TopologyComponentFactoryX,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
@@ -77,13 +71,6 @@ trait SyncDomainPersistentStateManager extends AutoCloseable with SyncDomainPers
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, DomainRegistryError, SyncDomainPersistentState]
-
-  def domainTopologyStateInitFor(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]]
 
   def protocolVersionFor(
       domainId: DomainId
@@ -353,105 +340,5 @@ class SyncDomainPersistentStateManagerOld(
         loggerFactory,
       )
     )
-  }
-
-  def domainTopologyStateInitFor(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] =
-    EitherT.pure(None)
-}
-
-class SyncDomainPersistentStateManagerX(
-    aliasResolution: DomainAliasResolution,
-    storage: Storage,
-    indexedStringStore: IndexedStringStore,
-    parameters: ParticipantNodeParameters,
-    topologyXConfig: TopologyXConfig,
-    crypto: Crypto,
-    clock: Clock,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentStateX](
-      aliasResolution,
-      storage,
-      indexedStringStore,
-      parameters,
-      loggerFactory,
-    ) {
-
-  override protected def mkPersistentState(
-      alias: DomainAlias,
-      domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
-  ): SyncDomainPersistentStateX = SyncDomainPersistentState
-    .createX(
-      storage,
-      domainId,
-      protocolVersion,
-      clock,
-      crypto,
-      parameters.stores,
-      topologyXConfig,
-      parameters.cachingConfigs,
-      parameters.batchingConfig,
-      parameters.processingTimeouts,
-      parameters.enableAdditionalConsistencyChecks,
-      indexedStringStore,
-      loggerFactory,
-      futureSupervisor,
-    )
-
-  override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
-    get(domainId).map(state =>
-      new TopologyComponentFactoryX(
-        domainId,
-        crypto,
-        clock,
-        parameters.processingTimeouts,
-        futureSupervisor,
-        parameters.cachingConfigs,
-        parameters.batchingConfig,
-        topologyXConfig,
-        state.topologyStore,
-        loggerFactory.append("domainId", domainId.toString),
-      )
-    )
-  }
-
-  override def domainTopologyStateInitFor(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] = {
-    get(domainId) match {
-      case None =>
-        EitherT.leftT[Future, Option[DomainTopologyInitializationCallback]](
-          DomainRegistryError.DomainRegistryInternalError.InvalidState(
-            "topology factory for domain is unavailable"
-          )
-        )
-
-      case Some(state) =>
-        EitherT.liftF(
-          state.topologyStore
-            .findFirstTrustCertificateForParticipant(participantId)
-            .map(trustCert =>
-              // only if the participant's trustCert is not yet in the topology store do we have to initialize it.
-              // The callback will fetch the essential topology state from the sequencer
-              Option.when(trustCert.isEmpty)(
-                new StoreBasedDomainTopologyInitializationCallback(
-                  participantId,
-                  state.topologyStore,
-                )
-              )
-            )
-        )
-
-    }
   }
 }

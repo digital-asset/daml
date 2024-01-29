@@ -38,9 +38,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
+import com.digitalasset.canton.version.ProtocolVersionCompatibility
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -247,16 +246,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         domainCryptoApi,
         sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
       )
-      _ <- downloadDomainTopologyStateForInitializationIfNeeded(
-        // TODO(i12076): Download topology state from one of the sequencers based on the health
-        sequencerAggregatedInfo.sequencerConnections.default,
-        syncDomainPersistentStateManager,
-        domainId,
-        topologyClient,
-        sequencerClientFactory,
-        requestSigner,
-        sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
-      )
       sequencerClient <- sequencerClientFactory
         .create(
           participantId,
@@ -280,55 +269,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       persistentState,
       timeouts,
     )
-  }
-
-  private def downloadDomainTopologyStateForInitializationIfNeeded(
-      sequencerConnection: SequencerConnection,
-      syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-      domainId: DomainId,
-      topologyClient: DomainTopologyClientWithInit,
-      sequencerClientFactory: SequencerClientTransportFactory,
-      requestSigner: RequestSigner,
-      protocolVersion: ProtocolVersion,
-  )(implicit
-      ec: ExecutionContextExecutor,
-      traceContext: TraceContext,
-      materializer: Materializer,
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] = {
-
-    performUnlessClosingEitherU("check-for-domain-topology-initialization")(
-      syncDomainPersistentStateManager.domainTopologyStateInitFor(
-        domainId,
-        participantId,
-      )
-    ).flatMap {
-      case None =>
-        EitherT.right[DomainRegistryError](FutureUnlessShutdown.unit)
-      case Some(topologyInitializationCallback) =>
-        performUnlessClosingEitherU(
-          name = "sequencer-transport-for-downloading-essential-state"
-        )(
-          sequencerClientFactory
-            .makeTransport(
-              sequencerConnection,
-              participantId,
-              requestSigner,
-            )
-        )
-          .flatMap(transport =>
-            performUnlessClosingEitherU(
-              "downloading-essential-topology-state"
-            )(
-              ResourceUtil.withResourceM(transport)(
-                topologyInitializationCallback
-                  .callback(topologyClient, _, protocolVersion)
-              )
-            )
-          )
-          .leftMap[DomainRegistryError](
-            DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(_)
-          )
-    }
   }
 
   // if participant has provided domain id previously, compare and make sure the domain being

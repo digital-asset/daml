@@ -42,7 +42,6 @@ import com.digitalasset.canton.{
   LfPartyId,
   LfTimestamp,
   LfWorkflowId,
-  TransferCounter,
 }
 import com.google.rpc.status.Status as RpcStatus
 import io.scalaland.chimney.Transformer
@@ -418,9 +417,7 @@ object LedgerSyncEvent {
     * @param workflowId            The workflowId specified by the submitter in the transfer command.
     * @param isTransferringParticipant True if the participant is transferring.
     *                                  Note: false if the data comes from an old serialized event
-    * @param transferCounter        The [[com.digitalasset.canton.TransferCounter]] of the contract.
-    *                               For protocol version earlier than [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    *                               its value is Long.MinValue
+    * @param transferCounter        Long.MinValue
     */
   final case class TransferredOut(
       updateId: LedgerTransactionId,
@@ -435,7 +432,6 @@ object LedgerSyncEvent {
       workflowId: Option[LfWorkflowId],
       isTransferringParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
-      transferCounter: TransferCounter,
   ) extends TransferEvent {
 
     override def recordTime: LfTimestamp = transferId.transferOutTimestamp.underlying
@@ -457,7 +453,6 @@ object LedgerSyncEvent {
       param("target", _.targetDomain),
       paramIfDefined("transferInExclusivity", _.transferInExclusivity),
       paramIfDefined("workflowId", _.workflowId),
-      param("transferCounter", _.transferCounter),
     )
 
     def toDamlUpdate: Option[Update] = Some(
@@ -470,7 +465,7 @@ object LedgerSyncEvent {
           sourceDomain = transferId.sourceDomain,
           targetDomain = targetDomain,
           submitter = submitter,
-          reassignmentCounter = transferCounter.v,
+          reassignmentCounter = Long.MinValue,
           hostedStakeholders = hostedStakeholders,
           unassignId = transferId.transferOutTimestamp,
         ),
@@ -504,9 +499,7 @@ object LedgerSyncEvent {
     * @param workflowId                The workflowId specified by the submitter in the transfer command.
     * @param isTransferringParticipant True if the participant is transferring.
     *                                  Note: false if the data comes from an old serialized event
-    * @param transferCounter The [[com.digitalasset.canton.TransferCounter]] of the contract.
-    *                        For protocol version earlier than [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]],
-    *                        its value is Long.MinValue
+    * @param transferCounter           Long.MinValue
     */
   final case class TransferredIn(
       updateId: LedgerTransactionId,
@@ -523,7 +516,6 @@ object LedgerSyncEvent {
       workflowId: Option[LfWorkflowId],
       isTransferringParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
-      transferCounter: TransferCounter,
   ) extends TransferEvent {
 
     override def pretty: Pretty[TransferredIn] = prettyOfClass(
@@ -538,7 +530,6 @@ object LedgerSyncEvent {
       paramWithoutValue("contractMetadata"),
       paramWithoutValue("createdEvent"),
       paramIfDefined("workflowId", _.workflowId),
-      param("transferCounter", _.transferCounter),
     )
 
     override def kind: String = "in"
@@ -593,7 +584,7 @@ object LedgerSyncEvent {
           sourceDomain = transferId.sourceDomain,
           targetDomain = targetDomain,
           submitter = submitter,
-          reassignmentCounter = transferCounter.v,
+          reassignmentCounter = Long.MinValue,
           hostedStakeholders = hostedStakeholders,
           unassignId = transferId.transferOutTimestamp,
         ),

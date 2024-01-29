@@ -18,7 +18,6 @@ import com.digitalasset.canton.time.{Clock, PositiveFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -134,69 +133,6 @@ class LedgerServerPartyNotifier(
           (participant.adminParty, participant, LengthLimitedString.getUuid.asString255)
 
       }
-
-  def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
-    new TopologyTransactionProcessingSubscriberX {
-
-      override def observed(
-          sequencerTimestamp: SequencedTime,
-          effectiveTimestamp: EffectiveTime,
-          sequencerCounter: SequencerCounter,
-          transactions: Seq[GenericSignedTopologyTransactionX],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-        transactions.parTraverse_(
-          extractTopologyProcessorXData(_)
-            .parTraverse_(observedF(SequencedTime(clock.now), EffectiveTime(clock.now), _))
-        )
-      }
-    }
-
-  def attachToIdentityManagerX(): TopologyManagerObserver =
-    new TopologyManagerObserver {
-      override def addedNewTransactions(
-          timestamp: CantonTimestamp,
-          transactions: Seq[GenericSignedTopologyTransactionX],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        transactions.parTraverse_ { tx =>
-          extractTopologyProcessorXData(tx)
-            .parTraverse_(observedF(SequencedTime(clock.now), EffectiveTime(clock.now), _))
-        }
-    }
-
-  private def extractTopologyProcessorXData(
-      transaction: GenericSignedTopologyTransactionX
-  ): Seq[(PartyId, ParticipantId, String255)] = {
-    if (transaction.operation != TopologyChangeOpX.Replace || transaction.isProposal) {
-      Seq.empty
-    } else {
-      transaction.transaction.mapping match {
-        case PartyToParticipantX(partyId, _, _, participants, _) =>
-          participants
-            .map(hostingParticipant =>
-              (
-                partyId,
-                hostingParticipant.participantId,
-                // Note/CN-5291: Only remove pending submission-id once update persisted.
-                pendingAllocationSubmissionIds
-                  .getOrElse(
-                    (partyId, hostingParticipant.participantId),
-                    LengthLimitedString.getUuid.asString255,
-                  ),
-              )
-            )
-        // propagate admin parties
-        case DomainTrustCertificateX(participantId, _, _, _) =>
-          Seq(
-            (
-              participantId.adminParty,
-              participantId,
-              LengthLimitedString.getUuid.asString255,
-            )
-          )
-        case _ => Seq.empty
-      }
-    }
-  }
 
   private val sequentialQueue = new SimpleExecutionQueue(
     "LedgerServerPartyNotifier",

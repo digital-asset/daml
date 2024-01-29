@@ -28,7 +28,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  IncompatibleProtocolVersions,
   NoTransferSubmissionPermission,
   ReceivedMultipleRequests,
   StakeholdersMismatch,
@@ -50,8 +49,8 @@ import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -85,9 +84,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   private val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
-
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -219,7 +215,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           timestamp = CantonTimestamp.Epoch,
           targetDomain = targetDomain,
         ),
-        initialTransferCounter,
       )
       val uuid = new UUID(1L, 2L)
       val seed = seedGenerator.generateSaltSeed()
@@ -231,7 +226,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             seed,
             uuid,
           )
-          .value
         TransferData(
           SourceProtocolVersion(testedProtocolVersion),
           transferId.transferOutTimestamp,
@@ -371,40 +365,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         }
       }
     }
-
-    "fail when protocol version are incompatible" in {
-      // source domain does not support transfer counters
-      val submissionParam2 =
-        submissionParam.copy(sourceProtocolVersion =
-          SourceProtocolVersion(ProtocolVersion.CNTestNet)
-        )
-      for {
-        transferData <- transferDataF
-        deps <- statefulDependencies
-        (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState)
-        preparedSubmission <-
-          transferInProcessingSteps
-            .prepareSubmission(
-              submissionParam2,
-              targetMediator,
-              ephemeralState,
-              cryptoSnapshot,
-            )
-            .value
-            .failOnShutdown
-        // if (testedProtocolVersion < TransferCommonData.minimumPvForTransferCounter) preparedS
-
-        // )("prepare submission did not return a left")
-      } yield {
-        if (testedProtocolVersion < ProtocolVersion.CNTestNet)
-          preparedSubmission should matchPattern {
-            case Left(IncompatibleProtocolVersions(_, _, _)) =>
-          }
-        else preparedSubmission should matchPattern { case Right(_) => }
-      }
-
-    }
   }
 
   "receive request" should {
@@ -425,7 +385,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         party1,
         Set(party1),
         contract,
-        TransferCounter.Genesis,
         transactionId1,
         targetDomain,
         targetMediator,
@@ -479,7 +438,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         party1,
         Set(party1),
         contract,
-        TransferCounter.Genesis,
         transactionId1,
         TargetDomainId(anotherDomain),
         anotherMediator,
@@ -557,7 +515,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           party1,
           stakeholders = Set(party1, party2),
           contract,
-          TransferCounter.Genesis,
           transactionId1,
           targetDomain,
           targetMediator,
@@ -606,7 +563,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           party1,
           Set(party1),
           contract,
-          TransferCounter.Genesis,
           transactionId1,
           targetDomain,
           targetMediator,
@@ -659,7 +615,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         SequencerCounter(1),
         rootHash,
         contract,
-        initialTransferCounter,
         submitterInfo(submitter),
         transactionId1,
         isTransferringParticipant = false,
@@ -721,7 +676,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       submitter: LfPartyId,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      transferCounter: TransferCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorRef,
@@ -737,7 +691,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         submitterInfo(submitter),
         stakeholders,
         contract,
-        initialTransferCounter,
         creatingTransactionId,
         targetDomain,
         targetMediator,

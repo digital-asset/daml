@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.data
 
-import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.daml.lf.data.Ref.IdString
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
@@ -27,9 +27,6 @@ import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfPartyId,
   LfWorkflowId,
-  ProtoDeserializationError,
-  TransferCounter,
-  TransferCounterO,
 }
 import com.google.protobuf.ByteString
 
@@ -231,10 +228,8 @@ object TransferOutCommonData
       adminParties: Set[LfPartyId],
       uuid: UUID,
       protocolVersion: SourceProtocolVersion,
-  ): Either[String, TransferOutCommonData] = {
-    for {
-      _ <- TransferCommonData.checkMediatorGroup(sourceMediator, protocolVersion.v)
-    } yield TransferOutCommonData(
+  ): TransferOutCommonData =
+    TransferOutCommonData(
       salt,
       sourceDomain,
       sourceMediator,
@@ -242,15 +237,6 @@ object TransferOutCommonData
       adminParties,
       uuid,
     )(hashOps, protocolVersion, None)
-  }
-
-  private[this] def checkMediatorGroupForProtocolVersion(
-      commonData: ParsedDataV0V1,
-      protocolVersion: ProtocolVersion,
-  ): Either[ProtoDeserializationError.InvariantViolation, Unit] =
-    TransferCommonData
-      .checkMediatorGroup(commonData.sourceMediator, protocolVersion)
-      .leftMap(ProtoDeserializationError.InvariantViolation.apply)
 
   private[this] def fromProtoV0(hashOps: HashOps, transferOutCommonDataP: v0.TransferOutCommonData)(
       bytes: ByteString
@@ -272,7 +258,6 @@ object TransferOutCommonData
         adminPartiesP,
         uuidP,
       )
-      _ <- checkMediatorGroupForProtocolVersion(commonData, ProtocolVersion.v3)
     } yield TransferOutCommonData(
       commonData.salt,
       commonData.sourceDomain,
@@ -309,7 +294,6 @@ object TransferOutCommonData
         uuidP,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
-      _ <- checkMediatorGroupForProtocolVersion(commonData, protocolVersion)
     } yield TransferOutCommonData(
       commonData.salt,
       commonData.sourceDomain,
@@ -386,13 +370,6 @@ sealed abstract class TransferOutView(hashOps: HashOps)
 
   def targetProtocolVersion: TargetProtocolVersion
 
-  // TODO(#15159) Remove the note that it is defined iff...
-  /** The [[com.digitalasset.canton.TransferCounter]] of the contract.
-    * The value is defined iff the protocol versions is at least
-    * [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]].
-    */
-  def transferCounterO: TransferCounterO
-
   val submitter: LfPartyId = submitterMetadata.submitter
   val submittingParticipant: LedgerParticipantId = submitterMetadata.submittingParticipant
   val applicationId: LedgerApplicationId = submitterMetadata.applicationId
@@ -410,8 +387,6 @@ sealed abstract class TransferOutView(hashOps: HashOps)
   protected def toProtoV0: v0.TransferOutView
 
   protected def toProtoV1: v1.TransferOutView
-
-  protected def toProtoV2: v2.TransferOutView
 }
 
 final case class TransferOutViewV0 private[data] (
@@ -426,12 +401,10 @@ final case class TransferOutViewV0 private[data] (
     override val deserializedFrom: Option[ByteString],
 ) extends TransferOutView(hashOps) {
 
-  override def templateId: LfTemplateId = TransferOutView.templateIdDefaultValue.defaultValue
+  override def templateId: LfTemplateId = TransferOutView.templateIdDefaultValue
 
   override def targetProtocolVersion: TargetProtocolVersion =
     TargetProtocolVersion(ProtocolVersion.v3)
-
-  override def transferCounterO: TransferCounterO = None
 
   protected def toProtoV0: v0.TransferOutView =
     v0.TransferOutView(
@@ -444,10 +417,6 @@ final case class TransferOutViewV0 private[data] (
 
   protected def toProtoV1: v1.TransferOutView = throw new UnsupportedOperationException(
     "Serialization to V1 not supported."
-  )
-
-  protected def toProtoV2: v2.TransferOutView = throw new UnsupportedOperationException(
-    "Serialization to V2 not supported."
   )
 
   override def pretty: Pretty[TransferOutViewV0] = prettyOfClass(
@@ -474,9 +443,7 @@ final case class TransferOutViewV4 private[data] (
     override val deserializedFrom: Option[ByteString],
 ) extends TransferOutView(hashOps) {
 
-  override def templateId: LfTemplateId = TransferOutView.templateIdDefaultValue.defaultValue
-
-  override def transferCounterO: TransferCounterO = None
+  override def templateId: LfTemplateId = TransferOutView.templateIdDefaultValue
 
   protected def toProtoV0: v0.TransferOutView = throw new UnsupportedOperationException(
     "Serialization to V0 not supported."
@@ -492,74 +459,10 @@ final case class TransferOutViewV4 private[data] (
       targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
     )
 
-  protected def toProtoV2: v2.TransferOutView = throw new UnsupportedOperationException(
-    "Serialization to V2 not supported."
-  )
-
   override def pretty: Pretty[TransferOutViewV4] = prettyOfClass(
     param("submitterMetadata", _.submitterMetadata),
     param("contract id", _.contractId),
     param("template id", _.templateId),
-    param("target domain", _.targetDomain),
-    param("target time proof", _.targetTimeProof),
-    param("target protocol version", _.targetProtocolVersion.v),
-    param("salt", _.salt),
-  )
-}
-
-final case class TransferOutViewCNTestNet private[data] (
-    salt: Salt,
-    submitterMetadata: TransferSubmitterMetadata,
-    creatingTransactionId: TransactionId,
-    contract: SerializableContract,
-    targetDomain: TargetDomainId,
-    targetTimeProof: TimeProof,
-    targetProtocolVersion: TargetProtocolVersion,
-    transferCounter: TransferCounter,
-)(
-    hashOps: HashOps,
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferOutView.type],
-    override val deserializedFrom: Option[ByteString],
-) extends TransferOutView(hashOps) {
-
-  override def contractId: LfContractId = contract.contractId
-
-  override def templateId: LfTemplateId =
-    contract.rawContractInstance.contractInstance.unversioned.template
-
-  override def transferCounterO: TransferCounterO = Some(transferCounter)
-
-  protected def toProtoV0: v0.TransferOutView = throw new UnsupportedOperationException(
-    "Serialization to V0 not supported."
-  )
-
-  protected def toProtoV1: v1.TransferOutView = throw new UnsupportedOperationException(
-    "Serialization to V1 not supported."
-  )
-
-  protected def toProtoV2: v2.TransferOutView =
-    v2.TransferOutView(
-      salt = Some(salt.toProtoV0),
-      submitter = submitter,
-      targetDomain = targetDomain.toProtoPrimitive,
-      targetTimeProof = Some(targetTimeProof.toProtoV0),
-      targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
-      submittingParticipant = submittingParticipant,
-      applicationId = applicationId,
-      submissionId = submissionId.getOrElse(""),
-      workflowId = workflowId.getOrElse(""),
-      commandId = commandId,
-      transferCounter = transferCounter.toProtoPrimitive,
-      creatingTransactionId = creatingTransactionId.toProtoPrimitive,
-      contract = Some(contract.toProtoV1),
-    )
-
-  override def pretty: Pretty[TransferOutViewCNTestNet] = prettyOfClass(
-    param("submitterMetadata", _.submitterMetadata),
-    param("contract id", _.contractId),
-    param("template id", _.templateId),
-    param("creatingTransactionId", _.creatingTransactionId),
-    param("contract", _.contract),
     param("target domain", _.targetDomain),
     param("target time proof", _.targetTimeProof),
     param("target protocol version", _.targetProtocolVersion.v),
@@ -618,84 +521,35 @@ object TransferOutView
       supportedProtoVersionMemoized(_)(fromProtoV1),
       _.toProtoV1.toByteString,
     ),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v2.TransferOutView)(
-      supportedProtoVersionMemoized(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
-    ),
   )
 
   private lazy val rpv4: RepresentativeProtocolVersion[TransferOutView.type] =
     protocolVersionRepresentativeFor(ProtocolVersion.v4)
 
-  private lazy val rpvMultidomain: RepresentativeProtocolVersion[TransferOutView.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
+  lazy val submittingParticipantDefaultValue: IdString.ParticipantId =
+    LedgerParticipantId.assertFromString("no-participant-id")
 
-  lazy val submittingParticipantDefaultValue: DefaultValueUntilExclusive[LedgerParticipantId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.submittingParticipant,
-      "submitterMetadata.submittingParticipant",
-      rpvMultidomain,
-      LedgerParticipantId.assertFromString("no-participant-id"),
-    )
+  lazy val commandIdDefaultValue: IdString.LedgerString =
+    LedgerCommandId.assertFromString("no-command-id")
 
-  lazy val commandIdDefaultValue: DefaultValueUntilExclusive[LedgerCommandId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.commandId,
-      "submitterMetadata.commandId",
-      rpvMultidomain,
-      LedgerCommandId.assertFromString("no-command-id"),
-    )
+  lazy val applicationIdDefaultValue: IdString.ApplicationId =
+    LedgerApplicationId.assertFromString("no-application-id")
 
-  lazy val applicationIdDefaultValue: DefaultValueUntilExclusive[LedgerApplicationId] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.applicationId,
-      "submitterMetadata.applicationId",
-      rpvMultidomain,
-      LedgerApplicationId.assertFromString("no-application-id"),
-    )
+  lazy val submissionIdDefaultValue: Option[LedgerSubmissionId] = None
 
-  lazy val submissionIdDefaultValue: DefaultValueUntilExclusive[Option[LedgerSubmissionId]] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.submissionId,
-      "submitterMetadata.submissionId",
-      rpvMultidomain,
-      None,
-    )
+  lazy val workflowIdDefaultValue: Option[LfWorkflowId] = None
 
-  lazy val workflowIdDefaultValue: DefaultValueUntilExclusive[Option[LfWorkflowId]] =
-    DefaultValueUntilExclusive(
-      _.submitterMetadata.workflowId,
-      "submitterMetadata.worfklowId",
-      rpvMultidomain,
-      None,
-    )
-
-  lazy val templateIdDefaultValue: DefaultValueUntilExclusive[LfTemplateId] =
-    DefaultValueUntilExclusive(
-      _.templateId,
-      "templateId",
-      rpvMultidomain,
-      LfTemplateId.assertFromString("no-package-id:no.module.name:no.entity.name"),
-    )
-
-  lazy val targetProtocolVersionDefaultValue: DefaultValueUntilExclusive[TargetProtocolVersion] =
-    DefaultValueUntilExclusive(
-      _.targetProtocolVersion,
-      "targetProtocolVersion",
-      rpv4,
-      TargetProtocolVersion(ProtocolVersion.v3),
-    )
+  lazy val templateIdDefaultValue: LfTemplateId =
+    LfTemplateId.assertFromString("no-package-id:no.module.name:no.entity.name")
 
   def create(hashOps: HashOps)(
       salt: Salt,
       submitterMetadata: TransferSubmitterMetadata,
-      creatingTransactionId: TransactionId,
       contract: SerializableContract,
       targetDomain: TargetDomainId,
       targetTimeProof: TimeProof,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-      transferCounter: TransferCounterO,
   ): TransferOutView =
     if (sourceProtocolVersion.v < ProtocolVersion.v4)
       TransferOutViewV0(
@@ -705,7 +559,7 @@ object TransferOutView
         targetDomain,
         targetTimeProof,
       )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
-    else if (sourceProtocolVersion.v < ProtocolVersion.CNTestNet)
+    else
       TransferOutViewV4(
         salt,
         submitterMetadata,
@@ -713,17 +567,6 @@ object TransferOutView
         targetDomain,
         targetTimeProof,
         targetProtocolVersion,
-      )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
-    else
-      TransferOutViewCNTestNet(
-        salt,
-        submitterMetadata,
-        creatingTransactionId,
-        contract,
-        targetDomain,
-        targetTimeProof,
-        targetProtocolVersion,
-        transferCounter.getOrElse(throw new IllegalArgumentException("Missing transfer counter.")),
       )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
   private[this] def fromProtoV0(hashOps: HashOps, transferOutViewP: v0.TransferOutView)(
@@ -745,11 +588,11 @@ object TransferOutView
       commonData.salt,
       TransferSubmitterMetadata(
         commonData.submitter,
-        applicationIdDefaultValue.defaultValue,
-        submittingParticipantDefaultValue.defaultValue,
-        commandIdDefaultValue.defaultValue,
-        submissionId = submissionIdDefaultValue.defaultValue,
-        workflowId = workflowIdDefaultValue.defaultValue,
+        applicationIdDefaultValue,
+        submittingParticipantDefaultValue,
+        commandIdDefaultValue,
+        submissionId = submissionIdDefaultValue,
+        workflowId = workflowIdDefaultValue,
       ),
       commonData.contractId,
       commonData.targetDomain,
@@ -788,11 +631,11 @@ object TransferOutView
       commonData.salt,
       TransferSubmitterMetadata(
         commonData.submitter,
-        applicationIdDefaultValue.defaultValue,
-        submittingParticipantDefaultValue.defaultValue,
-        commandIdDefaultValue.defaultValue,
-        submissionId = submissionIdDefaultValue.defaultValue,
-        workflowId = workflowIdDefaultValue.defaultValue,
+        applicationIdDefaultValue,
+        submittingParticipantDefaultValue,
+        commandIdDefaultValue,
+        submissionId = submissionIdDefaultValue,
+        workflowId = workflowIdDefaultValue,
       ),
       commonData.contractId,
       commonData.targetDomain,
@@ -803,67 +646,6 @@ object TransferOutView
       protocolVersionRepresentativeFor(ProtoVersion(1)),
       Some(bytes),
     )
-  }
-
-  private[this] def fromProtoV2(hashOps: HashOps, transferOutViewP: v2.TransferOutView)(
-      bytes: ByteString
-  ): ParsingResult[TransferOutViewCNTestNet] = {
-    val v2.TransferOutView(
-      saltP,
-      submitterP,
-      targetDomainP,
-      targetTimeProofP,
-      targetProtocolVersionP,
-      submittingParticipantP,
-      applicationIdP,
-      submissionIdP,
-      workflowIdP,
-      commandIdP,
-      transferCounter,
-      creatingTransactionIdP,
-      contractPO,
-    ) = transferOutViewP
-
-    for {
-      salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
-      submitter <- ProtoConverter.parseLfPartyId(submitterP)
-      targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "targetDomain")
-      targetProtocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
-      targetTimeProof <- ProtoConverter
-        .required("targetTimeProof", targetTimeProofP)
-        .flatMap(TimeProof.fromProtoV0(targetProtocolVersion, hashOps))
-      submittingParticipant <- ProtoConverter.parseLfParticipantId(submittingParticipantP)
-      applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
-      submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
-      workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
-      commandId <- ProtoConverter.parseCommandId(commandIdP)
-      creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
-      contract <- ProtoConverter
-        .required("TransferOutViewTree.contract", contractPO)
-        .flatMap(SerializableContract.fromProtoV1)
-
-    } yield TransferOutViewCNTestNet(
-      salt,
-      TransferSubmitterMetadata(
-        submitter,
-        applicationId,
-        submittingParticipant,
-        commandId,
-        submissionId,
-        workflowId,
-      ),
-      creatingTransactionId,
-      contract,
-      TargetDomainId(targetDomain),
-      targetTimeProof,
-      TargetProtocolVersion(targetProtocolVersion),
-      TransferCounter(transferCounter),
-    )(
-      hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(2)),
-      Some(bytes),
-    )
-
   }
 }
 
@@ -892,8 +674,6 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
   def contractId: LfContractId = view.contractId
 
   def templateId: LfTemplateId = view.templateId
-
-  def transferCounter: TransferCounterO = view.transferCounterO
 
   def sourceDomain: SourceDomainId = commonData.sourceDomain
 

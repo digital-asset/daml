@@ -23,7 +23,6 @@ import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
@@ -150,13 +149,8 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     result
   }
 
-  private def getErrorMessage(message: String256M, errorO: Option[ByteString]): String = {
-    if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
-      DeliverErrorStoreEvent.deserializeError(message, errorO, testedProtocolVersion).toString
-    } else {
-      message.unwrap
-    }
-  }
+  private def getErrorMessage(message: String256M, errorO: Option[ByteString]): String =
+    message.unwrap
 
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
@@ -334,16 +328,14 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
               isRequest = true,
               batch = Batch.fromClosed(
                 testedProtocolVersion,
-                ClosedEnvelope.tryCreate(
+                ClosedEnvelope(
                   ByteString.EMPTY,
                   Recipients.cc(bob),
-                  Seq.empty,
                   testedProtocolVersion,
                 ),
               ),
               maxSequencingTime = CantonTimestamp.MaxValue,
               timestampOfSigningKey = None,
-              aggregationRule = None,
               protocolVersion = testedProtocolVersion,
             )
           )

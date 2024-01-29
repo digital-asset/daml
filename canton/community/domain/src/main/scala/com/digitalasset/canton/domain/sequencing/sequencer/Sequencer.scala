@@ -12,7 +12,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.HasCloseContext
@@ -150,15 +149,8 @@ trait Sequencer
     */
   private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter
 
-  /** Return the status of the specified members. If the list is empty, return the status of all members.
-    */
-  def trafficStatus(members: Seq[Member])(implicit
-      traceContext: TraceContext
-  ): Future[SequencerTrafficStatus]
-
   /** Return the full traffic state of all known members.
     * This should not be exposed externally as is as it contains information not relevant to external consumers.
-    * Use [[trafficStatus]] instead.
     */
   def trafficStates: Future[Map[Member, TrafficState]] = Future.successful(Map.empty)
 }

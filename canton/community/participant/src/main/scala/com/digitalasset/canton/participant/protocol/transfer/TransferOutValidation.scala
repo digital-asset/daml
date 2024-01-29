@@ -14,7 +14,6 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -63,19 +62,6 @@ private[transfer] final case class TransferOutValidation(
       case None =>
         TransferOutValidationNonTransferringParticipant(request, sourceTopology, logger)
     }
-
-  private def checkTemplateId()(implicit
-      executionContext: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    EitherT.cond[FutureUnlessShutdown](
-      sourceProtocolVersion.v < ProtocolVersion.CNTestNet || expectedTemplateId == request.templateId,
-      (),
-      TemplateIdMismatch(
-        declaredTemplateId = request.templateId,
-        expectedTemplateId = expectedTemplateId,
-      ),
-    )
-  }
 }
 
 private[transfer] object TransferOutValidation {
@@ -107,7 +93,6 @@ private[transfer] object TransferOutValidation {
     for {
       _ <- validation.checkStakeholders
       _ <- validation.checkParticipants(logger)
-      _ <- validation.checkTemplateId()
       _ <- PVSourceDestinationDomainsAreCompatible(
         sourceProtocolVersion,
         request.targetDomainPV,

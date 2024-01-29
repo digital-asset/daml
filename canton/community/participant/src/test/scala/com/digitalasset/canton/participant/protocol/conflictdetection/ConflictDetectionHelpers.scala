@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.syntax.functor.*
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -28,14 +27,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{
-  BaseTest,
-  HasExecutorService,
-  LfPartyId,
-  ScalaFuturesWithPatience,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, ScalaFuturesWithPatience}
 import org.scalactic.source.Position
 import org.scalatest.AsyncTestSuite
 import org.scalatest.exceptions.TestFailedException
@@ -97,24 +89,20 @@ private[protocol] trait ConflictDetectionHelpers {
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {
-
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
-
   def insertEntriesAcs(
       acs: ActiveContractStore,
       entries: Seq[(LfContractId, TimeOfChange, ActiveContractStore.Status)],
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
     Future
       .traverse(entries) {
-        case (coid, toc, Active(_transferCounter)) =>
+        case (coid, toc, Active) =>
           acs
-            .markContractActive(coid -> initialTransferCounter, toc)
+            .markContractActive(coid, toc)
             .value
         case (coid, toc, Archived) =>
           acs.archiveContract(coid, toc).value
-        case (coid, toc, TransferredAway(targetDomain, transferCounter)) =>
-          acs.transferOutContract(coid, toc, targetDomain, transferCounter).value
+        case (coid, toc, TransferredAway(targetDomain)) =>
+          acs.transferOutContract(coid, toc, targetDomain).value
       }
       .void
   }
@@ -236,7 +224,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def mkCommitSet(
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
-      tfOut: Map[LfContractId, (DomainId, TransferCounterO)] = Map.empty,
+      tfOut: Map[LfContractId, DomainId] = Map.empty,
       tfIn: Map[LfContractId, TransferId] = Map.empty,
       keys: Map[LfGlobalKey, ContractKeyJournal.Status] = Map.empty,
   ): CommitSet = {
@@ -254,19 +242,17 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
         .map(
           _ -> WithContractHash(
             CommitSet.CreationCommit(
-              ContractMetadata.empty,
-              initialTransferCounter,
+              ContractMetadata.empty
             ),
             contractHash,
           )
         )
         .toMap,
-      transferOuts = tfOut.fmap { case (id, transferCounter) =>
+      transferOuts = tfOut.fmap { id =>
         WithContractHash(
           CommitSet.TransferOutCommit(
             TargetDomainId(id),
             Set.empty,
-            transferCounter,
           ),
           contractHash,
         )
@@ -276,7 +262,6 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           CommitSet.TransferInCommit(
             id,
             ContractMetadata.empty,
-            initialTransferCounter,
           ),
           contractHash,
         )

@@ -7,7 +7,6 @@ import better.files.File
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommands,
-  TopologyAdminCommandsX,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
@@ -158,21 +157,6 @@ class HealthAdministration[S <: data.NodeStatus.Status](
   override def has_identity(): Boolean = runner
     .adminCommand(
       TopologyAdminCommands.Init.GetId()
-    )
-    .toEither
-    .isRight
-
-}
-
-class HealthAdministrationX[S <: data.NodeStatus.Status](
-    runner: AdminCommandRunner,
-    consoleEnvironment: ConsoleEnvironment,
-    deserialize: v0.NodeStatus.Status => ParsingResult[S],
-) extends HealthAdministrationCommon[S](runner, consoleEnvironment, deserialize) {
-
-  override def has_identity(): Boolean = runner
-    .adminCommand(
-      TopologyAdminCommandsX.Init.GetId()
     )
     .toEither
     .isRight

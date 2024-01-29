@@ -42,7 +42,6 @@ import com.digitalasset.canton.pruning.admin
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LedgerApplicationId, LedgerTransactionId, config}
@@ -1265,43 +1264,4 @@ object ParticipantAdminCommands {
         }
     }
   }
-
-  object TrafficControl {
-    final case class GetTrafficControlState(domainId: DomainId)
-        extends GrpcAdminCommand[
-          TrafficControlStateRequest,
-          TrafficControlStateResponse,
-          MemberTrafficStatus,
-        ] {
-      override type Svc = TrafficControlServiceGrpc.TrafficControlServiceStub
-
-      override def createService(
-          channel: ManagedChannel
-      ): TrafficControlServiceGrpc.TrafficControlServiceStub =
-        TrafficControlServiceGrpc.stub(channel)
-
-      override def submitRequest(
-          service: TrafficControlServiceGrpc.TrafficControlServiceStub,
-          request: TrafficControlStateRequest,
-      ): Future[TrafficControlStateResponse] =
-        service.trafficControlState(request)
-
-      override def createRequest(): Either[String, TrafficControlStateRequest] = Right(
-        TrafficControlStateRequest(domainId.toProtoPrimitive)
-      )
-
-      override def handleResponse(
-          response: TrafficControlStateResponse
-      ): Either[String, MemberTrafficStatus] = {
-        response.trafficState
-          .map { trafficStatus =>
-            MemberTrafficStatus
-              .fromProtoV0(trafficStatus)
-              .leftMap(_.message)
-          }
-          .getOrElse(Left("No traffic state available"))
-      }
-    }
-  }
-
 }

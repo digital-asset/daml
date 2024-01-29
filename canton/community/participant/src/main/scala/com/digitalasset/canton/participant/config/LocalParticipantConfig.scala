@@ -155,7 +155,6 @@ final case class CommunityParticipantConfig(
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
 ) extends LocalParticipantConfig
     with CommunityLocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {

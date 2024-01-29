@@ -151,10 +151,3 @@ message SubmissionRequest {
   google.protobuf.Timestamp max_sequencing_time = 5;
   google.protobuf.Timestamp timestamp_of_signing_key = 6;
 }
-
-message AggregationRule {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  repeated string eligible_members = 1;
-  int32 threshold = 2;
-}

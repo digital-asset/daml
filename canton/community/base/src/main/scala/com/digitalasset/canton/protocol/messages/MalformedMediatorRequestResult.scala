@@ -63,12 +63,6 @@ case class MalformedMediatorRequestResult private (
       getCryptographicEvidence
     )
 
-  override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MalformedMediatorRequestResult(
-      getCryptographicEvidence
-    )
-
   @transient override protected lazy val companionObj: MalformedMediatorRequestResult.type =
     MalformedMediatorRequestResult
 

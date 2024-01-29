@@ -669,7 +669,7 @@ private[domain] class DomainTopologyDispatcher(
         })
     )
     val mediatorsF = performUnlessClosingF(functionFullName)(
-      headSnapshot.mediatorGroups().map(_.flatMap(_.active))
+      headSnapshot.mediatorGroups().map(_.map(_.active))
     )
     for {
       receivingParticipants <- EitherT.right(receivingParticipantsF)

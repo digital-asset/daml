@@ -12,13 +12,11 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.admin.v0
 import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.{v0, v2}
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
-  InitializeMediatorRequestX,
   InitializeMediatorResponse,
-  InitializeMediatorResponseX,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
@@ -39,14 +37,6 @@ object EnterpriseMediatorAdministrationCommands {
         channel: ManagedChannel
     ): v0.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
       v0.MediatorInitializationServiceGrpc.stub(channel)
-  }
-  abstract class BaseMediatorXInitializationCommand[Req, Rep, Res]
-      extends GrpcAdminCommand[Req, Rep, Res] {
-    override type Svc = v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub
-    override def createService(
-        channel: ManagedChannel
-    ): v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub =
-      v2.MediatorInitializationServiceGrpc.stub(channel)
   }
   abstract class BaseMediatorAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
@@ -94,39 +84,6 @@ object EnterpriseMediatorAdministrationCommands {
         .fromProtoV0(response)
         .leftMap(err => s"Failed to deserialize response: $err")
         .flatMap(_.toEither)
-  }
-
-  final case class InitializeX(
-      domainId: DomainId,
-      domainParameters: StaticDomainParameters,
-      sequencerConnections: SequencerConnections,
-  ) extends BaseMediatorXInitializationCommand[
-        v2.InitializeMediatorRequest,
-        v2.InitializeMediatorResponse,
-        Unit,
-      ] {
-    override def createRequest(): Either[String, v2.InitializeMediatorRequest] =
-      Right(
-        InitializeMediatorRequestX(
-          domainId,
-          domainParameters,
-          sequencerConnections,
-        ).toProtoV2
-      )
-
-    override def submitRequest(
-        service: v2.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
-        request: v2.InitializeMediatorRequest,
-    ): Future[v2.InitializeMediatorResponse] =
-      service.initialize(request)
-    override def handleResponse(
-        response: v2.InitializeMediatorResponse
-    ): Either[String, Unit] =
-      InitializeMediatorResponseX
-        .fromProtoV2(response)
-        .leftMap(err => s"Failed to deserialize response: $err")
-        .map(_ => ())
-
   }
 
   final case class Prune(timestamp: CantonTimestamp)

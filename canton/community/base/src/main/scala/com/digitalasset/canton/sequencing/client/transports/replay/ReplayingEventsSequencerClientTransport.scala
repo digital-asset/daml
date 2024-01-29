@@ -21,12 +21,9 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
-  TopologyStateForInitRequest,
-  TopologyStateForInitResponse,
 }
 import com.digitalasset.canton.sequencing.{SequencerClientRecorder, SerializedEventHandler}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -135,15 +132,6 @@ class ReplayingEventsSequencerClientTransport(
       traceContext: TraceContext
   ): EitherT[Future, HandshakeRequestError, HandshakeResponse] =
     EitherT.rightT(HandshakeResponse.Success(protocolVersion))
-
-  override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, TopologyStateForInitResponse] =
-    EitherT.rightT[Future, String](
-      TopologyStateForInitResponse(
-        topologyTransactions = Traced(StoredTopologyTransactionsX.empty)
-      )
-    )
 }
 
 object ReplayingEventsSequencerClientTransport {

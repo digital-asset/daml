@@ -111,7 +111,6 @@ class ProtocolProcessorTest
       any[Option[CantonTimestamp]],
       any[CantonTimestamp],
       any[MessageId],
-      any[Option[AggregationRule]],
       any[SendCallback],
     )(anyTraceContext)
   )
@@ -122,7 +121,6 @@ class ProtocolProcessorTest
           _: Option[CantonTimestamp],
           _: CantonTimestamp,
           messageId: MessageId,
-          _: Option[AggregationRule],
           callback: SendCallback,
       ) => {
         callback(
@@ -133,7 +131,7 @@ class ProtocolProcessorTest
                 CantonTimestamp.Epoch,
                 domain,
                 Some(messageId),
-                Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
+                Batch.filterOpenEnvelopesFor(batch, participant),
                 testedProtocolVersion,
               )
             )
@@ -405,7 +403,6 @@ class ProtocolProcessorTest
           any[Option[CantonTimestamp]],
           any[CantonTimestamp],
           any[MessageId],
-          any[Option[AggregationRule]],
           any[SendCallback],
         )(anyTraceContext)
       )

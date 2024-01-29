@@ -498,7 +498,7 @@ class SequencerReader(
               payload.content
             )
             .fold(err => throw new DbDeserializationException(err.toString), identity)
-          val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, Set.empty)
+          val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member)
           Deliver.create[ClosedEnvelope](
             counter,
             timestamp,

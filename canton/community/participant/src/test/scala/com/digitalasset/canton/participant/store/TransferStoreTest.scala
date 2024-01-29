@@ -60,8 +60,6 @@ import com.digitalasset.canton.{
   LfPartyId,
   RequestCounter,
   SequencerCounter,
-  TransferCounter,
-  TransferCounterO,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -1152,28 +1150,16 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(BaseTest.testedProtocolVersion)
-
   val seedGenerator = new SeedGenerator(pureCryptoApi)
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
     val submittingParticipant: LedgerParticipantId =
-      TransferInView.submittingParticipantDefaultValue.orValue(
-        LedgerParticipantId.assertFromString("participant1"),
-        BaseTest.testedProtocolVersion,
-      )
+      TransferInView.submittingParticipantDefaultValue
 
-    val applicationId: LedgerApplicationId = TransferInView.applicationIdDefaultValue.orValue(
-      LedgerApplicationId.assertFromString("application-tests"),
-      BaseTest.testedProtocolVersion,
-    )
+    val applicationId: LedgerApplicationId = TransferInView.applicationIdDefaultValue
 
-    val commandId: LedgerCommandId = TransferInView.commandIdDefaultValue.orValue(
-      LedgerCommandId.assertFromString("transfer-store-command-id"),
-      BaseTest.testedProtocolVersion,
-    )
+    val commandId: LedgerCommandId = TransferInView.commandIdDefaultValue
 
     TransferSubmitterMetadata(
       submitter,
@@ -1185,11 +1171,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private[participant] val templateId: LfTemplateId =
-    TransferOutView.templateIdDefaultValue.orValue(
-      contract.contractInstance.unversioned.template,
-      BaseTest.testedProtocolVersion,
-    )
+  private[participant] val templateId: LfTemplateId = TransferOutView.templateIdDefaultValue
 
   def mkTransferDataForDomain(
       transferId: TransferId,
@@ -1225,7 +1207,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
         timestamp = CantonTimestamp.Epoch,
         targetDomain = targetDomainId,
       ),
-      initialTransferCounter,
     )
     val uuid = new UUID(10L, 0L)
     val seed = seedGenerator.generateSaltSeed()
@@ -1236,7 +1217,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
         seed,
         uuid,
       )
-      .value
     Future.successful(
       TransferData(
         sourceProtocolVersion = SourceProtocolVersion(BaseTest.testedProtocolVersion),
@@ -1281,7 +1261,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
         mediatorMessage.allInformees,
       )
       val signedResult =
-        SignedProtocolMessage.tryFrom(
+        SignedProtocolMessage.from(
           result,
           BaseTest.testedProtocolVersion,
           sign("TransferOutResult-mediator"),

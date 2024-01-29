@@ -18,20 +18,20 @@ class RecipientsTest extends AnyWordSpec with BaseTest with HasExecutionContext 
   "Recipients" should {
 
     "filter for a member that doesn't occur" in {
-      recipients.forMember(p7, Set.empty) shouldBe None
+      recipients.forMember(p7) shouldBe None
     }
 
     "filter for a member that appears in one tree" in {
-      recipients.forMember(p6, Set.empty) shouldBe Some(Recipients(NonEmpty(Seq, t6)))
+      recipients.forMember(p6) shouldBe Some(Recipients(NonEmpty(Seq, t6)))
     }
 
     "filter for a member that appears in several trees" in {
-      recipients.forMember(p3, Set.empty) shouldBe Some(Recipients(NonEmpty(Seq, t3, t3, t3)))
+      recipients.forMember(p3) shouldBe Some(Recipients(NonEmpty(Seq, t3, t3, t3)))
     }
 
     "be preserved through serialization / deserialization" in {
       val proto = recipients.toProtoV0
-      val fromProto = Recipients.fromProtoV0(proto, supportGroupAddressing = true)
+      val fromProto = Recipients.fromProtoV0(proto)
       fromProto shouldBe Right(recipients)
     }
 
@@ -44,7 +44,7 @@ class RecipientsTest extends AnyWordSpec with BaseTest with HasExecutionContext 
       val recipients =
         Recipients(NonEmpty(Seq, RecipientsTree.leaf(NonEmpty.mk(Set, p2, p1, p3))))
       recipients.asSingleGroup shouldBe NonEmpty
-        .mk(Set, MemberRecipient(p3), MemberRecipient(p2), MemberRecipient(p1))
+        .mk(Set, Recipient(p3), Recipient(p2), Recipient(p1))
         .some
     }
 
@@ -102,7 +102,7 @@ class RecipientsTest extends AnyWordSpec with BaseTest with HasExecutionContext 
 
 object RecipientsTest {
 
-  def participantRecipient(participant: ParticipantId) = MemberRecipient(participant)
+  def participantRecipient(participant: ParticipantId) = Recipient(participant)
 
   lazy val p1 = ParticipantId("participant1")
   lazy val p2 = ParticipantId("participant2")
@@ -147,7 +147,7 @@ object RecipientsTest {
     cc(dummyMember)
   }
 
-  def participant(i: Int): MemberRecipient = participantRecipient(
+  def participant(i: Int): Recipient = participantRecipient(
     ParticipantId(s"participant$i")
   )
 

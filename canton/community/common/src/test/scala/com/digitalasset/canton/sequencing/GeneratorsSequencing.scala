@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.{Generators, SequencerAlias}
 import magnolify.scalacheck.auto.genArbitrary
@@ -33,13 +33,7 @@ object GeneratorsSequencing {
   implicit val sequencerConnectionArb: Arbitrary[SequencerConnection] = genArbitrary
   implicit val sequencerConnectionsArb: Arbitrary[SequencerConnections] = Arbitrary(
     for {
-      connections <- Generators
-        .nonEmptySetGen[SequencerConnection]
-        .map(_.toSeq)
-        .map(_.distinctBy(_.sequencerAlias))
-      sequencerTrustThreshold <- Gen
-        .choose(1, connections.size)
-        .map(PositiveInt.tryCreate)
-    } yield SequencerConnections.tryMany(connections, sequencerTrustThreshold)
+      connection <- Arbitrary.arbitrary[SequencerConnection]
+    } yield SequencerConnections.single(connection)
   )
 }

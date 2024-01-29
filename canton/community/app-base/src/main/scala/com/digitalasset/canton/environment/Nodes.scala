@@ -416,8 +416,6 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
 object ParticipantNodes {
   type ParticipantNodesOld[PC <: LocalParticipantConfig] =
     ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, PC]
-  type ParticipantNodesX[PC <: LocalParticipantConfig] =
-    ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, PC]
 }
 
 class DomainNodes[DC <: DomainConfig](

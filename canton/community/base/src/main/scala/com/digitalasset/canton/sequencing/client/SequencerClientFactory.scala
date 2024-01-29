@@ -312,9 +312,7 @@ object SequencerClientFactory {
       }
 
       private def grpcTransport(connection: GrpcSequencerConnection, member: Member)(implicit
-          executionContext: ExecutionContextExecutor,
-          executionSequencerFactory: ExecutionSequencerFactory,
-          materializer: Materializer,
+          executionContext: ExecutionContextExecutor
       ): SequencerClientTransport = {
         val channel = createChannel(connection)
         val auth = grpcSequencerClientAuth(connection, member)
@@ -333,7 +331,6 @@ object SequencerClientFactory {
       private def grpcTransportPekko(connection: GrpcSequencerConnection, member: Member)(implicit
           executionContext: ExecutionContextExecutor,
           executionSequencerFactory: ExecutionSequencerFactory,
-          materializer: Materializer,
       ): GrpcSequencerClientTransportPekko = {
         val channel = createChannel(connection)
         val auth = grpcSequencerClientAuth(connection, member)

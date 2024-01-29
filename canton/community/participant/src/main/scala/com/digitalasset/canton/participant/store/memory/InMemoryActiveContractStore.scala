@@ -9,6 +9,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -28,7 +29,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{RequestCounter, TransferCounter, TransferCounterO}
 
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicInteger
@@ -56,7 +56,7 @@ class InMemoryActiveContractStore(
   private[this] val table = TrieMap.empty[LfContractId, ContractStatus]
 
   override def markContractsActive(
-      contracts: Seq[(LfContractId, TransferCounterO)],
+      contracts: Seq[LfContractId],
       toc: TimeOfChange,
   )(implicit
       traceContext: TraceContext
@@ -106,11 +106,11 @@ class InMemoryActiveContractStore(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] = Future.successful {
-    val snapshot = SortedMap.newBuilder[LfContractId, (CantonTimestamp, TransferCounterO)]
+  ): Future[SortedMap[LfContractId, CantonTimestamp]] = Future.successful {
+    val snapshot = SortedMap.newBuilder[LfContractId, CantonTimestamp]
     table.foreach { case (contractId, contractStatus) =>
-      contractStatus.activeBy(timestamp).foreach { case (activationTimestamp, transferCounter) =>
-        snapshot += (contractId -> (activationTimestamp, transferCounter))
+      contractStatus.activeBy(timestamp).foreach { activationTimestamp =>
+        snapshot += (contractId -> activationTimestamp)
       }
     }
     snapshot.result()
@@ -118,11 +118,11 @@ class InMemoryActiveContractStore(
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounterO)]] = Future.successful {
-    val snapshot = SortedMap.newBuilder[LfContractId, (RequestCounter, TransferCounterO)]
+  ): Future[SortedMap[LfContractId, RequestCounter]] = Future.successful {
+    val snapshot = SortedMap.newBuilder[LfContractId, RequestCounter]
     table.foreach { case (contractId, contractStatus) =>
-      contractStatus.activeBy(rc).foreach { case (activationRc, transferCounter) =>
-        snapshot += (contractId -> (activationRc, transferCounter))
+      contractStatus.activeBy(rc).foreach { activationRc =>
+        snapshot += (contractId -> activationRc)
       }
     }
     snapshot.result()
@@ -135,64 +135,32 @@ class InMemoryActiveContractStore(
       contractIds
         .to(LazyList)
         .mapFilter(contractId =>
-          table.get(contractId).flatMap(_.activeBy(timestamp)).map { case (ts, _) =>
-            contractId -> ts
-          }
+          table.get(contractId).flatMap(_.activeBy(timestamp)).map { ts => contractId -> ts }
         )
         .toMap
     }
-
-  override def bulkContractsTransferCounterSnapshot(
-      contractIds: Set[LfContractId],
-      requestCounter: RequestCounter,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounterO]] = {
-    logger.debug(
-      s"Looking up transfer counters for contracts $contractIds up to but not including $requestCounter"
-    )
-    if (requestCounter == RequestCounter.MinValue)
-      ErrorUtil.internalError(
-        new IllegalArgumentException(
-          s"The request counter $requestCounter should not be equal to ${RequestCounter.MinValue}"
-        )
-      )
-    Future.successful {
-      contractIds
-        .to(LazyList)
-        .mapFilter(contractId =>
-          table
-            .get(contractId)
-            .flatMap(_.activeBy(requestCounter - 1))
-            .map { case (_, transferCounter) =>
-              contractId -> transferCounter
-            }
-        )
-        .toMap
-    }
-  }
 
   override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounterO, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     CheckedT(Future.successful {
       logger.trace(s"Transferring-in contracts: $transferIns")
-      transferIns.to(LazyList).traverse_ { case (contractId, sourceDomain, transferCounter, toc) =>
-        updateTable(contractId, _.addTransferIn(contractId, toc, sourceDomain, transferCounter))
+      transferIns.to(LazyList).traverse_ { case (contractId, sourceDomain, toc) =>
+        updateTable(contractId, _.addTransferIn(contractId, toc, sourceDomain))
       }
     })
 
   override def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounterO, TimeOfChange)]
+      transferOuts: Seq[(LfContractId, TargetDomainId, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     CheckedT(Future.successful {
       logger.trace(s"Transferring-out contracts: $transferOuts")
-      transferOuts.to(LazyList).traverse_ { case (contractId, targetDomain, transferCounter, toc) =>
-        updateTable(contractId, _.addTransferOut(contractId, toc, targetDomain, transferCounter))
+      transferOuts.to(LazyList).traverse_ { case (contractId, targetDomain, toc) =>
+        updateTable(contractId, _.addTransferOut(contractId, toc, targetDomain))
       }
     })
 
@@ -258,33 +226,6 @@ class InMemoryActiveContractStore(
         s"Provided timestamps are in the wrong order: $fromExclusive and $toInclusive",
       )
 
-      // obtain the maximum creation timestamp per contract up to a certain rc
-      val latestActivationTransferCounterPerCid
-          : Map[(LfContractId, RequestCounter), TransferCounterO] =
-        table.toList.flatMap { case (cid, status) =>
-          // we only constrain here the upper bound timestamp, because we want to find the
-          // transfer counter of archivals, which might have been activated earlier
-          // than the lower bound
-          /*
-             TODO(i12904): Here we compute the maximum of the previous transfer counters;
-              instead, we could retrieve the transfer counter of the latest activation
-           */
-          val filterToc = status.changes.filter { case (ch, _) => ch.toc <= toInclusive }
-          filterToc
-            .map { case (change, _) =>
-              (
-                (cid, change.toc.rc),
-                filterToc
-                  .collect {
-                    case (ch, detail) if ch.isActivation && ch.toc.rc <= change.toc.rc =>
-                      detail.transferCounter
-                  }
-                  .maxOption
-                  .flatten,
-              )
-            }
-        }.toMap
-
       val changesByToc
           : Map[TimeOfChange, List[(LfContractId, ActivenessChange, ActivenessChangeDetail)]] =
         table.toList
@@ -305,19 +246,13 @@ class InMemoryActiveContractStore(
           case (coid, activenessChange, activenessChangeDetail) =>
             val stateChange =
               if (activenessChange.isActivation && !activenessChangeDetail.isTransfer)
-                StateChangeType(ContractChange.Created, activenessChangeDetail.transferCounter)
+                StateChangeType(ContractChange.Created)
               else if (activenessChange.isActivation && activenessChangeDetail.isTransfer)
-                StateChangeType(ContractChange.Assigned, activenessChangeDetail.transferCounter)
+                StateChangeType(ContractChange.Assigned)
               else if (!activenessChange.isActivation && activenessChangeDetail.isTransfer)
-                StateChangeType(ContractChange.Unassigned, activenessChangeDetail.transferCounter)
+                StateChangeType(ContractChange.Unassigned)
               else
-                StateChangeType(
-                  ContractChange.Archived,
-                  latestActivationTransferCounterPerCid.getOrElse(
-                    (coid, activenessChange.toc.rc),
-                    activenessChangeDetail.transferCounter,
-                  ),
-                )
+                StateChangeType(ContractChange.Archived)
             (coid, stateChange)
         }))
 
@@ -350,7 +285,7 @@ class InMemoryActiveContractStore(
       cids = contracts.map(_.contractId)
       states <- fetchStates(cids)
     } yield {
-      states.collectFirst { case (cid, StateChange(ActiveContractStore.Active(_), _)) =>
+      states.collectFirst { case (cid, StateChange(ActiveContractStore.Active, _)) =>
         cid
       }
     }
@@ -369,23 +304,21 @@ object InMemoryActiveContractStore {
     */
   type IndividualChange = (ActivenessChange, ActivenessChangeDetail)
   object IndividualChange {
-    def create(toc: TimeOfChange, transferCounter: TransferCounterO): IndividualChange =
-      Activation(toc) -> CreationArchivalDetail(transferCounter)
+    def create(toc: TimeOfChange): IndividualChange =
+      Activation(toc) -> CreationArchivalDetail
     def archive(toc: TimeOfChange): IndividualChange =
-      Deactivation(toc) -> CreationArchivalDetail(None)
+      Deactivation(toc) -> CreationArchivalDetail
     def transferIn(
         toc: TimeOfChange,
         remoteDomain: DomainId,
-        transferCounter: TransferCounterO,
     ): IndividualChange =
-      Activation(toc) -> TransferDetails(remoteDomain, transferCounter)
+      Activation(toc) -> TransferDetails(remoteDomain)
 
     def transferOut(
         toc: TimeOfChange,
         remoteDomain: DomainId,
-        transferCounter: TransferCounterO,
     ): IndividualChange =
-      Deactivation(toc) -> TransferDetails(remoteDomain, transferCounter)
+      Deactivation(toc) -> TransferDetails(remoteDomain)
   }
 
   final case class ActivenessChange(toc: TimeOfChange, isActivation: Boolean) {
@@ -471,7 +404,7 @@ object InMemoryActiveContractStore {
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          create(creation, transferableContract.transferCounter),
+          create(creation),
         )
         nextLatestCreation <- nextLatestCreation.appendNonaborts(Chain.fromSeq(earlierChanges))
         nextEarliestArchival <- checkTimestampAgainstArchival(contractId, creation)
@@ -508,20 +441,11 @@ object InMemoryActiveContractStore {
         contractId: LfContractId,
         transfer: TimeOfChange,
         sourceDomain: SourceDomainId,
-        transferCounter: TransferCounterO,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.transferIn(transfer, sourceDomain.unwrap, transferCounter),
-        )
-        _ <- transferCounter.traverse_(
-          checkTransferCounterIncreases(
-            contractId,
-            transfer,
-            _,
-            ActiveContractStore.TransferType.TransferIn,
-          )
+          IndividualChange.transferIn(transfer, sourceDomain.unwrap),
         )
         nextLatestCreation <- checkTimestampAgainstCreation(contractId, transfer)
         nextEarliestArchival <- checkTimestampAgainstArchival(contractId, transfer)
@@ -531,20 +455,11 @@ object InMemoryActiveContractStore {
         contractId: LfContractId,
         transfer: TimeOfChange,
         targetDomain: TargetDomainId,
-        transferCounter: TransferCounterO,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.transferOut(transfer, targetDomain.unwrap, transferCounter),
-        )
-        _ <- transferCounter.traverse_(
-          checkTransferCounterIncreases(
-            contractId,
-            transfer,
-            _,
-            ActiveContractStore.TransferType.TransferOut,
-          )
+          IndividualChange.transferOut(transfer, targetDomain.unwrap),
         )
         nextLatestCreation <- checkTimestampAgainstCreation(contractId, transfer)
         nextEarliestArchival <- checkTimestampAgainstArchival(contractId, transfer)
@@ -571,48 +486,6 @@ object InMemoryActiveContractStore {
           Checked.continueWithResult(ChangeBeforeCreation(contractId, creation, toc), old)
         case old => Checked.result(old)
       }
-
-    private[this] def checkTransferCounterIncreases(
-        contractId: LfContractId,
-        toc: TimeOfChange,
-        transferCounter: TransferCounter,
-        transferType: ActiveContractStore.TransferType,
-    ): Checked[AcsError, AcsWarning, Unit] = {
-      val isActivation = transferType match {
-        case ActiveContractStore.TransferType.TransferIn => true
-        case ActiveContractStore.TransferType.TransferOut => false
-      }
-
-      def toTransferCounterAtChangeInfo(
-          change: ActivenessChange
-      ): Option[TransferCounterAtChangeInfo] =
-        changes.get(change).map { detail =>
-          ActiveContractStore.TransferCounterAtChangeInfo(change.toc, detail.transferCounter)
-        }
-
-      val earliestChangeAfter =
-        changesAfter(ActivenessChange(toc, isActivation)).lastOption
-          .flatMap(toTransferCounterAtChangeInfo)
-      val latestChangeBefore =
-        changesBefore(ActivenessChange(toc, isActivation)).headOption
-          .flatMap(toTransferCounterAtChangeInfo)
-      for {
-        _ <- ActiveContractStore.checkTransferCounterAgainstLatestBefore(
-          contractId,
-          toc,
-          transferCounter,
-          latestChangeBefore,
-          transferType,
-        )
-        _ <- ActiveContractStore.checkTransferCounterAgainstEarliestAfter(
-          contractId,
-          toc,
-          transferCounter,
-          earliestChangeAfter,
-          transferType,
-        )
-      } yield ()
-    }
 
     private[this] def checkTimestampAgainstArchival(
         contractId: LfContractId,
@@ -657,19 +530,19 @@ object InMemoryActiveContractStore {
     /** If the contract is active right after the given `timestamp`,
       * returns the [[com.digitalasset.canton.data.CantonTimestamp]] of the latest creation or latest transfer-in.
       */
-    def activeBy(timestamp: CantonTimestamp): Option[(CantonTimestamp, TransferCounterO)] = {
+    def activeBy(timestamp: CantonTimestamp): Option[CantonTimestamp] = {
       val iter = changes.iteratorFrom(ContractStatus.searchByTimestamp(timestamp))
       if (!iter.hasNext) { None }
       else {
-        val (change, detail) = iter.next()
-        if (change.isActivation) Some((change.toc.timestamp, detail.transferCounter)) else None
+        val (change, _detail) = iter.next()
+        if (change.isActivation) Some(change.toc.timestamp) else None
       }
     }
 
     /** If the contract is active right after the given `rc`,
       * returns the [[com.digitalasset.canton.RequestCounter]] of the latest creation or latest transfer-in.
       */
-    def activeBy(rc: RequestCounter): Option[(RequestCounter, TransferCounterO)] =
+    def activeBy(rc: RequestCounter): Option[RequestCounter] =
       changes
         .filter { case (activenessChange, _) =>
           activenessChange.toc.rc <= rc
@@ -678,20 +551,20 @@ object InMemoryActiveContractStore {
         .maxByOption { case (activenessChange, _) =>
           (activenessChange.toc, !activenessChange.isActivation)
         }
-        .flatMap { case (change, detail) =>
-          Option.when(change.isActivation)((change.toc.rc, detail.transferCounter))
+        .flatMap { case (change, _detail) =>
+          Option.when(change.isActivation)((change.toc.rc))
         }
 
     /** Returns the latest [[ActiveContractStore.ContractState]] if any */
     def latestState: Option[ContractState] = {
       changes.headOption.map { case (change, detail) =>
         val status =
-          if (change.isActivation) Active(detail.transferCounter)
+          if (change.isActivation) Active
           else
             detail match {
-              case TransferDetails(targetDomain, transferCounter) =>
-                TransferredAway(TargetDomainId(targetDomain), transferCounter)
-              case CreationArchivalDetail(transferCounter) => Archived
+              case TransferDetails(targetDomain) =>
+                TransferredAway(TargetDomainId(targetDomain))
+              case CreationArchivalDetail => Archived
             }
         ContractState(status, change.toc)
       }
