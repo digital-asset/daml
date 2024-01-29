@@ -6,8 +6,8 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v0
-import com.digitalasset.canton.domain.admin.v0.{
+import com.digitalasset.canton.domain.admin.v30
+import com.digitalasset.canton.domain.admin.v30.{
   TrafficControlStateRequest,
   TrafficControlStateResponse,
 }
@@ -27,12 +27,12 @@ class GrpcSequencerAdministrationService(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends v0.SequencerAdministrationServiceGrpc.SequencerAdministrationService
+) extends v30.SequencerAdministrationServiceGrpc.SequencerAdministrationService
     with NamedLogging {
 
-  override def pruningStatus(request: Empty): Future[v0.SequencerPruningStatus] = {
+  override def pruningStatus(request: Empty): Future[v30.SequencerPruningStatus] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    sequencer.pruningStatus.map(_.toProtoV0)
+    sequencer.pruningStatus.map(_.toProtoV30)
   }
 
   override def trafficControlState(
@@ -58,7 +58,7 @@ class GrpcSequencerAdministrationService(
       )
   }
 
-  override def snapshot(request: v0.Snapshot.Request): Future[v0.Snapshot.Response] = {
+  override def snapshot(request: v30.Snapshot.Request): Future[v30.Snapshot.Response] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     (for {
       timestamp <- EitherT
@@ -69,19 +69,19 @@ class GrpcSequencerAdministrationService(
         .leftMap(_.toString)
       result <- sequencer.snapshot(timestamp)
     } yield result)
-      .fold[v0.Snapshot.Response](
+      .fold[v30.Snapshot.Response](
         error =>
-          v0.Snapshot.Response(v0.Snapshot.Response.Value.Failure(v0.Snapshot.Failure(error))),
+          v30.Snapshot.Response(v30.Snapshot.Response.Value.Failure(v30.Snapshot.Failure(error))),
         result =>
-          v0.Snapshot.Response(
-            v0.Snapshot.Response.Value.VersionedSuccess(
-              v0.Snapshot.VersionedSuccess(result.toProtoVersioned.toByteString)
+          v30.Snapshot.Response(
+            v30.Snapshot.Response.Value.VersionedSuccess(
+              v30.Snapshot.VersionedSuccess(result.toProtoVersioned.toByteString)
             )
           ),
       )
   }
 
-  override def disableMember(requestP: v0.DisableMemberRequest): Future[Empty] = {
+  override def disableMember(requestP: v30.DisableMemberRequest): Future[Empty] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     EitherTUtil.toFuture[StatusException, Empty] {
       for {

@@ -8,7 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.{
+import com.digitalasset.canton.domain.admin.v30.{
   SequencerAdministrationServiceGrpc,
   SequencerVersionServiceGrpc,
 }
@@ -307,10 +307,11 @@ class SequencerRuntime(
 
   override def onClosed(): Unit =
     Lifecycle.close(
+      syncCrypto,
+      topologyClient,
       sequencerService,
       authenticationServices.memberAuthenticationService,
       sequencer,
-      topologyClient,
     )(logger)
 
 }

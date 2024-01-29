@@ -235,7 +235,6 @@ object Update {
     *                          The last [[com.digitalasset.canton.ledger.configuration.Configuration]] set before this [[TransactionAccepted]]
     *                          determines how this transaction's recordTime relates to its
     *                          [[TransactionMeta.ledgerEffectiveTime]].
-    * @param divulgedContracts List of divulged contracts. See [[DivulgedContract]] for details.
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
     *                          This data is opaque and can only be used in [[com.daml.lf.command.DisclosedContract]]s
@@ -249,7 +248,6 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: Ref.TransactionId,
       recordTime: Timestamp,
-      divulgedContracts: List[DivulgedContract],
       blindingInfoO: Option[BlindingInfo],
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
@@ -276,7 +274,6 @@ object Update {
             _,
             transactionId,
             recordTime,
-            _,
             _,
             _,
             _,

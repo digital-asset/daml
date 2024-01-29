@@ -11,14 +11,6 @@ import com.digitalasset.canton.platform.store.backend.common.QueryStrategy
 
 object OracleQueryStrategy extends QueryStrategy {
 
-  override def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      internedParties: Set[Int],
-  ): CompositeSql = {
-    require(internedParties.nonEmpty, "internedParties must be non-empty")
-    cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
-  }
-
   override def columnEqualityBoolean(column: String, value: String): String =
     s"""case when ($column = $value) then 1 else 0 end"""
 

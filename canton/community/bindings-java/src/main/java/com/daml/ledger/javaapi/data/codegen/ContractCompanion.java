@@ -118,10 +118,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
     }
 
     public Ct fromIdAndRecord(
-        String contractId,
-        DamlRecord record$,
-        Set<String> signatories,
-        Set<String> observers) {
+        String contractId, DamlRecord record$, Set<String> signatories, Set<String> observers) {
       Id id = newContractId.apply(contractId);
       Data data = fromValue.apply(record$);
       return newContract.newContract(id, data, signatories, observers);
@@ -138,11 +135,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
 
     @FunctionalInterface
     public interface NewContract<Ct, Id, Data> {
-      Ct newContract(
-          Id id,
-          Data data,
-          Set<String> signatories,
-          Set<String> observers);
+      Ct newContract(Id id, Data data, Set<String> signatories, Set<String> observers);
     }
   }
 
@@ -198,11 +191,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
     @FunctionalInterface
     public interface NewContract<Ct, Id, Data, Key> {
       Ct newContract(
-          Id id,
-          Data data,
-          Optional<Key> key,
-          Set<String> signatories,
-          Set<String> observers);
+          Id id, Data data, Optional<Key> key, Set<String> signatories, Set<String> observers);
     }
   }
 }

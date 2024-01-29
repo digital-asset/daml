@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.time.Instant;
 import java.util.*;

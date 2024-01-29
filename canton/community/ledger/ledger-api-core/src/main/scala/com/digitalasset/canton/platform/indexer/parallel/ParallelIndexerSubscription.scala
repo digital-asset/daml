@@ -238,10 +238,6 @@ object ParallelIndexerSubscription {
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.EventDivulgence =>
-            eventSeqId += 1
-            dbDto.copy(event_sequential_id = eventSeqId)
-
           case dbDto: DbDto.EventUnassign =>
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)

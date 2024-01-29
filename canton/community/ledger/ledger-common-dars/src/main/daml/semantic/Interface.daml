@@ -11,8 +11,6 @@ template T
     owner : Party
   where
     signatory owner
-    key owner : Party
-    maintainer key
     interface instance Interface1.I for T where
       view = Interface1.EmptyInterfaceView
       getOwner = owner

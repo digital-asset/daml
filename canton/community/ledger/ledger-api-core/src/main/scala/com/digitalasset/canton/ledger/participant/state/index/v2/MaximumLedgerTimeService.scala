@@ -12,14 +12,13 @@ import scala.concurrent.Future
 trait MaximumLedgerTimeService {
 
   /** This method serves two purposes:
-    *   1 - Verify that none of the specified contracts are archived (archival of divulged contracts also count)
-    *   2 - Calculate the maximum ledger time of all the specified contracts (divulged contracts do not contribute)
+    *   1 - Verify that none of the specified contracts are archived
+    *   2 - Calculate the maximum ledger time of all the specified contracts
     * Important note: existence of the contracts is not checked, only the fact of archival, therefore this method
     * is intended to be used after interpretation, which guarantees that all the used ids were visible once.
     *
-    * @return NotAvailable, if none of the specified contracts are archived, and all of them are divulged contracts (no ledger-time available)
-    *         NotAvailable, if the specified set is empty.
-    *         Max, if none of the specified contracts are archived, and the maximum ledger-time of all specified non-divulged contracts is known
+    * @return NotAvailable, if the specified set is empty.
+    *         Max, if none of the specified contracts are archived, and the maximum ledger-time of all specified contracts is known
     *         Archived, if there was at least one contract specified which is archived (this list is not necessarily exhaustive)
     */
   def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
@@ -28,7 +27,6 @@ trait MaximumLedgerTimeService {
 }
 
 /** The outcome of determining the maximum ledger time of a set of contracts.
-  * Note that the ledger time may not be known for divulged contracts.
   */
 sealed trait MaximumLedgerTime
 

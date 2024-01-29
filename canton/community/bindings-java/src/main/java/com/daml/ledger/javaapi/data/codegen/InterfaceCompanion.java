@@ -71,8 +71,7 @@ public abstract class InterfaceCompanion<I, Id, View>
         .map(
             record -> {
               View view = valueDecoder.decode(record);
-              return new ContractWithInterfaceView<>(
-                  this, id, view, signatories, observers);
+              return new ContractWithInterfaceView<>(this, id, view, signatories, observers);
             })
         .orElseThrow(
             () ->

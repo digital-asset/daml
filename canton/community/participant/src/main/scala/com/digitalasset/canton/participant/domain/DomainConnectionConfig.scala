@@ -130,7 +130,7 @@ object DomainConnectionConfig
     extends HasVersionedMessageCompanion[DomainConnectionConfig]
     with HasVersionedMessageCompanionDbHelpers[DomainConnectionConfig] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV0),
       _.toProtoV30.toByteString,

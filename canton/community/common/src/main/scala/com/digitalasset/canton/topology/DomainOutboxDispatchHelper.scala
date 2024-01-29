@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
 import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -161,7 +162,13 @@ trait StoreBasedDomainOutboxDispatchHelperX extends DomainOutboxDispatchHelperX 
           EitherT.rightT[Future, String](tx)
         } else {
           // First try to find if the topology transaction already exists in the correct version in the topology store
-          OptionT(authorizedStore.findStoredForVersion(tx.transaction, protocolVersion))
+          OptionT(
+            authorizedStore.findStoredForVersion(
+              CantonTimestamp.MaxValue,
+              tx.transaction,
+              protocolVersion,
+            )
+          )
             .map(_.transaction)
             .toRight("")
             .leftFlatMap { _ =>

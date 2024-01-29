@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -20,6 +21,8 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
   import SigningKeys.*
 
   val ns1 = Namespace(key1.fingerprint)
+  val ns2 = Namespace(key2.fingerprint)
+  val ns3 = Namespace(key3.fingerprint)
   val ns6 = Namespace(key6.fingerprint)
   val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("domain"), ns1))
   val uid1a = UniqueIdentifier(Identifier.tryCreate("one"), ns1)
@@ -35,6 +38,8 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
   val ns1k3_k2 = mkAdd(NamespaceDelegationX.tryCreate(ns1, key3, isRootDelegation = false), key2)
   val ns1k8_k3_fail =
     mkAdd(NamespaceDelegationX.tryCreate(ns1, key8, isRootDelegation = false), key3)
+  val ns2k2_k2 = mkAdd(NamespaceDelegationX.tryCreate(ns2, key2, isRootDelegation = true), key2)
+  val ns3k3_k3 = mkAdd(NamespaceDelegationX.tryCreate(ns3, key3, isRootDelegation = true), key3)
   val ns6k3_k6 = mkAdd(NamespaceDelegationX.tryCreate(ns6, key3, isRootDelegation = false), key6)
   val ns6k6_k6 = mkAdd(NamespaceDelegationX.tryCreate(ns6, key6, isRootDelegation = true), key6)
   val id1ak4_k2 = mkAdd(IdentifierDelegationX(uid1a, key4), key2)
@@ -133,6 +138,40 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),
     key1,
+  )
+
+  val dnd_proposal_k1 = mkAdd(
+    DecentralizedNamespaceDefinitionX
+      .create(
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
+        PositiveInt.two,
+        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
+      )
+      .fold(sys.error, identity),
+    signingKey = key1,
+    isProposal = true,
+  )
+  val dnd_proposal_k2 = mkAdd(
+    DecentralizedNamespaceDefinitionX
+      .create(
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
+        PositiveInt.two,
+        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
+      )
+      .fold(sys.error, identity),
+    signingKey = key2,
+    isProposal = true,
+  )
+  val dnd_proposal_k3 = mkAdd(
+    DecentralizedNamespaceDefinitionX
+      .create(
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
+        PositiveInt.two,
+        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
+      )
+      .fold(sys.error, identity),
+    signingKey = key3,
+    isProposal = true,
   )
 
 }

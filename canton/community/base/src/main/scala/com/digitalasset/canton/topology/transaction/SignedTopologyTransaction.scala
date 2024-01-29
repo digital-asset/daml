@@ -101,7 +101,7 @@ object SignedTopologyTransaction
   type GenericSignedTopologyTransaction = SignedTopologyTransaction[TopologyChangeOp]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedTopologyTransaction)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedTopologyTransaction)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

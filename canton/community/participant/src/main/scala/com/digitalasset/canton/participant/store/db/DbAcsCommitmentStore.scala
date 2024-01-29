@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.syntax.traverse.*
+import com.daml.nameof.NameOf
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -732,10 +733,46 @@ class DbCommitmentQueue(
              from commitment_queue
              where domain_id = $domainId and to_inclusive <= $timestamp"""
           .as[AcsCommitment],
-        operationName = "peek for queued commitments",
+        operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
       .map(_.toList)
   }
+
+  /** Returns all commitments whose period ends at or after the given timestamp.
+    *
+    * Does not delete them from the queue.
+    */
+  override def peekThroughAtOrAfter(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] = processingTime.event {
+    storage
+      .query(
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
+                                            from commitment_queue
+                                            where domain_id = $domainId and to_inclusive >= $timestamp"""
+          .as[AcsCommitment],
+        operationName = NameOf.qualifiedNameOfCurrentFunc,
+      )
+  }
+
+  def peekOverlapsForCounterParticipant(
+      period: CommitmentPeriod,
+      counterParticipant: ParticipantId,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[AcsCommitment]] =
+    processingTime.event {
+      storage
+        .query(
+          sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
+                 from commitment_queue
+                 where domain_id = $domainId and sender = $counterParticipant
+                 and to_inclusive > ${period.fromExclusive}
+                 and from_exclusive < ${period.toInclusive} """
+            .as[AcsCommitment],
+          operationName = NameOf.qualifiedNameOfCurrentFunc,
+        )
+    }
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(

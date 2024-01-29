@@ -38,6 +38,7 @@ final class GeneratorsProtocol(
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
+      catchUpParameters <- Gen.option(Arbitrary.arbitrary[CatchUpConfig])
 
       parameters = StaticDomainParameters.create(
         requiredSigningKeySchemes,
@@ -46,6 +47,7 @@ final class GeneratorsProtocol(
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         protocolVersion,
+        catchUpParameters,
       )
 
     } yield parameters)

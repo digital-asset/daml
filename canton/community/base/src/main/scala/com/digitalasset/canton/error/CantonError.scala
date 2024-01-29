@@ -87,36 +87,6 @@ trait BaseCantonError extends BaseError {
 
 }
 
-object CantonErrorResource {
-
-  private lazy val all =
-    Seq(ContractId, ContractKey, DalfPackage, LedgerId, DomainId, DomainAlias, CommandId)
-
-  def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
-
-  object ContractId extends ErrorResource {
-    def asString: String = "CONTRACT_ID"
-  }
-  object ContractKey extends ErrorResource {
-    def asString: String = "CONTRACT_KEY"
-  }
-  object DalfPackage extends ErrorResource {
-    def asString: String = "PACKAGE"
-  }
-  object LedgerId extends ErrorResource {
-    def asString: String = "LEDGER_ID"
-  }
-  object DomainId extends ErrorResource {
-    def asString: String = "DOMAIN_ID"
-  }
-  object DomainAlias extends ErrorResource {
-    def asString: String = "DOMAIN_ALIAS"
-  }
-  object CommandId extends ErrorResource {
-    def asString: String = "COMMAND_ID"
-  }
-}
-
 /** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect
   * an implicit [[com.digitalasset.canton.logging.ErrorLoggingContext]] to be around when they are created.
   * If you are creating such an error in a class extending [[com.digitalasset.canton.logging.NamedLogging]],

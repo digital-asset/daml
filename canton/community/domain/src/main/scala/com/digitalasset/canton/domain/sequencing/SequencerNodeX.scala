@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequestX,

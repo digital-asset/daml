@@ -85,32 +85,6 @@ private[backend] object AppendOnlySchema {
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
-    val eventsDivulgence: Table[DbDto.EventDivulgence] =
-      fieldStrategy.insert("participant_events_divulgence")(
-        "event_offset" -> fieldStrategy.stringOptional(_ => _.event_offset),
-        "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
-        "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
-        "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
-        ),
-        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
-        "template_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.template_id.map(stringInterning.templateId.unsafe.internalize)
-        ),
-        "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
-        ),
-        "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
-        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
-        "create_argument_compression" -> fieldStrategy.smallintOptional(_ =>
-          _.create_argument_compression
-        ),
-        "domain_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.domain_id.map(stringInterning.domainId.unsafe.internalize)
-        ),
-      )
-
     val eventsCreate: Table[DbDto.EventCreate] =
       fieldStrategy.insert("participant_events_create")(
         "event_offset" -> fieldStrategy.stringOptional(_ => _.event_offset),
@@ -464,7 +438,6 @@ private[backend] object AppendOnlySchema {
       )
 
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
-      eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
       eventsConsumingExercise.executeUpdate,
       eventsNonConsumingExercise.executeUpdate,
@@ -497,7 +470,6 @@ private[backend] object AppendOnlySchema {
         def collect[T <: DbDto: ClassTag]: Vector[T] = collectWithFilter[T](_ => true)
         import DbDto.*
         Array(
-          eventsDivulgence.prepareData(collect[EventDivulgence], stringInterning),
           eventsCreate.prepareData(collect[EventCreate], stringInterning),
           eventsConsumingExercise
             .prepareData(collectWithFilter[EventExercise](_.consuming), stringInterning),

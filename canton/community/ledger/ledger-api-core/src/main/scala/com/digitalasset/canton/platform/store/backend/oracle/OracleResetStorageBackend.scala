@@ -18,7 +18,6 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "package_entries",
       "parameters",
       "participant_command_completions",
-      "participant_events_divulgence",
       "participant_events_create",
       "participant_events_consuming_exercise",
       "participant_events_non_consuming_exercise",
