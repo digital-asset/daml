@@ -79,7 +79,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
-    Try { t.map(f(_).get).toSeq }
+    Try(t.map(f(_).get).toSeq)
 
   private def check(): Try[Unit] = {
     for {
@@ -127,12 +127,12 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkType(typ: Upgrading[Ast.Type]): Boolean = {
-    AlphaEquiv.alphaEquiv(stripPackageIds(typ.past), stripPackageIds(typ.present))
+    AlphaEquiv.alphaEquiv(unifyPackageIds(typ.past), unifyPackageIds(typ.present))
   }
 
   // TODO: Consider whether we should strip package ids from all packages in the
   // upgrade set, not just within the pair
-  private def stripPackageIds(typ: Ast.Type): Ast.Type = {
+  private def unifyPackageIds(typ: Ast.Type): Ast.Type = {
     def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
       if (id.packageId == packageId.present) {
         Ref.Identifier(packageId.past, id.qualifiedName)
@@ -142,13 +142,13 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
     typ match {
       case Ast.TNat(n) => Ast.TNat(n)
-      case Ast.TSynApp(n, args) => Ast.TSynApp(stripIdentifier(n), args.map(stripPackageIds(_)))
+      case Ast.TSynApp(n, args) => Ast.TSynApp(stripIdentifier(n), args.map(unifyPackageIds(_)))
       case Ast.TVar(n) => Ast.TVar(n)
       case Ast.TTyCon(con) => Ast.TTyCon(stripIdentifier(con))
       case Ast.TBuiltin(bt) => Ast.TBuiltin(bt)
-      case Ast.TApp(fun, arg) => Ast.TApp(stripPackageIds(fun), stripPackageIds(arg))
-      case Ast.TForall(v, body) => Ast.TForall(v, stripPackageIds(body))
-      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(stripPackageIds(_)))
+      case Ast.TApp(fun, arg) => Ast.TApp(unifyPackageIds(fun), unifyPackageIds(arg))
+      case Ast.TForall(v, body) => Ast.TForall(v, unifyPackageIds(body))
+      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(unifyPackageIds(_)))
     }
   }
 
