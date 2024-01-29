@@ -87,10 +87,11 @@ instance DA.Internal.Desugar.HasChoiceObserver I NonSerializableArgument where
 data NonSerializableArgument
   = NonSerializableArgument {f : NonSerializable}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f" NonSerializableArgument NonSerializable where
+instance DA.Internal.Record.GetField "f" NonSerializableArgument NonSerializable where
   getField
     = DA.Internal.Record.getFieldPrim
         @"f" @NonSerializableArgument @NonSerializable
+instance DA.Internal.Record.SetField "f" NonSerializableArgument NonSerializable where
   setField
     = DA.Internal.Record.setFieldPrim
         @"f" @NonSerializableArgument @NonSerializable

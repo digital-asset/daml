@@ -20,11 +20,13 @@ instance DA.Internal.Desugar.HasFromAnyException E where
 data GHC.Types.DamlTemplate => K
   = K {p : Party, v : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" K Party where
+instance DA.Internal.Record.GetField "p" K Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @K @Party
+instance DA.Internal.Record.SetField "p" K Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @K @Party
-instance DA.Internal.Record.HasField "v" K Int where
+instance DA.Internal.Record.GetField "v" K Int where
   getField = DA.Internal.Record.getFieldPrim @"v" @K @Int
+instance DA.Internal.Record.SetField "v" K Int where
   setField = DA.Internal.Record.setFieldPrim @"v" @K @Int
 instance DA.Internal.Desugar.HasSignatory K where
   signatory this@K {..}
@@ -110,8 +112,9 @@ instance DA.Internal.Desugar.HasFromAnyContractKey K (Party,
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" T Party where
+instance DA.Internal.Record.GetField "p" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
 data Throw
   = Throw {}
@@ -128,49 +131,55 @@ data CatchArithmeticError
 data UncatchableTry
   = UncatchableTry {cid : ContractId K}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "cid" UncatchableTry (ContractId K) where
+instance DA.Internal.Record.GetField "cid" UncatchableTry (ContractId K) where
   getField
     = DA.Internal.Record.getFieldPrim
         @"cid" @UncatchableTry @ContractId K
+instance DA.Internal.Record.SetField "cid" UncatchableTry (ContractId K) where
   setField
     = DA.Internal.Record.setFieldPrim
         @"cid" @UncatchableTry @ContractId K
 data TransientDuplicate
   = TransientDuplicate {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" TransientDuplicate Int where
+instance DA.Internal.Record.GetField "i" TransientDuplicate Int where
   getField
     = DA.Internal.Record.getFieldPrim @"i" @TransientDuplicate @Int
+instance DA.Internal.Record.SetField "i" TransientDuplicate Int where
   setField
     = DA.Internal.Record.setFieldPrim @"i" @TransientDuplicate @Int
 data NonTransientDuplicate
   = NonTransientDuplicate {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" NonTransientDuplicate Int where
+instance DA.Internal.Record.GetField "i" NonTransientDuplicate Int where
   getField
     = DA.Internal.Record.getFieldPrim @"i" @NonTransientDuplicate @Int
+instance DA.Internal.Record.SetField "i" NonTransientDuplicate Int where
   setField
     = DA.Internal.Record.setFieldPrim @"i" @NonTransientDuplicate @Int
 data RollbackKey
   = RollbackKey {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" RollbackKey Int where
+instance DA.Internal.Record.GetField "i" RollbackKey Int where
   getField = DA.Internal.Record.getFieldPrim @"i" @RollbackKey @Int
+instance DA.Internal.Record.SetField "i" RollbackKey Int where
   setField = DA.Internal.Record.setFieldPrim @"i" @RollbackKey @Int
 data RollbackArchive
   = RollbackArchive {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" RollbackArchive Int where
+instance DA.Internal.Record.GetField "i" RollbackArchive Int where
   getField
     = DA.Internal.Record.getFieldPrim @"i" @RollbackArchive @Int
+instance DA.Internal.Record.SetField "i" RollbackArchive Int where
   setField
     = DA.Internal.Record.setFieldPrim @"i" @RollbackArchive @Int
 data NonRollbackArchive
   = NonRollbackArchive {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" NonRollbackArchive Int where
+instance DA.Internal.Record.GetField "i" NonRollbackArchive Int where
   getField
     = DA.Internal.Record.getFieldPrim @"i" @NonRollbackArchive @Int
+instance DA.Internal.Record.SetField "i" NonRollbackArchive Int where
   setField
     = DA.Internal.Record.setFieldPrim @"i" @NonRollbackArchive @Int
 instance DA.Internal.Desugar.HasSignatory T where
@@ -609,27 +618,31 @@ _choice$_T$NonRollbackArchive
 data GHC.Types.DamlTemplate => Fetcher
   = Fetcher {sig : Party, obs : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "sig" Fetcher Party where
+instance DA.Internal.Record.GetField "sig" Fetcher Party where
   getField = DA.Internal.Record.getFieldPrim @"sig" @Fetcher @Party
+instance DA.Internal.Record.SetField "sig" Fetcher Party where
   setField = DA.Internal.Record.setFieldPrim @"sig" @Fetcher @Party
-instance DA.Internal.Record.HasField "obs" Fetcher Party where
+instance DA.Internal.Record.GetField "obs" Fetcher Party where
   getField = DA.Internal.Record.getFieldPrim @"obs" @Fetcher @Party
+instance DA.Internal.Record.SetField "obs" Fetcher Party where
   setField = DA.Internal.Record.setFieldPrim @"obs" @Fetcher @Party
 data Fetch
   = Fetch {cid : ContractId K}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "cid" Fetch (ContractId K) where
+instance DA.Internal.Record.GetField "cid" Fetch (ContractId K) where
   getField
     = DA.Internal.Record.getFieldPrim @"cid" @Fetch @ContractId K
+instance DA.Internal.Record.SetField "cid" Fetch (ContractId K) where
   setField
     = DA.Internal.Record.setFieldPrim @"cid" @Fetch @ContractId K
 data RollbackFetch
   = RollbackFetch {cid : ContractId K}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "cid" RollbackFetch (ContractId K) where
+instance DA.Internal.Record.GetField "cid" RollbackFetch (ContractId K) where
   getField
     = DA.Internal.Record.getFieldPrim
         @"cid" @RollbackFetch @ContractId K
+instance DA.Internal.Record.SetField "cid" RollbackFetch (ContractId K) where
   setField
     = DA.Internal.Record.setFieldPrim
         @"cid" @RollbackFetch @ContractId K

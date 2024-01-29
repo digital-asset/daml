@@ -78,11 +78,13 @@ instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
 data GHC.Types.DamlTemplate => T
   = T {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" T Party where
+instance DA.Internal.Record.GetField "p" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
-instance DA.Internal.Record.HasField "f" T Int where
+instance DA.Internal.Record.GetField "f" T Int where
   getField = DA.Internal.Record.getFieldPrim @"f" @T @Int
+instance DA.Internal.Record.SetField "f" T Int where
   setField = DA.Internal.Record.setFieldPrim @"f" @T @Int
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
@@ -161,11 +163,13 @@ instance DA.Internal.Desugar.HasFromInterface T I where
 data GHC.Types.DamlTemplate => U
   = U {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" U Party where
+instance DA.Internal.Record.GetField "p" U Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @U @Party
+instance DA.Internal.Record.SetField "p" U Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @U @Party
-instance DA.Internal.Record.HasField "f" U Int where
+instance DA.Internal.Record.GetField "f" U Int where
   getField = DA.Internal.Record.getFieldPrim @"f" @U @Int
+instance DA.Internal.Record.SetField "f" U Int where
   setField = DA.Internal.Record.setFieldPrim @"f" @U @Int
 instance DA.Internal.Desugar.HasSignatory U where
   signatory this@U {..}
