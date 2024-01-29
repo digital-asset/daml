@@ -200,7 +200,7 @@ runCommand env@Env{..} = \case
         let useCache =
               UseCache
                 { cachePath = envCachePath
-                , damlPath = envDamlPath
+                , damlPathUnsafe = envDamlPath
                 , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath

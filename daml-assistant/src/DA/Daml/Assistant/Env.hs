@@ -50,7 +50,7 @@ envUseCache Env {..} =
 
 mkUseCache :: CachePath -> DamlPath -> UseCache
 mkUseCache cachePath damlPath =
-  UseCache { cachePath, damlPath, overrideTimeout = Nothing }
+  UseCache { cachePath, damlPathUnsafe = damlPath, overrideTimeout = Nothing }
 
 -- | (internal) Override function with environment variable
 -- if it is available.

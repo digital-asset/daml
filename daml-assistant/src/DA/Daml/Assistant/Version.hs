@@ -228,9 +228,9 @@ getAvailableSdkSnapshotVersions useCache =
 
 -- | Find the first occurence of a version on Github, without the cache. Keep in
   -- mind that versions are not sorted.
-findAvailableSdkSnapshotVersion :: DamlPath -> (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
-findAvailableSdkSnapshotVersion damlPath pred =
-  getAvailableSdkSnapshotVersionsUncached damlPath >>= searchSnapshotsUntil pred
+findAvailableSdkSnapshotVersion :: Maybe DamlPath -> (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
+findAvailableSdkSnapshotVersion damlPathMb pred =
+  getAvailableSdkSnapshotVersionsUncached damlPathMb >>= searchSnapshotsUntil pred
 
 data SnapshotsList = SnapshotsList
   { versions :: IO [ReleaseVersion]
@@ -261,13 +261,17 @@ searchSnapshotsUntil pred SnapshotsList { versions, next } = do
 -- https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#get-the-latest-release
 -- because it sorts by time of upload, so a minor version bump like 2.5.15 may
 -- supersede 2.7.2 if the minor release on 2.5.12 was released later
-getAvailableSdkSnapshotVersionsUncached :: DamlPath -> IO SnapshotsList
-getAvailableSdkSnapshotVersionsUncached damlPath = do
-  damlConfigE <- tryConfig (readDamlConfig damlPath)
-  let releasesEndpoint =
+getAvailableSdkSnapshotVersionsUncached :: Maybe DamlPath -> IO SnapshotsList
+getAvailableSdkSnapshotVersionsUncached damlPathMb = do
+  let defaultReleasesEndpoint = "https://api.github.com/repos/digital-asset/daml/releases"
+  releasesEndpoint <-
+    case damlPathMb of
+      Nothing -> pure defaultReleasesEndpoint
+      Just damlPath -> do
+          damlConfigE <- tryConfig (readDamlConfig damlPath)
           case queryDamlConfig ["releases-endpoint"] =<< damlConfigE of
-            Right (Just url) -> url
-            _ -> "https://api.github.com/repos/digital-asset/daml/releases"
+            Right (Just url) -> pure url
+            _ -> pure defaultReleasesEndpoint
   case parseRequest releasesEndpoint of
     Just _ -> requestReleasesSnapshotsList releasesEndpoint
     Nothing -> do
@@ -386,10 +390,10 @@ resolveReleaseVersion useCache unresolvedVersion = do
 resolveReleaseVersionUnsafe :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
 resolveReleaseVersionUnsafe _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
 resolveReleaseVersionUnsafe useCache targetVersion = do
-    mbResolved <- resolveReleaseVersionFromDamlPath (damlPath useCache) targetVersion
+    mbResolved <- traverse (\damlPath -> resolveReleaseVersionFromDamlPath damlPath targetVersion) (damlPath useCache)
     case mbResolved of
-      Just resolved -> pure resolved
-      Nothing -> do
+      Just (Just resolved) -> pure resolved
+      _ -> do
         let isTargetVersion version =
               unwrapUnresolvedReleaseVersion targetVersion == releaseVersionFromReleaseVersion version
         (releaseVersions, _) <- getAvailableSdkSnapshotVersions useCache
@@ -419,10 +423,10 @@ instance Exception CouldNotResolveSdkVersion where
 resolveSdkVersionToRelease :: UseCache -> SdkVersion -> IO (Either CouldNotResolveSdkVersion ReleaseVersion)
 resolveSdkVersionToRelease _ targetVersion | isHeadVersion targetVersion = pure (Right headReleaseVersion)
 resolveSdkVersionToRelease useCache targetVersion = do
-    resolved <- resolveSdkVersionFromDamlPath (damlPath useCache) targetVersion
+    resolved <- traverse (\damlPath -> resolveSdkVersionFromDamlPath damlPath targetVersion) (damlPath useCache)
     case resolved of
-      Just resolved -> pure (Right resolved)
-      Nothing -> do
+      Just (Just resolved) -> pure (Right resolved)
+      _ -> do
         let isTargetVersion version =
               targetVersion == sdkVersionFromReleaseVersion version
         (releaseVersions, _age) <- getAvailableSdkSnapshotVersions useCache
@@ -528,8 +532,9 @@ artifactoryReleaseResponseSubsetSdkVersion responseSubset =
   in
   listToMaybe $ mapMaybe extractMatchingName (artifactoryFiles responseSubset)
 
-resolveReleaseVersionFromArtifactory :: DamlPath -> UnresolvedReleaseVersion -> IO (Either ResolveReleaseError (Maybe ReleaseVersion))
-resolveReleaseVersionFromArtifactory damlPath unresolvedVersion = do
+resolveReleaseVersionFromArtifactory :: Maybe DamlPath -> UnresolvedReleaseVersion -> IO (Either ResolveReleaseError (Maybe ReleaseVersion))
+resolveReleaseVersionFromArtifactory Nothing _ = pure (Right Nothing) -- Without a daml path, there is no artifactory key
+resolveReleaseVersionFromArtifactory (Just damlPath) unresolvedVersion = do
   damlConfig <- tryConfig $ readDamlConfig damlPath
   case queryArtifactoryApiKey <$> damlConfig of
     Right (Just apiKey) -> do
