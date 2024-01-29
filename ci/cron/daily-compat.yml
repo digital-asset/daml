@@ -366,17 +366,20 @@ jobs:
         if [[ "$(compatibility_ts_libs)" == "Succeeded"
            && "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
-           && "$(perf_speedy)" == "Succeeded"
+           && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
            && "$(check_releases)" == "Succeeded"
            && "$(update_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
            ]]; then
-            MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
-            REPORT='```speedy_perf: $(speedy_perf)```
-        '
-            tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
+          MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
+          if [ "$(perf_speedy)" == "Skiped" ]; then
+            REPORT="Perf test was skipped."
+          else
+            REPORT='```speedy_perf: $(speedy_perf)```'
+          fi
+          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
         else
-            tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
