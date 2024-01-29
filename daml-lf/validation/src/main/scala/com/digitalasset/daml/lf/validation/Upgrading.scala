@@ -20,7 +20,8 @@ sealed abstract class UpgradeError extends Throwable {
   def message(): String;
 }
 
-final case class CouldNotResolveUpgradedPackageId(upgrading: Upgrading[Ref.PackageId]) extends UpgradeError {
+final case class CouldNotResolveUpgradedPackageId(upgrading: Upgrading[Ref.PackageId])
+    extends UpgradeError {
   override def message(): String = "CouldNotResolveUpgradedPackageId"
 }
 
