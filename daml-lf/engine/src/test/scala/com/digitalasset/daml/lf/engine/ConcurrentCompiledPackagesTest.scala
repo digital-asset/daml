@@ -12,8 +12,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ConcurrentCompiledPackagesTestV1
-    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V1)
 class ConcurrentCompiledPackagesTestV2
     extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
 
