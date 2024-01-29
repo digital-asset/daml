@@ -148,7 +148,7 @@ private[apiserver] final class ApiPackageManagementService private (
           }
           _ <- {
             logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
-            val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradedPackageMb)
+            val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
             upgradeCheckResult match {
               case Success(()) => {
                 logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")

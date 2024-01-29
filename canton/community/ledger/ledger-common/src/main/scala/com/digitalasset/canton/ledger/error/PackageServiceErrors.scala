@@ -210,10 +210,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
 
     def handleUpgradeError(upgrading: Ref.PackageId, upgraded: Ref.PackageId, err: UpgradeError)(implicit
         loggingContext: ContextualizedErrorLogger
-    ): DamlError = err match {
-      case UpgradeError(msg) =>
-        Upgradeability.Error(upgrading, upgraded, msg)
-    }
+    ): DamlError = Upgradeability.Error(upgrading, upgraded, err.message())
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")

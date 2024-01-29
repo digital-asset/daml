@@ -16,7 +16,17 @@ case class Upgrading[A](past: A, present: A) {
     Upgrading(f(this.past, that.past), f(this.present, that.present))
 }
 
-case class UpgradeError(message: String) extends Throwable(message)
+sealed abstract class UpgradeError extends Throwable {
+  def message(): String;
+}
+
+final case class CouldNotResolveUpgradedPackageId(upgrading: Upgrading[Ref.PackageId]) extends UpgradeError {
+  override def message(): String = "CouldNotResolveUpgradedPackageId"
+}
+
+final case class UnknownUpgradeError(msg: String) extends UpgradeError {
+  override def message(): String = this.msg
+}
 
 sealed abstract class UpgradedRecordOrigin
 
@@ -28,12 +38,13 @@ final case object TopLevel extends UpgradedRecordOrigin
 object Typecheck {
   def typecheckUpgrades(
       present: (Ref.PackageId, Ast.Package),
-      mbPast: Option[(Ref.PackageId, Ast.Package)],
+      pastPackageId: Ref.PackageId,
+      mbPastPkg: Option[Ast.Package],
   ): Try[Unit] = {
-    mbPast match {
-      case None => Failure(UpgradeError("CouldNotResolveUpgradedPackageId"));
-      case Some(past) => {
-        val tc = this(Upgrading(past, present))
+    mbPastPkg match {
+      case None => Failure(CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
+      case Some(pastPkg) => {
+        val tc = this(Upgrading((pastPackageId, pastPkg), present))
         tc.check()
       }
     }
@@ -75,7 +86,7 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           _package.map(_.modules),
-          (m: Ast.Module) => UpgradeError(s"MissingModule(${m.name})"),
+          (m: Ast.Module) => UnknownUpgradeError(s"MissingModule(${m.name})"),
         )
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
@@ -91,13 +102,13 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
-        (_: Ast.Template) => UpgradeError(s"MissingTemplate(t)"),
+        (_: Ast.Template) => UnknownUpgradeError(s"MissingTemplate(t)"),
       )
       _ <- tryAll(existingTemplates.values, checkTemplate(_))
 
       (existingDatatypes, _new) <- checkDeleted(
         module.map(datatypes(_)),
-        (_: Ast.DDataType) => UpgradeError(s"MissingDataCon(t)"),
+        (_: Ast.DDataType) => UnknownUpgradeError(s"MissingDataCon(t)"),
       )
       _ <- Try { existingDatatypes.map({ case (name, dt) => checkDatatype(module, name, dt).get }) }
     } yield ()
@@ -107,7 +118,7 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     for {
       (existingChoices, _newChoices) <- checkDeleted(
         template.map(_.choices),
-        (_: Ast.TemplateChoice) => UpgradeError(s"MissingChoice(t)"),
+        (_: Ast.TemplateChoice) => UnknownUpgradeError(s"MissingChoice(t)"),
       )
 
       _ <- tryAll(existingChoices.values, checkChoice(_))
@@ -146,12 +157,12 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
         if (!checkType(Upgrading(pastKey.typ, presentKey.typ)))
-          Failure(UpgradeError(s"TemplateChangedKeyType"))
+          Failure(UnknownUpgradeError(s"TemplateChangedKeyType"))
         else
           Success(())
       }
       case Upgrading(Some(pastKey @ _), None) =>
-        Failure(UpgradeError(s"TemplateRemovedKey"))
+        Failure(UnknownUpgradeError(s"TemplateRemovedKey"))
       case Upgrading(None, Some(presentKey @ _)) =>
         Success(
           ()
@@ -163,7 +174,7 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
     if (checkType(choice.map(_.returnType))) {
       Success(())
     } else {
-      Failure(UpgradeError("ChoiceChangedReturnType"))
+      Failure(UnknownUpgradeError("ChoiceChangedReturnType"))
     }
   }
 
@@ -199,7 +210,7 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
   ): Try[Unit] = {
     val origin = module.map(dataTypeOrigin(_, name))
     if (origin.present != origin.past) {
-      Failure(UpgradeError("RecordChangedOrigin"))
+      Failure(UnknownUpgradeError("RecordChangedOrigin"))
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
@@ -207,7 +218,7 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
         case Upgrading(_: Ast.DataVariant, _: Ast.DataVariant) => Try(())
         case Upgrading(_: Ast.DataEnum, _: Ast.DataEnum) => Try(())
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-        case _ => Failure(UpgradeError(s"MismatchDataConsVariety"))
+        case _ => Failure(UnknownUpgradeError(s"MismatchDataConsVariety"))
       }
     }
   }
@@ -223,11 +234,11 @@ case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
 
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
     if (_deleted.nonEmpty) {
-      Failure(UpgradeError("RecordFieldsMissing"))
+      Failure(UnknownUpgradeError("RecordFieldsMissing"))
     } else if (!_existing.forall({ case (field @ _, typ) => checkType(typ) })) {
-      Failure(UpgradeError("RecordFieldsExistingChanged"))
+      Failure(UnknownUpgradeError("RecordFieldsExistingChanged"))
     } else if (_new_.find({ case (field @ _, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
-      Failure(UpgradeError("RecordFieldsNewNonOptional"))
+      Failure(UnknownUpgradeError("RecordFieldsNewNonOptional"))
     } else {
       Success(())
     }
