@@ -1,0 +1,21 @@
+{-# LANGUAGE CPP #-}
+
+module LegacyCppFlags where
+
+import Daml.Script
+
+test : Script ()
+test = do
+#ifndef DAML_NAT_SYN
+  error "Expected DAML_NAT_SYN to be defined for backwards compatibility"
+#endif
+#ifndef DAML_NAT_TYPE_ERASURE
+  error "Expected DAML_NAT_TYPE_ERASURE to be defined for backwards compatibility"
+#endif
+#ifndef DAML_INTERFACE
+  error "Expected DAML_INTERFACE to be defined for backwards compatibility"
+#endif
+#ifndef DAML_RIGHT_TO_LEFT_EVALUATION
+  error "Expected DAML_RIGHT_TO_LEFT_EVALUATION to be defined for backwards compatibility"
+#endif
+  pure ()

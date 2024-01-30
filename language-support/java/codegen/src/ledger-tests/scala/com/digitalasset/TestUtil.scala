@@ -9,7 +9,7 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands

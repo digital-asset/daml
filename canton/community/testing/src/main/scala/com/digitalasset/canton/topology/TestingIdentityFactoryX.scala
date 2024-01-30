@@ -25,6 +25,7 @@ import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransactionX}
+import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.MapsUtil
@@ -561,6 +562,23 @@ class TestingOwnerWithKeysX(
       )
       .getOrElse(sys.error("failed to create signed topology transaction"))
 
+  def setSerial(
+      trans: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+      serial: PositiveInt,
+      signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
+  )(implicit ec: ExecutionContext) = {
+    import trans.{transaction as tx}
+    mkTrans(
+      TopologyTransactionX(
+        tx.op,
+        serial,
+        tx.mapping,
+        tx.representativeProtocolVersion.representative,
+      ),
+      signingKeys = signingKeys,
+    )
+  }
+
   def mkAdd[M <: TopologyMappingX](
       mapping: M,
       signingKey: SigningPublicKey = SigningKeys.key1,
@@ -588,6 +606,15 @@ class TestingOwnerWithKeysX(
       ),
       signingKeys,
       isProposal,
+    )
+
+  def mkRemoveTx(
+      tx: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+  )(implicit ec: ExecutionContext): SignedTopologyTransactionX[Remove, TopologyMappingX] =
+    mkRemove[TopologyMappingX](
+      tx.mapping,
+      NonEmpty(Set, SigningKeys.key1),
+      tx.transaction.serial.increment,
     )
 
   def mkRemove[M <: TopologyMappingX](

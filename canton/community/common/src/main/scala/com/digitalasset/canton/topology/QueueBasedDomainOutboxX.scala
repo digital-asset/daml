@@ -256,18 +256,24 @@ class QueueBasedDomainOutboxX(
           // find pending transactions
           pending <- findPendingTransactions()
           // filter out applicable
-          applicablePotentiallyPresent <- onlyApplicable(pending)
+          applicable <- onlyApplicable(pending)
+          _ = if (applicable.size != pending.size)
+            logger.debug(
+              s"applicable transactions: $applicable"
+            )
           // not already present
-          applicable <- notAlreadyPresent(applicablePotentiallyPresent)
-        } yield (pending, applicable))
+          notPresent <- notAlreadyPresent(applicable)
+          _ = if (notPresent.size != applicable.size)
+            logger.debug(s"not already present transactions: $notPresent")
+        } yield (pending, notPresent))
         val ret = for {
-          pendingAndApplicable <- EitherT.right(pendingAndApplicableF)
-          (pending, applicable) = pendingAndApplicable
+          pendingAndNotPresent <- EitherT.right(pendingAndApplicableF)
+          (pending, notPresent) = pendingAndNotPresent
 
-          _ = lastDispatched.set(applicable.lastOption)
+          _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
           convertedTxs <- performUnlessClosingEitherU(functionFullName) {
-            convertTransactions(applicable)
+            convertTransactions(notPresent)
           }
           // dispatch to domain
           _ <- dispatch(domain, transactions = convertedTxs)

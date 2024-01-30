@@ -5,7 +5,7 @@ package com.digitalasset.canton.admin.api.client
 
 import cats.data.EitherT
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
-import com.digitalasset.canton.ledger.api.auth.client.LedgerCallCredentials
+import com.digitalasset.canton.ledger.client.LedgerCallCredentials
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}

@@ -69,12 +69,11 @@ templateChoiceExpr f (TemplateChoice loc name consuming controllers observers au
   <*> f update
 
 templateExpr :: Traversal' Template Expr
-templateExpr f (Template loc tpl param precond signatories observers agreement choices key implements) =
+templateExpr f (Template loc tpl param precond signatories observers choices key implements) =
   Template loc tpl param
   <$> f precond
   <*> f signatories
   <*> f observers
-  <*> f agreement
   <*> (NM.traverse . templateChoiceExpr) f choices
   <*> (traverse . templateKeyExpr) f key
   <*> (NM.traverse . templateImplementsExpr) f implements

@@ -20,16 +20,18 @@ import com.digitalasset.canton.protocol.DynamicDomainParameters.{
   protocolVersionRepresentativeFor,
 }
 import com.digitalasset.canton.protocol.{
+  CatchUpConfig,
   DynamicDomainParameters as DynamicDomainParametersInternal,
+  OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
-  v2 as protocolV2,
+  v30 as protocolV30,
 }
 import com.digitalasset.canton.time.{
   Clock,
   NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
   PositiveSeconds,
 }
-import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization
+import com.digitalasset.canton.topology.admin.v30old.DomainParametersChangeAuthorization
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
 import com.digitalasset.canton.crypto as DomainCrypto
@@ -45,6 +47,7 @@ final case class StaticDomainParameters(
     requiredHashAlgorithms: Set[HashAlgorithm],
     requiredCryptoKeyFormats: Set[CryptoKeyFormat],
     protocolVersion: ProtocolVersion,
+    catchUpParameters: Option[CatchUpConfig],
 ) {
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
@@ -67,6 +70,7 @@ final case class StaticDomainParameters(
         requiredCryptoKeyFormats.map(_.transformInto[DomainCrypto.CryptoKeyFormat])
       ),
       protocolVersion = protocolVersion,
+      catchUpParameters = catchUpParameters,
     )
 }
 
@@ -117,6 +121,7 @@ object StaticDomainParameters {
       requiredCryptoKeyFormats =
         domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
       protocolVersion = domain.protocolVersion,
+      catchUpParameters = domain.catchUpParameters,
     )
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
@@ -145,6 +150,7 @@ final case class DynamicDomainParameters(
     maxRequestSize: NonNegativeInt,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
+    onboardingRestriction: OnboardingRestriction,
 ) {
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
@@ -177,6 +183,7 @@ final case class DynamicDomainParameters(
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
+      onboardingRestriction: OnboardingRestriction = onboardingRestriction,
   ): DynamicDomainParameters = this.copy(
     participantResponseTimeout = participantResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -189,11 +196,12 @@ final case class DynamicDomainParameters(
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
+    onboardingRestriction = onboardingRestriction,
   )
 
   def toProto: DomainParametersChangeAuthorization.Parameters =
     DomainParametersChangeAuthorization.Parameters.ParametersV1(
-      protocolV2.DynamicDomainParameters(
+      protocolV30.DynamicDomainParameters(
         participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
         mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
         transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
@@ -202,14 +210,14 @@ final case class DynamicDomainParameters(
         mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
         reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
         defaultParticipantLimits = Some(
-          protocolV2.ParticipantDomainLimits(
+          protocolV30.ParticipantDomainLimits(
             maxRate = maxRatePerParticipant.unwrap,
             maxNumParties = 0,
             maxNumPackages = 0,
           )
         ),
         maxRequestSize = maxRequestSize.unwrap,
-        permissionedDomain = false,
+        onboardingRestriction = onboardingRestriction.toProtoV30,
         requiredPackages = Nil,
         onlyRequiredPackagesPermitted = false,
         defaultMaxHostingParticipantsPerParty = 0,
@@ -238,6 +246,7 @@ final case class DynamicDomainParameters(
       sequencerAggregateSubmissionTimeout =
         InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
       trafficControlParameters = trafficControlParameters.map(_.toInternal),
+      onboardingRestriction = onboardingRestriction,
     )(protocolVersionRepresentativeFor(ProtoVersion(0)))
 }
 

@@ -3,11 +3,11 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.UserManagementServiceAuthorization
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.UserManagementServiceAuthorization
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.admin.user_management_service._
-import com.daml.logging.LoggingContext
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.ServerServiceDefinition
 
 import scala.collection.mutable
@@ -60,11 +60,11 @@ object UserManagementServiceImpl {
 
   // for testing only
   private[helpers] def createWithRef(
-      authorizer: Authorizer
+      authorizer: Authorizer,
+      loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, UserManagementServiceImpl) = {
-    implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
     val impl = new UserManagementServiceImpl
-    val authImpl = new UserManagementServiceAuthorization(impl, authorizer)
+    val authImpl = new UserManagementServiceAuthorization(impl, authorizer, loggerFactory)
     (UserManagementServiceGrpc.bindService(authImpl, ec), impl)
   }
 

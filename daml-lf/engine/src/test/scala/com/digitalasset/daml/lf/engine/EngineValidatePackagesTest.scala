@@ -12,7 +12,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class EngineValidatePackagesTestV1 extends EngineValidatePackagesTest(LanguageMajorVersion.V1)
 class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
 class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)

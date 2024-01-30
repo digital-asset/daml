@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
@@ -39,6 +38,7 @@ final case class ParticipantNodeParameters(
     enableEngineStackTrace: Boolean,
     enableContractUpgrading: Boolean,
     iterationsBetweenInterruptions: Long,
+    journalGarbageCollectionDelay: NonNegativeFiniteDuration,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -69,9 +69,7 @@ object ParticipantNodeParameters {
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
-      bongTestMaxLevel = 10,
-      retries = 10,
-      submissionTimeout = config.NonNegativeFiniteDuration.ofHours(1),
+      bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),
     maxUnzippedDarSize = 10,
     stores = ParticipantStoreConfig(),
@@ -87,6 +85,8 @@ object ParticipantNodeParameters {
     excludeInfrastructureTransactions = true,
     enableEngineStackTrace = false,
     enableContractUpgrading = false,
-    iterationsBetweenInterruptions = 10000, // 10000 is the default value in the engine configuration
+    iterationsBetweenInterruptions =
+      10000, // 10000 is the default value in the engine configuration
+    journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
   )
 }

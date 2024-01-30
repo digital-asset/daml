@@ -34,7 +34,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -43,7 +42,7 @@ import com.digitalasset.canton.protocol.{
   RequestProcessor,
   RootHash,
   ViewHash,
-  v0 as protocolv0,
+  v30 as protocolv30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
@@ -308,7 +307,7 @@ trait MessageDispatcherTest {
       domainId,
       SymmetricKeyScheme.Aes128Gcm,
       testedProtocolVersion,
-    )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
+    )
 
   private val encryptedOtherTestView = EncryptedView(OtherTestViewType)(emptyEncryptedViewTree)
   private val encryptedOtherTestViewMessage =
@@ -321,7 +320,7 @@ trait MessageDispatcherTest {
       domainId = domainId,
       viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
       protocolVersion = testedProtocolVersion,
-    )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
+    )
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val testMediatorResult =
@@ -683,7 +682,7 @@ trait MessageDispatcherTest {
           domainId,
           SymmetricKeyScheme.Aes128Gcm,
           testedProtocolVersion,
-        )(Some(RecipientsInfo(Set(participantId), Set.empty, Set.empty)))
+        )
       val rootHashMessage =
         RootHashMessage(
           rootHash(1),
@@ -1284,7 +1283,7 @@ private[protocol] object MessageDispatcherTest {
   trait AbstractTestViewType extends ViewTypeTest {
     override type View = MockViewTree
 
-    override def toProtoEnum: protocolv0.ViewType =
+    override def toProtoEnum: protocolv30.ViewType =
       throw new UnsupportedOperationException(
         s"${this.getClass.getSimpleName} cannot be serialized"
       )
@@ -1312,7 +1311,7 @@ private[protocol] object MessageDispatcherTest {
       )
 
     override def toProtoTypedSomeSignedProtocolMessage
-        : protocolv0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+        : protocolv30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
       throw new UnsupportedOperationException(
         s"${this.getClass.getSimpleName} cannot be serialized"
       )
@@ -1330,7 +1329,7 @@ private[protocol] object MessageDispatcherTest {
     val name: String = "TestRegularMediatorResult"
 
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> UnsupportedProtoCodec(ProtocolVersion.v30)
+      ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v30)
     )
 
     override protected def deserializationErrorK(error: ProtoDeserializationError): Unit = ()

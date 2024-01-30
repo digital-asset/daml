@@ -19,7 +19,6 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
-class ChoiceAuthorityTestV1 extends ChoiceAuthorityTest(LanguageMajorVersion.V1)
 class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 
 class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
@@ -40,7 +39,6 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:Goal {goal} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
     };
 
     record @serializable T = { theSig: Party, theCon: Party, theAut: List Party, theGoal: Party };
@@ -48,7 +46,6 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T {theSig} this] Nil @Party;
       observers Nil @Party;
-      agreement "Agreement";
 
       choice ChoiceWithExplicitAuthority (self) (u: Unit) : Unit,
         controllers Cons @Party [M:T {theCon} this] Nil @Party

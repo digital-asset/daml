@@ -46,7 +46,6 @@ import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationR
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   DriverContractMetadata,
   SerializableContract,
@@ -107,7 +106,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
+      _ <- Future.sequence(coids.map(contractStore.lookupContractState))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -201,6 +200,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
         // authorize the resulting transaction.
         val commitAuthorizers = commands.actAs
         engine.submit(
+          packageMap = commands.packageMap,
+          packagePreference = commands.packagePreferenceSet,
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
@@ -462,8 +463,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           metadata = recomputedMetadata,
           ledgerTime = ledgerTime,
           contractSalt = Some(salt),
-          // The agreement text is unused on contract authentication
-          unvalidatedAgreementText = AgreementText.empty,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
         _ <- authenticateContract(contract).leftMap { contractAuthenticationError =>
           val firstParticle =
@@ -484,7 +483,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     def lookupActiveContractVerificationData(): Result =
       EitherT(
         contractStore
-          .lookupContractStateWithoutDivulgence(coid)
+          .lookupContractState(coid)
           .map {
             case active: ContractState.Active =>
               UpgradeVerificationContractData
@@ -514,7 +513,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         // During submission the ResultNeedUpgradeVerification should only be called
         // for contracts that are being upgraded. We do not support the upgrading of
         // divulged contracts.
-        Some(s"Contract with $coid was not found or it refers to a divulged contract.")
+        Some(s"Contract with $coid was not found.")
       case MissingDriverMetadata =>
         Some(
           s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"

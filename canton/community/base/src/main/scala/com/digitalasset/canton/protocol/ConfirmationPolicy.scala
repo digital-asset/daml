@@ -201,8 +201,8 @@ object ConfirmationPolicy {
       val hasVipForEachNode = vipCheckPartiesPerNode.forall {
         _.exists(eligibleParticipants(_)._1)
       }
-      val hasConfirmersForEachNode = signatoriesCheckPartiesPerNode.forall {
-        _.exists(eligibleParticipants(_)._2)
+      val hasConfirmersForEachNode = signatoriesCheckPartiesPerNode.forall { signatoriesForNode =>
+        signatoriesForNode.nonEmpty && signatoriesForNode.forall(eligibleParticipants(_)._2)
       }
       List(hasVipForEachNode -> Vip, hasConfirmersForEachNode -> Signatory)
         .filter(_._1)

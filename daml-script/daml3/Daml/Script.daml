@@ -102,17 +102,7 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
-
-  , PackageName (..)
-  , vetPackages
-  , unvetPackages
-  , listVettedPackages
-  , listAllPackages
-  , vetDar
-  , vetDarOnParticipant
-  , unvetDar
-  , unvetDarOnParticipant
   ) where
 
-import Daml.Script.Internal
-import Daml.Script.Questions
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions

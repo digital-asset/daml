@@ -39,7 +39,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-private[platform] trait DbDispatcher {
+private[canton] trait DbDispatcher {
   val executor: QueueAwareExecutor with NamedExecutor
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContextWithTrace

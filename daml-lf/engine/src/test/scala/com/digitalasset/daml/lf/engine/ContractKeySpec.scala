@@ -40,7 +40,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class ContractKeySpecV1 extends ContractKeySpec(LanguageMajorVersion.V1)
 class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
 
 @SuppressWarnings(

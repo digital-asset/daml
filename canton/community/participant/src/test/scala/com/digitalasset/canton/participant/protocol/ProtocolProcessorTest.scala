@@ -55,7 +55,6 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.AsyncResult
@@ -103,6 +102,15 @@ class ProtocolProcessorTest
     with HasTestCloseContext {
   // Workaround to avoid false errors reported by IDEA.
   private implicit def tagToContainer(tag: EvidenceTag): Tag = new TagContainer(tag)
+
+  private lazy val authenticity: SecurityTest =
+    SecurityTest(SecurityTest.Property.Authenticity, "virtual shared ledger")
+
+  private def authenticityAttack(threat: String, mitigation: String)(implicit
+      lineNo: sourcecode.Line,
+      fileName: sourcecode.File,
+  ): SecurityTest =
+    authenticity.setAttack(Attack("a malicious network participant", threat, mitigation))
 
   private val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("participant::participant")
@@ -363,7 +371,7 @@ class ProtocolProcessorTest
     domainId = DefaultTestIdentities.domainId,
     SymmetricKeyScheme.Aes128Gcm,
     testedProtocolVersion,
-  )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
+  )
   private lazy val rootHashMessage = RootHashMessage(
     rootHash,
     DefaultTestIdentities.domainId,
@@ -617,7 +625,7 @@ class ProtocolProcessorTest
         domainId = DefaultTestIdentities.domainId,
         SymmetricKeyScheme.Aes128Gcm,
         testedProtocolVersion,
-      )(Some(RecipientsInfo(Set(participant), Set.empty, Set.empty)))
+      )
       val requestBatchWrongRH = RequestAndRootHashMessage(
         NonEmpty(
           Seq,
@@ -654,7 +662,7 @@ class ProtocolProcessorTest
         domainId = DefaultTestIdentities.domainId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
         protocolVersion = testedProtocolVersion,
-      )(Some(RecipientsInfo(Set.empty, Set.empty, Set.empty)))
+      )
 
       val requestBatchDecryptError = RequestAndRootHashMessage(
         NonEmpty(
@@ -681,7 +689,15 @@ class ProtocolProcessorTest
       succeed
     }
 
-    "check the declared mediator ID against the root hash message mediator" in {
+    "check the declared mediator ID against the root hash message mediator" taggedAs {
+      authenticityAttack(
+        threat =
+          "the mediator in the common metadata is not the recipient of the root hash message",
+        mitigation = "all honest participants roll back the request",
+      )
+    } in {
+      // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
+
       val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
       val requestBatch = RequestAndRootHashMessage(
         NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
@@ -705,14 +721,10 @@ class ProtocolProcessorTest
     }
 
     "check that the mediator is active" taggedAs {
-      SecurityTest(SecurityTest.Property.Authenticity, "virtual shared ledger")
-        .setAttack(
-          Attack(
-            actor = "a malicious network participant",
-            threat = "the mediator in the common metadata is not active",
-            mitigation = "all honest participants roll back the request",
-          )
-        )
+      authenticityAttack(
+        threat = "the mediator in the common metadata is not active",
+        mitigation = "all honest participants roll back the request",
+      )
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 

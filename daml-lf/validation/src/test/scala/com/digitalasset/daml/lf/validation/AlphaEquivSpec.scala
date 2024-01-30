@@ -11,7 +11,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-class AlphaEquivSpecV1 extends AlphaEquivSpec(LanguageMajorVersion.V1)
 class AlphaEquivSpecV2 extends AlphaEquivSpec(LanguageMajorVersion.V2)
 
 class AlphaEquivSpec(majorLanguageVersion: LanguageMajorVersion)

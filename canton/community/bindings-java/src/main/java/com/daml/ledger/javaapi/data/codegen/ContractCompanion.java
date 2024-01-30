@@ -118,14 +118,10 @@ public abstract class ContractCompanion<Ct, Id, Data>
     }
 
     public Ct fromIdAndRecord(
-        String contractId,
-        DamlRecord record$,
-        Optional<String> agreementText,
-        Set<String> signatories,
-        Set<String> observers) {
+        String contractId, DamlRecord record$, Set<String> signatories, Set<String> observers) {
       Id id = newContractId.apply(contractId);
       Data data = fromValue.apply(record$);
-      return newContract.newContract(id, data, agreementText, signatories, observers);
+      return newContract.newContract(id, data, signatories, observers);
     }
 
     @Override
@@ -133,19 +129,13 @@ public abstract class ContractCompanion<Ct, Id, Data>
       return fromIdAndRecord(
           event.getContractId(),
           event.getArguments(),
-          event.getAgreementText(),
           event.getSignatories(),
           event.getObservers());
     }
 
     @FunctionalInterface
     public interface NewContract<Ct, Id, Data> {
-      Ct newContract(
-          Id id,
-          Data data,
-          Optional<String> agreementText,
-          Set<String> signatories,
-          Set<String> observers);
+      Ct newContract(Id id, Data data, Set<String> signatories, Set<String> observers);
     }
   }
 
@@ -180,13 +170,12 @@ public abstract class ContractCompanion<Ct, Id, Data>
     public Ct fromIdAndRecord(
         String contractId,
         DamlRecord record$,
-        Optional<String> agreementText,
         Optional<Key> key,
         Set<String> signatories,
         Set<String> observers) {
       Id id = newContractId.apply(contractId);
       Data data = fromValue.apply(record$);
-      return newContract.newContract(id, data, agreementText, key, signatories, observers);
+      return newContract.newContract(id, data, key, signatories, observers);
     }
 
     @Override
@@ -194,7 +183,6 @@ public abstract class ContractCompanion<Ct, Id, Data>
       return fromIdAndRecord(
           event.getContractId(),
           event.getArguments(),
-          event.getAgreementText(),
           event.getContractKey().map(keyFromValue),
           event.getSignatories(),
           event.getObservers());
@@ -203,12 +191,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
     @FunctionalInterface
     public interface NewContract<Ct, Id, Data, Key> {
       Ct newContract(
-          Id id,
-          Data data,
-          Optional<String> agreementText,
-          Optional<Key> key,
-          Set<String> signatories,
-          Set<String> observers);
+          Id id, Data data, Optional<Key> key, Set<String> signatories, Set<String> observers);
     }
   }
 }

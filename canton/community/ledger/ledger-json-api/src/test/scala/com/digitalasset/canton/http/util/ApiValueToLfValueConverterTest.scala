@@ -5,8 +5,8 @@ package com.digitalasset.canton.http.util
 
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.coidGen
-import com.daml.lf.value.{Value as V}
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi.lfValueToApiValue
+import com.daml.lf.value.Value as V
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.Arbitrary
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers

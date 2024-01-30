@@ -107,33 +107,6 @@ tests damlc =
                 )
               ]
         , test
-              "Warns when template changes agreement"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement1\""
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement2\""
-                      ]
-                )
-              ]
-        , test
               "Warns when template changes key expression"
               (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the expression for computing its key.")
               [ ( "daml/MyLib.daml"
@@ -731,7 +704,7 @@ tests damlc =
                 renderVersion
                   (fromMaybe
                     (error "DamlcUpgrades: featureMinVersion should be defined over featurePackageUpgrades")
-                    (featureMinVersion featurePackageUpgrades V1))
+                    (featureMinVersion featurePackageUpgrades V2))
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
 

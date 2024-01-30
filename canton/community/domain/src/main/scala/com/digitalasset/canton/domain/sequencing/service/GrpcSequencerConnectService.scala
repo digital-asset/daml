@@ -6,9 +6,9 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameters.Response.Parameters
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.{GetDomainId, GetDomainParameters}
-import com.digitalasset.canton.domain.api.v0 as proto
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParameters.Response.Parameters
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.{GetDomainId, GetDomainParameters}
+import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -47,7 +47,7 @@ class GrpcSequencerConnectService(
       request: GetDomainParameters.Request
   ): Future[GetDomainParameters.Response] = {
     val response = staticDomainParameters.protoVersion.v match {
-      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV1))
+      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
       case unsupported =>
         Future.failed(
           new IllegalStateException(

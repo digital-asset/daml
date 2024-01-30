@@ -7,8 +7,7 @@ import cats.data.EitherT
 import cats.instances.seq.*
 import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -24,8 +23,13 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
-import com.digitalasset.canton.topology.transaction.TopologyMappingXChecks
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+  TopologyMappingXChecks,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -43,7 +47,7 @@ class TopologyStateProcessorX(
     outboxQueue: Option[DomainOutboxQueue],
     enableTopologyTransactionValidation: Boolean,
     topologyMappingXChecks: TopologyMappingXChecks,
-    crypto: Crypto,
+    pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -70,7 +74,7 @@ class TopologyStateProcessorX(
 
   private val authValidator =
     new IncomingTopologyTransactionAuthorizationValidatorX(
-      crypto.pureCrypto,
+      pureCrypto,
       store,
       None,
       loggerFactory.append("role", "incoming"),
@@ -103,18 +107,21 @@ class TopologyStateProcessorX(
     type Lft = Seq[GenericValidatedTopologyTransactionX]
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
-    val preloadTxsForMappingF = preloadTxsForMapping(EffectiveTime.MaxValue, transactions)
-    val preloadProposalsForTxF = preloadProposalsForTx(EffectiveTime.MaxValue, transactions)
+    val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
+    val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
+    val duplicatesF = findDuplicates(effective, transactions)
     // TODO(#14064) preload authorization data
     val ret = for {
       _ <- EitherT.right[Lft](preloadProposalsForTxF)
       _ <- EitherT.right[Lft](preloadTxsForMappingF)
+      duplicates <- EitherT.right[Lft](duplicatesF)
       // compute / collapse updates
       (removesF, pendingWrites) = {
         val pendingWrites = transactions.map(MaybePending)
         val removes = pendingWrites
+          .zip(duplicates)
           .foldLeftM((Set.empty[MappingHash], Set.empty[TxHash])) {
-            case ((removeMappings, removeTxs), tx) =>
+            case ((removeMappings, removeTxs), (tx, _noDuplicateFound @ None)) =>
               validateAndMerge(
                 effective,
                 tx.originalTx,
@@ -124,6 +131,12 @@ class TopologyStateProcessorX(
                 tx.rejection.set(finalTx.rejectionReason)
                 determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
               }
+            case ((removeMappings, removeTxs), (tx, Some(duplicateTimestamp))) =>
+              tx.rejection.set(
+                Some(TopologyTransactionRejection.Duplicate(duplicateTimestamp.value))
+              )
+              Future.successful(determineRemovesAndUpdatePending(tx, removeMappings, removeTxs))
+
           }
         (removes, pendingWrites)
       }
@@ -139,7 +152,20 @@ class TopologyStateProcessorX(
           validatedTx
         }: Lft,
       ): EitherT[Future, Lft, Unit]
-
+      // string approx for output
+      epsilon =
+        s"${effective.value.toEpochMilli - sequenced.value.toEpochMilli}"
+      ln = validatedTx.size
+      _ = validatedTx.zipWithIndex.foreach {
+        case (ValidatedTopologyTransactionX(tx, None, _), idx) =>
+          logger.info(
+            s"Storing topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.mapping} with ts=$effective (epsilon=${epsilon} ms)"
+          )
+        case (ValidatedTopologyTransactionX(tx, Some(r), _), idx) =>
+          logger.info(
+            s"Rejected transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
+          )
+      }
       _ <- outboxQueue match {
         case Some(queue) =>
           // if we use the domain outbox queue, we must also reset the caches, because the local validation
@@ -284,20 +310,44 @@ class TopologyStateProcessorX(
     }
   }
 
-  private def deduplicateAndMergeSignatures(
+  private def mergeSignatures(
       inStore: Option[GenericSignedTopologyTransactionX],
       toValidate: GenericSignedTopologyTransactionX,
-  ): Either[TopologyTransactionRejection, (Boolean, GenericSignedTopologyTransactionX)] =
+  ): (Boolean, GenericSignedTopologyTransactionX) = {
     inStore match {
       case Some(value) if value.transaction.hash == toValidate.transaction.hash =>
-        if (toValidate.signatures.diff(value.signatures).isEmpty) {
-          // the new transaction doesn't provide any new signatures => Duplicate
-          // TODO(#12390) use proper timestamp or remove the timestamp from the error?
-          Left(TopologyTransactionRejection.Duplicate(CantonTimestamp.MinValue))
-        } else Right((true, value.addSignatures(toValidate.signatures.toSeq)))
+        (true, value.addSignatures(toValidate.signatures.toSeq))
 
-      case _ => Right((false, toValidate))
+      case _ => (false, toValidate)
     }
+  }
+
+  /** determine whether one of the txs got already added earlier */
+  private def findDuplicates(
+      timestamp: EffectiveTime,
+      transactions: Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+  )(implicit traceContext: TraceContext): Future[Seq[Option[EffectiveTime]]] = {
+    Future.sequence(
+      transactions.map { tx =>
+        // skip duplication check for non-adds
+        if (tx.transaction.op == TopologyChangeOpX.Remove)
+          Future.successful(None)
+        else {
+          // check that the transaction has not been added before (but allow it if it has a different version ...)
+          store
+            .findStored(timestamp.value, tx)
+            .map(
+              _.filter(x =>
+                // if the transaction to validate has the same proto version
+                x.transaction.protoVersion == tx.protoVersion &&
+                  // and the transaction to validate doesn't add new signatures
+                  tx.signatures.diff(x.transaction.signatures).isEmpty
+              ).map(_.validFrom)
+            )
+        }
+      }
+    )
+  }
 
   private def mergeWithPendingProposal(
       toValidate: GenericSignedTopologyTransactionX
@@ -319,11 +369,9 @@ class TopologyStateProcessorX(
     // first, merge a pending proposal with this transaction. we do this as it might
     // subsequently activate the given transaction
     val tx_mergedProposalSignatures = mergeWithPendingProposal(txA)
+    val (isMerge, tx_deduplicatedAndMerged) =
+      mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
     val ret = for {
-      mergeResult <- EitherT.fromEither[Future](
-        deduplicateAndMergeSignatures(tx_inStore, tx_mergedProposalSignatures)
-      )
-      (isMerge, tx_deduplicatedAndMerged) = mergeResult
       // we check if the transaction is properly authorized given the current topology state
       // if it is a proposal, then we demand that all signatures are appropriate (but
       // not necessarily sufficient)
@@ -333,7 +381,6 @@ class TopologyStateProcessorX(
         tx_deduplicatedAndMerged,
         expectFullAuthorization,
       )
-
       // Run mapping specific semantic checks
       _ <- topologyMappingXChecks.checkTransaction(effective, tx_authorized, tx_inStore)
 

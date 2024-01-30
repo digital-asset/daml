@@ -534,7 +534,6 @@ private[validation] object Typing {
         param,
         precond,
         signatories,
-        agreementText,
         choices,
         observers,
         mbKey,
@@ -545,7 +544,6 @@ private[validation] object Typing {
       env.checkTopExpr(precond, TBool)
       env.checkTopExpr(signatories, TParties)
       env.checkTopExpr(observers, TParties)
-      env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
       implementations.values.foreach { impl =>
         checkInterfaceInstance(

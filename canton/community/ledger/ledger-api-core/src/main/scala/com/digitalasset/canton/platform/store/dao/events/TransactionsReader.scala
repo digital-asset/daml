@@ -15,11 +15,10 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,

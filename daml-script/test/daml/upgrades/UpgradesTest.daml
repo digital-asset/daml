@@ -10,8 +10,7 @@ import DA.Exception
 import DA.Foldable
 import DA.Text
 import Daml.Script
-import Daml.Script.Questions.Exceptions (tryToEither)
-import Daml.Script.Questions.Testing.Internal
+import Daml.Script.Internal
 import qualified V1.MyTemplates as V1
 import qualified V2.MyTemplates as V2
 import V1.MyTemplates hiding (ValidUpgrade, SameTypeChoice)
@@ -113,7 +112,7 @@ tests = mconcat
       ("Succeeds explicitly calling a removed V1 choice on a V2 contract", explicitRemovedV1ChoiceV2Contract)
     , ("Fails implicitly calling a removed V1 choice on a V2 contract, as V2 is selected", implicitRemovedV1ChoiceV2Contract)
     , ("Fails implicitly calling a removed V1 choice on a V1 contract, as V2 is selected", implicitRemovedV1ChoiceV1Contract)
-    
+
     , -- Invalid signatory/observer changes
       ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
     , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
@@ -305,9 +304,9 @@ exerciseV2ChoiceV2ContractSameType = do
   sameTypeResult <- a `exerciseV2Util` V2.SameChoiceExercise with cid = cid
   sameTypeResult === "V2"
 
-genericUpgradeTest 
+genericUpgradeTest
   : forall t2 t1 c2 r
-  . (Template t1, HasAgreement t1, Choice t2 c2 r)
+  . (Template t1, HasEnsure t1, Choice t2 c2 r)
   => (Party -> t1)
   -> c2
   -> Bool
@@ -320,7 +319,7 @@ genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = do
   res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
   handleRes res
 
-choiceTest : forall t2 t1 c2 r. (Template t1, HasAgreement t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
+choiceTest : forall t2 t1 c2 r. (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
 choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = genericUpgradeTest @t2 makeV1Contract v2Choice explicitPackageIds $ \res ->
   case res of
     Right returnValue -> returnValue === expectedResult
@@ -453,7 +452,7 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = do
   charlie <- allocatePartyOn "charlie" participant0
   let (preSignatories, postSignatories) = sigF (alice, bob, charlie)
       (preObservers, postObservers) = obsF (alice, bob, charlie)
-  
+
   cid <- submitMulti [alice, bob, charlie] [] $ createExactCmd V1.InvalidUpgradeStakeholders with
     signatories = preSignatories
     observers = preObservers
@@ -497,7 +496,7 @@ smallerObserverUpgrade : Script ()
 smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
 canRemoveObserversThatAreSignatories : Script ()
-canRemoveObserversThatAreSignatories = 
+canRemoveObserversThatAreSignatories =
   signatoryObserverUpgrade
     True
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
@@ -522,7 +521,7 @@ ensureClauseDowngradeToNoLongerValid =
     Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
     res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
-templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
 templateInvalidChange shouldSucceed makeV1Contract v2Choice =
   genericUpgradeTest @t2 makeV1Contract v2Choice False $ \res ->
     case (res, shouldSucceed) of
@@ -550,7 +549,7 @@ templateFieldsRemovedNested : Script ()
 templateFieldsRemovedNested =
   templateInvalidChange
     @V2.FieldsRemovedNested
-    False 
+    False
     (\p -> V1.FieldsRemovedNested $ V1.FieldsRemovedNestedData p 1)
     V2.FieldsRemovedNestedCall
 

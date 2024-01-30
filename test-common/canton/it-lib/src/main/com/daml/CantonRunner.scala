@@ -8,13 +8,13 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.auth
+import com.digitalasset.canton.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
-import spray.json.JsString
+import spray.json._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
@@ -116,7 +116,7 @@ object CantonRunner {
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
          |
-         |  sequencers-x {
+         |  sequencers {
          |    sequencer1 {
          |        admin-api.port = ${sequencerAdminApi.port}
          |        public-api.port = ${sequencerPublicApi.port}
@@ -128,13 +128,13 @@ object CantonRunner {
          |    }
          |  }
          |
-         |  mediators-x {
+         |  mediators {
          |    mediator1 {
          |        admin-api.port = ${mediatorAdminApi.port}
          |    }
          |  }
          |
-         |  participants-x {
+         |  participants {
          |    ${participantsConfig}
          |  }
          |}
@@ -143,7 +143,7 @@ object CantonRunner {
 
     val bootstrapConnectParticipants =
       config.participantIds
-        .map(id => s"$id.domains.connect_local(sequencer1)")
+        .map(id => s"$id.domains.connect_local(sequencer1, \"mydomain\")")
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
@@ -287,7 +287,8 @@ object CantonRunner {
       scope = Some(targetScope.getOrElse("daml_ledger_api")),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))
+    val jwt =
+      DecodedJwt[String](header, auth.AuthServiceJWTCodec.writePayload(payload).compactPrint)
     JwtSigner.HMAC256.sign(jwt, secret).toEither match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)

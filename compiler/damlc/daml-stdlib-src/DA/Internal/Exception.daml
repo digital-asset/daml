@@ -172,11 +172,6 @@ instance ActionThrow Update where
 instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
 
-#ifdef DAML_SCENARIOS
-instance ActionThrow Scenario where
-    throw e = pure () >>= \_ -> throwPure e
-#endif
-
 -- Can't catch in scenarios.
 
 #endif

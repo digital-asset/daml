@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf1
+import com.daml.daml_lf_dev.DamlLf2
 import com.daml.lf.language.{Ast, TypeOrdering}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,11 +17,11 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
     "follow archive protobuf order" in {
 
       val protoMapping =
-        DecodeCommon.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap
+        DecodeV2.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap
 
       val primTypesInProtoOrder =
-        DamlLf1.PrimType.getDescriptor.getValues.asScala
-          .map(desc => DamlLf1.PrimType.internalGetValueMap().findValueByNumber(desc.getNumber))
+        DamlLf2.PrimType.getDescriptor.getValues.asScala
+          .map(desc => DamlLf2.PrimType.internalGetValueMap().findValueByNumber(desc.getNumber))
           .sortBy(_.getNumber)
           .collect(protoMapping)
 

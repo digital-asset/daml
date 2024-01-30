@@ -350,7 +350,7 @@ abstract class SequencerClientImpl(
   ): Either[SendAsyncClientError, Unit] = {
     // We're ignoring the size of the SignedContent wrapper here.
     // TODO(#12320) Look into what we really want to do here
-    val serializedRequestSize = request.toProtoV1.serializedSize
+    val serializedRequestSize = request.toProtoV30.serializedSize
 
     Either.cond(
       serializedRequestSize <= maxRequestSize.unwrap,

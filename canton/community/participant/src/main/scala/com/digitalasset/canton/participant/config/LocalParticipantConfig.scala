@@ -17,11 +17,11 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
+  IdentityProviderManagementConfig,
   IndexServiceConfig as LedgerIndexServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
@@ -169,7 +169,6 @@ final case class RemoteParticipantConfig(
   * @param databaseConnectionTimeout database connection timeout
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -193,7 +192,6 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
     additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
-    enableExplicitDisclosure: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
@@ -342,6 +340,7 @@ object TestingTimeServiceConfig {
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
+  * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -369,6 +368,8 @@ final case class ParticipantNodeParameterConfig(
     enableContractUpgrading: Boolean = false,
     iterationsBetweenInterruptions: Long =
       10000, // 10000 is the default value in the engine configuration
+    journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
+      config.NonNegativeFiniteDuration.ofSeconds(0),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores
@@ -421,11 +422,13 @@ object JournalPruningConfig {
   *                           Only configurable to reduce the amount of secure random numbers consumed by tests and to avoid flaky timeouts during continuous integration.
   * @param indexer            parameters how the participant populates the index db used to serve the ledger api
   * @param jwtTimestampLeeway leeway parameters for JWTs
+  * @param tokenExpiryGracePeriodForStreams grace periods for streams that postpone termination beyond the JWT expiry
   */
 final case class LedgerApiServerParametersConfig(
     contractIdSeeding: Seeding = Seeding.Strong,
     indexer: IndexerConfig = IndexerConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )
 

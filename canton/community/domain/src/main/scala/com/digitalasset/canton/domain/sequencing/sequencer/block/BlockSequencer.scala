@@ -48,6 +48,7 @@ import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
+  CloseContext,
   FlagCloseableAsync,
   SyncCloseable,
 }
@@ -122,7 +123,7 @@ class BlockSequencer(
       implicitMemberRegistration,
       orderingTimeFixMode,
       loggerFactory,
-    )
+    )(CloseContext(cryptoApi))
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty),
       Source
@@ -154,6 +155,11 @@ class BlockSequencer(
                   .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
                 ()
               }
+              .onShutdown(
+                logger.debug(
+                  s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
+                )
+              )
           case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
         }
         .toMat(Sink.ignore)(Keep.both),
@@ -493,6 +499,7 @@ class BlockSequencer(
     import TraceContext.Implicits.Empty.*
     logger.debug(s"$name sequencer shutting down")
     Seq[AsyncOrSyncCloseable](
+      SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("localEventsQueue.complete", localEventsQueue.complete()),
       AsyncCloseable(
         "localEventsQueue.watchCompletion",
@@ -502,7 +509,6 @@ class BlockSequencer(
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
       SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
-      SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
     )
   }

@@ -196,6 +196,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           any[PartyId],
           any[ParticipantId],
           any[String255],
+          any[Option[String255]],
         )
       ).thenReturn(Right(()))
 

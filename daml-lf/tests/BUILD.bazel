@@ -55,16 +55,6 @@ load(
 ]
 
 daml_build_test(
-    name = "ReinterpretTests-v1",
-    dar_dict = {
-        "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
-        "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
-    },
-    project_dir = "reinterpret-v1",
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
-daml_build_test(
     name = "ReinterpretTests-v2",
     project_dir = "reinterpret-v2",
     visibility = ["//daml-lf:__subpackages__"],

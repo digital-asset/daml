@@ -8,7 +8,6 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.TopologyBootstrapServiceGrpc
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
@@ -16,7 +15,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   DirectSequencerClientTransport,
   Sequencer,
 }
-import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerTopologyBootstrapService
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -46,9 +44,10 @@ import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/* If we're running separately from the domain node we create a sequencer client and connect it to a topology client
+/* We create a sequencer client and connect it to a topology client
  * to power sequencer authentication.
  */
+// TODO(#15161): Fold into SequencerRuntime base class
 class SequencerRuntimeForSeparateNode(
     sequencerId: SequencerId,
     sequencer: Sequencer,
@@ -207,33 +206,10 @@ class SequencerRuntimeForSeparateNode(
     }
   }
 
-  override def registerAdminGrpcServices(
-      register: ServerServiceDefinition => Unit
-  )(implicit ec: ExecutionContext): Unit = {
-    super.registerAdminGrpcServices(register)(ec)
-
-    register(
-      TopologyBootstrapServiceGrpc
-        .bindService(
-          new GrpcSequencerTopologyBootstrapService(
-            domainId,
-            staticDomainParameters.protocolVersion,
-            syncCrypto,
-            client,
-            // intentionally just querying whether the topology client is initialized, and not waiting for it to complete
-            () => initializedAtHead,
-            loggerFactory,
-            futureSupervisor,
-            timeouts,
-          )(ec),
-          executionContext,
-        )
-    )
-  }
-
   override def onClosed(): Unit = {
     Lifecycle.close(
       timeTracker,
+      syncCrypto,
       topologyClient,
       client,
       topologyProcessor,

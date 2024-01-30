@@ -21,8 +21,7 @@ import com.digitalasset.canton.protocol.{
   TargetDomainId,
   TransferDomainId,
   TransferId,
-  v0,
-  v3,
+  v30,
 }
 import com.digitalasset.canton.sequencing.RawProtocolEvent
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, EventWithErrors, SignedContent}
@@ -54,25 +53,25 @@ case class TransferResult[+Domain <: TransferDomainId] private (
   override def viewType: ViewType = domain.toViewType
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransferResult(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransferResult(
       getCryptographicEvidence
     )
 
   @transient override protected lazy val companionObj: TransferResult.type = TransferResult
 
-  private def toProtoV3: v3.TransferResult = {
+  private def toProtoV30: v30.TransferResult = {
     val domainP = (domain: @unchecked) match {
       case SourceDomainId(domainId) =>
-        v3.TransferResult.Domain.SourceDomain(domainId.toProtoPrimitive)
+        v30.TransferResult.Domain.SourceDomain(domainId.toProtoPrimitive)
       case TargetDomainId(domainId) =>
-        v3.TransferResult.Domain.TargetDomain(domainId.toProtoPrimitive)
+        v30.TransferResult.Domain.TargetDomain(domainId.toProtoPrimitive)
     }
-    v3.TransferResult(
+    v30.TransferResult(
       requestId = Some(requestId.toProtoPrimitive),
       domain = domainP,
       informees = informees.toSeq,
-      verdict = Some(verdict.toProtoV3),
+      verdict = Some(verdict.toProtoV30),
     )
   }
 
@@ -113,9 +112,9 @@ object TransferResult
   override val name: String = "TransferResult"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v3.TransferResult)(
+    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferResult)(
       supportedProtoVersionMemoized(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -131,11 +130,11 @@ object TransferResult
       None,
     )
 
-  private def fromProtoV3(transferResultP: v3.TransferResult)(
+  private def fromProtoV3(transferResultP: v30.TransferResult)(
       bytes: ByteString
   ): ParsingResult[TransferResult[TransferDomainId]] = {
-    val v3.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
-    import v3.TransferResult.Domain
+    val v30.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
+    import v30.TransferResult.Domain
     for {
       requestId <- ProtoConverter
         .required("TransferOutResult.requestId", maybeRequestIdPO)
@@ -154,7 +153,7 @@ object TransferResult
       informees <- informeesP.traverse(ProtoConverter.parseLfPartyId)
       verdict <- ProtoConverter
         .required("TransferResult.verdict", verdictPO)
-        .flatMap(Verdict.fromProtoV3)
+        .flatMap(Verdict.fromProtoV30)
     } yield TransferResult(requestId, informees.toSet, domain, verdict)(
       protocolVersionRepresentativeFor(ProtoVersion(3)),
       Some(bytes),

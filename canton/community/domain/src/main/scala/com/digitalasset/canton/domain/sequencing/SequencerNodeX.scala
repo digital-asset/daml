@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v2.SequencerInitializationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequestX,
@@ -471,6 +471,7 @@ class SequencerNodeBootstrapX(
         crypto,
         config.topologyX,
         timeouts,
+        arguments.futureSupervisor,
         loggerFactory,
       )
 
@@ -492,7 +493,7 @@ class SequencerNodeBootstrapX(
               domainTopologyStore,
               domainId,
               staticDomainParameters.protocolVersion,
-              crypto,
+              crypto.pureCrypto,
               parameters,
               config.topologyX.enableTopologyTransactionValidation,
               clock,
@@ -615,6 +616,7 @@ class SequencerNodeBootstrapX(
   }
 }
 
+// TODO(#15161): Rename SequencerNodeX to SequencerNode, also remove X from SequencerNodeBootstrapX above
 class SequencerNodeX(
     config: SequencerNodeConfigCommon,
     metrics: SequencerMetrics,

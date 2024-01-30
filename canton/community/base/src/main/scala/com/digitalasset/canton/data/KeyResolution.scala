@@ -8,7 +8,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.{LfContractId, LfTransactionVersion, v3}
+import com.digitalasset.canton.protocol.{LfContractId, LfTransactionVersion, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
@@ -26,25 +26,25 @@ sealed trait KeyResolutionWithMaintainers extends KeyResolution {
 }
 
 sealed trait SerializableKeyResolution extends KeyResolution {
-  def toProtoOneOfV0: v3.ViewParticipantData.ResolvedKey.Resolution
+  def toProtoOneOfV30: v30.ViewParticipantData.ResolvedKey.Resolution
 }
 
 object SerializableKeyResolution {
-  def fromProtoOneOfV3(
-      resolutionP: v3.ViewParticipantData.ResolvedKey.Resolution,
+  def fromProtoOneOfV30(
+      resolutionP: v30.ViewParticipantData.ResolvedKey.Resolution,
       version: LfTransactionVersion,
   ): ParsingResult[SerializableKeyResolution] =
     resolutionP match {
-      case v3.ViewParticipantData.ResolvedKey.Resolution.ContractId(contractIdP) =>
+      case v30.ViewParticipantData.ResolvedKey.Resolution.ContractId(contractIdP) =>
         ProtoConverter
           .parseLfContractId(contractIdP)
           .map(AssignedKey(_)(version))
-      case v3.ViewParticipantData.ResolvedKey.Resolution
-            .Free(v3.ViewParticipantData.FreeKey(maintainersP)) =>
+      case v30.ViewParticipantData.ResolvedKey.Resolution
+            .Free(v30.ViewParticipantData.FreeKey(maintainersP)) =>
         maintainersP
           .traverse(ProtoConverter.parseLfPartyId)
           .map(maintainers => FreeKey(maintainers.toSet)(version))
-      case v3.ViewParticipantData.ResolvedKey.Resolution.Empty =>
+      case v30.ViewParticipantData.ResolvedKey.Resolution.Empty =>
         Left(FieldNotSet("ViewParticipantData.ResolvedKey.resolution"))
     }
 }
@@ -57,8 +57,8 @@ final case class AssignedKey(contractId: LfContractId)(
 
   override def resolution: Option[LfContractId] = Some(contractId)
 
-  override def toProtoOneOfV0: v3.ViewParticipantData.ResolvedKey.Resolution =
-    v3.ViewParticipantData.ResolvedKey.Resolution.ContractId(value = contractId.toProtoPrimitive)
+  override def toProtoOneOfV30: v30.ViewParticipantData.ResolvedKey.Resolution =
+    v30.ViewParticipantData.ResolvedKey.Resolution.ContractId(value = contractId.toProtoPrimitive)
 }
 
 final case class FreeKey(override val maintainers: Set[LfPartyId])(
@@ -69,9 +69,9 @@ final case class FreeKey(override val maintainers: Set[LfPartyId])(
 
   override def resolution: Option[LfContractId] = None
 
-  override def toProtoOneOfV0: v3.ViewParticipantData.ResolvedKey.Resolution =
-    v3.ViewParticipantData.ResolvedKey.Resolution.Free(
-      value = v3.ViewParticipantData.FreeKey(maintainers = maintainers.toSeq)
+  override def toProtoOneOfV30: v30.ViewParticipantData.ResolvedKey.Resolution =
+    v30.ViewParticipantData.ResolvedKey.Resolution.Free(
+      value = v30.ViewParticipantData.FreeKey(maintainers = maintainers.toSeq)
     )
 
   override def asSerializable: SerializableKeyResolution = this

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.script.test
 
-import com.daml.ledger.api.auth.CustomDamlJWTPayload
+import com.digitalasset.canton.ledger.api.auth.CustomDamlJWTPayload
 import com.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

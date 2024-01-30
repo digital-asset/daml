@@ -8,8 +8,8 @@ import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.TransferOutMediatorMessage
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
@@ -80,9 +80,9 @@ object TransferOutViewTree
   override val name: String = "TransferOutViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.TransferViewTree)(
-      supportedProtoVersion(_)((context, proto) => fromProtoV1(context)(proto)),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferViewTree)(
+      supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -97,11 +97,11 @@ object TransferOutViewTree
       hashOps,
     )
 
-  def fromProtoV1(context: (HashOps, ProtocolVersion))(
-      transferOutViewTreeP: v1.TransferViewTree
+  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+      transferOutViewTreeP: v30.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
-    GenTransferViewTree.fromProtoV1(
+    GenTransferViewTree.fromProtoV30(
       TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
       TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
     )((commonData, view) =>
@@ -144,9 +144,9 @@ final case class TransferOutCommonData private (
       : RepresentativeProtocolVersion[TransferOutCommonData.type] =
     TransferOutCommonData.protocolVersionRepresentativeFor(protocolVersion.v)
 
-  protected def toProtoV1: v1.TransferOutCommonData =
-    v1.TransferOutCommonData(
-      salt = Some(salt.toProtoV0),
+  protected def toProtoV30: v30.TransferOutCommonData =
+    v30.TransferOutCommonData(
+      salt = Some(salt.toProtoV30),
       sourceDomain = sourceDomain.toProtoPrimitive,
       sourceMediator = sourceMediator.toProtoPrimitive,
       stakeholders = stakeholders.toSeq,
@@ -181,9 +181,9 @@ object TransferOutCommonData
   override val name: String = "TransferOutCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.TransferOutCommonData)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutCommonData)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -204,10 +204,13 @@ object TransferOutCommonData
     uuid,
   )(hashOps, protocolVersion, None)
 
-  private[this] def fromProtoV1(hashOps: HashOps, transferOutCommonDataP: v1.TransferOutCommonData)(
+  private[this] def fromProtoV30(
+      hashOps: HashOps,
+      transferOutCommonDataP: v30.TransferOutCommonData,
+  )(
       bytes: ByteString
   ): ParsingResult[TransferOutCommonData] = {
-    val v1.TransferOutCommonData(
+    val v30.TransferOutCommonData(
       saltP,
       sourceDomainP,
       stakeholdersP,
@@ -218,7 +221,7 @@ object TransferOutCommonData
     ) = transferOutCommonDataP
 
     for {
-      salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
+      salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       sourceDomain <- SourceDomainId.fromProtoPrimitive(sourceDomainP, "source_domain")
       sourceMediator <- MediatorRef.fromProtoPrimitive(sourceMediatorP, "source_mediator")
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
@@ -282,12 +285,12 @@ final case class TransferOutView private (
   def templateId: LfTemplateId =
     contract.rawContractInstance.contractInstance.unversioned.template
 
-  protected def toProtoV2: v2.TransferOutView =
-    v2.TransferOutView(
-      salt = Some(salt.toProtoV0),
+  protected def toProtoV30: v30.TransferOutView =
+    v30.TransferOutView(
+      salt = Some(salt.toProtoV30),
       submitter = submitter,
       targetDomain = targetDomain.toProtoPrimitive,
-      targetTimeProof = Some(targetTimeProof.toProtoV0),
+      targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
       submittingParticipant = submittingParticipant,
       applicationId = applicationId,
@@ -296,7 +299,7 @@ final case class TransferOutView private (
       commandId = commandId,
       transferCounter = transferCounter.toProtoPrimitive,
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
-      contract = Some(contract.toProtoV1),
+      contract = Some(contract.toProtoV30),
     )
 
   override def pretty: Pretty[TransferOutView] = prettyOfClass(
@@ -316,9 +319,9 @@ object TransferOutView
   override val name: String = "TransferOutView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.TransferOutView)(
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutView)(
       supportedProtoVersionMemoized(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -344,10 +347,10 @@ object TransferOutView
       transferCounter.getOrElse(throw new IllegalArgumentException("Missing transfer counter.")),
     )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
-  private[this] def fromProtoV2(hashOps: HashOps, transferOutViewP: v2.TransferOutView)(
+  private[this] def fromProtoV2(hashOps: HashOps, transferOutViewP: v30.TransferOutView)(
       bytes: ByteString
   ): ParsingResult[TransferOutView] = {
-    val v2.TransferOutView(
+    val v30.TransferOutView(
       saltP,
       submitterP,
       targetDomainP,
@@ -364,7 +367,7 @@ object TransferOutView
     ) = transferOutViewP
 
     for {
-      salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
+      salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       submitter <- ProtoConverter.parseLfPartyId(submitterP)
       targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "targetDomain")
       targetProtocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
@@ -379,7 +382,7 @@ object TransferOutView
       creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       contract <- ProtoConverter
         .required("TransferOutViewTree.contract", contractPO)
-        .flatMap(SerializableContract.fromProtoV1)
+        .flatMap(SerializableContract.fromProtoV30)
 
     } yield TransferOutView(
       salt,

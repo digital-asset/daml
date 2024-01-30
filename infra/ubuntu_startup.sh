@@ -18,6 +18,9 @@ rm -vf "$0"
 
 ## Install system dependencies
 apt-get update -q
+export DEBIAN_FRONTEND=noninteractive
+apt-get upgrade -y
+
 apt-get install -qy \
   curl sudo \
   bzip2 rsync \

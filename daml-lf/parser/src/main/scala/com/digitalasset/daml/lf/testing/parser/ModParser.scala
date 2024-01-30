@@ -153,7 +153,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (Id("precondition") ~> expr <~ `;`) ~
       (Id("signatories") ~> expr <~ `;`) ~
       (Id("observers") ~> expr <~ `;`) ~
-      (Id("agreement") ~> expr <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(implements <~ `;`) ~
       opt(Id("key") ~> templateKey <~ `;`) <~
@@ -162,7 +161,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           precon ~
           signatories ~
           observers ~
-          agreement ~
           choices ~
           implements ~
           key =>
@@ -172,7 +170,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             param = x,
             precond = precon,
             signatories = signatories,
-            agreementText = agreement,
             choices = choices,
             observers = observers,
             key = key,

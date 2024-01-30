@@ -27,7 +27,6 @@ import interpretation.{Error => IE}
 
 import scala.language.implicitConversions
 
-class InterfacesTestV1 extends InterfacesTest(LanguageMajorVersion.V1)
 class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
 
 @SuppressWarnings(

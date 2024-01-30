@@ -1,0 +1,26 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Canton.Internal.Ping where
+
+template Ping
+  with
+    id : Text
+    initiator : Party    
+    responder : Party
+  where
+
+    signatory initiator
+    observer responder
+
+    choice Respond : ()
+      controller responder
+        do
+          return ()
+
+    choice AbortPing : ()
+      with
+        anyone : Party
+      controller anyone
+        do
+          return ()

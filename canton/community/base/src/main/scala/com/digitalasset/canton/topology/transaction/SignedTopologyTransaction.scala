@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -57,11 +57,11 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
   @transient override protected lazy val companionObj: SignedTopologyTransaction.type =
     SignedTopologyTransaction
 
-  private def toProtoV0: v0.SignedTopologyTransaction =
-    v0.SignedTopologyTransaction(
+  private def toProtoV30: v30.SignedTopologyTransaction =
+    v30.SignedTopologyTransaction(
       transaction = transaction.getCryptographicEvidence,
-      key = Some(key.toProtoV0),
-      signature = Some(signature.toProtoV0),
+      key = Some(key.toProtoV30),
+      signature = Some(signature.toProtoV30),
     )
 
   def verifySignature(pureApi: CryptoPureApi): Either[SignatureCheckError, Unit] = {
@@ -101,9 +101,9 @@ object SignedTopologyTransaction
   type GenericSignedTopologyTransaction = SignedTopologyTransaction[TopologyChangeOp]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(v0.SignedTopologyTransaction)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedTopologyTransaction)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -167,9 +167,9 @@ object SignedTopologyTransaction
       EitherT.rightT(signedTx)
   }
 
-  private def fromProtoV0(
+  private def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
-      transactionP: v0.SignedTopologyTransaction,
+      transactionP: v30.SignedTopologyTransaction,
   )(
       bytes: ByteString
   ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
@@ -179,12 +179,12 @@ object SignedTopologyTransaction
           transactionP.transaction
         )
       publicKey <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV0,
+        SigningPublicKey.fromProtoV30,
         "key",
         transactionP.key,
       )
       signature <- ProtoConverter.parseRequired(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "signature",
         transactionP.signature,
       )

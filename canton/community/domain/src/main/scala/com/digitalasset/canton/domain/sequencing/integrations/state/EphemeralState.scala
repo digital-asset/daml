@@ -35,7 +35,8 @@ final case class EphemeralState(
 
   assert(
     heads.keys.forall(registeredMembers.contains),
-    "All members with a head counter value must be registered",
+    s"All members with a head counter value must be registered. " +
+      s"Members ${heads.toList.filterNot(h => registeredMembers.contains(h._1))} have head counters but are not registered.",
   )
 
   /** Next counter value for a single member.

@@ -8,6 +8,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
   ConfigurationStorageBackendTemplate,
+  ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
   PackageStorageBackendTemplate,
   PartyStorageBackendTemplate,
@@ -61,7 +62,7 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new H2ContractStorageBackend(ledgerEndCache, stringInterning)
+    new ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache, stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

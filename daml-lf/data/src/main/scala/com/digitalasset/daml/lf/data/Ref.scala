@@ -6,6 +6,9 @@ package data
 
 import com.daml.lf
 import com.daml.scalautil.Statement.discard
+import scalaz.Scalaz.eitherMonad
+import scalaz.syntax.traverse._
+import scalaz.std.list._
 
 object Ref {
 
@@ -20,9 +23,6 @@ object Ref {
 
   type PackageName = IdString.PackageName
   val PackageName: IdString.PackageName.type = IdString.PackageName
-
-  type PackageVersion = IdString.PackageVersion
-  val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
     * underscore. We use them to represent [Party] literals. In this way, we avoid
@@ -209,6 +209,7 @@ object Ref {
         this.name compare that.name
     }
   }
+
   object QualifiedName {
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
@@ -291,7 +292,7 @@ object Ref {
   sealed abstract class PackageRef extends Product with Serializable
   object PackageRef {
     final case class Name(name: PackageName) extends PackageRef {
-      override def toString: String = "n#" + name
+      override def toString: String = "#" + name
     }
 
     final case class Id(id: PackageId) extends PackageRef {
@@ -299,8 +300,8 @@ object Ref {
     }
 
     def fromString(s: String): Either[String, PackageRef] =
-      if (s.startsWith("n#"))
-        PackageName.fromString(s.drop(2)).map(Name)
+      if (s.startsWith("#"))
+        PackageName.fromString(s.drop(1)).map(Name)
       else
         PackageId.fromString(s).map(Id)
 
@@ -319,7 +320,9 @@ object Ref {
       case PackageRef.Id(id) =>
         TypeConName(id, qName)
     }
+  }
 
+  object TypeConRef {
     def fromString(s: String): Either[String, TypeConRef] =
       splitInTwo(s, ':') match {
         case Some((packageRefString, qualifiedNameString)) =>
@@ -331,9 +334,10 @@ object Ref {
           Left(s"Separator ':' between package identifier and qualified name not found in $s")
       }
 
-    def assertFromString(s: String): TypeConRef =
-      assertRight(fromString(s))
+    def assertFromString(s: String): TypeConRef = assertRight(fromString(s))
 
+    def fromIdentifier(identifier: Identifier): TypeConRef =
+      TypeConRef(PackageRef.Id(identifier.packageId), identifier.qualifiedName)
   }
 
   /*
@@ -364,4 +368,40 @@ object Ref {
       assertRight(fromString(s))
   }
 
+  /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
+    *      separated by dots: "(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*"
+    */
+  final case class PackageVersion private[data] (segments: ImmArray[Int])
+      extends Ordered[PackageVersion] {
+    override def toString: String = segments.toSeq.mkString(".")
+
+    override def compare(that: PackageVersion): Int = {
+      import scala.math.Ordering.Implicits._
+
+      implicitly[Ordering[Seq[Int]]].compare(segments.toSeq, that.segments.toSeq)
+    }
+  }
+
+  object PackageVersion {
+    private val MaxPackageVersionLength = 255
+    final def fromString(s: String): Either[String, PackageVersion] = for {
+      _ <- Either.cond(
+        s.length <= MaxPackageVersionLength,
+        (),
+        s"Package version string length (${s.length}) exceeds the maximum supported length ($MaxPackageVersionLength)",
+      )
+      _ <- Either.cond(
+        s.matches("(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*"),
+        (),
+        s"Invalid package version string: `$s`. Package versions are non-empty strings consisting of segments of digits (without leading zeros) separated by dots.",
+      )
+      rawSegments = s.split("\\.").toList
+      segments <- rawSegments.traverse(rawSegmentStr =>
+        rawSegmentStr.toIntOption.toRight(s"Failed parsing $rawSegmentStr as an integer")
+      )
+    } yield PackageVersion(ImmArray.from(segments))
+
+    @throws[IllegalArgumentException]
+    final def assertFromString(s: String): PackageVersion = assertRight(fromString(s))
+  }
 }

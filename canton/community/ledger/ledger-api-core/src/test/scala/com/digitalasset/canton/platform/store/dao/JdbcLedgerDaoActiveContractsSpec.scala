@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.platform.TemplatePartiesFilter
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}

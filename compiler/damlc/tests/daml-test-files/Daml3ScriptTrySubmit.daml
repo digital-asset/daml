@@ -3,12 +3,14 @@
 
 -- @ SCRIPT-V2
 
+-- @ WARN range=13:1-13:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+
 {-# LANGUAGE ApplicativeDo #-}
 
 module Daml3ScriptTrySubmit where
 
 import Daml.Script
-import Daml.Script.Questions
+import Daml.Script.Internal
 import DA.Assert
 import DA.Exception
 import DA.Text

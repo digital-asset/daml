@@ -5,7 +5,7 @@
 -- We use the template typeclass and instances directly as otherwise the error
 -- is caught prior due to missing Eq and Show instances.
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 -- @ERROR range=21:13-21:21; cannot require 'Bool' because it is not an interface
 
 module RequiresNonInterface where

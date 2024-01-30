@@ -16,7 +16,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class LimitsSpecV1 extends LimitsSpec(LanguageMajorVersion.V1)
 class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
 
 class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -56,7 +55,6 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Mod:T {signatories} this;
       observers Mod:T {observers} this;
-      agreement "Agreement";
       choice @nonConsuming NoOp (self) (arg: Mod:NoOpArg): Unit,
         controllers Mod:NoOpArg {controllers} arg,
         observers Mod:NoOpArg {observers} arg

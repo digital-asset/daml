@@ -8,7 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
-import com.digitalasset.canton.domain.admin.v2.MediatorInitializationServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.MediatorInitializationServiceGrpc
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequestX,
   InitializeMediatorResponseX,
@@ -79,38 +79,6 @@ final case class CommunityMediatorNodeXConfig(
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorXAdminApiPort.setDefaultPort)
   }
-
-  /** the following case class match will help us detect any additional configuration options added
-    * for "classic" non-X nodes that may apply to X-nodes as well.
-    */
-  private def _completenessCheck(
-      classicConfig: CommunityMediatorNodeConfig
-  ): CommunityMediatorNodeXConfig =
-    classicConfig match {
-      case CommunityMediatorNodeConfig(
-            adminApi,
-            storage,
-            crypto,
-            init,
-            timeTracker,
-            sequencerClient,
-            caching,
-            parameters,
-            monitoring,
-            topologyX,
-          ) =>
-        CommunityMediatorNodeXConfig(
-          adminApi,
-          storage,
-          crypto,
-          init,
-          timeTracker,
-          sequencerClient,
-          caching,
-          parameters,
-          monitoring,
-        )
-    }
 }
 
 class MediatorNodeBootstrapX(
@@ -281,7 +249,7 @@ class MediatorNodeBootstrapX(
             domainTopologyStore,
             domainId,
             protocolVersion,
-            crypto,
+            crypto.pureCrypto,
             arguments.parameterConfig,
             config.topologyX.enableTopologyTransactionValidation,
             arguments.clock,
@@ -299,6 +267,7 @@ class MediatorNodeBootstrapX(
         topologyXConfig = config.topologyX,
         timeouts = timeouts,
         loggerFactory = domainLoggerFactory,
+        futureSupervisor = arguments.futureSupervisor,
       )
       performUnlessClosingEitherU("starting up mediator node") {
         val indexedStringStore = IndexedStringStore.create(

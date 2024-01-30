@@ -12,7 +12,7 @@ bootstrap.domain(
 // Connect participant1 to da using the connect macro.
 // The connect macro will inspect the domain configuration to find the correct URL and Port.
 // The macro is convenient for local testing, but obviously doesn't work in a distributed setup.
-participant1.domains.connect_local(sequencer1, alias = Some("da"))
+participant1.domains.connect_local(sequencer1, alias = "da")
 
 val daPort = Option(System.getProperty("canton-examples.da-port")).getOrElse("5018")
 

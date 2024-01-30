@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleSeq.MerkleSeqElement
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{RootHash, v1}
+import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasProtocolVersionedWrapper
@@ -211,7 +211,7 @@ final case class BlindedNode[+A](rootHash: RootHash) extends MerkleTree[A] {
 }
 
 object MerkleTree {
-  type VersionedMerkleTree[A] = MerkleTree[A] with HasProtocolVersionedWrapper[_]
+  type VersionedMerkleTree[A] = MerkleTree[A] & HasProtocolVersionedWrapper[?]
 
   /** Command indicating whether and how to blind a Merkle tree. */
   sealed trait BlindingCommand extends Product with Serializable
@@ -223,20 +223,20 @@ object MerkleTree {
   /** Reveal the node if at least one descendant is revealed as well */
   case object RevealIfNeedBe extends BlindingCommand
 
-  def toBlindableNodeV1(node: MerkleTree[HasProtocolVersionedWrapper[_]]): v1.BlindableNode =
-    v1.BlindableNode(blindedOrNot = node.unwrap match {
-      case Left(h) => v1.BlindableNode.BlindedOrNot.BlindedHash(h.toProtoPrimitive)
+  def toBlindableNodeV30(node: MerkleTree[HasProtocolVersionedWrapper[?]]): v30.BlindableNode =
+    v30.BlindableNode(blindedOrNot = node.unwrap match {
+      case Left(h) => v30.BlindableNode.BlindedOrNot.BlindedHash(h.toProtoPrimitive)
       case Right(n) =>
-        v1.BlindableNode.BlindedOrNot.Unblinded(
+        v30.BlindableNode.BlindedOrNot.Unblinded(
           n.toByteString
         )
     })
 
-  def fromProtoOptionV1[NodeType](
-      protoNode: Option[v1.BlindableNode],
+  def fromProtoOptionV30[NodeType](
+      protoNode: Option[v30.BlindableNode],
       f: ByteString => ParsingResult[MerkleTree[NodeType]],
   ): ParsingResult[MerkleTree[NodeType]] = {
-    import v1.BlindableNode.BlindedOrNot as BON
+    import v30.BlindableNode.BlindedOrNot as BON
     protoNode.map(_.blindedOrNot) match {
       case Some(BON.BlindedHash(hashBytes)) =>
         RootHash

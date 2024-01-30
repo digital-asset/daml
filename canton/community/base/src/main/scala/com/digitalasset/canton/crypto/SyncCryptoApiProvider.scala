@@ -228,59 +228,91 @@ object SyncCryptoClient {
       monad: Monad[F],
   ): F[SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-    val knownUntil = client.topologyKnownUntilTimestamp
-    val snapshotKnown = desiredTimestamp <= knownUntil
-    loggingContext.logger.debug(
-      s"${if (snapshotKnown) "Getting" else "Waiting for"} topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
-    )
-    if (snapshotKnown) {
-      getSnapshot(desiredTimestamp, traceContext)
+
+    def lookupDynamicDomainParameters(timestamp: CantonTimestamp): F[DynamicDomainParameters] =
+      for {
+        snapshot <- awaitSnapshotSupervised(
+          s"searching for topology change delay at $timestamp for desired timestamp $desiredTimestamp and known until ${client.topologyKnownUntilTimestamp}",
+          timestamp,
+          traceContext,
+        )
+        domainParams <- dynamicDomainParameters(
+          snapshot.ipsSnapshot,
+          traceContext,
+        )
+      } yield domainParams
+
+    computeTimestampForValidation(
+      desiredTimestamp,
+      previousTimestampO,
+      client.topologyKnownUntilTimestamp,
+      client.approximateTimestamp,
+      warnIfApproximate,
+    )(
+      lookupDynamicDomainParameters
+    ).flatMap { timestamp =>
+      if (timestamp <= client.topologyKnownUntilTimestamp) {
+        loggingContext.logger.debug(
+          s"Getting topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+        )
+        getSnapshot(timestamp, traceContext)
+      } else {
+        loggingContext.logger.debug(
+          s"Waiting for topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+        )
+        awaitSnapshotSupervised(
+          s"requesting topology snapshot at topology snapshot at $timestamp; desired=${desiredTimestamp}, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
+          timestamp,
+          traceContext,
+        )
+      }
+    }
+  }
+
+  def computeTimestampForValidation[F[_]](
+      desiredTimestamp: CantonTimestamp,
+      previousTimestampO: Option[CantonTimestamp],
+      topologyKnownUntilTimestamp: CantonTimestamp,
+      currentApproximateTimestamp: CantonTimestamp,
+      warnIfApproximate: Boolean,
+  )(
+      domainParamsLookup: CantonTimestamp => F[DynamicDomainParameters]
+  )(implicit
+      loggingContext: ErrorLoggingContext,
+      // executionContext: ExecutionContext,
+      monad: Monad[F],
+  ): F[CantonTimestamp] = {
+    if (desiredTimestamp <= topologyKnownUntilTimestamp) {
+      monad.pure(desiredTimestamp)
     } else {
       previousTimestampO match {
         case None =>
-          val approximateSnapshot = client.currentSnapshotApproximation
           LoggerUtil.logAtLevel(
             if (warnIfApproximate) Level.WARN else Level.INFO,
-            s"Using approximate topology snapshot at ${approximateSnapshot.ipsSnapshot.timestamp} for desired timestamp $desiredTimestamp",
+            s"Using approximate topology snapshot at ${currentApproximateTimestamp} for desired timestamp $desiredTimestamp",
           )
-          monad.pure(approximateSnapshot)
+          monad.pure(currentApproximateTimestamp)
         case Some(previousTimestamp) =>
           if (desiredTimestamp <= previousTimestamp.immediateSuccessor)
-            awaitSnapshotSupervised(
-              s"requesting topology snapshot at $desiredTimestamp with update timestamp $previousTimestamp and known until $knownUntil",
-              desiredTimestamp,
-              traceContext,
-            )
+            monad.pure(desiredTimestamp)
           else {
             import scala.Ordered.orderingToOrdered
-            for {
-              previousSnapshot <- awaitSnapshotSupervised(
-                s"searching for topology change delay at $previousTimestamp for desired timestamp $desiredTimestamp and known until $knownUntil",
-                previousTimestamp,
-                traceContext,
-              )
-              previousDomainParams <- dynamicDomainParameters(
-                previousSnapshot.ipsSnapshot,
-                traceContext,
-              )
-              delay = previousDomainParams.topologyChangeDelay
-              diff = desiredTimestamp - previousTimestamp
-              snapshotTimestamp =
+            domainParamsLookup(previousTimestamp).map { previousDomainParams =>
+              val delay = previousDomainParams.topologyChangeDelay
+              val diff = desiredTimestamp - previousTimestamp
+              val snapshotTimestamp =
                 if (diff > delay.unwrap) {
                   // `desiredTimestamp` is larger than `previousTimestamp` plus the `delay`,
                   // so timestamps cannot overflow here
                   checked(previousTimestamp.plus(delay.unwrap).immediateSuccessor)
                 } else desiredTimestamp
-              desiredSnapshot <- awaitSnapshotSupervised(
-                s"requesting topology snapshot at $snapshotTimestamp for desired timestamp $desiredTimestamp given previous timestamp $previousTimestamp with topology change delay $delay",
-                snapshotTimestamp,
-                traceContext,
-              )
-            } yield desiredSnapshot
+              snapshotTimestamp
+            }
           }
       }
     }
   }
+
 }
 
 /** Crypto operations on a particular domain

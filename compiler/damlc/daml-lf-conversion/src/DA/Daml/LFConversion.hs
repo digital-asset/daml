@@ -365,7 +365,6 @@ data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
     , tbSignatory :: Maybe (GHC.Expr Var)
     , tbEnsure :: Maybe (GHC.Expr Var)
-    , tbAgreement :: Maybe (GHC.Expr Var)
     , tbObserver :: Maybe (GHC.Expr Var)
     , tbArchive :: Maybe (GHC.Expr Var)
     , tbKeyType :: Maybe GHC.Type
@@ -377,7 +376,7 @@ data TemplateBinds = TemplateBinds
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
 scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
@@ -388,8 +387,6 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
             Just (tpl, \tb -> tb { tbTyCon = Just tpl, tbSignatory = Just expr })
         HasEnsureDFunId tpl ->
             Just (tpl, \tb -> tb { tbEnsure = Just expr })
-        HasAgreementDFunId tpl ->
-            Just (tpl, \tb -> tb { tbAgreement = Just expr })
         HasObserverDFunId tpl ->
             Just (tpl, \tb -> tb { tbObserver = Just expr })
         HasArchiveDFunId tpl ->
@@ -668,8 +665,6 @@ convertInterfaces env mc =
 convertInterface :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
 convertInterface env mc intName ib =
   withRange intLocation do
-    unless (envLfVersion env `supports` featureSimpleInterfaces) do
-      unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
     defInterfaceDataType <- convertDefInterfaceDataType
     defInterface <- convertDefInterface
     pure
@@ -1096,14 +1091,12 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     , Just fSignatory <- tbSignatory
     , Just fObserver <- tbObserver
     , Just fEnsure <- tbEnsure
-    , Just fAgreement <- tbAgreement
     , tplLocation <- convNameLoc (GHC.tyConName tplTyCon)
     = withRange tplLocation $ do
         let tplParam = this
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
         tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
-        tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env mc tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
         tplImplements <- convertImplements env mc tplTypeCon
@@ -1197,8 +1190,6 @@ convertInterfaceInstance ::
   -> InterfaceInstanceBinds
   -> ConvertM r
 convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
-  unless (envLfVersion env `supports` featureSimpleInterfaces) do
-    unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent interfaceQualTypeCon templateQualTypeCon
@@ -1637,17 +1628,26 @@ convertExpr env0 e = do
         withTmArg env field' args $ \x1 args ->
             withTmArg env record' args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
-    -- NOTE(MH): We only inline `getField` for record types. Projections on
+    -- NOTE(MH, MA): We only inline `getField` for record types, and only when the
+    -- type actually contains a field of the given name. Projections on
     -- sum-of-records types have to through the type class for `getField`.
     go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             recordType <- convertType env recordType
             withTmArg env recordType args $ \record args ->
                 pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
     go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             record' <- convertType env record
             field' <- convertType env field
             withTmArg env field' args $ \x1 args ->

@@ -278,7 +278,6 @@ private[daml] class AstRewriter(
             param,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
@@ -288,7 +287,6 @@ private[daml] class AstRewriter(
           param,
           apply(precond),
           apply(signatories),
-          apply(agreementText),
           choices.transform { (_, x) =>
             apply(x)
           },

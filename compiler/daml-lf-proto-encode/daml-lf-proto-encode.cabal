@@ -52,7 +52,6 @@ library
     exposed-modules:
       DA.Daml.LF.Proto3.Archive.Encode
       DA.Daml.LF.Proto3.Encode
-      DA.Daml.LF.Proto3.EncodeV1
       DA.Daml.LF.Proto3.EncodeV2
     default-extensions:
       BangPatterns

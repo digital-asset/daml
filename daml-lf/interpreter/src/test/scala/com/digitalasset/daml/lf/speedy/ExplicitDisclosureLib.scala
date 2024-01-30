@@ -42,7 +42,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:House {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:House";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:House {owner} this)),
@@ -59,7 +58,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:Cave {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:Cave";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:Cave {owner} this)),
@@ -157,7 +155,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
-      agreementText = "Agreement1",
       signatories = Set(owner, maintainer),
       observers = Set.empty,
       keyOpt = cachedKey,
@@ -178,7 +175,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         ImmArray(Ref.Name.assertFromString("owner")),
         ArrayList(SValue.SParty(owner)),
       ),
-      agreementText = "Agreement2",
       signatories = Set(owner),
       observers = Set.empty,
       keyOpt = None,
@@ -280,7 +276,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       packageName = packageName,
       templateId = templateId,
       value = contract,
-      agreementText = "Agreement3",
       signatories = Set(signatory),
       observers = Set.empty,
       keyOpt = mbKey,

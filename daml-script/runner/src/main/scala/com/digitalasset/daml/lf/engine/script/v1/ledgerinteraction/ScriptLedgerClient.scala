@@ -6,7 +6,7 @@ package v1.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -17,6 +17,7 @@ import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -51,7 +52,9 @@ object ScriptLedgerClient {
       blob: Bytes,
   ) extends TreeEvent
 
-  def realiseScriptLedgerClient(ledger: abstractLedgers.ScriptLedgerClient): ScriptLedgerClient =
+  def realiseScriptLedgerClient(
+      ledger: abstractLedgers.ScriptLedgerClient
+  )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
         oAdminClient.foreach(_ =>
@@ -63,7 +66,7 @@ object ScriptLedgerClient {
       case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
         new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
-        new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
+        new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled, namedLoggerFactory)
     }
 }
 

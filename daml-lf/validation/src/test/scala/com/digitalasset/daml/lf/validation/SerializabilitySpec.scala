@@ -13,7 +13,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class SerializabilitySpecV1 extends SerializabilitySpec(LanguageMajorVersion.V1)
 class SerializabilitySpecV2 extends SerializabilitySpec(LanguageMajorVersion.V2)
 
 class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
@@ -165,7 +164,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers ${partiesAlice(
             "NegativeTestCase:SerializableRecord"
           )} to upure @Mod:SerializableType (Mod:SerializableType {});
@@ -179,7 +177,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:SerializableType, controllers ${partiesAlice(
             "PositiveTestCase1:UnserializableRecord"
@@ -195,7 +192,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
                Unit, controllers ${partiesAlice("PositiveTestCase2:SerializableRecord")} to
                    upure @Unit ();
@@ -209,7 +205,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:UnserializableType, controllers ${partiesAlice(
             "PositiveTestCase3:SerializableRecord"
@@ -257,85 +252,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       check(pkg, "NegativeTestCase")
       an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
-
-    }
-
-    "reject unserializable contract for LF =< 1.14" in {
-
-      val pkg14 = {
-
-        implicit val v114ParserParameters: ParserParameters[this.type] =
-          defaultParserParameters.copy(languageVersion = LanguageVersion.v1_14)
-
-        p"""
-          // well-formed module
-          module NegativeTestCase1 {
-            record @serializable SerializableRecord = {};
-
-            template (this : SerializableRecord) =  {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              agreement "Agreement";
-            } ;
-
-            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
-          }
-
-          module NegativeTestCase2 {
-            record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
-          }
-
-          module NegativeTestCase3 {
-            record @serializable SerializableRecord = {};
-
-            record @serializable OnceUnserializableContractId = { cid : ContractId NegativeTestCase3:SerializableRecord };
-          }
-
-          module NegativeTestCase4 {
-            record @serializable OnceUnserializableContractId = { cid : ContractId Int64 };
-          }
-
-          module NegativeTestCase5 {
-            record @serializable OnceUnserializableContractId (a : *) = { cid : ContractId a };
-          }
-
-          module PositiveTestCase1 {
-            record SerializableRecord = {};
-
-            record @serializable UnserializableContractId = { cid : ContractId PositiveTestCase1:SerializableRecord };
-          }
-
-          module PositiveTestCase2 {
-            record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
-          }
-         """ (v114ParserParameters)
-      }
-
-      val negativeTestCases = Table(
-        "module",
-        "NegativeTestCase1",
-        "NegativeTestCase2",
-        "NegativeTestCase3",
-        "NegativeTestCase4",
-        "NegativeTestCase5",
-      )
-      val positiveTestCases = Table(
-        "module",
-        "PositiveTestCase1",
-        "PositiveTestCase2",
-      )
-
-      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.v1_15)
-
-      forEvery(negativeTestCases) { modName =>
-        check(pkg14, modName)
-        check(pkg15, modName)
-      }
-      forEvery(positiveTestCases) { modName =>
-        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg14, modName))
-        check(pkg15, modName)
-      }
 
     }
 
@@ -436,7 +352,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [bob] (Nil @Party);
             observers Cons @Party [alice] (Nil @Party);
-            agreement "Agreement";
             choice Ch (self) (x: Int64) : Decimal, controllers bob to upure @Int64 (DECIMAL_TO_INT64 x);
           } ;
 

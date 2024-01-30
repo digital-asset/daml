@@ -58,7 +58,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, true, hashCid("#4")),
-      dtoDivulgence(Some(offset(5)), 3L, hashCid("#4")),
       dtoCompletion(offset(5)),
       // 6: assign event
       dtoAssign(offset(6), 4L, hashCid("#5")),

@@ -32,8 +32,6 @@ template GetCash
    amount: Amount
  where
    signatory payer, owner
-   agreement
-     show payer <> " pays " <> amountAsText amount <>" to " <> show owner
 
 template Iou
 

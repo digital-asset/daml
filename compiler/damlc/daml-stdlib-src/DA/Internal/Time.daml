@@ -16,12 +16,6 @@ import GHC.Types (primitive)
 microsecondsPerDay : Int
 microsecondsPerDay = 86400000000 -- 24 * 60 * 60 * 1000000
 
-#ifdef DAML_SCENARIOS
--- | HIDE Pass simulated scenario time by argument
-internal_pass : Int -> Scenario Time
-internal_pass us = primitive @"SPass" us -- passes simulated scenario time by specified number of microseconds
-#endif
-
 -- | HIDE Convert a UTC timestamp (Time) to a microseconds since epoch,
 -- i.e. the number of microseconds since midnight on January 1, 1970.
 timeToMicrosecondsSinceEpoch : Time -> Int

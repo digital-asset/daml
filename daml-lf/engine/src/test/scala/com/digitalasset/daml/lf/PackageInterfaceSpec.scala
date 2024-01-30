@@ -14,7 +14,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop._
 import org.scalatest.wordspec.AnyWordSpec
 
-class PackageInterfaceSpecV1 extends PackageInterfaceSpec(LanguageMajorVersion.V1)
 class PackageInterfaceSpecV2 extends PackageInterfaceSpec(LanguageMajorVersion.V2)
 
 class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -50,7 +49,6 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
 
        }

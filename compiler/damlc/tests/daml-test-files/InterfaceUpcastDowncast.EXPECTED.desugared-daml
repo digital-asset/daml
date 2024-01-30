@@ -267,11 +267,6 @@ instance DA.Internal.Desugar.HasEnsure T1 where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement T1 where
-  agreement this@T1 {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive T1 where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -388,11 +383,6 @@ instance DA.Internal.Desugar.HasEnsure T2 where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement T2 where
-  agreement this@T2 {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive T2 where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -496,11 +486,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

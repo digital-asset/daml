@@ -131,7 +131,10 @@ class DbSequencerBlockStore(
       initialTrafficState: Vector[(Member, Option[TrafficState])],
   ): EphemeralState =
     state.copy(
-      checkpoints = initialCounters.toMap.fmap(counterToCheckpoint) ++ state.checkpoints,
+      checkpoints = initialCounters.toMap
+        .fmap(counterToCheckpoint)
+        // only include counters for registered members
+        .filter(c => state.registeredMembers.contains(c._1)) ++ state.checkpoints,
       trafficState = initialTrafficState.flatMap { case (member, maybeState) =>
         maybeState.map(member -> _)
       }.toMap ++ state.trafficState,

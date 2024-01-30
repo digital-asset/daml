@@ -23,6 +23,7 @@ copy_file(
     out = "hpp" + (".exe" if is_windows else ""),
     allow_symlink = True,
     is_executable = True,
+    visibility = ["//visibility:public"],
 )
 
 package_app(

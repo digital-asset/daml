@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
@@ -135,16 +135,19 @@ abstract class BlockSequencerFactory(
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    val stateManagerF = BlockSequencerStateManager(
-      protocolVersion,
-      domainId,
-      sequencerId,
-      store,
-      nodeParameters.enableAdditionalConsistencyChecks,
-      implicitMemberRegistration,
-      nodeParameters.processingTimeouts,
-      domainLoggerFactory,
-    )
+    val stateManagerF = {
+      implicit val closeContext = CloseContext(domainSyncCryptoApi)
+      BlockSequencerStateManager(
+        protocolVersion,
+        domainId,
+        sequencerId,
+        store,
+        nodeParameters.enableAdditionalConsistencyChecks,
+        implicitMemberRegistration,
+        nodeParameters.processingTimeouts,
+        domainLoggerFactory,
+      )
+    }
 
     stateManagerF.map { stateManager =>
       val sequencer = createBlockSequencer(

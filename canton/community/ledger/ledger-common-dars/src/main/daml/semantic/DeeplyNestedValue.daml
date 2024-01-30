@@ -28,15 +28,6 @@ template Contract
   where
     signatory party
 
-template ContractWithKey
-  with
-    party: Party
-    i: Int
-  where
-    signatory party
-    key (party, toNat i): (Party, Nat)
-    maintainer key._1
-
 template Handler
   with
     party : Party
@@ -61,22 +52,7 @@ template Handler
            party = party
            i = i
            n = toNat i
-    nonconsuming choice CreateKey: ContractId ContractWithKey
-      with i : Int
-      controller party
-      do create ContractWithKey with
-           party = party
-           i = i
     nonconsuming choice Fetch: Contract
       with cid: ContractId Contract
       controller party
       do fetch cid
-    nonconsuming choice FetchByKey: ContractId ContractWithKey
-      with i: Int
-      controller party
-      do (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
-         pure cid
-    nonconsuming choice LookupByKey: Optional (ContractId ContractWithKey)
-      with i: Int
-      controller party
-      do lookupByKey @ContractWithKey (party, toNat i)

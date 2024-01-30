@@ -96,18 +96,18 @@ class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMix
 
     "successfully start a Canton node when using a mix of a --config and -C config" in {
       processLogger =>
-        s"$cantonBin --config $simpleConf -C canton.participants-x.participant1.parameters.admin-workflow.bong-test-max-level=9000 $cantonShouldStartFlags" ! processLogger
+        s"$cantonBin --config $simpleConf -C canton.participants.participant1.parameters.admin-workflow.bong-test-max-level=9000 $cantonShouldStartFlags" ! processLogger
         checkOutput(processLogger, shouldContain = Seq(successMsg))
     }
 
     "successfully start a Canton node when configured only using -C" in { processLogger =>
       s"""$cantonBin
-          | -C canton.participants-x.participant1.storage.type=memory
-          | -C canton.participants-x.participant1.admin-api.port=5012
-          | -C canton.participants-x.participant1.ledger-api.port=5011
-          | -C canton.sequencers-x.sequencer1.sequencer.config.storage.type=memory
-          | -C canton.sequencers-x.sequencer1.sequencer.type=reference
-          | -C canton.sequencers-x.sequencer1.storage.type=memory
+          | -C canton.participants.participant1.storage.type=memory
+          | -C canton.participants.participant1.admin-api.port=5012
+          | -C canton.participants.participant1.ledger-api.port=5011
+          | -C canton.sequencers.sequencer1.sequencer.config.storage.type=memory
+          | -C canton.sequencers.sequencer1.sequencer.type=reference
+          | -C canton.sequencers.sequencer1.storage.type=memory
           | $cantonShouldStartFlags""".stripMargin ! processLogger
       checkOutput(processLogger, shouldContain = Seq(successMsg))
     }

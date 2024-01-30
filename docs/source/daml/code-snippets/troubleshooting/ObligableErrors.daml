@@ -15,11 +15,6 @@ template Payout
   where
     signatory giver, receiver
 
-
-    agreement
-      show giver <> " agress to give " <> show receiver <>
-      " the amount of " <> show amount <> " dollars"
-
 receiverCreates = script do
   receiver <- allocateParty "Bob"
   giver <- allocateParty "Alice"

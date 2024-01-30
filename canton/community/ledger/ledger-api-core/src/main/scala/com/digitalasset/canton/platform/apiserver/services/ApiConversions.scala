@@ -211,6 +211,7 @@ object ApiConversions {
       readAs = commands.readAs,
       submissionId = commands.submissionId,
       disclosedContracts = commands.disclosedContracts,
+      packageIdSelectionPreference = commands.packageIdSelectionPreference,
     )
 
   def toV1(getActiveContractsResponse: GetActiveContractsResponseV2): GetActiveContractsResponseV1 =
@@ -242,5 +243,4 @@ object ApiConversions {
 
   def toV1(submitAndWaitRequest: SubmitAndWaitRequestV2): SubmitAndWaitRequestV1 =
     SubmitAndWaitRequestV1(submitAndWaitRequest.commands.map(toV1))
-
 }

@@ -357,6 +357,12 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.domain.mediator.Mediator</logger>
+            <contains>Late processing (or clock skew) of batch with counter</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
 
         <!-- TODO(#13107): Clock/InstrumentedExecutorServiceMetrics do not yet support FlagCloseable -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">

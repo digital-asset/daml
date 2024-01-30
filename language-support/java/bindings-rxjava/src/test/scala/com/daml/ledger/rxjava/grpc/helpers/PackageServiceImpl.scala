@@ -3,8 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.PackageServiceAuthorization
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.PackageServiceAuthorization
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
 import io.grpc.ServerServiceDefinition

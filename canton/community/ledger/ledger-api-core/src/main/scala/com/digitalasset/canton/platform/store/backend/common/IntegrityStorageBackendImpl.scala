@@ -14,8 +14,6 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allSequentialIds: String =
     s"""
-      |SELECT event_sequential_id FROM participant_events_divulgence
-      |UNION ALL
       |SELECT event_sequential_id FROM participant_events_create
       |UNION ALL
       |SELECT event_sequential_id FROM participant_events_consuming_exercise

@@ -15,16 +15,17 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
 }
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
-import com.digitalasset.canton.crypto.{PublicKey, SignatureCheckError}
+import com.digitalasset.canton.crypto.{Fingerprint, PublicKey, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v0 as topoV0
+import com.digitalasset.canton.topology.admin.v30old as topoV30
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.TransactionAuthorizationValidator.AuthorizationChain
 import com.digitalasset.canton.topology.processing.{
@@ -235,12 +236,21 @@ sealed trait TopologyTransactionRejection extends PrettyPrinting {
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError
 }
 object TopologyTransactionRejection {
+
+  final case class NoDelegationFoundForKey(key: Fingerprint) extends TopologyTransactionRejection {
+    override def asString: String = s"No delegation found for key ${key.singleQuoted}"
+    override def pretty: Pretty[NoDelegationFoundForKey] = prettyOfString(_ => asString)
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+
+  }
   object NotAuthorized extends TopologyTransactionRejection {
     override def asString: String = "Not authorized"
     override def pretty: Pretty[NotAuthorized.type] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
-      TopologyManagerError.UnauthorizedTransaction.Failure()
+      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
   }
 
   final case class ThresholdTooHigh(actual: Int, mustBeAtMost: Int)
@@ -252,6 +262,21 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
       TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
+    }
+  }
+
+  final case class OnboardingRestrictionInPlace(
+      participant: ParticipantId,
+      restriction: OnboardingRestriction,
+      loginAfter: Option[CantonTimestamp],
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Participant ${participant} onboarding rejected as restrictions ${restriction} are in place."
+
+    override def pretty: Pretty[OnboardingRestrictionInPlace] = prettyOfString(_ => asString)
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
+      TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
     }
   }
 
@@ -363,38 +388,39 @@ object ValidatedTopologyTransaction {
 }
 
 sealed trait TimeQuery {
-  def toProtoV0: topoV0.BaseQuery.TimeQuery
+  def toProtoV30: topoV30.BaseQuery.TimeQuery
 }
+
 object TimeQuery {
 
   /** Determine the headstate.
     */
   object HeadState extends TimeQuery {
-    override def toProtoV0: topoV0.BaseQuery.TimeQuery =
-      topoV0.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
   }
   final case class Snapshot(asOf: CantonTimestamp) extends TimeQuery {
-    override def toProtoV0: topoV0.BaseQuery.TimeQuery =
-      topoV0.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
   }
   final case class Range(from: Option[CantonTimestamp], until: Option[CantonTimestamp])
       extends TimeQuery {
-    override def toProtoV0: topoV0.BaseQuery.TimeQuery = topoV0.BaseQuery.TimeQuery.Range(
-      topoV0.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery = topoV30.BaseQuery.TimeQuery.Range(
+      topoV30.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
     )
   }
 
   def fromProto(
-      proto: topoV0.BaseQuery.TimeQuery,
+      proto: topoV30.BaseQuery.TimeQuery,
       fieldName: String,
   ): ParsingResult[TimeQuery] =
     proto match {
-      case topoV0.BaseQuery.TimeQuery.Empty =>
+      case topoV30.BaseQuery.TimeQuery.Empty =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
-      case topoV0.BaseQuery.TimeQuery.Snapshot(value) =>
+      case topoV30.BaseQuery.TimeQuery.Snapshot(value) =>
         CantonTimestamp.fromProtoPrimitive(value).map(Snapshot)
-      case topoV0.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
-      case topoV0.BaseQuery.TimeQuery.Range(value) =>
+      case topoV30.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
+      case topoV30.BaseQuery.TimeQuery.Range(value) =>
         for {
           fromO <- value.from.traverse(CantonTimestamp.fromProtoPrimitive)
           toO <- value.until.traverse(CantonTimestamp.fromProtoPrimitive)
@@ -446,14 +472,6 @@ trait TopologyStoreCommon[+StoreID <: TopologyStoreId, ValidTx, StoredTx, Signed
   def providesAdditionalSignatures(transaction: SignedTx)(implicit
       traceContext: TraceContext
   ): Future[Boolean]
-
-  final def exists(transaction: SignedTx)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] = findStored(transaction).map(_.exists(signedTxFromStoredTx(_) == transaction))
-
-  def findStored(transaction: SignedTx, includeRejected: Boolean = false)(implicit
-      traceContext: TraceContext
-  ): Future[Option[StoredTx]]
 }
 
 object TopologyStoreCommon {
@@ -655,6 +673,19 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       transaction: SignedTopologyTransaction[TopologyChangeOp]
   )(implicit traceContext: TraceContext): Future[Boolean] =
     exists(transaction).map(exists => !exists)
+
+  final def exists(transaction: SignedTopologyTransaction[TopologyChangeOp])(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = findStored(transaction).map(
+    _.exists(signedTxFromStoredTx(_) == transaction)
+  )
+
+  def findStored(
+      transaction: SignedTopologyTransaction[TopologyChangeOp],
+      includeRejected: Boolean = false,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp]]]
 }
 
 object TopologyStore {

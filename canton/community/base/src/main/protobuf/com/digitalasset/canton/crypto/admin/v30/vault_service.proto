@@ -1,0 +1,246 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.crypto.admin.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "google/protobuf/empty.proto";
+
+/**
+ * Vault service providing programmatic access to locally stored keys and certificates
+ *
+ * We have two key-stores: a private key store where we are storing our pairs of
+ * public and private keys and a public key store where we are storing other
+ * public keys that we learned.
+ *
+ * We learn public key stores in different ways: either by importing them or
+ * by picking them up from internal sources (such as identity management updates).
+ *
+ * The only purpose of the public key store (where we import foreign keys) is convenience for
+ * identity management such that when we add identity management transactions, we can refer to
+ * fingerprints in commands while building them rather than having to attach public-key files.
+ *
+ * In addition, we also provide access to the locally stored certificates which are used
+ * either by the HTTP/1.1 sequencer client or for legal identity claims.
+ */
+service VaultService {
+  /**
+   * List public keys according to request filter for which we have a private key in our key vault.
+   *
+   * The request includes a filter for fingerprints which can be used for lookups.
+   *
+   * @param ListMyKeysRequest: request with optional fingerprint filter
+   * @return: all serialized keys and metadata that have the fingerprint filter as a substring in their fingerprint
+   */
+  rpc ListMyKeys(ListKeysRequest) returns (ListMyKeysResponse);
+
+  /**
+   * Generates a new public / private key pair for signing.
+   *
+   * Stores the private key in the vault, and returns the public key
+   */
+  rpc GenerateSigningKey(GenerateSigningKeyRequest) returns (GenerateSigningKeyResponse);
+
+  /**
+   * Generates a new public / private key pair for hybrid encryption.
+   *
+   * Stores the private key in the vault, and returns the public key
+   */
+  rpc GenerateEncryptionKey(GenerateEncryptionKeyRequest) returns (GenerateEncryptionKeyResponse);
+
+  /**
+   * Registers a KMS key for asymmetric/hybrid encryption.
+   *
+   * Stores the corresponding public key in the vault, and returns it
+   */
+  rpc RegisterKmsEncryptionKey(RegisterKmsEncryptionKeyRequest) returns (RegisterKmsEncryptionKeyResponse);
+
+  /**
+   * Registers a KMS key for signing.
+   *
+   * Stores the corresponding public key in the vault, and returns it
+   */
+  rpc RegisterKmsSigningKey(RegisterKmsSigningKeyRequest) returns (RegisterKmsSigningKeyResponse);
+
+  /**
+   * Import a public key into the registry in order to provide that Fingerprint -> PublicKey lookups
+   *
+   * @param: ImportPublicKeyRequest serialized public key to be imported
+   * @return: fingerprint and serialized public key of imported public key
+   */
+  rpc ImportPublicKey(ImportPublicKeyRequest) returns (ImportPublicKeyResponse);
+
+  /**
+   * Lists all public keys matching the supplied filter which are internally cached
+   *
+   * Any public key returned here can be referenced in topology transaction building
+   * by fingerprint.
+   */
+  rpc ListPublicKeys(ListKeysRequest) returns (ListKeysResponse);
+
+  /**
+   * Changes the wrapper key that is used to encrypt private keys when stored
+   */
+  rpc RotateWrapperKey(RotateWrapperKeyRequest) returns (google.protobuf.Empty);
+
+  rpc GetWrapperKeyId(GetWrapperKeyIdRequest) returns (GetWrapperKeyIdResponse);
+
+  rpc ExportKeyPair(ExportKeyPairRequest) returns (ExportKeyPairResponse);
+
+  rpc ImportKeyPair(ImportKeyPairRequest) returns (ImportKeyPairResponse);
+
+  rpc DeleteKeyPair(DeleteKeyPairRequest) returns (DeleteKeyPairResponse);
+}
+
+message GenerateCertificateRequest {
+  // unique identifier to be used for CN
+  string unique_identifier = 1;
+  // the private key fingerprint to use for this certificate
+  string certificate_key = 2;
+  // optional additional X500 names
+  string additional_subject = 3;
+  // the additional subject names to be added to this certificate
+  repeated string subject_alternative_names = 4;
+}
+
+message GenerateCertificateResponse {
+  // the certificate in PEM format
+  string x509_cert = 1;
+}
+
+message ListCertificateRequest {
+  string filterUid = 1;
+}
+
+message ListCertificateResponse {
+  message Result {
+    string x509_cert = 1;
+  }
+  repeated Result results = 1;
+}
+
+message ImportCertificateRequest {
+  // X509 certificate as PEM
+  string x509_cert = 1;
+}
+
+message ImportCertificateResponse {
+  string certificate_id = 1;
+}
+
+message ImportPublicKeyRequest {
+  // import a crypto.PublicKey protobuf serialized key
+  bytes public_key = 1;
+  // an optional name that should be stored along side the key
+  string name = 2;
+}
+
+message ImportPublicKeyResponse {
+  // fingerprint of imported key
+  string fingerprint = 1;
+}
+
+message ListKeysRequest {
+  // the substring that needs to match a given fingerprint
+  string filter_fingerprint = 1;
+  // the substring to filter the name
+  string filter_name = 2;
+  // filter on public key purpose
+  repeated com.digitalasset.canton.crypto.v30.KeyPurpose filter_purpose = 3;
+}
+
+message PrivateKeyMetadata {
+  com.digitalasset.canton.crypto.v30.PublicKeyWithName public_key_with_name = 1;
+
+  // If set the private key is stored encrypted by the wrapper key
+  string wrapper_key_id = 2;
+}
+
+message ListMyKeysResponse {
+  repeated PrivateKeyMetadata private_keys_metadata = 1;
+}
+
+message ListKeysResponse {
+  repeated com.digitalasset.canton.crypto.v30.PublicKeyWithName public_keys = 1;
+}
+
+message GenerateSigningKeyRequest {
+  com.digitalasset.canton.crypto.v30.SigningKeyScheme key_scheme = 1;
+
+  // optional descriptive name for the key
+  string name = 2;
+}
+
+message GenerateSigningKeyResponse {
+  com.digitalasset.canton.crypto.v30.SigningPublicKey public_key = 1;
+}
+
+message GenerateEncryptionKeyRequest {
+  com.digitalasset.canton.crypto.v30.EncryptionKeyScheme key_scheme = 1;
+
+  // optional descriptive name for the key
+  string name = 2;
+}
+
+message GenerateEncryptionKeyResponse {
+  com.digitalasset.canton.crypto.v30.EncryptionPublicKey public_key = 1;
+}
+
+message RegisterKmsSigningKeyRequest {
+  string kms_key_id = 1;
+
+  // optional descriptive name for the key
+  string name = 2;
+}
+
+message RegisterKmsSigningKeyResponse {
+  com.digitalasset.canton.crypto.v30.SigningPublicKey public_key = 1;
+}
+
+message RegisterKmsEncryptionKeyRequest {
+  string kms_key_id = 1;
+
+  // optional descriptive name for the key
+  string name = 2;
+}
+
+message RegisterKmsEncryptionKeyResponse {
+  com.digitalasset.canton.crypto.v30.EncryptionPublicKey public_key = 1;
+}
+
+message RotateWrapperKeyRequest {
+  string new_wrapper_key_id = 1;
+}
+
+message GetWrapperKeyIdRequest {}
+
+message GetWrapperKeyIdResponse {
+  string wrapper_key_id = 1;
+}
+
+message ExportKeyPairRequest {
+  // The id of the keypair to export
+  string fingerprint = 1;
+
+  // The protocol version that defines the serialization of the keypair
+  int32 protocol_version = 2;
+}
+
+message ExportKeyPairResponse {
+  bytes key_pair = 1;
+}
+
+message ImportKeyPairRequest {
+  bytes key_pair = 1;
+  string name = 2;
+}
+
+message ImportKeyPairResponse {}
+
+message DeleteKeyPairRequest {
+  string fingerprint = 1;
+}
+
+message DeleteKeyPairResponse {}

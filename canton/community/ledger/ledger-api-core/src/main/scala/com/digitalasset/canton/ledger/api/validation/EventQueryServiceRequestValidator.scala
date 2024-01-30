@@ -9,6 +9,7 @@ import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractKeyRequest,
 }
 import com.digitalasset.canton.ledger.api.messages.event
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import io.grpc.StatusRuntimeException
 
 object EventQueryServiceRequestValidator {
@@ -47,7 +48,7 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
       apiContractKey <- requirePresence(req.contractKey, "contract_key")
       contractKey <- ValueValidator.validateValue(apiContractKey)
       apiTemplateId <- requirePresence(req.templateId, "template_id")
-      templateId <- FieldValidator.validateIdentifier(apiTemplateId)
+      templateId <- validateIdentifier(apiTemplateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
       endExclusiveSeqId <- optionalEventSequentialId(

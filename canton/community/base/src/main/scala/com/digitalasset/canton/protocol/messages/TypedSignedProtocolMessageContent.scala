@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.version.*
@@ -31,8 +31,8 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  private def toProtoV0: v0.TypedSignedProtocolMessageContent =
-    v0.TypedSignedProtocolMessageContent(
+  private def toProtoV30: v30.TypedSignedProtocolMessageContent =
+    v30.TypedSignedProtocolMessageContent(
       someSignedProtocolMessage = content.toProtoTypedSomeSignedProtocolMessage
     )
 
@@ -64,11 +64,11 @@ object TypedSignedProtocolMessageContent
   override def name: String = "TypedSignedProtocolMessageContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
-    )(v0.TypedSignedProtocolMessageContent)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    )(v30.TypedSignedProtocolMessageContent)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -87,14 +87,14 @@ object TypedSignedProtocolMessageContent
   ): TypedSignedProtocolMessageContent[M] =
     TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 
-  private def fromProtoV0(
+  private def fromProtoV30(
       expectedProtocolVersion: ProtocolVersion,
-      proto: v0.TypedSignedProtocolMessageContent,
+      proto: v30.TypedSignedProtocolMessageContent,
   )(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
-    import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
-    val v0.TypedSignedProtocolMessageContent(messageBytes) = proto
+    import v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
+    val v30.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>

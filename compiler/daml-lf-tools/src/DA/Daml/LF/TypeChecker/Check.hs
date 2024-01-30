@@ -1002,7 +1002,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAutho
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: forall m. MonadGamma m => Module -> Template -> m ()
-checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey implements) = do
+checkTemplate m t@(Template _loc tpl param precond signatories observers choices mbKey implements) = do
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
@@ -1011,7 +1011,6 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPPrecondition $ checkExpr precond TBool
     withPart TPSignatories $ checkExpr signatories (TList TParty)
     withPart TPObservers $ checkExpr observers (TList TParty)
-    withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   forM_ implements \TemplateImplements {tpiInterface, tpiBody, tpiLocation} -> do
     let iiHead = InterfaceInstanceHead tpiInterface tcon

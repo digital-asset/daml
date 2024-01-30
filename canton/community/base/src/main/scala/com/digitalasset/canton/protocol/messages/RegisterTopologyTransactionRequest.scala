@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.Top
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{v0, v4}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
@@ -36,11 +36,11 @@ final case class RegisterTopologyTransactionRequest private (
 ) extends UnsignedProtocolMessage
     with PrettyPrinting {
 
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionRequest(toProtoV0)
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.RegisterTopologyTransactionRequest(toProtoV30)
 
-  def toProtoV0: v0.RegisterTopologyTransactionRequest =
-    v0.RegisterTopologyTransactionRequest(
+  def toProtoV30: v30.RegisterTopologyTransactionRequest =
+    v30.RegisterTopologyTransactionRequest(
       requestedBy = requestedBy.toProtoPrimitive,
       participant = participant.uid.toProtoPrimitive,
       requestId = requestId.toProtoPrimitive,
@@ -67,11 +67,11 @@ object RegisterTopologyTransactionRequest
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v0.RegisterTopologyTransactionRequest
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      v30.RegisterTopologyTransactionRequest
     )(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -92,9 +92,9 @@ object RegisterTopologyTransactionRequest
     )(protocolVersionRepresentativeFor(protocolVersion))
   )
 
-  def fromProtoV0(
+  def fromProtoV30(
       expectedProtocolVersion: ProtocolVersion,
-      message: v0.RegisterTopologyTransactionRequest,
+      message: v30.RegisterTopologyTransactionRequest,
   ): ParsingResult[RegisterTopologyTransactionRequest] = {
     for {
       requestedBy <- Member.fromProtoPrimitive(message.requestedBy, "requestedBy")

@@ -186,14 +186,14 @@ object RequestId {
 /** A transfer is identified by the source domain and the sequencer timestamp on the transfer-out request. */
 final case class TransferId(sourceDomain: SourceDomainId, transferOutTimestamp: CantonTimestamp)
     extends PrettyPrinting {
-  def toProtoV0: v0.TransferId =
-    v0.TransferId(
+  def toProtoV30: v30.TransferId =
+    v30.TransferId(
       sourceDomain = sourceDomain.toProtoPrimitive,
       timestamp = Some(transferOutTimestamp.toProtoPrimitive),
     )
 
-  def toAdminProto: com.digitalasset.canton.admin.participant.v0.TransferId =
-    com.digitalasset.canton.admin.participant.v0.TransferId(
+  def toAdminProto: com.digitalasset.canton.admin.participant.v30.TransferId =
+    com.digitalasset.canton.admin.participant.v30.TransferId(
       sourceDomain = sourceDomain.toProtoPrimitive,
       timestamp = Some(transferOutTimestamp.toProtoPrimitive),
     )
@@ -212,9 +212,9 @@ object TransferId {
     )
   }
 
-  def fromProtoV0(transferIdP: v0.TransferId): ParsingResult[TransferId] =
+  def fromProtoV30(transferIdP: v30.TransferId): ParsingResult[TransferId] =
     transferIdP match {
-      case v0.TransferId(originDomainP, requestTimestampP) =>
+      case v30.TransferId(originDomainP, requestTimestampP) =>
         for {
           sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "TransferId.origin_domain")
           requestTimestamp <- ProtoConverter
@@ -223,11 +223,11 @@ object TransferId {
         } yield TransferId(SourceDomainId(sourceDomain), requestTimestamp)
     }
 
-  def fromAdminProtoV0(
-      transferIdP: com.digitalasset.canton.admin.participant.v0.TransferId
+  def fromAdminProto30(
+      transferIdP: com.digitalasset.canton.admin.participant.v30.TransferId
   ): ParsingResult[TransferId] =
     transferIdP match {
-      case com.digitalasset.canton.admin.participant.v0.TransferId(sourceDomainP, requestTsP) =>
+      case com.digitalasset.canton.admin.participant.v30.TransferId(sourceDomainP, requestTsP) =>
         for {
           sourceDomain <- DomainId.fromProtoPrimitive(sourceDomainP, "TransferId.source_domain")
           requestTimestamp <- ProtoConverter

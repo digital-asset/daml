@@ -103,6 +103,8 @@ object Util {
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
 
+  val EEmptyString = EPrimLit(PLText(""))
+
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
   val CPUnit = CPPrimCon(PCUnit)
@@ -242,10 +244,9 @@ object Util {
 
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key, implements) =>
+      case Template(param, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
-          (),
           (),
           (),
           choices.transform((_, v) => toSignature(v)),

@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{CatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -366,7 +366,8 @@ object BaseTest {
     defaultStaticDomainParametersWith()
 
   def defaultStaticDomainParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+      catchUpParameters: Option[CatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters.create(
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
@@ -374,6 +375,7 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
+    catchUpParameters = catchUpParameters,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =
@@ -394,10 +396,8 @@ object BaseTest {
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
   lazy val DamlTestLfV21FilesPath: String = getResourcePath("DamlTestLfV21Files.dar")
-  lazy val UpgradeV1: String = getResourcePath("upgrade-v1.dar")
-  lazy val UpgradeV2: String = getResourcePath("upgrade-v2.dar")
 
-  private def getResourcePath(name: String): String =
+  def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))
       .map(_.getPath)
       .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $name"))

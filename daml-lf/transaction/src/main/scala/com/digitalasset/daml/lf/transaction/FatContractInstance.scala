@@ -74,7 +74,7 @@ private[lf] final case class FatContractInstanceImpl(
     packageName,
     templateId,
     createArg,
-    "",
+    agreementText = "", // to be removed
     signatories,
     stakeholders,
     contractKeyWithMaintainers,

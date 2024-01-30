@@ -3,7 +3,7 @@
 
 package com.daml.script.export
 
-import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.script.export.TreeUtils.{
   Command,

@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.InformeeTree.InvalidInformeeTree
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
@@ -88,8 +88,8 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     tree.commonMetadata.tryUnwrap
   ).confirmationPolicy
 
-  def toProtoV1: v1.FullInformeeTree =
-    v1.FullInformeeTree(tree = Some(tree.toProtoV1))
+  def toProtoV30: v30.FullInformeeTree =
+    v30.FullInformeeTree(tree = Some(tree.toProtoV30))
 
   override def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
 }
@@ -99,9 +99,9 @@ object FullInformeeTree
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.FullInformeeTree)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -135,13 +135,13 @@ object FullInformeeTree
       fullInformeeTree => FullInformeeTree(newTree)(fullInformeeTree.representativeProtocolVersion)
     )
 
-  def fromProtoV1(
+  def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoInformeeTree: v1.FullInformeeTree,
+      protoInformeeTree: v30.FullInformeeTree,
   ): ParsingResult[FullInformeeTree] =
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
-      tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      tree <- GenTransactionTree.fromProtoV30(context, protoTree)
       fullInformeeTree <- FullInformeeTree
         .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
         .leftMap(e =>

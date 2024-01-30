@@ -14,7 +14,7 @@ import com.daml.ledger.javaapi.data.{
   Identifier,
 }
 import com.daml.ledger.rxjava.grpc.helpers._
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,

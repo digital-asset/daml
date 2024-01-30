@@ -46,6 +46,8 @@ trait TransactionAuthorizationValidatorX {
   def isCurrentlyAuthorized(
       toValidate: GenericSignedTopologyTransactionX,
       inStore: Option[GenericSignedTopologyTransactionX],
+  )(implicit
+      traceContext: TraceContext
   ): Either[TopologyTransactionRejection, RequiredAuthXAuthorizations] = {
     // first determine all possible namespaces and uids that need to sign the transaction
     val requiredAuth = toValidate.transaction.mapping.requiredAuth(inStore.map(_.transaction))
@@ -96,14 +98,21 @@ trait TransactionAuthorizationValidatorX {
         _ <- Either.cond[TopologyTransactionRejection, Unit](
           // the key used for the signature must be a valid key for at least one of the delegation mechanisms
           actualNamespaceAuthorizationsWithRoot.nonEmpty || actualNamespaceAuthorizations.nonEmpty || actualUidAuthorizations.nonEmpty,
-          (),
-          TopologyTransactionRejection.NotAuthorized,
+          (), {
+            logger.debug(
+              s"The key ${sig.signedBy.singleQuoted} has no delegation to authorize the transaction $toValidate"
+            )
+            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
+          },
         )
 
         keyForSignature <- (rootKeys ++ nsKeys ++ uidKeys).headOption
-          .toRight[TopologyTransactionRejection](
-            TopologyTransactionRejection.NotAuthorized
-          )
+          .toRight[TopologyTransactionRejection]({
+            logger.debug(
+              s"Key ${sig.signedBy.singleQuoted} was delegated to, but no actual key was identified. This should not happen."
+            )
+            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
+          })
         _ <- pureCrypto
           .verifySignature(toValidate.transaction.hash.hash, keyForSignature, sig)
           .leftMap(TopologyTransactionRejection.SignatureCheckFailed)

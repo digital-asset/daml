@@ -12,8 +12,6 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @DOES-NOT-SUPPORT-LF-FEATURE DAML_RIGHT_TO_LEFT_EVALUATION
-
 module SemanticsEvalOrder where
 
 import Daml.Script
@@ -29,15 +27,15 @@ evTyAbsErasableErr = script do
 -- @ERROR overApply OK
 overApply : Script ()
 overApply = script do
-  let f x = error "overApply OK"
-  let _ = f 1 (error "overApply Failed")
+  let f x = error "overApply Failed"
+  let _ = f 1 (error "overApply OK")
   let _ = f 1 2
   pure ()
 
 -- @ERROR EvExpAppErr1 OK
 evExpAppErr1 : Script ()
 evExpAppErr1 = script do
-  let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
+  let _ = (error "EvExpAppErr1 failed") (error "EvExpAppErr1 OK")
   pure ()
 
 -- @ERROR EvExpAppErr2 OK
@@ -86,21 +84,21 @@ evExpCase_2 = script do
 -- @ERROR EvExpConsErr1 OK
 evExpConsErr1 : Script [Int]
 evExpConsErr1 = script do
-  pure ( error "EvExpConsErr1 OK"
+  pure ( error "EvExpConsErr1 failed"
       :: error "EvExpConsErr1 failed"
-      :: error "EvExpConsErr1 failed")
+      :: error "EvExpConsErr1 OK")
 
 -- @ERROR EvExpConsErr2 OK
 evExpConsErr2 : Script [Int]
 evExpConsErr2 = script do
   pure ( 10
-      :: error "EvExpConsErr2 OK"
-      :: error "EvExpConsErr2 failed")
+      :: error "EvExpConsErr2 failed"
+      :: error "EvExpConsErr2 OK")
 
 -- @ERROR EvExpBuiltinErr OK
 evExpBuiltinErr : Script ()
 evExpBuiltinErr = script do
-  let _ : Int = error "EvExpBuiltinErr OK" + error "EvExpBuiltinErr failed"
+  let _ : Int = error "EvExpBuiltinErr failed" + error "EvExpBuiltinErr OK"
   pure ()
 
 
@@ -109,12 +107,12 @@ data R1 = R1 { a: Int, b: Int }
 -- @ERROR EvExpRecConErr_1 OK
 evExpRecConErr_1 : Script R1
 evExpRecConErr_1 = script do
-  pure R1 { a = error "EvExpRecConErr_1 OK", b = error "EvExpRecConErr_1 failed" }
+  pure R1 { a = error "EvExpRecConErr_1 failed", b = error "EvExpRecConErr_1 OK" }
 
 -- @ERROR EvExpRecConErr_2 OK
 evExpRecConErr_2 : Script R1
 evExpRecConErr_2 = script do
-  pure R1 { b = error "EvExpRecConErr_2 failed", a = error "EvExpRecConErr_2 OK" }
+  pure R1 { b = error "EvExpRecConErr_2 OK", a = error "EvExpRecConErr_2 failed" }
 
 data R2 = R2 { d: Int, c: Int }
   -- ^ Checking that there isn't a dependence on the field names.
@@ -123,30 +121,30 @@ data R2 = R2 { d: Int, c: Int }
 -- @ERROR EvExpRecConErr_3 OK
 evExpRecConErr_3 : Script R2
 evExpRecConErr_3 = script do
-  pure R2 { d = error "EvExpRecConErr_3 OK", c = error "EvExpRecConErr_3 failed" }
+  pure R2 { d = error "EvExpRecConErr_3 failed", c = error "EvExpRecConErr_3 OK" }
 
 -- @ERROR EvExpRecConErr_4 OK
 evExpRecConErr_4 : Script R2
 evExpRecConErr_4 = script do
-  pure R2 { c = error "EvExpRecConErr_4 failed", d = error "EvExpRecConErr_4 OK"  }
+  pure R2 { c = error "EvExpRecConErr_4 OK", d = error "EvExpRecConErr_4 failed"  }
 
 -- @ERROR EvExpRecUpdErr1 OK
 evExpRecUpdErr1 : Script R1
 evExpRecUpdErr1 = script do
-  pure (error "EvExpRecUpdErr1 OK" : R1)
-    { a = error "EvExpRecUpdErr1 failed", b = error "EvExpRecUpdErr1 failed" }
+  pure (error "EvExpRecUpdErr1 failed" : R1)
+    { a = error "EvExpRecUpdErr1 failed", b = error "EvExpRecUpdErr1 OK" }
 
 -- @ERROR EvExpRecUpdErr2_1 OK
 evExpRecUpdErr2_1 : Script R1
 evExpRecUpdErr2_1 = script do
   pure (R1 {a=0, b=0})
-    { a = error "EvExpRecUpdErr2_1 OK", b = error "EvExpRecUpdErr2_1 failed" }
+    { a = error "EvExpRecUpdErr2_1 failed", b = error "EvExpRecUpdErr2_1 OK" }
 
 -- @ERROR EvExpRecUpdErr2_2 OK
 evExpRecUpdErr2_2 : Script R1
 evExpRecUpdErr2_2 = script do
   pure (R1 {a=0, b=0})
-    { b = error "EvExpRecUpdErr2_2 OK", a = error "EvExpRecUpdErr2_2 failed" }
+    { b = error "EvExpRecUpdErr2_2 failed", a = error "EvExpRecUpdErr2_2 OK" }
   -- ^ Note that record update depends on the order the fields appear in
   -- code, rather than the order in which fields were defined.
 
@@ -156,7 +154,7 @@ evExpRecUpdErr2_2 = script do
 evExpRecUpdErr2_3 : Script R1
 evExpRecUpdErr2_3 = script do
   pure (R1 {a=0, b=0})
-    { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
+    { a = error "EvExpRecUpdErr2_3 failed", a = error "EvExpRecUpdErr2_3 OK" }
 
 -- Can't test LF struct evaluation order from Daml, since we purposely avoid
 -- evaluation of struct fields during typeclass desugaring, and we don't have
@@ -181,10 +179,10 @@ evExpFoldrErr2 = script do
 -- @ERROR EvExpFoldrErr3 OK
 evExpFoldrErr3 : Script Int
 evExpFoldrErr3 = script do
-  pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
+  pure (foldr f identity [1] (error "EvExpFoldrErr3 OK"))
   where
     f: Int -> (Int -> Int) -> (Int -> Int)
-    f _ _ = error "EvExpFoldrErr3 OK"
+    f _ _ = error "EvExpFoldrErr3 failed"
 
 -- @ERROR EvExpFoldlErr1 OK
 evExpFoldlErr1 : Script Int
@@ -205,10 +203,10 @@ evExpFoldlErr2 = script do
 -- @ERROR EvExpFoldlErr3 OK
 evExpFoldlErr3 : Script Int
 evExpFoldlErr3 = script do
-  pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
+  pure (foldl f identity [1] (error "EvExpFoldlErr3 OK"))
   where
     f: (Int -> Int) -> Int -> (Int -> Int)
-    f _ _ = error "EvExpFoldlErr3 OK"
+    f _ _ = error "EvExpFoldlErr3 failed"
 
 -- @ERROR EvExpUpPureErr OK
 evExpUpPureErr : Script ()
@@ -234,33 +232,31 @@ template T_EvUpdCreateErr1
     p : Party
   where
     ensure (error @Bool "EvUpdCreateErr1 OK")
-    agreement (error @Text "EvUpdCreateErr1 failed (1)")
-    signatory (error @Party "EvUpdCreateErr1 failed (2)")
-    observer (error @Party "EvUpdCreateErr1 failed (3)")
+    signatory (error @Party "EvUpdCreateErr1 failed (1)")
+    observer (error @Party "EvUpdCreateErr1 failed (2)")
 
 evUpdCreateErr1 : Script ()
 evUpdCreateErr1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr1 p)
-  abort "EvUpdCreateErr1 failed (4)"
+  abort "EvUpdCreateErr1 failed (3)"
 
--- @ERROR range=259:1-259:16; Template precondition violated
+-- @ERROR range=255:1-255:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
   where
     ensure False
-    agreement (error @Text "EvUpdCreateFail failed (1)")
-    signatory (error @Party "EvUpdCreateFail failed (2)")
-    observer (error @Party "EvUpdCreateFail failed (3)")
+    signatory (error @Party "EvUpdCreateFail failed (1)")
+    observer (error @Party "EvUpdCreateFail failed (2)")
 
 evUpdCreateFail : Script ()
 evUpdCreateFail = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateFail p)
-  abort "EvUpdCreateFail failed (4)"
+  abort "EvUpdCreateFail failed (3)"
 
 -- @ERROR EvUpdCreateErr2 OK
 template T_EvUpdCreateErr2
@@ -268,69 +264,49 @@ template T_EvUpdCreateErr2
     p : Party
   where
     ensure True
-    agreement (error @Text "EvUpdCreateErr2 OK")
-    signatory (error @Party "EvUpdCreateErr2 failed (1)")
-    observer (error @Party "EvUpdCreateErr2 failed (2)")
+    signatory (error @Party "EvUpdCreateErr2 OK")
+    observer (error @Party "EvUpdCreateErr2 failed (1)")
 
 evUpdCreateErr2 : Script ()
 evUpdCreateErr2 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr2 p)
-  abort "EvUpdCreateErr2 failed (3)"
+  abort "EvUpdCreateErr2 failed (2)"
 
--- @ERROR EvUpdCreateErr3 OK
-template T_EvUpdCreateErr3
+-- @ERROR EvUpdCreateErr3_1 OK
+template T_EvUpdCreateErr3_1
   with
     p : Party
   where
     ensure True
-    agreement ""
-    signatory (error @Party "EvUpdCreateErr3 OK")
-    observer (error @Party "EvUpdCreateErr3 failed (1)")
-
-evUpdCreateErr3 : Script ()
-evUpdCreateErr3 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_EvUpdCreateErr3 p)
-  abort "EvUpdCreateErr3 failed (2)"
-
--- @ERROR EvUpdCreateErr4_1 OK
-template T_EvUpdCreateErr4_1
-  with
-    p : Party
-  where
-    ensure True
-    agreement ""
     signatory p
-    observer (error @Party "EvUpdCreateErr4_1 OK")
+    observer (error @Party "EvUpdCreateErr3_1 OK")
 
-evUpdCreateErr4_1 : Script ()
-evUpdCreateErr4_1 = script do
+evUpdCreateErr3_1 : Script ()
+evUpdCreateErr3_1 = script do
   p <- allocateParty "Alice"
   submit p do
-    createCmd (T_EvUpdCreateErr4_1 p)
-  abort "EvUpdCreateErr4_1 failed"
+    createCmd (T_EvUpdCreateErr3_1 p)
+  abort "EvUpdCreateErr3_1 failed"
 
--- @ERROR EvUpdCreateErr4_2 OK
-template T_EvUpdCreateErr4_2
+-- @ERROR EvUpdCreateErr3_2 OK
+template T_EvUpdCreateErr3_2
   with
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
-    observer (error @Party "EvUpdCreateErr4_2 OK")
-    key error @Party "EvUpdCreateErr4_2 failed" : Party
-    maintainer error @Party "EvUpdCreateErr4_2 failed"
+    observer (error @Party "EvUpdCreateErr3_2 OK")
+    key error @Party "EvUpdCreateErr3_2 failed" : Party
+    maintainer error @Party "EvUpdCreateErr3_2 failed"
 
-evUpdCreateErr4_2 : Script ()
-evUpdCreateErr4_2 = script do
+evUpdCreateErr3_2 : Script ()
+evUpdCreateErr3_2 = script do
   p <- allocateParty "Alice"
   submit p do
-    createCmd (T_EvUpdCreateErr4_2 p)
-  abort "EvUpdCreateErr4_2 failed"
+    createCmd (T_EvUpdCreateErr3_2 p)
+  abort "EvUpdCreateErr3_2 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr1 OK
 template T_EvUpdCreateWithKeyErr1
@@ -338,7 +314,6 @@ template T_EvUpdCreateWithKeyErr1
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
     observer [] : [Party]
     key error @Party "EvUpdCreateWithKeyErr1 OK" : Party
@@ -357,7 +332,6 @@ template T_EvUpdCreateWithKeyErr2
     p : Party
   where
     ensure True
-    agreement ""
     signatory p
     observer [] : [Party]
     key p : Party

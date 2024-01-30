@@ -65,6 +65,9 @@ jobs:
     pool:
       name: "ubuntu_20_04"
       demands: assignment -equals default
+    # TODO(https://github.com/digital-asset/daml/issues/18222): re-enable once
+    #  the benchmark has been ported to Daml 3.
+    condition: False
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -259,11 +262,7 @@ jobs:
 
           ### create PR ###
 
-          commit_date=$(git -C $tmp log -n1 --format=%cd --date=format:%Y%m%d HEAD)
-          number_of_commits=$(git -C $tmp rev-list --count HEAD)
-          commit_sha_8=$(git -C $tmp log -n1 --format=%h --abbrev=8 HEAD)
-          canton_tag=$commit_date.$number_of_commits.0.v$commit_sha_8
-          branch="main-canton-update-$canton_tag-$canton3_version"
+          branch="main-canton-update-$canton3_version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
@@ -271,7 +270,7 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ] \
               || [ "main-2.x" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh test-common/canton/BUILD.bazel
-                  open_pr "$branch" "update canton to $canton_tag/$canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  open_pr "$branch" "update canton to $canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
@@ -367,18 +366,20 @@ jobs:
         if [[ "$(compatibility_ts_libs)" == "Succeeded"
            && "$(compatibility_linux)" == "Succeeded"
            && "$(compatibility_windows)" == "Succeeded"
-           && "$(perf_speedy)" == "Succeeded"
+           && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
            && "$(check_releases)" == "Succeeded"
            && "$(update_canton)" == "Succeeded"
-           && "$(update_canton_2x)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
            && "$(compat_versions_pr)" == "Succeeded"
            ]]; then
-            MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
-            REPORT='```speedy_perf: $(speedy_perf)```
-        '
-            tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
+          MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
+          if [ "$(perf_speedy)" == "Skipped" ]; then
+            REPORT="Perf test was skipped."
+          else
+            REPORT='```speedy_perf: $(speedy_perf)```'
+          fi
+          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
         else
-            tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi

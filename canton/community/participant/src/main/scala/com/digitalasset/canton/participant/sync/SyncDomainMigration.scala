@@ -207,7 +207,7 @@ class SyncDomainMigration(
       )
       // move contracts from one domain to the other domain using repair service in batches of 1000
       _ <- performUnlessClosingEitherU(functionFullName)(
-        repair.changeDomain(
+        repair.changeAssignation(
           acs.keys.toSeq,
           source,
           target,

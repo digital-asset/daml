@@ -24,10 +24,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.error.SequencerBaseError
-import com.digitalasset.canton.lifecycle.{AsyncCloseable, AsyncOrSyncCloseable, FlagCloseableAsync}
+import com.digitalasset.canton.lifecycle.{
+  AsyncCloseable,
+  AsyncOrSyncCloseable,
+  CloseContext,
+  FlagCloseableAsync,
+  FutureUnlessShutdown,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -63,7 +69,7 @@ class BlockSequencerStateManager(
     implicitMemberRegistration: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, closeContext: CloseContext)
     extends FlagCloseableAsync
     with NamedLogging {
 
@@ -107,34 +113,36 @@ class BlockSequencerStateManager(
 
   def handleBlock(
       updateClosure: BlockUpdateClosureWithHeight
-  ): Future[BlockEphemeralState] = {
+  ): FutureUnlessShutdown[BlockEphemeralState] = {
     implicit val traceContext: TraceContext = updateClosure.blockTraceContext
+    closeContext.context.performUnlessClosingUSF("handleBlock") {
 
-    val blockEphemeralState = {
-      headState.get().blockEphemeralState
+      val blockEphemeralState = {
+        headState.get().blockEphemeralState
+      }
+      checkInvariantIfEnabled(blockEphemeralState)
+      val height = updateClosure.height
+      val lastBlockHeight = blockEphemeralState.latestBlock.height
+
+      // TODO(M98 Tech-Debt Collection): consider validating that blocks with the same block height have the same contents
+      // Skipping blocks we have processed before. Can occur when the read-path flowable is re-started but not all blocks
+      // in the pipeline of the BlockSequencerStateManager have already been processed.
+      if (height <= lastBlockHeight) {
+        logger.debug(s"Skipping update with height $height since it was already processed. ")(
+          traceContext
+        )
+        FutureUnlessShutdown.pure(blockEphemeralState)
+      } else if (lastBlockHeight > block.UninitializedBlockHeight && height > lastBlockHeight + 1) {
+        val msg =
+          s"Received block of height $height while the last processed block only had height $lastBlockHeight. " +
+            s"Expected to receive one block higher only."
+        logger.error(msg)
+        FutureUnlessShutdown.failed(new SequencerUnexpectedStateChange(msg))
+      } else
+        updateClosure
+          .updateGenerator(blockEphemeralState)
+          .flatMap(handleUpdate)
     }
-    checkInvariantIfEnabled(blockEphemeralState)
-    val height = updateClosure.height
-    val lastBlockHeight = blockEphemeralState.latestBlock.height
-
-    // TODO(M98 Tech-Debt Collection): consider validating that blocks with the same block height have the same contents
-    // Skipping blocks we have processed before. Can occur when the read-path flowable is re-started but not all blocks
-    // in the pipeline of the BlockSequencerStateManager have already been processed.
-    if (height <= lastBlockHeight) {
-      logger.debug(s"Skipping update with height $height since it was already processed. ")(
-        traceContext
-      )
-      Future.successful(blockEphemeralState)
-    } else if (lastBlockHeight > block.UninitializedBlockHeight && height > lastBlockHeight + 1) {
-      val msg =
-        s"Received block of height $height while the last processed block only had height $lastBlockHeight. " +
-          s"Expected to receive one block higher only."
-      logger.error(msg)
-      Future.failed(new SequencerUnexpectedStateChange(msg))
-    } else
-      updateClosure
-        .updateGenerator(blockEphemeralState)
-        .flatMap(handleUpdate)
   }
 
   def handleLocalEvent(
@@ -286,7 +294,7 @@ class BlockSequencerStateManager(
 
   private def handleUpdate(update: BlockUpdates)(implicit
       blockTraceContext: TraceContext
-  ): Future[BlockEphemeralState] = {
+  ): FutureUnlessShutdown[BlockEphemeralState] = {
 
     def handleComplete(newBlock: BlockInfo): Future[BlockEphemeralState] = {
       val priorHead = headState.get
@@ -318,15 +326,20 @@ class BlockSequencerStateManager(
       }
     }
 
-    def step(updates: BlockUpdates): Future[Either[BlockUpdates, BlockEphemeralState]] = {
+    def step(
+        updates: BlockUpdates
+    ): FutureUnlessShutdown[Either[BlockUpdates, BlockEphemeralState]] = {
       updates match {
         case PartialBlockUpdate(chunk, continuation) =>
-          handleChunkUpdate(chunk).flatMap((_: Unit) => continuation.map(Left(_)))
-        case CompleteBlockUpdate(block) => handleComplete(block).map(Right(_))
+          FutureUnlessShutdown
+            .outcomeF(handleChunkUpdate(chunk))
+            .flatMap((_: Unit) => continuation.map(Left(_)))
+        case CompleteBlockUpdate(block) =>
+          FutureUnlessShutdown.outcomeF(handleComplete(block)).map(Right(_))
       }
     }
 
-    Monad[Future].tailRecM(update)(step)
+    Monad[FutureUnlessShutdown].tailRecM(update)(step)
   }
 
   private def updateHeadState(prior: HeadState, next: HeadState)(implicit
@@ -659,6 +672,7 @@ object BlockSequencerStateManager {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
+      closeContext: CloseContext,
   ): Future[BlockSequencerStateManager] =
     for {
       counters <- store.initialMemberCounters

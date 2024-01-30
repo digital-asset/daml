@@ -12,7 +12,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
 
-class StablePackageTestV1 extends StablePackageTest(LanguageMajorVersion.V1)
 class StablePackageTestV2 extends StablePackageTest(LanguageMajorVersion.V2)
 
 class StablePackageTest(majorLanguageVersion: LanguageMajorVersion)

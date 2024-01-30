@@ -5,6 +5,7 @@ package com.daml;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import da.types.Tuple2;
 import da.types.Tuple3;
 import da.types.Tuple4;
@@ -25,14 +26,12 @@ public class ContractKeysTest {
       new NoKey.Contract(
           new NoKey.ContractId("no-key"),
           new NoKey("Alice"),
-          Optional.empty(),
           Collections.emptySet(),
           Collections.emptySet());
   PartyKey.Contract partyKey =
       new PartyKey.Contract(
           new PartyKey.ContractId("party-key"),
           new PartyKey("Alice"),
-          Optional.empty(),
           Optional.of("Alice"),
           Collections.emptySet(),
           Collections.emptySet());
@@ -40,7 +39,6 @@ public class ContractKeysTest {
       new RecordKey.Contract(
           new RecordKey.ContractId("record-key"),
           new RecordKey("Alice", 42L),
-          Optional.empty(),
           Optional.of(new PartyAndInt("Alice", 42L)),
           Collections.emptySet(),
           Collections.emptySet());
@@ -48,7 +46,6 @@ public class ContractKeysTest {
       new TupleKey.Contract(
           new TupleKey.ContractId("tuple-key"),
           new TupleKey("Alice", 42L),
-          Optional.empty(),
           Optional.of(new Tuple2<>("Alice", 42L)),
           Collections.emptySet(),
           Collections.emptySet());
@@ -56,7 +53,6 @@ public class ContractKeysTest {
       new NestedTupleKey.Contract(
           new NestedTupleKey.ContractId("nested-tuple-key"),
           new NestedTupleKey("Alice", 42L, "blah", 47L, true, "foobar", 0L),
-          Optional.empty(),
           Optional.of(
               new Tuple2<>(
                   new Tuple3<>("Alice", 42L, "blah"), new Tuple4<>(47L, true, "foobar", 0L))),
@@ -102,5 +98,14 @@ public class ContractKeysTest {
     assertEquals(nestedTupleKey.key.get()._2._2.booleanValue(), true);
     assertEquals(nestedTupleKey.key.get()._2._3, "foobar");
     assertEquals(nestedTupleKey.key.get()._2._4.longValue(), 0L);
+  }
+
+  @Test
+  void roundTripKeyThroughJson() throws JsonLfDecoder.Error {
+    assertEquals(partyKey.key.get(), PartyKey.Contract.keyFromJson(partyKey.keyToJson()));
+    assertEquals(recordKey.key.get(), RecordKey.Contract.keyFromJson(recordKey.keyToJson()));
+    assertEquals(tupleKey.key.get(), TupleKey.Contract.keyFromJson(tupleKey.keyToJson()));
+    assertEquals(
+        nestedTupleKey.key.get(), NestedTupleKey.Contract.keyFromJson(nestedTupleKey.keyToJson()));
   }
 }

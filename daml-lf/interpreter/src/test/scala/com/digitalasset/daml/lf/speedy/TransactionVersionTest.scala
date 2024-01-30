@@ -20,7 +20,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class TransactionVersionTestV1 extends TransactionVersionTest(V1)
 class TransactionVersionTestV2 extends TransactionVersionTest(V2)
 
 class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
@@ -35,8 +34,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
   "interface and transaction versioning" - {
 
     "version testing assumptions" in {
-      // TODO(#17366): remove this assumption once 2.0 is introduced
-      assume(majorLanguageVersion == V1)
       oldVersion should be < newVersion
       Set(
         templatePkg.languageVersion,
@@ -167,7 +164,6 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
             precondition True;
             signatories (Cons @Party ['template-pkg':TemplateMod:Template1 {person} this] (Nil @Party));
             observers (Nil @Party);
-            agreement "Agreement for template Template1";
 
             choice Destroy (self) (arg: Unit): Unit,
               controllers (Cons @Party ['template-pkg':TemplateMod:Template1 {person} this] (Nil @Party)),
@@ -209,7 +205,6 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
             precondition True;
             signatories Cons @Party ['implements-pkg':ImplementsMod:TemplateImplements1 {person} this] (Nil @Party);
             observers (Nil @Party);
-            agreement "Agreement for template TemplateImplements1";
             implements 'interfaces-pkg':InterfacesMod:Interface1 {
               view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements1 {person} this;
@@ -221,7 +216,6 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
             precondition True;
             signatories Cons @Party ['implements-pkg':ImplementsMod:TemplateImplements2 {person} this] (Nil @Party);
             observers (Nil @Party);
-            agreement "Agreement for template TemplateImplements2";
             implements 'interfaces-pkg':InterfacesMod:Interface2 {
               view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements2 {person} this;
@@ -234,7 +228,6 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
             precondition True;
             signatories Cons @Party ['implements-pkg':ImplementsMod:TemplateImplements12 {person} this] (Nil @Party);
             observers (Nil @Party);
-            agreement "Agreement for template TemplateImplements12";
             implements 'interfaces-pkg':InterfacesMod:Interface1 {
               view = 'interfaces-pkg':InterfacesMod:EmptyInterfaceView {};
               method getPerson = 'implements-pkg':ImplementsMod:TemplateImplements12 {person} this;

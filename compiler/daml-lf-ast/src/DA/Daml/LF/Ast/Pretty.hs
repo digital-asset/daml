@@ -638,16 +638,15 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
 
 pPrintTemplate ::
   PrettyLevel -> ModuleName -> Template -> Doc ann
-pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey implements) =
+pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers choices mbKey implements) =
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
-    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ implementsDoc ++ mbKeyDoc ++ choiceDocs))
+    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc] ++ implementsDoc ++ mbKeyDoc ++ choiceDocs))
     where
       signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
       observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
       precondDoc = keyword_ "ensure" <-> pPrintPrec lvl 0 precond
-      agreementDoc = hang (keyword_ "agreement") 2 (pPrintPrec lvl 0 agreement)
       choiceDocs = map (pPrintTemplateChoice lvl modName tpl) (NM.toList choices)
       mbKeyDoc = toList $ do
         key <- mbKey
@@ -773,5 +772,5 @@ instance Pretty Package where
   pPrintPrec lvl _prec (Package version modules metadata) =
     vcat $
       "daml-lf" <-> pPrintPrec lvl 0 version
-      : maybe empty (\m -> "metadata" <-> pPrintPrec lvl 0 m) metadata
+      : "metadata" <-> pPrintPrec lvl 0 metadata
       : map (\m -> "" $-$ pPrintPrec lvl 0 m) (NM.toList modules)

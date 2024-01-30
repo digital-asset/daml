@@ -15,6 +15,7 @@ import com.digitalasset.canton.common.domain.{
   SequencerBasedRegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
+import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -119,10 +120,11 @@ trait ParticipantTopologyDispatcherCommon extends TopologyDispatcherCommon {
 }
 
 abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistentState](
-    state: SyncDomainPersistentStateManagerImpl[S]
-)(implicit
-    val ec: ExecutionContext
-) extends ParticipantTopologyDispatcherCommon {
+    state: SyncDomainPersistentStateManagerImpl[S],
+    override protected val futureSupervisor: FutureSupervisor,
+)(implicit override protected val executionContext: ExecutionContext)
+    extends ParticipantTopologyDispatcherCommon
+    with HasFutureSupervision {
 
   /** map of active domain outboxes, i.e. where we are connected and actively try to push topology state onto the domains */
   private[topology] val domains = new TrieMap[DomainAlias, NonEmpty[Seq[DomainOutboxCommon]]]()
@@ -201,9 +203,13 @@ class ParticipantTopologyDispatcher(
     crypto: Crypto,
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateOld](state) {
+    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateOld](
+      state,
+      futureSupervisor,
+    ) {
 
   override protected def managerQueueSize: Int = manager.queueSize
 
@@ -259,6 +265,7 @@ class ParticipantTopologyDispatcher(
             timeouts,
             loggerFactory.append("domainId", domainId.toString),
             crypto,
+            futureSupervisor = futureSupervisor,
           )
           ErrorUtil.requireState(
             !domains.contains(domain),
@@ -327,9 +334,13 @@ class ParticipantTopologyDispatcherX(
     clock: Clock,
     config: LocalNodeConfig,
     override protected val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateX](state) {
+    extends ParticipantTopologyDispatcherImplCommon[SyncDomainPersistentStateX](
+      state,
+      futureSupervisor,
+    ) {
 
   override protected def managerQueueSize: Int =
     manager.queueSize + state.getAll.values.map(_.topologyManager.queueSize).sum
@@ -498,6 +509,7 @@ class ParticipantTopologyDispatcherX(
               timeouts,
               loggerFactory,
               crypto,
+              futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(
               !domains.contains(domain),

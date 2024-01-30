@@ -9,5 +9,4 @@ module AtVersion14 where
 template Contract14
   with p: Party
   where
-    agreement show p
     signatory p

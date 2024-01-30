@@ -19,8 +19,7 @@ import com.digitalasset.canton.protocol.{
   TargetDomainId,
   TransactionId,
   ViewHash,
-  v1,
-  v2,
+  v30,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -92,17 +91,17 @@ object TransferInViewTree
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(1) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v1.TransferViewTree)(fromProtoV1),
-      _.toProtoV1.toByteString,
+      supportedProtoVersion(v30.TransferViewTree)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV1(
+  def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      transferInViewTreeP: v1.TransferViewTree,
+      transferInViewTreeP: v30.TransferViewTree,
   ): ParsingResult[TransferInViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
-    GenTransferViewTree.fromProtoV1(
+    GenTransferViewTree.fromProtoV30(
       TransferInCommonData.fromByteString(expectedProtocolVersion)(hashOps),
       TransferInView.fromByteString(expectedProtocolVersion)(hashOps),
     )((commonData, view) => new TransferInViewTree(commonData, view)(hashOps))(
@@ -143,9 +142,9 @@ final case class TransferInCommonData private (
   @transient override protected lazy val companionObj: TransferInCommonData.type =
     TransferInCommonData
 
-  protected def toProtoV1: v1.TransferInCommonData =
-    v1.TransferInCommonData(
-      salt = Some(salt.toProtoV0),
+  protected def toProtoV30: v30.TransferInCommonData =
+    v30.TransferInCommonData(
+      salt = Some(salt.toProtoV30),
       targetDomain = targetDomain.toProtoPrimitive,
       targetMediator = targetMediator.toProtoPrimitive,
       stakeholders = stakeholders.toSeq,
@@ -172,9 +171,9 @@ object TransferInCommonData
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.TransferInCommonData)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -193,10 +192,10 @@ object TransferInCommonData
     uuid,
   )(hashOps, targetProtocolVersion, None)
 
-  private[this] def fromProtoV1(hashOps: HashOps, transferInCommonDataP: v1.TransferInCommonData)(
+  private[this] def fromProtoV30(hashOps: HashOps, transferInCommonDataP: v30.TransferInCommonData)(
       bytes: ByteString
   ): ParsingResult[TransferInCommonData] = {
-    val v1.TransferInCommonData(
+    val v30.TransferInCommonData(
       saltP,
       targetDomainP,
       stakeholdersP,
@@ -206,7 +205,7 @@ object TransferInCommonData
     ) =
       transferInCommonDataP
     for {
-      salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
+      salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetDomain <- TargetDomainId.fromProtoPrimitive(targetDomainP, "target_domain")
       targetMediator <- MediatorRef.fromProtoPrimitive(targetMediatorP, "target_mediator")
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
@@ -264,13 +263,13 @@ final case class TransferInView private (
   val commandId: LedgerCommandId = submitterMetadata.commandId
   val workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
-  protected def toProtoV2: v2.TransferInView =
-    v2.TransferInView(
-      salt = Some(salt.toProtoV0),
+  protected def toProtoV30: v30.TransferInView =
+    v30.TransferInView(
+      salt = Some(salt.toProtoV30),
       submitter = submitter,
-      contract = Some(contract.toProtoV1),
+      contract = Some(contract.toProtoV30),
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
-      transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV1),
+      transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV30),
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
       submittingParticipant = submittingParticipant,
       applicationId = applicationId,
@@ -280,7 +279,7 @@ final case class TransferInView private (
       transferCounter = transferCounter
         .getOrElse(
           throw new IllegalStateException(
-            s"Transfer counter must be defined at representative protocol version ${representativeProtocolVersion}"
+            s"Transfer counter must be defined at representative protocol version $representativeProtocolVersion"
           )
         )
         .toProtoPrimitive,
@@ -318,21 +317,21 @@ object TransferInView
   private[TransferInView] object CommonData {
     def fromProto(
         hashOps: HashOps,
-        saltP: Option[com.digitalasset.canton.crypto.v0.Salt],
+        saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
         submitterP: String,
-        transferOutResultEventPO: Option[v1.SignedContent],
+        transferOutResultEventPO: Option[v30.SignedContent],
         creatingTransactionIdP: ByteString,
         sourceProtocolVersion: ProtocolVersion,
     ): ParsingResult[CommonData] = {
       for {
-        salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
+        salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
         submitter <- ProtoConverter.parseLfPartyId(submitterP)
         // TransferOutResultEvent deserialization
         transferOutResultEventP <- ProtoConverter
           .required("TransferInView.transferOutResultEvent", transferOutResultEventPO)
 
         transferOutResultEventMC <- SignedContent
-          .fromProtoV1(transferOutResultEventP)
+          .fromProtoV30(transferOutResultEventP)
           .flatMap(
             _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion))
           )
@@ -351,9 +350,9 @@ object TransferInView
   }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v2.TransferInView)(
-      supportedProtoVersionMemoized(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -380,10 +379,10 @@ object TransferInView
     )
     .leftMap(_.getMessage)
 
-  private[this] def fromProtoV2(hashOps: HashOps, transferInViewP: v2.TransferInView)(
+  private[this] def fromProtoV30(hashOps: HashOps, transferInViewP: v30.TransferInView)(
       bytes: ByteString
   ): ParsingResult[TransferInView] = {
-    val v2.TransferInView(
+    val v30.TransferInView(
       saltP,
       submitterP,
       contractP,
@@ -410,7 +409,7 @@ object TransferInView
       )
       contract <- ProtoConverter
         .required("contract", contractP)
-        .flatMap(SerializableContract.fromProtoV1)
+        .flatMap(SerializableContract.fromProtoV30)
       submittingParticipantId <-
         ProtoConverter.parseLfParticipantId(submittingParticipantP)
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)

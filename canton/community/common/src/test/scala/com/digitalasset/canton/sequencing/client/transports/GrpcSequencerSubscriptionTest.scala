@@ -4,10 +4,10 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.crypto.v0 as cryptoproto
-import com.digitalasset.canton.domain.api.v0 as v0domain
+import com.digitalasset.canton.crypto.v30 as cryptoproto
+import com.digitalasset.canton.domain.api.v30 as v30domain
 import com.digitalasset.canton.networking.grpc.GrpcError
-import com.digitalasset.canton.protocol.{v0, v1}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
@@ -29,34 +29,38 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
   )
 
-  private lazy val messageP: v0domain.SubscriptionResponse = v0domain
+  private lazy val messageP: v30domain.SubscriptionResponse = v30domain
     .SubscriptionResponse(
       Some(
-        v1.SignedContent(
+        v30.SignedContent(
           Some(
-            v1.SequencedEvent(
-              timestamp = Some(Timestamp()),
-              batch = Some(
-                v1.CompressedBatch(
-                  algorithm = v0.CompressedBatch.CompressionAlgorithm.None,
-                  compressedBatch = ByteStringUtil.compressGzip(
-                    v1.Batch(envelopes =
-                      Seq(
-                        v1.Envelope(
-                          content = MockMessageContent.toByteString,
-                          recipients = None,
-                          signatures = Nil,
+            v30
+              .SequencedEvent(
+                timestamp = Some(Timestamp()),
+                batch = Some(
+                  v30.CompressedBatch(
+                    algorithm = v30.CompressedBatch.CompressionAlgorithm.None,
+                    compressedBatch = ByteStringUtil.compressGzip(
+                      v30
+                        .Batch(envelopes =
+                          Seq(
+                            v30.Envelope(
+                              content = MockMessageContent.toByteString,
+                              recipients = None,
+                              signatures = Nil,
+                            )
+                          )
                         )
-                      )
-                    ).toByteString
-                  ),
-                )
-              ),
-              domainId = domainId.toProtoPrimitive,
-              counter = 0L,
-              messageId = None,
-              deliverErrorReason = None,
-            ).toByteString
+                        .toByteString
+                    ),
+                  )
+                ),
+                domainId = domainId.toProtoPrimitive,
+                counter = 0L,
+                messageId = None,
+                deliverErrorReason = None,
+              )
+              .toByteString
           ),
           Seq(
             cryptoproto.Signature(
@@ -68,7 +72,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           timestampOfSigningKey = None,
         )
       ),
-      Some(SerializableTraceContext.empty.toProtoV0),
+      Some(SerializableTraceContext.empty.toProtoV30),
     )
 
   val RequestDescription = "request description"
@@ -79,11 +83,11 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     Left(GrpcError(RequestDescription, ServerName, ex))
 
   def createSubscription(
-      handler: v0domain.SubscriptionResponse => Future[Either[String, Unit]] = _ =>
+      handler: v30domain.SubscriptionResponse => Future[Either[String, Unit]] = _ =>
         Future.successful(Right(())),
       context: CancellableContext = Context.ROOT.withCancellation(),
-  ): GrpcSequencerSubscription[String, v0domain.SubscriptionResponse] =
-    new GrpcSequencerSubscription[String, v0domain.SubscriptionResponse](
+  ): GrpcSequencerSubscription[String, v30domain.SubscriptionResponse] =
+    new GrpcSequencerSubscription[String, v30domain.SubscriptionResponse](
       context,
       tracedEvent => handler(tracedEvent.value), // ignore Traced[..] wrapper
       DefaultProcessingTimeouts.testing,
@@ -137,7 +141,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "use the given handler to process received messages" in {
-      val messagePromise = Promise[v0domain.SubscriptionResponse]()
+      val messagePromise = Promise[v30domain.SubscriptionResponse]()
 
       val sut =
         createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
@@ -193,7 +197,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "not invoke the handler after closing" in {
-      val messagePromise = Promise[v0domain.SubscriptionResponse]()
+      val messagePromise = Promise[v30domain.SubscriptionResponse]()
 
       val sut =
         createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
@@ -215,8 +219,8 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
         {
           // receive some items
           sut.observer.onNext(
-            v0domain.SubscriptionResponse.defaultInstance
-              .copy(traceContext = Some(SerializableTraceContext.empty.toProtoV0))
+            v30domain.SubscriptionResponse.defaultInstance
+              .copy(traceContext = Some(SerializableTraceContext.empty.toProtoV30))
           )
           sut.observer.onError(Status.INTERNAL.asRuntimeException())
           sut.close()

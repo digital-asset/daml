@@ -206,7 +206,6 @@ object TransactionGenerator {
   private val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
-    agreementText <- Gen.option(Gen.asciiStr)
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaCreatedAtTimestamp, createdAtInstant) <- timestampGen
@@ -228,7 +227,7 @@ object TransactionGenerator {
         signatories ++ observers,
         signatories,
         observers,
-        agreementText,
+        None, // agreementText, to be removed
         Some(scalaCreatedAtTimestamp),
       )
     ),
@@ -241,7 +240,6 @@ object TransactionGenerator {
       createdEventBlob,
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
-      agreementText.toJava,
       contractKey.map(_._2).toJava,
       signatories.toSet.asJava,
       observers.toSet.asJava,

@@ -23,7 +23,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTestV1 extends ReinterpretTest(LanguageMajorVersion.V1)
 class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
 
 class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)

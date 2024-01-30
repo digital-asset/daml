@@ -48,7 +48,6 @@ case object TPStakeholders extends TemplatePart
 case object TPPrecondition extends TemplatePart
 case object TPSignatories extends TemplatePart
 case object TPObservers extends TemplatePart
-case object TPAgreement extends TemplatePart
 final case class TPChoice(template: TemplateChoice) extends TemplatePart
 
 sealed abstract class SerializabilityRequirement extends Product with Serializable {
