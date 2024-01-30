@@ -3,12 +3,13 @@
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.javaapi.data.CommandsSubmission;
+import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
+import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass.SubmitResponse;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.CommandSubmissionServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.CommandSubmissionServiceGrpc} */
 public interface CommandSubmissionClient {
 
-  Single<Empty> submit(CommandsSubmission submission);
+  Single<SubmitResponse> submit(CommandsSubmissionV2 submission);
 }

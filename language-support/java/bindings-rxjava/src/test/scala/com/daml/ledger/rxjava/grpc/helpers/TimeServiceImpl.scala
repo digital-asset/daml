@@ -4,21 +4,16 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.TimeServiceAuthorization
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
-import com.daml.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  GetTimeResponse,
-  SetTimeRequest,
-  TimeServiceGrpc,
-}
+import com.digitalasset.canton.ledger.api.auth.services.TimeServiceV2Authorization
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, GetTimeResponse, SetTimeRequest, TimeServiceGrpc}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future};
+import scala.concurrent.{ExecutionContext, Future}
 
-final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
+
+final class TimeServiceImpl(getTimeResponse: Future[GetTimeResponse])
     extends TimeService
     with FakeAutoCloseable {
 
@@ -27,11 +22,9 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
 
   override def getTime(
       request: GetTimeRequest,
-      responseObserver: StreamObserver[GetTimeResponse],
-  ): Unit = {
+  ): Future[GetTimeResponse] = {
     this.lastGetTimeRequest = Some(request)
-    getTimeResponses.foreach(responseObserver.onNext)
-    responseObserver.onCompleted()
+    getTimeResponse
   }
 
   override def setTime(request: SetTimeRequest): Future[Empty] = {
@@ -45,11 +38,11 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
 }
 
 object TimeServiceImpl {
-  def createWithRef(getTimeResponses: Seq[GetTimeResponse], authorizer: Authorizer)(implicit
+  def createWithRef(getTimeResponse: Future[GetTimeResponse], authorizer: Authorizer)(implicit
       ec: ExecutionContext
   ): (ServerServiceDefinition, TimeServiceImpl) = {
-    val impl = new TimeServiceImpl(getTimeResponses)
-    val authImpl = new TimeServiceAuthorization(impl, authorizer)
+    val impl = new TimeServiceImpl(getTimeResponse)
+    val authImpl = new TimeServiceV2Authorization(impl, authorizer)
     (TimeServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

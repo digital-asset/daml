@@ -3,10 +3,11 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
+import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
+import com.daml.ledger.api.v2.package_service.{GetPackageRequest, GetPackageStatusRequest, ListPackagesRequest, PackageServiceGrpc}
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.PackageServiceAuthorization
-import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.daml.ledger.api.v1.package_service._
+import com.digitalasset.canton.ledger.api.auth.services.PackageServiceV2Authorization
+import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,7 +56,7 @@ object PackageServiceImpl {
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
     val impl =
       new PackageServiceImpl(listPackagesResponse, getPackageResponse, getPackageStatusResponse)
-    val authImpl = new PackageServiceAuthorization(impl, authorizer)
+    val authImpl = new PackageServiceV2Authorization(impl, authorizer)
     (PackageServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

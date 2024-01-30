@@ -3,21 +3,19 @@
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.javaapi.data.ActiveContracts;
-import com.daml.ledger.javaapi.data.ContractFilter;
-import com.daml.ledger.javaapi.data.GetActiveContractsResponse;
-import com.daml.ledger.javaapi.data.TransactionFilter;
+import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Flowable;
+import io.reactivex.Single;
 import java.util.Set;
 
 /** An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc} */
-public interface ActiveContractsClient {
+public interface StateClient {
 
-  Flowable<GetActiveContractsResponse> getActiveContracts(
-      TransactionFilter filter, boolean verbose);
+  Flowable<GetActiveContractsResponseV2> getActiveContracts(
+      TransactionFilterV2 filter, boolean verbose);
 
-  Flowable<GetActiveContractsResponse> getActiveContracts(
-      TransactionFilter filter, boolean verbose, String accessToken);
+  Flowable<GetActiveContractsResponseV2> getActiveContracts(
+      TransactionFilterV2 filter, boolean verbose, String accessToken);
 
   /**
    * Get active Contracts
@@ -45,4 +43,8 @@ public interface ActiveContractsClient {
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
+
+  Single<ParticipantOffsetV2> getLedgerEnd();
+
+  Single<ParticipantOffsetV2> getLedgerEnd(String accessToken);
 }

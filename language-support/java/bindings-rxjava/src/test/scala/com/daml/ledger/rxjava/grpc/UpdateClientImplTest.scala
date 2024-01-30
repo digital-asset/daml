@@ -4,12 +4,13 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
 import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v1.value.Identifier
 import io.reactivex.Observable
@@ -20,26 +21,26 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.jdk.CollectionConverters._
 
-final class TransactionsClientImplTest
+final class UpdateClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks
     with Matchers
     with AuthMatchers
     with DataLayerHelpers {
 
-  override val ledgerServices = new LedgerServices("transaction-service-ledger")
+  override val ledgerServices = new LedgerServices("update-service-ledger")
 
   implicit def tupleNoShrink[A, B]: Shrink[(A, B)] = Shrink.shrinkAny
 
-  private val ledgerBegin = data.LedgerOffset.LedgerBegin.getInstance()
-  private val ledgerEnd = data.LedgerOffset.LedgerEnd.getInstance()
-  private val emptyFilter = new data.FiltersByParty(Map.empty[String, data.Filter].asJava)
+  private val ledgerBegin = data.ParticipantOffsetV2.ParticipantBegin.getInstance()
+  private val ledgerEnd = data.ParticipantOffsetV2.ParticipantEnd.getInstance()
+  private val emptyFilter = new data.FiltersByPartyV2(Map.empty[String, data.Filter].asJava)
 
   behavior of "8.1 TransactionClient.getTransactions"
 
   it should "return transactions from the ledger" in forAll(ledgerContentGen) {
     case (ledgerContent, expectedTransactions) =>
-      ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
+      ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           transactionClient
             .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
@@ -53,12 +54,12 @@ final class TransactionsClientImplTest
   behavior of "8.2 TransactionClient.getTransactions"
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
+    ledgerServices.withUpdateClient(Observable.empty()) {
       (transactionClient, transactionService) =>
-        val begin = new data.LedgerOffset.Absolute("1")
-        val end = new data.LedgerOffset.Absolute("2")
+        val begin = new data.ParticipantOffsetV2.Absolute("1")
+        val end = new data.ParticipantOffsetV2.Absolute("2")
 
-        val transactionFilter = new data.FiltersByParty(
+        val transactionFilter = new data.FiltersByPartyV2(
           Map[String, data.Filter](
             "Alice" -> data.InclusiveFilter.ofTemplateIds(
               Set(
@@ -74,9 +75,9 @@ final class TransactionsClientImplTest
           .toList()
           .blockingGet()
 
-        val request = transactionService.lastTransactionsRequest.get()
-        request.begin shouldBe Some(LedgerOffset(Absolute("1")))
-        request.end shouldBe Some(LedgerOffset(Absolute("2")))
+        val request = transactionService.lastUpdatesRequest.get()
+        request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
+        request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
         val filter = request.filter.get.filtersByParty
         filter.keySet shouldBe Set("Alice")
         filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
@@ -93,25 +94,11 @@ final class TransactionsClientImplTest
     }
   }
 
-  behavior of "8.3 TransactionClient.getTransactions"
-
-  it should "request stream with the correct ledger id" in {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        transactionClient
-          .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
-          .toList()
-          .blockingGet()
-
-        transactionService.lastTransactionsRequest.get().ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
   behavior of "8.5 TransactionClient.getTransactionsTrees"
 
   it should "return transaction trees from the ledger" ignore forAll(ledgerContentTreeGen) {
     case (ledgerContent, expectedTransactionsTrees) =>
-      ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
+      ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           transactionClient
             .getTransactionsTrees(ledgerBegin, ledgerEnd, emptyFilter, false)
@@ -124,12 +111,12 @@ final class TransactionsClientImplTest
   behavior of "8.6 TransactionClient.getTransactionsTrees"
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
+    ledgerServices.withUpdateClient(Observable.empty()) {
       (transactionClient, transactionService) =>
-        val begin = new data.LedgerOffset.Absolute("1")
-        val end = new data.LedgerOffset.Absolute("2")
+        val begin = new data.ParticipantOffsetV2.Absolute("1")
+        val end = new data.ParticipantOffsetV2.Absolute("2")
 
-        val transactionFilter = new data.FiltersByParty(
+        val transactionFilter = new data.FiltersByPartyV2(
           Map[String, data.Filter](
             "Alice" -> data.InclusiveFilter.ofTemplateIds(
               Set(
@@ -145,9 +132,9 @@ final class TransactionsClientImplTest
           .toList()
           .blockingGet()
 
-        val request = transactionService.lastTransactionsTreesRequest.get()
-        request.begin shouldBe Some(LedgerOffset(Absolute("1")))
-        request.end shouldBe Some(LedgerOffset(Absolute("2")))
+        val request = transactionService.lastUpdatesTreesRequest.get()
+        request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
+        request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
         val filter = request.filter.get.filtersByParty
         filter.keySet shouldBe Set("Alice")
         filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
@@ -164,143 +151,73 @@ final class TransactionsClientImplTest
     }
   }
 
-  behavior of "8.7 TransactionClient.getTransactionsTrees"
-
-  it should "request stream with the correct ledger ID" in {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        transactionClient
-          .getTransactionsTrees(ledgerBegin, ledgerEnd, emptyFilter, false)
-          .toList()
-          .blockingGet()
-
-        transactionService.lastTransactionsTreesRequest
-          .get()
-          .ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
-  behavior of "8.9 TransactionClient.getTransactionByEventId"
+  behavior of "8.9 TransactionClient.getTransactionTreeByEventId"
 
   it should "look up transaction by event ID" ignore forAll(ledgerContentWithEventIdGen) {
     case (ledgerContent, eventId, transactionTree) =>
-      ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
+      ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, transactionService) =>
           transactionClient
-            .getTransactionByEventId(eventId, Set.empty[String].asJava)
+            .getTransactionTreeByEventId(eventId, Set.empty[String].asJava)
             .blockingGet() shouldBe transactionTree
 
-          transactionService.lastTransactionByEventIdRequest.get().eventId shouldBe eventId
+          transactionService.lastTransactionTreeByEventIdRequest.get().eventId shouldBe eventId
       }
   }
 
-  behavior of "8.10 TransactionClient.getTransactionByEventId"
+  behavior of "8.10 TransactionClient.getTransactionTreeByEventId"
 
   it should "pass the requesting parties with the request" ignore {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
+    ledgerServices.withUpdateClient(Observable.empty()) {
       (transactionClient, transactionService) =>
         val requestingParties = Set("Alice", "Bob")
 
-        transactionClient.getTransactionByEventId("eventId", requestingParties.asJava).blockingGet()
+        transactionClient.getTransactionTreeByEventId("eventId", requestingParties.asJava).blockingGet()
 
-        transactionService.lastTransactionByEventIdRequest
+        transactionService.lastTransactionTreeByEventIdRequest
           .get()
           .requestingParties
           .toSet shouldBe requestingParties
     }
   }
 
-  behavior of "8.11 TransactionClient.getTransactionByEventId"
-
-  it should "send the correct ledger ID with the request" ignore {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        transactionClient.getTransactionByEventId("eventId", Set.empty[String].asJava).blockingGet()
-
-        transactionService.lastTransactionByEventIdRequest
-          .get()
-          .ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
-  behavior of "8.12 TransactionClient.getTransactionById"
+  behavior of "8.12 TransactionClient.getTransactionTreeById"
 
   it should "look up transaction by transaction ID" ignore forAll(
     ledgerContentWithTransactionIdGen
   ) { case (ledgerContent, transactionId, transactionTree) =>
-    ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
+    ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
       (transactionClient, transactionService) =>
         transactionClient
-          .getTransactionById(transactionId, Set.empty[String].asJava)
+          .getTransactionTreeById(transactionId, Set.empty[String].asJava)
           .blockingGet() shouldBe transactionTree
 
-        transactionService.lastTransactionByIdRequest.get().transactionId shouldBe transactionId
+        transactionService.lastTransactionTreeByIdRequest.get().updateId shouldBe transactionId
     }
   }
 
-  behavior of "8.13 TransactionClient.getTransactionById"
+  behavior of "8.13 TransactionClient.getTransactionTreeById"
 
   it should "pass the requesting parties with the request" ignore {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
+    ledgerServices.withUpdateClient(Observable.empty()) {
       (transactionClient, transactionService) =>
         val requestingParties = Set("Alice", "Bob")
 
         transactionClient
-          .getTransactionById("transactionId", requestingParties.asJava)
+          .getTransactionTreeById("transactionId", requestingParties.asJava)
           .blockingGet()
 
-        transactionService.lastTransactionByIdRequest
+        transactionService.lastTransactionTreeByIdRequest
           .get()
           .requestingParties
           .toSet shouldBe requestingParties
     }
   }
 
-  behavior of "8.14 TransactionClient.getTransactionById"
-
-  it should "send the correct ledger ID with the request" ignore {
-    ledgerServices.withTransactionsClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        transactionClient
-          .getTransactionById("transactionId", Set.empty[String].asJava)
-          .blockingGet()
-
-        transactionService.lastTransactionByIdRequest
-          .get()
-          .ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
-  behavior of "8.15 TransactionClient.getLedgerEnd"
-
-  it should "provide ledger end from the ledger" in forAll(nonEmptyLedgerContent) {
-    case (ledgerContent, transactions) =>
-      ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
-        (transactionClient, _) =>
-          val expectedOffset = new data.LedgerOffset.Absolute(transactions.last.getOffset)
-          transactionClient.getLedgerEnd.blockingGet() shouldBe expectedOffset
-      }
-  }
-
-  it should "provide LEDGER_BEGIN from empty ledger" in
-    ledgerServices.withTransactionsClient(Observable.empty()) { (transactionClient, _) =>
-      transactionClient.getLedgerEnd.blockingGet() shouldBe
-        data.LedgerOffset.LedgerBegin.getInstance()
-    }
-
-  behavior of "8.15 TransactionClient.getLedgerEnd"
-
-  it should "request ledger end with correct ledger ID" in
-    ledgerServices.withTransactionsClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        transactionClient.getLedgerEnd.blockingGet()
-        transactionService.lastLedgerEndRequest.get().ledgerId shouldBe ledgerServices.ledgerId
-    }
-
   behavior of "Authentication"
 
-  def toAuthenticatedServer(fn: TransactionsClient => Any): Any =
-    ledgerServices.withTransactionsClient(Observable.empty(), mockedAuthService) { (client, _) =>
+  def toAuthenticatedServer(fn: UpdateClient => Any): Any =
+    ledgerServices.withUpdateClient(Observable.empty(), mockedAuthService) { (client, _) =>
       fn(client)
     }
 
@@ -338,31 +255,26 @@ final class TransactionsClientImplTest
         )
       }
     }
+    withClue("getTransactionTreeByEventId") {
+      expectUnauthenticated {
+        toAuthenticatedServer(_.getTransactionTreeByEventId("...", Set(someParty).asJava).blockingGet())
+      }
+    }
+    withClue("getTransactionTreeById") {
+      expectUnauthenticated {
+        toAuthenticatedServer(_.getTransactionTreeById("...", Set(someParty).asJava).blockingGet())
+      }
+    }
     withClue("getTransactionByEventId") {
       expectUnauthenticated {
-        toAuthenticatedServer(_.getTransactionByEventId("...", Set(someParty).asJava).blockingGet())
+        toAuthenticatedServer(
+          _.getTransactionByEventId("...", Set(someParty).asJava).blockingGet()
+        )
       }
     }
     withClue("getTransactionById") {
       expectUnauthenticated {
         toAuthenticatedServer(_.getTransactionById("...", Set(someParty).asJava).blockingGet())
-      }
-    }
-    withClue("getFlatTransactionByEventId") {
-      expectUnauthenticated {
-        toAuthenticatedServer(
-          _.getFlatTransactionByEventId("...", Set(someParty).asJava).blockingGet()
-        )
-      }
-    }
-    withClue("getFlatTransactionById") {
-      expectUnauthenticated {
-        toAuthenticatedServer(_.getFlatTransactionById("...", Set(someParty).asJava).blockingGet())
-      }
-    }
-    withClue("getLedgerEnd") {
-      expectUnauthenticated {
-        toAuthenticatedServer(_.getLedgerEnd.blockingGet())
       }
     }
   }
@@ -413,6 +325,22 @@ final class TransactionsClientImplTest
         )
       }
     }
+    withClue("getTransactionTreeByEventId") {
+      expectPermissionDenied {
+        toAuthenticatedServer(
+          _.getTransactionTreeByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
+            .blockingGet()
+        )
+      }
+    }
+    withClue("getTransactionTreeById") {
+      expectPermissionDenied {
+        toAuthenticatedServer(
+          _.getTransactionTreeById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
+            .blockingGet()
+        )
+      }
+    }
     withClue("getTransactionByEventId") {
       expectPermissionDenied {
         toAuthenticatedServer(
@@ -427,27 +355,6 @@ final class TransactionsClientImplTest
           _.getTransactionById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
             .blockingGet()
         )
-      }
-    }
-    withClue("getFlatTransactionByEventId") {
-      expectPermissionDenied {
-        toAuthenticatedServer(
-          _.getFlatTransactionByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet()
-        )
-      }
-    }
-    withClue("getFlatTransactionById") {
-      expectPermissionDenied {
-        toAuthenticatedServer(
-          _.getFlatTransactionById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet()
-        )
-      }
-    }
-    withClue("getLedgerEnd") {
-      expectUnauthenticated {
-        toAuthenticatedServer(_.getLedgerEnd(emptyToken).blockingGet())
       }
     }
   }
@@ -492,6 +399,18 @@ final class TransactionsClientImplTest
           .size
       )
     }
+    withClue("getTransactionTreeByEventId") {
+      toAuthenticatedServer(
+        _.getTransactionTreeByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
+          .blockingGet()
+      )
+    }
+    withClue("getTransactionTreeById") {
+      toAuthenticatedServer(
+        _.getTransactionTreeById("...", Set(someParty).asJava, somePartyReadWriteToken)
+          .blockingGet()
+      )
+    }
     withClue("getTransactionByEventId") {
       toAuthenticatedServer(
         _.getTransactionByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
@@ -503,21 +422,6 @@ final class TransactionsClientImplTest
         _.getTransactionById("...", Set(someParty).asJava, somePartyReadWriteToken)
           .blockingGet()
       )
-    }
-    withClue("getFlatTransactionByEventId") {
-      toAuthenticatedServer(
-        _.getFlatTransactionByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet()
-      )
-    }
-    withClue("getFlatTransactionById") {
-      toAuthenticatedServer(
-        _.getFlatTransactionById("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet()
-      )
-    }
-    withClue("getLedgerEnd") {
-      toAuthenticatedServer(_.getLedgerEnd(publicToken).blockingGet())
     }
   }
 

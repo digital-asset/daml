@@ -12,7 +12,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 final class TimeClientImplTest
     extends AnyFlatSpec
@@ -26,9 +26,9 @@ final class TimeClientImplTest
 
   behavior of "[9.1] TimeClientImpl.setTime"
 
-  it should "send requests with the correct ledger ID, current time and new time" in {
+  it should "send requests with the correct current time and new time" in {
     val (timeService, timeServiceImpl) =
-      TimeServiceImpl.createWithRef(Seq.empty, ledgerServices.authorizer)
+      TimeServiceImpl.createWithRef(Future.failed(new UnsupportedOperationException), ledgerServices.authorizer)
     ledgerServices.withTimeClient(Seq(timeService)) { timeClient =>
       val currentLedgerTimeSeconds = 1L
       val currentLedgerTimeNanos = 2L
@@ -45,7 +45,6 @@ final class TimeClientImplTest
       timeServiceImpl.getLastSetTimeRequest.value.getCurrentTime.nanos shouldBe currentLedgerTimeNanos
       timeServiceImpl.getLastSetTimeRequest.value.getNewTime.seconds shouldBe newLedgerTimeSeconds
       timeServiceImpl.getLastSetTimeRequest.value.getNewTime.nanos shouldBe newLedgerTimeNanos
-      timeServiceImpl.getLastSetTimeRequest.value.ledgerId shouldBe ledgerServices.ledgerId
     }
   }
 
@@ -54,7 +53,7 @@ final class TimeClientImplTest
   it should "return the responses received" in {
     val getTimeResponse = genGetTimeResponse
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Seq(getTimeResponse), ledgerServices.authorizer)._1)
+      Seq(TimeServiceImpl.createWithRef(Future.successful(getTimeResponse), ledgerServices.authorizer)._1)
     ) { timeClient =>
       val response = timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -64,27 +63,11 @@ final class TimeClientImplTest
     }
   }
 
-  behavior of "[9.3] TimeClientImpl.getTime"
-
-  it should "send requests with the correct ledger ID" in {
-    val getTimeResponse =
-      genGetTimeResponse // we use the first element to block on the first element
-    val (service, impl) =
-      TimeServiceImpl.createWithRef(Seq(getTimeResponse), ledgerServices.authorizer)
-    ledgerServices.withTimeClient(Seq(service)) { timeClient =>
-      val _ = timeClient
-        .getTime()
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingFirst()
-      impl.getLastGetTimeRequest.value.ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
   behavior of "[9.4] TimeClientImpl.setTime"
 
   it should "return an error without sending a request when the time to set if bigger than the current time" in {
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Seq.empty, ledgerServices.authorizer)._1)
+      Seq(TimeServiceImpl.createWithRef(Future.failed(new UnsupportedOperationException), ledgerServices.authorizer)._1)
     ) { timeClient =>
       val currentTime = Instant.ofEpochSecond(1L, 2L)
       intercept[RuntimeException](
@@ -100,7 +83,7 @@ final class TimeClientImplTest
 
   def toAuthenticatedServer(fn: TimeClient => Any): Any =
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Seq(genGetTimeResponse), ledgerServices.authorizer)._1),
+      Seq(TimeServiceImpl.createWithRef(Future.successful(genGetTimeResponse), ledgerServices.authorizer)._1),
       mockedAuthService,
     )(fn)
 
