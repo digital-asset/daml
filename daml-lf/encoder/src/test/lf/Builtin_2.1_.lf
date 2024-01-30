@@ -9,14 +9,22 @@ module BuiltinMod {
     SUB_NUMERIC;
   val mulNumericLegacy: forall (a: nat) (b: nat) (g: nat). Numeric a -> Numeric b -> Numeric g =
     MUL_NUMERIC_LEGACY;
+  val mulNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
+    MUL_NUMERIC;
   val divNumericLegacy: forall (a: nat) (b: nat) (g: nat). Numeric a -> Numeric b -> Numeric g =
     DIV_NUMERIC_LEGACY;
+  val divNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
+    DIV_NUMERIC;
   val roundNumeric: forall (a: nat). Int64 -> Numeric a -> Numeric a =
     ROUND_NUMERIC;
   val castNumericLegacy: forall (a: nat) (b: nat). Numeric a -> Numeric b =
     CAST_NUMERIC_LEGACY;
+  val castNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
+    CAST_NUMERIC;
   val shiftNumericLegacy: forall (a: nat) (b: nat). Numeric a -> Numeric b =
     SHIFT_NUMERIC_LEGACY;
+  val shiftNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
+    SHIFT_NUMERIC;
   val addInt64: Int64 -> Int64 -> Int64 =
     ADD_INT64;
   val subInt64: Int64 -> Int64 -> Int64 =
@@ -31,6 +39,8 @@ module BuiltinMod {
     EXP_INT64;
   val int64ToNumericLegacy: forall (a: nat). Int64 -> Numeric a =
     INT64_TO_NUMERIC_LEGACY;
+  val int64ToNumeric: forall (a: nat). Numeric a -> Int64 -> Numeric a =
+    INT64_TO_NUMERIC;
   val numericToInt64: forall (a: nat). Numeric a -> Int64 =
     NUMERIC_TO_INT64;
   val foldl: forall (a: *) (b: *). (b -> a -> b) -> b -> List a -> b =
@@ -87,6 +97,8 @@ module BuiltinMod {
     TEXT_TO_INT64;
   val textToNumericLegacy: forall (a: nat). Text -> Option (Numeric a) =
     TEXT_TO_NUMERIC_LEGACY;
+  val textToNumeric: forall (a: nat). Numeric a -> Text -> Option (Numeric a) =
+      TEXT_TO_NUMERIC;
   val textToCodePoints: Text -> List Int64 =
     TEXT_TO_CODE_POINTS;
   val sha256Text: Text -> Text =
@@ -137,11 +149,12 @@ module BuiltinMod {
     SHIFT_RIGHT_BIGNUMERIC;
   val bignumericToNumericLegacy: forall (a: nat). BigNumeric -> Numeric a =
     BIGNUMERIC_TO_NUMERIC_LEGACY;
+  val bignumericToNumeric: forall (a: nat). Numeric a -> BigNumeric -> Numeric a =
+    BIGNUMERIC_TO_NUMERIC;
   val numericToBignumeric: forall (a: nat). Numeric a -> BigNumeric =
     NUMERIC_TO_BIGNUMERIC;
   val bignumericToText: BigNumeric -> Text =
     BIGNUMERIC_TO_TEXT;
   val anyExceptionMessage: AnyException -> Text =
     ANY_EXCEPTION_MESSAGE;
-
 }

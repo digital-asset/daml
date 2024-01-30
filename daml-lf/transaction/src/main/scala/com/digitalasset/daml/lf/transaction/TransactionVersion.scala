@@ -92,6 +92,6 @@ object TransactionVersion {
 
   // TODO(#17366): parameterize by major language version once there's a transaction v2
   private[lf] val DevVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.AllVersions(LanguageMajorVersion.V1).map(assignNodeVersion)
+    LanguageVersion.AllVersions(LanguageMajorVersion.V2).map(assignNodeVersion)
 
 }
