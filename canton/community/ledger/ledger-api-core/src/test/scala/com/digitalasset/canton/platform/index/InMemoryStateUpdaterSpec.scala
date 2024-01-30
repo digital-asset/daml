@@ -16,7 +16,6 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
-import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -35,10 +34,6 @@ import com.digitalasset.canton.platform.store.cache.{
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
-  TemplateIdWithPriority,
-  TemplatesForQualifiedName,
-}
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
@@ -158,11 +153,11 @@ class InMemoryStateUpdaterSpec
   }
 
   "prepare" should "append package metadata" in new Scope {
-    def metadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata = {
-      case (archive, _) if archive.getHash == "00001" =>
-        PackageMetadata(templates = Map(templatesForQn1))
-      case (archive, _) if archive.getHash == "00002" =>
-        PackageMetadata(templates = Map(templatesForQn2))
+    def metadata: DamlLf.Archive => PackageMetadata = {
+      case archive if archive.getHash == "00001" =>
+        PackageMetadata(templates = Set(templateId))
+      case archive if archive.getHash == "00002" =>
+        PackageMetadata(templates = Set(templateId2))
       case _ => fail("unexpected archive hash")
     }
 
@@ -174,7 +169,7 @@ class InMemoryStateUpdaterSpec
       offset(6L),
       0L,
       update6._2.traceContext,
-      PackageMetadata(templates = Map(templatesForQn1, templatesForQn2)),
+      PackageMetadata(templates = Set(templateId, templateId2)),
     )
   }
 
@@ -226,8 +221,7 @@ object InMemoryStateUpdaterSpec {
 
     override def handleFailure(message: String) = fail(message)
 
-    val emptyArchiveToMetadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata = (_, _) =>
-      PackageMetadata()
+    val emptyArchiveToMetadata: DamlLf.Archive => PackageMetadata = _ => PackageMetadata()
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
       (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
@@ -429,7 +423,7 @@ object InMemoryStateUpdaterSpec {
           completionDetails = tx_rejected_completionDetails,
         )
       )(emptyTraceContext)
-    val packageMetadata: PackageMetadata = PackageMetadata(templates = Map(templatesForQn1))
+    val packageMetadata: PackageMetadata = PackageMetadata(templates = Set(templateId))
 
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
@@ -484,17 +478,6 @@ object InMemoryStateUpdaterSpec {
 
   private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
-
-  private val templatesForQn1 = templateQualifiedName1 ->
-    TemplatesForQualifiedName(
-      NonEmptyUtil.fromUnsafe(Set(templateId)),
-      TemplateIdWithPriority(templateId, Time.Timestamp.Epoch),
-    )
-  private val templatesForQn2 = templateQualifiedName2 ->
-    TemplatesForQualifiedName(
-      NonEmptyUtil.fromUnsafe(Set(templateId2)),
-      TemplateIdWithPriority(templateId2, Time.Timestamp.Epoch),
-    )
 
   private val someCreateNode = {
     val contractId = TransactionBuilder.newCid

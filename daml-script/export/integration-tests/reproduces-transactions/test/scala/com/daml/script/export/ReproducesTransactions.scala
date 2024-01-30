@@ -9,7 +9,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.api.refinements.ApiTypes
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v2.commands.Commands

@@ -132,7 +132,7 @@ daml_compile(
 daml_compile(
     name = "test-daml-with-same-dependencies-but-different-target-version",
     srcs = ["src/test/daml/Foo2.daml"],
-    target = "1.13",
+    target = "2.dev",
 )
 
 daml_compile(
@@ -413,7 +413,6 @@ da_scala_test(
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//daml-lf/data",
-        "//language-support/scala/bindings-pekko",
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//libs-scala/ports",

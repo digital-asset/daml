@@ -47,9 +47,6 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   // Test case reproducing #15341
-  // TODO(#17366): once we've got two 2.x compilers with different std libs, compile
-  //  testDarWithSameDependenciesButDifferentTargetVersion with one of these compilers and revert
-  //  the expectation to 6.
   it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
 
     val scope =
@@ -64,7 +61,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     // + `daml-prim` from different LF version
     // + `daml-stdlib` from different LF version
     // + testDarWithSameDependenciesButDifferentTargetVersion
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(23)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
     scope.packagePrefixes should ===(Map.empty)
     scope.toBeGenerated should ===(Set.empty)
   }

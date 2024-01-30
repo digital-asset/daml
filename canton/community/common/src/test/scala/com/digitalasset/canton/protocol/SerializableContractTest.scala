@@ -66,7 +66,6 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     val authenticatedContractId =
       AuthenticatedContractIdVersionV2.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
-    val agreementText = "agreement"
     val disclosedContract = ProcessedDisclosedContract(
       templateId = templateId,
       contractId = authenticatedContractId,
@@ -76,7 +75,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      agreementText = agreementText,
+      agreementText = "", // not used anymore
       version = transactionVersion,
     )
 

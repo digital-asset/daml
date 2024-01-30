@@ -86,7 +86,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.{LfPartyId, config}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
 import com.google.protobuf.empty.Empty
 import io.grpc.*
 import io.grpc.stub.StreamObserver
@@ -305,6 +305,7 @@ object LedgerApiV2Commands {
     def disclosedContracts: Seq[DisclosedContract]
     def domainId: Option[DomainId]
     def applicationId: String
+    def packageIdSelectionPreference: Seq[LfPackageId]
 
     protected def mkCommand: Commands = Commands(
       workflowId = workflowId,
@@ -329,6 +330,7 @@ object LedgerApiV2Commands {
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
       domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+      packageIdSelectionPreference = packageIdSelectionPreference.map(_.toString),
     )
 
     override def pretty: Pretty[this.type] =
@@ -363,6 +365,7 @@ object LedgerApiV2Commands {
         override val disclosedContracts: Seq[DisclosedContract],
         override val domainId: Option[DomainId],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, SubmitResponse, Unit] {
       override def createRequest(): Either[String, SubmitRequest] = Right(
@@ -483,6 +486,7 @@ object LedgerApiV2Commands {
         override val disclosedContracts: Seq[DisclosedContract],
         override val domainId: Option[DomainId],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[
           SubmitAndWaitRequest,
@@ -520,6 +524,7 @@ object LedgerApiV2Commands {
         override val disclosedContracts: Seq[DisclosedContract],
         override val domainId: Option[DomainId],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
 

@@ -40,7 +40,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -760,7 +760,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
+      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -809,7 +809,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
+      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =

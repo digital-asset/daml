@@ -19,7 +19,7 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
 import io.grpc.StatusRuntimeException

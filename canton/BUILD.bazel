@@ -168,6 +168,7 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
+        "//language-support/java/bindings-rxjava:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
     deps = [
@@ -264,6 +265,7 @@ da_scala_library(
         "//compiler/repl-service:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
+        "//ledger-service/utils:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
     deps = [
@@ -291,6 +293,7 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -726,7 +729,6 @@ scala_library(
     deps = [
         ":bindings-java",
         ":community_base",
-        ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",

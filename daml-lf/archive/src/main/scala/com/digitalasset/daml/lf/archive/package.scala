@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
+import com.daml.daml_lf_dev.{DamlLf, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf
@@ -52,20 +52,6 @@ package object archive {
       Right(cos)
     })
 
-  // TODO(#17366): This is only used to coerce LF2 to LF1 packages in the decoder.
-  //     Remove once Lf2 and LF1 have diverged.
-  val Lf1PackageParser: GenReader[DamlLf1.Package] =
-    Base.andThen(cos =>
-      attempt(getClass.getCanonicalName + ".Lf1PackageParser")(DamlLf1.Package.parseFrom(cos))
-    )
-
-  // TODO(#17366): This is only used to coerce LF1 to LF2 packages in the encoder.
-  //     Remove once LF2 and LF1 have diverged.
-  val Lf2PackageParser: GenReader[DamlLf2.Package] =
-    Base.andThen(cos =>
-      attempt(getClass.getCanonicalName + ".Lf2PackageParser")(DamlLf2.Package.parseFrom(cos))
-    )
-
   val ArchiveParser: GenReader[DamlLf.Archive] =
     Base.andThen(cos =>
       attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
@@ -91,18 +77,14 @@ package object archive {
 
   private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] = {
     ver.major match {
-      case LanguageMajorVersion.V1 =>
-        Base
-          .andThen(cos =>
-            attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf1.Package.parseFrom(cos))
-          )
-          .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
       case LanguageMajorVersion.V2 =>
         Base
           .andThen(cos =>
             attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
           )
           .andThen(new DecodeV2(ver.minor).decodeScenarioModule(pkgId, _))
+      case _ =>
+        new GenReader[Ast.Module](_ => Left(Error.Parsing(s"LF version $ver unsupported")))
     }
   }
 

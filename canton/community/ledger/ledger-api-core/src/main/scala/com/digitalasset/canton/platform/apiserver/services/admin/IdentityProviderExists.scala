@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.localstore.api.IdentityProviderConfigStore
 
 import scala.concurrent.Future
 

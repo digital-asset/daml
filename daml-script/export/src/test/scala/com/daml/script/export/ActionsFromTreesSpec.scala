@@ -3,7 +3,7 @@
 
 package com.daml.script.export
 
-import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.script.export.TreeUtils.{SetTime, SubmitSimpleSingle, Action}
 import org.scalatest.freespec.AnyFreeSpec

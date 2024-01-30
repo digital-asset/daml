@@ -18,6 +18,11 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.LedgerId
+import com.digitalasset.canton.ledger.localstore.api.{
+  IdentityProviderConfigStore,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -33,13 +38,12 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
-import com.digitalasset.canton.platform.localstore.api.{
-  IdentityProviderConfigStore,
-  PartyRecordStore,
-  UserManagementStore,
+import com.digitalasset.canton.platform.config.{
+  CommandServiceConfig,
+  IdentityProviderManagementConfig,
+  UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
@@ -78,6 +82,7 @@ object ApiServiceOwner {
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
       userManagementStore: UserManagementStore,
+      packageMetadataStore: PackageMetadataStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
@@ -128,7 +133,10 @@ object ApiServiceOwner {
       override def getIdentityProviderConfig(issuer: LedgerId)(implicit
           loggingContext: LoggingContextWithTrace
       ): Future[domain.IdentityProviderConfig] =
-        identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)
+        identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
+          loggingContext,
+          servicesExecutionContext,
+        )
     }
 
     for {
@@ -157,6 +165,7 @@ object ApiServiceOwner {
         managementServiceTimeout = managementServiceTimeout.underlying,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
+        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,

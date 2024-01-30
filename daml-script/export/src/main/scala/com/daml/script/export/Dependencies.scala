@@ -6,7 +6,7 @@ package com.daml.script.export
 import java.io.FileOutputStream
 import java.nio.file.Path
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.{VersionRange, archive}

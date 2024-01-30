@@ -11,13 +11,13 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}

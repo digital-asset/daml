@@ -163,8 +163,7 @@ featureChoiceFuncs = Feature
 featureTemplateTypeRepToText :: Feature
 featureTemplateTypeRepToText = Feature
     { featureName = "templateTypeRepToText function"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
     }
 

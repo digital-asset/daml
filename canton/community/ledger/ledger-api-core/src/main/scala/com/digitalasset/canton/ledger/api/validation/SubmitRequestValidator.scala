@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.command_submission_service.SubmitReassignmentReque
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
 import com.daml.lf.data.Time
 import com.digitalasset.canton.ledger.api.messages.command.submission
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import io.grpc.StatusRuntimeException
 

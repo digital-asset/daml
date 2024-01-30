@@ -19,9 +19,9 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.api.validation.{
-  FieldValidator as LedgerApiFieldValidations,
-  StricterValueValidator as LedgerApiValueValidator,
+  StricterValueValidator as LedgerApiValueValidator
 }
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -1304,7 +1304,7 @@ object RepairService {
         contractSalt: Option[Salt],
     )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] = {
       for {
-        template <- LedgerApiFieldValidations.validateIdentifier(templateId).leftMap(_.getMessage)
+        template <- LedgerApiValueValidator.validateIdentifier(templateId).leftMap(_.getMessage)
 
         argsValue <- LedgerApiValueValidator
           .validateRecord(createArguments)
@@ -1317,10 +1317,6 @@ object RepairService {
 
         lfContractInst = LfContractInst(template = template, arg = argsVersionedValue)
 
-        /*
-         It is fine to set the agreement text to empty because method `addContract` recomputes the agreement text
-         and will discard this value.
-         */
         serializableRawContractInst <- SerializableRawContractInstance
           .create(lfContractInst)
           .leftMap(_.errorMessage)

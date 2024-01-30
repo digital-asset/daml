@@ -21,6 +21,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.engine as LfEngine
 import com.daml.metrics.Timed
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -47,7 +48,6 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
-import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ApiTimestamp
 import com.google.rpc.Status

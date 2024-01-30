@@ -10,13 +10,12 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
-import com.digitalasset.canton.util.LfEngineToApi
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalacheck.Gen

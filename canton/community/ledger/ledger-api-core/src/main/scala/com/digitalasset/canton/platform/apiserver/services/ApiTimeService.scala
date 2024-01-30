@@ -12,8 +12,9 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.*
-import com.digitalasset.canton.ledger.api.validation.FieldValidator
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -48,8 +49,6 @@ private[apiserver] final class ApiTimeService private (
     with NamedLogging {
 
   private val dispatcher = SignalDispatcher[Instant]()
-
-  import FieldValidator.*
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}."
@@ -111,8 +110,7 @@ private[apiserver] final class ApiTimeService private (
 
     val validatedInput: Either[StatusRuntimeException, (Instant, Instant)] = for {
       _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
-      expectedTime <- FieldValidator
-        .requirePresence(request.currentTime, "current_time")
+      expectedTime <- requirePresence(request.currentTime, "current_time")
         .map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {

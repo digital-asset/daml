@@ -16,15 +16,6 @@ object Decode {
       onlySerializableDataDefs: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload.version match {
-      case LanguageVersion(LanguageMajorVersion.V1, minor)
-          if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
-        new DecodeV1(minor)
-          .decodePackage(
-            payload.pkgId,
-            payload.proto.getDamlLf1,
-            onlySerializableDataDefs,
-          )
-          .map(payload.pkgId -> _)
       case LanguageVersion(LanguageMajorVersion.V2, minor)
           if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
         new DecodeV2(minor)

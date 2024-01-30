@@ -103,7 +103,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.{LedgerTransactionId, LfPartyId, config}
+import com.digitalasset.canton.{LedgerTransactionId, LfPackageId, LfPartyId, config}
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -174,9 +174,40 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
+      ): Seq[UpdateTreeWrapper] =
+        trees_with_tx_filter(
+          filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap),
+          completeAfter = completeAfter,
+          beginOffset = beginOffset,
+          endOffset = endOffset,
+          verbose = verbose,
+          timeout = timeout,
+          resultFilter = resultFilter,
+        )
+
+      @Help.Summary("Get update trees", FeatureFlag.Testing)
+      @Help.Description(
+        """This function connects to the update tree stream for the transaction filter and collects update trees
+          |until either `completeAfter` update trees have been received or `timeout` has elapsed.
+          |The returned update trees can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error.
+          |NOTE: As opposed to the flat transaction streams, the transaction filter provided for transaction trees DO NOT
+          | filter the events in the tree, but decide instead the event payloads projection rules.
+          | (e.g. whether to include in the CreatedEvent the created event blob)."""
+      )
+      def trees_with_tx_filter(
+          filter: TransactionFilterV2,
+          completeAfter: Int,
+          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+          ),
+          endOffset: Option[ParticipantOffset] = None,
+          verbose: Boolean = true,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          resultFilter: UpdateTreeWrapper => Boolean = _ => true,
       ): Seq[UpdateTreeWrapper] = check(FeatureFlag.Testing)({
         val observer = new RecordingStreamObserver[UpdateTreeWrapper](completeAfter, resultFilter)
-        val filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
           subscribe_trees(observer, filter, beginOffset, endOffset, verbose),
           "getUpdateTrees",
@@ -435,6 +466,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): TransactionTreeV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
@@ -450,6 +482,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -484,6 +517,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): TransactionV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
@@ -499,6 +533,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -522,6 +557,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -537,6 +573,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -1747,6 +1784,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): javab.data.TransactionTreeV2 = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
@@ -1762,6 +1800,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 domainId,
                 applicationId,
+                userPackageSelectionPreference,
               )
             )
           }
@@ -1799,6 +1838,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): javab.data.TransactionV2 = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
@@ -1814,6 +1854,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 domainId,
                 applicationId,
+                userPackageSelectionPreference,
               )
             )
           }

@@ -12,7 +12,10 @@ import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
-import com.digitalasset.canton.ledger.api.validation.CommandsValidator
+import com.digitalasset.canton.ledger.api.validation.{
+  CommandsValidator,
+  ValidateUpgradingPackageResolutions,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.TestTelemetrySetup
@@ -137,7 +140,7 @@ class ApiCommandSubmissionServiceSpec
       loggerFactory = loggerFactory,
       commandsValidator = CommandsValidator(
         ledgerId = LedgerId(ledgerId),
-        resolveToTemplateId = _ => fail("should not be called"),
+        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
         upgradingEnabled = false,
       ),
     )

@@ -10,8 +10,8 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.ledger.api.auth.AuthorizationError.Expired
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.apache.pekko.actor.{Cancellable, Scheduler}

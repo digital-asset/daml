@@ -185,7 +185,7 @@ matches_record() (
 record_success() (
   record_before=$1
   release=$2
-  record_after=$3
+  record_after=$(mktemp)
   create_record $record_after $release
   if diff $record_before $record_after; then
     echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: saving record."
