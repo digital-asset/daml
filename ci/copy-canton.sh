@@ -10,22 +10,16 @@ else
   canton_dir=$1
 fi
 
-#tmp=$(mktemp -d)
-#trap "rm -rf ${tmp}" EXIT
-#git -C $canton_dir worktree add -d $tmp
-#trap "git -C $canton_dir worktree remove -f $tmp" EXIT
-
-
 for path in community daml-common-staging README.md; do
-  rm -rf canton/$path
+  rm -rf $DIR/canton/$path
   for f in  $(git -C "$canton_dir" ls-files $path); do
     # we're only interested in copying files, not directories, as git-ls has
     # explicitly expanded all directories
     if [[ -f $canton_dir/$f ]]; then
       # we create the parent directories of f under canton/ if they don't exist
-      mkdir -p canton/$(dirname $f)
-      cp $canton_dir/$f canton/$f
+      mkdir -p $DIR/canton/$(dirname $f)
+      cp $canton_dir/$f $DIR/canton/$f
     fi
   done
-  git add canton/$path
+  git add $DIR/canton/$path
 done
