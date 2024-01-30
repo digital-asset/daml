@@ -31,14 +31,6 @@ class DecodeV2Spec
     .newBuilder()
     .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
     .build()
-  val boolTyp: DamlLf2.Type = DamlLf2.Type
-    .newBuilder()
-    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.BOOL))
-    .build()
-  val textTyp: DamlLf2.Type = DamlLf2.Type
-    .newBuilder()
-    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.TEXT))
-    .build()
 
   val typeTable = ImmArraySeq(TUnit, TBool, TText)
   val unitTypInterned = DamlLf2.Type.newBuilder().setInterned(0).build()
@@ -276,19 +268,6 @@ class DecodeV2Spec
         .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
         .build
 
-      def fieldWithUnitWithoutInterning(s: String) =
-        DamlLf2.FieldWithType.newBuilder().setFieldStr(s).setType(unit)
-
-      def buildTStructWithoutInterning(fields: Seq[String]) =
-        DamlLf2.Type
-          .newBuilder()
-          .setStruct(
-            fields.foldLeft(DamlLf2.Type.Struct.newBuilder())((builder, name) =>
-              builder.addFields(fieldWithUnitWithoutInterning(name))
-            )
-          )
-          .build()
-
       val stringTable = ImmArraySeq("a", "b", "c")
       val stringIdx = stringTable.zipWithIndex.toMap
 
@@ -305,19 +284,7 @@ class DecodeV2Spec
           )
           .build()
 
-      forEveryVersionSuchThat(_ < LV.Features.internedStrings) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(negativeTestCases) { fieldNames =>
-          decoder.uncheckedDecodeTypeForTest(buildTStructWithoutInterning(fieldNames))
-        }
-        forEvery(positiveTestCases) { fieldNames =>
-          an[Error.Parsing] shouldBe thrownBy(
-            decoder.uncheckedDecodeTypeForTest(buildTStructWithoutInterning(fieldNames))
-          )
-        }
-      }
-
-      forEveryVersionSuchThat(_ >= LV.Features.internedStrings) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version, stringTable)
         forEvery(negativeTestCases) { fieldNames =>
           decoder.uncheckedDecodeTypeForTest(buildTStructWithInterning(fieldNames))
@@ -390,7 +357,7 @@ class DecodeV2Spec
         newBuilder.setStruct(DamlLf2.Type.Struct.newBuilder().addFields(xWithBool)).build(),
       )
 
-      forEveryVersionSuchThat(_ >= LV.Features.internedTypes) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version, stringTable, dottedNameTable)
         forEvery(testCases)(proto =>
           an[Error.Parsing] shouldBe thrownBy(decoder.decodeTypeForTest(proto))
@@ -1687,35 +1654,6 @@ class DecodeV2Spec
     val observersExpr = DamlLf2.Expr.newBuilder().setVarInternedStr(2).build()
     val bodyExp = DamlLf2.Expr.newBuilder().setVarInternedStr(5).build()
 
-    "reject choice with observers if lf version = 1.6" in {
-      // special case for LF 1.6 that does not support string interning
-      val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
-        .newBuilder()
-        .setNameStr("ChoiceName")
-        .setConsuming(true)
-        .setControllers(DamlLf2.Expr.newBuilder().setVarStr("controllers"))
-        .setSelfBinderStr("self")
-        .setArgBinder(DamlLf2.VarWithType.newBuilder().setVarStr("arg").setType(unitTyp))
-        .setRetType(unitTyp)
-        .setUpdate(DamlLf2.Expr.newBuilder().setVarStr("body").build())
-        .build()
-
-      val protoChoiceWithObservers =
-        protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
-
-      forEveryVersionSuchThat(_ < LV.Features.internedStrings) { version =>
-        assert(version < LV.Features.internedStrings)
-        assert(version < LV.Features.internedTypes)
-
-        val decoder = moduleDecoder(version)
-
-        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
-        an[Error.Parsing] should be thrownBy (decoder
-          .decodeChoiceForTest(templateName, protoChoiceWithObservers))
-
-      }
-    }
-
     // TODO: https://github.com/digital-asset/daml/issues/15882
     // -- When choice authority encode/decode has been implemented,
     // -- test that we reject explicit choice authorizers prior to the feature version.
@@ -1735,12 +1673,7 @@ class DecodeV2Spec
       val protoChoiceWithObservers =
         protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
 
-      forEveryVersionSuchThat(v =>
-        LV.Features.internedStrings < v && v < LV.Features.choiceObservers
-      ) { version =>
-        assert(LV.Features.internedStrings <= version)
-        assert(version < LV.Features.internedTypes)
-
+      forEveryVersionSuchThat(v => v < LV.Features.choiceObservers) { version =>
         val decoder = moduleDecoder(version, stringTable)
 
         decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
@@ -1771,44 +1704,12 @@ class DecodeV2Spec
         protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
 
       forEveryVersionSuchThat(LV.Features.choiceObservers <= _) { version =>
-        assert(LV.Features.internedStrings <= version)
-        assert(LV.Features.internedTypes <= version)
-
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
           decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers),
         )
         decoder.decodeChoiceForTest(templateName, protoChoiceWithObservers)
-      }
-    }
-  }
-
-  "decodeInternedTypes" should {
-    def pkgWithInternedTypes: DamlLf2.Package = {
-      val typeNat1 = DamlLf2.Type.newBuilder().setNat(1).build()
-      DamlLf2.Package
-        .newBuilder()
-        .addInternedTypes(typeNat1)
-        .build()
-    }
-
-    "reject interned types if lf version < 1.11" in {
-      forEveryVersionSuchThat(_ < LV.Features.internedTypes) { version =>
-        val decoder = new DecodeV2(version.minor)
-        val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          IndexedSeq.empty,
-          None,
-          None,
-          onlySerializableDataDefs = false,
-        )
-        val parseError =
-          the[Error.Parsing] thrownBy (decoder
-            .decodeInternedTypesForTest(env, pkgWithInternedTypes))
-        parseError.toString should include("interned types table is not supported")
       }
     }
   }
