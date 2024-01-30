@@ -809,6 +809,17 @@ rollbackArchive
          submit p $ createAndExerciseCmd (T p) (RollbackArchive 0)
          submitMustFail p
            $ createAndExerciseCmd (T p) (NonRollbackArchive 0)
+divulgence
+  = script
+      do p1 <- allocateParty "p1"
+         p2 <- allocateParty "p2"
+         cid <- submit p1 $ createCmd (K p1 0)
+         divulger <- submit p2 $ createCmd (Fetcher p2 p1)
+         fetcher <- submit p1 $ createCmd (Fetcher p1 p2)
+         submitMustFail p2 $ exerciseCmd fetcher (Fetch cid)
+         submit p1 $ exerciseCmd divulger (RollbackFetch cid)
+         submit p2 $ exerciseCmd fetcher (Fetch cid)
+         pure ()
 tryContext
   = script
       do p <- allocateParty "p"
