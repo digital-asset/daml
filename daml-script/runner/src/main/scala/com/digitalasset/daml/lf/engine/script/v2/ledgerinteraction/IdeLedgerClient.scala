@@ -332,9 +332,6 @@ class IdeLedgerClient(
         )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
-      // Hide not visible as not found
-      case ContractKeyNotVisible(_, key, _, _, _) =>
-        SubmitError.ContractKeyNotFound(key)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon
@@ -396,9 +393,6 @@ class IdeLedgerClient(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
-
-    case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
-      SubmitError.ContractKeyNotFound(key)
 
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
