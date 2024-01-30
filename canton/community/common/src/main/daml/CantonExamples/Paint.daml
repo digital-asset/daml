@@ -13,8 +13,6 @@ template PaintHouse
     houseOwner: Party
   where
     signatory painter, houseOwner
-    agreement
-      show painter <> " will paint the house of " <> show houseOwner
 
 template OfferToPaintHouseByPainter
   with

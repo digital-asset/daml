@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.*
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.Filters
+import com.digitalasset.canton.ledger.api.domain.{Filters, InclusiveFilters}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+
+import scala.collection.View
 
 /**  This class encapsulates the logic of how contract arguments and interface views are
   *  being projected to the consumer based on the filter criteria and the relation between
@@ -57,13 +59,14 @@ object EventProjectionProperties {
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
       interfaceImplementedBy: Identifier => Set[Identifier],
+      resolveTemplateIds: TypeConRef => Set[Identifier],
       alwaysPopulateArguments: Boolean,
   ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = verbose,
       wildcardWitnesses = wildcardWitnesses(transactionFilter, alwaysPopulateArguments),
       witnessTemplateProjections =
-        witnessTemplateProjections(transactionFilter, interfaceImplementedBy),
+        witnessTemplateProjections(transactionFilter, interfaceImplementedBy, resolveTemplateIds),
     )
 
   private def wildcardWitnesses(
@@ -88,34 +91,42 @@ object EventProjectionProperties {
   private def witnessTemplateProjections(
       domainTransactionFilter: domain.TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
+      resolveTemplateIds: TypeConRef => Set[Identifier],
   ): Map[String, Map[Identifier, Projection]] =
     (for {
-      (party, filters) <- domainTransactionFilter.filtersByParty.iterator
-      inclusiveFilters <- filters.inclusive.iterator
+      (party, filters) <- domainTransactionFilter.filtersByParty.view
+      inclusiveFilters <- filters.inclusive.toList.view
     } yield {
       val interfaceFilterProjections = for {
-        interfaceFilter <- inclusiveFilters.interfaceFilters.iterator
-        implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).iterator
+        interfaceFilter <- inclusiveFilters.interfaceFilters.view
+        implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).view
       } yield implementor -> Projection(
         interfaces =
           if (interfaceFilter.includeView) Set(interfaceFilter.interfaceId) else Set.empty,
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
         contractArguments = false,
       )
-      val templateFilterProjections =
-        inclusiveFilters.templateFilters.iterator.map(templateFilter =>
-          templateFilter.templateId -> Projection(
-            interfaces = Set.empty,
-            createdEventBlob = templateFilter.includeCreatedEventBlob,
-            contractArguments = true,
-          )
-        )
-      party -> interfaceFilterProjections
-        .++(templateFilterProjections)
-        .toList
-        .groupMap(_._1)(_._2)
-        .view
-        .mapValues(_.foldLeft(Projection())(_ append _))
-        .toMap
+      val templateProjections = getTemplateProjections(inclusiveFilters, resolveTemplateIds)
+      val projectionsForParty =
+        (interfaceFilterProjections ++ templateProjections)
+          .groupMap(_._1)(_._2)
+          .view
+          .mapValues(_.foldLeft(Projection())(_ append _))
+          .toMap
+
+      party -> projectionsForParty
     }).toMap
+
+  private def getTemplateProjections(
+      inclusiveFilters: InclusiveFilters,
+      resolveTemplateIds: TypeConRef => Set[Identifier],
+  ): View[(Identifier, Projection)] =
+    for {
+      templateFilter <- inclusiveFilters.templateFilters.view
+      templateId <- resolveTemplateIds(templateFilter.templateTypeRef).view
+    } yield templateId -> Projection(
+      interfaces = Set.empty,
+      createdEventBlob = templateFilter.includeCreatedEventBlob,
+      contractArguments = true,
+    )
 }

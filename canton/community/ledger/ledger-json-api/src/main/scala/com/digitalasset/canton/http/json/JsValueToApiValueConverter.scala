@@ -9,7 +9,7 @@ import JsValueToApiValueConverter.LfTypeLookup
 import JsonProtocol.LfValueCodec
 import com.daml.ledger.api.{v1 => lav1}
 import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.util.LfEngineToApi
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import scalaz.std.string._
 import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue

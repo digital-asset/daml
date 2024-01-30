@@ -1,8 +1,8 @@
-sdk-version: 3.0.0-snapshot.20240125.12640.0.vf0b61ae5
+sdk-version: 3.0.0-snapshot.20240126.12648.0.va9dc2d63
 name: experimental-tests
 source: .
 version: 3.0.0
-dependencies:
+dependencies: 
 - daml-prim
 - daml-stdlib
 - daml3-script

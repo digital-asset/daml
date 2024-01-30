@@ -25,7 +25,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
       contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance(),
       signatories: Set[LfPartyId] = Set(signatory),
       key: Option[LfGlobalKeyWithMaintainers] = None,
-      agreementText: String = "",
   ): LfNodeCreate =
     ExampleTransactionFactory.createNode(
       cid,

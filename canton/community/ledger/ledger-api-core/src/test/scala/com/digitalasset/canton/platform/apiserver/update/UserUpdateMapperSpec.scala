@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.update
 
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, User}
-import com.digitalasset.canton.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
+import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec

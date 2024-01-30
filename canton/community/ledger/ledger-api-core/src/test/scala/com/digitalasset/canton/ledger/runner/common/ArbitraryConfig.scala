@@ -13,9 +13,8 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
-import com.digitalasset.canton.platform.config.*
+import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, *}
 import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig

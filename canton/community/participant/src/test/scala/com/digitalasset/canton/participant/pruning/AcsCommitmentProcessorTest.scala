@@ -2436,6 +2436,71 @@ class AcsCommitmentProcessorTest
           assert(normalCommitments4 equals cachedCommitments4)
         }
       }
+
+      "handles stakeholder group removal correctly" in {
+        val (_, acsChanges) = setupContractsAndAcsChanges2()
+        val crypto = cryptoSetup(remoteId2, topology)
+
+        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
+        val cachedCommitments = new CachedCommitments()
+
+        for {
+          // init phase
+          // participant "remoteId2" has one stakeholder group in common with "remote1": (alice, bob, charlie) with one contract
+          // participant "remoteId2" has three stakeholder group in common with "local": (alice, bob, charlie) with one contract,
+          // (alice, danna) with one contract, and (alice, ed) with one contract
+          rc <- runningCommitments
+          _ = rc.update(rt(2, 0), acsChanges(ts(2)))
+          normalCommitments2 <- AcsCommitmentProcessor.commitments(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            None,
+            parallelism,
+            new CachedCommitments(),
+          )
+
+          _ = cachedCommitments.setCachedCommitments(normalCommitments2, rc.snapshot().active)
+
+          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+
+          // simulate offboarding party ed from remoteId2 by replacing the commitment for (alice,ed) with an empty commitment
+          byParticipantWithOffboard = byParticipant.map { case (participant, stakeholdersCmts) =>
+            if (participant == localId)
+              (
+                localId,
+                stakeholdersCmts
+                  .filter(x => x._1 != SortedSet(alice, ed))
+                  .union(Set((SortedSet(alice, ed), AcsCommitmentProcessor.emptyCommitment))),
+              )
+            else (participant, stakeholdersCmts)
+          }
+
+          computeFromCachedLocalId1 = cachedCommitments.computeCmtFromCached(
+            localId,
+            byParticipantWithOffboard(localId),
+          )
+
+          // the correct commitment for local should not include any commitment for (alice, ed)
+          correctCmts = commitmentsFromStkhdCmts(
+            byParticipantWithOffboard(localId)
+              .map { case (stakeholders, cmt) => cmt }
+              .filter(_ != AcsCommitmentProcessor.emptyCommitment)
+              .toSeq
+          )
+        } yield {
+          assert(computeFromCachedLocalId1.contains(correctCmts))
+        }
+      }
+
     }
   }
 }

@@ -13,8 +13,8 @@ import com.daml.ledger.api.v2.testing.time_service.{
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.*
-import com.digitalasset.canton.ledger.api.validation.FieldValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -35,8 +35,6 @@ private[apiserver] final class ApiTimeServiceV2(
 ) extends TimeService
     with GrpcApiService
     with NamedLogging {
-
-  import FieldValidator.*
 
   def getTime(request: GetTimeRequest): Future[GetTimeResponse] = {
     implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
@@ -68,8 +66,7 @@ private[apiserver] final class ApiTimeServiceV2(
     }
 
     val validatedInput: Either[StatusRuntimeException, (Instant, Instant)] = for {
-      expectedTime <- FieldValidator
-        .requirePresence(request.currentTime, "current_time")
+      expectedTime <- requirePresence(request.currentTime, "current_time")
         .map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {

@@ -13,8 +13,8 @@ import com.digitalasset.canton.ledger.error.groups.{
   AuthorizationChecksErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.tracing.{TelemetryTracing, TraceContext}
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}

@@ -71,8 +71,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     val (_viewTree, (reinterpretedTx, metadata, keyResolver), _witnesses) =
       example.reinterpretedSubtransactions.find { case (viewTree, (tx, md, keyResolver), _) =>
         viewTree.viewParticipantData.rootAction(enableContractUpgrading).command == cmd &&
-        // Commands are otherwise not sufficiently unique (whereas with nodes, we can produce unique nodes, e.g.
-        // based on LfNodeCreate.agreementText not part of LfCreateCommand.
+        // Commands are otherwise not sufficiently unique (whereas with nodes, we can produce unique nodes).
         rootSeed == md.seeds.get(tx.roots(0))
       }.value
 

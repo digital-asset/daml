@@ -8,8 +8,8 @@ import com.digitalasset.canton.ledger.api.auth.interceptor.{
   AuthorizationInterceptor,
   IdentityProviderAwareAuthService,
 }
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}

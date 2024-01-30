@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.messages.transaction.GetTransactionTreesRequest
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import io.grpc.StatusRuntimeException
 
 object TransactionServiceRequestValidator {

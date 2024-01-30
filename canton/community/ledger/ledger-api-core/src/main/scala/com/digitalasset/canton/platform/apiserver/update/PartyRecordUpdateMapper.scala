@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.update
 
 import com.digitalasset.canton.ledger.api.domain.PartyDetails
-import com.digitalasset.canton.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 

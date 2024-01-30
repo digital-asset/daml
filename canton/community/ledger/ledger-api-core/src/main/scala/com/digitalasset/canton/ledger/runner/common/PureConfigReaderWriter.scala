@@ -18,6 +18,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConf
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   CommandServiceConfig,
+  IdentityProviderManagementConfig,
   IndexServiceConfig,
   TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
@@ -29,7 +30,6 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerStartupMode,
   PackageMetadataViewConfig,
 }
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,

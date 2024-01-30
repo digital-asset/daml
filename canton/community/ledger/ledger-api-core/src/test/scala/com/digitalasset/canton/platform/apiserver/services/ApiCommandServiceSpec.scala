@@ -17,12 +17,14 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.services.CommandService
-import com.digitalasset.canton.ledger.api.validation.CommandsValidator
+import com.digitalasset.canton.ledger.api.validation.{
+  CommandsValidator,
+  ValidateUpgradingPackageResolutions,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.google.protobuf.empty.Empty
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.Assertions
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -149,13 +151,13 @@ object ApiCommandServiceSpec {
 
   private val commandsValidator = CommandsValidator(
     ledgerId = LedgerId(ledgerId),
-    resolveToTemplateId = _ => Assertions.fail("should not be called"),
+    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
     upgradingEnabled = false,
   )
 
   def createMockCommandService: CommandService & AutoCloseable = {
-    import org.mockito.MockitoSugar.*
     import org.mockito.ArgumentMatchersSugar.*
+    import org.mockito.MockitoSugar.*
     val mockCommandService = mock[CommandService & AutoCloseable]
     when(
       mockCommandService.submitAndWait(any[SubmitAndWaitRequest])(any[LoggingContextWithTrace])

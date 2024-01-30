@@ -892,7 +892,7 @@ class AcsCommitmentProcessor(
             msg <- signCommitment(
               cryptoSnapshot,
               remote.sender,
-              LtHash16().getByteString(),
+              AcsCommitmentProcessor.emptyCommitment,
               remote.period,
             )
             _ = sendCommitmentMessages(remote.period, Map(remote.sender -> msg))
@@ -1180,6 +1180,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
         Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
     ) => FutureUnlessShutdown[Unit]
 
+  val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()
+
   /** A snapshot of ACS commitments per set of stakeholders
     *
     * @param recordTime The timestamp and tie-breaker of the snapshot
@@ -1354,7 +1356,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
               val c = LtHash16.tryCreate(prevCommitments(participant))
               changedKeys.foreach { case (stkhd, cmt) =>
                 c.remove(LtHash16.tryCreate(prevStkhdCommitments(stkhd)).get())
-                c.add(cmt.toByteArray)
+                // if the stakeholder group is still active, add its commitment
+                if (cmt != emptyCommitment) c.add(cmt.toByteArray)
               }
               Some(c.getByteString())
             }
@@ -1443,7 +1446,11 @@ object AcsCommitmentProcessor extends HasLoggerName {
                 val pSet =
                   if (participants.contains(participantId)) participants - participantId
                   else Set.empty
-                val commitmentS = Set((parties, commitment))
+                val commitmentS =
+                  if (participants.contains(participantId)) Set((parties, commitment))
+                  // Signal with an empty commitment that our participant does no longer host any
+                  // party in the stakeholder group
+                  else Set((parties, emptyCommitment))
                 pSet.map(_ -> commitmentS).toMap
               }(MapsUtil.mergeWith(_, _)(_.union(_)))
               .map(
@@ -1472,7 +1479,11 @@ object AcsCommitmentProcessor extends HasLoggerName {
         p,
         cachedCommitments
           .computeCmtFromCached(p, hashes)
-          .fold(commitmentsFromStkhdCmts(hashes.map(v => v._2).toSeq))(x => x),
+          .getOrElse(
+            commitmentsFromStkhdCmts(
+              hashes.map { case (_stakeholders, cmt) => cmt }.filter(_ != emptyCommitment).toSeq
+            )
+          ),
       )
     }
   }

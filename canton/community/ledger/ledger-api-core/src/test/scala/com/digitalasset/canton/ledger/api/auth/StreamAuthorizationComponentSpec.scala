@@ -32,12 +32,12 @@ import com.digitalasset.canton.ledger.api.auth.services.TransactionServiceAuthor
 import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.StreamObserver
