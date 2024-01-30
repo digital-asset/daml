@@ -1326,7 +1326,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara, alice).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      runExample(fetcher2Cid, clara, alice).map { case (tx, _) =>
+        byKeyNodes(tx).size
+      } shouldBe Right(0)
     }
   }
 

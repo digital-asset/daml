@@ -46,7 +46,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         ledgerQueriedWhenContractNotDisclosed(
           SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
           getContract = Map(contractId -> ledgerCaveContract),
-        )(result => result shouldBe a[Left[_,_]])
+        )(result => result shouldBe a[Left[_, _]])
       }
 
       "disclosure table queried when contract ID is disclosed" - {

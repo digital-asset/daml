@@ -1449,7 +1449,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
-                                   readAs: Set[Party] = Set.empty,
+        readAs: Set[Party] = Set.empty,
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,

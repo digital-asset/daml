@@ -574,17 +574,27 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           Array(SParty(alice), SParty(bob)),
           Set(bob),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, CreateMissingAuthorization(T, _, authorizingParties, requiredParties))))) =>
-          authorizingParties shouldBe Set(bob)
-          requiredParties shouldBe Set(alice)
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(
+                  SErrorDamlException(
+                    IE.FailedAuthorization(
+                      _,
+                      CreateMissingAuthorization(T, _, authorizingParties, requiredParties),
+                    )
+                  )
+                )
+              ) =>
+            authorizingParties shouldBe Set(bob)
+            requiredParties shouldBe Set(alice)
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -771,17 +781,27 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           Array(SParty(alice), SParty(bob)),
           Set(bob),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, CreateMissingAuthorization(Human, _, authorizingParties, requiredParties))))) =>
-          authorizingParties shouldBe Set(bob)
-          requiredParties shouldBe Set(alice)
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(
+                  SErrorDamlException(
+                    IE.FailedAuthorization(
+                      _,
+                      CreateMissingAuthorization(Human, _, authorizingParties, requiredParties),
+                    )
+                  )
+                )
+              ) =>
+            authorizingParties shouldBe Set(bob)
+            requiredParties shouldBe Set(alice)
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -919,21 +939,37 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
 
@@ -1059,15 +1095,31 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1169,15 +1221,31 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1313,21 +1381,37 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getKey = getKey,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1411,16 +1495,32 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getKey = getKey,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
 
           }
         }
@@ -1485,16 +1585,32 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             Set(alice, charlie),
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(T, "Choice", _, authorizingParties, requiredParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            requiredParties shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1664,29 +1780,46 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           "authorization failure" in {
             val (res, msgs) = evalUpdateApp(
               pkgs = pkgs,
-              e = e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
+              e =
+                e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
               args = Array(SParty(charlie), SContractId(cId)),
               parties = Set(charlie),
               readAs = Set(alice),
               getContract = getIfaceContract,
             )
 
-            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(Human, "Nap", _, authorizingParties, requiredParties))))) =>
-              authorizingParties shouldBe Set(charlie)
-              requiredParties shouldBe Set(alice)
-              msgs shouldBe buildLog(
-                "starts test",
-                "queries contract",
-                "precondition",
-                "contract signatories",
-                "contract observers",
-                "key",
-                "maintainers",
-                "view",
-                "interface guard",
-                "interface choice controllers",
-                "interface choice observers",
-              )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(
+                        IE.FailedAuthorization(
+                          _,
+                          ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            _,
+                            authorizingParties,
+                            requiredParties,
+                          ),
+                        )
+                      )
+                    )
+                  ) =>
+                authorizingParties shouldBe Set(charlie)
+                requiredParties shouldBe Set(alice)
+                msgs shouldBe buildLog(
+                  "starts test",
+                  "queries contract",
+                  "precondition",
+                  "contract signatories",
+                  "contract observers",
+                  "key",
+                  "maintainers",
+                  "view",
+                  "interface guard",
+                  "interface choice controllers",
+                  "interface choice observers",
+                )
             }
           }
         }
@@ -1790,16 +1923,32 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               getContract = getIfaceContract,
             )
 
-            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, ExerciseMissingAuthorization(Human, "Nap", _, authorizingParties, requiredParties))))) =>
-              authorizingParties shouldBe Set(bob)
-              requiredParties shouldBe Set(alice)
-              msgs shouldBe buildLog(
-                "starts test",
-                "view",
-                "interface guard",
-                "interface choice controllers",
-                "interface choice observers",
-              )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(
+                        IE.FailedAuthorization(
+                          _,
+                          ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            _,
+                            authorizingParties,
+                            requiredParties,
+                          ),
+                        )
+                      )
+                    )
+                  ) =>
+                authorizingParties shouldBe Set(bob)
+                requiredParties shouldBe Set(alice)
+                msgs shouldBe buildLog(
+                  "starts test",
+                  "view",
+                  "interface guard",
+                  "interface choice controllers",
+                  "interface choice observers",
+                )
             }
           }
         }
@@ -1912,7 +2061,13 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                       SErrorDamlException(
                         IE.FailedAuthorization(
                           _,
-                          FailedAuthorization.ExerciseMissingAuthorization(Human, "Nap", None, authorizingParties, requiredParties),
+                          FailedAuthorization.ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            None,
+                            authorizingParties,
+                            requiredParties,
+                          ),
                         )
                       )
                     )
@@ -1984,18 +2139,28 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(T, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice, bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+              )
           }
         }
 
@@ -2108,10 +2273,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(T, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice,bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -2197,10 +2372,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(T, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice, bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -2294,26 +2479,35 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs = pkgs,
-            e = e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
+            e =
+              e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             args = Array(SParty(charlie), SParty(alice)),
             parties = Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_,
-          FetchMissingAuthorization(T,_,stakeholders,authorizingParties)
-            )))) =>
-            stakeholders shouldBe Set(alice, bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+              )
           }
         }
       }
@@ -2368,10 +2562,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(T, _, stackholders, autorizingParties))))) =>
-            stackholders shouldBe Set(alice, bob)
-            autorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq("starts test", "maintainers")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stackholders, autorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stackholders shouldBe Set(alice, bob)
+              autorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
@@ -2416,8 +2620,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs = pkgs,
-            e =
-              e"""\(helperCId: ContractId Test:Helper) (sig : Party) (fetchingParty: Party) ->
+            e = e"""\(helperCId: ContractId Test:Helper) (sig : Party) (fetchingParty: Party) ->
          ubind x: ContractId M:T <- exercise @Test:Helper CreateNonvisibleKey helperCId ()
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             args = Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
@@ -2563,19 +2766,29 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(Human, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice, bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "view",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "view",
+              )
           }
         }
       }
@@ -2666,10 +2879,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(Human, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice,bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq("starts test", "view")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2758,10 +2981,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, FetchMissingAuthorization(Human, _, stakeholders, authorizingParties))))) =>
-            stakeholders shouldBe Set(alice, bob)
-            authorizingParties shouldBe Set(charlie)
-            msgs shouldBe Seq("starts test", "view")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2820,18 +3053,28 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            maintainers shouldBe Set(alice)
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              maintainers shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+              )
           }
         }
       }
@@ -2885,10 +3128,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            maintainers shouldBe Set(alice)
-            msgs shouldBe Seq("starts test", "maintainers")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              maintainers shouldBe Set(alice)
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
@@ -2939,10 +3192,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             Set(alice, charlie),
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties))))) =>
-            authorizingParties shouldBe Set(charlie)
-            maintainers shouldBe Set(alice)
-            msgs shouldBe Seq("starts test", "maintainers")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              maintainers shouldBe Set(alice)
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }

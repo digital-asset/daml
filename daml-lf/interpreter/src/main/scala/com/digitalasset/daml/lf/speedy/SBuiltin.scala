@@ -1574,7 +1574,9 @@ private[lf] object SBuiltin {
               case ContractStateMachine.KeyActive(coid) =>
                 fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                   templateArg =>
-                    getContractInfo(machine, coid, templateId, templateArg, keyOpt) (_ => operation.handleKeyFound(coid))
+                    getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                      operation.handleKeyFound(coid)
+                    )
                 }
 
               case ContractStateMachine.KeyInactive =>
@@ -1590,7 +1592,9 @@ private[lf] object SBuiltin {
                   val c =
                     fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                       templateArg =>
-                        getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ => operation.handleKeyFound(coid))
+                        getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                          operation.handleKeyFound(coid)
+                        )
                     }
                   (c, true)
                 case ContractStateMachine.KeyInactive =>
