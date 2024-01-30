@@ -136,6 +136,9 @@ trait AbstractHttpServiceIntegrationTestFuns
   import HttpServiceTestFixture._
   import json.JsonProtocol._
 
+  // TODO Remove once upgrades are not 1.dev (https://github.com/digital-asset/daml/issues/18330)
+  override protected lazy val devMode: Boolean = true
+
   def jdbcConfig: Option[JdbcConfig]
 
   def staticContentConfig: Option[StaticContentConfig]

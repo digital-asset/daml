@@ -74,14 +74,14 @@ object EnvironmentSignature {
     fromPackageSignatures(dar.main, dar.dependencies: _*)
 
   def fromPackageSignatures(all: Iterable[PackageSignature]): EnvironmentSignature = {
-    val typeDecls = all.iterator.flatMap { case PackageSignature(packageId, _, typeDecls, _) =>
+    val typeDecls = all.iterator.flatMap { case PackageSignature(packageId, _, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
     val astInterfaces = all.iterator.flatMap {
-      case PackageSignature(packageId, _, _, astInterfaces) =>
+      case PackageSignature(packageId, _, _, _, astInterfaces) =>
         astInterfaces mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = all.iterator.flatMap { case PackageSignature(packageId, metadata, _, _) =>
+    val metadata = all.iterator.flatMap { case PackageSignature(packageId, _, metadata, _, _) =>
       metadata.iterator.map(md => packageId -> md)
     }.toMap
     EnvironmentSignature(metadata, typeDecls, astInterfaces)

@@ -98,6 +98,7 @@ da_scala_test_suite(
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/logging-entries",
         "@maven//:org_scalatest_scalatest_compatible",

@@ -33,6 +33,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings-pekko",
         "//ledger-service/db-backend",

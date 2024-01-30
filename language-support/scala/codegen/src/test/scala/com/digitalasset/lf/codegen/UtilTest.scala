@@ -3,13 +3,12 @@
 
 package com.daml.lf.codegen
 
-import com.daml.lf.data.Ref.{QualifiedName, PackageId}
-
+import com.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.daml.lf.language.LanguageVersion
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import com.daml.lf.{typesig => S}
-
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -20,6 +19,7 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
   val packageInterface =
     S.PackageSignature(
       packageId = PackageId.assertFromString("abcdef"),
+      languageVersion = LanguageVersion.default,
       metadata = None,
       typeDecls = Map.empty,
       interfaces = Map.empty,

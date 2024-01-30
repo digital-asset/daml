@@ -4,12 +4,13 @@
 package com.daml.navigator
 
 import com.daml.lf.data.{
-  Decimal => LfDecimal,
   FrontStack,
   ImmArray,
   SortedLookupList,
+  Decimal => LfDecimal,
   Ref => DamlLfRef,
 }
+import com.daml.lf.language.LanguageVersion
 import com.daml.navigator.model._
 import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.value.{Value => V}
@@ -334,6 +335,7 @@ case object DamlConstants {
 
   val iface = DamlLfIface.PackageSignature(
     packageId0,
+    LanguageVersion.default,
     None,
     Map(
       emptyRecordId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl.Normal(emptyRecordGC),

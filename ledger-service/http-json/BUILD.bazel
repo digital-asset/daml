@@ -51,6 +51,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
             "//daml-lf/api-type-signature",
             "//daml-lf/data",
+            "//daml-lf/language",
             "//daml-lf/transaction",
             "//language-support/scala/bindings-pekko",
             "//libs-scala/rs-grpc-bridge",
