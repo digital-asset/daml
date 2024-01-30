@@ -18,6 +18,8 @@ import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
+import com.digitalasset.canton.ledger.localstore.{CachedIdentityProviderConfigStore, *}
 import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
   TimedReadService,
   TimedWriteService,
@@ -34,7 +36,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   ThreadpoolCheck,
 }
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
-import com.digitalasset.canton.platform.config.ServerRole
+import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.indexer.IndexerConfig.DefaultIndexerStartupMode
 import com.digitalasset.canton.platform.indexer.{
@@ -42,11 +44,10 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerServiceOwner,
   IndexerStartupMode,
 }
-import com.digitalasset.canton.platform.localstore.*
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
+import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
 import com.digitalasset.canton.protocol.UnicumGenerator
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
@@ -270,6 +271,9 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
       )
 
+      packageMetadataStore = new InMemoryPackageMetadataStore(
+        inMemoryState.packageMetadataView
+      )
       serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
         new UnicumGenerator(config.syncService.pureCryptoApi)
       )
@@ -282,6 +286,7 @@ class StartableStoppableLedgerApiServer(
         submissionTracker = inMemoryState.submissionTracker,
         indexService = indexService,
         userManagementStore = userManagementStore,
+        packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
           dbSupport,
           config.serverConfig.identityProviderManagement,

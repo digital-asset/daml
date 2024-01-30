@@ -396,10 +396,8 @@ object BaseTest {
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
   lazy val DamlTestLfV21FilesPath: String = getResourcePath("DamlTestLfV21Files.dar")
-  lazy val UpgradeV1: String = getResourcePath("upgrade-v1.dar")
-  lazy val UpgradeV2: String = getResourcePath("upgrade-v2.dar")
 
-  private def getResourcePath(name: String): String =
+  def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))
       .map(_.getPath)
       .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $name"))

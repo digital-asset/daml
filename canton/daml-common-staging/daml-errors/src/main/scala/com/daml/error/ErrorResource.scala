@@ -22,6 +22,7 @@ object ErrorResource {
   lazy val TemplateId: ErrorResource = ErrorResource("TEMPLATE_ID")
   lazy val InterfaceId: ErrorResource = ErrorResource("INTERFACE_ID")
   lazy val LedgerId: ErrorResource = ErrorResource("LEDGER_ID")
+  lazy val PackageName: ErrorResource = ErrorResource("PACKAGE_NAME")
   lazy val CommandId: ErrorResource = ErrorResource("COMMAND_ID")
   lazy val Party: ErrorResource = ErrorResource("PARTY")
   lazy val Parties: ErrorResource = ErrorResource("PARTIES")
@@ -51,6 +52,7 @@ object ErrorResource {
     IdentityProviderConfig,
     InterfaceId,
     LedgerId,
+    PackageName,
     Parties,
     Party,
     TemplateId,

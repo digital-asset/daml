@@ -17,7 +17,7 @@ import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._

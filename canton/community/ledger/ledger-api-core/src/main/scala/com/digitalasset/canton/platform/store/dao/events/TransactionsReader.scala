@@ -15,7 +15,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
@@ -32,7 +32,6 @@ import com.digitalasset.canton.platform.store.dao.{
 }
 import com.digitalasset.canton.platform.store.serialization.Compression
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
-import com.digitalasset.canton.util.LfEngineToApi
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source

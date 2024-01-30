@@ -83,7 +83,7 @@ package object logging {
           party.toLoggingKey -> (partyFilters.inclusive match {
             case None => LoggingValue.from("all-templates")
             case Some(inclusiveFilters) =>
-              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateId))
+              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
           })
         }.toMap
       )
@@ -118,5 +118,4 @@ package object logging {
 
   private[services] def templateId(id: Identifier): LoggingEntry =
     "templateId" -> id.toString
-
 }

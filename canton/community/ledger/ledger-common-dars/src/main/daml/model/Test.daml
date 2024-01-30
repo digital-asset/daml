@@ -14,8 +14,6 @@ template Dummy
   where
     signatory operator
 
-    agreement (show operator <> " operates a dummy.")
-
     choice DummyChoice1 : ()
       controller operator
       do return ()
@@ -157,10 +155,6 @@ template Agreement
   where
     signatory receiver, giver
 
-    agreement (
-      show giver <> " promise to pay the " <>
-      show receiver <> " on demand the sum of five pounds.")
-
     choice AcceptTriProposal : ContractId TriAgreement
       with cid : ContractId TriProposal
       controller giver
@@ -290,10 +284,6 @@ template PayOut
   where
     signatory receiver
     signatory giver
-    agreement (
-      show giver <> " must pay to " <>
-      show receiver <> " the sum of five pounds.")
-
 
 template CallablePayout
   with

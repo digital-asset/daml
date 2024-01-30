@@ -107,11 +107,6 @@ template SettleCash
     signatory bank
     observer owner
 
-    agreement "The issuing bank promises to transfer to any bank account "
-        <> "named by the bearer on demand"
-        <> "the sum of " <> amount.currency <> " " <> show amount.quantity
-        <> "within one business day starting from " <> show timestamp
-
     choice Received : ()
       controller owner
         do

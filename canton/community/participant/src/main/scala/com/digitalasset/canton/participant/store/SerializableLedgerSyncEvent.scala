@@ -662,7 +662,6 @@ private[store] final case class SerializableDivulgedContract(divulgedContract: D
     val DivulgedContract(contractId, contractInst) = divulgedContract
     v30.DivulgedContract(
       contractId = contractId.toProtoPrimitive,
-      // This is fine to use empty agreement text for divulged contract
       contractInst = serializeContract(contractInst)
         .valueOr(err =>
           throw new DbSerializationException(

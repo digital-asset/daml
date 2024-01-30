@@ -8,16 +8,15 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.error.groups.IdentityProviderConfigServiceErrors
+import com.digitalasset.canton.ledger.localstore.api.{
+  IdentityProviderConfigStore,
+  IdentityProviderConfigUpdate,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiIdentityProviderConfigService.toProto
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.IdentityProviderConfigUpdateMapper
-import com.digitalasset.canton.platform.localstore.api
-import com.digitalasset.canton.platform.localstore.api.{
-  IdentityProviderConfigStore,
-  IdentityProviderConfigUpdate,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -33,6 +32,7 @@ class ApiIdentityProviderConfigService(
     with GrpcApiService
     with NamedLogging {
 
+  import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
   import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 
   private def withValidation[A, B](validatedResult: Either[StatusRuntimeException, A])(
@@ -163,7 +163,7 @@ class ApiIdentityProviderConfigService(
   }
 
   private def handleResult[T](operation: String)(
-      result: api.IdentityProviderConfigStore.Result[T]
+      result: IdentityProviderConfigStore.Result[T]
   )(implicit traceContext: TraceContext): Future[T] = result match {
     case Left(IdentityProviderConfigStore.IdentityProviderConfigNotFound(id)) =>
       Future.failed(
