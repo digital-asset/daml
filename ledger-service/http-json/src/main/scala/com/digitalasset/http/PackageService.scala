@@ -188,33 +188,29 @@ private class PackageService(
         overload: O[U, R],
     ): Future[Error \/ Option[(R, LanguageVersion)]] = {
       type ResultType = Option[(R, LanguageVersion)]
-      def withLanguageVersionT(
-          r: ResolvedOf[ContractTypeId.Template]
-      ): Option[(ResolvedOf[ContractTypeId.Template], LanguageVersion)] =
-        latestMaps()._3.get(r.packageId).map(l => (r, l))
-      def withLanguageVersionI(
-          r: ResolvedOf[ContractTypeId.Interface]
-      ): Option[(ResolvedOf[ContractTypeId.Interface], LanguageVersion)] =
+      def withLanguageVersion[T[_]](
+          r: ResolvedOf[T]
+      ): Option[(ResolvedOf[T], LanguageVersion)] =
         latestMaps()._3.get(r.packageId).map(l => (r, l))
       // we use a different resolution strategy depending on the static type
       // determined by 'overload', as well as the class of 'x'.  We figure the
       // strategy exactly once so the reload is cheaper
       val doSearch: () => ResultType = overload match {
-        case O.Template => () => (latestMaps()._1 resolve x).flatMap(withLanguageVersionT)
+        case O.Template => () => (latestMaps()._1 resolve x).flatMap(withLanguageVersion)
         case O.Top =>
           (x: C.OptionalPkg) match {
             // only search the template or interface map, if that is the origin
             // class, since searching the other map would convert template IDs
             // to interface IDs and vice versa
             case x: C.Template.OptionalPkg =>
-              () => (latestMaps()._1 resolve x).flatMap(r => withLanguageVersionT(r))
+              () => (latestMaps()._1 resolve x).flatMap(r => withLanguageVersion(r))
             case x: C.Interface.OptionalPkg =>
-              () => (latestMaps()._2 resolve x).flatMap(r => withLanguageVersionI(r))
+              () => (latestMaps()._2 resolve x).flatMap(r => withLanguageVersion(r))
             case x: C.Unknown.OptionalPkg => { () =>
               val (tids, iids, _) = latestMaps()
               (tids resolve x, iids resolve x) match {
-                case (tid @ Some(_), None) => tid.flatMap(r => withLanguageVersionT(r))
-                case (None, iid @ Some(_)) => iid.flatMap(r => withLanguageVersionI(r))
+                case (tid @ Some(_), None) => tid.flatMap(r => withLanguageVersion(r))
+                case (None, iid @ Some(_)) => iid.flatMap(r => withLanguageVersion(r))
                 // presence in both means the ID is ambiguous
                 case (None, None) | (Some(_), Some(_)) => None
               }
@@ -476,7 +472,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
-    packageStore.values.view.flatMap(getChoices).toMap
+    packageStore.values.flatMap(getChoices).toMap
 
   private def getChoices(
       signature: typesig.PackageSignature
