@@ -57,9 +57,8 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     "not load of a package with disallowed language version" in {
       val packages = new ConcurrentCompiledPackages(
-        // V1.legacyVersions are disallowed in both v1 and v2
         Compiler.Config
-          .Default(LanguageMajorVersion.V1)
+          .Default(LanguageMajorVersion.V2)
           .copy(allowedLanguageVersions = LanguageVersion.LegacyVersions)
       )
 
