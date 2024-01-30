@@ -27,6 +27,5 @@ for path in community daml-common-staging README.md; do
       cp $canton_dir/$f canton/$f
     fi
   done
-  #cp -rf $src $dst
   git add canton/$path
 done
