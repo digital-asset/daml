@@ -29,3 +29,12 @@ and ensure that the release notes and documentation has been included as part of
 ## Bugfixes
 
 ## What’s New
+
+* The type class `HasField` (methods `getField` and `setField`) has been split
+  in two: `GetField` and `SetField`, each one with the correspondingly named method.
+
+* User-defined instances of the class `GetField` enable the use of dot-syntax
+  for field access, i.e. `rec.field`
+
+* User-defined instances of the class `SetField` enable the use of with-syntax
+  for field update, i.e. `rec with field = newValue`
