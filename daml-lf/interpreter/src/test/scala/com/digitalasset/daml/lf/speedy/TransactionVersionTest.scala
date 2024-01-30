@@ -20,7 +20,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class TransactionVersionTestV1 extends TransactionVersionTest(V1)
 class TransactionVersionTestV2 extends TransactionVersionTest(V2)
 
 class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
@@ -35,8 +34,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
   "interface and transaction versioning" - {
 
     "version testing assumptions" in {
-      // TODO(#17366): remove this assumption once 2.0 is introduced
-      assume(majorLanguageVersion == V1)
       oldVersion should be < newVersion
       Set(
         templatePkg.languageVersion,
