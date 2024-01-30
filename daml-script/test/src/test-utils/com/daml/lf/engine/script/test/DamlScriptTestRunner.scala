@@ -4,8 +4,8 @@
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import org.scalatest.{Assertion, Suite}
 import org.scalatest.matchers.should.Matchers

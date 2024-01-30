@@ -10,7 +10,6 @@ import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder
@@ -40,6 +39,11 @@ object CantonConfig {
 
   def noTlsConfig = TlsConfiguration(false)
 
+  sealed abstract class TimeProviderType extends Product with Serializable
+  object TimeProviderType {
+    case object Static extends TimeProviderType
+    case object WallClock extends TimeProviderType
+  }
 }
 
 final case class CantonConfig(
@@ -47,7 +51,7 @@ final case class CantonConfig(
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,
-    timeProviderType: TimeProviderType = TimeProviderType.WallClock,
+    timeProviderType: CantonConfig.TimeProviderType = CantonConfig.TimeProviderType.WallClock,
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     bootstrapScript: Option[String] = None,
