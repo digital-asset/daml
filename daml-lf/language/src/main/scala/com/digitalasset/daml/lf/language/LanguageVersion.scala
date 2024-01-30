@@ -49,12 +49,8 @@ object LanguageVersion {
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
-  // TODO(#17366): Once LF2 deprecates some features, it will no longer be possible to represent
-  //    them as a just a version number. Instead we'll need a richer specification of which versions
-  //    support which feature. See PR #17334.
   object Features {
     val default = v2_1
-    val internedPackageId = v2_1
     val internedStrings = v2_1
     val internedDottedNames = v2_1
     val numeric = v2_1
@@ -64,7 +60,6 @@ object LanguageVersion {
     val packageMetadata = v2_1
     val genComparison = v2_1
     val genMap = v2_1
-    val scenarioMustFailAtMsg = v2_1
     val contractIdTextConversions = v2_1
     val exerciseByKey = v2_1
     val internedTypes = v2_1
