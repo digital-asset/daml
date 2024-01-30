@@ -50,7 +50,7 @@ import com.daml.ledger.api.v1.package_service.{
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder

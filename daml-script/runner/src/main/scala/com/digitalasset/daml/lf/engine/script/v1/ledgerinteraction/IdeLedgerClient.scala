@@ -37,7 +37,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -543,7 +543,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
+      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -592,6 +592,6 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
+      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 }
