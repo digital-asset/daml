@@ -54,7 +54,6 @@ object LanguageVersion {
     val numeric = v2_1
     val anyType = v2_1
     val typeRep = v2_1
-    val typeSynonyms = v2_1
     val packageMetadata = v2_1
     val genComparison = v2_1
     val genMap = v2_1

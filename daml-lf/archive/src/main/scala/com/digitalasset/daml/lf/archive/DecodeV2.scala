@@ -249,9 +249,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (versionIsOlderThan(LV.Features.typeSynonyms)) {
-        assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
-      } else if (!onlySerializableDataDefs) {
+      if (!onlySerializableDataDefs) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
