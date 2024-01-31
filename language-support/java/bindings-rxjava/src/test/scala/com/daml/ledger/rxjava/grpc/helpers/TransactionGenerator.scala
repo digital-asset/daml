@@ -325,8 +325,26 @@ object TransactionGenerator {
     domainId <- Gen.alphaNumStr
     traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
   } yield (
-    LedgerItem(updateId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, domainId, TraceContext.fromJavaProto(traceContext)),
-    new data.TransactionV2(updateId, commandId, workflowId, javaTimestamp, javaEvents, offset, domainId, traceContext),
+    LedgerItem(
+      updateId,
+      commandId,
+      workflowId,
+      scalaTimestamp,
+      scalaEvents,
+      offset,
+      domainId,
+      TraceContext.fromJavaProto(traceContext),
+    ),
+    new data.TransactionV2(
+      updateId,
+      commandId,
+      workflowId,
+      javaTimestamp,
+      javaEvents,
+      offset,
+      domainId,
+      traceContext,
+    ),
   )
 
   val transactionTreeGen: Gen[(LedgerItem, data.TransactionTreeV2)] = for {
@@ -339,7 +357,16 @@ object TransactionGenerator {
     domainId <- Gen.alphaNumStr
     traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
   } yield (
-    LedgerItem(updateId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, domainId, TraceContext.fromJavaProto(traceContext)),
+    LedgerItem(
+      updateId,
+      commandId,
+      workflowId,
+      scalaTimestamp,
+      scalaEvents,
+      offset,
+      domainId,
+      TraceContext.fromJavaProto(traceContext),
+    ),
     new data.TransactionTreeV2(
       updateId,
       commandId,

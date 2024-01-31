@@ -67,8 +67,7 @@ public final class DamlLedgerClient implements LedgerClient {
     }
 
     public DamlLedgerClient build() {
-      return new DamlLedgerClient(
-          this.builder, this.accessToken, this.timeout);
+      return new DamlLedgerClient(this.builder, this.accessToken, this.timeout);
     }
   }
 
@@ -124,8 +123,7 @@ public final class DamlLedgerClient implements LedgerClient {
   public void connect() {
     stateServiceClient = new StateClientImpl(channel, pool, this.accessToken);
     transactionsClient = new UpdateClientImpl(channel, pool, this.accessToken);
-    commandCompletionClient =
-        new CommandCompletionClientImpl(channel, pool, this.accessToken);
+    commandCompletionClient = new CommandCompletionClientImpl(channel, pool, this.accessToken);
     commandSubmissionClient =
         new CommandSubmissionClientImpl(channel, this.accessToken, this.timeout);
     commandClient = new CommandClientImpl(channel, this.accessToken);

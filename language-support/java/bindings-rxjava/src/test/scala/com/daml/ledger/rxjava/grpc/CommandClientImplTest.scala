@@ -4,8 +4,18 @@
 package com.daml.ledger.rxjava.grpc
 
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitForUpdateIdResponse}
-import com.daml.ledger.javaapi.data.{Command, CommandsSubmissionV2, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
+}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmissionV2,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
@@ -53,9 +63,21 @@ class CommandClientImplTest
       val params = CommandsSubmissionV2
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       client
         .submitAndWait(params)
@@ -80,9 +102,21 @@ class CommandClientImplTest
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       client
         .submitAndWait(params)

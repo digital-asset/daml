@@ -7,13 +7,16 @@ import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceV2Authorization
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
-import com.daml.ledger.api.v2.event_query_service.{EventQueryServiceGrpc, GetEventsByContractIdResponse}
+import com.daml.ledger.api.v2.event_query_service.{
+  EventQueryServiceGrpc,
+  GetEventsByContractIdResponse,
+}
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class EventQueryServiceImpl(
-    getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
+    getEventsByContractIdResponse: Future[GetEventsByContractIdResponse]
 ) extends EventQueryService
     with FakeAutoCloseable {
 

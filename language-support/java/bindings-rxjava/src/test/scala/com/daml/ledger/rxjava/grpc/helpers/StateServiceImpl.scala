@@ -9,7 +9,17 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.{Absolu
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.StateServiceAuthorization
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateService
-import com.daml.ledger.api.v2.state_service.{GetActiveContractsRequest, GetActiveContractsResponse, GetConnectedDomainsRequest, GetConnectedDomainsResponse, GetLatestPrunedOffsetsRequest, GetLatestPrunedOffsetsResponse, GetLedgerEndRequest, GetLedgerEndResponse, StateServiceGrpc}
+import com.daml.ledger.api.v2.state_service.{
+  GetActiveContractsRequest,
+  GetActiveContractsResponse,
+  GetConnectedDomainsRequest,
+  GetConnectedDomainsResponse,
+  GetLatestPrunedOffsetsRequest,
+  GetLatestPrunedOffsetsResponse,
+  GetLedgerEndRequest,
+  GetLedgerEndResponse,
+  StateServiceGrpc,
+}
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -20,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class StateServiceImpl(
     getActiveContractsResponses: Observable[GetActiveContractsResponse],
-    ledgerContent: Observable[LedgerItem]
+    ledgerContent: Observable[LedgerItem],
 ) extends StateService
     with FakeAutoCloseable {
 
@@ -53,9 +63,13 @@ final class StateServiceImpl(
     promise.future
   }
 
-  override def getConnectedDomains(request: GetConnectedDomainsRequest): Future[GetConnectedDomainsResponse] = ???
+  override def getConnectedDomains(
+      request: GetConnectedDomainsRequest
+  ): Future[GetConnectedDomainsResponse] = ???
 
-  override def getLatestPrunedOffsets(request: GetLatestPrunedOffsetsRequest): Future[GetLatestPrunedOffsetsResponse] = ???
+  override def getLatestPrunedOffsets(
+      request: GetLatestPrunedOffsetsRequest
+  ): Future[GetLatestPrunedOffsetsResponse] = ???
 }
 
 object StateServiceImpl {

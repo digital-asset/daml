@@ -25,9 +25,7 @@ public class StateClientImpl implements StateClient {
   private ExecutionSequencerFactory sequencerFactory;
 
   public StateClientImpl(
-      Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
-      Optional<String> accessToken) {
+      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
     this.sequencerFactory = sequencerFactory;
     this.serviceStub = StubHelper.authenticating(StateServiceGrpc.newStub(channel), accessToken);
     this.serviceFutureStub =

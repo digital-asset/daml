@@ -10,11 +10,21 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.javaapi.data.ParticipantOffsetV2.Absolute
-import com.daml.ledger.javaapi.data.{Command, CommandsSubmissionV2, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmissionV2,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitForUpdateIdResponse}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
+}
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v1.package_service._
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
@@ -49,7 +59,6 @@ class DamlLedgerClientTest
       testDamlLedgerClient(damlLedgerClient, impls)
     }
   }
-
 
   it should "work with authentication" in {
     withFakeLedgerServer(mockedAuthService) { (server, ledgerServicesImpls) =>
@@ -108,8 +117,8 @@ class DamlLedgerClientTest
   }
 
   private def testStateServiceClient(
-     stateServiceClient: StateClient,
-     activeContractsServiceImpl: StateServiceImpl,
+      stateServiceClient: StateClient,
+      activeContractsServiceImpl: StateServiceImpl,
   ): Assertion = {
     withClue(clueFor("StateClient")) {
       stateServiceClient
@@ -118,7 +127,8 @@ class DamlLedgerClientTest
         .blockingIterable()
         .asScala
         .toList
-      activeContractsServiceImpl.getLastRequest.value.filter.flatMap(_.filtersByParty.get(someParty)) should not be empty
+      activeContractsServiceImpl.getLastRequest.value.filter
+        .flatMap(_.filtersByParty.get(someParty)) should not be empty
     }
   }
 
@@ -136,9 +146,21 @@ class DamlLedgerClientTest
       val params = CommandsSubmissionV2
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       commandClient
         .submitAndWait(params)
@@ -176,9 +198,21 @@ class DamlLedgerClientTest
       val params = CommandsSubmissionV2
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       commandSubmissionClient
         .submit(params)
@@ -190,7 +224,7 @@ class DamlLedgerClientTest
   }
 
   private def testTimeClientGet(
-      timeClient: TimeClient,
+      timeClient: TimeClient
   ): Assertion = {
     withClue("TimeClientGet") {
       timeClient.getTime
@@ -244,7 +278,12 @@ class DamlLedgerClientTest
       Observable.fromArray(genGetActiveContractsResponse),
       Observable.empty(),
       Future.successful(SubmitResponse.defaultInstance),
-      List(CompletionStreamResponse(Some(Checkpoint(offset=Some(LedgerOffset(LedgerOffset.Value.Absolute("1"))))), None)),
+      List(
+        CompletionStreamResponse(
+          Some(Checkpoint(offset = Some(LedgerOffset(LedgerOffset.Value.Absolute("1"))))),
+          None,
+        )
+      ),
       Future.successful(Empty.defaultInstance),
       Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),

@@ -24,9 +24,7 @@ public final class UpdateClientImpl implements UpdateClient {
   private final ExecutionSequencerFactory sequencerFactory;
 
   public UpdateClientImpl(
-      Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
-      Optional<String> accessToken) {
+      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
     this.sequencerFactory = sequencerFactory;
     this.serviceStub = StubHelper.authenticating(UpdateServiceGrpc.newStub(channel), accessToken);
     this.serviceFutureStub =

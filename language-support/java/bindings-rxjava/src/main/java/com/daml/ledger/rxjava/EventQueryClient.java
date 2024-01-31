@@ -4,8 +4,6 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.GetEventsByContractIdResponseV2;
-import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.Value;
 import io.reactivex.Single;
 import java.util.Set;
 

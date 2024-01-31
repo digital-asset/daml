@@ -28,7 +28,10 @@ final class TimeClientImplTest
 
   it should "send requests with the correct current time and new time" in {
     val (timeService, timeServiceImpl) =
-      TimeServiceImpl.createWithRef(Future.failed(new UnsupportedOperationException), ledgerServices.authorizer)
+      TimeServiceImpl.createWithRef(
+        Future.failed(new UnsupportedOperationException),
+        ledgerServices.authorizer,
+      )
     ledgerServices.withTimeClient(Seq(timeService)) { timeClient =>
       val currentLedgerTimeSeconds = 1L
       val currentLedgerTimeNanos = 2L
@@ -53,7 +56,11 @@ final class TimeClientImplTest
   it should "return the responses received" in {
     val getTimeResponse = genGetTimeResponse
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Future.successful(getTimeResponse), ledgerServices.authorizer)._1)
+      Seq(
+        TimeServiceImpl
+          .createWithRef(Future.successful(getTimeResponse), ledgerServices.authorizer)
+          ._1
+      )
     ) { timeClient =>
       val response = timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -67,7 +74,14 @@ final class TimeClientImplTest
 
   it should "return an error without sending a request when the time to set if bigger than the current time" in {
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Future.failed(new UnsupportedOperationException), ledgerServices.authorizer)._1)
+      Seq(
+        TimeServiceImpl
+          .createWithRef(
+            Future.failed(new UnsupportedOperationException),
+            ledgerServices.authorizer,
+          )
+          ._1
+      )
     ) { timeClient =>
       val currentTime = Instant.ofEpochSecond(1L, 2L)
       intercept[RuntimeException](
@@ -83,7 +97,11 @@ final class TimeClientImplTest
 
   def toAuthenticatedServer(fn: TimeClient => Any): Any =
     ledgerServices.withTimeClient(
-      Seq(TimeServiceImpl.createWithRef(Future.successful(genGetTimeResponse), ledgerServices.authorizer)._1),
+      Seq(
+        TimeServiceImpl
+          .createWithRef(Future.successful(genGetTimeResponse), ledgerServices.authorizer)
+          ._1
+      ),
       mockedAuthService,
     )(fn)
 

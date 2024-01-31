@@ -3,9 +3,8 @@
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
 import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass.SubmitResponse;
-import com.google.protobuf.Empty;
+import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
 import io.reactivex.Single;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandSubmissionServiceGrpc} */

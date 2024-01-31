@@ -13,8 +13,8 @@ import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 public class CommandCompletionClientImpl implements CommandCompletionClient {
 
@@ -23,9 +23,7 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
   private final ExecutionSequencerFactory sequencerFactory;
 
   public CommandCompletionClientImpl(
-      Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
-      Optional<String> accessToken) {
+      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
     this.sequencerFactory = sequencerFactory;
     this.serviceStub =
         StubHelper.authenticating(CommandCompletionServiceGrpc.newStub(channel), accessToken);
@@ -53,21 +51,24 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
   public Flowable<CompletionStreamResponseV2> completionStream(
       String applicationId, ParticipantOffsetV2 offset, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequestV2(applicationId, parties, offset),
-        Optional.of(accessToken));
+        new CompletionStreamRequestV2(applicationId, parties, offset), Optional.of(accessToken));
   }
 
   @Override
   public Flowable<CompletionStreamResponseV2> completionStream(
       String applicationId, List<String> parties) {
     return completionStream(
-        new CompletionStreamRequestV2(applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()), Optional.empty());
+        new CompletionStreamRequestV2(
+            applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()),
+        Optional.empty());
   }
 
   @Override
   public Flowable<CompletionStreamResponseV2> completionStream(
       String applicationId, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequestV2(applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()), Optional.of(accessToken));
+        new CompletionStreamRequestV2(
+            applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()),
+        Optional.of(accessToken));
   }
 }

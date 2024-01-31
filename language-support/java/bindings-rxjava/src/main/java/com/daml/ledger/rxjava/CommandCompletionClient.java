@@ -21,5 +21,4 @@ public interface CommandCompletionClient {
 
   Flowable<CompletionStreamResponseV2> completionStream(
       String applicationId, List<String> parties, String accessToken);
-
 }

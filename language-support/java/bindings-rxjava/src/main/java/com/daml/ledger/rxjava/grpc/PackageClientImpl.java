@@ -3,9 +3,9 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import com.daml.ledger.api.v1.PackageServiceOuterClass.ListPackagesResponse;
 import com.daml.ledger.api.v2.PackageServiceGrpc;
 import com.daml.ledger.api.v2.PackageServiceOuterClass;
-import com.daml.ledger.api.v1.PackageServiceOuterClass.ListPackagesResponse;
 import com.daml.ledger.javaapi.data.GetPackageResponse;
 import com.daml.ledger.javaapi.data.GetPackageStatusResponse;
 import com.daml.ledger.rxjava.PackageClient;
@@ -43,9 +43,7 @@ public class PackageClientImpl implements PackageClient {
 
   private Single<GetPackageResponse> getPackage(String packageId, Optional<String> accessToken) {
     PackageServiceOuterClass.GetPackageRequest request =
-        PackageServiceOuterClass.GetPackageRequest.newBuilder()
-            .setPackageId(packageId)
-            .build();
+        PackageServiceOuterClass.GetPackageRequest.newBuilder().setPackageId(packageId).build();
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken).getPackage(request))
         .map(GetPackageResponse::fromProto);

@@ -4,8 +4,8 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
-import com.daml.ledger.javaapi.data.TransactionV2;
 import com.daml.ledger.javaapi.data.TransactionTreeV2;
+import com.daml.ledger.javaapi.data.TransactionV2;
 import com.daml.ledger.javaapi.data.UpdateSubmissionV2;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;

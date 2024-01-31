@@ -3,12 +3,9 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.ledger.api.v2.EventQueryServiceGrpc;
-import com.daml.ledger.api.v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse;
 import com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractIdRequest;
+import com.daml.ledger.api.v2.EventQueryServiceGrpc;
 import com.daml.ledger.javaapi.data.GetEventsByContractIdResponseV2;
-import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.Value;
 import com.daml.ledger.rxjava.EventQueryClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import io.grpc.Channel;

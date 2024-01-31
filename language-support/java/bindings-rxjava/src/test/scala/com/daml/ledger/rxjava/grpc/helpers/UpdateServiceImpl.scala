@@ -12,7 +12,11 @@ import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorizati
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.{PARTICIPANT_BEGIN, PARTICIPANT_END, Unrecognized}
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.{
+  PARTICIPANT_BEGIN,
+  PARTICIPANT_END,
+  Unrecognized,
+}
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.daml.ledger.api.v2.update_service._
@@ -41,7 +45,10 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
   ): Unit = {
     lastUpdatesRequest.set(request)
 
-    if (request.endInclusive.exists(end => participantOffsetOrdering.gt(request.getBeginExclusive, end))) {
+    if (
+      request.endInclusive
+        .exists(end => participantOffsetOrdering.gt(request.getBeginExclusive, end))
+    ) {
       val metadata = new Metadata()
       metadata.put(
         Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
@@ -52,7 +59,9 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
       ledgerContent.subscribe(new Observer[LedgerItem] {
         override def onSubscribe(d: Disposable): Unit = ()
         override def onNext(t: LedgerItem): Unit =
-          responseObserver.onNext(GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(t.toTransaction)))
+          responseObserver.onNext(
+            GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(t.toTransaction))
+          )
         override def onError(t: Throwable): Unit = responseObserver.onError(t)
         override def onComplete(): Unit = responseObserver.onCompleted()
       })
@@ -71,14 +80,18 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionTreeResponse] = {
     lastTransactionTreeByEventIdRequest.set(request)
-    Future.successful(new GetTransactionTreeResponse(None)) // just a mock, not intended for consumption
+    Future.successful(
+      new GetTransactionTreeResponse(None)
+    ) // just a mock, not intended for consumption
   }
 
   override def getTransactionTreeById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionTreeResponse] = {
     lastTransactionTreeByIdRequest.set(request)
-    Future.successful(new GetTransactionTreeResponse(None)) // just a mock, not intended for consumption
+    Future.successful(
+      new GetTransactionTreeResponse(None)
+    ) // just a mock, not intended for consumption
   }
 
   override def getTransactionByEventId(
@@ -140,33 +153,34 @@ object UpdateServiceImpl {
     (UpdateServiceGrpc.bindService(authImpl, ec), impl)
   }
 
-  val participantOffsetOrdering: Ordering[ParticipantOffset] = (x: ParticipantOffset, y: ParticipantOffset) => {
-    if (x.equals(y)) 0
-    else {
-      x.getAbsolute match {
-        case "" =>
-          x.getBoundary match {
-            case PARTICIPANT_BEGIN => -1
-            case PARTICIPANT_END => 1
-            case Unrecognized(value) =>
-              throw new RuntimeException(
-                s"Found boundary that is neither BEGIN or END (value: $value)"
-              )
-          }
-        case xAbs =>
-          y.getAbsolute match {
-            case "" =>
-              y.getBoundary match {
-                case PARTICIPANT_BEGIN => 1
-                case PARTICIPANT_END => -1
-                case Unrecognized(value) =>
-                  throw new RuntimeException(
-                    s"Found boundary that is neither BEGIN or END (value: $value)"
-                  )
-              }
-            case yAbs => xAbs.compareTo(yAbs)
-          }
+  val participantOffsetOrdering: Ordering[ParticipantOffset] =
+    (x: ParticipantOffset, y: ParticipantOffset) => {
+      if (x.equals(y)) 0
+      else {
+        x.getAbsolute match {
+          case "" =>
+            x.getBoundary match {
+              case PARTICIPANT_BEGIN => -1
+              case PARTICIPANT_END => 1
+              case Unrecognized(value) =>
+                throw new RuntimeException(
+                  s"Found boundary that is neither BEGIN or END (value: $value)"
+                )
+            }
+          case xAbs =>
+            y.getAbsolute match {
+              case "" =>
+                y.getBoundary match {
+                  case PARTICIPANT_BEGIN => 1
+                  case PARTICIPANT_END => -1
+                  case Unrecognized(value) =>
+                    throw new RuntimeException(
+                      s"Found boundary that is neither BEGIN or END (value: $value)"
+                    )
+                }
+              case yAbs => xAbs.compareTo(yAbs)
+            }
+        }
       }
     }
-  }
 }

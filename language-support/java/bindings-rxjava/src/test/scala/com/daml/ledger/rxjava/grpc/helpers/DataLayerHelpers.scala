@@ -21,10 +21,13 @@ trait DataLayerHelpers {
     new GetActiveContractsResponse(
       "",
       "workflowId",
-      ContractEntry.ActiveContract(new ActiveContract(
-        createdEvent = TransactionGenerator.createdEventGen.sample.map(_._1.value),
-        domainId = "someDomain",
-        reassignmentCounter = 0))
+      ContractEntry.ActiveContract(
+        new ActiveContract(
+          createdEvent = TransactionGenerator.createdEventGen.sample.map(_._1.value),
+          domainId = "someDomain",
+          reassignmentCounter = 0,
+        )
+      ),
     )
   }
 

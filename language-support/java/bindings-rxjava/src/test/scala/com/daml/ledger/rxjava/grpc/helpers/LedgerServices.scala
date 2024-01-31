@@ -12,13 +12,29 @@ import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.digitalasset.canton.ledger.api.auth.interceptor.{AuthorizationInterceptor, IdentityProviderAwareAuthService}
-import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
+import com.digitalasset.canton.ledger.api.auth.interceptor.{
+  AuthorizationInterceptor,
+  IdentityProviderAwareAuthService,
+}
+import com.digitalasset.canton.ledger.api.auth.{
+  AuthService,
+  AuthServiceWildcard,
+  Authorizer,
+  ClaimSet,
+}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitForUpdateIdResponse}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
+}
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
 import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.daml.tracing.NoOpTelemetry

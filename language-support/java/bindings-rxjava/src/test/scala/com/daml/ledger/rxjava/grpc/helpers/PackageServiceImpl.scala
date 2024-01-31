@@ -3,8 +3,17 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
-import com.daml.ledger.api.v2.package_service.{GetPackageRequest, GetPackageStatusRequest, ListPackagesRequest, PackageServiceGrpc}
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
+import com.daml.ledger.api.v2.package_service.{
+  GetPackageRequest,
+  GetPackageStatusRequest,
+  ListPackagesRequest,
+  PackageServiceGrpc,
+}
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.PackageServiceV2Authorization
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService

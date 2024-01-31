@@ -62,7 +62,8 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<TransactionTreeV2> submitAndWaitForTransactionTree(CommandsSubmissionV2 submission) {
+  public Single<TransactionTreeV2> submitAndWaitForTransactionTree(
+      CommandsSubmissionV2 submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequestV2.toProto(submission);
 

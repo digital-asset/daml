@@ -13,7 +13,7 @@ import io.grpc.stub.StreamObserver
 import scala.concurrent.ExecutionContext
 
 final class CommandCompletionServiceImpl(
-    completions: List[CompletionStreamResponse],
+    completions: List[CompletionStreamResponse]
 ) extends CommandCompletionService
     with FakeAutoCloseable {
 

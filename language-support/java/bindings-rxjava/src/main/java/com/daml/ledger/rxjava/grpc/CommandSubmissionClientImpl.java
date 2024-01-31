@@ -24,9 +24,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
   private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
-      @NonNull Channel channel,
-      Optional<String> accessToken,
-      Optional<Duration> timeout) {
+      @NonNull Channel channel, Optional<String> accessToken, Optional<Duration> timeout) {
     this.timeout = timeout;
     this.serviceStub =
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
@@ -34,8 +32,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   @Override
   public Single<SubmitResponse> submit(CommandsSubmissionV2 submission) {
-    CommandSubmissionServiceOuterClass.SubmitRequest request =
-        SubmitRequestV2.toProto(submission);
+    CommandSubmissionServiceOuterClass.SubmitRequest request = SubmitRequestV2.toProto(submission);
     CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))

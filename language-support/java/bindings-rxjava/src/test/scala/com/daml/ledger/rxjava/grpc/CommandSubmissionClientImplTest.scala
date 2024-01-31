@@ -3,7 +3,13 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.javaapi.data.{Command, CommandsSubmissionV2, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmissionV2,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import org.scalatest.OptionValues
@@ -48,9 +54,21 @@ class CommandSubmissionClientImplTest
       val params = CommandsSubmissionV2
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       withClue("The first command should be stuck") {
         expectDeadlineExceeded(
@@ -82,9 +100,21 @@ class CommandSubmissionClientImplTest
         .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
         .withActAs(commands.getParty)
-        .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-        .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-        .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       client
         .submit(params)
@@ -139,9 +169,21 @@ class CommandSubmissionClientImplTest
     val params = CommandsSubmissionV2
       .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
       .withActAs(commands.getParty)
-      .pipe(p => if (commands.getMinLedgerTimeAbsolute.isPresent) p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get()) else p)
-      .pipe(p => if (commands.getMinLedgerTimeRelative.isPresent) p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get()) else p)
-      .pipe(p => if (commands.getDeduplicationTime.isPresent) p.withDeduplicationDuration(commands.getDeduplicationTime.get()) else p)
+      .pipe(p =>
+        if (commands.getMinLedgerTimeAbsolute.isPresent)
+          p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+        else p
+      )
+      .pipe(p =>
+        if (commands.getMinLedgerTimeRelative.isPresent)
+          p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+        else p
+      )
+      .pipe(p =>
+        if (commands.getDeduplicationTime.isPresent)
+          p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+        else p
+      )
       .pipe(p => accessToken.fold(p)(p.withAccessToken))
 
     client
@@ -192,7 +234,10 @@ object CommandSubmissionClientImplTest {
 
   private val alwaysSucceed: () => Future[SubmitResponse] = () => success
 
-  private def sequence(first: Future[SubmitResponse], following: Future[SubmitResponse]*): () => Future[SubmitResponse] = {
+  private def sequence(
+      first: Future[SubmitResponse],
+      following: Future[SubmitResponse]*
+  ): () => Future[SubmitResponse] = {
     val it = Iterator.single(first) ++ Iterator(following: _*)
     () =>
       try {

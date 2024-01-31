@@ -39,11 +39,11 @@ class CommandCompletionClientImplTest
     val completion2 = Completion("cid2", Option(new Status(1)))
 
     val completionResponses = List(
-      CompletionStreamResponse(Some(Checkpoint(offset=Some(offset1))), Some(completion1)),
-      CompletionStreamResponse(Some(Checkpoint(offset=Some(offset2))), Some(completion2))
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1)),
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset2))), Some(completion2)),
     )
     ledgerServices.withCommandCompletionClient(
-      completionResponses,
+      completionResponses
     ) { (client, _) =>
       val completions = client
         .completionStream(applicationId, ParticipantBegin.getInstance(), List("Alice").asJava)
@@ -69,10 +69,11 @@ class CommandCompletionClientImplTest
   it should "send the request with the correct arguments" in {
     val applicationId = "applicationId"
     val completion1 = Completion("cid1", Option(new Status(0)))
-    val completionResponse = CompletionStreamResponse(Some(Checkpoint(offset=Some(offset1))), Some(completion1))
+    val completionResponse =
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
     val parties = List("Alice")
     ledgerServices.withCommandCompletionClient(
-      List(completionResponse),
+      List(completionResponse)
     ) { (client, serviceImpl) =>
       client
         .completionStream(applicationId, ParticipantBegin.getInstance(), parties.asJava)
@@ -90,7 +91,8 @@ class CommandCompletionClientImplTest
 
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
     val completion1 = Completion("cid1", Option(new Status(0)))
-    val completionResponse = CompletionStreamResponse(Some(Checkpoint(offset=Some(offset1))), Some(completion1))
+    val completionResponse =
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
       mockedAuthService,

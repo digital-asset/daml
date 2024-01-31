@@ -6,9 +6,17 @@ package com.daml.ledger.rxjava.grpc.helpers
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitForUpdateIdResponse}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
+}
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v1.package_service.{GetPackageResponse, GetPackageStatusResponse, ListPackagesResponse}
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
 import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.google.protobuf.empty.Empty
@@ -18,33 +26,33 @@ import io.reactivex.Observable
 import scala.concurrent.{ExecutionContext, Future}
 
 case class LedgerServicesImpls(
-                                stateServiceImpl: StateServiceImpl,
-                                transactionServiceImpl: UpdateServiceImpl,
-                                commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
-                                commandCompletionServiceImpl: CommandCompletionServiceImpl,
-                                commandServiceImpl: CommandServiceImpl,
-                                timeServiceImpl: TimeServiceImpl,
-                                eventQueryServiceImpl: EventQueryServiceImpl,
-                                packageServiceImpl: PackageServiceImpl,
+    stateServiceImpl: StateServiceImpl,
+    transactionServiceImpl: UpdateServiceImpl,
+    commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
+    commandCompletionServiceImpl: CommandCompletionServiceImpl,
+    commandServiceImpl: CommandServiceImpl,
+    timeServiceImpl: TimeServiceImpl,
+    eventQueryServiceImpl: EventQueryServiceImpl,
+    packageServiceImpl: PackageServiceImpl,
 )
 
 object LedgerServicesImpls {
 
   def createWithRef(
-                     getActiveContractsResponse: Observable[GetActiveContractsResponse],
-                     transactions: Observable[UpdateServiceImpl.LedgerItem],
-                     commandSubmissionResponse: Future[SubmitResponse],
-                     completions: List[CompletionStreamResponse],
-                     submitAndWaitResponse: Future[Empty],
-                     submitAndWaitForUpdateIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
-                     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
-                     submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
-                     getTimeResponse: Future[GetTimeResponse],
-                     getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
-                     listPackagesResponse: Future[ListPackagesResponse],
-                     getPackageResponse: Future[GetPackageResponse],
-                     getPackageStatusResponse: Future[GetPackageStatusResponse],
-                     authorizer: Authorizer,
+      getActiveContractsResponse: Observable[GetActiveContractsResponse],
+      transactions: Observable[UpdateServiceImpl.LedgerItem],
+      commandSubmissionResponse: Future[SubmitResponse],
+      completions: List[CompletionStreamResponse],
+      submitAndWaitResponse: Future[Empty],
+      submitAndWaitForUpdateIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+      submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      getTimeResponse: Future[GetTimeResponse],
+      getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
+      listPackagesResponse: Future[ListPackagesResponse],
+      getPackageResponse: Future[GetPackageResponse],
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
     val (stateServiceDef, stateService) =
       StateServiceImpl.createWithRef(getActiveContractsResponse, transactions, authorizer)(ec)

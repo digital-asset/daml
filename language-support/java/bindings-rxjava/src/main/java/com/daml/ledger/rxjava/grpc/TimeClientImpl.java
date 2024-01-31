@@ -24,9 +24,7 @@ public final class TimeClientImpl implements TimeClient {
   private final ExecutionSequencerFactory sequencerFactory;
 
   public TimeClientImpl(
-      Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
-      Optional<String> accessToken) {
+      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
     this.sequencerFactory = sequencerFactory;
     this.serviceFutureStub =
         StubHelper.authenticating(TimeServiceGrpc.newFutureStub(channel), accessToken);

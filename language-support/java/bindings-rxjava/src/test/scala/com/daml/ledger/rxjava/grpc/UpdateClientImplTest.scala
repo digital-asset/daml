@@ -54,43 +54,42 @@ final class UpdateClientImplTest
   behavior of "8.2 TransactionClient.getTransactions"
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
-    ledgerServices.withUpdateClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        val begin = new data.ParticipantOffsetV2.Absolute("1")
-        val end = new data.ParticipantOffsetV2.Absolute("2")
+    ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
+      val begin = new data.ParticipantOffsetV2.Absolute("1")
+      val end = new data.ParticipantOffsetV2.Absolute("2")
 
-        val transactionFilter = new data.FiltersByPartyV2(
-          Map[String, data.Filter](
-            "Alice" -> data.InclusiveFilter.ofTemplateIds(
-              Set(
-                new data.Identifier("p1", "m1", "e1"),
-                new data.Identifier("p2", "m2", "e2"),
-              ).asJava
-            )
-          ).asJava
-        )
+      val transactionFilter = new data.FiltersByPartyV2(
+        Map[String, data.Filter](
+          "Alice" -> data.InclusiveFilter.ofTemplateIds(
+            Set(
+              new data.Identifier("p1", "m1", "e1"),
+              new data.Identifier("p2", "m2", "e2"),
+            ).asJava
+          )
+        ).asJava
+      )
 
-        transactionClient
-          .getTransactions(begin, end, transactionFilter, true)
-          .toList()
-          .blockingGet()
+      transactionClient
+        .getTransactions(begin, end, transactionFilter, true)
+        .toList()
+        .blockingGet()
 
-        val request = transactionService.lastUpdatesRequest.get()
-        request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
-        request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
-        val filter = request.filter.get.filtersByParty
-        filter.keySet shouldBe Set("Alice")
-        filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
-          TemplateFilter(
-            Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
-            includeCreatedEventBlob = false,
-          ),
-          TemplateFilter(
-            Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
-            includeCreatedEventBlob = false,
-          ),
-        )
-        request.verbose shouldBe true
+      val request = transactionService.lastUpdatesRequest.get()
+      request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
+      request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
+      val filter = request.filter.get.filtersByParty
+      filter.keySet shouldBe Set("Alice")
+      filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+        TemplateFilter(
+          Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
+          includeCreatedEventBlob = false,
+        ),
+        TemplateFilter(
+          Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
+          includeCreatedEventBlob = false,
+        ),
+      )
+      request.verbose shouldBe true
     }
   }
 
@@ -111,43 +110,42 @@ final class UpdateClientImplTest
   behavior of "8.6 TransactionClient.getTransactionsTrees"
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
-    ledgerServices.withUpdateClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        val begin = new data.ParticipantOffsetV2.Absolute("1")
-        val end = new data.ParticipantOffsetV2.Absolute("2")
+    ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
+      val begin = new data.ParticipantOffsetV2.Absolute("1")
+      val end = new data.ParticipantOffsetV2.Absolute("2")
 
-        val transactionFilter = new data.FiltersByPartyV2(
-          Map[String, data.Filter](
-            "Alice" -> data.InclusiveFilter.ofTemplateIds(
-              Set(
-                new data.Identifier("p1", "m1", "e1"),
-                new data.Identifier("p2", "m2", "e2"),
-              ).asJava
-            )
-          ).asJava
-        )
+      val transactionFilter = new data.FiltersByPartyV2(
+        Map[String, data.Filter](
+          "Alice" -> data.InclusiveFilter.ofTemplateIds(
+            Set(
+              new data.Identifier("p1", "m1", "e1"),
+              new data.Identifier("p2", "m2", "e2"),
+            ).asJava
+          )
+        ).asJava
+      )
 
-        transactionClient
-          .getTransactionsTrees(begin, end, transactionFilter, true)
-          .toList()
-          .blockingGet()
+      transactionClient
+        .getTransactionsTrees(begin, end, transactionFilter, true)
+        .toList()
+        .blockingGet()
 
-        val request = transactionService.lastUpdatesTreesRequest.get()
-        request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
-        request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
-        val filter = request.filter.get.filtersByParty
-        filter.keySet shouldBe Set("Alice")
-        filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
-          TemplateFilter(
-            Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
-            includeCreatedEventBlob = false,
-          ),
-          TemplateFilter(
-            Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
-            includeCreatedEventBlob = false,
-          ),
-        )
-        request.verbose shouldBe true
+      val request = transactionService.lastUpdatesTreesRequest.get()
+      request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
+      request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
+      val filter = request.filter.get.filtersByParty
+      filter.keySet shouldBe Set("Alice")
+      filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+        TemplateFilter(
+          Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
+          includeCreatedEventBlob = false,
+        ),
+        TemplateFilter(
+          Some(Identifier("p2", moduleName = "m2", entityName = "e2")),
+          includeCreatedEventBlob = false,
+        ),
+      )
+      request.verbose shouldBe true
     }
   }
 
@@ -168,16 +166,17 @@ final class UpdateClientImplTest
   behavior of "8.10 TransactionClient.getTransactionTreeByEventId"
 
   it should "pass the requesting parties with the request" ignore {
-    ledgerServices.withUpdateClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        val requestingParties = Set("Alice", "Bob")
+    ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
+      val requestingParties = Set("Alice", "Bob")
 
-        transactionClient.getTransactionTreeByEventId("eventId", requestingParties.asJava).blockingGet()
+      transactionClient
+        .getTransactionTreeByEventId("eventId", requestingParties.asJava)
+        .blockingGet()
 
-        transactionService.lastTransactionTreeByEventIdRequest
-          .get()
-          .requestingParties
-          .toSet shouldBe requestingParties
+      transactionService.lastTransactionTreeByEventIdRequest
+        .get()
+        .requestingParties
+        .toSet shouldBe requestingParties
     }
   }
 
@@ -199,18 +198,17 @@ final class UpdateClientImplTest
   behavior of "8.13 TransactionClient.getTransactionTreeById"
 
   it should "pass the requesting parties with the request" ignore {
-    ledgerServices.withUpdateClient(Observable.empty()) {
-      (transactionClient, transactionService) =>
-        val requestingParties = Set("Alice", "Bob")
+    ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
+      val requestingParties = Set("Alice", "Bob")
 
-        transactionClient
-          .getTransactionTreeById("transactionId", requestingParties.asJava)
-          .blockingGet()
+      transactionClient
+        .getTransactionTreeById("transactionId", requestingParties.asJava)
+        .blockingGet()
 
-        transactionService.lastTransactionTreeByIdRequest
-          .get()
-          .requestingParties
-          .toSet shouldBe requestingParties
+      transactionService.lastTransactionTreeByIdRequest
+        .get()
+        .requestingParties
+        .toSet shouldBe requestingParties
     }
   }
 
@@ -257,7 +255,9 @@ final class UpdateClientImplTest
     }
     withClue("getTransactionTreeByEventId") {
       expectUnauthenticated {
-        toAuthenticatedServer(_.getTransactionTreeByEventId("...", Set(someParty).asJava).blockingGet())
+        toAuthenticatedServer(
+          _.getTransactionTreeByEventId("...", Set(someParty).asJava).blockingGet()
+        )
       }
     }
     withClue("getTransactionTreeById") {

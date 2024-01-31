@@ -6,12 +6,16 @@ package com.daml.ledger.rxjava.grpc.helpers
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.TimeServiceV2Authorization
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
-import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, GetTimeResponse, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v2.testing.time_service.{
+  GetTimeRequest,
+  GetTimeResponse,
+  SetTimeRequest,
+  TimeServiceGrpc,
+}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
-
 
 final class TimeServiceImpl(getTimeResponse: Future[GetTimeResponse])
     extends TimeService
@@ -21,7 +25,7 @@ final class TimeServiceImpl(getTimeResponse: Future[GetTimeResponse])
   private var lastSetTimeRequest: Option[SetTimeRequest] = None
 
   override def getTime(
-      request: GetTimeRequest,
+      request: GetTimeRequest
   ): Future[GetTimeResponse] = {
     this.lastGetTimeRequest = Some(request)
     getTimeResponse

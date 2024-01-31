@@ -41,22 +41,25 @@ class StateClientImplTest
   }
 
   it should "support ACS with one element" in {
-    ledgerServices.withACSClient(Observable.fromArray(genGetActiveContractsResponse), Observable.empty()) {
-      (acsClient, _) =>
-        val acs = acsClient
-          .getActiveContracts(filterNothing, true)
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        acs.blockingIterable().asScala.size shouldBe 1
+    ledgerServices.withACSClient(
+      Observable.fromArray(genGetActiveContractsResponse),
+      Observable.empty(),
+    ) { (acsClient, _) =>
+      val acs = acsClient
+        .getActiveContracts(filterNothing, true)
+        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+      acs.blockingIterable().asScala.size shouldBe 1
     }
   }
 
   it should "support ACS with 10 elements" in {
     val acsResponses = List.fill(10)(genGetActiveContractsResponse)
-    ledgerServices.withACSClient(Observable.fromArray(acsResponses: _*), Observable.empty()) { (acsClient, _) =>
-      val acs = acsClient
-        .getActiveContracts(filterNothing, true)
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-      acs.blockingIterable().asScala.size shouldBe 10
+    ledgerServices.withACSClient(Observable.fromArray(acsResponses: _*), Observable.empty()) {
+      (acsClient, _) =>
+        val acs = acsClient
+          .getActiveContracts(filterNothing, true)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+        acs.blockingIterable().asScala.size shouldBe 10
     }
   }
 
@@ -79,26 +82,28 @@ class StateClientImplTest
   behavior of "[1.3] StateClientImpl.getActiveContracts"
 
   "StateClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
-    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) { (acsClient, _) =>
-      expectUnauthenticated {
-        acsClient
-          .getActiveContracts(filterFor(someParty), false, emptyToken)
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingIterable()
-          .asScala
-          .size
-      }
+    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
+      (acsClient, _) =>
+        expectUnauthenticated {
+          acsClient
+            .getActiveContracts(filterFor(someParty), false, emptyToken)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingIterable()
+            .asScala
+            .size
+        }
     }
   }
 
   "StateClientImpl.getActiveContracts" should "succeed with sufficient authorization" in {
-    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) { (acsClient, _) =>
-      acsClient
-        .getActiveContracts(filterFor(someParty), false, somePartyReadToken)
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingIterable()
-        .asScala
-        .size shouldEqual 0
+    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
+      (acsClient, _) =>
+        acsClient
+          .getActiveContracts(filterFor(someParty), false, somePartyReadToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingIterable()
+          .asScala
+          .size shouldEqual 0
     }
   }
 
@@ -106,10 +111,12 @@ class StateClientImplTest
 
   it should "provide ledger end from the ledger" in forAll(nonEmptyLedgerContent) {
     case (ledgerContent, transactions) =>
-      ledgerServices.withACSClient(Observable.empty(), Observable.fromIterable(ledgerContent.asJava)) {
-        (stateClient, _) =>
-          val expectedOffset = new ParticipantOffsetV2.Absolute(transactions.last.getOffset)
-          stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset
+      ledgerServices.withACSClient(
+        Observable.empty(),
+        Observable.fromIterable(ledgerContent.asJava),
+      ) { (stateClient, _) =>
+        val expectedOffset = new ParticipantOffsetV2.Absolute(transactions.last.getOffset)
+        stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset
       }
   }
 

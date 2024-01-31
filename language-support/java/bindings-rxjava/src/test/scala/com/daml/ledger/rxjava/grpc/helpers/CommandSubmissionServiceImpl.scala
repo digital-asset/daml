@@ -6,7 +6,13 @@ package com.daml.ledger.rxjava.grpc.helpers
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.CommandSubmissionServiceV2Authorization
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
-import com.daml.ledger.api.v2.command_submission_service.{CommandSubmissionServiceGrpc, SubmitReassignmentRequest, SubmitReassignmentResponse, SubmitRequest, SubmitResponse}
+import com.daml.ledger.api.v2.command_submission_service.{
+  CommandSubmissionServiceGrpc,
+  SubmitReassignmentRequest,
+  SubmitReassignmentResponse,
+  SubmitRequest,
+  SubmitResponse,
+}
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,7 +30,9 @@ final class CommandSubmissionServiceImpl(getResponse: () => Future[SubmitRespons
 
   def getSubmittedRequest: Option[SubmitRequest] = submittedRequest
 
-  override def submitReassignment(request: SubmitReassignmentRequest): Future[SubmitReassignmentResponse] = Future.failed(new UnsupportedOperationException())
+  override def submitReassignment(
+      request: SubmitReassignmentRequest
+  ): Future[SubmitReassignmentResponse] = Future.failed(new UnsupportedOperationException())
 }
 
 object CommandSubmissionServiceImpl {
