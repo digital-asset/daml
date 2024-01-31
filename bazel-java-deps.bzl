@@ -56,7 +56,7 @@ pekko_http_version = "1.0.0"
 guava_version = "31.1-jre"
 
 # observability libs
-dropwizard_version = "4.1.33"
+dropwizard_version = "4.2.25"
 opentelemetry_version = "1.12.0"
 prometheus_version = "0.14.1"
 
