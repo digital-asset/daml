@@ -126,13 +126,14 @@ object RegisterTopologyTransactionRequest
       )
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
       requestId <- String255.fromProtoPrimitive(message.requestId, "requestId")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield RegisterTopologyTransactionRequest(
       requestedBy,
       ParticipantId(participantUid),
       requestId,
       transactions,
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+    )(rpv)
   }
 
   override def name: String = "RegisterTopologyTransactionRequest"

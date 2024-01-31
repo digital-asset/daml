@@ -108,9 +108,8 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
         "recipients",
         recipientsP,
       )
-      closedEnvelope = ClosedEnvelope(contentP, recipients)(
-        protocolVersionRepresentativeFor(ProtoVersion(0))
-      )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
+      closedEnvelope = ClosedEnvelope(contentP, recipients)(rpv)
     } yield closedEnvelope
   }
 

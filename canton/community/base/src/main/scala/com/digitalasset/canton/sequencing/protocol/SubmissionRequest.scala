@@ -191,6 +191,7 @@ object SubmissionRequest
         .required("SubmissionRequest.batch", batchP)
         .flatMap(Batch.fromProtoV0(_, maxRequestSize))
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield new SubmissionRequest(
       sender,
       messageId,
@@ -198,7 +199,7 @@ object SubmissionRequest
       batch,
       maxSequencingTime,
       ts,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)), bytes)
+    )(rpv, bytes)
   }
 
   def usingSignedSubmissionRequest(protocolVersion: ProtocolVersion): Boolean =

@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ProtoDeserializationError.{OtherError, UnknownProtoVersion}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -353,10 +353,21 @@ trait HasSupportedProtoVersions[ValueClass] {
   ): RepresentativeProtocolVersion[this.type] =
     supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
 
+  /** Return the representative protocol version corresponding to the proto version
+    */
   def protocolVersionRepresentativeFor(
       protoVersion: ProtoVersion
-  ): RepresentativeProtocolVersion[this.type] =
+  ): ParsingResult[RepresentativeProtocolVersion[this.type]] =
     supportedProtoVersions.protocolVersionRepresentativeFor(protoVersion)
+
+  /** Returns the representative protocol version corresponding to the proto version, throws otherwise.
+    */
+  def tryProtocolVersionRepresentativeFor(
+      protoVersion: ProtoVersion
+  ): RepresentativeProtocolVersion[this.type] =
+    supportedProtoVersions
+      .protocolVersionRepresentativeFor(protoVersion)
+      .valueOr(err => throw new IllegalArgumentException(err.message))
 
   /** Return the Proto version corresponding to the representative protocol version
     */
@@ -536,8 +547,8 @@ trait HasSupportedProtoVersions[ValueClass] {
 
     def protocolVersionRepresentativeFor(
         protoVersion: ProtoVersion
-    ): RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type] =
-      table.getOrElse(protoVersion, higherConverter.fromInclusive)
+    ): ParsingResult[RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]] =
+      table.get(protoVersion).toRight(UnknownProtoVersion(protoVersion, name))
 
     def protocolVersionRepresentativeFor(
         protocolVersion: ProtocolVersion
@@ -811,13 +822,15 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protoVersion),
-      _(bytes, bytes),
-      fromByteStringUnsafe(bytes),
-    )
-  }
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
+    for {
+      rpv <- protocolVersionRepresentativeFor(protoVersion)
+      valueClass <- deserializeForVersion(
+        rpv,
+        _(bytes, bytes),
+        fromByteStringUnsafe(bytes),
+      )
+    } yield valueClass
 
   override protected def deserializationErrorK(
       error: ProtoDeserializationError
@@ -1171,13 +1184,15 @@ trait HasProtocolVersionedWithContextCompanion[
   // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
-  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protoVersion),
-      _(context, bytes),
-      fromByteStringUnsafe(context)(bytes),
-    )
-  }
+  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] =
+    for {
+      rpv <- protocolVersionRepresentativeFor(protoVersion)
+      valueClass <- deserializeForVersion(
+        rpv,
+        _(context, bytes),
+        fromByteStringUnsafe(context)(bytes),
+      )
+    } yield valueClass
 
   /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
     * set the protocol version to use for the deserialization.

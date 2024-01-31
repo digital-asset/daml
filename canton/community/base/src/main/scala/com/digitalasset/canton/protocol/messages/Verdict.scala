@@ -366,14 +366,13 @@ object Verdict
     private[messages] def fromProtoV2(
         mediatorRejectP: v2.MediatorReject
     ): ParsingResult[MediatorRejectV2] = {
-      // Proto version 3 because mediator rejections are versioned according to verdicts
-      // and verdicts use mediator reject V2 in proto version 3.
-      val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-
       val v2.MediatorReject(statusO) = mediatorRejectP
       for {
+        // Proto version 3 because mediator rejections are versioned according to verdicts
+        // and verdicts use mediator reject V2 in proto version 3.
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(3))
         status <- ProtoConverter.required("rejection_reason", statusO)
-      } yield MediatorRejectV2(status)(representativeProtocolVersion)
+      } yield MediatorRejectV2(status)(rpv)
     }
   }
 
@@ -447,7 +446,10 @@ object Verdict
         rejectionReasonsP: v0.RejectionReasons
     ): ParsingResult[ParticipantReject] = {
       val v0.RejectionReasons(reasonsP) = rejectionReasonsP
-      fromProtoRejectionReasonsV0(reasonsP, protocolVersionRepresentativeFor(ProtoVersion(0)))
+
+      protocolVersionRepresentativeFor(ProtoVersion(0)).flatMap(
+        fromProtoRejectionReasonsV0(reasonsP, _)
+      )
     }
 
     private def fromProtoRejectionReasonsV0(
@@ -495,10 +497,9 @@ object Verdict
     val v0.Verdict(someVerdictP) = verdictP
     import v0.Verdict.{SomeVerdict as V}
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
-
     someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
+      case V.Approve(empty.Empty(_)) =>
+        protocolVersionRepresentativeFor(ProtoVersion(0)).map(Approve()(_))
       case V.Timeout(empty.Empty(_)) =>
         Right(
           MediatorRejectV0.tryCreate(
@@ -516,15 +517,15 @@ object Verdict
     val v1.Verdict(someVerdictP) = verdictP
     import v1.Verdict.{SomeVerdict as V}
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
-
-    someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
-      case V.MediatorReject(mediatorRejectP) =>
-        MediatorRejectV1.fromProtoV1(mediatorRejectP, representativeProtocolVersion)
-      case V.ParticipantReject(participantRejectP) =>
-        ParticipantReject.fromProtoV1(participantRejectP, representativeProtocolVersion)
-      case V.Empty => Left(NotImplementedYet("empty verdict type"))
+    protocolVersionRepresentativeFor(ProtoVersion(1)).flatMap { rpv =>
+      someVerdictP match {
+        case V.Approve(empty.Empty(_)) => Right(Approve()(rpv))
+        case V.MediatorReject(mediatorRejectP) =>
+          MediatorRejectV1.fromProtoV1(mediatorRejectP, rpv)
+        case V.ParticipantReject(participantRejectP) =>
+          ParticipantReject.fromProtoV1(participantRejectP, rpv)
+        case V.Empty => Left(NotImplementedYet("empty verdict type"))
+      }
     }
   }
 
@@ -532,15 +533,15 @@ object Verdict
     val v2.Verdict(someVerdictP) = verdictP
     import v2.Verdict.{SomeVerdict as V}
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(2))
-
-    someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
-      case V.MediatorReject(mediatorRejectP) =>
-        MediatorRejectV1.fromProtoV1(mediatorRejectP, representativeProtocolVersion)
-      case V.ParticipantReject(participantRejectP) =>
-        ParticipantReject.fromProtoV2(participantRejectP, representativeProtocolVersion)
-      case V.Empty => Left(OtherError("empty verdict type"))
+    protocolVersionRepresentativeFor(ProtoVersion(2)).flatMap { rpv =>
+      someVerdictP match {
+        case V.Approve(empty.Empty(_)) => Right(Approve()(rpv))
+        case V.MediatorReject(mediatorRejectP) =>
+          MediatorRejectV1.fromProtoV1(mediatorRejectP, rpv)
+        case V.ParticipantReject(participantRejectP) =>
+          ParticipantReject.fromProtoV2(participantRejectP, rpv)
+        case V.Empty => Left(OtherError("empty verdict type"))
+      }
     }
   }
 
@@ -548,15 +549,17 @@ object Verdict
     val v3.Verdict(someVerdictP) = verdictP
     import v3.Verdict.{SomeVerdict as V}
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-    someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
-      case V.MediatorReject(mediatorRejectP) =>
-        MediatorRejectV2.fromProtoV2(mediatorRejectP)
-      case V.ParticipantReject(participantRejectP) =>
-        ParticipantReject.fromProtoV2(participantRejectP, representativeProtocolVersion)
-      case V.Empty => Left(OtherError("empty verdict type"))
+    protocolVersionRepresentativeFor(ProtoVersion(3)).flatMap { rpv =>
+      someVerdictP match {
+        case V.Approve(empty.Empty(_)) => Right(Approve()(rpv))
+        case V.MediatorReject(mediatorRejectP) =>
+          MediatorRejectV2.fromProtoV2(mediatorRejectP)
+        case V.ParticipantReject(participantRejectP) =>
+          ParticipantReject.fromProtoV2(participantRejectP, rpv)
+        case V.Empty => Left(OtherError("empty verdict type"))
+      }
     }
+
   }
 
   private def fromProtoReasonV0(

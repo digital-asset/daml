@@ -167,9 +167,8 @@ object InformeeMessage
         maybeFullInformeeTreeP,
       )
       fullInformeeTree <- FullInformeeTree.fromProtoV0(context, fullInformeeTreeP)
-    } yield new InformeeMessage(fullInformeeTree)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)).representative
-    )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
+    } yield new InformeeMessage(fullInformeeTree)(rpv.representative)
   }
 
   private[messages] def fromProtoV1(

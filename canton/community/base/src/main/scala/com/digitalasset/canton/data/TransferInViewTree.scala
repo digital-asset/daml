@@ -235,6 +235,7 @@ object TransferInCommonData
         uuidP,
         targetMediatorP,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TransferInCommonData(
       commonData.salt,
       commonData.targetDomain,
@@ -243,9 +244,7 @@ object TransferInCommonData
       commonData.uuid,
     )(
       hashOps,
-      TargetProtocolVersion(
-        protocolVersionRepresentativeFor(ProtoVersion(0)).representative
-      ),
+      TargetProtocolVersion(rpv.representative),
       Some(bytes),
     )
   }
@@ -518,6 +517,7 @@ object TransferInView
       contract <- ProtoConverter
         .required("contract", contractP)
         .flatMap(SerializableContract.fromProtoV0)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TransferInView(
       commonData.salt,
       TransferSubmitterMetadata(
@@ -532,7 +532,7 @@ object TransferInView
       commonData.creatingTransactionId,
       commonData.transferOutResultEvent,
       commonData.sourceProtocolVersion,
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(0)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 
   private[this] def fromProtoV1(hashOps: HashOps, transferInViewP: v1.TransferInView)(
@@ -560,6 +560,7 @@ object TransferInView
       contract <- ProtoConverter
         .required("contract", contractP)
         .flatMap(SerializableContract.fromProtoV1)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield TransferInView(
       commonData.salt,
       TransferSubmitterMetadata(
@@ -574,7 +575,7 @@ object TransferInView
       commonData.creatingTransactionId,
       commonData.transferOutResultEvent,
       commonData.sourceProtocolVersion,
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(1)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }
 

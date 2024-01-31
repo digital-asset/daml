@@ -430,8 +430,9 @@ object TopologyStateUpdate {
       op <- AddRemoveChangeOp.fromProtoV0(protoTopologyTransaction.operation)
       mapping <- mappingRes
       id <- TopologyElementId.fromProtoPrimitive(protoTopologyTransaction.id)
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TopologyStateUpdate(op, TopologyStateUpdateElement(id, mapping))(
-      TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
   }
@@ -475,8 +476,9 @@ object TopologyStateUpdate {
       op <- AddRemoveChangeOp.fromProtoV0(protoTopologyTransaction.operation)
       mapping <- mappingRes
       id <- TopologyElementId.fromProtoPrimitive(protoTopologyTransaction.id)
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield TopologyStateUpdate(op, TopologyStateUpdateElement(id, mapping))(
-      TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }
@@ -577,7 +579,7 @@ object DomainGovernanceTransaction {
       protoTopologyTransaction: v0.DomainGovernanceTransaction,
       bytes: ByteString,
   ): ParsingResult[DomainGovernanceTransaction] = {
-    val mapping: ParsingResult[DomainGovernanceMapping] = protoTopologyTransaction.mapping match {
+    val mappingE: ParsingResult[DomainGovernanceMapping] = protoTopologyTransaction.mapping match {
       case v0.DomainGovernanceTransaction.Mapping.DomainParametersChange(domainParametersChange) =>
         DomainParametersChange.fromProtoV0(domainParametersChange)
 
@@ -585,11 +587,12 @@ object DomainGovernanceTransaction {
         Left(UnrecognizedField("DomainGovernanceTransaction.Mapping is empty"))
     }
 
-    mapping.map(mapping =>
-      DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
-        TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(0)),
-        Some(bytes),
-      )
+    for {
+      mapping <- mappingE
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(0))
+    } yield DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
+      rpv,
+      Some(bytes),
     )
   }
 
@@ -597,7 +600,7 @@ object DomainGovernanceTransaction {
       protoTopologyTransaction: v1.DomainGovernanceTransaction,
       bytes: ByteString,
   ): ParsingResult[DomainGovernanceTransaction] = {
-    val mapping: ParsingResult[DomainGovernanceMapping] = protoTopologyTransaction.mapping match {
+    val mappingE: ParsingResult[DomainGovernanceMapping] = protoTopologyTransaction.mapping match {
       case v1.DomainGovernanceTransaction.Mapping.DomainParametersChange(domainParametersChange) =>
         DomainParametersChange.fromProtoV1(domainParametersChange)
 
@@ -605,12 +608,12 @@ object DomainGovernanceTransaction {
         Left(UnrecognizedField("DomainGovernanceTransaction.Mapping is empty"))
     }
 
-    mapping.map(mapping =>
-      DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
-        TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1)),
-        Some(bytes),
-      )
+    for {
+      mapping <- mappingE
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1))
+    } yield DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
+      rpv,
+      Some(bytes),
     )
   }
-
 }

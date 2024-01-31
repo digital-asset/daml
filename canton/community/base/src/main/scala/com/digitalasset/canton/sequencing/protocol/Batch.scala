@@ -120,7 +120,8 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
       uncompressedBatchProto <- ProtoConverter.protoParser(v0.Batch.parseFrom)(uncompressed)
       v0.Batch(envelopesProto) = uncompressedBatchProto
       envelopes <- envelopesProto.toList.traverse(ClosedEnvelope.fromProtoV0)
-    } yield Batch[ClosedEnvelope](envelopes)(protocolVersionRepresentativeFor(ProtoVersion(0)))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
+    } yield Batch[ClosedEnvelope](envelopes)(rpv)
   }
 
   private def decompress(

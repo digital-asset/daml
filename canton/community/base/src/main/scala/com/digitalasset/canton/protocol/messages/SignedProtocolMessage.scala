@@ -181,7 +181,7 @@ object SignedProtocolMessage
       traceContext: TraceContext
   ): EitherT[Future, SyncCryptoError, Signature] = {
     val (hashPurpose, serialization) =
-      if (protocolVersion == protocolVersionRepresentativeFor(ProtoVersion(0))) {
+      if (protocolVersion == protocolVersionRepresentativeFor(ProtocolVersion.v3)) {
         (typedMessage.content.hashPurpose, typedMessage.content.getCryptographicEvidence)
       } else {
         (HashPurpose.SignedProtocolMessageSignature, typedMessage.getCryptographicEvidence)
@@ -230,12 +230,14 @@ object SignedProtocolMessage
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", maybeSignatureP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       signedMessage = SignedProtocolMessage(
-        TypedSignedProtocolMessageContent(message, ProtoVersion(-1)),
+        TypedSignedProtocolMessageContent(
+          message,
+          ProtocolVersion.minimum,
+        ),
         signature,
-      )(
-        protocolVersionRepresentativeFor(ProtoVersion(0))
-      )
+      )(rpv)
     } yield signedMessage
   }
 

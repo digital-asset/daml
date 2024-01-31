@@ -270,6 +270,7 @@ object SubmitterMetadata
             maxSequencingTimeOP,
           )
       )
+      rpv <- protocolVersionRepresentativeFor(protoVersion)
     } yield SubmitterMetadata(
       actAsNes,
       applicationId,
@@ -279,6 +280,6 @@ object SubmitterMetadata
       submissionIdO,
       dedupPeriod,
       maxSequencingTimeO,
-    )(hashOps, protocolVersionRepresentativeFor(protoVersion), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }

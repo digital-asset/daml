@@ -177,8 +177,9 @@ object InformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV0(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       informeeTree <- InformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(0)))
+        .create(tree, rpv)
         .leftMap(e => ProtoDeserializationError.OtherError(s"Unable to create informee tree: $e"))
     } yield informeeTree
 
@@ -189,8 +190,9 @@ object InformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       informeeTree <- InformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
+        .create(tree, rpv)
         .leftMap(e => ProtoDeserializationError.OtherError(s"Unable to create informee tree: $e"))
     } yield informeeTree
 }

@@ -9,6 +9,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ProtoDeserializationErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.serialization.DeserializationError
+import com.digitalasset.canton.version.ProtoVersion
 import com.google.protobuf.InvalidProtocolBufferException
 
 sealed trait ProtoDeserializationError extends Product with Serializable {
@@ -45,13 +46,14 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   }
   final case class TimestampConversionError(message: String) extends ProtoDeserializationError
   final case class TimeModelConversionError(message: String) extends ProtoDeserializationError
+  final case class UnknownProtoVersion(version: ProtoVersion, protoMessage: String)
+      extends ProtoDeserializationError {
+    override def message =
+      s"Message $protoMessage has no versioning information corresponding to protobuf $version"
+  }
   final case class ValueConversionError(field: String, error: String)
       extends ProtoDeserializationError {
     override val message = s"Unable to convert field `$field`: $error"
-  }
-  final case class RefinedDurationConversionError(field: String, error: String)
-      extends ProtoDeserializationError {
-    override val message = s"Unable to convert numeric field `$field`: $error"
   }
   final case class InvariantViolation(error: String) extends ProtoDeserializationError {
     override def message = error

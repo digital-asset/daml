@@ -133,12 +133,13 @@ object RootHashMessage
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       payloadO <- payloadDeserializer(payloadP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield RootHashMessage(
       rootHash,
       domainId,
       viewType,
       payloadO,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+    )(rpv)
   }
 
   implicit def rootHashMessageProtocolMessageContentCast[Payload <: RootHashMessagePayload](implicit

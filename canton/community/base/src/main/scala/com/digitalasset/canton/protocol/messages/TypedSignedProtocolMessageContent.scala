@@ -69,10 +69,4 @@ object TypedSignedProtocolMessageContent
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
-
-  def apply[M <: SignedProtocolMessageContent](
-      content: M,
-      protoVersion: ProtoVersion,
-  ): TypedSignedProtocolMessageContent[M] =
-    TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
 }

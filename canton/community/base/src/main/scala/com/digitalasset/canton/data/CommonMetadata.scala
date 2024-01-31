@@ -133,6 +133,7 @@ object CommonMetadata
         .parseRequired(Salt.fromProtoV0, "salt", saltP)
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield CommonMetadata(
       confirmationPolicy,
       DomainId(domainUid),
@@ -141,7 +142,7 @@ object CommonMetadata
       uuid,
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
 }

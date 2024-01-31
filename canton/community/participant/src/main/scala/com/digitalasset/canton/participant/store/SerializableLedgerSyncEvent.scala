@@ -186,7 +186,7 @@ private[store] object SerializableLedgerSyncEvent
       ledgerSyncEventP: v0.LedgerSyncEvent
   ): ParsingResult[SerializableLedgerSyncEvent] = {
     val SyncEventP = v0.LedgerSyncEvent.Value
-    val ledgerSyncEvent = ledgerSyncEventP.value match {
+    val ledgerSyncEventE = ledgerSyncEventP.value match {
       case SyncEventP.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("LedgerSyncEvent.value"))
       case SyncEventP.ConfigurationChanged(configurationChanged) =>
@@ -215,11 +215,10 @@ private[store] object SerializableLedgerSyncEvent
         SerializableContractsPurged.fromProtoV0(contractsPurged)
     }
 
-    ledgerSyncEvent.map(
-      SerializableLedgerSyncEvent(_)(
-        protocolVersionRepresentativeFor(ProtoVersion(0))
-      )
-    )
+    for {
+      ledgerSyncEvent <- ledgerSyncEventE
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
+    } yield SerializableLedgerSyncEvent(ledgerSyncEvent)(rpv)
   }
 }
 

@@ -225,8 +225,9 @@ object MalformedMediatorRequestResult
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       reject <- ProtoConverter.parseRequired(MediatorRejectV0.fromProtoV0, "rejection", rejectP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
   }
@@ -243,13 +244,15 @@ object MalformedMediatorRequestResult
         .flatMap(RequestId.fromProtoPrimitive)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
+      verdictRpv <- Verdict.protocolVersionRepresentativeFor(ProtoVersion(1))
       reject <- ProtoConverter.parseRequired(
-        MediatorRejectV1.fromProtoV1(_, Verdict.protocolVersionRepresentativeFor(ProtoVersion(1))),
+        MediatorRejectV1.fromProtoV1(_, verdictRpv),
         "rejection",
         rejectionPO,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }
@@ -271,8 +274,9 @@ object MalformedMediatorRequestResult
         "rejection",
         rejectionPO,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(2))
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
-      protocolVersionRepresentativeFor(ProtoVersion(2)),
+      rpv,
       Some(bytes),
     )
   }

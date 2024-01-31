@@ -183,6 +183,7 @@ object TransactionResultMessage
         .required("notification_tree", protoResultMessage.notificationTree)
         .leftWiden[ProtoDeserializationError]
       notificationTree <- InformeeTree.fromProtoV0(context, protoNotificationTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TransactionResultMessage(
       requestId,
       transactionResult,
@@ -190,7 +191,7 @@ object TransactionResultMessage
       notificationTree.domainId,
       Some(notificationTree),
     )(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
 
@@ -211,6 +212,7 @@ object TransactionResultMessage
       notificationTree <- ProtoConverter
         .required("notification_tree", notificationTreePO)
         .flatMap(InformeeTree.fromProtoV1(context, _))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield TransactionResultMessage(
       requestId,
       transactionResult,
@@ -218,7 +220,7 @@ object TransactionResultMessage
       notificationTree.domainId,
       Some(notificationTree),
     )(
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }
@@ -240,8 +242,9 @@ object TransactionResultMessage
         .flatMap(Verdict.fromProtoV2)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(2))
     } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId, None)(
-      protocolVersionRepresentativeFor(ProtoVersion(2)),
+      rpv,
       Some(bytes),
     )
   }
@@ -263,8 +266,9 @@ object TransactionResultMessage
         .flatMap(Verdict.fromProtoV3)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(3))
     } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId, None)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
+      rpv,
       Some(bytes),
     )
   }

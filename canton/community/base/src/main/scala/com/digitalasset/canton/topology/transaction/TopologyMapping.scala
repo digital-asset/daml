@@ -301,8 +301,9 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(claimP.uniqueIdentifier, "uniqueIdentifier")
       evidence <- LegalIdentityClaimEvidence.fromProtoOneOf(claimP.evidence)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield LegalIdentityClaim(uid, evidence)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
 }

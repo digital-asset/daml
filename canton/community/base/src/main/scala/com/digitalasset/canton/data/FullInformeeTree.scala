@@ -149,8 +149,9 @@ object FullInformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV0(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(0)))
+        .create(tree, rpv)
         .leftMap(e =>
           ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
         )
@@ -163,8 +164,9 @@ object FullInformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV1(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
+        .create(tree, rpv)
         .leftMap(e =>
           ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
         )

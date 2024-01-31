@@ -220,8 +220,9 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       period = CommitmentPeriod(fromExclusive, periodLength)
       cmt = protoMsg.commitment
       commitment = commitmentTypeFromByteString(cmt)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield new AcsCommitment(domainId, sender, counterParticipant, period, commitment)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     ) {}
   }

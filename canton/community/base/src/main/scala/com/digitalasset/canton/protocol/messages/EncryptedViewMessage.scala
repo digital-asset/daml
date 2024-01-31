@@ -212,7 +212,7 @@ final case class EncryptedViewMessageV0[+VT <: ViewType](
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[EncryptedViewMessage.type] =
-    EncryptedViewMessage.protocolVersionRepresentativeFor(ProtoVersion(0))
+    EncryptedViewMessage.tryProtocolVersionRepresentativeFor(ProtoVersion(0))
 
   def toProtoV0: v0.EncryptedViewMessage =
     v0.EncryptedViewMessage(
@@ -267,7 +267,7 @@ final case class EncryptedViewMessageV1[+VT <: ViewType](
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[EncryptedViewMessage.type] =
-    EncryptedViewMessage.protocolVersionRepresentativeFor(ProtoVersion(1))
+    EncryptedViewMessage.tryProtocolVersionRepresentativeFor(ProtoVersion(1))
 
   def toProtoV1: v1.EncryptedViewMessage = v1.EncryptedViewMessage(
     viewTree = encryptedView.viewTree.ciphertext,
@@ -335,7 +335,7 @@ final case class EncryptedViewMessageV2[+VT <: ViewType](
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[EncryptedViewMessage.type] =
-    EncryptedViewMessage.protocolVersionRepresentativeFor(ProtoVersion(2))
+    EncryptedViewMessage.tryProtocolVersionRepresentativeFor(ProtoVersion(2))
 
   private def toProtoV2: v2.EncryptedViewMessage = v2.EncryptedViewMessage(
     viewTree = encryptedView.viewTree.ciphertext,

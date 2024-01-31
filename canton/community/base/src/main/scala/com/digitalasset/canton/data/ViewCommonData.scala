@@ -145,9 +145,10 @@ object ViewCommonData
         .create(viewCommonDataP.threshold)
         .leftMap(InvariantViolation.toProtoDeserializationError))
         .leftMap(_.inField("threshold"))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield new ViewCommonData(informees.toSet, threshold, salt)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
   }
@@ -168,9 +169,11 @@ object ViewCommonData
         .create(viewCommonDataP.threshold)
         .leftMap(InvariantViolation.toProtoDeserializationError))
         .leftMap(_.inField("threshold"))
+
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield new ViewCommonData(informees.toSet, threshold, salt)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }

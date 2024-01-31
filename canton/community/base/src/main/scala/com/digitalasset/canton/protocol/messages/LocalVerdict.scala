@@ -59,11 +59,10 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
   ): ParsingResult[LocalVerdict] = {
     import v0.LocalVerdict.{SomeLocalVerdict as Lv}
 
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
-
     localVerdictP match {
       case v0.LocalVerdict(Lv.LocalApprove(empty.Empty(_))) =>
-        Right(LocalApprove()(protocolVersion))
+        protocolVersionRepresentativeFor(ProtoVersion(0)).map(LocalApprove()(_))
+
       case v0.LocalVerdict(Lv.LocalReject(value)) => LocalReject.fromProtoV0(value)
       case v0.LocalVerdict(Lv.Empty) =>
         Left(OtherError("Unable to deserialize LocalVerdict, as the content is empty"))
@@ -73,11 +72,11 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
   private[messages] def fromProtoV1(localVerdictP: v1.LocalVerdict): ParsingResult[LocalVerdict] = {
     import v1.LocalVerdict.{SomeLocalVerdict as Lv}
 
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
     val v1.LocalVerdict(someLocalVerdictP) = localVerdictP
 
     someLocalVerdictP match {
-      case Lv.LocalApprove(empty.Empty(_)) => Right(LocalApprove()(protocolVersion))
+      case Lv.LocalApprove(empty.Empty(_)) =>
+        protocolVersionRepresentativeFor(ProtoVersion(1)).map(LocalApprove()(_))
       case Lv.LocalReject(localRejectP) => LocalReject.fromProtoV1(localRejectP)
       case Lv.Empty =>
         Left(OtherError("Unable to deserialize LocalVerdict, as the content is empty"))
@@ -222,97 +221,100 @@ object LocalReject extends LocalRejectionGroup {
   private[messages] def fromProtoV0(v: v0.LocalReject): ParsingResult[LocalReject] = {
     import ConsistencyRejections.*
     import v0.LocalReject.Code
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
-
-    v.code match {
-      case Code.MissingCode => Left(FieldNotSet("LocalReject.code"))
-      case Code.LockedContracts => Right(LockedContracts.Reject(v.resource)(protocolVersion))
-      case Code.LockedKeys => Right(LockedKeys.Reject(v.resource)(protocolVersion))
-      case Code.InactiveContracts => Right(InactiveContracts.Reject(v.resource)(protocolVersion))
-      case Code.DuplicateKey => Right(DuplicateKey.Reject(v.resource)(protocolVersion))
-      case Code.CreatesExistingContract =>
-        Right(CreatesExistingContracts.Reject(v.resource)(protocolVersion))
-      case Code.LedgerTime => Right(TimeRejects.LedgerTime.Reject(v.reason)(protocolVersion))
-      case Code.SubmissionTime =>
-        Right(TimeRejects.SubmissionTime.Reject(v.reason)(protocolVersion))
-      case Code.LocalTimeout => Right(TimeRejects.LocalTimeout.Reject()(protocolVersion))
-      case Code.MalformedPayloads =>
-        Right(MalformedRejects.Payloads.Reject(v.reason)(protocolVersion))
-      case Code.MalformedModel =>
-        Right(MalformedRejects.ModelConformance.Reject(v.reason)(protocolVersion))
-      case Code.MalformedConfirmationPolicy =>
-        // MalformedConfirmationPolicy could only occur up to v2.6.x with malicious participants.
-        // The error code has been removed since.
-        Left(
-          ValueDeserializationError(
-            "reject",
-            s"Unknown local rejection error code ${v.code} with ${v.reason}",
+    protocolVersionRepresentativeFor(ProtoVersion(0)).flatMap { rpv =>
+      v.code match {
+        case Code.MissingCode => Left(FieldNotSet("LocalReject.code"))
+        case Code.LockedContracts => Right(LockedContracts.Reject(v.resource)(rpv))
+        case Code.LockedKeys => Right(LockedKeys.Reject(v.resource)(rpv))
+        case Code.InactiveContracts => Right(InactiveContracts.Reject(v.resource)(rpv))
+        case Code.DuplicateKey => Right(DuplicateKey.Reject(v.resource)(rpv))
+        case Code.CreatesExistingContract =>
+          Right(CreatesExistingContracts.Reject(v.resource)(rpv))
+        case Code.LedgerTime => Right(TimeRejects.LedgerTime.Reject(v.reason)(rpv))
+        case Code.SubmissionTime =>
+          Right(TimeRejects.SubmissionTime.Reject(v.reason)(rpv))
+        case Code.LocalTimeout => Right(TimeRejects.LocalTimeout.Reject()(rpv))
+        case Code.MalformedPayloads =>
+          Right(MalformedRejects.Payloads.Reject(v.reason)(rpv))
+        case Code.MalformedModel =>
+          Right(MalformedRejects.ModelConformance.Reject(v.reason)(rpv))
+        case Code.MalformedConfirmationPolicy =>
+          // MalformedConfirmationPolicy could only occur up to v2.6.x with malicious participants.
+          // The error code has been removed since.
+          Left(
+            ValueDeserializationError(
+              "reject",
+              s"Unknown local rejection error code ${v.code} with ${v.reason}",
+            )
           )
-        )
-      case Code.BadRootHashMessage =>
-        Right(MalformedRejects.BadRootHashMessages.Reject(v.reason)(protocolVersion))
-      case Code.TransferOutActivenessCheck =>
-        Right(TransferOutRejects.ActivenessCheckFailed.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyCompleted =>
-        Right(TransferInRejects.AlreadyCompleted.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyActive =>
-        Right(TransferInRejects.ContractAlreadyActive.Reject(v.reason)(protocolVersion))
-      case Code.TransferInAlreadyArchived =>
-        Right(TransferInRejects.ContractAlreadyArchived.Reject(v.reason)(protocolVersion))
-      case Code.TransferInLocked =>
-        Right(TransferInRejects.ContractIsLocked.Reject(v.reason)(protocolVersion))
-      case Code.InconsistentKey => Right(InconsistentKey.Reject(v.resource)(protocolVersion))
-      case Code.Unrecognized(code) =>
-        Left(
-          ValueDeserializationError(
-            "reject",
-            s"Unknown local rejection error code ${code} with ${v.reason}",
+        case Code.BadRootHashMessage =>
+          Right(MalformedRejects.BadRootHashMessages.Reject(v.reason)(rpv))
+        case Code.TransferOutActivenessCheck =>
+          Right(TransferOutRejects.ActivenessCheckFailed.Reject(v.reason)(rpv))
+        case Code.TransferInAlreadyCompleted =>
+          Right(TransferInRejects.AlreadyCompleted.Reject(v.reason)(rpv))
+        case Code.TransferInAlreadyActive =>
+          Right(TransferInRejects.ContractAlreadyActive.Reject(v.reason)(rpv))
+        case Code.TransferInAlreadyArchived =>
+          Right(TransferInRejects.ContractAlreadyArchived.Reject(v.reason)(rpv))
+        case Code.TransferInLocked =>
+          Right(TransferInRejects.ContractIsLocked.Reject(v.reason)(rpv))
+        case Code.InconsistentKey => Right(InconsistentKey.Reject(v.resource)(rpv))
+        case Code.Unrecognized(code) =>
+          Left(
+            ValueDeserializationError(
+              "reject",
+              s"Unknown local rejection error code ${code} with ${v.reason}",
+            )
           )
-        )
+      }
     }
   }
 
   private[messages] def fromProtoV1(localRejectP: v1.LocalReject): ParsingResult[LocalReject] = {
     import ConsistencyRejections.*
     val v1.LocalReject(causePrefix, details, resource, errorCodeP, errorCategoryP) = localRejectP
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
-    errorCodeP match {
-      case LockedContracts.id => Right(LockedContracts.Reject(resource)(protocolVersion))
-      case LockedKeys.id => Right(LockedKeys.Reject(resource)(protocolVersion))
-      case InactiveContracts.id => Right(InactiveContracts.Reject(resource)(protocolVersion))
-      case DuplicateKey.id => Right(DuplicateKey.Reject(resource)(protocolVersion))
-      case CreatesExistingContracts.id =>
-        Right(CreatesExistingContracts.Reject(resource)(protocolVersion))
-      case TimeRejects.LedgerTime.id =>
-        Right(TimeRejects.LedgerTime.Reject(details)(protocolVersion))
-      case TimeRejects.SubmissionTime.id =>
-        Right(TimeRejects.SubmissionTime.Reject(details)(protocolVersion))
-      case TimeRejects.LocalTimeout.id => Right(TimeRejects.LocalTimeout.Reject()(protocolVersion))
-      case MalformedRejects.MalformedRequest.id =>
-        Right(MalformedRejects.MalformedRequest.Reject(details)(protocolVersion))
-      case MalformedRejects.Payloads.id =>
-        Right(MalformedRejects.Payloads.Reject(details)(protocolVersion))
-      case MalformedRejects.ModelConformance.id =>
-        Right(MalformedRejects.ModelConformance.Reject(details)(protocolVersion))
-      case MalformedRejects.BadRootHashMessages.id =>
-        Right(MalformedRejects.BadRootHashMessages.Reject(details)(protocolVersion))
-      case TransferOutRejects.ActivenessCheckFailed.id =>
-        Right(TransferOutRejects.ActivenessCheckFailed.Reject(details)(protocolVersion))
-      case TransferInRejects.AlreadyCompleted.id =>
-        Right(TransferInRejects.AlreadyCompleted.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractAlreadyActive.id =>
-        Right(TransferInRejects.ContractAlreadyActive.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractAlreadyArchived.id =>
-        Right(TransferInRejects.ContractAlreadyArchived.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractIsLocked.id =>
-        Right(TransferInRejects.ContractIsLocked.Reject(details)(protocolVersion))
-      case InconsistentKey.id => Right(InconsistentKey.Reject(resource)(protocolVersion))
-      case id =>
-        val category = ErrorCategory
-          .fromInt(errorCategoryP)
-          .getOrElse(ErrorCategory.SystemInternalAssumptionViolated)
-        Right(GenericReject(causePrefix, details, resource, id, category)(protocolVersion))
+
+    protocolVersionRepresentativeFor(ProtoVersion(1)).flatMap { rpv =>
+      errorCodeP match {
+        case LockedContracts.id => Right(LockedContracts.Reject(resource)(rpv))
+        case LockedKeys.id => Right(LockedKeys.Reject(resource)(rpv))
+        case InactiveContracts.id => Right(InactiveContracts.Reject(resource)(rpv))
+        case DuplicateKey.id => Right(DuplicateKey.Reject(resource)(rpv))
+        case CreatesExistingContracts.id =>
+          Right(CreatesExistingContracts.Reject(resource)(rpv))
+        case TimeRejects.LedgerTime.id =>
+          Right(TimeRejects.LedgerTime.Reject(details)(rpv))
+        case TimeRejects.SubmissionTime.id =>
+          Right(TimeRejects.SubmissionTime.Reject(details)(rpv))
+        case TimeRejects.LocalTimeout.id => Right(TimeRejects.LocalTimeout.Reject()(rpv))
+        case MalformedRejects.MalformedRequest.id =>
+          Right(MalformedRejects.MalformedRequest.Reject(details)(rpv))
+        case MalformedRejects.Payloads.id =>
+          Right(MalformedRejects.Payloads.Reject(details)(rpv))
+        case MalformedRejects.ModelConformance.id =>
+          Right(MalformedRejects.ModelConformance.Reject(details)(rpv))
+        case MalformedRejects.BadRootHashMessages.id =>
+          Right(MalformedRejects.BadRootHashMessages.Reject(details)(rpv))
+        case TransferOutRejects.ActivenessCheckFailed.id =>
+          Right(TransferOutRejects.ActivenessCheckFailed.Reject(details)(rpv))
+        case TransferInRejects.AlreadyCompleted.id =>
+          Right(TransferInRejects.AlreadyCompleted.Reject(details)(rpv))
+        case TransferInRejects.ContractAlreadyActive.id =>
+          Right(TransferInRejects.ContractAlreadyActive.Reject(details)(rpv))
+        case TransferInRejects.ContractAlreadyArchived.id =>
+          Right(TransferInRejects.ContractAlreadyArchived.Reject(details)(rpv))
+        case TransferInRejects.ContractIsLocked.id =>
+          Right(TransferInRejects.ContractIsLocked.Reject(details)(rpv))
+        case InconsistentKey.id => Right(InconsistentKey.Reject(resource)(rpv))
+        case id =>
+          val category = ErrorCategory
+            .fromInt(errorCategoryP)
+            .getOrElse(ErrorCategory.SystemInternalAssumptionViolated)
+          Right(GenericReject(causePrefix, details, resource, id, category)(rpv))
+      }
     }
+
   }
 
   object ConsistencyRejections extends ErrorGroup() {
