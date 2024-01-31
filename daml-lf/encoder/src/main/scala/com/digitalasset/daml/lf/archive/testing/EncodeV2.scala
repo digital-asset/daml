@@ -666,7 +666,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           assertSince(LV.Features.anyType, "Expr.FromAny")
           builder.setFromAny(PLF.Expr.FromAny.newBuilder().setType(ty).setExpr(body))
         case ETypeRep(ty) =>
-          assertSince(LV.Features.typeRep, "Expr.TypeRep")
           builder.setTypeRep(ty)
         case EThrow(retTy, excTy, exc) =>
           assertSince(LV.Features.exceptions, "Expr.Throw")

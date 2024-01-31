@@ -1250,7 +1250,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TYPE_REP =>
-          assertSince(LV.Features.typeRep, "Expr.type_rep")
           decodeType(lfExpr.getTypeRep) { typ =>
             Ret(ETypeRep(typ))
           }
@@ -1921,7 +1920,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
