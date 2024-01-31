@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.lf.crypto
+import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{
   Engine,
@@ -57,6 +58,7 @@ import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import scala.collection.MapView
 import scala.concurrent.{ExecutionContext, Future}
 
 /** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
@@ -64,7 +66,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
-    participant: Ref.ParticipantId,
+    participant: ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
@@ -73,9 +75,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,
     timeProvider: TimeProvider,
-)(implicit
-    ec: ExecutionContext
-) extends CommandExecutor
+)(implicit ec: ExecutionContext)
+    extends CommandExecutor
     with NamedLogging {
   private[this] val packageLoader = new DeduplicatingPackageLoader()
   // By unused here we mean that the TX version is not used by the verification
@@ -117,6 +118,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
+        commands.packageMap.view.mapValues({ case (n, _) => n }),
       )
     } yield {
       submission
@@ -221,6 +223,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: AtomicLong,
       ledgerEffectiveTime: Time.Timestamp,
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
+      packageMap: MapView[Ref.PackageId, Ref.PackageName],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, A]] = {
@@ -245,7 +248,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
               metrics.daml.execution.lookupActiveContract,
               contractStore.lookupActiveContract(readers, acoid),
             )
-            .flatMap { instance =>
+            .flatMap { _instance =>
+              // TODO Only needed until https://github.com/DACH-NY/canton/issues/16624 lands
+              val instance = _instance.map(v =>
+                v.copy(unversioned =
+                  v.unversioned.copy(packageName = v.unversioned.packageName.orElse({
+                    packageMap.get(v.unversioned.template.packageId)
+                  }))
+                )
+              )
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(

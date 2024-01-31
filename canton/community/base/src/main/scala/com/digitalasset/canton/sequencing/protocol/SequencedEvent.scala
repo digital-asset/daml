@@ -92,10 +92,10 @@ object SequencedEvent
       bytes: ByteString,
       protoVersion: ProtoVersion,
   ): ParsingResult[SequencedEvent[ClosedEnvelope]] = {
-    val protocolVersionRepresentative = protocolVersionRepresentativeFor(protoVersion)
     val sequencerCounter = SequencerCounter(counter)
 
     for {
+      rpv <- protocolVersionRepresentativeFor(protoVersion)
       timestamp <- ProtoConverter
         .required("SequencedEvent.timestamp", tsP)
         .flatMap(CantonTimestamp.fromProtoPrimitive)
@@ -120,7 +120,7 @@ object SequencedEvent
             msgId,
             deliverErrorReason,
           )(
-            protocolVersionRepresentative,
+            rpv,
             Some(bytes),
           ) {}
         case (None, Some(batch)) =>
@@ -128,7 +128,7 @@ object SequencedEvent
             case None =>
               Right(
                 Deliver(sequencerCounter, timestamp, domainId, None, batch)(
-                  protocolVersionRepresentative,
+                  rpv,
                   Some(bytes),
                 )
               )
@@ -137,7 +137,7 @@ object SequencedEvent
                 .fromProtoPrimitive(msgId)
                 .map(msgId =>
                   Deliver(sequencerCounter, timestamp, domainId, Some(msgId), batch)(
-                    protocolVersionRepresentative,
+                    rpv,
                     Some(bytes),
                   )
                 )

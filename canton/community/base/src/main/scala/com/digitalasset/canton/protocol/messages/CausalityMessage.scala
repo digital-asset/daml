@@ -82,11 +82,12 @@ object CausalityMessage extends HasProtocolVersionedCompanion[CausalityMessage] 
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "target_domain_id").map(TargetDomainId(_))
       clocks <- ProtoConverter.parseRequired(VectorClock.fromProtoV0, "clock", clockPO)
       tid <- ProtoConverter.parseRequired(TransferId.fromProtoV0, "transfer_id", transferIdP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield CausalityMessage(
       domainId,
       tid,
       clocks,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+    )(rpv)
   }
 
   override def name: String = "CausalityMessage"

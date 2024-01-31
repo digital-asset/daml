@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.validation
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.engine
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.{
@@ -63,6 +63,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       _inRollback: Boolean,
       _viewHash: ViewHash,
       _traceContext: TraceContext,
+      _packageResolution: Map[PackageName, PackageId],
   ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] = {
 
     ledgerTime shouldEqual factory.ledgerTime
@@ -89,6 +90,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       _inRollback: Boolean,
       _viewHash: ViewHash,
       _traceContext: TraceContext,
+      _packageResolution: Map[PackageName, PackageId],
   ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
     fail("Reinterpret should not be called by this test case.")
 
@@ -230,7 +232,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       val error = DAMLeError(mock[engine.Error], mockViewHash)
 
       val sut = new ModelConformanceChecker(
-        (_, _, _, _, _, _, _, _, _) =>
+        (_, _, _, _, _, _, _, _, _, _) =>
           EitherT.leftT[Future, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)](
             error
           ),
@@ -303,7 +305,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           ),
         )
         val sut = new ModelConformanceChecker(
-          (_, _, _, _, _, _, _, _, _) =>
+          (_, _, _, _, _, _, _, _, _, _) =>
             EitherT.pure[Future, DAMLeError](
               (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver)
             ),

@@ -334,6 +334,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       response <- Either
         .catchOnly[InvalidMediatorResponse](
           MediatorResponse(
@@ -346,7 +347,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
             confirmingParties.toSet,
             domainId,
           )(
-            supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(0)),
+            rpv,
             Some(bytes),
           )
         )
@@ -379,6 +380,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       response <- Either
         .catchOnly[InvalidMediatorResponse](
           MediatorResponse(
@@ -391,7 +393,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
             confirmingParties.toSet,
             domainId,
           )(
-            supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(1)),
+            rpv,
             Some(bytes),
           )
         )
@@ -424,6 +426,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV2)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(2))
       response <- Either
         .catchOnly[InvalidMediatorResponse](
           MediatorResponse(
@@ -436,7 +439,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
             confirmingParties.toSet,
             domainId,
           )(
-            supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2)),
+            rpv,
             Some(bytes),
           )
         )

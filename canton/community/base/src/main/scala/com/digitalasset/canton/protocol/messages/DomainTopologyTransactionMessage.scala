@@ -260,12 +260,13 @@ object DomainTopologyTransactionMessage
       )
       signature <- ProtoConverter.parseRequired(Signature.fromProtoV0, "signature", signature)
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield DomainTopologyTransactionMessage(
       signature,
       succeededContent,
       notSequencedAfter = None,
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+    )(rpv)
   }
 
   private[messages] def fromProtoV1(protoVersion: ProtoVersion)(
@@ -286,12 +287,13 @@ object DomainTopologyTransactionMessage
         "not_sequenced_after",
         timestamp,
       )
+      rpv <- protocolVersionRepresentativeFor(protoVersion)
     } yield DomainTopologyTransactionMessage(
       signature,
       succeededContent,
       notSequencedAfter = Some(notSequencedAfter),
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(protoVersion))
+    )(rpv)
   }
 
   override def name: String = "DomainTopologyTransactionMessage"

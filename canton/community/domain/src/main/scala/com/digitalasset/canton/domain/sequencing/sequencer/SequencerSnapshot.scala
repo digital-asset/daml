@@ -86,12 +86,13 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
         "status",
         request.status,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield SequencerSnapshot(
       lastTs,
       heads,
       status,
       request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+    )(rpv)
 }
 
 final case class SequencerInitialState(

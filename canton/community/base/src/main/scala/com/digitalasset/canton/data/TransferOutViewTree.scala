@@ -105,30 +105,38 @@ object TransferOutViewTree
       transferOutViewTreeP: v0.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
-    GenTransferViewTree.fromProtoV0(
-      TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-      TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
-    )((commonData, view) =>
-      TransferOutViewTree(commonData, view)(
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
-        hashOps,
-      )
-    )(transferOutViewTreeP)
+
+    for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
+      transferOutViewTree <- GenTransferViewTree.fromProtoV0(
+        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
+      )((commonData, view) =>
+        TransferOutViewTree(commonData, view)(
+          rpv,
+          hashOps,
+        )
+      )(transferOutViewTreeP)
+    } yield transferOutViewTree
   }
 
   def fromProtoV1(context: (HashOps, ProtocolVersion))(
       transferOutViewTreeP: v1.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
-    GenTransferViewTree.fromProtoV1(
-      TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-      TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
-    )((commonData, view) =>
-      TransferOutViewTree(commonData, view)(
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
-        hashOps,
-      )
-    )(transferOutViewTreeP)
+
+    for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
+      transferOutViewTree <- GenTransferViewTree.fromProtoV1(
+        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
+      )((commonData, view) =>
+        TransferOutViewTree(commonData, view)(
+          rpv,
+          hashOps,
+        )
+      )(transferOutViewTreeP)
+    } yield transferOutViewTree
   }
 }
 
@@ -258,6 +266,7 @@ object TransferOutCommonData
         adminPartiesP,
         uuidP,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TransferOutCommonData(
       commonData.salt,
       commonData.sourceDomain,
@@ -267,7 +276,7 @@ object TransferOutCommonData
       commonData.uuid,
     )(
       hashOps,
-      SourceProtocolVersion(protocolVersionRepresentativeFor(ProtoVersion(0)).representative),
+      SourceProtocolVersion(rpv.representative),
       Some(bytes),
     )
   }
@@ -584,6 +593,7 @@ object TransferOutView
         targetTimeProofP,
         ProtocolVersion.v3,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield TransferOutViewV0(
       commonData.salt,
       TransferSubmitterMetadata(
@@ -599,7 +609,7 @@ object TransferOutView
       commonData.targetTimeProof,
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
   }
@@ -627,6 +637,7 @@ object TransferOutView
         targetTimeProofP,
         protocolVersion,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield TransferOutViewV4(
       commonData.salt,
       TransferSubmitterMetadata(
@@ -643,7 +654,7 @@ object TransferOutView
       commonData.targetDomainPV,
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }

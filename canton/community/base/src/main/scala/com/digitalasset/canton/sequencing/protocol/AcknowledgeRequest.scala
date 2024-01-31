@@ -68,9 +68,10 @@ object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[A
         "timestamp",
         reqP.timestamp,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield {
       AcknowledgeRequest(member, timestamp)(
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
+        rpv,
         deserializedFrom,
       )
     }

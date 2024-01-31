@@ -79,13 +79,13 @@ object EnvelopeContent
   )
 
   private[messages] val representativeV0: RepresentativeProtocolVersion[EnvelopeContent.type] =
-    protocolVersionRepresentativeFor(ProtoVersion(0))
+    tryProtocolVersionRepresentativeFor(ProtoVersion(0))
   private[messages] val representativeV1: RepresentativeProtocolVersion[EnvelopeContent.type] =
-    protocolVersionRepresentativeFor(ProtoVersion(1))
+    tryProtocolVersionRepresentativeFor(ProtoVersion(1))
   private[messages] val representativeV2: RepresentativeProtocolVersion[EnvelopeContent.type] =
-    protocolVersionRepresentativeFor(ProtoVersion(2))
+    tryProtocolVersionRepresentativeFor(ProtoVersion(2))
   private[messages] val representativeV3: RepresentativeProtocolVersion[EnvelopeContent.type] =
-    protocolVersionRepresentativeFor(ProtoVersion(3))
+    tryProtocolVersionRepresentativeFor(ProtoVersion(3))
 
   def create(
       message: ProtocolMessage,

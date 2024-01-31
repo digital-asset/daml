@@ -576,6 +576,8 @@ object ViewParticipantData
       .fromProtoV0(rbContextP)
       .leftMap(_.inField("rollbackContext"))
 
+    rpv <- protocolVersionRepresentativeFor(protoVersion)
+
     viewParticipantData <- returnLeftWhenInitializationFails(
       ViewParticipantData(
         coreInputs = coreInputs,
@@ -585,7 +587,7 @@ object ViewParticipantData
         actionDescription = actionDescription,
         rollbackContext = rollbackContext,
         salt = salt,
-      )(hashOps, protocolVersionRepresentativeFor(protoVersion), Some(bytes))
+      )(hashOps, rpv, Some(bytes))
     ).leftMap(ProtoDeserializationError.OtherError)
   } yield viewParticipantData
 

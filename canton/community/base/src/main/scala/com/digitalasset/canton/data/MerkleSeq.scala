@@ -505,7 +505,7 @@ object MerkleSeq
 
       fromProtoV0V1(
         hashOps,
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
+        ProtoVersion(0),
         maybeFirstP,
         maybeSecondP,
         maybeDataP,
@@ -540,7 +540,7 @@ object MerkleSeq
 
       fromProtoV0V1(
         hashOps,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        ProtoVersion(1),
         maybeFirstP,
         maybeSecondP,
         maybeDataP,
@@ -551,7 +551,7 @@ object MerkleSeq
 
     private[MerkleSeq] def fromProtoV0V1[M <: VersionedMerkleTree[_], BN](
         hashOps: HashOps,
-        representativeProtocolVersion: RepresentativeProtocolVersion[MerkleSeqElement.type],
+        protoVersion: ProtoVersion,
         maybeFirstP: Option[BN],
         maybeSecondP: Option[BN],
         maybeDataP: Option[BN],
@@ -564,15 +564,16 @@ object MerkleSeq
     ): ParsingResult[MerkleSeqElement[M]] = {
 
       for {
+        rpv <- protocolVersionRepresentativeFor(protoVersion)
         maybeFirst <- branchChildFromMaybeProtoBlindableNode(maybeFirstP)
         maybeSecond <- branchChildFromMaybeProtoBlindableNode(maybeSecondP)
         maybeData <- singletonDataFromMaybeProtoBlindableNode(maybeDataP)
 
         merkleSeqElement <- (maybeFirst, maybeSecond, maybeData) match {
           case (Some(first), Some(second), None) =>
-            Right(Branch(first, second, representativeProtocolVersion)(hashOps))
+            Right(Branch(first, second, rpv)(hashOps))
           case (None, None, Some(data)) =>
-            Right(Singleton[M](data, representativeProtocolVersion)(hashOps))
+            Right(Singleton[M](data, rpv)(hashOps))
           case (None, None, None) =>
             ProtoDeserializationError
               .OtherError(s"Unable to create MerkleSeqElement, as all fields are undefined.")
@@ -609,15 +610,15 @@ object MerkleSeq
   ): ParsingResult[MerkleSeq[M]] = {
     val (hashOps, dataFromByteString) = context
     val v0.MerkleSeq(maybeRootP) = merkleSeqP
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       rootOrEmpty <- maybeRootP.traverse(_ =>
         MerkleTree.fromProtoOptionV0(
           maybeRootP,
           MerkleSeqElement.fromByteStringV0[M](hashOps, dataFromByteString),
         )
       )
-    } yield MerkleSeq(rootOrEmpty)(representativeProtocolVersion, hashOps)
+    } yield MerkleSeq(rootOrEmpty)(rpv, hashOps)
   }
 
   def fromProtoV1[M <: VersionedMerkleTree[_]](
@@ -631,15 +632,15 @@ object MerkleSeq
   ): ParsingResult[MerkleSeq[M]] = {
     val (hashOps, dataFromByteString) = context
     val v1.MerkleSeq(maybeRootP) = merkleSeqP
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       rootOrEmpty <- maybeRootP.traverse(_ =>
         MerkleTree.fromProtoOptionV1(
           maybeRootP,
           MerkleSeqElement.fromByteStringV1[M](hashOps, dataFromByteString),
         )
       )
-    } yield MerkleSeq(rootOrEmpty)(representativeProtocolVersion, hashOps)
+    } yield MerkleSeq(rootOrEmpty)(rpv, hashOps)
   }
 
   def fromSeq[M <: VersionedMerkleTree[_]](

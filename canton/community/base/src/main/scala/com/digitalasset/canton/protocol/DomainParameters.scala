@@ -910,6 +910,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
       ) = decoded
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
     } yield checked( // safe because value for mediatorDeduplicationTimeout is safe
       DynamicDomainParameters.tryCreate(
         participantResponseTimeout = participantResponseTimeout,
@@ -922,7 +923,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         maxRatePerParticipant = StaticDomainParameters.defaultMaxRatePerParticipant,
         maxRequestSize = StaticDomainParameters.defaultMaxRequestSize,
         sequencerAggregateSubmissionTimeout = defaultSequencerAggregateSubmissionTimeout,
-      )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+      )(rpv)
     )
   }
 
@@ -1002,6 +1003,8 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         maxRequestSize,
       ) = decodedV1
 
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
+
       domainParameters <-
         create(
           participantResponseTimeout = participantResponseTimeout,
@@ -1014,8 +1017,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
           maxRatePerParticipant = maxRatePerParticipant,
           maxRequestSize = maxRequestSize,
           sequencerAggregateSubmissionTimeout = defaultSequencerAggregateSubmissionTimeout,
-        )(protocolVersionRepresentativeFor(ProtoVersion(1)))
-          .leftMap(_.toProtoDeserializationError)
+        )(rpv).leftMap(_.toProtoDeserializationError)
     } yield domainParameters
   }
 

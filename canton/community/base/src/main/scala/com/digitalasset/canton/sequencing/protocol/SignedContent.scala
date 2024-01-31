@@ -201,11 +201,12 @@ object SignedContent
         signatureP,
       )
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       signedContent <- create(
         BytestringWithCryptographicEvidence(contentB),
         NonEmpty(Seq, signature),
         ts,
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
+        rpv,
       ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
     } yield signedContent
   }

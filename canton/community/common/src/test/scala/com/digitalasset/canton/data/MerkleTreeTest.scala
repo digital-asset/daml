@@ -220,11 +220,14 @@ object MerkleTreeTest {
         ),
       )
 
-    def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] = {
-      leafFromByteString(i =>
-        Leaf1(i)(protocolVersionRepresentativeFor(ProtoVersion(protoVersion)))
-      )(bytes).leftMap(e => ProtoDeserializationError.OtherError(e.message))
-    }
+    def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] =
+      for {
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(protoVersion))
+        leaf <- leafFromByteString(i => Leaf1(i)(rpv))(bytes).leftMap(e =>
+          ProtoDeserializationError.OtherError(e.message)
+        )
+      } yield leaf
+
   }
 
   abstract class AbstractLeaf[A <: MerkleTree[

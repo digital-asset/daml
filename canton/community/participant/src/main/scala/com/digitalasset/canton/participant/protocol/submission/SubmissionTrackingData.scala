@@ -168,9 +168,8 @@ object TransactionSubmissionTrackingData {
       )
       cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV0, "rejection cause", causeP)
       domainId <- domainIdP.map(DomainId.fromProtoPrimitive(_, "domain_id")).sequence
-    } yield TransactionSubmissionTrackingData(completionInfo, cause, domainId)(
-      SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(0))
-    )
+      rpv <- SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(0))
+    } yield TransactionSubmissionTrackingData(completionInfo, cause, domainId)(rpv)
   }
 
   trait RejectionCause extends Product with Serializable with PrettyPrinting {

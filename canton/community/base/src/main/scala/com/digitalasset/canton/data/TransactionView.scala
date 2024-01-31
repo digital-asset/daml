@@ -539,11 +539,12 @@ object TransactionView
         ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV0(context, protoView.subviews)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(0))
       view <- createFromRepresentativePV(hashOps)(
         commonData,
         participantData,
         subViews,
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
+        rpv,
       ).leftMap(e =>
         ProtoDeserializationError.OtherError(s"Unable to create transaction views: $e")
       )
@@ -565,11 +566,12 @@ object TransactionView
         ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV1(context, protoView.subviews)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
       view <- createFromRepresentativePV(hashOps)(
         commonData,
         participantData,
         subViews,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        rpv,
       ).leftMap(e =>
         ProtoDeserializationError.OtherError(s"Unable to create transaction views: $e")
       )

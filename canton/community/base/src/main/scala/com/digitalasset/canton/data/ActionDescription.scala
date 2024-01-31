@@ -402,14 +402,14 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     import v0.ActionDescription.Description.*
     val v0.ActionDescription(description) = actionDescriptionP
 
-    val pv = protocolVersionRepresentativeFor(ProtoVersion(0))
-
-    description match {
-      case Create(create) => fromCreateProtoV0(create, pv)
-      case Exercise(exercise) => fromExerciseProtoV0(exercise, pv)
-      case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
-      case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
-      case Empty => Left(FieldNotSet("description"))
+    protocolVersionRepresentativeFor(ProtoVersion(0)).flatMap { pv =>
+      description match {
+        case Create(create) => fromCreateProtoV0(create, pv)
+        case Exercise(exercise) => fromExerciseProtoV0(exercise, pv)
+        case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
+        case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
+        case Empty => Left(FieldNotSet("description"))
+      }
     }
   }
 
@@ -419,14 +419,14 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     import v1.ActionDescription.Description.*
     val v1.ActionDescription(description) = actionDescriptionP
 
-    val pv = protocolVersionRepresentativeFor(ProtoVersion(1))
-
-    description match {
-      case Create(create) => fromCreateProtoV0(create, pv)
-      case Exercise(exercise) => fromExerciseProtoV1(exercise, pv)
-      case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
-      case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
-      case Empty => Left(FieldNotSet("description"))
+    protocolVersionRepresentativeFor(ProtoVersion(1)).flatMap { pv =>
+      description match {
+        case Create(create) => fromCreateProtoV0(create, pv)
+        case Exercise(exercise) => fromExerciseProtoV1(exercise, pv)
+        case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
+        case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
+        case Empty => Left(FieldNotSet("description"))
+      }
     }
   }
 
@@ -436,15 +436,16 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     import v2.ActionDescription.Description.*
     val v2.ActionDescription(description) = actionDescriptionP
 
-    val pv = protocolVersionRepresentativeFor(ProtoVersion(2))
-
-    description match {
-      case Create(create) => fromCreateProtoV0(create, pv)
-      case Exercise(exercise) => fromExerciseProtoV2(exercise, pv)
-      case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
-      case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
-      case Empty => Left(FieldNotSet("description"))
+    protocolVersionRepresentativeFor(ProtoVersion(2)).flatMap { pv =>
+      description match {
+        case Create(create) => fromCreateProtoV0(create, pv)
+        case Exercise(exercise) => fromExerciseProtoV2(exercise, pv)
+        case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
+        case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
+        case Empty => Left(FieldNotSet("description"))
+      }
     }
+
   }
 
   private def lfVersionFromProtoVersioned(
