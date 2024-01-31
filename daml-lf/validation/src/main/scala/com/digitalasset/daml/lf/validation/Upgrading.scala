@@ -20,9 +20,62 @@ sealed abstract class UpgradeError extends Throwable {
   def message(): String;
 }
 
-final case class CouldNotResolveUpgradedPackageId(upgrading: Upgrading[Ref.PackageId])
+final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.PackageId])
     extends UpgradeError {
-  override def message(): String = "CouldNotResolveUpgradedPackageId"
+  override def message(): String =
+    s"Package ${packageId.present} claims to upgrade package with id ${packageId.past}, but that package cannot be found."
+}
+
+final case class MissingModule(name: Ref.ModuleName) extends UpgradeError {
+  override def message(): String =
+    s"Module $name appears in package that is being upgraded, but does not appear in this package."
+}
+
+final case class MissingTemplate(name: Ref.DottedName) extends UpgradeError {
+  override def message(): String =
+    s"Template $name appears in package that is being upgraded, but does not appear in this package."
+}
+
+final case class MissingDataCon(name: Ref.DottedName) extends UpgradeError {
+  override def message(): String =
+    s"Choice $name appears in package that is being upgraded, but does not appear in this package."
+}
+
+final case class MissingChoice(name: Ref.ChoiceName) extends UpgradeError {
+  override def message(): String =
+    s"Datatype $name appears in package that is being upgraded, but does not appear in this package."
+}
+
+final case class TemplateChangedKeyType(key: Upgrading[Ast.Type]) extends UpgradeError {
+  override def message(): String = s"TemplateChangedKeyType"
+}
+
+final case class TemplateRemovedKey(key: Ast.TemplateKey) extends UpgradeError {
+  override def message(): String = s"TemplateRemovedKey"
+}
+
+final case class ChoiceChangedReturnType(typ: Upgrading[Ast.Type]) extends UpgradeError {
+  override def message(): String = s"ChoiceChangedReturnType"
+}
+
+final case class RecordChangedOrigin(origin: Upgrading[UpgradedRecordOrigin]) extends UpgradeError {
+  override def message(): String = "RecordChangedOrigin"
+}
+
+final case class MismatchDataConsVariety(variety: Upgrading[Ast.DataCons]) extends UpgradeError {
+  override def message(): String = "MismatchDataConsVariety"
+}
+
+final case class RecordFieldsMissing(fields: Map[Ast.FieldName, Ast.Type]) extends UpgradeError {
+  override def message(): String = "RecordFieldsMissing"
+}
+
+final case class RecordFieldsExistingChanged(fields: Map[Ast.FieldName, Upgrading[Ast.Type]]) extends UpgradeError {
+  override def message(): String = "RecordFieldsExistingChanged"
+}
+
+final case class RecordFieldsNewNonOptional() extends UpgradeError {
+  override def message(): String = "RecordFieldsNewNonOptional"
 }
 
 final case class UnknownUpgradeError(msg: String) extends UpgradeError {
@@ -69,11 +122,11 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
   private def checkDeleted[K, V, T <: Throwable](
       arg: Upgrading[Map[K, V]],
-      handler: V => T,
+      handler: (K, V) => T,
   ): Try[(Map[K, Upgrading[V]], Map[K, V])] = {
     val (deletedV, existingV, newV) = extractDelExistNew(arg)
     deletedV.headOption match {
-      case Some((k @ _, v)) => Failure(handler(v))
+      case Some((k, v)) => Failure(handler(k, v))
       case _ => Success((existingV, newV))
     }
   }
@@ -86,7 +139,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           _package.map(_.modules),
-          (m: Ast.Module) => UnknownUpgradeError(s"MissingModule(${m.name})"),
+          (name: Ref.ModuleName, _: Ast.Module) => MissingModule(name),
         )
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
@@ -103,13 +156,13 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
-        (_: Ast.Template) => UnknownUpgradeError(s"MissingTemplate(t)"),
+        (name: Ref.DottedName, _: Ast.Template) => MissingTemplate(name)
       )
       _ <- tryAll(existingTemplates.values, checkTemplate(_))
 
       (existingDatatypes, _new) <- checkDeleted(
         module.map(datatypes(_)),
-        (_: Ast.DDataType) => UnknownUpgradeError(s"MissingDataCon(t)"),
+        (name: Ref.DottedName, _: Ast.DDataType) => MissingDataCon(name),
       )
       _ <- Try { existingDatatypes.map { case (name, dt) => checkDatatype(moduleWithChoiceNameMap, name, dt).get } }
     } yield ()
@@ -119,7 +172,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     for {
       (existingChoices, _newChoices) <- checkDeleted(
         template.map(_.choices),
-        (_: Ast.TemplateChoice) => UnknownUpgradeError(s"MissingChoice(t)"),
+        (name: Ref.ChoiceName, _: Ast.TemplateChoice) => MissingChoice(name),
       )
 
       _ <- tryAll(existingChoices.values, checkChoice(_))
@@ -157,13 +210,14 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
-        if (!checkType(Upgrading(pastKey.typ, presentKey.typ)))
-          Failure(UnknownUpgradeError(s"TemplateChangedKeyType"))
+        val key = Upgrading(pastKey.typ, presentKey.typ)
+        if (!checkType(key))
+          Failure(TemplateChangedKeyType(key))
         else
           Success(())
       }
       case Upgrading(Some(pastKey @ _), None) =>
-        Failure(UnknownUpgradeError(s"TemplateRemovedKey"))
+        Failure(TemplateRemovedKey(pastKey))
       case Upgrading(None, Some(presentKey @ _)) =>
         Success(
           ()
@@ -172,10 +226,11 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
-    if (checkType(choice.map(_.returnType))) {
+    val returnType = choice.map(_.returnType)
+    if (checkType(returnType)) {
       Success(())
     } else {
-      Failure(UnknownUpgradeError("ChoiceChangedReturnType"))
+      Failure(ChoiceChangedReturnType(returnType))
     }
   }
 
@@ -212,7 +267,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   ): Try[Unit] = {
     val origin = moduleWithChoiceNameMap.map(dataTypeOrigin(_, name))
     if (origin.present != origin.past) {
-      Failure(UnknownUpgradeError("RecordChangedOrigin"))
+      Failure(RecordChangedOrigin(origin))
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
@@ -220,7 +275,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         case Upgrading(_: Ast.DataVariant, _: Ast.DataVariant) => Try(())
         case Upgrading(_: Ast.DataEnum, _: Ast.DataEnum) => Try(())
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-        case _ => Failure(UnknownUpgradeError(s"MismatchDataConsVariety"))
+        case other => Failure(MismatchDataConsVariety(other))
       }
     }
   }
@@ -235,12 +290,13 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       }
 
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
+    lazy val changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
     if (_deleted.nonEmpty) {
-      Failure(UnknownUpgradeError("RecordFieldsMissing"))
-    } else if (!_existing.forall({ case (field @ _, typ) => checkType(typ) })) {
-      Failure(UnknownUpgradeError("RecordFieldsExistingChanged"))
+      Failure(RecordFieldsMissing(_deleted))
+    } else if (changedTypes.nonEmpty) {
+      Failure(RecordFieldsExistingChanged(changedTypes))
     } else if (_new_.find({ case (field @ _, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
-      Failure(UnknownUpgradeError("RecordFieldsNewNonOptional"))
+      Failure(RecordFieldsNewNonOptional())
     } else {
       Success(())
     }
