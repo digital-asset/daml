@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -53,16 +53,6 @@ load(
     )
     for major in LF_MAJOR_VERSIONS
 ]
-
-daml_build_test(
-    name = "ReinterpretTests-v1",
-    dar_dict = {
-        "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
-        "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
-    },
-    project_dir = "reinterpret-v1",
-    visibility = ["//daml-lf:__subpackages__"],
-)
 
 daml_build_test(
     name = "ReinterpretTests-v2",

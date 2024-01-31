@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -119,7 +119,7 @@ genrule(
     name = "script-test-no-ledger",
     srcs =
         glob(["**/*.daml"]) + [
-            "//daml-script/daml:daml-script.dar",
+            "//daml-script/daml3:daml3-script.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test-no-ledger.dar"],
@@ -128,20 +128,25 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml3:daml3-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test-no-ledger
 source: daml
 version: 0.0.2
+build-options:
+  - --target={target}
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script.dar
+  - daml3-script.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
       rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
+    """.format(
+        sdk = sdk_version,
+        target = lf_version_default_or_latest("2"),
+    ),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
@@ -169,6 +174,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -176,8 +182,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -370,6 +374,7 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -379,15 +384,9 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//ledger-service/cli-opts",
-        "//ledger-service/http-json:http-json-ce",
-        "//ledger-service/http-json-cli:ce",
         "//ledger-service/lf-value-json",
         "//ledger-service/metrics",
         "//ledger-service/utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
@@ -407,7 +406,9 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "test-dev",
-    srcs = glob(["src/com/**/*Dev*.scala"]),
+    srcs = glob(
+        ["src/com/**/*Dev*.scala"],
+    ),
     data = [dep for deps in [[
         ":coin-upgrade-v1-v2-{}.dar".format(lf),
         ":coin-upgrade-v1-v2-new-field-{}.dar".format(lf),
@@ -444,6 +445,7 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -454,15 +456,9 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//ledger-service/cli-opts",
-        "//ledger-service/http-json:http-json-ce",
-        "//ledger-service/http-json-cli:ce",
         "//ledger-service/lf-value-json",
         "//ledger-service/metrics",
         "//ledger-service/utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",

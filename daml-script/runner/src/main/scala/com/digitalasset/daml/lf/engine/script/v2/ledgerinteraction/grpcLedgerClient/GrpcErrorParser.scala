@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.v2.ledgerinteraction
@@ -13,7 +13,8 @@ import com.daml.lf.value.ValueCoder.CidDecoder
 import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import io.grpc.StatusRuntimeException
+import com.google.rpc.status.Status
+import com.google.protobuf.any.Any
 
 import scala.reflect.ClassTag
 import scala.util.Try
@@ -36,16 +37,14 @@ object GrpcErrorParser {
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(
-      s: StatusRuntimeException,
+      status: Status,
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
   ): SubmitError = {
-    import io.grpc.protobuf.StatusProto
     import com.daml.error.utils.ErrorDetails._
     import com.daml.error.ErrorResource
 
-    val grpcStatus = StatusProto.fromThrowable(s)
-    val details = from(grpcStatus)
-    val message = grpcStatus.getMessage()
+    val details = from(status.details.map(Any.toJavaProto))
+    val message = status.message
     val oErrorInfoDetail = details.collectFirst { case eid: ErrorInfoDetail => eid }
     val errorCode = oErrorInfoDetail.fold("UNKNOWN")(_.errorCodeId)
     val resourceDetails = details.collect { case ResourceInfoDetail(name, res) =>

@@ -1,12 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
 
 import scala.annotation.nowarn
 
@@ -37,7 +36,8 @@ class SequencerClientMetrics(
     summary = "The delay on the event processing",
     description = """Every message received from the sequencer carries a timestamp that was assigned
         |by the sequencer when it sequenced the message. This timestamp is called the sequencing timestamp.
-        |The component receiving the message on the participant, mediator or topology manager side, is the sequencer client.
+        |The component receiving the message on the participant, mediator or topology manager side, is the sequencer client,
+        |while on the block sequencer itself, it's the block update generator.
         |Upon receiving the message, the sequencer client compares the time difference between the
         |sequencing time and the computers local clock and exposes this difference as the given metric.
         |The difference will include the clock-skew and the processing latency between assigning the timestamp on the

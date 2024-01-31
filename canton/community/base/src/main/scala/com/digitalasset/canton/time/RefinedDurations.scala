@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -204,6 +204,8 @@ object NonNegativeFiniteDuration extends RefinedDurationCompanion[NonNegativeFin
   def apply(duration: PositiveSeconds): NonNegativeFiniteDuration = checked(
     NonNegativeFiniteDuration.tryCreate(duration.duration)
   )
+
+  def fromConfig(config: NonNegativeFiniteDurationConfig) = NonNegativeFiniteDuration(config.asJava)
 }
 
 final case class NonNegativeSeconds private (duration: Duration)
@@ -266,6 +268,9 @@ object PositiveSeconds extends RefinedDurationCompanion[PositiveSeconds] {
       PositiveSeconds(duration),
       s"Duration should be positive and rounded to the second, found: $duration",
     )
+
+  def fromConfig(config: PositiveDurationSecondsConfig): PositiveSeconds =
+    PositiveSeconds(config.asJava)
 }
 
 object EnrichedDurations {

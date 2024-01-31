@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -34,7 +34,7 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
     DirectExecutionContext(noTracingLogger)
 
   def forOwner(
-      owner: KeyOwner,
+      owner: Member,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
   ): SyncCryptoApiProvider = {
     new SyncCryptoApiProvider(
@@ -49,7 +49,7 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
   }
 
   def forOwnerAndDomain(
-      owner: KeyOwner,
+      owner: Member,
       domain: DomainId = DefaultTestIdentities.domainId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
   ): DomainSyncCryptoClient =

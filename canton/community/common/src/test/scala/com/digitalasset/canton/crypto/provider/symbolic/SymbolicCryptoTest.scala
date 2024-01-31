@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -46,8 +46,6 @@ class SymbolicCryptoTest
     behave like randomnessProvider(symbolicCrypto().map(_.pureCrypto))
 
     // Symbolic crypto does not support Java key conversion, thus not tested
-
-    // Symbolic crypto does not support public key validation, thus not tested
   }
 
 }

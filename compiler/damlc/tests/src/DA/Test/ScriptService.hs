@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.ScriptService (main) where
@@ -61,7 +61,6 @@ withScriptService lfVersion action =
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
       scriptDar <- locateRunfiles $ case LF.versionMajor lfVersion of
-          LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
           LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
       writeFileUTF8 "daml.yaml" $
         unlines

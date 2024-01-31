@@ -1,12 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.domain.admin.v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
-import com.digitalasset.canton.domain.admin.v0 as adminproto
+import com.digitalasset.canton.domain.admin.v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
+import com.digitalasset.canton.domain.admin.v30 as adminproto
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.topology.Member
@@ -40,7 +40,7 @@ object SequencerAdminCommands {
     override def handleResponse(
         response: adminproto.SequencerPruningStatus
     ): Either[String, SequencerPruningStatus] =
-      SequencerPruningStatus.fromProtoV0(response).leftMap(_.toString)
+      SequencerPruningStatus.fromProtoV30(response).leftMap(_.toString)
   }
 
   final case class GetTrafficControlState(members: Seq[Member])

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
@@ -17,9 +17,7 @@ import qualified Module as GHC
 import GhcMonad
 import Data.IORef
 import qualified Proto3.Suite             as Proto
-import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import HscTypes
 import MkIface
@@ -299,7 +297,7 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
-        pure $! case Serializability.inferModule world lfVersion rawDalf of
+        pure $! case Serializability.inferModule world rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let diags = LF.checkModule world lfVersion dalf
@@ -443,7 +441,7 @@ generateSerializedDalfRule options =
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                    case Serializability.inferModule world lfVersion simplified of
+                                    case Serializability.inferModule world simplified of
                                         Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
@@ -525,10 +523,7 @@ generatePackageMap version mbProjRoot userPkgDbs = do
       | "daml-stdlib" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
       | otherwise = pkgNameVersion (LF.PackageName name) mbVersion
       where (LF.PackageName name, mbVersion)
-               = LF.packageMetadataFromFile
-                     dalf
-                     (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
-                     (LF.dalfPackageId pkg)
+               = LF.safePackageMetadata (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
 
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
@@ -718,7 +713,6 @@ readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V1 -> decode DecodeV1.decodeScenarioModule lfVersion
             LF.V2 -> decode DecodeV2.decodeScenarioModule lfVersion
   where
     decode decodeScenarioModule lfVersion = do
@@ -735,7 +729,6 @@ writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V1 -> encode EncodeV1.encodeScenarioModule lfVersion
             LF.V2 -> encode EncodeV2.encodeScenarioModule lfVersion
   where
     encode encodeScenarioModule lfVersion = do
@@ -984,11 +977,10 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
     pure (concat diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
-    pkgId = LF.extPackageId extPkg
     pkgName' =
         toNormalizedFilePath' $
         T.unpack $
-        maybe (LF.unPackageId pkgId) (LF.unPackageName . LF.packageName) $ LF.packageMetadata pkg
+        LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
     world = LF.initWorldSelf pkgs pkg
     scenarios =
         map fst $
@@ -1459,7 +1451,7 @@ scenariosInModule m =
 
 isDamlScriptModule :: LF.ModuleName -> Bool
 isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
-isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal"]) = True
+isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True
 isDamlScriptModule _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]

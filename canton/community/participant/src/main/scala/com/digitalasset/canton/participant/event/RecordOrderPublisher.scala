@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.event
@@ -23,7 +23,6 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -43,6 +42,7 @@ import com.digitalasset.canton.participant.store.{
   SingleDimensionEventLog,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent
+import com.digitalasset.canton.participant.{LocalOffset, RequestOffset, TopologyOffset}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -133,8 +133,7 @@ class RecordOrderPublisher(
         val task =
           EventPublicationTask(
             requestSequencerCounter,
-            LocalOffset(requestCounter),
-            requestTimestamp,
+            RequestOffset(requestTimestamp, requestCounter),
           )(
             eventO,
             Some(inFlightReference),
@@ -142,6 +141,32 @@ class RecordOrderPublisher(
         taskScheduler.scheduleTask(task)
       }
     }
+
+  /** Schedules the given `event` to be published on the `eventLog`, and schedules the causal "tick" defined by `clock`.
+    *
+    * @param sequencerCounter The sequencer counter associated with the message that corresponds to the request
+    * @param event            The timestamped event to be published
+    */
+  def schedulePublication(
+      sequencerCounter: SequencerCounter,
+      topologyOffset: TopologyOffset,
+      event: TimestampedEvent,
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    logger.debug(
+      s"Schedule publication for offset $topologyOffset derived from sc=$sequencerCounter"
+    )
+
+    for {
+      _ <- eventLog.insert(event)
+    } yield {
+      val task =
+        EventPublicationTask(sequencerCounter, topologyOffset)(
+          Some(event),
+          None,
+        )
+      taskScheduler.scheduleTask(task)
+    }
+  }
 
   def scheduleRecoveries(
       toRecover: Seq[PendingPublish]
@@ -246,7 +271,7 @@ class RecordOrderPublisher(
             task.localOffset.some,
             0, // EventPublicationTask comes before AcsChangePublicationTask if they have the same tie breaker. This is an arbitrary decision.
           ).some
-        case task: AcsChangePublicationTask => (task.LocalOffsetO, 1).some
+        case task: AcsChangePublicationTask => (task.requestOffsetO, 1).some
       }
   }
 
@@ -298,12 +323,13 @@ class RecordOrderPublisher(
   private[RecordOrderPublisher] case class EventPublicationTask(
       override val sequencerCounter: SequencerCounter,
       localOffset: LocalOffset,
-      override val timestamp: CantonTimestamp,
   )(
       val eventO: Option[TimestampedEvent],
       val inFlightReference: Option[InFlightReference],
   )(implicit val traceContext: TraceContext)
       extends PublicationTask {
+
+    def timestamp: CantonTimestamp = localOffset.effectiveTime
 
     override def perform(): FutureUnlessShutdown[Unit] = {
       for {
@@ -355,8 +381,8 @@ class RecordOrderPublisher(
       val traceContext: TraceContext
   ) extends PublicationTask {
 
-    val LocalOffsetO: Option[LocalOffset] = requestCounterCommitSetPairO.map { case (rc, _) =>
-      LocalOffset(rc)
+    val requestOffsetO: Option[RequestOffset] = requestCounterCommitSetPairO.map { case (rc, _) =>
+      RequestOffset(timestamp, rc)
     }
 
     override def perform(): FutureUnlessShutdown[Unit] = {

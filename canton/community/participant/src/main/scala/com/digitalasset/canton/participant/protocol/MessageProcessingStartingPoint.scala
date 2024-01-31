@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints.InvalidStartingPointsException
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.google.common.annotations.VisibleForTesting
@@ -28,7 +28,7 @@ import com.google.common.annotations.VisibleForTesting
   *                         and a lower request counter than `nextRequestCounter`.
   */
 final case class MessageProcessingStartingPoint(
-    cleanRequestPrehead: Option[RequestCounter],
+    cleanRequestPrehead: Option[RequestOffset],
     nextRequestCounter: RequestCounter,
     nextSequencerCounter: SequencerCounter,
     prenextTimestamp: CantonTimestamp,
@@ -98,7 +98,7 @@ object MessageCleanReplayStartingPoint {
   *                                       It refers to the first request that is not known to be clean.
   *                                       The [[MessageProcessingStartingPoint.prenextTimestamp]] be the timestamp of a sequenced event
   *                                       or [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
-  * @param lastPublishedLocalOffset       The last local offset that was published to the
+  * @param lastPublishedRequestOffset       The last local offset that was published to the
   *                                       [[com.digitalasset.canton.participant.store.MultiDomainEventLog]]
   * @param rewoundSequencerCounterPrehead The point to which the sequencer counter prehead needs to be reset as part of the recovery clean-up.
   *                                       This is the minimum of the following:
@@ -110,7 +110,7 @@ final case class ProcessingStartingPoints private (
     cleanReplay: MessageCleanReplayStartingPoint,
     processing: MessageProcessingStartingPoint,
     // TODO(#15089) Check whether this should be LocalOffset
-    lastPublishedLocalOffset: Option[LocalOffset],
+    lastPublishedRequestOffset: Option[RequestOffset],
     rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
 ) extends PrettyPrinting {
 
@@ -136,9 +136,9 @@ final case class ProcessingStartingPoints private (
     * In such a case, this method returns `false.`
     */
   def processingAfterPublished: Boolean =
-    (lastPublishedLocalOffset, processing.cleanRequestPrehead) match {
-      case (Some(lastPublishedLocalOffset), Some(processingCleanRequestPrehead)) =>
-        processingCleanRequestPrehead >= lastPublishedLocalOffset.requestCounter
+    (lastPublishedRequestOffset, processing.cleanRequestPrehead) match {
+      case (Some(lastPublishedRequestOffset), Some(processingCleanRequestPrehead)) =>
+        processingCleanRequestPrehead >= lastPublishedRequestOffset
       case (Some(_lastPublishedLocalOffset), None) => false
       case (None, Some(_lastProcessed)) => true
       case (None, None) => true
@@ -147,7 +147,7 @@ final case class ProcessingStartingPoints private (
   override def pretty: Pretty[ProcessingStartingPoints] = prettyOfClass(
     param("clean replay", _.cleanReplay),
     param("processing", _.processing),
-    paramIfDefined("last published request offset", _.lastPublishedLocalOffset),
+    paramIfDefined("last published request offset", _.lastPublishedRequestOffset),
     param("rewound sequencer counter prehead", _.rewoundSequencerCounterPrehead),
   )
 }
@@ -158,20 +158,20 @@ object ProcessingStartingPoints {
   def tryCreate(
       cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      lastPublishedLocalOffset: Option[LocalOffset],
+      lastPublishedRequestOffset: Option[RequestOffset],
       rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): ProcessingStartingPoints =
     new ProcessingStartingPoints(
       cleanReplay,
       processing,
-      lastPublishedLocalOffset,
+      lastPublishedRequestOffset,
       rewoundSequencerCounterPrehead,
     )
 
   def create(
       cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      lastPublishedLocalOffset: Option[LocalOffset],
+      lastPublishedRequestOffset: Option[RequestOffset],
       rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): Either[String, ProcessingStartingPoints] =
     Either
@@ -179,7 +179,7 @@ object ProcessingStartingPoints {
         tryCreate(
           cleanReplay,
           processing,
-          lastPublishedLocalOffset,
+          lastPublishedRequestOffset,
           rewoundSequencerCounterPrehead,
         )
       )
@@ -190,7 +190,7 @@ object ProcessingStartingPoints {
     new ProcessingStartingPoints(
       cleanReplay = MessageCleanReplayStartingPoint.default,
       processing = MessageProcessingStartingPoint.default,
-      lastPublishedLocalOffset = None,
+      lastPublishedRequestOffset = None,
       rewoundSequencerCounterPrehead = None,
     )
 }

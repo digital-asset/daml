@@ -1,9 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.rxjava.grpc.helpers.TestConfiguration
 import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdResponse,

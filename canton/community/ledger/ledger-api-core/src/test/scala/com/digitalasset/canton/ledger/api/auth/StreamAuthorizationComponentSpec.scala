@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth
@@ -32,12 +32,12 @@ import com.digitalasset.canton.ledger.api.auth.services.TransactionServiceAuthor
 import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.StreamObserver
@@ -168,7 +168,7 @@ class StreamAuthorizationComponentSpec
       .failed
       .map { t =>
         // the client stream should be cancelled with error
-        t.getMessage should include("PERMISSION_DENIED")
+        t.getMessage should include("UNAUTHENTICATED")
         // the server stream should be completed
         fixture.waitForServerPekkoStream shouldBe None
       }

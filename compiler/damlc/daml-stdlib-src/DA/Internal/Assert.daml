@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -23,7 +23,7 @@ import DA.Internal.Exception
 -- in this context.
 class Action m => CanAssert m where
     -- | Abort since an assertion has failed. In an Update, Scenario,
-    -- Script, or Trigger context this will throw an AssertionFailed
+    -- or Script context this will throw an AssertionFailed
     -- exception. In an `Either Text` context, this will return the
     -- message as an error.
     assertFail : Text -> m t
@@ -32,10 +32,6 @@ class Action m => CanAssert m where
 
 instance CanAssert Update where
     assertFail msg = throw (AssertionFailed msg)
-#ifdef DAML_SCENARIOS
-instance CanAssert Scenario where
-    assertFail msg = throw (AssertionFailed msg)
-#endif
 instance CanAssert (Either Text) where
     assertFail = fail
 
@@ -43,10 +39,6 @@ instance CanAssert (Either Text) where
 
 instance CanAssert Update where
     assertFail = fail
-#ifdef DAML_SCENARIOS
-instance CanAssert Scenario where
-    assertFail = fail
-#endif
 instance CanAssert (Either Text) where
     assertFail = fail
 

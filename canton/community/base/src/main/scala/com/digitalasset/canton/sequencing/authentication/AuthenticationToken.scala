@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication
@@ -13,11 +13,11 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializationException}
-import com.digitalasset.canton.util.HexString
+import com.digitalasset.canton.util.{HexString, IterableUtil}
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
 
-final case class AuthenticationToken private (private val bytes: ByteString)
+final case class AuthenticationToken private[authentication] (private val bytes: ByteString)
     extends HasCryptographicEvidence {
   def toProtoPrimitive: ByteString = bytes
 
@@ -26,6 +26,22 @@ final case class AuthenticationToken private (private val bytes: ByteString)
     checked(String300.tryCreate(HexString.toHexString(this.toProtoPrimitive)))
 
   override def getCryptographicEvidence: ByteString = bytes
+
+  /** Custom equals implementation so that the runtime is independent of the position of the first differing byte.
+    */
+  override def equals(obj: Any): Boolean =
+    obj match {
+      case AuthenticationToken(otherBytes) =>
+        // runtime depends on lengths only
+        val zipped =
+          IterableUtil.zipAllOption(bytes.toByteArray.toSeq, otherBytes.toByteArray.toSeq)
+
+        // runtime depends on length only, as foldLeft does not short-circuit
+        zipped.foldLeft(true) { case (r, (b, ob)) => r && b == ob }
+
+      case _: Any => false
+    }
+
 }
 
 object AuthenticationToken {

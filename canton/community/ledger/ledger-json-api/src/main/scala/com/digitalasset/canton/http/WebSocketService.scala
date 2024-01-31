@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -25,7 +25,6 @@ import com.digitalasset.canton.http.domain.{
 import com.digitalasset.canton.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.toLedgerId
 import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
 import query.ValuePredicate.LfV
@@ -55,7 +54,6 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.EitherT.{either, eitherT, rightT}
-import com.digitalasset.canton.ledger.api.domain as LedgerApiDomain
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.foldable1
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -185,7 +183,6 @@ object WebSocketService extends NoTracing {
         decoder: DomainJsonDecoder,
         jv: JsValue,
         jwt: Jwt,
-        ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ (_ <: QueryRequest[_])]
@@ -196,7 +193,6 @@ object WebSocketService extends NoTracing {
         req: Q,
         resolveContractTypeId: PackageService.ResolveContractTypeId,
         jwt: Jwt,
-        ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ ResolvedQueryRequest[_]]
@@ -213,7 +209,6 @@ object WebSocketService extends NoTracing {
         resolvedRequest: R,
         resolveContractTypeId: PackageService.ResolveContractTypeId,
         jwt: Jwt,
-        ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]]
@@ -264,7 +259,6 @@ object WebSocketService extends NoTracing {
           decoder: DomainJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
-          ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
@@ -281,7 +275,6 @@ object WebSocketService extends NoTracing {
           req: SearchForeverRequest,
           resolveContractTypeId: PackageService.ResolveContractTypeId,
           jwt: Jwt,
-          ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ): Future[Error \/ ResolvedQueryRequest[_]] = {
@@ -291,9 +284,7 @@ object WebSocketService extends NoTracing {
             sfq: domain.SearchForeverQuery
         ): Future[(Set[domain.ContractTypeId.Resolved], Set[domain.ContractTypeId.OptionalPkg])] =
           sfq.templateIds.toList.toNEF
-            .traverse(x =>
-              resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
-            )
+            .traverse(x => resolveContractTypeId(jwt)(x).map(_.toOption.flatten.toLeft(x)))
             .map(
               _.toSet.partitionMap(
                 identity[
@@ -367,7 +358,6 @@ object WebSocketService extends NoTracing {
           request: ResolvedSearchForeverRequest,
           resolveContractTypeId: PackageService.ResolveContractTypeId,
           jwt: Jwt,
-          ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ): Future[StreamPredicate[Positive]] = {
@@ -492,7 +482,6 @@ object WebSocketService extends NoTracing {
           decoder: DomainJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
-          ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
@@ -507,7 +496,7 @@ object WebSocketService extends NoTracing {
                 .liftErr[Error](InvalidUserInput)
             )
             bs <- rightT {
-              as.map(a => decodeWithFallback(decoder, a, jwt, ledgerId)).sequence
+              as.map(a => decodeWithFallback(decoder, a, jwt)).sequence
             }
           } yield QueryRequest(bs, resolver)
         if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery())
@@ -518,12 +507,11 @@ object WebSocketService extends NoTracing {
           decoder: DomainJsonDecoder,
           a: domain.ContractKeyStreamRequest[Hint, JsValue],
           jwt: Jwt,
-          ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] =
         decoder
-          .decodeUnderlyingValuesToLf(a, jwt, ledgerId)
+          .decodeUnderlyingValuesToLf(a, jwt)
           .run
           .map(
             _.valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit))
@@ -542,7 +530,6 @@ object WebSocketService extends NoTracing {
         request: NonEmptyList[ContractKeyStreamRequest[Cid, LfV]],
         resolveContractTypeId: PackageService.ResolveContractTypeId,
         jwt: Jwt,
-        ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ ResolvedQueryRequest[_]] = {
@@ -551,7 +538,7 @@ object WebSocketService extends NoTracing {
 
       request.toList
         .traverse { (x: CKR[LfV]) =>
-          resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
+          resolveContractTypeId(jwt)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map { resolveTries =>
@@ -576,7 +563,6 @@ object WebSocketService extends NoTracing {
         resolvedRequest: ResolvedContractKeyStreamRequest[Cid, LfV],
         resolveContractTypeId: PackageService.ResolveContractTypeId,
         jwt: Jwt,
-        ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
@@ -730,7 +716,6 @@ class WebSocketService(
               decoder,
               jv,
               jwt,
-              toLedgerId(jwtPayload.ledgerId),
             ): Future[
               Error \/ Q.QueryRequest[_]
             ]
@@ -744,7 +729,6 @@ class WebSocketService(
               qq.request,
               resolveContractTypeId,
               jwt,
-              toLedgerId(jwtPayload.ledgerId),
             )
             .map(_.map(resolved => (offPrefix, resolved)))
         }
@@ -761,7 +745,6 @@ class WebSocketService(
           implicit val SQ: StreamQuery[q] = rq.alg
           getTransactionSourceForParty[q](
             jwt,
-            toLedgerId(jwtPayload.ledgerId),
             jwtPayload.parties,
             offPrefix,
             rq.q: q,
@@ -792,7 +775,6 @@ class WebSocketService(
   private[this] def fetchAndPreFilterAcs[Positive](
       predicate: StreamPredicate[Positive],
       jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -801,7 +783,6 @@ class WebSocketService(
       contractsService
         .liveAcsAsInsertDeleteStepSource(
           jwt,
-          ledgerId,
           parties,
           predicate.resolvedQuery.resolved.toList,
         )
@@ -817,16 +798,14 @@ class WebSocketService(
   private[this] def queryPredicate[A](
       request: A,
       jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Future[StreamPredicate[Q.Positive]] =
-    Q.predicate(request, resolveContractTypeId, jwt, ledgerId)
+    Q.predicate(request, resolveContractTypeId, jwt)
 
   private def getTransactionSourceForParty[A](
       jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
@@ -843,7 +822,7 @@ class WebSocketService(
     // Stream predicates specific fo the ACS part
     val acsPred =
       acsRequest
-        .map(queryPredicate(_, jwt, ledgerId))
+        .map(queryPredicate(_, jwt))
         .sequence
 
     def liveFrom(resolvedQuery: ResolvedQuery)(
@@ -855,11 +834,10 @@ class WebSocketService(
       // Produce the predicate that is going to be applied to the incoming transaction stream
       // We need to apply this to the request with all the offsets shifted so that each stream
       // can filter out anything from liveStartingOffset to the query-specific offset
-      queryPredicate(shiftedRequest, jwt, ledgerId).map { case StreamPredicate(_, _, fn) =>
+      queryPredicate(shiftedRequest, jwt).map { case StreamPredicate(_, _, fn) =>
         contractsService
           .insertDeleteStepSource(
             jwt,
-            ledgerId,
             parties,
             resolvedQuery.resolved.toList,
             liveStartingOffset,
@@ -884,7 +862,7 @@ class WebSocketService(
       acsPred
         .flatMap(
           _.flatMap { (vp: StreamPredicate[Q.Positive]) =>
-            Some(fetchAndPreFilterAcs(vp, jwt, ledgerId, parties))
+            Some(fetchAndPreFilterAcs(vp, jwt, parties))
           }.cata(
             _.map { acsAndLiveMarker =>
               acsAndLiveMarker
@@ -909,7 +887,6 @@ class WebSocketService(
                 contractsService
                   .insertDeleteStepSource(
                     jwt,
-                    ledgerId,
                     parties,
                     resolvedQuery.resolved.toList,
                     liveStartingOffset,
@@ -938,7 +915,7 @@ class WebSocketService(
 
     Source
       .lazyFutureSource { () =>
-        queryPredicate(request, jwt, ledgerId).flatMap { pred =>
+        queryPredicate(request, jwt).flatMap { pred =>
           processResolved(pred.resolvedQuery, pred.unresolved, pred.fn)
         }
       }

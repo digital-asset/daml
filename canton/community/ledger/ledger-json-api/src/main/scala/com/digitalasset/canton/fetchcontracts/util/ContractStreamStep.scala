@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
@@ -28,12 +28,12 @@ import scalaz.syntax.functor.*
       case (LiveBegin(_), Txn(_, _)) => o
       // the following cases should never happen in a real stream; we attempt to
       // provide definitions that make `append` totally associative, anyway
-      case (Acs(_) | LiveBegin(_), LiveBegin(LedgerBegin)) => this
-      case (LiveBegin(LedgerBegin), Acs(_) | LiveBegin(_)) |
-          (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
+      case (Acs(_) | LiveBegin(_), LiveBegin(ParticipantBegin)) => this
+      case (LiveBegin(ParticipantBegin), Acs(_) | LiveBegin(_)) |
+           (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
         o
       case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
-      case (Txn(step, off), Acs(_) | LiveBegin(LedgerBegin)) =>
+      case (Txn(step, off), Acs(_) | LiveBegin(ParticipantBegin)) =>
         Txn(step append o.toInsertDelete, off)
       case (Txn(step, _), LiveBegin(AbsoluteBookmark(off))) => Txn(step, off)
     }

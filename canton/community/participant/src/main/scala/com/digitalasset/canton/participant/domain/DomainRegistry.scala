@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.domain
@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncServiceError.DomainRegistryErrorGroup
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
@@ -164,23 +164,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
     object MisconfiguredStaticDomainParameters
         extends ErrorCode(
           id = "MISCONFIGURED_STATIC_DOMAIN_PARAMETERS",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(override val cause: String)(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends CantonError.Impl(cause)
-          with DomainRegistryError {}
-    }
-
-    @Explanation(
-      """This error indicates that the domain this participant is trying to connect to is a domain where unique
-        contract keys are supported, while this participant is already connected to other domains. Multiple domains and
-        unique contract keys are mutually exclusive features."""
-    )
-    @Resolution("Use isolated participants for domains that require unique keys.")
-    object IncompatibleUniqueContractKeysMode
-        extends ErrorCode(
-          id = "INCOMPATIBLE_UNIQUE_CONTRACT_KEYS_MODE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(override val cause: String)(implicit
@@ -395,7 +378,7 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
 trait DomainHandle extends AutoCloseable {
 
   /** Client to the domain's sequencer. */
-  def sequencerClient: SequencerClient
+  def sequencerClient: RichSequencerClient
 
   def staticParameters: StaticDomainParameters
 

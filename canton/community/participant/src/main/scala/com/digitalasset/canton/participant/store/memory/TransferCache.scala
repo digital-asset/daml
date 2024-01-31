@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.store.TransferStore.{
 import com.digitalasset.canton.participant.store.memory.TransferCache.PendingTransferCompletion
 import com.digitalasset.canton.participant.store.{TransferLookup, TransferStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{SourceDomainId, TransferId}
+import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.google.common.annotations.VisibleForTesting
@@ -145,6 +145,11 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] =
     transferStore.findIncomplete(sourceDomain, validAt, stakeholders, limit)
+
+  def findEarliestIncomplete()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] =
+    transferStore.findEarliestIncomplete()
 }
 
 object TransferCache {

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- This is a dummy column we are adding in order to test that adding dev version migrations
@@ -139,8 +139,23 @@ create table top_up_events (
 create index top_up_events_idx ON top_up_events (member);
 -- TODO(#13104) Move traffic control to stable release: END
 
--- BFT Ordering tables
-create table epochs (
-    epoch_number bigint not null primary key,
-    last_block_number bigint not null
+--   BFT Ordering Tables
+
+-- Stores metadata for epochs completed in entirety
+-- Individual blocks/transactions exist in separate table
+create table completed_epochs (
+    -- strictly-increasing, contiguous epoch number
+    epoch_number bigint not null primary key ,
+    -- first block sequence number (globally) of the epoch
+    start_block_number bigint not null,
+    -- number of total blocks in the epoch
+    epoch_length integer not null
+);
+
+-- Stores consensus state for active epoch
+create table active_epoch (
+    -- epoch number that consensus is actively working on
+    epoch_number bigint not null,
+    -- global sequence number of the ordered block
+    block_number bigint not null primary key
 );

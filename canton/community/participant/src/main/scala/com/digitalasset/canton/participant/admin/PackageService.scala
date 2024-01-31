@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -236,7 +236,18 @@ class PackageService(
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      _unit <- revokeVettingForDar(mainPkg, packages, darDescriptor)
+      packagesThatCanBeRemoved <- EitherT
+        .liftF(
+          packagesDarsStore
+            .determinePackagesExclusivelyInDar(packages, darDescriptor)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
+      _unit <- revokeVettingForDar(
+        mainPkg,
+        packagesThatCanBeRemoved.toList,
+        darDescriptor,
+      )
 
       _unit <-
         EitherT.liftF(packagesDarsStore.removePackage(mainPkg))

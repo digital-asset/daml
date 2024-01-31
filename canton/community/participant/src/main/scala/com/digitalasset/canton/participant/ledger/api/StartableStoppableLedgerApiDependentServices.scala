@@ -1,16 +1,16 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.admin.participant.v30.{PackageServiceGrpc, PingServiceGrpc}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.grpc.{GrpcPackageService, GrpcPingService}
-import com.digitalasset.canton.participant.admin.v0.{PackageServiceGrpc, PingServiceGrpc}
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageService}
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -22,7 +22,6 @@ import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
-import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContextExecutor, blocking}
 
 /** Holds and manages the lifecycle of all Canton services that use the Ledger API
@@ -52,7 +51,6 @@ class StartableStoppableLedgerApiDependentServices(
     ec: ExecutionContextExecutor,
     actorSystem: ActorSystem,
     tracer: Tracer,
-    scheduler: ScheduledExecutorService,
     executionSequencerFactory: ExecutionSequencerFactory,
 ) extends AutoCloseable
     with NamedLogging {
@@ -113,7 +111,10 @@ class StartableStoppableLedgerApiDependentServices(
 
             val (pingServiceGrpc, _) = registry
               .addService(
-                PingServiceGrpc.bindService(new GrpcPingService(adminWorkflowServices.ping), ec)
+                PingServiceGrpc.bindService(
+                  new GrpcPingService(adminWorkflowServices.ping, loggerFactory),
+                  ec,
+                )
               )
 
             servicesRef = Some((adminWorkflowServices, packageServiceGrpc, pingServiceGrpc))

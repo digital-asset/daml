@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -10,16 +10,10 @@ import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 object CantonContractIdVersion {
   val versionPrefixBytesSize = 2
-
-  def fromProtocolVersion(protocolVersion: ProtocolVersion): CantonContractIdVersion =
-    if (protocolVersion >= ProtocolVersion.v5) AuthenticatedContractIdVersionV2
-    else if (protocolVersion == ProtocolVersion.v4) AuthenticatedContractIdVersion
-    else NonAuthenticatedContractIdVersion
 
   def ensureCantonContractId(
       contractId: LfContractId
@@ -41,16 +35,10 @@ object CantonContractIdVersion {
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV2)
-    } else if (contractSuffix.startsWith(AuthenticatedContractIdVersion.versionPrefixBytes)) {
-      Right(AuthenticatedContractIdVersion)
-    } else if (contractSuffix.startsWith(NonAuthenticatedContractIdVersion.versionPrefixBytes)) {
-      Right(NonAuthenticatedContractIdVersion)
     } else {
       Left(
         s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
-            | ${AuthenticatedContractIdVersionV2.versionPrefixBytes},
-            | ${AuthenticatedContractIdVersion.versionPrefixBytes}
-            | or ${NonAuthenticatedContractIdVersion.versionPrefixBytes}
+            | ${AuthenticatedContractIdVersionV2.versionPrefixBytes}
             |""".stripMargin.replaceAll("\r|\n", "")
       )
     }
@@ -69,20 +57,6 @@ sealed trait CantonContractIdVersion extends Serializable with Product {
 
   def fromDiscriminator(discriminator: LfHash, unicum: Unicum): LfContractId.V1 =
     LfContractId.V1(discriminator, unicum.toContractIdSuffix(this))
-}
-
-case object NonAuthenticatedContractIdVersion extends CantonContractIdVersion {
-  // The prefix for the suffix of non-authenticated (legacy) Canton contract IDs
-  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x00.toByte))
-
-  val isAuthenticated: Boolean = false
-}
-
-case object AuthenticatedContractIdVersion extends CantonContractIdVersion {
-  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V4)
-  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x01.toByte))
-
-  val isAuthenticated: Boolean = true
 }
 
 case object AuthenticatedContractIdVersionV2 extends CantonContractIdVersion {

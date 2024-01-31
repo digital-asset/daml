@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports.replay
@@ -8,11 +8,13 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.client.SequencerClient.ReplayStatistics
 import com.digitalasset.canton.sequencing.client.*
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
 import com.digitalasset.canton.sequencing.client.transports.replay.ReplayingEventsSequencerClientTransport.ReplayingSequencerSubscription
+import com.digitalasset.canton.sequencing.client.transports.{
+  SequencerClientTransport,
+  SequencerClientTransportPekko,
+}
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -32,7 +34,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.nio.file.Path
-import java.time.{Duration as JDuration, Instant}
+import java.time.{Duration as JDuration}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -43,28 +45,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class ReplayingEventsSequencerClientTransport(
     protocolVersion: ProtocolVersion,
     replayPath: Path,
-    metrics: SequencerClientMetrics,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SequencerClientTransport
+    with SequencerClientTransportPekko
     with NamedLogging {
-
-  /** Does nothing. */
-  override def sendAsync(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
-
-  /** Does nothing. */
-  override def sendAsyncUnauthenticated(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
 
   /** Does nothing */
   override def sendAsyncSigned(
@@ -72,6 +58,11 @@ class ReplayingEventsSequencerClientTransport(
       timeout: Duration,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     EitherT.rightT(())
+
+  /** Does nothing */
+  override def sendAsyncUnauthenticatedVersioned(request: SubmissionRequest, timeout: Duration)(
+      implicit traceContext: TraceContext
+  ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
 
   /** Does nothing */
   override def acknowledge(request: AcknowledgeRequest)(implicit
@@ -94,6 +85,7 @@ class ReplayingEventsSequencerClientTransport(
     }
     logger.info(s"Start feeding ${messages.size} messages to the subscription...")
     val startTime = CantonTimestamp.now()
+    val startNanos = System.nanoTime()
     val replayF = MonadUtil
       .sequentialTraverse_(messages) { e =>
         logger.debug(
@@ -108,7 +100,8 @@ class ReplayingEventsSequencerClientTransport(
         }
       }
       .map { _ =>
-        val duration = JDuration.between(startTime.toInstant, Instant.now)
+        val stopNanos = System.nanoTime()
+        val duration = JDuration.ofNanos(stopNanos - startNanos)
         logger.info(
           show"Finished feeding ${messages.size} messages within $duration to the subscription."
         )
@@ -144,6 +137,23 @@ class ReplayingEventsSequencerClientTransport(
         topologyTransactions = Traced(StoredTopologyTransactionsX.empty)
       )
     )
+
+  override type SubscriptionError = Nothing
+
+  override def subscribe(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[SubscriptionError] =
+    // TODO(#13789) figure out how to implement this
+    ErrorUtil.internalError(
+      new UnsupportedOperationException("subscribe(SubmissionRequest) is not yet implemented")
+    )
+
+  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
+      traceContext: TraceContext
+  ): SequencerSubscriptionPekko[Nothing] = subscribe(request)
+
+  override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[Nothing] =
+    SubscriptionErrorRetryPolicyPekko.never
 }
 
 object ReplayingEventsSequencerClientTransport {

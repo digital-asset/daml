@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleSeq.MerkleSeqElement
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{RootHash, v0, v1}
+import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasProtocolVersionedWrapper
@@ -211,7 +211,7 @@ final case class BlindedNode[+A](rootHash: RootHash) extends MerkleTree[A] {
 }
 
 object MerkleTree {
-  type VersionedMerkleTree[A] = MerkleTree[A] with HasProtocolVersionedWrapper[_]
+  type VersionedMerkleTree[A] = MerkleTree[A] & HasProtocolVersionedWrapper[?]
 
   /** Command indicating whether and how to blind a Merkle tree. */
   sealed trait BlindingCommand extends Product with Serializable
@@ -223,50 +223,20 @@ object MerkleTree {
   /** Reveal the node if at least one descendant is revealed as well */
   case object RevealIfNeedBe extends BlindingCommand
 
-  /** Map a Merkle tree node to its protobuf node */
-  def toBlindableNodeV0(node: MerkleTree[HasProtocolVersionedWrapper[_]]): v0.BlindableNode =
-    v0.BlindableNode(blindedOrNot = node.unwrap match {
-      case Left(h) => v0.BlindableNode.BlindedOrNot.BlindedHash(h.toProtoPrimitive)
+  def toBlindableNodeV30(node: MerkleTree[HasProtocolVersionedWrapper[?]]): v30.BlindableNode =
+    v30.BlindableNode(blindedOrNot = node.unwrap match {
+      case Left(h) => v30.BlindableNode.BlindedOrNot.BlindedHash(h.toProtoPrimitive)
       case Right(n) =>
-        v0.BlindableNode.BlindedOrNot.Unblinded(
+        v30.BlindableNode.BlindedOrNot.Unblinded(
           n.toByteString
         )
     })
 
-  def toBlindableNodeV1(node: MerkleTree[HasProtocolVersionedWrapper[_]]): v1.BlindableNode =
-    v1.BlindableNode(blindedOrNot = node.unwrap match {
-      case Left(h) => v1.BlindableNode.BlindedOrNot.BlindedHash(h.toProtoPrimitive)
-      case Right(n) =>
-        v1.BlindableNode.BlindedOrNot.Unblinded(
-          n.toByteString
-        )
-    })
-
-  /** Deserialize a blindable protobuf node to a blinded or an unblinded tree node depending on the contents of protoNode */
-  def fromProtoOptionV0[NodeType](
-      protoNode: Option[v0.BlindableNode],
+  def fromProtoOptionV30[NodeType](
+      protoNode: Option[v30.BlindableNode],
       f: ByteString => ParsingResult[MerkleTree[NodeType]],
   ): ParsingResult[MerkleTree[NodeType]] = {
-    import v0.BlindableNode.BlindedOrNot as BON
-    protoNode.map(_.blindedOrNot) match {
-      case Some(BON.BlindedHash(hashBytes)) =>
-        RootHash
-          .fromProtoPrimitive(hashBytes)
-          .bimap(
-            e => ProtoDeserializationError.OtherError(s"Failed to deserialize root hash: $e"),
-            hash => BlindedNode.apply[NodeType](hash),
-          )
-      case Some(BON.Unblinded(unblindedNode)) => f(unblindedNode)
-      case Some(BON.Empty) | None =>
-        Left(ProtoDeserializationError.OtherError(s"Missing blindedOrNot specification"))
-    }
-  }
-
-  def fromProtoOptionV1[NodeType](
-      protoNode: Option[v1.BlindableNode],
-      f: ByteString => ParsingResult[MerkleTree[NodeType]],
-  ): ParsingResult[MerkleTree[NodeType]] = {
-    import v1.BlindableNode.BlindedOrNot as BON
+    import v30.BlindableNode.BlindedOrNot as BON
     protoNode.map(_.blindedOrNot) match {
       case Some(BON.BlindedHash(hashBytes)) =>
         RootHash

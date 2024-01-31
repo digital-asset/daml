@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.inspection
@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   LfContractId,
   LfTransactionVersion,
@@ -136,8 +135,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
             template = Ref.Identifier.assertFromString("pkg:Mod:Template"),
             arg = LfValue.ValueNil,
           ),
-        ),
-        AgreementText.empty,
+        )
       )
       .left
       .map(e => new RuntimeException(e.errorMessage))

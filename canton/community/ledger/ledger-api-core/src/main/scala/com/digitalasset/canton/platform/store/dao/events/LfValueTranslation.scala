@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -16,19 +16,12 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  TransactionCoder,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.engine as LfEngine
 import com.daml.metrics.Timed
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -38,7 +31,6 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
@@ -449,30 +441,6 @@ final class LfValueTranslation(
       )
     } yield apiContractData
   }
-
-  def deserializeEvent(
-      createArgument: VersionedValue,
-      createKey: Option[VersionedValue],
-      templateId: LfIdentifier,
-      witnesses: Set[String],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[ApiContractData] =
-    for {
-      apiContractData <- toApiContractData(
-        value = createArgument,
-        key = createKey,
-        templateId = templateId,
-        witnesses = witnesses,
-        eventProjectionProperties = eventProjectionProperties,
-        // This method is used exclusively for API conversion
-        // of data served from the EventsByContractKeyCache
-        // which doesn't have created_event_blob serving enabled.
-        fatContractInstance = None,
-      )
-    } yield apiContractData
 
   def toApiContractData(
       value: LfValue,

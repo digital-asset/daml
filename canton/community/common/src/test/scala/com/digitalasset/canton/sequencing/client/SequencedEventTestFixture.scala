@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -45,6 +45,11 @@ class SequencedEventTestFixture(
     extends AutoCloseable {
   import ScalaFutures.*
   def fixtureTraceContext: TraceContext = traceContext
+
+  private lazy val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()(
+    executionContext
+  )
+
   lazy val defaultDomainId: DomainId = DefaultTestIdentities.domainId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
@@ -64,18 +69,18 @@ class SequencedEventTestFixture(
   )
   implicit val materializer: Materializer = Materializer(actorSystem)
 
-  val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
-  val bob = ParticipantId(UniqueIdentifier.tryCreate("participant", "bob"))
-  val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
-  val signatureAlice = SymbolicCrypto.signature(
+  private val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
+  private val bob = ParticipantId(UniqueIdentifier.tryCreate("participant", "bob"))
+  private val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
+  private val signatureAlice = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureAlice1"),
     alice.uid.namespace.fingerprint,
   )
-  val signatureBob = SymbolicCrypto.signature(
+  private val signatureBob = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureBob1"),
     bob.uid.namespace.fingerprint,
   )
-  val signatureCarlos = SymbolicCrypto.signature(
+  private val signatureCarlos = SymbolicCrypto.signature(
     ByteString.copyFromUtf8("signatureCarlos1"),
     carlos.uid.namespace.fingerprint,
   )
@@ -146,10 +151,9 @@ class SequencedEventTestFixture(
       counter: Long = updatedCounter,
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
       timestampOfSigningKey: Option[CantonTimestamp] = None,
-  )(implicit executionContext: ExecutionContext): Future[OrdinarySerializedEvent] = {
+  ): Future[OrdinarySerializedEvent] = {
     import cats.syntax.option.*
     val message = {
-      val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()(executionContext)
       val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
       InformeeMessage(fullInformeeTree)(testedProtocolVersion)
     }
@@ -160,7 +164,7 @@ class SequencedEventTestFixture(
       MessageId.tryCreate("test").some,
       Batch(
         List(
-          ClosedEnvelope.tryCreate(
+          ClosedEnvelope.create(
             serializedOverride.getOrElse(
               EnvelopeContent.tryCreate(message, testedProtocolVersion).toByteString
             ),

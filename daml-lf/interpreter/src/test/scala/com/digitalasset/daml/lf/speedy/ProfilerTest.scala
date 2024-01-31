@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -18,7 +18,6 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scala.jdk.CollectionConverters._
 
-class ProfilerTestV1 extends ProfilerTest(LanguageMajorVersion.V1)
 class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
 
 class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
@@ -41,7 +40,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [M:T {party} this] (Nil @Party);
             observers Nil @Party;
-            agreement "";
             choice Ch1 (self) (i : Unit) : Unit,
               controllers Cons @Party [M:T {party} this] (Nil @Party)
               to
@@ -103,8 +101,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -114,8 +110,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -124,8 +118,6 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
-          (true, AgreementTextDefRef(id("T"))),
-          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),

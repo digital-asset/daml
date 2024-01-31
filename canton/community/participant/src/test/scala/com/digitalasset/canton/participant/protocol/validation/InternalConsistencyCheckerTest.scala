@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -11,7 +11,6 @@ import com.digitalasset.canton.participant.protocol.validation.InternalConsisten
   checkRollbackScopeOrder,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext
@@ -63,7 +62,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
     forEvery(relevantExamples) { example =>
       s"checking $example" must {
 
-        val sut = new InternalConsistencyChecker(true, ProtocolVersion.dev, loggerFactory)
+        val sut = new InternalConsistencyChecker(testedProtocolVersion, loggerFactory)
 
         "yield the correct result" in {
           check(sut, example.rootTransactionViewTrees).isRight shouldBe true

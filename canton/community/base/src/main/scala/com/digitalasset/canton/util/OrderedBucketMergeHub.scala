@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -13,6 +13,7 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement
+import com.digitalasset.canton.util.PekkoUtil.{LoggingInHandler, LoggingOutHandler}
 import com.digitalasset.canton.util.ShowUtil.*
 import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.Source
@@ -175,6 +176,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       */
     private[this] val orderedSources: mutable.Map[OrderedSourceId, OrderedSource] =
       mutable.Map.empty[OrderedSourceId, OrderedSource]
+
+    /** Counts the number of active sources in [[orderedSources]] that are not in a bucket */
+    private[this] var activeUnbucketedSourceCount: Int = 0
 
     /** The data associated with an ordered source and its state.
       *
@@ -354,7 +358,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         completeStage(None, force = true)
       }
     }
-    setHandler(out, outHandler)
+    setHandler(out, LoggingOutHandler(noTracingLogger, "OrderedBucketMergeHub.out")(outHandler))
 
     private[this] val configChangeHandler: InHandler = new InHandler {
       override def onPush(): Unit = {
@@ -386,6 +390,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         val newConfigAndMat =
           nextConfig.map((name, config) => (config, materializedValues.get(name)))
         emit(out, NewConfiguration(newConfigAndMat, lowerBoundNextOffsetExclusive))
+
+        checkForDeadlock(DeadlockReportOption.Always, DeadlockTrigger.Reconfiguration)
 
         // Immediately signal demand for the next config change
         pull(in)
@@ -425,7 +431,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         terminateStage(Some(ex))
       }
     }
-    setHandler(in, configChangeHandler)
+    setHandler(
+      in,
+      LoggingInHandler(noTracingLogger, "OrderedBucketMergeHub.in")(configChangeHandler),
+    )
 
     private[this] def terminateStage(cause: Option[Throwable]): Unit = {
       checkInvariantIfEnabled(s"$qualifiedNameOfCurrentFunc begin")
@@ -453,13 +462,23 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     override def postStop(): Unit = {
       // Remove references to avoid memory leak
       lastBucketQueuedForEmission = None
+      // Under unforeseen circumstances (e.g., handlers failing due to exceptions),
+      // make sure that we complete the completion future.
+      completeCompletionFuture()
     }
 
     /** Callback used to receive signals from the ordered sources.
       * Avoids that we have to access the mutable states from the ordered source's handlers.
       */
     private[this] val orderedSourceCallback =
-      getAsyncCallback[OrderedSourceSignal[Name, A]](processOrderedSourceSignal)
+      getAsyncCallback[OrderedSourceSignal[Name, A]](
+        PekkoUtil.loggingAsyncCallback(
+          noTracingLogger,
+          "OrderedBucketMergeHub.orderedSourceCallback",
+        )(
+          processOrderedSourceSignal
+        )
+      )
 
     private[this] def processOrderedSourceSignal(signal: OrderedSourceSignal[Name, A]): Unit =
       signal match {
@@ -525,11 +544,19 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
                 )
               )
               source.addToBucket(bucket)
+              activeUnbucketedSourceCount -= 1
 
               // Have we have found the next element to emit?
               if (elems.sizeIs >= currentThreshold) {
                 emitBucket(bucket, offset, elems)
                 evictBucketsUpToIncluding(offset)
+              } else {
+                // The deadlock situation has not changed if we have just added an element to a previously maximal bucket.
+                // This condition is equivalent to the extended bucket now being the only maximal bucket.
+                checkForDeadlock(
+                  DeadlockReportOption.WhenDroppedBelow(Some(bucket)),
+                  DeadlockTrigger.ElementBucketing,
+                )
               }
             }
           } else {
@@ -622,6 +649,44 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       pullMultipleIfNotCompleted(elems)
     }
 
+    /** Emit [[DeadlockDetected]] if the number of active unbucketed sources has dropped
+      * below the number of remaining sources that could fill up the biggest bucket to reach the threshold.
+      *
+      * @param deadlockReportOption Imposes additional conditions on whether to really emit a [[DeadlockDetected]].
+      *                             This is used to make sure that a [[DeadlockDetected]] is emitted only once for each deadlock situation,
+      *                             even if the graph stage logic processes further events.
+      */
+    private[this] def checkForDeadlock(
+        deadlockReportOption: DeadlockReportOption[ops.Bucket],
+        trigger: DeadlockTrigger,
+    ): Unit = {
+      // We might be able to avoid recomputing the maximum buckets by maintaining the bucket sizes in a priority queue,
+      // but currently the implementation effort seems to vastly outweigh the efficiency gain.
+      val (maxBucketSize, maximalBuckets) = buckets
+        .groupBy { case (_bucket, elems) => elems.size }
+        .maxByOption { case (size, _bucketAndElems) => size }
+        .map { case (size, bucketsAndElems) => size -> bucketsAndElems.keys.toSeq }
+        .getOrElse(0 -> Seq.empty)
+
+      val reportDeadlock = deadlockReportOption match {
+        case DeadlockReportOption.Always =>
+          activeUnbucketedSourceCount < currentThreshold - maxBucketSize
+        case DeadlockReportOption.WhenDroppedBelow(constraintO) =>
+          // The unbucketed sources together with the currently largest accumulated bucket cannot reach the threshold anymore
+          val droppedBelowThreshold =
+            activeUnbucketedSourceCount + maxBucketSize == currentThreshold - 1
+          droppedBelowThreshold && !constraintO.exists(bucket => maximalBuckets == Seq(bucket))
+      }
+
+      if (reportDeadlock) {
+        noTracingLogger.debug(
+          s"Deadlock detected: max bucket size=$maxBucketSize in buckets $maximalBuckets, active unbucketed sources=$activeUnbucketedSourceCount, threshold=$currentThreshold"
+        )
+        val elems = buckets.values.flatMap(_.map(bucket => bucket.source.name -> bucket.elem)).toSeq
+        emit(out, DeadlockDetected(elems, trigger))
+      }
+    }
+
     /** Process the signal that an ordered source has completed.
       * If the ordered source still has a last element in a bucket,
       * we wait until its fate is decided before we output the termination signal.
@@ -644,12 +709,17 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
           if (!source.isInBucket) {
             orderedSources.remove(id).discard[Option[OrderedSource]]
             if (source.isActive) {
+              activeUnbucketedSourceCount -= 1
               // It is safe to call emit here because if the source's last element is still waiting for emission,
               // then this emission will be queued afterwards and thus come after the source's last element.
               emit(
                 out,
                 ActiveSourceTerminated(source.name, cause),
                 () => completeStageIfDone(),
+              )
+              checkForDeadlock(
+                DeadlockReportOption.WhenDroppedBelow(None),
+                DeadlockTrigger.ActiveSourceTermination,
               )
             } else {
               // No need to emit a termination signal as we're draining the source
@@ -683,18 +753,27 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
           orderedSources.foreach { case (_id, source) => source.inlet.cancel() }
         }
         cause.fold(completeStage())(failStage)
-        val directExecutionContext = DirectExecutionContext(noTracingLogger)
-        completionPromise.completeWith(
-          flushFutureForOrderedSources.flush().map(_ => Done)(directExecutionContext)
-        )
+        completeCompletionFuture()
       } else
         noTracingLogger.debug(
           show"Cannot complete OrderedBucketMergeHub stage due to remaining ordered sources: $outstanding"
         )
     }
 
+    private[this] def completeCompletionFuture(): Unit = {
+      val directExecutionContext = DirectExecutionContext(noTracingLogger)
+      completionPromise.completeWith(
+        flushFutureForOrderedSources.flush().map(_ => Done)(directExecutionContext)
+      )
+    }
+
     private[this] def removeFromBuckets(elems: Seq[BucketElement[OrderedSource, A]]): Unit =
-      elems.foreach { case BucketElement(_id, source, _elem) => source.removeFromBucket() }
+      elems.foreach { case BucketElement(_id, source, _elem) =>
+        source.removeFromBucket()
+        if (source.isActive) {
+          activeUnbucketedSourceCount += 1
+        }
+      }
 
     private[this] def pullMultipleIfNotCompleted(
         toPull: Seq[BucketElement[OrderedSource, A]]
@@ -710,6 +789,13 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             // The ordered source has completed beforehand. Let's send the termination signal!
             orderedSources.remove(id).discard[Option[OrderedSource]]
             emit(out, ActiveSourceTerminated(source.name, cause), () => completeStageIfDone())
+            if (source.isActive) {
+              activeUnbucketedSourceCount -= 1
+              checkForDeadlock(
+                DeadlockReportOption.WhenDroppedBelow(None),
+                DeadlockTrigger.ActiveSourceTermination,
+              )
+            }
         }
       }
     }
@@ -735,13 +821,16 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         lastBucketQueuedForEmission.map(ops.toPriorElement).orElse(ops.priorElement),
       )
       val subsink = new SubSinkInlet[A](s"OrderedMergeHub.sink($name-$id)")
-      subsink.setHandler(
+      val inHandler =
         new ActiveSourceInHandler(id, name, () => subsink.grab(), orderedSourceCallback)
+      subsink.setHandler(
+        LoggingInHandler(noTracingLogger, s"OrderedMergeHub.sink($name-$id).in")(inHandler)
       )
 
       val killSwitchCell = new SingleUseCell[KillSwitch]
       val source = new OrderedSource(name, config, subsink, killSwitchCell)
       orderedSources.put(id, source).discard[Option[OrderedSource]]
+      activeUnbucketedSourceCount += 1
 
       val graph = newSource.to(subsink.sink)
       val (killSwitch, doneF, materializedValue) = subFusingMaterializer.materialize(
@@ -788,11 +877,14 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             orderedSources.remove(id).discard[Option[OrderedSource]]
           }
         case None =>
-        // Nothing to do here
-        // If the source has been pulled, then it will eventually send a NextElement or Completion signal
-        // and this signal will either pull again or remove the source as a whole.
-        // Otherwise, an element of the source is in the emission buffer,
-        // so we will pull the source again after it has been emitted.
+          // If the source has been pulled, then it will eventually send a NextElement or Completion signal
+          // and this signal will either pull again or remove the source as a whole.
+          // In particular, any such NextElement will not be added to a bucket as the source is now inactive.
+          // Otherwise, an element of the source is in the emission buffer,
+          // so we will pull the source again after it has been emitted.
+          activeUnbucketedSourceCount -= 1
+        // Since this method is called only upon configuration changes and completion of the configuration stream,
+        // we do not want to check for deadlocks here.
       }
     }
 
@@ -900,6 +992,16 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         }
       }
 
+      def activeUnbucketedSourceCountInvariant(): Unit = {
+        val activeUnbucketedSources = orderedSources.count { case (_, source) =>
+          source.isActive && !source.isInBucket
+        }
+        ErrorUtil.requireState(
+          activeUnbucketedSources == activeUnbucketedSourceCount,
+          s"[$context] Active unbucketed source count $activeUnbucketedSourceCount differs from the number $activeUnbucketedSources of actually active sources not in a bucket",
+        )
+      }
+
       sourcesInBucketsConsistent()
       uniqueBucketedSources()
       lastBucketExists()
@@ -907,6 +1009,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       bucketsBelowThreshold()
       orderedSourceInvariant()
       lastBucketQueuedForEmissionInvariant()
+      activeUnbucketedSourceCountInvariant()
     }
   }
 
@@ -983,29 +1086,27 @@ object OrderedBucketMergeHub {
     ): OutputElement[Name, A2] = map(fA)
   }
 
-  sealed trait ControlOutput[Name, +ConfigAndMat, +Offset]
-      extends Output[Name, ConfigAndMat, Nothing, Offset] {
-    def map[Config2, Offset2](
-        fConfigAndMat: (Name, ConfigAndMat) => Config2,
-        fOffset: Offset => Offset2,
-    ): ControlOutput[Name, Config2, Offset2]
-
+  sealed trait ControlOutput[Name, +ConfigAndMat, +A, +Offset]
+      extends Output[Name, ConfigAndMat, A, Offset] {
     override def map[Config2, A2, Offset2](
         fConfigAndMat: (Name, ConfigAndMat) => Config2,
-        fA: (Name, Nothing) => A2,
+        fA: (Name, A) => A2,
         fOffset: Offset => Offset2,
-    ): ControlOutput[Name, Config2, Offset2] = map(fConfigAndMat, fOffset)
+    ): ControlOutput[Name, Config2, A2, Offset2]
   }
 
   /** Signals the new configuration that is active for all subsequent elements until the next [[NewConfiguration]]
     * and the materialized values for the newly created sources.
+    *
+    * @param startingOffset The exclusive offset where the subscription starts
     */
   final case class NewConfiguration[Name, +ConfigAndMat, +Offset](
       newConfig: OrderedBucketMergeConfig[Name, ConfigAndMat],
       startingOffset: Offset,
-  ) extends ControlOutput[Name, ConfigAndMat, Offset] {
-    override def map[ConfigAndMat2, Offset2](
+  ) extends ControlOutput[Name, ConfigAndMat, Nothing, Offset] {
+    override def map[ConfigAndMat2, A2, Offset2](
         fConfigAndMat: (Name, ConfigAndMat) => ConfigAndMat2,
+        fA: (Name, Nothing) => A2,
         fOffset: Offset => Offset2,
     ): NewConfiguration[Name, ConfigAndMat2, Offset2] = NewConfiguration(
       newConfig.map(fConfigAndMat),
@@ -1018,11 +1119,36 @@ object OrderedBucketMergeHub {
     * and changing the configuration if necessary.
     */
   final case class ActiveSourceTerminated[Name](name: Name, cause: Option[Throwable])
-      extends ControlOutput[Name, Nothing, Nothing] {
-    override def map[Config2, Offset2](
+      extends ControlOutput[Name, Nothing, Nothing, Nothing] {
+    override def map[Config2, A2, Offset2](
         fConfigAndMat: (Name, Nothing) => Config2,
+        fA: (Name, Nothing) => A2,
         fOffset: Nothing => Offset2,
     ): ActiveSourceTerminated[Name] = this
+  }
+
+  /** Signals that the received elements from active sources have spread out over so many buckets
+    * that the remaining active sources with outstanding elements cannot reach the configured threshold.
+    * Reconfiguration is necessary to make progress.
+    */
+  final case class DeadlockDetected[Name, +A](elems: Seq[(Name, A)], trigger: DeadlockTrigger)
+      extends ControlOutput[Name, Nothing, A, Nothing] {
+    override def map[ConfigAndMat2, A2, Offset2](
+        fConfigAndMat: (Name, Nothing) => ConfigAndMat2,
+        fA: (Name, A) => A2,
+        fOffset: Nothing => Offset2,
+    ): DeadlockDetected[Name, A2] = DeadlockDetected(
+      elems.map { case (name, a) => name -> fA(name, a) },
+      trigger,
+    )
+  }
+
+  /** Classifies the event that caused the deadlock to appear */
+  sealed trait DeadlockTrigger extends Product with Serializable
+  object DeadlockTrigger {
+    case object Reconfiguration extends DeadlockTrigger
+    case object ActiveSourceTermination extends DeadlockTrigger
+    case object ElementBucketing extends DeadlockTrigger
   }
 
   /** The internal type of IDs for ordered sources */
@@ -1054,6 +1180,18 @@ object OrderedBucketMergeHub {
       source: S,
       elem: A,
   )
+
+  /** Controls when to emit a [[DeadlockDetected]] event in a deadlock situation. */
+  private sealed trait DeadlockReportOption[+Bucket] extends Product with Serializable
+  private object DeadlockReportOption {
+    case object Always extends DeadlockReportOption[Nothing]
+
+    /** Emit the [[DeadlockDetected]] only if there is exactly one active unbucketed source missing for being able to reach the threshold.
+      * @param maximalBucketConstraint If set, then further constrain the emission on the given bucket not being the single maximal bucket.
+      */
+    final case class WhenDroppedBelow[+Bucket](maximalBucketConstraint: Option[Bucket])
+        extends DeadlockReportOption[Bucket]
+  }
 }
 
 /** @param threshold The threshold of equivalent elements to reach before it can be emitted.

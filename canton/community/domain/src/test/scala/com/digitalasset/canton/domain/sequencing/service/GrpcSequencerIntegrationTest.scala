@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -18,8 +18,8 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
+import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.metrics.DomainTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
@@ -29,22 +29,13 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.messages.{
-  ProtocolMessage,
-  ProtocolMessageV0,
-  ProtocolMessageV1,
-  ProtocolMessageV2,
-  ProtocolMessageV3,
-  UnsignedProtocolMessageV4,
-}
+import com.digitalasset.canton.protocol.messages.UnsignedProtocolMessage
 import com.digitalasset.canton.protocol.{
   DomainParametersLookup,
+  DynamicDomainParameters,
+  DynamicDomainParametersLookup,
   TestDomainParameters,
-  v0 as protocolV0,
-  v1 as protocolV1,
-  v2 as protocolV2,
-  v3 as protocolV3,
-  v4 as protocolV4,
+  v30 as protocolV30,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.client.*
@@ -109,8 +100,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val futureSupervisor = FutureSupervisor.Noop
   private val topologyClient = mock[DomainTopologyClient]
   private val mockTopologySnapshot = mock[TopologySnapshot]
-  private val maxRatePerParticipant = BaseTest.defaultMaxRatePerParticipant
-  private val maxRequestSize = BaseTest.defaultMaxRequestSize
+  private val maxRatePerParticipant = DynamicDomainParameters.defaultMaxRatePerParticipant
+  private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -129,18 +120,16 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
     )
 
-  private val domainParamsLookup: DomainParametersLookup[SequencerDomainParameters] =
+  private val domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters] =
     DomainParametersLookup.forSequencerDomainParameters(
-      BaseTest.defaultStaticDomainParametersWith(maxRatePerParticipant =
-        maxRatePerParticipant.unwrap
-      ),
+      BaseTest.defaultStaticDomainParameters,
       None,
       topologyClient,
       futureSupervisor,
       loggerFactory,
     )
 
-  val authenticationCheck = new AuthenticationCheck {
+  private val authenticationCheck = new AuthenticationCheck {
 
     override def authenticate(
         member: Member,
@@ -182,20 +171,19 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     sequencerId = sequencerId,
     staticDomainParameters = BaseTest.defaultStaticDomainParameters,
     cryptoApi = cryptoApi,
-    agreementManager = None,
     loggerFactory = loggerFactory,
   )
 
   private val authService = new SequencerAuthenticationService {
-    override def challenge(request: v0.Challenge.Request): Future[v0.Challenge.Response] =
+    override def challenge(request: v30.Challenge.Request): Future[v30.Challenge.Response] =
       for {
         fingerprints <- cryptoApi.ips.currentSnapshotApproximation
           .signingKeys(participant)
           .map(_.map(_.fingerprint).toList)
-      } yield v0.Challenge.Response(
-        v0.Challenge.Response.Value
+      } yield v30.Challenge.Response(
+        v30.Challenge.Response.Value
           .Success(
-            v0.Challenge.Success(
+            v30.Challenge.Success(
               ReleaseVersion.current.toProtoPrimitive,
               Nonce.generate(cryptoApi.pureCrypto).toProtoPrimitive,
               fingerprints.map(_.unwrap),
@@ -203,13 +191,13 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           )
       )
     override def authenticate(
-        request: v0.Authentication.Request
-    ): Future[v0.Authentication.Response] =
+        request: v30.Authentication.Request
+    ): Future[v30.Authentication.Response] =
       Future.successful(
-        v0.Authentication.Response(
-          v0.Authentication.Response.Value
+        v30.Authentication.Response(
+          v30.Authentication.Response.Value
             .Success(
-              v0.Authentication.Success(
+              v30.Authentication.Success(
                 AuthenticationToken.generate(cryptoApi.pureCrypto).toProtoPrimitive,
                 Some(clock.now.plusSeconds(100000).toProtoPrimitive),
               )
@@ -218,12 +206,12 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
   }
   private val serverPort = UniquePortGenerator.next
-  logger.debug(s"Using port ${serverPort} for integration test")
+  logger.debug(s"Using port $serverPort for integration test")
   private val server = NettyServerBuilder
     .forPort(serverPort.unwrap)
-    .addService(v0.SequencerConnectServiceGrpc.bindService(connectService, ec))
-    .addService(v0.SequencerServiceGrpc.bindService(service, ec))
-    .addService(v0.SequencerAuthenticationServiceGrpc.bindService(authService, ec))
+    .addService(v30.SequencerConnectServiceGrpc.bindService(connectService, ec))
+    .addService(v30.SequencerServiceGrpc.bindService(service, ec))
+    .addService(v30.SequencerAuthenticationServiceGrpc.bindService(authService, ec))
     .build()
     .start()
 
@@ -232,7 +220,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val connection =
     GrpcSequencerConnection(
       NonEmpty(Seq, Endpoint("localhost", serverPort)),
-      false,
+      transportSecurity = false,
       None,
       SequencerAlias.Default,
     )
@@ -245,7 +233,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         domainId,
         cryptoApi,
         cryptoApi.crypto,
-        agreedAgreementId = None,
         SequencerClientConfig(),
         TracingConfig.Propagation.Disabled,
         TestingConfigInternal(),
@@ -309,7 +296,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory
         .create(
           any[SequencerCounter],
-          any[String],
           any[Member],
           any[SerializedEventOrErrorHandler[NotUsed]],
         )(any[TraceContext])
@@ -406,47 +392,15 @@ class GrpcSequencerIntegrationTest
     }
   }
 
-  private case object MockProtocolMessage
-      extends ProtocolMessage
-      with ProtocolMessageV0
-      with ProtocolMessageV1
-      with ProtocolMessageV2
-      with ProtocolMessageV3
-      with UnsignedProtocolMessageV4 {
-    // no significance to this payload, just need anything valid and this was the easiest to construct
-    private val payload =
-      protocolV0.SignedProtocolMessage(
-        None,
-        protocolV0.SignedProtocolMessage.SomeSignedProtocolMessage.Empty,
-      )
-
+  private case object MockProtocolMessage extends UnsignedProtocolMessage {
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       ???
 
     override protected lazy val companionObj = MockProtocolMessage
 
     override def domainId: DomainId = DefaultTestIdentities.domainId
-    override def toProtoEnvelopeContentV0: protocolV0.EnvelopeContent =
-      protocolV0.EnvelopeContent(
-        protocolV0.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
 
-    override def toProtoEnvelopeContentV1: protocolV1.EnvelopeContent =
-      protocolV1.EnvelopeContent(
-        protocolV1.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoEnvelopeContentV2: protocolV2.EnvelopeContent =
-      protocolV2.EnvelopeContent(
-        protocolV2.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoEnvelopeContentV3: protocolV3.EnvelopeContent =
-      protocolV3.EnvelopeContent(
-        protocolV3.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
-
-    override def toProtoSomeEnvelopeContentV4: protocolV4.EnvelopeContent.SomeEnvelopeContent =
-      protocolV4.EnvelopeContent.SomeEnvelopeContent.Empty
+    override def toProtoSomeEnvelopeContentV30: protocolV30.EnvelopeContent.SomeEnvelopeContent =
+      protocolV30.EnvelopeContent.SomeEnvelopeContent.Empty
   }
 }

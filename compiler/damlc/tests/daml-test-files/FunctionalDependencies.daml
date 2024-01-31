@@ -3,7 +3,7 @@
 
 -- Check that functional dependency metadata is added when available.
 
--- @SINCE-LF 1.8 2.0
+-- @SINCE-LF 2.1
 -- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 2) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 1
 -- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 5) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 3
 module FunctionalDependencies where

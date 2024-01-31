@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -29,9 +29,12 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   ActiveSourceTerminated,
   ControlOutput,
+  DeadlockDetected,
+  DeadlockTrigger,
   NewConfiguration,
   OutputElement,
 }
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{
   ErrorUtil,
@@ -98,7 +101,13 @@ class SequencerAggregatorPekko(
         case control: SubscriptionControlInternal[E] =>
           logError(control)
           health.updateHealth(control)
-          Left(control.map((_, configAndHealth) => configAndHealth._1, Predef.identity))
+          Left(
+            control.map(
+              (_, configAndHealth) => configAndHealth._1,
+              (_, event) => event,
+              Predef.identity,
+            )
+          )
       }
       .mapMaterializedValue { doneF =>
         val doneAndClosedF = doneF.thereafter { _ => onShutdownRunner.close() }
@@ -142,6 +151,21 @@ class SequencerAggregatorPekko(
       case ActiveSourceTerminated(sequencerId, cause) =>
         cause.foreach { ex => logger.error(s"Sequencer subscription for $sequencerId failed", ex) }
       case NewConfiguration(_, _) =>
+      case DeadlockDetected(elem, trigger) =>
+        trigger match {
+          case DeadlockTrigger.ActiveSourceTermination =>
+            logger.error(
+              s"Sequencer subscription for domain $domainId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+            )
+          case DeadlockTrigger.Reconfiguration =>
+            logger.error(
+              s"Reconfiguration of sequencer subscriptions for domain $domainId brings the sequencer subscription to a halt. Needs another reconfiguration."
+            )
+          case DeadlockTrigger.ElementBucketing =>
+            logger.error(
+              show"Sequencer subscriptions have diverged and cannot reach the threshold for domain $domainId any more.\nReceived sequenced events: ${elem}"
+            )
+        }
     }
 
   private class SequencerAggregatorMergeOps[E: Pretty](
@@ -182,10 +206,16 @@ class SequencerAggregatorPekko(
 
     override def offsetOfBucket(bucket: Bucket): SequencerCounter = bucket.sequencerCounter
 
-    /** The initial offset to start from */
-    override def exclusiveLowerBoundForBegin: SequencerCounter = initialCounterOrPriorEvent match {
-      case Left(initial) => initial - 1L
-      case Right(priorEvent) => priorEvent.counter
+    /** The predecessor of the counter to start from */
+    override def exclusiveLowerBoundForBegin: SequencerCounter = {
+      val counterToSubscribeFrom = initialCounterOrPriorEvent match {
+        case Left(initial) => initial
+        case Right(priorEvent) =>
+          // The client requests the prior event again to check against ledger forks
+          priorEvent.counter
+      }
+      // Subtract 1 to make it exclusive
+      counterToSubscribeFrom - 1L
     }
 
     override def traceContextOf(event: OrdinarySerializedEvent): TraceContext =
@@ -208,7 +238,7 @@ class SequencerAggregatorPekko(
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
       val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
       val subscription = eventValidator
-        .validatePekko(config.subscriptionFactory.create(exclusiveStart), prior, sequencerId)
+        .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
         .mapConcat(_.unwrap match {
@@ -235,12 +265,14 @@ object SequencerAggregatorPekko {
   type SubscriptionControl[E] = ControlOutput[
     SequencerId,
     HasSequencerSubscriptionFactoryPekko[E],
+    OrdinarySerializedEvent,
     SequencerCounter,
   ]
 
   private type SubscriptionControlInternal[E] = ControlOutput[
     SequencerId,
     (HasSequencerSubscriptionFactoryPekko[E], Option[HealthComponent]),
+    OrdinarySerializedEvent,
     SequencerCounter,
   ]
 
@@ -269,7 +301,10 @@ object SequencerAggregatorPekko {
   ) extends CompositeHealthComponent[SequencerId, HealthComponent]
       with PrettyPrinting {
 
-    private val currentThreshold = new AtomicReference[PositiveInt](PositiveInt.one)
+    private val additionalState: AtomicReference[SequencerAggregatorHealth.State] =
+      new AtomicReference[SequencerAggregatorHealth.State](
+        SequencerAggregatorHealth.State(PositiveInt.one, deadlocked = false)
+      )
 
     override val name: String = s"sequencer-subscription-$domainId"
 
@@ -280,32 +315,54 @@ object SequencerAggregatorPekko {
       ComponentHealthState.failed(s"Disconnected from domain $domainId")
 
     override protected def combineDependentStates: ComponentHealthState = {
-      val threshold = currentThreshold.get
-      SequencerAggregator.aggregateHealthResult(getDependencies.fmap(_.getState), threshold)
+      val state = additionalState.get()
+      if (state.deadlocked) {
+        ComponentHealthState.failed(
+          s"Sequencer subscriptions have diverged and cannot reach the threshold ${state.currentThreshold} for domain $domainId any more."
+        )
+      } else {
+        SequencerAggregator.aggregateHealthResult(
+          getDependencies.fmap(_.getState),
+          state.currentThreshold,
+        )
+      }
     }
 
     def updateHealth(control: SubscriptionControlInternal[?]): Unit = {
       control match {
-        case NewConfiguration(newConfig, startingOffset) =>
+        case NewConfiguration(newConfig, _startingOffset) =>
           val currentlyRegisteredDependencies = getDependencies
           val toRemove = currentlyRegisteredDependencies.keySet diff newConfig.sources.keySet
           val toAdd = newConfig.sources.collect { case (id, (_config, Some(health))) =>
             (id, health)
           }
           val newThreshold = newConfig.threshold
-          val previousThreshold = currentThreshold.getAndSet(newThreshold)
+          val previousState =
+            additionalState.getAndSet(
+              SequencerAggregatorHealth.State(newThreshold, deadlocked = false)
+            )
           alterDependencies(toRemove, toAdd)
           // Separately trigger a refresh in case no dependencies had changed.
-          if (newThreshold != previousThreshold)
+          if (newThreshold != previousState.currentThreshold)
             refreshFromDependencies()(TraceContext.empty)
         case ActiveSourceTerminated(sequencerId, _cause) =>
           alterDependencies(remove = Set(sequencerId), add = Map.empty)
+        case DeadlockDetected(_, _) =>
+          additionalState.getAndUpdate(_.copy(deadlocked = true))
+          refreshFromDependencies()(TraceContext.empty)
       }
     }
 
     override def pretty: Pretty[SequencerAggregatorHealth] = prettyOfClass(
       param("domain id", _.domainId),
       param("state", _.getState),
+    )
+  }
+
+  private[SequencerAggregatorPekko] object SequencerAggregatorHealth {
+    private final case class State(
+        currentThreshold: PositiveInt,
+        deadlocked: Boolean,
     )
   }
 }

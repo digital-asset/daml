@@ -1,13 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.config.RefinedNonNegativeDuration
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.util.FutureUtil
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Future, TimeoutException}
 
 /** AutoCloseableAsync eases the proper closing of futures.
@@ -19,30 +18,30 @@ trait FlagCloseableAsync extends FlagCloseable {
     */
   protected def closeAsync(): Seq[AsyncOrSyncCloseable]
 
-  final override def onClosed(): Unit = Lifecycle.close(closeAsync(): _*)(logger)
+  final override def onClosed(): Unit = Lifecycle.close(closeAsync() *)(logger)
 }
 
 trait AsyncOrSyncCloseable extends AutoCloseable
 
 class AsyncCloseable private (
     name: String,
-    closeFuture: () => Future[_],
-    timeout: Duration,
+    closeFuture: () => Future[?],
+    timeout: RefinedNonNegativeDuration[?],
     onTimeout: TimeoutException => Unit,
 )(implicit
     loggingContext: ErrorLoggingContext
 ) extends AsyncOrSyncCloseable {
-  override def close(): Unit = FutureUtil
-    .noisyAwaitResult(closeFuture(), s"closing $name", timeout, onTimeout = onTimeout)
-    .discard
+  override def close(): Unit =
+    timeout.await(s"closing $name", onTimeout = onTimeout)(closeFuture()).discard
 
-  override def toString: String = s"AsyncCloseable(name=${name})"
+  override def toString: String = s"AsyncCloseable(name=$name)"
 }
+
 object AsyncCloseable {
   def apply(
       name: String,
-      closeFuture: => Future[_],
-      timeout: Duration,
+      closeFuture: => Future[?],
+      timeout: RefinedNonNegativeDuration[?],
       onTimeout: TimeoutException => Unit = _ => (),
   )(implicit
       loggingContext: ErrorLoggingContext
@@ -52,8 +51,9 @@ object AsyncCloseable {
 
 class SyncCloseable private (name: String, sync: () => Unit) extends AsyncOrSyncCloseable {
   override def close(): Unit = sync()
-  override def toString: String = s"SyncCloseable(name=${name})"
+  override def toString: String = s"SyncCloseable(name=$name)"
 }
+
 object SyncCloseable {
   def apply(name: String, sync: => Unit): SyncCloseable =
     new SyncCloseable(name, () => sync)

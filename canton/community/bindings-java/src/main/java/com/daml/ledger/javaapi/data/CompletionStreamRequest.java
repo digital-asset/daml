@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data;
@@ -82,15 +82,6 @@ public final class CompletionStreamRequest {
 
   public Set<String> getParties() {
     return parties;
-  }
-
-  /**
-   * @deprecated Legacy, nullable version of {@link #getLedgerOffset()}, which should be used
-   *     instead.
-   */
-  @Deprecated
-  public LedgerOffset getOffset() {
-    return offset.orElse(null);
   }
 
   public Optional<LedgerOffset> getLedgerOffset() {

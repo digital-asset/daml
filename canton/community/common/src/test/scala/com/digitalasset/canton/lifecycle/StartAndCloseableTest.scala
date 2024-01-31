@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.lifecycle
@@ -7,28 +7,31 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.lifecycle.StartAndCloseable.StartAfterClose
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, DiscardOps, HasExecutionContext, config}
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration.{Duration, *}
+import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise, blocking}
 
 class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private class Fixture(startTimeout: Duration = 1.minute) extends StartAndCloseable[Unit] {
+  private class Fixture(
+      startTimeout: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration(1.minute)
+  ) extends StartAndCloseable[Unit] {
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
-    val started = Promise[Unit]()
-    val closed = Promise[Unit]()
+    val started: Promise[Unit] = Promise()
+    val closed: Promise[Unit] = Promise()
 
-    val startInvokedP = Promise[Unit]()
-    val closingInvokedP = Promise[Unit]()
-    val waitingInvokedP = Promise[Unit]()
+    val startInvokedP: Promise[Unit] = Promise()
+    val closingInvokedP: Promise[Unit] = Promise()
+    val waitingInvokedP: Promise[Unit] = Promise()
 
-    val startInvocations = new AtomicInteger(0)
-    val closeInvocations = new AtomicInteger(0)
+    private val startInvocations = new AtomicInteger(0)
+    private val closeInvocations = new AtomicInteger(0)
 
     // we can use a short polling time to decrease test latency as we aren't running any real tasks
     override protected def maxSleepMillis: Long = 10
@@ -79,13 +82,12 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         checkClosed: Boolean,
         expectedStartInvocations: Int,
         expectedCloseInvocations: Int,
-    ) = {
+    ): Assertion = {
       isClosing shouldBe checkClosed
       isStarted shouldBe checkStarted
       startInvocations.get() shouldBe expectedStartInvocations
       closeInvocations.get() shouldBe expectedCloseInvocations
     }
-
   }
 
   "start and closeable" should { // deal with
@@ -98,7 +100,7 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         _ <- f.start()
       } yield {
         f.close()
-        f.evaluate(true, true, 1, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 1, 1)
       }).futureValue
     }
 
@@ -123,7 +125,7 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         _ <- fs
         _ <- fc
       } yield {
-        f.evaluate(true, true, 1, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 1, 1)
       }).futureValue
       waitingF.futureValue
     }
@@ -138,7 +140,7 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         failure <- fs.failed
         _ <- fc
       } yield {
-        f.evaluate(true, true, 0, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 0, 1)
         failure shouldBe a[StartAfterClose]
       }).futureValue
     }
@@ -157,7 +159,7 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         failure <- fs.failed
         _ <- fc
       } yield {
-        f.evaluate(true, true, 0, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 0, 1)
         failure shouldBe a[StartAfterClose]
       }).futureValue
       startF.futureValue
@@ -173,9 +175,9 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         _ <- fs
         _ <- fs2
       } yield {
-        f.evaluate(true, false, 1, 0)
+        f.evaluate(checkStarted = true, checkClosed = false, 1, 0)
         f.close()
-        f.evaluate(true, true, 1, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 1, 1)
       }).futureValue
       startF.futureValue
     }
@@ -191,7 +193,7 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
         _ <- fc
         _ <- fc2
       } yield {
-        f.evaluate(true, true, 1, 1)
+        f.evaluate(checkStarted = true, checkClosed = true, 1, 1)
       }).futureValue
       closeF.futureValue
     }

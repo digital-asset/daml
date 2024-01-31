@@ -1,9 +1,8 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import cats.implicits.toTraverseOps
 import cats.syntax.option.*
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
@@ -11,7 +10,7 @@ import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, HasLoggerName, NamedLoggingContext}
-import com.digitalasset.canton.participant.protocol.{ProcessingSteps, TransactionProcessor, v0}
+import com.digitalasset.canton.participant.protocol.{ProcessingSteps, TransactionProcessor, v30}
 import com.digitalasset.canton.participant.store.{
   SerializableCompletionInfo,
   SerializableRejectionReasonTemplate,
@@ -48,7 +47,7 @@ trait SubmissionTrackingData
   @transient override protected lazy val companionObj: SubmissionTrackingData.type =
     SubmissionTrackingData
 
-  protected def toProtoV0: v0.SubmissionTrackingData
+  protected def toProtoV30: v30.SubmissionTrackingData
 
   /** Produce a rejection event for the unsequenced submission using the given record time. */
   def rejectionEvent(recordTime: CantonTimestamp)(implicit
@@ -71,23 +70,23 @@ object SubmissionTrackingData
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter
-      .storage(ReleaseProtocolVersion(ProtocolVersion.v3), v0.SubmissionTrackingData)(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter
+      .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.SubmissionTrackingData)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
       )
   )
 
   override def name: String = "submission tracking data"
 
-  def fromProtoV0(
-      submissionTrackingP: v0.SubmissionTrackingData
+  def fromProtoV30(
+      submissionTrackingP: v30.SubmissionTrackingData
   ): ParsingResult[SubmissionTrackingData] = {
-    val v0.SubmissionTrackingData(tracking) = submissionTrackingP
+    val v30.SubmissionTrackingData(tracking) = submissionTrackingP
     tracking match {
-      case v0.SubmissionTrackingData.Tracking.Transaction(transactionSubmissionTracking) =>
-        TransactionSubmissionTrackingData.fromProtoV0(transactionSubmissionTracking)
-      case v0.SubmissionTrackingData.Tracking.Empty => Left(FieldNotSet("tracking"))
+      case v30.SubmissionTrackingData.Tracking.Transaction(transactionSubmissionTracking) =>
+        TransactionSubmissionTrackingData.fromProtoV30(transactionSubmissionTracking)
+      case v30.SubmissionTrackingData.Tracking.Empty => Left(FieldNotSet("tracking"))
     }
   }
 }
@@ -96,7 +95,7 @@ object SubmissionTrackingData
 final case class TransactionSubmissionTrackingData(
     completionInfo: CompletionInfo,
     rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-    domainId: Option[DomainId],
+    domainId: DomainId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SubmissionTrackingData.type
@@ -129,14 +128,14 @@ final case class TransactionSubmissionTrackingData(
     ).some
   }
 
-  protected def toProtoV0: v0.SubmissionTrackingData = {
-    val completionInfoP = SerializableCompletionInfo(completionInfo).toProtoV0
-    val transactionTracking = v0.TransactionSubmissionTrackingData(
+  protected def toProtoV30: v30.SubmissionTrackingData = {
+    val completionInfoP = SerializableCompletionInfo(completionInfo).toProtoV30
+    val transactionTracking = v30.TransactionSubmissionTrackingData(
       completionInfo = completionInfoP.some,
-      rejectionCause = rejectionCause.toProtoV0.some,
-      domainId = domainId.map(_.toProtoPrimitive),
+      rejectionCause = rejectionCause.toProtoV30.some,
+      domainId = domainId.toProtoPrimitive,
     )
-    v0.SubmissionTrackingData(v0.SubmissionTrackingData.Tracking.Transaction(transactionTracking))
+    v30.SubmissionTrackingData(v30.SubmissionTrackingData.Tracking.Transaction(transactionTracking))
   }
 
   override def pretty: Pretty[TransactionSubmissionTrackingData] = prettyOfClass(
@@ -149,26 +148,30 @@ object TransactionSubmissionTrackingData {
   def apply(
       completionInfo: CompletionInfo,
       rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-      domainId: Option[DomainId],
+      domainId: DomainId,
       protocolVersion: ProtocolVersion,
   ): TransactionSubmissionTrackingData =
     TransactionSubmissionTrackingData(completionInfo, rejectionCause, domainId)(
       SubmissionTrackingData.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def fromProtoV0(
-      tracking: v0.TransactionSubmissionTrackingData
+  def fromProtoV30(
+      tracking: v30.TransactionSubmissionTrackingData
   ): ParsingResult[TransactionSubmissionTrackingData] = {
-    val v0.TransactionSubmissionTrackingData(completionInfoP, causeP, domainIdP) = tracking
+    val v30.TransactionSubmissionTrackingData(completionInfoP, causeP, domainIdP) = tracking
     for {
       completionInfo <- ProtoConverter.parseRequired(
-        SerializableCompletionInfo.fromProtoV0,
+        SerializableCompletionInfo.fromProtoV30,
         "completion info",
         completionInfoP,
       )
-      cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV0, "rejection cause", causeP)
-      domainId <- domainIdP.map(DomainId.fromProtoPrimitive(_, "domain_id")).sequence
-    } yield TransactionSubmissionTrackingData(completionInfo, cause, domainId)(
+      cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV30, "rejection cause", causeP)
+      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+    } yield TransactionSubmissionTrackingData(
+      completionInfo,
+      cause,
+      domainId,
+    )(
       SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(0))
     )
   }
@@ -179,21 +182,21 @@ object TransactionSubmissionTrackingData {
         loggingContext: ErrorLoggingContext
     ): CommandRejected.FinalReason
 
-    def toProtoV0: v0.TransactionSubmissionTrackingData.RejectionCause
+    def toProtoV30: v30.TransactionSubmissionTrackingData.RejectionCause
   }
 
   object RejectionCause {
-    def fromProtoV0(
-        proto: v0.TransactionSubmissionTrackingData.RejectionCause
+    def fromProtoV30(
+        proto: v30.TransactionSubmissionTrackingData.RejectionCause
     ): ParsingResult[RejectionCause] = {
-      val v0.TransactionSubmissionTrackingData.RejectionCause(cause) = proto
+      val v30.TransactionSubmissionTrackingData.RejectionCause(cause) = proto
       cause match {
-        case v0.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(empty) =>
+        case v30.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(empty) =>
           TimeoutCause.fromProtoV0(empty)
-        case v0.TransactionSubmissionTrackingData.RejectionCause.Cause
+        case v30.TransactionSubmissionTrackingData.RejectionCause.Cause
               .RejectionReasonTemplate(template) =>
-          CauseWithTemplate.fromProtoV0(template)
-        case v0.TransactionSubmissionTrackingData.RejectionCause.Cause.Empty =>
+          CauseWithTemplate.fromProtoV30(template)
+        case v30.TransactionSubmissionTrackingData.RejectionCause.Cause.Empty =>
           Left(FieldNotSet("TransactionSubmissionTrackingData.RejectionCause.cause"))
       }
     }
@@ -209,9 +212,9 @@ object TransactionSubmissionTrackingData {
       CommandRejected.FinalReason(error.rpcStatus())
     }
 
-    override def toProtoV0: v0.TransactionSubmissionTrackingData.RejectionCause =
-      v0.TransactionSubmissionTrackingData.RejectionCause(
-        cause = v0.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(Empty())
+    override def toProtoV30: v30.TransactionSubmissionTrackingData.RejectionCause =
+      v30.TransactionSubmissionTrackingData.RejectionCause(
+        cause = v30.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(Empty())
       )
 
     override def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
@@ -226,10 +229,10 @@ object TransactionSubmissionTrackingData {
         loggingContext: ErrorLoggingContext
     ): CommandRejected.FinalReason = template
 
-    override def toProtoV0: v0.TransactionSubmissionTrackingData.RejectionCause =
-      v0.TransactionSubmissionTrackingData.RejectionCause(
-        cause = v0.TransactionSubmissionTrackingData.RejectionCause.Cause.RejectionReasonTemplate(
-          SerializableRejectionReasonTemplate(template).toProtoV0
+    override def toProtoV30: v30.TransactionSubmissionTrackingData.RejectionCause =
+      v30.TransactionSubmissionTrackingData.RejectionCause(
+        cause = v30.TransactionSubmissionTrackingData.RejectionCause.Cause.RejectionReasonTemplate(
+          SerializableRejectionReasonTemplate(template).toProtoV30
         )
       )
 
@@ -260,11 +263,11 @@ object TransactionSubmissionTrackingData {
       CauseWithTemplate(CommandRejected.FinalReason(status))
     }
 
-    def fromProtoV0(
-        templateP: v0.CommandRejected.GrpcRejectionReasonTemplate
+    def fromProtoV30(
+        templateP: v30.CommandRejected.GrpcRejectionReasonTemplate
     ): ParsingResult[CauseWithTemplate] =
       for {
-        template <- SerializableRejectionReasonTemplate.fromProtoV0(templateP)
+        template <- SerializableRejectionReasonTemplate.fromProtoV30(templateP)
       } yield CauseWithTemplate(template)
   }
 }

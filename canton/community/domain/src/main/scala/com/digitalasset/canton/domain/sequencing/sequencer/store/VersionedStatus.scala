@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.google.rpc.status.Status
@@ -14,7 +14,7 @@ final case class VersionedStatus private (status: Status)(
 ) extends HasProtocolVersionedWrapper[VersionedStatus] {
 
   override protected val companionObj: VersionedStatus.type = VersionedStatus
-  def toProtoV0: v0.VersionedStatus = v0.VersionedStatus(Some(status))
+  def toProtoV0: v30.VersionedStatus = v30.VersionedStatus(Some(status))
 }
 
 object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, VersionedStatus] {
@@ -26,18 +26,17 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
     * See the helper `supportedProtoVersion` below to define a `Parser`.
     */
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.minimum),
-    ProtoVersion(0) -> VersionedProtoConverter
+    ProtoVersion(30) -> VersionedProtoConverter
       .storage(
-        ReleaseProtocolVersion(ProtocolVersion.CNTestNet),
-        v0.VersionedStatus.messageCompanion,
+        ReleaseProtocolVersion(ProtocolVersion.v30),
+        v30.VersionedStatus.messageCompanion,
       )(
         supportedProtoVersion(_)(fromProtoV0),
         _.toProtoV0.toByteString,
-      ),
+      )
   )
 
-  def fromProtoV0(versionedStatusP: v0.VersionedStatus): ParsingResult[VersionedStatus] = {
+  def fromProtoV0(versionedStatusP: v30.VersionedStatus): ParsingResult[VersionedStatus] = {
     val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
     for {
       status <- versionedStatusP.status.toRight(ProtoDeserializationError.FieldNotSet("status"))

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -150,6 +150,7 @@ private[backend] trait StorageBackendTestsIngestion
           )
 
       val conflictingPackageDtos = 11 to 20 map packageFor
+      val reversedConflictingPackageDtos = conflictingPackageDtos.reverse
       val packages1 = 21 to 30 map packageFor
       val packages2 = 31 to 40 map packageFor
 
@@ -168,7 +169,7 @@ private[backend] trait StorageBackendTestsIngestion
           }
 
         val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
-        val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
+        val ingestF2 = ingestPackagesF(connection2, packages2 ++ reversedConflictingPackageDtos)
 
         Await.result(ingestF1, Duration(10, "seconds"))
         Await.result(ingestF2, Duration(10, "seconds"))

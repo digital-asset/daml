@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -7,7 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerMainConfig(
     darPath: File,
@@ -102,6 +102,9 @@ private[script] case class RunnerMainConfigIntermediate(
     (participantMode, uploadDar) match {
       case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
         Left("Cannot upload dar to IDELedger.")
+      case (ParticipantMode.IdeLedgerParticipant(), _) =>
+        // We don't need to upload the dar when using the IDE ledger
+        Right(false)
       case (_, Some(true)) if jsonApi => Left("Cannot upload dar via JSON API")
       case (_, Some(v)) => Right(v)
       case (_, None) =>

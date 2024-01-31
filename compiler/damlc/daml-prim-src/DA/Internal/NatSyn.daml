@@ -1,10 +1,8 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-
-#ifdef DAML_NAT_SYN
 
 -- | HIDE
 module DA.Internal.NatSyn (
@@ -15,11 +13,3 @@ import GHC.Types (Nat)
 
 -- | NatSyn type used for encoding type-level Nats with kind *.
 data NatSyn (n : Nat)
-
-#else
-
--- | HIDE
-module DA.Internal.NatSyn () where
-import GHC.Types ()
-
-#endif

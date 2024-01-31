@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -23,7 +23,8 @@ package object commands {
         body()
         None
       } catch {
-        case e: CommandExecutionFailedException => Some(e)
+        case e: CommandFailure => Some(e)
+        case e: CantonInternalError => Some(e)
       }
     )
     // It is ok to discard all except one exceptions, because:

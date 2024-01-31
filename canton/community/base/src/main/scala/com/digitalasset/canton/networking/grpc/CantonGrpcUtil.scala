@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking.grpc
@@ -39,18 +39,6 @@ object CantonGrpcUtil {
     value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
   }
 
-  @Deprecated
-  def mapErr[T, C](value: Either[T, C])(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, StatusRuntimeException, C] =
-    mapErr(EitherT.fromEither[Future](value))
-
-  @Deprecated
-  def mapErr[T, C](value: EitherT[Future, T, C])(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, StatusRuntimeException, C] =
-    value.leftMap(x => invalidArgument(x.toString))
-
   def mapErrNew[T <: CantonError, C](value: Either[T, C])(implicit
       ec: ExecutionContext
   ): EitherT[Future, StatusRuntimeException, C] =
@@ -83,10 +71,6 @@ object CantonGrpcUtil {
       errorLoggingContext: ErrorLoggingContext,
   ): Future[C] =
     EitherTUtil.toFuture(mapErrNewETUS(value))
-
-  @Deprecated
-  def invalidArgument(err: String): StatusRuntimeException =
-    Status.INVALID_ARGUMENT.withDescription(err).asRuntimeException()
 
   /** Wrapper method for sending a Grpc request.
     * Takes care of appropriate logging and retrying.

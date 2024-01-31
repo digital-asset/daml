@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -48,7 +48,6 @@ class DbParticipantSettingsStore(
     val maxDirtyRequests = r.<<[Option[NonNegativeInt]]
     val maxRate = r.<<[Option[NonNegativeInt]]
     val maxDedupDuration = r.<<[Option[NonNegativeFiniteDuration]]
-    val uniqueContractKeys = r.<<[Option[Boolean]]
     val maxBurstFactor = r.<<[PositiveDouble]
     Settings(
       ResourceLimits(
@@ -57,7 +56,6 @@ class DbParticipantSettingsStore(
         maxBurstFactor = maxBurstFactor,
       ),
       maxDedupDuration,
-      uniqueContractKeys,
     )
   }
 
@@ -66,7 +64,7 @@ class DbParticipantSettingsStore(
       processingTime.event {
         for {
           settingsO <- storage.query(
-            sql"select max_dirty_requests, max_rate, max_deduplication_duration, unique_contract_keys, max_burst_factor from participant_settings"
+            sql"select max_dirty_requests, max_rate, max_deduplication_duration, max_burst_factor from participant_settings"
               .as[Settings]
               .headOption,
             functionFullName,
@@ -129,11 +127,6 @@ class DbParticipantSettingsStore(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     insertOrUpdateIfNull("max_deduplication_duration", maxDeduplicationDuration)
-
-  override def insertUniqueContractKeysMode(uniqueContractKeys: Boolean)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    insertOrUpdateIfNull("unique_contract_keys", uniqueContractKeys)
 
   private def insertOrUpdateIfNull[A: SetParameter](columnName: String, newValue: A)(implicit
       traceContext: TraceContext

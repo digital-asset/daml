@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module HealthInsurance where
@@ -107,12 +107,6 @@ template Claim
 
     signatory insurer
     observer doctor
-
-    agreement "This is a honest and genuine claim by the "
-      <> (show client)
-      <> " for a treamtment of " <> treatment
-      <> " according to the insurance plan"
-
 
     choice AcceptAndSettleClaim : Bank.CashId
       with

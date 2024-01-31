@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -114,4 +114,8 @@ message Commands {
   // Must be a valid domain ID
   // Required
   string domain_id = 14;
+
+  // The package-id selection preference of the client for resolving
+  // package names and interface instances in command submission and interpretation
+  repeated string package_id_selection_preference = 15;
 }

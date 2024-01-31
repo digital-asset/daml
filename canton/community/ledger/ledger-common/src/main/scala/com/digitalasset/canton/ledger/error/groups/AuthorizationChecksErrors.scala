@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.error.groups
@@ -44,7 +44,7 @@ object AuthorizationChecksErrors extends AuthorizationChecksErrorGroup {
     """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
   )
   @Resolution(
-    "Ask your participant operator to provide you with an appropriate JWT token."
+    "Ask your participant operator or IDP provider to give you an appropriate JWT token."
   )
   object Unauthenticated
       extends ErrorCode(
@@ -61,6 +61,22 @@ object AuthorizationChecksErrors extends AuthorizationChecksErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "User based authentication is disabled."
+        )
+  }
+
+  @Explanation(
+    "This rejection is given when a valid JWT token used for some period of time expires."
+  )
+  @Resolution("Ask your participant operator or IDP provider to give you an appropriate JWT token.")
+  object AccessTokenExpired
+      extends ErrorCode(
+        id = "ACCESS_TOKEN_EXPIRED",
+        ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
+      ) {
+    final case class Reject(override val cause: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = "JWT token has expired"
         )
   }
 

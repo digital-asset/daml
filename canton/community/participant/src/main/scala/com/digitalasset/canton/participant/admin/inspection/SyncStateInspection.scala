@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.inspection
@@ -11,10 +11,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.data.{
-  ActiveContract,
-  SerializableContractWithDomainId,
-}
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.inspection.Error.{
   InvariantIssue,
   SerializationIssue,
@@ -171,46 +168,6 @@ final class SyncStateInspection(
       })
       .map(_ => ())
     EitherT.right(disabledCleaningF)
-  }
-
-  // TODO(i14441): Remove deprecated ACS download / upload functionality
-  @deprecated("Use exportAcsDumpActiveContracts", since = "2.8.0")
-  def dumpActiveContracts(
-      outputStream: OutputStream,
-      filterDomain: DomainId => Boolean,
-      parties: Set[LfPartyId],
-      timestamp: Option[CantonTimestamp],
-      protocolVersion: Option[ProtocolVersion],
-      contractDomainRenames: Map[DomainId, DomainId],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] = {
-    val allDomains = syncDomainPersistentStateManager.getAll
-    // disable journal cleaning for the duration of the dump
-    disableJournalCleaningForFilter(allDomains, filterDomain).flatMap { _ =>
-      MonadUtil.sequentialTraverse_(allDomains) {
-        case (domainId, state) if filterDomain(domainId) =>
-          val domainIdForExport = contractDomainRenames.getOrElse(domainId, domainId)
-          val useProtocolVersion = protocolVersion.getOrElse(state.protocolVersion)
-          val ret = for {
-            _ <- AcsInspection
-              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-                case (contract, _) =>
-                  val domainToContract =
-                    SerializableContractWithDomainId(domainIdForExport, contract)
-                  val encodedContract = domainToContract.encode(useProtocolVersion)
-                  outputStream.write(encodedContract.getBytes)
-                  Right(outputStream.flush())
-              }
-          } yield ()
-          // re-enable journal cleaning after the dump
-          ret.thereafter { _ =>
-            journalCleaningControl.enable(domainId)
-          }
-        case _ =>
-          EitherTUtil.unit
-      }
-    }
   }
 
   def allProtocolVersions: Map[DomainId, ProtocolVersion] =

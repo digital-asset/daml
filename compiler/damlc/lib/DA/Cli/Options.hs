@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -115,7 +115,7 @@ lfVersionOpt = optionOnce (str >>= select) $
         , version `elem` LF.supportedOutputVersions
         -> return version
         | otherwise
-        -> readerError $ "Unknown Daml-LF version: " ++ versionsStr
+        -> readerError $ "Unknown Daml-LF version: " ++ versionStr
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = optionOnce (Just <$> str) $

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -534,7 +534,6 @@ private[validation] object Typing {
         param,
         precond,
         signatories,
-        agreementText,
         choices,
         observers,
         mbKey,
@@ -545,7 +544,6 @@ private[validation] object Typing {
       env.checkTopExpr(precond, TBool)
       env.checkTopExpr(signatories, TParties)
       env.checkTopExpr(observers, TParties)
-      env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
       implementations.values.foreach { impl =>
         checkInterfaceInstance(

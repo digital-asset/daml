@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.store.db.{DbTest, H2Test, MigrationMode, PostgresTest}
+import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
@@ -40,14 +40,6 @@ trait DbTopologyStoreXTest extends TopologyStoreXTest with DbTopologyStoreXHelpe
   }
 }
 
-class TopologyStoreXTestPostgres extends DbTopologyStoreXTest with PostgresTest {
+class TopologyStoreXTestPostgres extends DbTopologyStoreXTest with PostgresTest
 
-  // TODO(#15153) remove this when we have only dev/cn
-  override val migrationMode: MigrationMode = MigrationMode.DevVersion
-}
-
-class TopologyStoreXTestH2 extends DbTopologyStoreXTest with H2Test {
-
-  // TODO(#15153) remove this when we have only dev/cn
-  override val migrationMode: MigrationMode = MigrationMode.DevVersion
-}
+class TopologyStoreXTestH2 extends DbTopologyStoreXTest with H2Test

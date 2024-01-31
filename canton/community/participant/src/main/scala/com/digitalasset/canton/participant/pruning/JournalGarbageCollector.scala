@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUtil
@@ -32,10 +33,10 @@ private[participant] class JournalGarbageCollector(
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
-    keyJournal: ContractKeyJournal,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
     domainId: DomainId,
+    journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
@@ -58,7 +59,9 @@ private[participant] class JournalGarbageCollector(
             domainId,
             checkForOutstandingCommitments = false,
           )
-        _ <- safeToPruneTsO.fold(Future.unit)(prune(_))
+        _ <- safeToPruneTsO.fold(Future.unit)(ts =>
+          prune(ts.minusSeconds(journalGarbageCollectionDelay.duration.toSeconds))
+        )
       } yield ()
     }
   }
@@ -66,21 +69,13 @@ private[participant] class JournalGarbageCollector(
   private def prune(pruneTs: CantonTimestampSecond)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    logger.debug(s"Starting periodic background pruning of journals up to ${pruneTs}")
+    logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
     val acsDescription = s"Periodic ACS prune at $pruneTs:"
     // Clean unused entries from the ACS
     val acsF = performUnlessClosingF(acsDescription)(
       FutureUtil.logOnFailure(
         acs.prune(pruneTs.forgetRefinement),
         acsDescription,
-      )
-    )
-    val journalFDescription = s"Periodic contract key journal prune at $pruneTs: "
-    // clean unused contract key journal entries
-    val journalF = performUnlessClosingF(journalFDescription)(
-      FutureUtil.logOnFailure(
-        keyJournal.prune(pruneTs.forgetRefinement),
-        journalFDescription,
       )
     )
     val submissionTrackerStoreDescription =
@@ -92,7 +87,7 @@ private[participant] class JournalGarbageCollector(
         submissionTrackerStoreDescription,
       )
     )
-    Seq(acsF, journalF, submissionTrackerStoreF).sequence_.onShutdown(())
+    Seq(acsF, submissionTrackerStoreF).sequence_.onShutdown(())
   }
 }
 

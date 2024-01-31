@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -90,7 +90,9 @@ trait CryptoKeyPairKey extends CryptoKey {
 }
 
 trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
-    extends HasVersionedWrapper[CryptoKeyPair[PublicKey, PrivateKey]] {
+    extends HasVersionedWrapper[CryptoKeyPair[PublicKey, PrivateKey]]
+    with Product
+    with Serializable {
 
   require(
     publicKey.id == privateKey.id,
@@ -105,9 +107,9 @@ trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
   // The keypair is identified by the public key's id
   def id: Fingerprint = publicKey.id
 
-  protected def toProtoCryptoKeyPairPairV0: v0.CryptoKeyPair.Pair
+  protected def toProtoCryptoKeyPairPairV30: v30.CryptoKeyPair.Pair
 
-  def toProtoCryptoKeyPairV0: v0.CryptoKeyPair = v0.CryptoKeyPair(toProtoCryptoKeyPairPairV0)
+  def toProtoCryptoKeyPairV30: v30.CryptoKeyPair = v30.CryptoKeyPair(toProtoCryptoKeyPairPairV30)
 }
 
 object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKey, PrivateKey]] {
@@ -115,31 +117,31 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
   override def name: String = "crypto key pair"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.CryptoKeyPair)(fromProtoCryptoKeyPairV0),
-      _.toProtoCryptoKeyPairV0.toByteString,
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
+      _.toProtoCryptoKeyPairV30.toByteString,
     )
   )
 
-  def fromProtoCryptoKeyPairV0(
-      keyPair: v0.CryptoKeyPair
+  def fromProtoCryptoKeyPairV30(
+      keyPair: v30.CryptoKeyPair
   ): ParsingResult[CryptoKeyPair[_ <: PublicKey, _ <: PrivateKey]] =
     for {
       pair <- keyPair.pair match {
-        case v0.CryptoKeyPair.Pair.EncryptionKeyPair(value) =>
+        case v30.CryptoKeyPair.Pair.EncryptionKeyPair(value) =>
           EncryptionKeyPair
-            .fromProtoV0(value): Either[
+            .fromProtoV30(value): Either[
             ProtoDeserializationError,
             CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey],
           ]
-        case v0.CryptoKeyPair.Pair.SigningKeyPair(value) =>
+        case v30.CryptoKeyPair.Pair.SigningKeyPair(value) =>
           SigningKeyPair
-            .fromProtoV0(value): Either[
+            .fromProtoV30(value): Either[
             ProtoDeserializationError,
             CryptoKeyPair[SigningPublicKey, SigningPrivateKey],
           ]
-        case v0.CryptoKeyPair.Pair.Empty =>
+        case v30.CryptoKeyPair.Pair.Empty =>
           Left(ProtoDeserializationError.FieldNotSet("pair"))
       }
     } yield pair
@@ -156,23 +158,23 @@ trait PublicKey extends CryptoKeyPairKey {
 
   override def isPublicKey: Boolean = true
 
-  protected def toProtoPublicKeyKeyV0: v0.PublicKey.Key
+  protected def toProtoPublicKeyKeyV30: v30.PublicKey.Key
 
-  /** With the v0.PublicKey message we model the class hierarchy of public keys in protobuf.
+  /** With the v30.PublicKey message we model the class hierarchy of public keys in protobuf.
     * Each child class that implements this trait can be serialized with `toProto` to their corresponding protobuf
     * message. With the following method, it can be serialized to this trait's protobuf message.
     */
-  def toProtoPublicKeyV0: v0.PublicKey = v0.PublicKey(key = toProtoPublicKeyKeyV0)
+  def toProtoPublicKeyV30: v30.PublicKey = v30.PublicKey(key = toProtoPublicKeyKeyV30)
 }
 
 object PublicKey {
-  def fromProtoPublicKeyV0(publicKeyP: v0.PublicKey): ParsingResult[PublicKey] =
+  def fromProtoPublicKeyV30(publicKeyP: v30.PublicKey): ParsingResult[PublicKey] =
     publicKeyP.key match {
-      case v0.PublicKey.Key.Empty => Left(ProtoDeserializationError.FieldNotSet("key"))
-      case v0.PublicKey.Key.EncryptionPublicKey(encPubKeyP) =>
-        EncryptionPublicKey.fromProtoV0(encPubKeyP)
-      case v0.PublicKey.Key.SigningPublicKey(signPubKeyP) =>
-        SigningPublicKey.fromProtoV0(signPubKeyP)
+      case v30.PublicKey.Key.Empty => Left(ProtoDeserializationError.FieldNotSet("key"))
+      case v30.PublicKey.Key.EncryptionPublicKey(encPubKeyP) =>
+        EncryptionPublicKey.fromProtoV30(encPubKeyP)
+      case v30.PublicKey.Key.SigningPublicKey(signPubKeyP) =>
+        SigningPublicKey.fromProtoV30(signPubKeyP)
     }
 
 }
@@ -199,10 +201,10 @@ trait PublicKeyWithName
 
   override protected def companionObj = PublicKeyWithName
 
-  def toProtoV0: v0.PublicKeyWithName =
-    v0.PublicKeyWithName(
+  def toProtoV30: v30.PublicKeyWithName =
+    v30.PublicKeyWithName(
       publicKey = Some(
-        publicKey.toProtoPublicKeyV0
+        publicKey.toProtoPublicKeyV30
       ),
       name = name.map(_.unwrap).getOrElse(""),
     )
@@ -213,17 +215,17 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
   override def name: String = "PublicKeyWithName"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.PublicKeyWithName)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
+      _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV0(key: v0.PublicKeyWithName): ParsingResult[PublicKeyWithName] =
+  def fromProto30(key: v30.PublicKeyWithName): ParsingResult[PublicKeyWithName] =
     for {
       publicKey <- ProtoConverter.parseRequired(
-        PublicKey.fromProtoPublicKeyV0,
+        PublicKey.fromProtoPublicKeyV30,
         "public_key",
         key.publicKey,
       )
@@ -242,30 +244,30 @@ trait PrivateKey extends CryptoKeyPairKey {
 
   override def isPublicKey: Boolean = false
 
-  protected def toProtoPrivateKeyKeyV0: v0.PrivateKey.Key
+  protected def toProtoPrivateKeyKeyV30: v30.PrivateKey.Key
 
   /** Same representation of the class hierarchy in protobuf messages, see [[PublicKey]]. */
-  def toProtoPrivateKey: v0.PrivateKey = v0.PrivateKey(key = toProtoPrivateKeyKeyV0)
+  def toProtoPrivateKey: v30.PrivateKey = v30.PrivateKey(key = toProtoPrivateKeyKeyV30)
 }
 
 object PrivateKey {
 
   def fromProtoPrivateKey(
-      privateKeyP: v0.PrivateKey
+      privateKeyP: v30.PrivateKey
   ): ParsingResult[PrivateKey] =
     privateKeyP.key match {
-      case v0.PrivateKey.Key.Empty => Left(ProtoDeserializationError.FieldNotSet("key"))
-      case v0.PrivateKey.Key.EncryptionPrivateKey(encPrivKeyP) =>
-        EncryptionPrivateKey.fromProtoV0(encPrivKeyP)
-      case v0.PrivateKey.Key.SigningPrivateKey(signPrivKeyP) =>
-        SigningPrivateKey.fromProtoV0(signPrivKeyP)
+      case v30.PrivateKey.Key.Empty => Left(ProtoDeserializationError.FieldNotSet("key"))
+      case v30.PrivateKey.Key.EncryptionPrivateKey(encPrivKeyP) =>
+        EncryptionPrivateKey.fromProtoV30(encPrivKeyP)
+      case v30.PrivateKey.Key.SigningPrivateKey(signPrivKeyP) =>
+        SigningPrivateKey.fromProtoV30(signPrivKeyP)
     }
 
 }
 
 sealed trait CryptoKeyFormat extends Product with Serializable with PrettyPrinting {
   def name: String
-  def toProtoEnum: v0.CryptoKeyFormat
+  def toProtoEnum: v30.CryptoKeyFormat
   override def pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -276,39 +278,37 @@ object CryptoKeyFormat {
 
   case object Tink extends CryptoKeyFormat {
     override val name: String = "Tink"
-    override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Tink
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Tink
   }
 
   case object Der extends CryptoKeyFormat {
     override val name: String = "DER"
-    override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Der
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Der
   }
 
   case object Raw extends CryptoKeyFormat {
     override val name: String = "Raw"
-    override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Raw
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Raw
   }
 
   case object Symbolic extends CryptoKeyFormat {
     override val name: String = "Symbolic"
-    override def toProtoEnum: v0.CryptoKeyFormat = v0.CryptoKeyFormat.Symbolic
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Symbolic
   }
-
-  val allFormats: Set[CryptoKeyFormat] = Set(Tink, Der, Raw, Symbolic)
 
   def fromProtoEnum(
       field: String,
-      formatP: v0.CryptoKeyFormat,
+      formatP: v30.CryptoKeyFormat,
   ): ParsingResult[CryptoKeyFormat] =
     formatP match {
-      case v0.CryptoKeyFormat.MissingCryptoKeyFormat =>
+      case v30.CryptoKeyFormat.MissingCryptoKeyFormat =>
         Left(ProtoDeserializationError.FieldNotSet(field))
-      case v0.CryptoKeyFormat.Unrecognized(value) =>
+      case v30.CryptoKeyFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v0.CryptoKeyFormat.Tink => Right(CryptoKeyFormat.Tink)
-      case v0.CryptoKeyFormat.Der => Right(CryptoKeyFormat.Der)
-      case v0.CryptoKeyFormat.Raw => Right(CryptoKeyFormat.Raw)
-      case v0.CryptoKeyFormat.Symbolic => Right(CryptoKeyFormat.Symbolic)
+      case v30.CryptoKeyFormat.Tink => Right(CryptoKeyFormat.Tink)
+      case v30.CryptoKeyFormat.Der => Right(CryptoKeyFormat.Der)
+      case v30.CryptoKeyFormat.Raw => Right(CryptoKeyFormat.Raw)
+      case v30.CryptoKeyFormat.Symbolic => Right(CryptoKeyFormat.Symbolic)
     }
 }
 
@@ -319,7 +319,7 @@ sealed trait KeyPurpose extends Product with Serializable with PrettyPrinting {
   // An identifier for a key purpose that is used for serialization
   def id: Byte
 
-  def toProtoEnum: v0.KeyPurpose
+  def toProtoEnum: v30.KeyPurpose
 
   override def pretty: Pretty[KeyPurpose.this.type] = prettyOfString(_.name)
 }
@@ -340,27 +340,26 @@ object KeyPurpose {
   case object Signing extends KeyPurpose {
     override val name: String = "signing"
     override val id: Byte = 0
-    override def toProtoEnum: v0.KeyPurpose = v0.KeyPurpose.SigningKeyPurpose
+    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.SigningKeyPurpose
   }
 
   case object Encryption extends KeyPurpose {
     override val name: String = "encryption"
     override val id: Byte = 1
-    override def toProtoEnum: v0.KeyPurpose = v0.KeyPurpose.EncryptionKeyPurpose
+    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.EncryptionKeyPurpose
   }
 
   def fromProtoEnum(
       field: String,
-      purposeP: v0.KeyPurpose,
+      purposeP: v30.KeyPurpose,
   ): ParsingResult[KeyPurpose] =
     purposeP match {
-      case v0.KeyPurpose.UnknownKeyPurpose => Left(ProtoDeserializationError.FieldNotSet(field))
-      case v0.KeyPurpose.Unrecognized(value) =>
+      case v30.KeyPurpose.UnknownKeyPurpose => Left(ProtoDeserializationError.FieldNotSet(field))
+      case v30.KeyPurpose.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v0.KeyPurpose.SigningKeyPurpose => Right(Signing)
-      case v0.KeyPurpose.EncryptionKeyPurpose => Right(Encryption)
+      case v30.KeyPurpose.SigningKeyPurpose => Right(Signing)
+      case v30.KeyPurpose.EncryptionKeyPurpose => Right(Encryption)
     }
-
 }
 
 /** Information that is cached for each view and is to be re-used if another view has

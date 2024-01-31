@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -32,7 +32,6 @@ import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.chaining.*
-import scala.util.{Failure, Success}
 
 private[sync] class PartyAllocation(
     participantId: ParticipantId,
@@ -105,6 +104,7 @@ private[sync] class PartyAllocation(
             partyId,
             participantId,
             validatedSubmissionId,
+            validatedDisplayName,
           )
           .leftMap[SubmissionResult] { err =>
             reject(err, SubmissionResult.Acknowledged)
@@ -130,21 +130,6 @@ private[sync] class PartyAllocation(
             x
           }
           .onShutdown(Left(TransactionError.shutdownError))
-
-        // Notify upstream of display name using the participant party notifier (as display name is a participant setting)
-        _ <- EitherT(
-          validatedDisplayName
-            .fold(Future.unit)(dn => partyNotifier.setDisplayName(partyId, dn))
-            .transform {
-              case Success(_) => Success(Right(()))
-              case Failure(t) =>
-                Success(
-                  Left(
-                    TransactionError.internalError(s"Failed to set display name ${t.getMessage}")
-                  )
-                )
-            }
-        ).leftWiden[SubmissionResult]
 
       } yield SubmissionResult.Acknowledged
 

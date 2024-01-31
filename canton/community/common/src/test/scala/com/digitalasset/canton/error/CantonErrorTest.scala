@@ -1,9 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.error
 
 import com.daml.error.*
+import com.daml.error.utils.DecodedCantonError
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.error.TestGroup.NestedGroup.MyCode.MyError
 import com.digitalasset.canton.error.TestGroup.NestedGroup.{MyCode, TestAlarmErrorCode}
@@ -43,18 +44,17 @@ class CantonErrorTest extends BaseTestWordSpec {
           loc.exists(_.startsWith("CantonErrorTest")) shouldBe true
         },
       )
-
     }
 
     "ship the context as part of the status and support decoding from exceptions" in {
       val err = loggerFactory.suppressErrors(MyError("testArg"))
 
-      val status = DecodedRpcStatus.fromStatusRuntimeException(err.asGrpcError).value
+      val status = DecodedCantonError.fromStatusRuntimeException(err.asGrpcError).value
 
       status.retryIn should not be empty
       status.context("arg") shouldBe "testArg"
-      status.id shouldBe MyCode.id
-      status.category shouldBe MyCode.category
+      status.code.id shouldBe MyCode.id
+      status.code.category shouldBe MyCode.category
 
     }
 

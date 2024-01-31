@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.server
@@ -20,7 +20,6 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import io.grpc.protobuf.services.ProtoReflectionService
 
-import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutorService
 
 /** Creates a dynamic public domain server to which domain services can be added at a later time,
@@ -33,8 +32,7 @@ class DynamicDomainGrpcServer(
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    @nowarn("cat=deprecation")
-    metrics: MetricHandle.MetricsFactory,
+    metrics: MetricHandle.LabeledMetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
     domainHealthService: HealthService,

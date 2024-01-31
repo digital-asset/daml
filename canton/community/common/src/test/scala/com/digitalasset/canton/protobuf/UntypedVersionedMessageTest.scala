@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protobuf
@@ -77,8 +77,8 @@ object UntypedVersionedMessageTest {
 
   object Message extends HasVersionedMessageCompanion[Message] {
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> ProtoCodec(
-        ProtocolVersion.v3,
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v30,
         supportedProtoVersion(DummyMessage)(fromProtoV0),
         _.toProtoV0.toByteString,
       )

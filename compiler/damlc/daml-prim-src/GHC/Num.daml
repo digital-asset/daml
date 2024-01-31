@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -144,41 +144,8 @@ instance Signed Int where
 instance Divisible Int where
     (/) = primitive @"BEDivInt64"
 
-#ifndef DAML_NAT_TYPE_ERASURE
-
-#define NUMERIC_LIT(n) (primitive @"BECastNumericLegacy" ((n) : Numeric 10))
-
-instance Additive (Numeric n) where
-    (+) = primitive @"BEAddNumeric"
-    (-) = primitive @"BESubNumeric"
-    negate x = aunit - x
-    aunit = NUMERIC_LIT(0.0)
-
-instance Multiplicative (Numeric n) where
-    (*) = primitive @"BEMulNumericLegacy"
-    munit = NUMERIC_LIT(1.0)
-    x ^ n
-        | n == 0 = munit
-        | n == 2 = x * x
-        | n < 0 = munit / x ^ (negate n)
-        | n % 2 == 0 = (x ^ (n / 2)) ^ 2
-        | otherwise = x * x ^ (n - 1)
-
-instance Number (Numeric n)
-
-instance Signed (Numeric n) where
-    signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
-    abs x = if x <= aunit then negate x else x
-
-instance Divisible (Numeric n) where
-    (/) = primitive @"BEDivNumericLegacy"
-
-instance Fractional (Numeric n)
-
-#else 
-
 instance NumericScale n => Additive (Numeric n) where
-    (+) = primitive @"BEAddNumeric" 
+    (+) = primitive @"BEAddNumeric"
     (-) = primitive @"BESubNumeric"
     negate x = aunit - x
     aunit = munit - munit
@@ -203,8 +170,6 @@ instance NumericScale n => Divisible (Numeric n) where
     (/) = primitive @"BEDivNumeric" (numericOne @n)
 
 instance NumericScale n => Fractional (Numeric n)
-    
-#endif
 
 #ifdef DAML_BIGNUMERIC
 

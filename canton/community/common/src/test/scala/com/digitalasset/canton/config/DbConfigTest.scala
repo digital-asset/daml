@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -60,15 +60,23 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
     "Add default values to postgres config" in {
       DbConfig
         .configWithFallback(config)(
-          config.numReadConnectionsCanton(forParticipant = true),
+          config.numReadConnectionsCanton(
+            forParticipant = true,
+            withWriteConnectionPool = false,
+            withMainConnection = false,
+          ),
           "poolName",
           logger,
-        ) shouldBe pgExpectedConfig(Math.max(1, numThreads / 2))
+        ) shouldBe pgExpectedConfig(numThreads)
     }
 
     "Adjust the number of threads for replicated participants" in {
       DbConfig.configWithFallback(config)(
-        config.numReadConnectionsCanton(forParticipant = true),
+        config.numReadConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = true,
+          withMainConnection = false,
+        ),
         "poolName",
         logger,
       ) shouldBe pgExpectedConfig(Math.max(1, numThreads / 2))
@@ -76,7 +84,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
 
     "Adjust the number of threads for replicated participants write connection pool" in {
       DbConfig.configWithFallback(config)(
-        config.numWriteConnectionsCanton(forParticipant = true),
+        config.numWriteConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = true,
+          withMainConnection = true,
+        ),
         "poolName",
         logger,
       ) shouldBe pgExpectedConfig(Math.max(1, numThreads / 2 - 1))
@@ -84,7 +96,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
 
     "Add default values to H2 config and enforced options" in {
       DbConfig.configWithFallback(h2ConfigWithRequiredOptions)(
-        config.numReadConnectionsCanton(forParticipant = true),
+        config.numReadConnectionsCanton(
+          forParticipant = true,
+          withWriteConnectionPool = false,
+          withMainConnection = false,
+        ),
         "poolName",
         logger,
       ) shouldBe
@@ -102,7 +118,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
 
       loggerFactory.suppressWarningsAndErrors(
         DbConfig.configWithFallback(h2ConfigWithoutRequiredOptions)(
-          config.numReadConnectionsCanton(forParticipant = true),
+          config.numReadConnectionsCanton(
+            forParticipant = true,
+            withWriteConnectionPool = false,
+            withMainConnection = false,
+          ),
           "poolName",
           logger,
         ) shouldBe

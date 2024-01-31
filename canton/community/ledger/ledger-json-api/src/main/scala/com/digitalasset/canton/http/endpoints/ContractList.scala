@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.endpoints
@@ -14,7 +14,6 @@ import com.digitalasset.canton.http.domain.JwtPayload
 import com.digitalasset.canton.http.json.*
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.http.util.toLedgerId
 import com.digitalasset.canton.http.util.JwtParties.*
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -68,7 +67,7 @@ private[http] final class ContractList(
               .flatMap(
                 _.traverseLocator(
                   decoder
-                    .decodeContractLocatorKey(_, jwt, toLedgerId(jwtPayload.ledgerId))
+                    .decodeContractLocatorKey(_, jwt)
                     .liftErr(InvalidUserInput)
                 )
               ): ET[domain.FetchRequest[LfValue]]

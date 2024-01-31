@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.common.domain
@@ -11,7 +11,7 @@ import com.digitalasset.canton.common.domain.SequencerConnectClient.{
 }
 import com.digitalasset.canton.common.domain.grpc.GrpcSequencerConnectClient
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
@@ -27,9 +27,17 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, Error, DomainClientBootstrapInfo]
 
-  def getDomainParameters(domainAlias: DomainAlias)(implicit
+  /** @param domainIdentifier Used for logging purpose
+    */
+  def getDomainParameters(domainIdentifier: String)(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, StaticDomainParameters]
+
+  /** @param domainIdentifier Used for logging purpose
+    */
+  def getDomainId(domainIdentifier: String)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, DomainId]
 
   def handshake(
       domainAlias: DomainAlias,
@@ -43,17 +51,14 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, Error, Boolean]
 
-  def getAgreement(domainId: DomainId)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, Error, Option[ServiceAgreement]]
-
   protected def handleVerifyActiveResponse(
-      response: v0.SequencerConnect.VerifyActive.Response
+      response: v30.SequencerConnect.VerifyActive.Response
   ): Either[Error, Boolean] = response.value match {
-    case v0.SequencerConnect.VerifyActive.Response.Value.Success(success) => Right(success.isActive)
-    case v0.SequencerConnect.VerifyActive.Response.Value.Failure(failure) =>
+    case v30.SequencerConnect.VerifyActive.Response.Value.Success(success) =>
+      Right(success.isActive)
+    case v30.SequencerConnect.VerifyActive.Response.Value.Failure(failure) =>
       Left(Error.DeserializationFailure(failure.reason))
-    case v0.SequencerConnect.VerifyActive.Response.Value.Empty =>
+    case v30.SequencerConnect.VerifyActive.Response.Value.Empty =>
       Left(Error.InvalidResponse("Missing response from VerifyActive"))
   }
 }

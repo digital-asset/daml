@@ -2,16 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
+load("//bazel_tools:testing.bzl", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_example_dar",
     "daml_script_example_test",
-)
-load(
-    "//bazel_tools/daml_trigger:daml_trigger.bzl",
-    "daml_trigger_dar",
-    "daml_trigger_test",
 )
 load(
     "//bazel_tools/data_dependencies:data_dependencies.bzl",
@@ -23,14 +18,35 @@ load("//bazel_tools:versions.bzl", "versions")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
 
+# This dummy tests ensure that bazel won't fail with "No test targets were
+# found, yet testing was requested" when no target matches the test filter.
+genrule(
+    name = "dummy_test",
+    outs = ["dummy_test_result.sh"],
+    cmd = "touch $(OUTS)",
+)
+
+[
+    sh_test(
+        name = "dummy_test_sh{}".format(suffix),
+        srcs = ["dummy_test_result.sh"],
+        tags = tags,
+    )
+    for (tags, suffix) in [
+        (
+            ["head-quick"],
+            "_head_quick",
+        ),
+        ([], ""),
+    ]
+]
+
 config_setting(
     name = "ghci_data",
     define_values = {
         "ghci_data": "True",
     },
 )
-
-last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
 
 [
     sh_test(
@@ -44,16 +60,8 @@ last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for sdk_version in sdk_versions
-    if versions.is_at_least("2.7.6", sdk_version)
+    if versions.is_at_least("3.0.0", sdk_version)
 ] if not is_windows else None
-
-[
-    [
-        create_daml_app_dar(sdk_version),
-        create_daml_app_codegen(sdk_version),
-    ]
-    for sdk_version in sdk_versions
-]
 
 # Instead of testing the full cartesian product of all SDK versions with
 # all platform (~= Sandbox/JSON API) versions, we test the latest version of
@@ -103,29 +111,6 @@ head = "0.0.0"
     if versions.is_at_least(sdk_version, platform_version)
 ] if not is_windows else None
 
-# Change to `CommandId` generation
-first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
-
-[
-    daml_trigger_dar(sdk_version)
-    for sdk_version in sdk_versions
-    if versions.is_at_least(first_post_7587_trigger_version, sdk_version)
-]
-
-[
-    daml_trigger_test(
-        compiler_version = sdk_version,
-        runner_version = platform_version,
-    )
-    for sdk_version in sdk_versions
-    for platform_version in platform_versions
-    # Test that the Daml trigger runner can run DARs built with an older SDK
-    # version. I.e. where the runner version is at least the SDK version or
-    # more recent.
-    if versions.is_at_least(first_post_7587_trigger_version, sdk_version) and
-       versions.is_at_least(sdk_version, platform_version)
-]
-
 [
     data_dependencies_coins(
         sdk_version = sdk_version,
@@ -157,30 +142,22 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
     if old_sdk_version != "0.0.0"
     # These tests use data-dependency reexports (#11147), so the earliest
     # supported SDK is 1.18.0
-    if versions.is_at_least("1.18.0", old_sdk_version)
+    if versions.is_at_least("3.0.0", old_sdk_version)
 ]
 
 os_name = "linux" if not is_windows else "windows"
 
 command_targets = {
     "install_from_version": [
-        "2.8.0-snapshot.20231109.2",
         "0.0.0",
-        "latest",
-        "2.7.1",
     ],
     "build_from_version": [
-        "2.8.0-snapshot.20231109.2",
-        "2.7.1",
         "0.0.0",
     ],
     "install_with_custom_version_and_build": [
         "0.0.0",
     ],
     "install_and_build_from_tarball": [
-        "v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-{}.tar.gz".format(os_name),
-        "v2.7.5/daml-sdk-2.7.5-{}.tar.gz".format(os_name),
-        "v2.7.1/daml-sdk-2.7.1-{}.tar.gz".format(os_name),
     ],
 }
 
@@ -223,10 +200,6 @@ command_post_failure_behaviours = {
             ":new_cache",
             ":old_cache",
             ":releases-github-api.json",
-            "@daml-sdk-2.7.1-tarball//file",
-            "@daml-sdk-2.7.4-tarball//file",
-            "@daml-sdk-2.7.5-tarball//file",
-            "@daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball//file",
             "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
         ],

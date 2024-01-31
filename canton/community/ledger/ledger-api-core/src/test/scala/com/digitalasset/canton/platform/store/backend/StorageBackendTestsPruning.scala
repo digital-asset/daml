@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -324,13 +324,6 @@ private[backend] trait StorageBackendTestsPruning
       contractId = contract2_id,
       signatory = divulgee,
     )
-    val contract1_retroactiveDivulgence =
-      dtoDivulgence(
-        offset = Some(offset(3)),
-        eventSequentialId = 3L,
-        contractId = contract1_id,
-        divulgee = partyName,
-      )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest
     executeSql(
@@ -338,7 +331,6 @@ private[backend] trait StorageBackendTestsPruning
         Vector(
           contract1_immediateDivulgence,
           partyEntry,
-          contract1_retroactiveDivulgence,
           contract2_createWithLocalStakeholder,
         ),
         _,
@@ -348,34 +340,22 @@ private[backend] trait StorageBackendTestsPruning
       updateLedgerEnd(offset(4), 4L)
     )
     assertIndexDbDataSql(
-      create = Vector(EventCreate(1), EventCreate(2)),
-      divulgence = Vector(EventDivulgence(3)),
+      create = Vector(EventCreate(1), EventCreate(2))
     )
     pruneEventsSql(offset(3), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
-      create = Vector(EventCreate(2)),
-      // Immediate divulgence for contract2 occurred after the associated party became locally hosted
-      // so it is not pruned
-      divulgence = Vector.empty,
+      create = Vector(EventCreate(2))
     )
   }
 
   it should "only prune retroactively divulged contracts if there exists an associated consuming exercise (if pruneAllDivulgedContracts is not set)" in {
     val signatory = "signatory"
-    val divulgee = Ref.Party.assertFromString("party")
     val contract1_id = hashCid("#1")
-    val contract2_id = hashCid("#2")
     val contract1_create = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = contract1_id,
       signatory = signatory,
-    )
-    val contract1_divulgence = dtoDivulgence(
-      offset = Some(offset(2)),
-      eventSequentialId = 2L,
-      contractId = contract1_id,
-      divulgee = "party",
     )
     val contract1_consumingExercise = dtoExercise(
       offset = offset(3),
@@ -383,21 +363,13 @@ private[backend] trait StorageBackendTestsPruning
       consuming = true,
       contractId = contract1_id,
     )
-    val contract2_divulgence = dtoDivulgence(
-      offset = Some(offset(4)),
-      eventSequentialId = 4L,
-      contractId = contract2_id,
-      divulgee = divulgee,
-    )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest
     executeSql(
       ingest(
         Vector(
           contract1_create,
-          contract1_divulgence,
           contract1_consumingExercise,
-          contract2_divulgence,
         ),
         _,
       )
@@ -410,22 +382,12 @@ private[backend] trait StorageBackendTestsPruning
       // Contract 1 appears as active tu `divulgee` before pruning
       create = Seq(EventCreate(1)),
       consuming = Seq(EventConsuming(3)),
-      divulgence = Seq(
-        EventDivulgence(2),
-        // Contract 2 appears as active tu `divulgee` before pruning
-        EventDivulgence(4),
-      ),
     )
     pruneEventsSql(offset(4), pruneAllDivulgedContracts = false)
     assertIndexDbDataSql(
       // Contract 1 should not be visible anymore to `divulgee` after pruning
       create = Seq.empty,
       consuming = Seq.empty,
-      divulgence = Seq(
-        // Contract 2 did not have a locally stored exercise event
-        // hence its divulgence is not pruned - appears active to `divulgee`
-        EventDivulgence(4)
-      ),
     )
   }
 
@@ -457,7 +419,6 @@ private[backend] trait StorageBackendTestsPruning
       consumingFilterNonStakeholder: Seq[FilterConsumingNonStakeholder] = Seq.empty,
       nonConsuming: Seq[EventNonConsuming] = Seq.empty,
       nonConsumingFilter: Seq[FilterNonConsuming] = Seq.empty,
-      divulgence: Seq[EventDivulgence] = Seq.empty,
       txMeta: Seq[TxMeta] = Seq.empty,
       completion: Seq[Completion] = Seq.empty,
   ): Assertion = executeSql { implicit c =>
@@ -479,7 +440,6 @@ private[backend] trait StorageBackendTestsPruning
     cp(Statement.discard(queries.eventNonConsuming shouldBe nonConsuming))
     cp(Statement.discard(queries.filterNonConsuming shouldBe nonConsumingFilter))
     // other
-    cp(Statement.discard(queries.eventDivulgence shouldBe divulgence))
     cp(Statement.discard(queries.txMeta shouldBe txMeta))
     cp(Statement.discard(queries.completions shouldBe completion))
     cp.reportAll()

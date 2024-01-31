@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
@@ -33,9 +33,9 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
     optTs.map(Recipients(_))
   }
 
-  def toProtoV0: v0.Recipients = {
-    val protoTrees = trees.map(_.toProtoV0)
-    new v0.Recipients(protoTrees.toList)
+  def toProtoV30: v30.Recipients = {
+    val protoTrees = trees.map(_.toProtoV30)
+    new v30.Recipients(protoTrees.toList)
   }
 
   override def pretty: Pretty[Recipients.this.type] =
@@ -58,13 +58,13 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
 
 object Recipients {
 
-  def fromProtoV0(
-      proto: v0.Recipients,
+  def fromProtoV30(
+      proto: v30.Recipients,
       supportGroupAddressing: Boolean,
   ): ParsingResult[Recipients] = {
     for {
       trees <- proto.recipientsTree.traverse(t =>
-        RecipientsTree.fromProtoV0(t, supportGroupAddressing)
+        RecipientsTree.fromProtoV30(t, supportGroupAddressing)
       )
       recipients <- NonEmpty
         .from(trees)

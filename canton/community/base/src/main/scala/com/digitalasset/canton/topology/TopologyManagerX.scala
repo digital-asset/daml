@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -13,7 +13,9 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
@@ -23,9 +25,8 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.SimpleExecutionQueue
+import com.digitalasset.canton.util.{MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +62,7 @@ class DomainTopologyManagerX(
       Some(outboxQueue),
       enableTopologyTransactionValidation,
       new ValidatingTopologyMappingXChecks(store, loggerFactory),
-      crypto,
+      crypto.pureCrypto,
       loggerFactory,
     )
 
@@ -94,7 +95,7 @@ class AuthorizedTopologyManagerX(
       None,
       enableTopologyTransactionValidation,
       NoopTopologyMappingXChecks,
-      crypto,
+      crypto.pureCrypto,
       loggerFactory,
     )
 
@@ -133,7 +134,9 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
   def addObserver(observer: TopologyManagerObserver): Unit =
     observers.updateAndGet(_ :+ observer).discard
 
-  @VisibleForTesting
+  def removeObserver(observer: TopologyManagerObserver): Unit =
+    observers.updateAndGet(_.filterNot(_ == observer)).discard
+
   def clearObservers(): Unit = observers.set(Seq.empty)
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
@@ -191,7 +194,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
     for {
       transactionsForHash <- EitherT
         .right[TopologyManagerError](
-          store.findTransactionsByTxHash(effective, NonEmpty(Set, transactionHash))
+          store.findTransactionsByTxHash(effective, Set(transactionHash))
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       existingTransaction <-
@@ -317,7 +320,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
           // TODO(#12945) get signing keys for transaction.
           EitherT.leftT(
             TopologyManagerError.InternalError.ImplementMe(
-              "Automatic signing key lookup not yet implemented. Please specify a signing explicitly."
+              "Automatic signing key lookup not yet implemented. Please specify a signing key explicitly."
             )
           )
       }): EitherT[Future, TopologyManagerError, NonEmpty[Set[Fingerprint]]]
@@ -384,29 +387,116 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
       {
         val ts = timestampForValidation()
         for {
-          // validate incrementally and apply to in-memory state
-          _ <- processor
-            .validateAndApplyAuthorization(
-              SequencedTime(ts),
-              EffectiveTime(ts),
-              transactions,
-              abortIfCascading = !force,
-              expectFullAuthorization,
+          _ <- MonadUtil.sequentialTraverse_(transactions)(transactionIsNotDangerous(_, force))
+          transactionsInStore <- EitherT.liftF(
+            store.findTransactionsByTxHash(
+              EffectiveTime.MaxValue,
+              transactions.map(_.transaction.hash).toSet,
             )
-            .leftMap { res =>
-              // a "duplicate rejection" is not a reason to report an error as it's just a no-op
-              res.flatMap(_.nonDuplicateRejectionReason).headOption match {
-                case Some(rejection) => rejection.toTopologyManagerError
-                case None =>
-                  TopologyManagerError.InternalError
-                    .Other("Topology transaction validation failed but there are no rejections")
-              }
+          )
+          existingHashes = transactionsInStore
+            .map(tx => tx.transaction.hash -> tx.hashOfSignatures)
+            .toMap
+          (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(
+            tx => existingHashes.get(tx.transaction.hash).contains(tx.hashOfSignatures)
+          )
+          _ = logger.debug(
+            s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"
+          )
+          _ = if (existingTransactions.nonEmpty) {
+            logger.debug(
+              s"Ignoring existing transactions: $existingTransactions"
+            )
+          }
+
+          _ <-
+            if (newTransactionsOrAdditionalSignatures.isEmpty)
+              EitherT.pure[Future, TopologyManagerError](())
+            else {
+              // validate incrementally and apply to in-memory state
+              processor
+                .validateAndApplyAuthorization(
+                  SequencedTime(ts),
+                  EffectiveTime(ts),
+                  newTransactionsOrAdditionalSignatures,
+                  abortIfCascading = !force,
+                  expectFullAuthorization,
+                )
+                .leftFlatMap(rejectedTransactions =>
+                  // a "duplicate rejection" is not a reason to report an error as it's just a no-op
+                  EitherT.fromEither[Future](
+                    rejectedTransactions
+                      .flatMap(_.nonDuplicateRejectionReason)
+                      .headOption
+                      .map(_.toTopologyManagerError)
+                      // if the only rejections where duplicates (i.e. headOption returns None),
+                      // we filter them out and proceed with all other validated transactions, because the
+                      // TopologyStateProcessor will have treated them as such as well.
+                      // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
+                      .toLeft(rejectedTransactions.filter(tx => tx.rejectionReason.isEmpty))
+                  )
+                )
+                .map { acceptedTransactions =>
+                  notifyObservers(ts, acceptedTransactions.map(_.transaction))
+                }
             }
-          _ <- EitherT.right(notifyObservers(ts, transactions))
         } yield ()
       },
       "add-topology-transaction",
     )
+
+  private def transactionIsNotDangerous(
+      transaction: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
+      force: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TopologyManagerError, Unit] = transaction.mapping match {
+    case DomainParametersStateX(domainId, newDomainParameters) =>
+      checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, force)
+    case _ => EitherT.rightT(())
+  }
+
+  private def checkLedgerTimeRecordTimeToleranceNotIncreasing(
+      domainId: DomainId,
+      newDomainParameters: DynamicDomainParameters,
+      force: Boolean,
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] = {
+    // See i9028 for a detailed design.
+
+    EitherT(for {
+      headTransactions <- store.findPositiveTransactions(
+        asOf = CantonTimestamp.MaxValue,
+        asOfInclusive = false,
+        isProposal = false,
+        types = Seq(DomainParametersStateX.code),
+        filterUid = Some(Seq(domainId.uid)),
+        filterNamespace = None,
+      )
+    } yield {
+      headTransactions.toTopologyState
+        .collectFirst { case DomainParametersStateX(_, previousParameters) =>
+          previousParameters
+        } match {
+        case None => Right(())
+        case Some(domainParameters) =>
+          val changeIsDangerous =
+            newDomainParameters.ledgerTimeRecordTimeTolerance > domainParameters.ledgerTimeRecordTimeTolerance
+          if (changeIsDangerous && force) {
+            logger.info(
+              s"Forcing dangerous increase of ledger time record time tolerance from ${domainParameters.ledgerTimeRecordTimeTolerance} to ${newDomainParameters.ledgerTimeRecordTimeTolerance}"
+            )
+          }
+          Either.cond(
+            !changeIsDangerous || force,
+            (),
+            IncreaseOfLedgerTimeRecordTimeTolerance.TemporarilyInsecure(
+              domainParameters.ledgerTimeRecordTimeTolerance,
+              newDomainParameters.ledgerTimeRecordTimeTolerance,
+            ),
+          )
+      }
+    })
+  }
 
   /** notify observers about new transactions about to be stored */
   protected def notifyObservers(

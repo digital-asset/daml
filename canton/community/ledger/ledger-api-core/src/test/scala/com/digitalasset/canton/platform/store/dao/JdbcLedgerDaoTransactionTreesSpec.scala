@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -11,8 +11,8 @@ import com.daml.lf.transaction.{Node, NodeId}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.ApiOffset
-import com.digitalasset.canton.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
+import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.*

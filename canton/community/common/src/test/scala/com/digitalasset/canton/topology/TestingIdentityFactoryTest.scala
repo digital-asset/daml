@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -113,7 +113,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       }
 
       def checkDomainKeys(did: UniqueIdentifier, expectedLength: Int): Unit = {
-        Seq[KeyOwner](MediatorId(did), DomainTopologyManagerId(did), SequencerId(did)).foreach(
+        Seq[Member](MediatorId(did), DomainTopologyManagerId(did), SequencerId(did)).foreach(
           member =>
             p1.currentSnapshotApproximation.ipsSnapshot
               .signingKeys(member)

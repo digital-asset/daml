@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,12 +7,10 @@ import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersion,
   AuthenticatedContractIdVersionV2,
   CantonContractIdVersion,
   ContractMetadata,
   LfContractId,
-  NonAuthenticatedContractIdVersion,
   SerializableContract,
   SerializableRawContractInstance,
   UnicumGenerator,
@@ -21,7 +19,7 @@ import com.digitalasset.canton.protocol.{
 trait SerializableContractAuthenticator {
 
   /** Authenticates the contract payload and metadata (consisted of ledger create time, contract instance and
-    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersion]] format.
+    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV2]] format.
     *
     * @param contract the serializable contract
     */
@@ -76,7 +74,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
     val ContractId.V1(_discriminator, cantonContractSuffix) = contractId
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
-      case Right(AuthenticatedContractIdVersionV2) | Right(AuthenticatedContractIdVersion) =>
+      case Right(AuthenticatedContractIdVersionV2) =>
         for {
           contractIdVersion <- optContractIdVersion
           salt <- contractSalt.toRight(
@@ -99,8 +97,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
         } yield ()
       // Future upgrades to the contract id scheme must also be supported
       // - hence we treat non-recognized contract id schemes as non-authenticated contract ids.
-      case Left(_) | Right(NonAuthenticatedContractIdVersion) =>
-        Right(())
+      case Left(_) => Right(())
     }
   }
 }

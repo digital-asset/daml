@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.transfer
@@ -53,7 +53,7 @@ class TransferInValidationTest
   )
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -150,7 +150,6 @@ class TransferInValidationTest
         seed,
         uuid,
       )
-      .value
     val transferData =
       TransferData(
         SourceProtocolVersion(testedProtocolVersion),
@@ -239,23 +238,19 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (testedProtocolVersion < ProtocolVersion.CNTestNet) {
-          result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
-        } else {
-          result shouldBe Left(
-            InconsistentTransferCounter(
-              transferId,
-              inRequestWithWrongCounter.transferCounter,
-              transferData.transferCounter,
-            )
+        result shouldBe Left(
+          InconsistentTransferCounter(
+            transferId,
+            inRequestWithWrongCounter.transferCounter,
+            transferData.transferCounter,
           )
-        }
+        )
       }
     }
 
     "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
       val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.CNTestNet))
+        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v30))
       for {
         result <-
           transferInValidation
@@ -268,7 +263,7 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.CNTestNet) {
+        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v30) {
           result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
         } else {
           result shouldBe Left(
@@ -303,7 +298,6 @@ class TransferInValidationTest
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
-      TargetProtocolVersion(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )
   }

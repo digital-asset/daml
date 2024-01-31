@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data;
@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.*;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class DamlRecord extends Value {
+public final class DamlRecord extends Value {
 
   private final Optional<Identifier> recordId;
 
@@ -120,7 +120,7 @@ public class DamlRecord extends Value {
     return Objects.hash(recordId, fields);
   }
 
-  public static class Field {
+  public static final class Field {
 
     private final Optional<String> label;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -223,33 +223,6 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  /** A single divulgence event
-    */
-  def dtoDivulgence(
-      offset: Option[Offset],
-      eventSequentialId: Long,
-      contractId: ContractId,
-      submitter: String = "signatory",
-      divulgee: String = "divulgee",
-      commandId: String = UUID.randomUUID().toString,
-      domainId: Option[String] = None,
-  ): DbDto.EventDivulgence = {
-    DbDto.EventDivulgence(
-      event_offset = offset.map(_.toHexString),
-      command_id = Some(commandId),
-      workflow_id = Some("workflow_id"),
-      application_id = Some(someApplicationId),
-      submitters = Some(Set(submitter)),
-      contract_id = contractId.coid,
-      template_id = Some(someTemplateId.toString),
-      tree_event_witnesses = Set(divulgee),
-      create_argument = Some(someSerializedDamlLfValue),
-      create_argument_compression = None,
-      event_sequential_id = eventSequentialId,
-      domain_id = domainId,
-    )
-  }
-
   def dtoAssign(
       offset: Offset,
       eventSequentialId: Long,
@@ -405,7 +378,6 @@ private[store] object StorageBackendTestValues {
     dto match {
       case e: DbDto.EventCreate => Ref.ApplicationId.assertFromString(e.application_id.get)
       case e: DbDto.EventExercise => Ref.ApplicationId.assertFromString(e.application_id.get)
-      case e: DbDto.EventDivulgence => Ref.ApplicationId.assertFromString(e.application_id.get)
       case e: DbDto.CommandCompletion => Ref.ApplicationId.assertFromString(e.application_id)
       case _ => sys.error(s"$dto does not have an application id")
     }

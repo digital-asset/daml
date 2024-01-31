@@ -1,9 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.digitalasset.canton.pruning.admin.v0
+import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.{config, participant, scheduler}
 
@@ -14,7 +14,7 @@ final case class PruningSchedule(
 )
 
 object PruningSchedule {
-  private[admin] def fromProtoV0(scheduleP: v0.PruningSchedule): ParsingResult[PruningSchedule] =
+  private[admin] def fromProtoV0(scheduleP: v30.PruningSchedule): ParsingResult[PruningSchedule] =
     for {
       maxDuration <- config.PositiveDurationSeconds.fromProtoPrimitiveO("max_duration")(
         scheduleP.maxDuration
@@ -40,11 +40,11 @@ final case class ParticipantPruningSchedule(
 )
 
 object ParticipantPruningSchedule {
-  private[admin] def fromProtoV0(
-      participantSchedule: v0.ParticipantPruningSchedule
+  private[admin] def fromProtoV30(
+      participantSchedule: v30.ParticipantPruningSchedule
   ): ParsingResult[ParticipantPruningSchedule] =
     for {
-      internalSchedule <- participant.scheduler.ParticipantPruningSchedule.fromProtoV0(
+      internalSchedule <- participant.scheduler.ParticipantPruningSchedule.fromProtoV30(
         participantSchedule
       )
     } yield ParticipantPruningSchedule(

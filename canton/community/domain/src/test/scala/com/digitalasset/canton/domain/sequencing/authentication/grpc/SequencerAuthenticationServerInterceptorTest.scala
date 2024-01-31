@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.authentication.grpc
@@ -67,7 +67,6 @@ class SequencerAuthenticationServerInterceptorTest
       domainId,
       null,
       store,
-      None,
       new SimClock(loggerFactory = loggerFactory),
       JDuration.ofMinutes(1),
       JDuration.ofHours(1),

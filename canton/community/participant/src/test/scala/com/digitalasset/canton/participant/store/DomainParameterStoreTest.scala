@@ -1,15 +1,22 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DomainParameterStoreTest { this: AsyncWordSpec with BaseTest =>
+trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
 
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domainId::domainId"))
+  private val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domainId::domainId"))
+
+  private def anotherProtocolVersion(testedProtocolVersion: ProtocolVersion): ProtocolVersion =
+    if (testedProtocolVersion.isDev)
+      ProtocolVersion.minimum
+    else
+      ProtocolVersion.dev
 
   def domainParameterStore(mk: DomainId => DomainParameterStore): Unit = {
 
@@ -27,7 +34,10 @@ trait DomainParameterStoreTest { this: AsyncWordSpec with BaseTest =>
 
       "be idempotent" in {
         val store = mk(domainId)
-        val params = BaseTest.defaultStaticDomainParametersWith(uniqueContractKeys = true)
+        val params =
+          BaseTest.defaultStaticDomainParametersWith(protocolVersion =
+            anotherProtocolVersion(testedProtocolVersion)
+          )
         for {
           _ <- store.setParameters(params)
           _ <- store.setParameters(params)
@@ -40,7 +50,10 @@ trait DomainParameterStoreTest { this: AsyncWordSpec with BaseTest =>
       "not overwrite changed domain parameters" in {
         val store = mk(domainId)
         val params = defaultStaticDomainParameters
-        val modified = BaseTest.defaultStaticDomainParametersWith(uniqueContractKeys = true)
+        val modified =
+          BaseTest.defaultStaticDomainParametersWith(protocolVersion =
+            anotherProtocolVersion(testedProtocolVersion)
+          )
         for {
           _ <- store.setParameters(params)
           ex <- store.setParameters(modified).failed

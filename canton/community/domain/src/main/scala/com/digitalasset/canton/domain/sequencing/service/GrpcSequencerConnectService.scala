@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -6,14 +6,12 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameters.Response.Parameters
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.{GetDomainId, GetDomainParameters}
-import com.digitalasset.canton.domain.api.v0 as proto
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParameters.Response.Parameters
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.{GetDomainId, GetDomainParameters}
+import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
-import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.protocol.v0.ServiceAgreement as protoServiceAgreement
 import com.digitalasset.canton.sequencing.protocol.VerifyActiveResponse
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -28,7 +26,6 @@ class GrpcSequencerConnectService(
     sequencerId: SequencerId,
     staticDomainParameters: StaticDomainParameters,
     cryptoApi: DomainSyncCryptoClient,
-    agreementManager: Option[ServiceAgreementManager],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService
@@ -50,9 +47,7 @@ class GrpcSequencerConnectService(
       request: GetDomainParameters.Request
   ): Future[GetDomainParameters.Response] = {
     val response = staticDomainParameters.protoVersion.v match {
-      case 0 => Future.successful(Parameters.ParametersV0(staticDomainParameters.toProtoV0))
-      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV1))
-      case 2 => Future.successful(Parameters.ParametersV2(staticDomainParameters.toProtoV2))
+      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
       case unsupported =>
         Future.failed(
           new IllegalStateException(
@@ -62,19 +57,6 @@ class GrpcSequencerConnectService(
     }
 
     response.map(GetDomainParameters.Response(_))
-  }
-
-  override def getServiceAgreement(
-      request: proto.GetServiceAgreementRequest
-  ): Future[proto.GetServiceAgreementResponse] = {
-    val agreement =
-      agreementManager.map(manager =>
-        protoServiceAgreement(
-          manager.agreement.id.toProtoPrimitive,
-          manager.agreement.text.toProtoPrimitive,
-        )
-      )
-    Future.successful(proto.GetServiceAgreementResponse(agreement))
   }
 
   def verifyActive(

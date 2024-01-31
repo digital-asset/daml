@@ -1,8 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
 
+import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, ConcurrentHMap}
@@ -22,7 +23,6 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.PendingReq
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.{DiscardOps, RequestCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -38,7 +38,6 @@ import scala.util.{Failure, Success}
   * After this point the request is cleaned from memory, otherwise, the synchronizer becomes a memory leak.
   */
 class Phase37Synchronizer(
-    initRc: RequestCounter,
     override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,

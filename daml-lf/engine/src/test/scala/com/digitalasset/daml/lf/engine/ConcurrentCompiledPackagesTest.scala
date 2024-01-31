@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,8 +12,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ConcurrentCompiledPackagesTestV1
-    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V1)
 class ConcurrentCompiledPackagesTestV2
     extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
 
@@ -59,9 +57,8 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     "not load of a package with disallowed language version" in {
       val packages = new ConcurrentCompiledPackages(
-        // V1.legacyVersions are disallowed in both v1 and v2
         Compiler.Config
-          .Default(LanguageMajorVersion.V1)
+          .Default(LanguageMajorVersion.V2)
           .copy(allowedLanguageVersions = LanguageVersion.LegacyVersions)
       )
 

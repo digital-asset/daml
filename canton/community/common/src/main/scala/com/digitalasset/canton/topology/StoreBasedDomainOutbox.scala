@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -11,6 +11,7 @@ import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandleCommon,
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
+import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyXConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -70,6 +71,7 @@ class StoreBasedDomainOutbox(
     crypto: Crypto,
     // TODO(#9270) clean up how we parameterize our nodes
     batchSize: Int = 100,
+    futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
     extends StoreBasedDomainOutboxCommon[
       GenericSignedTopologyTransaction,
@@ -89,6 +91,7 @@ class StoreBasedDomainOutbox(
       loggerFactory,
       crypto,
       syncTransactionAfterDispatch = false,
+      futureSupervisor,
     )
     with DomainOutboxDispatchHelperOld {
   override protected def awaitTransactionObserved(
@@ -96,7 +99,9 @@ class StoreBasedDomainOutbox(
       transaction: GenericSignedTopologyTransaction,
       timeout: Duration,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
-    TopologyStore.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    supervisedUS(s"Waiting for transaction $transaction to be observed")(
+      TopologyStore.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    )
 
   override protected def findPendingTransactions(
       watermarks: Watermarks
@@ -140,6 +145,7 @@ class StoreBasedDomainOutboxX(
     crypto: Crypto,
     batchSize: Int = 100,
     maybeObserverCloseable: Option[AutoCloseable] = None,
+    futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
     extends StoreBasedDomainOutboxCommon[
       GenericSignedTopologyTransactionX,
@@ -159,6 +165,7 @@ class StoreBasedDomainOutboxX(
       loggerFactory,
       crypto,
       syncTransactionAfterDispatch = true,
+      futureSupervisor = futureSupervisor,
     )
     with StoreBasedDomainOutboxDispatchHelperX {
   override protected def awaitTransactionObserved(
@@ -166,7 +173,9 @@ class StoreBasedDomainOutboxX(
       transaction: GenericSignedTopologyTransactionX,
       timeout: Duration,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
-    TopologyStoreX.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    supervisedUS(s"Waiting for transaction $transaction to be observed")(
+      TopologyStoreX.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    )
 
   override protected def findPendingTransactions(watermarks: Watermarks)(implicit
       traceContext: TraceContext
@@ -228,9 +237,11 @@ abstract class StoreBasedDomainOutboxCommon[
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: Crypto,
     syncTransactionAfterDispatch: Boolean,
-)(implicit val ec: ExecutionContext)
+    override protected val futureSupervisor: FutureSupervisor,
+)(implicit override protected val executionContext: ExecutionContext)
     extends DomainOutboxCommon
-    with DomainOutboxDispatch[TX, State, H, DTS] {
+    with DomainOutboxDispatch[TX, State, H, DTS]
+    with HasFutureSupervision {
   this: DomainOutboxDispatchStoreSpecific[TX, State] =>
 
   def handle: H
@@ -549,6 +560,7 @@ class DomainOutboxXFactory(
     crypto: Crypto,
     topologyXConfig: TopologyXConfig,
     timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -600,6 +612,7 @@ class DomainOutboxXFactory(
       maybeObserverCloseable = new AutoCloseable {
         override def close(): Unit = authorizedObserver.removeObserver()
       }.some,
+      futureSupervisor = futureSupervisor,
     )
     authorizedObserver.addObserver(storeBasedDomainOutbox)
 
@@ -663,6 +676,7 @@ class DomainOutboxXFactorySingleCreate(
     crypto: Crypto,
     topologyXConfig: TopologyXConfig,
     override val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 ) extends DomainOutboxXFactory(
       domainId,
@@ -672,6 +686,7 @@ class DomainOutboxXFactorySingleCreate(
       crypto,
       topologyXConfig,
       timeouts,
+      futureSupervisor,
       loggerFactory,
     )
     with FlagCloseable {

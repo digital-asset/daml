@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,13 @@ package ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{
+  IdentityProviderId,
+  ObjectMeta,
+  PartyDetails,
+  User,
+  UserRight,
+}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -32,8 +38,9 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -49,6 +56,7 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
+    namedLoggerFactory: NamedLoggerFactory,
 ) extends ScriptLedgerClient {
   override def transport = "script service"
 
@@ -108,7 +116,8 @@ class IdeLedgerClient(
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
-  private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
+  private val userManagementStore =
+    new InMemoryUserManagementStore(createAdmin = false, namedLoggerFactory)
 
   private[this] def blob(contract: FatContractInstance): Bytes =
     Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
@@ -742,7 +751,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .createUser(user, rights.toSet)(LoggingContext.empty)
+      .createUser(user, rights.toSet)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_ => ()))
 
   override def getUser(id: UserId)(implicit
@@ -751,7 +760,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -760,7 +769,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .deleteUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .deleteUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption)
 
   override def listAllUsers()(implicit
@@ -779,7 +788,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
+      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
@@ -791,7 +800,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
+      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
@@ -800,7 +809,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =

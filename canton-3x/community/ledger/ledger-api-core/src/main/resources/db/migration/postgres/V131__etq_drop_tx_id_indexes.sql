@@ -1,3 +1,0 @@
-DROP INDEX participant_events_create_transaction_id_idx;
-DROP INDEX participant_events_consuming_exercise_transaction_id_idx;
-DROP INDEX participant_events_non_consuming_exercise_transaction_id_idx;

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -53,11 +53,11 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     testee.store(someConnection, offset("01"), singlePartyFixture)
     ledgerEndCache() shouldBe (offset("01") -> 5)
     testee.store(someConnection, offset("02"), allEventsFixture)
-    ledgerEndCache() shouldBe (offset("02") -> 8)
+    ledgerEndCache() shouldBe (offset("02") -> 7)
     testee.store(someConnection, offset("03"), None)
-    ledgerEndCache() shouldBe (offset("03") -> 8)
+    ledgerEndCache() shouldBe (offset("03") -> 7)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
-    ledgerEndCache() shouldBe (offset("04") -> 9)
+    ledgerEndCache() shouldBe (offset("04") -> 8)
 
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
@@ -74,26 +74,12 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       .captured(5)
       .asInstanceOf[DbDto.EventExercise]
       .event_sequential_id shouldBe 7
-    storageBackendCaptor
-      .captured(6)
-      .asInstanceOf[DbDto.EventDivulgence]
-      .event_sequential_id shouldBe 8
-    storageBackendCaptor.captured(7).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
-    storageBackendCaptor
-      .captured(7)
-      .asInstanceOf[DbDto.StringInterningDto]
-      .externalString shouldBe "a"
-    storageBackendCaptor.captured(8).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 2
-    storageBackendCaptor
-      .captured(8)
-      .asInstanceOf[DbDto.StringInterningDto]
-      .externalString shouldBe "b"
-    storageBackendCaptor.captured(9) shouldBe LedgerEnd(offset("02"), 8, 2)
-    storageBackendCaptor.captured(10) shouldBe LedgerEnd(offset("03"), 8, 2)
-    storageBackendCaptor.captured(11) shouldBe someParty
-    storageBackendCaptor.captured(12).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
-    storageBackendCaptor.captured(13) shouldBe LedgerEnd(offset("04"), 9, 2)
-    storageBackendCaptor.captured should have size 14
+    storageBackendCaptor.captured(6) shouldBe LedgerEnd(offset("02"), 7, 1)
+    storageBackendCaptor.captured(7) shouldBe LedgerEnd(offset("03"), 7, 1)
+    storageBackendCaptor.captured(8) shouldBe someParty
+    storageBackendCaptor.captured(9).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 8
+    storageBackendCaptor.captured(10) shouldBe LedgerEnd(offset("04"), 8, 1)
+    storageBackendCaptor.captured should have size 11
   }
 
   it should "start event_seq_id from 1" in {
@@ -272,20 +258,6 @@ object SequentialWriteDaoSpec {
     trace_context = serializableTraceContext,
   )
 
-  private val someEventDivulgence = DbDto.EventDivulgence(
-    event_offset = None,
-    command_id = None,
-    workflow_id = None,
-    application_id = None,
-    submitters = None,
-    contract_id = "1",
-    template_id = None,
-    tree_event_witnesses = Set.empty,
-    create_argument = None,
-    create_argument_compression = None,
-    event_sequential_id = 0,
-  )
-
   val singlePartyFixture: Option[Update.PublicPackageUploadRejected] =
     someUpdate("singleParty")
   val partyAndCreateFixture: Option[Update.PublicPackageUploadRejected] =
@@ -302,7 +274,6 @@ object SequentialWriteDaoSpec {
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
       someEventExercise,
-      someEventDivulgence,
     ),
   )
 

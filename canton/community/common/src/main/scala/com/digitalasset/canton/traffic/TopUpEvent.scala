@@ -1,13 +1,13 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
 
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus.TopUpEvent as TopUpEventP
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.traffic.v0.MemberTrafficStatus.TopUpEvent as TopUpEventP
 import slick.jdbc.GetResult
 
 object TopUpEvent {

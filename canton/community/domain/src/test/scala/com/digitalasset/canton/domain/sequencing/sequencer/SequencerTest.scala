@@ -1,10 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore
 import com.digitalasset.canton.lifecycle.{
@@ -13,16 +14,13 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseableAsync,
   SyncCloseable,
 }
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.{
   EnvelopeContent,
   ProtocolMessage,
-  ProtocolMessageV0,
-  ProtocolMessageV1,
-  ProtocolMessageV2,
-  ProtocolMessageV3,
-  UnsignedProtocolMessageV4,
+  UnsignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{v0, v1, v2, v3, v4}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
@@ -30,7 +28,7 @@ import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter, config}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -62,8 +60,8 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
   }
 
   class Env extends FlagCloseableAsync {
-    override val timeouts = SequencerTest.this.timeouts
-    protected val logger = SequencerTest.this.logger
+    override val timeouts: ProcessingTimeout = SequencerTest.this.timeouts
+    protected val logger: TracedLogger = SequencerTest.this.logger
     private implicit val actorSystem: ActorSystem = ActorSystem(
       classOf[SequencerTest].getSimpleName,
       Some(pekkoConfig),
@@ -73,16 +71,16 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     private val materializer = implicitly[Materializer]
     val store = new InMemorySequencerStore(loggerFactory)
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
-    val crypto = valueOrFail(
+    val crypto: DomainSyncCryptoClient = valueOrFail(
       TestingTopology()
         .build(loggerFactory)
         .forOwner(SequencerId(domainId))
         .forDomain(domainId)
         .toRight("crypto error")
     )("building crypto")
-    val metrics = SequencerMetrics.noop("sequencer-test")
+    val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")
 
-    val sequencer =
+    val sequencer: DatabaseSequencer =
       DatabaseSequencer.single(
         CommunitySequencerConfig.Database(),
         DefaultProcessingTimeouts.testing,
@@ -121,7 +119,11 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
       SyncCloseable("sequencer", sequencer.close()),
-      AsyncCloseable("actorSystem", actorSystem.terminate(), 10.seconds),
+      AsyncCloseable(
+        "actorSystem",
+        actorSystem.terminate(),
+        config.NonNegativeFiniteDuration(10.seconds),
+      ),
     )
   }
 
@@ -137,46 +139,22 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     }
   }
 
-  class TestProtocolMessage(text: String)
-      extends ProtocolMessage
-      with ProtocolMessageV0
-      with ProtocolMessageV1
-      with ProtocolMessageV2
-      with ProtocolMessageV3
-      with UnsignedProtocolMessageV4 {
-    private val payload =
-      v0.SignedProtocolMessage(
-        None,
-        v0.SignedProtocolMessage.SomeSignedProtocolMessage.Empty,
-      )
-    override def domainId: DomainId = ???
+  class TestProtocolMessage(_text: String) extends ProtocolMessage with UnsignedProtocolMessage {
+    override def domainId: DomainId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
-      ???
+      fail("shouldn't be used")
 
     override protected val companionObj: AnyRef = TestProtocolMessage
 
-    override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
-      v0.EnvelopeContent(
-        v0.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload)
-      )
+    override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+      v30.EnvelopeContent.SomeEnvelopeContent.Empty
 
-    override def toProtoEnvelopeContentV1: v1.EnvelopeContent =
-      v1.EnvelopeContent(v1.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload))
-
-    override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
-      v2.EnvelopeContent(v2.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload))
-
-    override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
-      v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.SignedMessage(payload))
-
-    override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-      v4.EnvelopeContent.SomeEnvelopeContent.Empty
-
-    override def productElement(n: Int): Any = ???
-    override def productArity: Int = ???
-    override def canEqual(that: Any): Boolean = ???
+    override def productElement(n: Int): Any = fail("shouldn't be used")
+    override def productArity: Int = fail("shouldn't be used")
+    override def canEqual(that: Any): Boolean = fail("shouldn't be used")
   }
+
   object TestProtocolMessage
 
   "send" should {
@@ -190,7 +168,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       val submission = SubmissionRequest.tryCreate(
         alice,
         messageId,
-        true,
+        isRequest = true,
         Batch.closeEnvelopes(
           Batch.of(
             testedProtocolVersion,
@@ -222,7 +200,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
           .map(asDeliverEvent)
       } yield {
         aliceDeliverEvent.messageIdO.value shouldBe messageId // as alice is the sender
-        aliceDeliverEvent.batch.envelopes should have size (0) // as we didn't send a message to ourself
+        aliceDeliverEvent.batch.envelopes shouldBe empty // as we didn't send a message to ourself
 
         bobDeliverEvent.messageIdO shouldBe None
         bobDeliverEvent.batch.envelopes.map(_.bytes) should contain only

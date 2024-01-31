@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.ActionDescription.{
 import com.digitalasset.canton.data.ViewParticipantData.{InvalidViewParticipantData, RootAction}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.{v0, v2, *}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   ProtoConverter,
@@ -266,34 +266,14 @@ final case class ViewParticipantData private (
   @transient override protected lazy val companionObj: ViewParticipantData.type =
     ViewParticipantData
 
-  private[ViewParticipantData] def toProtoV1: v0.ViewParticipantData = v0.ViewParticipantData(
-    coreInputs = coreInputs.values.map(_.toProtoV0).toSeq,
-    createdCore = createdCore.map(_.toProtoV0),
+  private[ViewParticipantData] def toProtoV30: v30.ViewParticipantData = v30.ViewParticipantData(
+    coreInputs = coreInputs.values.map(_.toProtoV30).toSeq,
+    createdCore = createdCore.map(_.toProtoV30),
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
-    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
-    actionDescription = Some(actionDescription.toProtoV0),
-    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
-    salt = Some(salt.toProtoV0),
-  )
-
-  private[ViewParticipantData] def toProtoV2: v2.ViewParticipantData = v2.ViewParticipantData(
-    coreInputs = coreInputs.values.map(_.toProtoV1).toSeq,
-    createdCore = createdCore.map(_.toProtoV1),
-    createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
-    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
-    actionDescription = Some(actionDescription.toProtoV1),
-    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
-    salt = Some(salt.toProtoV0),
-  )
-
-  private[ViewParticipantData] def toProtoV3: v3.ViewParticipantData = v3.ViewParticipantData(
-    coreInputs = coreInputs.values.map(_.toProtoV1).toSeq,
-    createdCore = createdCore.map(_.toProtoV1),
-    createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
-    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
-    actionDescription = Some(actionDescription.toProtoV2),
-    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
-    salt = Some(salt.toProtoV0),
+    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV30 },
+    actionDescription = Some(actionDescription.toProtoV30),
+    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV30),
+    salt = Some(salt.toProtoV30),
   )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -355,20 +335,10 @@ object ViewParticipantData
   override val name: String = "ViewParticipantData"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    // Proto version 1 uses the same message format as version 0,
-    // but interprets resolvedKeys differently. See ViewParticipantData's scaladoc for details
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.ViewParticipantData)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v4)(v2.ViewParticipantData)(
-      supportedProtoVersionMemoized(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
-    ),
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v5)(v3.ViewParticipantData)(
+    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
-    ),
+      _.toProtoV30.toByteString,
+    )
   )
 
   /** Creates a view participant data.
@@ -455,12 +425,10 @@ object ViewParticipantData
       case SerializationCheckFailed(err) => Left(err.toString)
     }
 
-  private def fromProtoV1(hashOps: HashOps, dataP: v0.ViewParticipantData)(
+  private def fromProtoV3(hashOps: HashOps, dataP: v30.ViewParticipantData)(
       bytes: ByteString
   ): ParsingResult[ViewParticipantData] = {
-    val protoVersion = ProtoVersion(1)
-
-    val v0.ViewParticipantData(
+    val v30.ViewParticipantData(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -470,124 +438,43 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3(hashOps, protoVersion)(
-      saltP,
-      coreInputsP,
-      createdCoreP,
-      createdInSubviewArchivedInCoreP,
-      resolvedKeysP,
-      actionDescriptionP,
-      ActionDescription.fromProtoV0,
-      CreatedContract.fromProtoV0,
-      InputContract.fromProtoV0,
-      rbContextP,
-    )(bytes)
+    for {
+      coreInputsSeq <- coreInputsP.traverse(InputContract.fromProtoV30)
+      coreInputs = coreInputsSeq.view
+        .map(inputContract => inputContract.contract.contractId -> inputContract)
+        .toMap
+      createdCore <- createdCoreP.traverse(CreatedContract.fromProtoV30)
+      createdInSubviewArchivedInCore <- createdInSubviewArchivedInCoreP
+        .traverse(ProtoConverter.parseLfContractId)
+      resolvedKeys <- resolvedKeysP.traverse(
+        ResolvedKey.fromProtoV30(_).map(rk => rk.key -> rk.resolution)
+      )
+      resolvedKeysMap = resolvedKeys.toMap
+      actionDescription <- ProtoConverter
+        .required("action_description", actionDescriptionP)
+        .flatMap(ActionDescription.fromProtoV30)
+
+      salt <- ProtoConverter
+        .parseRequired(Salt.fromProtoV30, "salt", saltP)
+        .leftMap(_.inField("salt"))
+
+      rollbackContext <- RollbackContext
+        .fromProtoV30(rbContextP)
+        .leftMap(_.inField("rollbackContext"))
+
+      viewParticipantData <- returnLeftWhenInitializationFails(
+        ViewParticipantData(
+          coreInputs = coreInputs,
+          createdCore = createdCore,
+          createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSet,
+          resolvedKeys = resolvedKeysMap,
+          actionDescription = actionDescription,
+          rollbackContext = rollbackContext,
+          salt = salt,
+        )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(3)), Some(bytes))
+      ).leftMap(ProtoDeserializationError.OtherError)
+    } yield viewParticipantData
   }
-
-  private def fromProtoV2(hashOps: HashOps, dataP: v2.ViewParticipantData)(
-      bytes: ByteString
-  ): ParsingResult[ViewParticipantData] = {
-    val v2.ViewParticipantData(
-      saltP,
-      coreInputsP,
-      createdCoreP,
-      createdInSubviewArchivedInCoreP,
-      resolvedKeysP,
-      actionDescriptionP,
-      rbContextP,
-    ) = dataP
-
-    fromProtoV1V2V3(hashOps, ProtoVersion(2))(
-      saltP,
-      coreInputsP,
-      createdCoreP,
-      createdInSubviewArchivedInCoreP,
-      resolvedKeysP,
-      actionDescriptionP,
-      ActionDescription.fromProtoV1,
-      CreatedContract.fromProtoV1,
-      InputContract.fromProtoV1,
-      rbContextP,
-    )(bytes)
-  }
-
-  private def fromProtoV3(hashOps: HashOps, dataP: v3.ViewParticipantData)(
-      bytes: ByteString
-  ): ParsingResult[ViewParticipantData] = {
-    val v3.ViewParticipantData(
-      saltP,
-      coreInputsP,
-      createdCoreP,
-      createdInSubviewArchivedInCoreP,
-      resolvedKeysP,
-      actionDescriptionP,
-      rbContextP,
-    ) = dataP
-
-    fromProtoV1V2V3(hashOps, ProtoVersion(3))(
-      saltP,
-      coreInputsP,
-      createdCoreP,
-      createdInSubviewArchivedInCoreP,
-      resolvedKeysP,
-      actionDescriptionP,
-      ActionDescription.fromProtoV2,
-      CreatedContract.fromProtoV1,
-      InputContract.fromProtoV1,
-      rbContextP,
-    )(bytes)
-  }
-
-  private def fromProtoV1V2V3[ActionDescriptionProto, CreatedContractProto, InputContractProto](
-      hashOps: HashOps,
-      protoVersion: ProtoVersion,
-  )(
-      saltP: Option[com.digitalasset.canton.crypto.v0.Salt],
-      coreInputsP: Seq[InputContractProto],
-      createdCoreP: Seq[CreatedContractProto],
-      createdInSubviewArchivedInCoreP: Seq[String],
-      resolvedKeysP: Seq[v0.ViewParticipantData.ResolvedKey],
-      actionDescriptionP: Option[ActionDescriptionProto],
-      actionDescriptionDeserializer: ActionDescriptionProto => ParsingResult[ActionDescription],
-      createdContractDeserializer: CreatedContractProto => ParsingResult[CreatedContract],
-      inputContractDeserializer: InputContractProto => ParsingResult[InputContract],
-      rbContextP: Option[v0.ViewParticipantData.RollbackContext],
-  )(bytes: ByteString): ParsingResult[ViewParticipantData] = for {
-    coreInputsSeq <- coreInputsP.traverse(inputContractDeserializer)
-    coreInputs = coreInputsSeq.view
-      .map(inputContract => inputContract.contract.contractId -> inputContract)
-      .toMap
-    createdCore <- createdCoreP.traverse(createdContractDeserializer)
-    createdInSubviewArchivedInCore <- createdInSubviewArchivedInCoreP
-      .traverse(ProtoConverter.parseLfContractId)
-    resolvedKeys <- resolvedKeysP.traverse(
-      ResolvedKey.fromProtoV0(_).map(rk => rk.key -> rk.resolution)
-    )
-    resolvedKeysMap = resolvedKeys.toMap
-    actionDescription <- ProtoConverter
-      .required("action_description", actionDescriptionP)
-      .flatMap(actionDescriptionDeserializer)
-
-    salt <- ProtoConverter
-      .parseRequired(Salt.fromProtoV0, "salt", saltP)
-      .leftMap(_.inField("salt"))
-
-    rollbackContext <- RollbackContext
-      .fromProtoV0(rbContextP)
-      .leftMap(_.inField("rollbackContext"))
-
-    viewParticipantData <- returnLeftWhenInitializationFails(
-      ViewParticipantData(
-        coreInputs = coreInputs,
-        createdCore = createdCore,
-        createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSet,
-        resolvedKeys = resolvedKeysMap,
-        actionDescription = actionDescription,
-        rollbackContext = rollbackContext,
-        salt = salt,
-      )(hashOps, protocolVersionRepresentativeFor(protoVersion), Some(bytes))
-    ).leftMap(ProtoDeserializationError.OtherError)
-  } yield viewParticipantData
 
   final case class RootAction(command: LfCommand, authorizers: Set[LfPartyId], failed: Boolean)
 

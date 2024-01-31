@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.oracle
@@ -10,9 +10,10 @@ import java.sql.Connection
 
 private[oracle] object OracleTable {
   private def idempotentInsertBase[FROM](
-      insertStatement: String
+      insertStatement: String,
+      ordering: Ordering[FROM],
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
-    new BaseTable[FROM](fields) {
+    new BaseTable[FROM](fields, Some(ordering)) {
       override def executeUpdate: Array[Array[_]] => Connection => Unit =
         data =>
           connection =>
@@ -54,10 +55,15 @@ private[oracle] object OracleTable {
        |""".stripMargin
   }
 
-  def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+  def idempotentInsert[FROM](
+      tableName: String,
+      keyFieldIndex: Int,
+      ordering: Ordering[FROM],
+  )(
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
     idempotentInsertBase(
-      idempotentInsertStatement(tableName, fields, keyFieldIndex)
+      idempotentInsertStatement(tableName, fields, keyFieldIndex),
+      ordering,
     )(fields)
 }

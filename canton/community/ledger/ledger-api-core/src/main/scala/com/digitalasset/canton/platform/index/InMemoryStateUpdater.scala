@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -8,12 +8,11 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.HexString
-import com.daml.lf.data.Time
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Util}
+import com.daml.lf.transaction.{Node, NodeId, Util}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
@@ -101,14 +100,12 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
-        metrics.executorServiceMetrics,
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
       InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
-        metrics.executorServiceMetrics,
       )
     )
     logger = loggerFactory.getTracedLogger(getClass)
@@ -121,10 +118,10 @@ private[platform] object InMemoryStateUpdater {
     logger = logger,
   )(
     prepare = prepare(
-      archiveToMetadata = (archive, timestamp) =>
+      archiveToMetadata = archive =>
         Timed.value(
           metrics.daml.index.packageMetadata.decodeArchive,
-          PackageMetadata.from(archive, timestamp),
+          PackageMetadata.from(archive),
         ),
       multiDomainEnabled = multiDomainEnabled,
     ),
@@ -132,7 +129,7 @@ private[platform] object InMemoryStateUpdater {
   )
 
   private[index] def extractMetadataFromUploadedPackages(
-      archiveToMetadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata
+      archiveToMetadata: DamlLf.Archive => PackageMetadata
   )(
       batch: Vector[(Offset, Traced[Update])]
   ): PackageMetadata =
@@ -140,12 +137,12 @@ private[platform] object InMemoryStateUpdater {
       .collect { case (_, Traced(packageUpload: Update.PublicPackageUpload)) => packageUpload }
       .foldLeft(PackageMetadata()) { case (pkgMeta, packageUpload) =>
         packageUpload.archives.view
-          .map(archiveToMetadata(_, packageUpload.recordTime))
+          .map(archiveToMetadata)
           .foldLeft(pkgMeta)(_ |+| _)
       }
 
   private[index] def prepare(
-      archiveToMetadata: (DamlLf.Archive, Time.Timestamp) => PackageMetadata,
+      archiveToMetadata: DamlLf.Archive => PackageMetadata,
       multiDomainEnabled: Boolean,
   )(
       batch: Vector[(Offset, Traced[Update])],
@@ -213,11 +210,6 @@ private[platform] object InMemoryStateUpdater {
           if (contractStateEventsBatch.nonEmpty) {
             inMemoryState.contractStateCaches.push(contractStateEventsBatch)
           }
-
-          inMemoryState.eventsByContractKeyCache.foreach { cache =>
-            val keyEventsBatch = convertToKeyEvents(transaction)
-            if (keyEventsBatch.nonEmpty) cache.push(keyEventsBatch)
-          }
         }
       )
     }
@@ -276,35 +268,6 @@ private[platform] object InMemoryStateUpdater {
         }.toVector
       case _ => Vector.empty
     }
-
-  private def convertToKeyEvents(
-      tx: TransactionLogUpdate
-  ): Vector[(GlobalKey, TransactionLogUpdate.Event)] = {
-    // TODO(i15443) if we want to keep this caching, we should re-visit it to support re-assignments
-    tx match {
-      case tx: TransactionLogUpdate.TransactionAccepted =>
-        tx.events.iterator
-          .collect({
-            case create: TransactionLogUpdate.CreatedEvent =>
-              create.contractKey.map { ck =>
-                val globalKey =
-                  Key.assertBuild(create.templateId, ck.unversioned, Util.sharedKey(ck.version))
-                globalKey -> create
-              }
-            case exercise: TransactionLogUpdate.ExercisedEvent if exercise.consuming =>
-              exercise.contractKey.map { ck =>
-                val globalKey =
-                  Key.assertBuild(exercise.templateId, ck.unversioned, Util.sharedKey(ck.version))
-                globalKey -> exercise
-              }
-            case _ => None
-
-          })
-          .flatten
-          .toVector
-      case _ => Vector.empty
-    }
-  }
 
   private def convertTransactionAccepted(
       offset: Offset,
@@ -402,7 +365,7 @@ private[platform] object InMemoryStateUpdater {
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = txAccepted.transactionMeta.optDomainId.map(_.toProtoPrimitive),
+            domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
             traceContext = traceContext,
           ),
           submitters = completionInfo.actAs.toSet,
@@ -417,7 +380,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,
-      domainId = txAccepted.transactionMeta.optDomainId.map(_.toProtoPrimitive),
+      domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
     )
   }
 
@@ -442,7 +405,7 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationOffset = deduplicationOffset,
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
-          domainId = u.domainId.map(_.toProtoPrimitive),
+          domainId = Some(u.domainId.toProtoPrimitive), // TODO(i15280)
           traceContext = traceContext,
         ),
         submitters = u.completionInfo.actAs.toSet,

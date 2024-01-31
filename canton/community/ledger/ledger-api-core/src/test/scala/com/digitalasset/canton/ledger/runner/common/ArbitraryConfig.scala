@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.runner.common
@@ -13,9 +13,8 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
-import com.digitalasset.canton.platform.config.*
+import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, *}
 import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
@@ -50,8 +49,9 @@ object ArbitraryConfig {
     duration.map(NonNegativeFiniteDuration.tryFromJavaDuration)
 
   val versionRange: Gen[VersionRange[LanguageVersion]] = for {
-    min <- Gen.oneOf(LanguageVersion.All)
-    max <- Gen.oneOf(LanguageVersion.All)
+    // TODO(#14706): Revert to LanguageVersion.All once V2 is the only major version
+    min <- Gen.oneOf(LanguageVersion.All.filter(_.major == LanguageVersion.Major.V2))
+    max <- Gen.oneOf(LanguageVersion.All.filter(_.major == LanguageVersion.Major.V2))
     if LanguageVersion.Ordering.compare(max, min) >= 0
   } yield VersionRange[LanguageVersion](min, max)
 

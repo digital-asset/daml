@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -6,6 +6,7 @@ package com.digitalasset.canton.http
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
@@ -87,7 +88,7 @@ package object domain {
 
 package domain {
 
-  import com.daml.ledger.api.v1.commands.Commands
+  import com.daml.ledger.api.v2.commands.Commands
   import com.daml.lf.data.Ref.HexString
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
 
@@ -101,7 +102,6 @@ package domain {
   trait JwtPayloadTag
 
   trait JwtPayloadG {
-    val ledgerId: LedgerId
     val applicationId: ApplicationId
     val readAs: List[Party]
     val actAs: List[Party]
@@ -112,7 +112,6 @@ package domain {
   // (only the first one is used for pre-multiparty ledgers)
   // but we can have multiple parties in readAs.
   final case class JwtWritePayload(
-      ledgerId: LedgerId,
       applicationId: ApplicationId,
       submitter: NonEmptyList[Party],
       readAs: List[Party],
@@ -122,12 +121,9 @@ package domain {
       submitter.toSet1 ++ readAs
   }
 
-  final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
-
 // As with JwtWritePayload, but supports empty `actAs`.  At least one of
 // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
-      ledgerId: LedgerId,
       applicationId: ApplicationId,
       readAs: List[Party],
       actAs: List[Party],
@@ -136,7 +132,6 @@ package domain {
 
   object JwtPayload {
     def apply(
-        ledgerId: LedgerId,
         applicationId: ApplicationId,
         readAs: List[Party],
         actAs: List[Party],
@@ -144,7 +139,7 @@ package domain {
       (readAs ++ actAs) match {
         case NonEmpty(ps) =>
           Some(
-            new JwtPayload(ledgerId, applicationId, readAs, actAs, ps.toSet) {}
+            new JwtPayload(applicationId, readAs, actAs, ps.toSet) {}
           )
         case _ => None
       }
@@ -396,7 +391,7 @@ package domain {
   object Contract {
 
     def fromTransactionTree(
-        tx: lav1.transaction.TransactionTree
+        tx: lav2.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav1.value.Value]] = {
       tx.rootEventIds.toVector
         .map(fromTreeEvent(tx.eventsById))

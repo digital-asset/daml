@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -21,7 +21,6 @@ import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
-class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
 class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
 
 class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)

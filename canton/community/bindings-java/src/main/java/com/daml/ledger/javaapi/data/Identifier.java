@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data;
@@ -12,27 +12,6 @@ public final class Identifier {
   private final String packageId;
   private final String moduleName;
   private final String entityName;
-
-  /**
-   * This constructor is deprecated in favor of {@link Identifier#Identifier(String, String,
-   * String)}
-   */
-  @Deprecated
-  public Identifier(@NonNull String packageId, @NonNull String name) {
-    this.packageId = packageId;
-    int lastDot = name.lastIndexOf('.');
-    if (lastDot <= 0) {
-      // The module component of the name must be at least 1 character long.
-      // if no '.' is found or it is on the first position, then the name is not a valid identifier.
-      throw new IllegalArgumentException(
-          String.format(
-              "Identifier name [%s] has wrong format. Dot-separated module and entity name"
-                  + " expected (e.g.: Foo.Bar)",
-              name));
-    }
-    this.moduleName = name.substring(0, lastDot);
-    this.entityName = name.substring(lastDot + 1);
-  }
 
   public Identifier(
       @NonNull String packageId, @NonNull String moduleName, @NonNull String entityName) {
@@ -65,12 +44,6 @@ public final class Identifier {
   @NonNull
   public String getPackageId() {
     return packageId;
-  }
-
-  @NonNull
-  @Deprecated
-  public String getName() {
-    return moduleName.concat(".").concat(entityName);
   }
 
   @NonNull

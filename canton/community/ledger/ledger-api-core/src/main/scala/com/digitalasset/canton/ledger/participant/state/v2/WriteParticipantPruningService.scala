@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state.v2
@@ -38,7 +38,7 @@ trait WriteParticipantPruningService {
     *
     * @param pruneUpToInclusive The offset up to which contracts should be pruned.
     * @param submissionId The submission id.
-    * @param pruneAllDivulgedContracts If set, instruct the ledger to prune all immediately and retroactively divulged contracts
+    * @param pruneAllDivulgedContracts If set, instruct the ledger to prune all immediately divulged contracts
     *                                  created before `pruneUpToInclusive` independent of whether they were archived before
     *                                  `pruneUpToInclusive`.
     * @return The pruning result.

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -58,11 +58,6 @@ trait ParticipantSettingsStore extends ParticipantSettingsLookup with AutoClosea
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Insert the setting for whether the participant provides unique-contract-key semantics. */
-  def insertUniqueContractKeysMode(uniqueContractKeys: Boolean)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
-
   def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 
@@ -85,6 +80,5 @@ object ParticipantSettingsStore {
   final case class Settings(
       resourceLimits: ResourceLimits = ResourceLimits.default,
       maxDeduplicationDuration: Option[NonNegativeFiniteDuration] = None,
-      uniqueContractKeys: Option[Boolean] = None,
   )
 }

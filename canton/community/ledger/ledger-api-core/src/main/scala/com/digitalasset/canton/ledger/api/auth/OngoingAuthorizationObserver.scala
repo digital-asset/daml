@@ -1,23 +1,23 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.apache.pekko.actor.Scheduler
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, blocking}
 
@@ -29,6 +29,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
     userRightsCheckIntervalInSeconds: Int,
     lastUserRightsCheckTime: AtomicReference[Instant],
     jwtTimestampLeeway: Option[JwtTimestampLeeway],
+    tokenExpiryGracePeriodForStreams: Option[Duration],
     val loggerFactory: NamedLoggerFactory,
 )(implicit traceContext: TraceContext)
     extends ServerCallStreamObserver[A]
@@ -153,10 +154,10 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] =
     originalClaims
-      .notExpired(now, jwtTimestampLeeway)
+      .notExpired(now, jwtTimestampLeeway, tokenExpiryGracePeriodForStreams)
       .left
       .map(authorizationError =>
-        AuthorizationChecksErrors.PermissionDenied
+        AuthorizationChecksErrors.AccessTokenExpired
           .Reject(authorizationError.reason)(errorLogger)
           .asGrpcError
       )
@@ -187,6 +188,7 @@ private[auth] object OngoingAuthorizationObserver {
       userRightsCheckIntervalInSeconds: Int,
       pekkoScheduler: Scheduler,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      tokenExpiryGracePeriodForStreams: Option[Duration] = None,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
@@ -215,6 +217,7 @@ private[auth] object OngoingAuthorizationObserver {
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       lastUserRightsCheckTime = lastUserRightsCheckTime,
       jwtTimestampLeeway = jwtTimestampLeeway,
+      tokenExpiryGracePeriodForStreams = tokenExpiryGracePeriodForStreams,
       loggerFactory = loggerFactory,
     )
   }

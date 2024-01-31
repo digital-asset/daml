@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -30,8 +30,8 @@ class RecipientsTest extends AnyWordSpec with BaseTest with HasExecutionContext 
     }
 
     "be preserved through serialization / deserialization" in {
-      val proto = recipients.toProtoV0
-      val fromProto = Recipients.fromProtoV0(proto, supportGroupAddressing = true)
+      val proto = recipients.toProtoV30
+      val fromProto = Recipients.fromProtoV30(proto, supportGroupAddressing = true)
       fromProto shouldBe Right(recipients)
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state.v2
@@ -10,7 +10,9 @@ import com.daml.lf.value.Value
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 
-sealed trait Reassignment
+sealed trait Reassignment {
+  def kind: String
+}
 
 object Reassignment {
 
@@ -28,7 +30,9 @@ object Reassignment {
       templateId: Ref.Identifier,
       stakeholders: List[Ref.Party],
       assignmentExclusivity: Option[Timestamp],
-  ) extends Reassignment
+  ) extends Reassignment {
+    override def kind: String = "unassignment"
+  }
 
   /** Represents the update of assigning a contract to a domain.
     *
@@ -40,7 +44,9 @@ object Reassignment {
       ledgerEffectiveTime: Timestamp,
       createNode: Node.Create,
       contractMetadata: Bytes,
-  ) extends Reassignment
+  ) extends Reassignment {
+    override def kind: String = "assignment"
+  }
 }
 
 /** The common information for all reassigments.

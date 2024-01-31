@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -16,7 +16,6 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.indexer.parallel.BatchN
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -24,6 +23,7 @@ import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawCreatedContract,
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.grpc.{Metadata, StatusRuntimeException}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
@@ -53,11 +53,9 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
     with NamedLogging {
 
   private val (queue, done) = createQueue()
-    .via(
-      BatchN(
-        maxBatchSize = maxBatchSize,
-        maxBatchCount = parallelism,
-      )
+    .batchN(
+      maxBatchSize = maxBatchSize,
+      maxBatchCount = parallelism,
     )
     .mapAsyncUnordered(parallelism) { batch =>
       Future

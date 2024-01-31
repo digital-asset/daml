@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data;
@@ -210,8 +210,8 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
-  // TODO i15642 Refactor this to take CommmandsSubmission when deprecated methods using it below are
-  // removed
+  // TODO(i15642) Refactor this to take CommmandsSubmission when deprecated methods using it below
+  // are removed
   private static CommandsOuterClass.Commands deprecatedToProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -331,125 +331,11 @@ public final class SubmitCommandsRequest {
     return toProto(ledgerId, Optional.empty(), submission);
   }
 
-  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.empty(),
-        commands);
-  }
-
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String submissionId,
       @NonNull CommandsSubmission submission) {
     return toProto(ledgerId, Optional.of(submissionId), submission);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String submissionId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    List<String> empty_read_as = new ArrayList<>();
-    List<String> act_as = new ArrayList<>();
-    act_as.add(party);
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        act_as,
-        empty_read_as,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.of(submissionId),
-        commands);
-  }
-
-  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
-  @Deprecated
-  public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId,
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull String party,
-      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-      @NonNull Optional<Duration> minLedgerTimeRelative,
-      @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
-    List<String> empty_read_as = new ArrayList<>();
-    List<String> act_as = new ArrayList<>();
-    act_as.add(party);
-    return deprecatedToProto(
-        ledgerId,
-        workflowId,
-        applicationId,
-        commandId,
-        act_as,
-        empty_read_as,
-        minLedgerTimeAbsolute,
-        minLedgerTimeRelative,
-        deduplicationTime,
-        Optional.empty(),
-        commands);
   }
 
   @NonNull

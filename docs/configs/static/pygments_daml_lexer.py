@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 from pygments.lexers.haskell import HaskellLexer
@@ -12,7 +12,6 @@ class DamlLexer(HaskellLexer):
     filenames = ['*.daml']
 
     daml_reserved = (
-        'agreement',
         'can',
         'choice',
         'controller',

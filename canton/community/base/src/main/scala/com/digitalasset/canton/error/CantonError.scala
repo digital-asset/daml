@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.error
@@ -85,36 +85,6 @@ trait BaseCantonError extends BaseError {
   def asGoogleGrpcStatus(implicit loggingContext: ErrorLoggingContext): com.google.rpc.Status =
     code.asGrpcStatus(this)(loggingContext)
 
-}
-
-object CantonErrorResource {
-
-  private lazy val all =
-    Seq(ContractId, ContractKey, DalfPackage, LedgerId, DomainId, DomainAlias, CommandId)
-
-  def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
-
-  object ContractId extends ErrorResource {
-    def asString: String = "CONTRACT_ID"
-  }
-  object ContractKey extends ErrorResource {
-    def asString: String = "CONTRACT_KEY"
-  }
-  object DalfPackage extends ErrorResource {
-    def asString: String = "PACKAGE"
-  }
-  object LedgerId extends ErrorResource {
-    def asString: String = "LEDGER_ID"
-  }
-  object DomainId extends ErrorResource {
-    def asString: String = "DOMAIN_ID"
-  }
-  object DomainAlias extends ErrorResource {
-    def asString: String = "DOMAIN_ALIAS"
-  }
-  object CommandId extends ErrorResource {
-    def asString: String = "COMMAND_ID"
-  }
 }
 
 /** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect

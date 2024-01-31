@@ -1,0 +1,163 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module BuiltinMod {
+
+  val addNumeric: forall (a: nat). Numeric a -> Numeric a -> Numeric a =
+    ADD_NUMERIC;
+  val subNumeric: forall (a: nat). Numeric a -> Numeric a -> Numeric a =
+    SUB_NUMERIC;
+  val mulNumericLegacy: forall (a: nat) (b: nat) (g: nat). Numeric a -> Numeric b -> Numeric g =
+    MUL_NUMERIC_LEGACY;
+  val mulNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
+    MUL_NUMERIC;
+  val divNumericLegacy: forall (a: nat) (b: nat) (g: nat). Numeric a -> Numeric b -> Numeric g =
+    DIV_NUMERIC_LEGACY;
+  val divNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
+    DIV_NUMERIC;
+  val roundNumeric: forall (a: nat). Int64 -> Numeric a -> Numeric a =
+    ROUND_NUMERIC;
+  val castNumericLegacy: forall (a: nat) (b: nat). Numeric a -> Numeric b =
+    CAST_NUMERIC_LEGACY;
+  val castNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
+    CAST_NUMERIC;
+  val shiftNumericLegacy: forall (a: nat) (b: nat). Numeric a -> Numeric b =
+    SHIFT_NUMERIC_LEGACY;
+  val shiftNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
+    SHIFT_NUMERIC;
+  val addInt64: Int64 -> Int64 -> Int64 =
+    ADD_INT64;
+  val subInt64: Int64 -> Int64 -> Int64 =
+    SUB_INT64;
+  val mulInt64: Int64 -> Int64 -> Int64 =
+    MUL_INT64;
+  val divInt64: Int64 -> Int64 -> Int64 =
+    DIV_INT64;
+  val modInt64: Int64 -> Int64 -> Int64 =
+    MOD_INT64;
+  val expInt64: Int64 -> Int64 -> Int64 =
+    EXP_INT64;
+  val int64ToNumericLegacy: forall (a: nat). Int64 -> Numeric a =
+    INT64_TO_NUMERIC_LEGACY;
+  val int64ToNumeric: forall (a: nat). Numeric a -> Int64 -> Numeric a =
+    INT64_TO_NUMERIC;
+  val numericToInt64: forall (a: nat). Numeric a -> Int64 =
+    NUMERIC_TO_INT64;
+  val foldl: forall (a: *) (b: *). (b -> a -> b) -> b -> List a -> b =
+    FOLDL;
+  val foldr: forall (a: *) (b: *). (a -> b -> b) -> b -> List a -> b =
+    FOLDR;
+  val textmapEmpty: forall (a: *). TextMap a =
+    TEXTMAP_EMPTY;
+  val textmapInsert: forall (a: *). Text -> a -> TextMap a -> TextMap a =
+    TEXTMAP_INSERT;
+  val textmapLookup: forall (a: *). Text -> TextMap a -> Option a =
+    TEXTMAP_LOOKUP;
+  val textmapDelete: forall (a: *). Text -> TextMap a -> TextMap a =
+    TEXTMAP_DELETE;
+  val textmapToList: forall (a: *). TextMap a -> List <key: Text, value: a> =
+    TEXTMAP_TO_LIST;
+  val textmapSize: forall (a: *). TextMap a -> Int64 =
+    TEXTMAP_SIZE;
+  val genmapEmpty: forall (a: *) (b: *). GenMap a b =
+    GENMAP_EMPTY;
+  val genmapInsert: forall (a: *) (b: *). a -> b -> GenMap a b -> GenMap a b =
+    GENMAP_INSERT;
+  val genmapLookup: forall (a: *) (b: *). a -> GenMap a b -> Option b =
+    GENMAP_LOOKUP;
+  val genmapDelete: forall (a: *) (b: *). a -> GenMap a b -> GenMap a b =
+    GENMAP_DELETE;
+  val genmapKeys: forall (a: *) (b: *). GenMap a b -> List a =
+    GENMAP_KEYS;
+  val genmapValues: forall (a: *) (b: *). GenMap a b -> List b =
+    GENMAP_VALUES;
+  val genmapSize: forall (a: *) (b: *). GenMap a b -> Int64 =
+    GENMAP_SIZE;
+  val appendText: Text -> Text -> Text =
+    APPEND_TEXT;
+  val error: forall (a: *). Text -> a =
+    ERROR;
+  val int64ToText: Int64 -> Text =
+    INT64_TO_TEXT;
+  val numericToText: forall (a: nat). Numeric a -> Text =
+    NUMERIC_TO_TEXT;
+  val timestampToText: Timestamp -> Text =
+    TIMESTAMP_TO_TEXT;
+  val partyToText: Party -> Text =
+    PARTY_TO_TEXT;
+  val textToText: Text -> Text =
+    TEXT_TO_TEXT;
+  val contractIdToText: forall (a: *). ContractId a -> Option Text =
+    CONTRACT_ID_TO_TEXT;
+  val codePointsToText: List Int64 -> Text =
+    CODE_POINTS_TO_TEXT;
+  val textToParty: Text -> Option Party =
+    TEXT_TO_PARTY;
+  val textToInt64: Text -> Option Int64 =
+    TEXT_TO_INT64;
+  val textToNumericLegacy: forall (a: nat). Text -> Option (Numeric a) =
+    TEXT_TO_NUMERIC_LEGACY;
+  val textToNumeric: forall (a: nat). Numeric a -> Text -> Option (Numeric a) =
+      TEXT_TO_NUMERIC;
+  val textToCodePoints: Text -> List Int64 =
+    TEXT_TO_CODE_POINTS;
+  val sha256Text: Text -> Text =
+    SHA256_TEXT;
+  val dateToUnixDays: Date -> Int64 =
+    DATE_TO_UNIX_DAYS;
+  val explodeText: Text -> List Text =
+    EXPLODE_TEXT;
+  val implodeText: List Text -> Text =
+    IMPLODE_TEXT;
+  val timestampToUnixMicroseconds: Timestamp -> Int64 =
+    TIMESTAMP_TO_UNIX_MICROSECONDS;
+  val dateToText: Date -> Text =
+    DATE_TO_TEXT;
+  val unixDaysToDate: Int64 -> Date =
+    UNIX_DAYS_TO_DATE;
+  val unixMicrosecondsToTimestamp: Int64 -> Timestamp =
+    UNIX_MICROSECONDS_TO_TIMESTAMP;
+  val equal: forall (a: *). a -> a -> Bool =
+    EQUAL;
+  val less: forall (a: *). a -> a -> Bool =
+    LESS;
+  val lessEq: forall (a: *). a -> a -> Bool =
+    LESS_EQ;
+  val greater: forall (a: *). a -> a -> Bool =
+    GREATER;
+  val greaterEq: forall (a: *). a -> a -> Bool =
+    GREATER_EQ;
+  val equalList: forall (a: *). (a -> a -> Bool) -> List a -> List a -> Bool =
+    EQUAL_LIST;
+  val trace: forall (a: *). Text -> a -> a =
+    TRACE;
+  val coerceContractId: forall (a: *) (b: *). ContractId a -> ContractId b =
+    COERCE_CONTRACT_ID;
+  val scaleBignumeric: BigNumeric -> Int64 =
+    SCALE_BIGNUMERIC;
+  val precisionBignumeric: BigNumeric -> Int64 =
+    PRECISION_BIGNUMERIC;
+  val addBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    ADD_BIGNUMERIC;
+  val subBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    SUB_BIGNUMERIC;
+  val mulBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    MUL_BIGNUMERIC;
+  val divBignumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
+    DIV_BIGNUMERIC;
+  val shiftRightBignumeric: Int64 -> BigNumeric -> BigNumeric =
+    SHIFT_RIGHT_BIGNUMERIC;
+  val bignumericToNumericLegacy: forall (a: nat). BigNumeric -> Numeric a =
+    BIGNUMERIC_TO_NUMERIC_LEGACY;
+  val bignumericToNumeric: forall (a: nat). Numeric a -> BigNumeric -> Numeric a =
+    BIGNUMERIC_TO_NUMERIC;
+  val numericToBignumeric: forall (a: nat). Numeric a -> BigNumeric =
+    NUMERIC_TO_BIGNUMERIC;
+  val bignumericToText: BigNumeric -> Text =
+    BIGNUMERIC_TO_TEXT;
+  val anyExceptionMessage: AnyException -> Text =
+    ANY_EXCEPTION_MESSAGE;
+  val typeRepTyconName: TypeRep -> Option Text =
+    TYPE_REP_TYCON_NAME;
+
+}

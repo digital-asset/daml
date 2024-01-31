@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -22,7 +22,7 @@ import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.{KeyOwner, KeyOwnerCode}
+import com.digitalasset.canton.topology.{Member, MemberCode}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -140,7 +140,7 @@ class SecretKeyAdministration(
   private def findPublicKey(
       fingerprint: String,
       topologyAdmin: TopologyAdministrationGroupCommon,
-      owner: KeyOwner,
+      owner: Member,
   ): PublicKey =
     findPublicKeys(topologyAdmin, owner).find(_.fingerprint.unwrap == fingerprint) match {
       case Some(key) => key
@@ -159,7 +159,7 @@ class SecretKeyAdministration(
   )
   def rotate_kms_node_key(fingerprint: String, newKmsKeyId: String): PublicKey = {
 
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey.purpose match {
@@ -184,7 +184,7 @@ class SecretKeyAdministration(
       |The fingerprint of the key we want to rotate."""
   )
   def rotate_node_key(fingerprint: String, name: Option[String] = None): PublicKey = {
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
 
@@ -217,7 +217,7 @@ class SecretKeyAdministration(
   )
   def rotate_node_keys(): Unit = {
 
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     // Find the current keys
     val currentKeys = findPublicKeys(instance.topology, owner)
@@ -246,17 +246,9 @@ class SecretKeyAdministration(
     */
   protected def findPublicKeys(
       topologyAdmin: TopologyAdministrationGroupCommon,
-      owner: KeyOwner,
+      owner: Member,
   ): Seq[PublicKey] =
     topologyAdmin match {
-      case t: TopologyAdministrationGroup =>
-        t.owner_to_key_mappings
-          .list(
-            filterStore = AuthorizedStore.filterName,
-            filterKeyOwnerUid = owner.filterString,
-            filterKeyOwnerType = Some(owner.code),
-          )
-          .map(_.item.key)
       case tx: TopologyAdministrationGroupX =>
         tx.owner_to_key_mappings
           .list(
@@ -266,8 +258,9 @@ class SecretKeyAdministration(
           )
           .flatMap(_.item.keys)
       case _ =>
+        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
         throw new IllegalStateException(
-          "Impossible to encounter topology admin group besides X and non-X"
+          "Impossible to encounter topology admin group besides X"
         )
     }
 
@@ -473,7 +466,7 @@ class PublicKeyAdministration(
       |""")
   def list_owners(
       filterKeyOwnerUid: String = "",
-      filterKeyOwnerType: Option[KeyOwnerCode] = None,
+      filterKeyOwnerType: Option[MemberCode] = None,
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
@@ -490,7 +483,7 @@ class PublicKeyAdministration(
       |The response includes the public keys."""
   )
   def list_by_owner(
-      keyOwner: KeyOwner,
+      keyOwner: Member,
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,

@@ -1,10 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
@@ -30,7 +29,6 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
@@ -38,8 +36,6 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.R
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -236,12 +232,12 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
   }
 
-  override def lookupContractStateWithoutDivulgence(contractId: Value.ContractId)(implicit
+  override def lookupContractState(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[ContractState] =
     Timed.future(
-      metrics.daml.services.index.lookupContractStateWithoutDivulgence,
-      delegate.lookupContractStateWithoutDivulgence(contractId),
+      metrics.daml.services.index.lookupContractState,
+      delegate.lookupContractState(contractId),
     )
 
   override def latestPrunedOffsets()(implicit
@@ -262,7 +258,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       contractKey: Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      keyContinuationToken: KeyContinuationToken,
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
     Timed.future(
       metrics.daml.services.index.getEventsByContractKey,
@@ -270,12 +266,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
         contractKey,
         templateId,
         requestingParties,
-        keyContinuationToken,
+        endExclusiveSeqId,
       ),
     )
-
-  override def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
-      loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName] =
-    delegate.resolveToTemplateIds(templateQualifiedName)
 }

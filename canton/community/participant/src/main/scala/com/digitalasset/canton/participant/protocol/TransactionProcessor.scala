@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -105,7 +105,6 @@ class TransactionProcessor(
         new AuthenticationValidator(),
         new AuthorizationValidator(participantId, enableContractUpgrading),
         new InternalConsistencyChecker(
-          staticDomainParameters.uniqueContractKeys,
           staticDomainParameters.protocolVersion,
           loggerFactory,
         ),

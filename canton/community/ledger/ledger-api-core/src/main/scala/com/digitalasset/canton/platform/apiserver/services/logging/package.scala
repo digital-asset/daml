@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -18,8 +18,6 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionFilter,
   TransactionId,
 }
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken.toTokenString
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
@@ -73,9 +71,6 @@ package object logging {
   private[services] def eventSequentialId(seqId: Option[Long]): LoggingEntry =
     "eventSequentialId" -> OfString(seqId.map(_.toString).getOrElse("<empty-sequential-id>"))
 
-  private[services] def keyContinuationToken(token: KeyContinuationToken): LoggingEntry =
-    "keyContinuationToken" -> OfString(toTokenString(token))
-
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> OfString(id.unwrap)
 
@@ -88,7 +83,7 @@ package object logging {
           party.toLoggingKey -> (partyFilters.inclusive match {
             case None => LoggingValue.from("all-templates")
             case Some(inclusiveFilters) =>
-              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateId))
+              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
           })
         }.toMap
       )
@@ -123,5 +118,4 @@ package object logging {
 
   private[services] def templateId(id: Identifier): LoggingEntry =
     "templateId" -> id.toString
-
 }

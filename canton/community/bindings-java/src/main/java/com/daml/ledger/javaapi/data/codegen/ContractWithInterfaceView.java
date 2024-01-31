@@ -1,9 +1,8 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data.codegen;
 
-import java.util.Optional;
 import java.util.Set;
 
 final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
@@ -14,10 +13,9 @@ final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
       InterfaceCompanion<?, Id, View> contractTypeCompanion,
       Id id,
       View interfaceView,
-      Optional<String> agreementText,
       Set<String> signatories,
       Set<String> observers) {
-    super(id, interfaceView, agreementText, signatories, observers);
+    super(id, interfaceView, signatories, observers);
     this.contractTypeCompanion = contractTypeCompanion;
   }
 

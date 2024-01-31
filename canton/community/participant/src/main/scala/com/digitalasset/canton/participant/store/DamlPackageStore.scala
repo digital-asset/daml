@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -85,6 +85,13 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
   def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(implicit
       tc: TraceContext
   ): OptionT[Future, PackageId]
+
+  /** Returns the package IDs from the set of `packages` that are only referenced by the
+    * provided `dar`.
+    */
+  def determinePackagesExclusivelyInDar(packages: Seq[PackageId], dar: DarDescriptor)(implicit
+      tc: TraceContext
+  ): Future[Seq[PackageId]]
 }
 
 object DamlPackageStore {

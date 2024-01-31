@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -19,10 +19,10 @@ trait GrpcHandshakeService {
     * This should be called before attempting to connect to the domain to make sure they can operate together.
     */
   def handshake(
-      request: com.digitalasset.canton.protocol.v0.Handshake.Request
-  ): Future[com.digitalasset.canton.protocol.v0.Handshake.Response] = {
-    import com.digitalasset.canton.protocol.v0
-    import v0.Handshake.*
+      request: com.digitalasset.canton.protocol.v30.Handshake.Request
+  ): Future[com.digitalasset.canton.protocol.v30.Handshake.Response] = {
+    import com.digitalasset.canton.protocol.v30
+    import v30.Handshake.*
 
     val response = handshakeValidation(request).fold[Response.Value](
       failure => Response.Value.Failure(Failure(failure)),
@@ -34,7 +34,7 @@ trait GrpcHandshakeService {
   }
 
   private def handshakeValidation(
-      request: com.digitalasset.canton.protocol.v0.Handshake.Request
+      request: com.digitalasset.canton.protocol.v30.Handshake.Request
   ): Either[String, Unit] =
     handshakeValidator.clientIsCompatible(
       request.clientProtocolVersions,

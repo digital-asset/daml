@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -25,31 +25,11 @@ push() {
          https://digitalasset.jfrog.io/artifactory/${repository}/$RELEASE_TAG/${file}
 }
 
-TRIGGER_RUNNER=daml-trigger-runner-$RELEASE_TAG.jar
-TRIGGER_SERVICE=trigger-service-$RELEASE_TAG-ee.jar
 SCRIPT_RUNNER=daml-script-$RELEASE_TAG.jar
-NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
-HTTP_JSON=http-json-$RELEASE_TAG-ee.jar
 
 cd $INPUTS
-push daml-trigger-runner $TRIGGER_RUNNER
-push daml-trigger-runner $TRIGGER_RUNNER.asc
 push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
-push non-repudiation $NON_REPUDIATION
-push non-repudiation $NON_REPUDIATION.asc
-push trigger-service $TRIGGER_SERVICE
-push trigger-service $TRIGGER_SERVICE.asc
-push http-json $HTTP_JSON
-push http-json $HTTP_JSON.asc
-
-for base in non-repudiation-core non-repudiation-client; do
-    for end in .jar .pom -sources.jar -javadoc.jar; do
-        for sign in "" .asc; do
-            push connect-ee-mvn/com/daml/$base $base-${RELEASE_TAG}${end}${sign}
-        done
-    done
-done
 
 # For the split release process these are not published to artifactory.
 if [[ "$#" -lt 3 || $3 != "split" ]]; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -18,6 +18,9 @@ rm -vf "$0"
 
 ## Install system dependencies
 apt-get update -q
+export DEBIAN_FRONTEND=noninteractive
+apt-get upgrade -y
+
 apt-get install -qy \
   curl sudo \
   bzip2 rsync \

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.sync
 import cats.Eval
 import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.ParticipantEventLog.ProductionParticipantEventLogId
 import com.digitalasset.canton.participant.store.memory.{
@@ -19,7 +20,7 @@ import com.digitalasset.canton.participant.store.{
   TransferStore,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent.{EventId, TimelyRejectionEventId}
-import com.digitalasset.canton.participant.{LedgerSyncRecordTime, LocalOffset}
+import com.digitalasset.canton.participant.{LedgerSyncRecordTime, LocalOffset, RequestOffset}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -85,7 +86,7 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
           SingleDimensionEventLogTest
             .generateEvent(
               recordTime,
-              LocalOffset(RequestCounter(index.toLong)),
+              RequestOffset(CantonTimestamp(recordTime), RequestCounter(index.toLong)),
             )
             .event
         eventId -> event

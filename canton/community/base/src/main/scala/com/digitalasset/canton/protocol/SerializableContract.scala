@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -44,33 +44,22 @@ case class SerializableContract(
 // The class implements `HasVersionedWrapper` because we serialize it to an anonymous binary format (ByteString/Array[Byte]) when
 // writing to the TransferStore and thus need to encode the version of the serialized Protobuf message
     extends HasVersionedWrapper[SerializableContract]
-    // Even if implementing HasVersionedWrapper, we should still implement HasProtoV0
     with PrettyPrinting {
 
   def contractInstance: LfContractInst = rawContractInstance.contractInstance
 
   override protected def companionObj = SerializableContract
 
-  def toProtoV0: v0.SerializableContract =
-    v0.SerializableContract(
+  def toProtoV30: v30.SerializableContract =
+    v30.SerializableContract(
       contractId = contractId.toProtoPrimitive,
       rawContractInstance = rawContractInstance.getCryptographicEvidence,
-      // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V0
+      // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V30
       // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
-      metadata = Some(metadata.toProtoV0),
-      ledgerCreateTime = Some(ledgerCreateTime.toProtoPrimitive),
-    )
-
-  def toProtoV1: v1.SerializableContract =
-    v1.SerializableContract(
-      contractId = contractId.toProtoPrimitive,
-      rawContractInstance = rawContractInstance.getCryptographicEvidence,
-      // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V0
-      // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
-      metadata = Some(metadata.toProtoV0),
+      metadata = Some(metadata.toProtoV30),
       ledgerCreateTime = Some(ledgerCreateTime.toProtoPrimitive),
       // Contract salt can be empty for contracts created in protocol versions < 4.
-      contractSalt = contractSalt.map(_.toProtoV0),
+      contractSalt = contractSalt.map(_.toProtoV30),
     )
 
   override def pretty: Pretty[SerializableContract] = prettyOfClass(
@@ -85,7 +74,7 @@ case class SerializableContract(
     coid = contractId,
     templateId = rawContractInstance.contractInstance.unversioned.template,
     arg = rawContractInstance.contractInstance.unversioned.arg,
-    agreementText = rawContractInstance.unvalidatedAgreementText.v,
+    agreementText = "", // not used anymore
     signatories = metadata.signatories,
     stakeholders = metadata.stakeholders,
     keyOpt = metadata.maybeKeyWithMaintainers,
@@ -98,16 +87,11 @@ object SerializableContract
     extends HasVersionedMessageCompanion[SerializableContract]
     with HasVersionedMessageCompanionDbHelpers[SerializableContract] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.SerializableContract)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
     ProtoVersion(1) -> ProtoCodec(
-      ProtocolVersion.v4,
-      supportedProtoVersion(v1.SerializableContract)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.SerializableContract)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   override def name: String = "serializable contract"
@@ -131,10 +115,9 @@ object SerializableContract
       metadata: ContractMetadata,
       ledgerTime: CantonTimestamp,
       contractSalt: Option[Salt],
-      unvalidatedAgreementText: AgreementText,
   ): Either[ValueCoder.EncodeError, SerializableContract] =
     SerializableRawContractInstance
-      .create(contractInstance, unvalidatedAgreementText)
+      .create(contractInstance)
       .map(
         SerializableContract(contractId, _, metadata, LedgerCreateTime(ledgerTime), contractSalt)
       )
@@ -150,13 +133,6 @@ object SerializableContract
       disclosedContractIdVersion <- CantonContractIdVersion
         .ensureCantonContractId(disclosedContract.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-      _ <- disclosedContractIdVersion match {
-        case NonAuthenticatedContractIdVersion =>
-          Left(
-            s"Disclosed contract with non-authenticated contract id: ${disclosedContract.contractId.toString}"
-          )
-        case AuthenticatedContractIdVersion | AuthenticatedContractIdVersionV2 => Right(())
-      }
       salt <- {
         if (driverContractMetadataBytes.isEmpty)
           Left[String, Option[Salt]](
@@ -180,24 +156,14 @@ object SerializableContract
         metadata = cantonContractMetadata,
         ledgerTime = ledgerTime,
         contractSalt = salt,
-        unvalidatedAgreementText = AgreementText(create.agreementText),
       ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
     } yield contract
   }
 
-  def fromProtoV0(
-      serializableContractInstanceP: v0.SerializableContract
+  def fromProtoV30(
+      serializableContractInstanceP: v30.SerializableContract
   ): ParsingResult[SerializableContract] = {
-    val v0.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime) =
-      serializableContractInstanceP
-
-    toSerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, None)
-  }
-
-  def fromProtoV1(
-      serializableContractInstanceP: v1.SerializableContract
-  ): ParsingResult[SerializableContract] = {
-    val v1.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP) =
+    val v30.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP) =
       serializableContractInstanceP
 
     toSerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP)
@@ -206,9 +172,9 @@ object SerializableContract
   private def toSerializableContract(
       contractIdP: String,
       rawP: ByteString,
-      metadataP: Option[v0.SerializableContract.Metadata],
+      metadataP: Option[v30.SerializableContract.Metadata],
       ledgerCreateTime: Option[Timestamp],
-      contractSaltO: Option[crypto.v0.Salt],
+      contractSaltO: Option[crypto.v30.Salt],
   ): ParsingResult[SerializableContract] =
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
@@ -217,11 +183,11 @@ object SerializableContract
         .leftMap(error => ValueConversionError("raw_contract_instance", error.toString))
       metadata <- ProtoConverter
         .required("metadata", metadataP)
-        .flatMap(ContractMetadata.fromProtoV0)
+        .flatMap(ContractMetadata.fromProtoV30)
       ledgerTime <- ProtoConverter
         .required("ledger_create_time", ledgerCreateTime)
         .flatMap(CantonTimestamp.fromProtoPrimitive)
-      contractSalt <- contractSaltO.traverse(Salt.fromProtoV0)
+      contractSalt <- contractSaltO.traverse(Salt.fromProtoV30)
     } yield SerializableContract(
       contractId,
       raw,

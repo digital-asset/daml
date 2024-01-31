@@ -1,10 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, NodeId}
+import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{LoneElement, OptionValues}
@@ -52,21 +53,22 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
     }
   }
 
-  it should "prefer pre-computed blinding info" in {
+  it should "prefer stakeholder info" in {
     val mismatchingBlindingInfo =
       BlindingInfo(Map(NodeId(0) -> Set(Ref.Party.assertFromString("zoe"))), Map())
     for {
-      (_, tx) <- store(
+      (offset, tx) <- store(
         offsetAndTx = singleCreate,
         blindingInfo = Some(mismatchingBlindingInfo),
-        divulgedContracts = Map.empty,
       )
-      result <- ledgerDao.contractsReader.lookupActiveContractAndLoadArgument(
-        Set(alice),
+      result <- ledgerDao.contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
+        offset,
       )
     } yield {
-      result shouldBe None
+      result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
+        active.stakeholders -> active.signatories
+      } shouldBe Some(Set(alice, bob) -> Set(alice, bob))
     }
   }
 }

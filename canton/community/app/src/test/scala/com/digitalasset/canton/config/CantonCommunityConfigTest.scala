@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -14,117 +14,35 @@ import com.digitalasset.canton.config.ConfigErrors.{
   SubstitutionError,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpec
 
 class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
   import scala.jdk.CollectionConverters.*
-  val simpleConf = "examples/01-simple-topology/simple-topology.conf"
+  private val simpleConf = "examples/01-simple-topology/simple-topology-x.conf"
+
   "the example simple topology configuration" should {
     lazy val config =
-      loadFile(simpleConf).valueOrFail("failed to load simple-topology.conf")
+      loadFile(simpleConf).valueOrFail("failed to load simple-topology-x.conf")
 
     "contain a couple of participants" in {
       config.participants should have size 2
     }
 
-    "contain a single domain" in {
-      config.domains should have size 1
+    "contain a single sequencer" in {
+      config.sequencers should have size 1
+    }
+
+    "contain a single mediator" in {
+      config.mediators should have size 1
     }
 
     "produce a port definition message" in {
-      config.portDescription shouldBe "mydomain:admin-api=5019,public-api=5018;participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021"
+      config.portDescription shouldBe "participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021;sequencer1:admin-api=5002,public-api=5001;mediator1:admin-api=5202"
     }
 
-  }
-
-  "deprecated configs" should {
-    val expectedWarnings = LogEntry.assertLogSeq(
-      Seq(
-        (
-          _.message should (include("Config field") and include("is deprecated")),
-          "deprecated field not logged",
-        ),
-        (
-          _.message should (include("Config path") and include("is deprecated")),
-          "deprecated path not logged",
-        ),
-      ),
-      Seq.empty,
-    ) _
-
-    def deprecatedConfigChecks(config: CantonCommunityConfig) = {
-      import scala.concurrent.duration.*
-
-      config.monitoring.health.foreach { health =>
-        health.check match {
-          case CheckConfig.IsActive(node) => node shouldBe Some("my_node")
-          case _ =>
-        }
-      }
-
-      val (_, participantConfig) = config.participants.headOption.value
-      participantConfig.init.ledgerApi.maxDeduplicationDuration.duration.toSeconds shouldBe 10.minutes.toSeconds
-      participantConfig.init.parameters.uniqueContractKeys shouldBe false
-      participantConfig.init.identity.map(_.generateLegalIdentityCertificate) shouldBe Some(true)
-      participantConfig.storage.parameters.failFastOnStartup shouldBe false
-      participantConfig.storage.parameters.maxConnections shouldBe Some(10)
-      participantConfig.storage.parameters.ledgerApiJdbcUrl shouldBe Some("yes")
-
-      def domain(name: String) = config.domains
-        .find(_._1.unwrap == name)
-        .value
-        ._2
-
-      val domain1Parameters = domain("domain1").init.domainParameters
-      val domain2parameters = domain("domain2").init.domainParameters
-
-      domain1Parameters.uniqueContractKeys shouldBe false
-      domain2parameters.uniqueContractKeys shouldBe true
-    }
-
-    // In this test case, both deprecated and new fields are set with opposite values, we make sure the new fields
-    // are used
-    "load with new fields set" in {
-      loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
-        {
-          val parsed = loadFile("deprecated-configs/new-config-fields-take-precedence.conf").value
-          deprecatedConfigChecks(parsed)
-        },
-        expectedWarnings,
-      )
-    }
-
-    // In this test case, only the deprecated fields are set, we make sure they get used as fallbacks
-    "be backwards compatible" in {
-      loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
-        {
-          val parsed = loadFile("deprecated-configs/backwards-compatible.conf").value
-          deprecatedConfigChecks(parsed)
-        },
-        expectedWarnings,
-      )
-    }
-
-    "disable autoInit to false" in {
-      val config =
-        ConfigFactory
-          .parseFile((baseDir.toString / "deprecated-configs/backwards-compatible.conf").toJava)
-          .withValue(
-            "canton.participants.participant1.init.auto-init",
-            ConfigValueFactory.fromAnyRef(false),
-          )
-      loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
-        {
-          val parsed = CantonCommunityConfig.load(config).value
-          parsed.participants.headOption.value._2.init.autoInit shouldBe false
-        },
-        expectedWarnings,
-      )
-    }
   }
 
   "the invalid node names configuration" should {
@@ -134,13 +52,13 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
           val result = loadFile("invalid-configs/invalid-node-names.conf")
           inside(result.left.value) { case GenericConfigError.Error(cause) =>
             cause should include(
-              "Node name is too long. Max length: 30. Length: 38. Name: \"mydomain0123456789012345678901...\""
+              "Node name is too long. Max length: 30. Length: 43. Name: \"myparticipant01234567890123456...\""
             )
             cause should include(
-              "Node name contains invalid characters (allowed: [a-zA-Z0-9_-]): \"my`domain\""
+              "Node name contains invalid characters (allowed: [a-zA-Z0-9_-]): \"my`participant\""
             )
             cause should include(
-              "Node name contains invalid characters (allowed: [a-zA-Z0-9_-]): \"my domain\""
+              "Node name contains invalid characters (allowed: [a-zA-Z0-9_-]): \"my participant\""
             )
           }
         },
@@ -148,7 +66,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
           entry.shouldBeCantonErrorCode(GenericConfigError.code)
           val cause = entry.errorMessage
           cause should include(
-            "Node name is too long. Max length: 30. Length: 38. Name: \"mydomain0123456789012345678901...\""
+            "Node name is too long. Max length: 30. Length: 43. Name: \"myparticipant01234567890123456...\""
           )
           // The other causes get truncated away, unfortunately.
           // See https://github.com/digital-asset/daml/issues/12785
@@ -334,8 +252,14 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
   "parsing our config example snippets" should {
     "succeed on all examples" in {
       val inputDir = baseDir / "documentation-snippets"
+
+      val exclude = List(
+        "enforce-protocol-version-domain-2.5.conf" // Does not build anymore but needed in the docs
+      )
+
       inputDir
         .list(_.extension.contains(".conf"))
+        .filterNot(file => exclude.contains(file.name))
         .foreach(file =>
           loggerFactory.assertLogsUnorderedOptional(
             loadFiles(Seq(simpleConf, "documentation-snippets/" + file.name))
@@ -354,8 +278,6 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     loadFiles(Seq(resourcePath))
   }
 
-  val elc: ErrorLoggingContext = ErrorLoggingContext(logger, loggerFactory.properties, traceContext)
-
   private def loadFiles(
       resourcePaths: Seq[String]
   ): Either[CantonConfigError, CantonCommunityConfig] = {
@@ -363,6 +285,6 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     CantonCommunityConfig.parseAndLoad(files)
   }
 
-  lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"
+  private lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"
 
 }

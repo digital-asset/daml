@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.mediator
@@ -19,7 +19,7 @@ import com.digitalasset.canton.protocol.messages.{
   RootHashMessage,
   SerializedRootHashMessagePayload,
 }
-import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId, v0}
+import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId, v30}
 import com.digitalasset.canton.sequencing.TracedProtocolEvent
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -174,7 +174,7 @@ class DefaultMediatorEventDeduplicator(
         val expireAfter = previousUsagesNE.map(_.expireAfter).max1
         val rejection = MediatorError.MalformedMessage.Reject(
           s"The request uuid ($uuid) must not be used until $expireAfter.",
-          v0.MediatorRejection.Code.NonUniqueRequestUuid,
+          v30.MediatorRejection.Code.NonUniqueRequestUuid,
         )
         rejection.report()
 

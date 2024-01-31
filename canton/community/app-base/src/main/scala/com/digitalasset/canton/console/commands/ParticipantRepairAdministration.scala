@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -8,6 +8,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
+import com.digitalasset.canton.admin.participant.v30.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
@@ -21,17 +22,12 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
+import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNodeCommon
-import com.digitalasset.canton.participant.admin.v0.{
-  AcsSnapshotChunk,
-  DownloadRequest,
-  ExportAcsRequest,
-  ExportAcsResponse,
-}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContractWithWitnesses}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ResourceUtil
@@ -105,64 +101,6 @@ class ParticipantRepairAdministration(
     }
   }
 
-  @Help.Summary("Download all contracts for the given set of parties to a file.")
-  @Help.Description(
-    """This command can be used to download the current active contract set of a given set of parties to a text file.
-        |This is mainly interesting for recovery and operational purposes.
-        |
-        |The file will contain base64 encoded strings, one line per contract. The lines are written
-        |sorted according to their domain and contract id. This allows to compare the contracts stored
-        |by two participants using standard file comparison tools.
-        |The domain-id is printed with the prefix domain-id before the block of contracts starts.
-        |
-        |This command may take a long time to complete and may require significant resources.
-        |It will first load the contract ids of the active contract set into memory and then subsequently
-        |load the contracts in batches and inspect their stakeholders. As this operation needs to traverse
-        |the entire datastore, it might take a long time to complete.
-        |
-        |The command will return a map of domainId -> number of active contracts stored
-        |
-        The arguments are:
-        - parties: identifying contracts having at least one stakeholder from the given set
-        - outputFile: the output file name where to store the data. Use .gz as a suffix to get a compressed file (recommended)
-        - filterDomainId: restrict the export to a given domain
-        - timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
-        - protocolVersion: optional the protocol version to use for the serialization. Defaults to the one of the domains.
-        - chunkSize: size of the byte chunks to stream back: default 1024 * 1024 * 2 = (2MB)
-        - contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
-        """
-  )
-  @deprecated(
-    "Use export_acs",
-    since = "2.8.0",
-  ) // TODO(i14441): Remove deprecated ACS download / upload functionality
-  def download(
-      parties: Set[PartyId],
-      outputFile: String = ParticipantRepairAdministration.DefaultFile,
-      filterDomainId: String = "",
-      timestamp: Option[Instant] = None,
-      protocolVersion: Option[ProtocolVersion] = None,
-      chunkSize: Option[PositiveInt] = None,
-      contractDomainRenames: Map[DomainId, DomainId] = Map.empty,
-  ): Unit = {
-    check(FeatureFlag.Repair) {
-      val generator = AcsSnapshotFileCollector[DownloadRequest, AcsSnapshotChunk](outputFile)
-      val command = ParticipantAdminCommands.ParticipantRepairManagement
-        .Download(
-          parties,
-          filterDomainId,
-          timestamp,
-          protocolVersion,
-          chunkSize,
-          generator.observer,
-          generator.hasGzipExtension,
-          contractDomainRenames,
-        )
-
-      generator.materializeFile(command)
-    }
-  }
-
   @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
     """This command exports the current Active Contract Set (ACS) of a given set of parties to ACS snapshot file.
@@ -204,7 +142,6 @@ class ParticipantRepairAdministration(
       requestComplete,
     )
     private val timeout = consoleEnvironment.commandTimeouts.ledgerCommand
-    val hasGzipExtension: Boolean = target.toJava.getName.endsWith(".gz")
 
     def materializeFile(
         command: GrpcAdminCommand[
@@ -241,28 +178,6 @@ class ParticipantRepairAdministration(
             target.delete(swallowIOExceptions = true)
             CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
         }
-      }
-    }
-  }
-
-  @Help.Summary("Import ACS snapshot")
-  @Help.Description("""Uploads a binary into the participant's ACS""")
-  @deprecated(
-    "Use import_acs",
-    since = "2.8.0",
-  ) // TODO(i14441): Remove deprecated ACS download / upload functionality
-  def upload(
-      inputFile: String = ParticipantRepairAdministration.DefaultFile
-  ): Unit = {
-    check(FeatureFlag.Repair) {
-      val file = File(inputFile)
-      consoleEnvironment.run {
-        runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.Upload(
-            ByteString.copyFrom(file.loadBytes),
-            file.extension().contains(".gz"),
-          )
-        )
       }
     }
   }
@@ -328,7 +243,7 @@ abstract class LocalParticipantRepairAdministration(
   )
   def add(
       domain: DomainAlias,
-      contractsToAdd: Seq[SerializableContractWithWitnesses],
+      contractsToAdd: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean = true,
       ignoreStakeholderCheck: Boolean = false,
   ): Unit =
@@ -354,28 +269,28 @@ abstract class LocalParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Move contracts with specified Contract IDs from one domain to another.")
+  @Help.Summary("Change assignation of contracts from one domain to another.")
   @Help.Description(
     """This is a last resort command to recover from data corruption in scenarios in which a domain is
-        |irreparably broken and formerly connected participants need to move contracts to another, healthy domain.
-        |The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain". Also as of now
-        |the target domain cannot have had any inflight requests.
-        |Contracts already present in the target domain will be skipped, and this makes it possible to invoke this
+        |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
+        |healthy domain. The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain".
+        |The target domain cannot have had any inflight requests.
+        |Contracts already assigned to the target domain will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
-        |The "skipInactive" flag makes it possible to only move active contracts in the "sourceDomain".
+        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceDomain".
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
         |contract ids passed in. Be sure to not connect the participant to either domain until the call returns.
 
         Arguments:
-        - contractIds - set of contract ids that should be moved to the new domain
+        - contractIds - set of contract ids that should change assignation to the new domain
         - sourceDomain - alias of the source domain
         - targetDomain - alias of the target domain
         - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
         - batchSize - (default 100) how many contracts to write at once to the database"""
   )
-  def change_domain(
+  def change_assignation(
       contractIds: Seq[LfContractId],
       sourceDomain: DomainAlias,
       targetDomain: DomainAlias,
@@ -384,7 +299,7 @@ abstract class LocalParticipantRepairAdministration(
   ): Unit =
     runRepairCommand(tc =>
       access(
-        _.sync.repairService.changeDomainAwait(
+        _.sync.repairService.changeAssignationAwait(
           contractIds,
           sourceDomain,
           targetDomain,

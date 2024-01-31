@@ -1,22 +1,24 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
-import com.digitalasset.canton.config.RefinedNonNegativeDuration.strToFiniteDuration
+import com.digitalasset.canton.config.RefinedNonNegativeDuration.{
+  noisyAwaitResult,
+  strToFiniteDuration,
+}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.canton.time.{
-  NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal,
-  PositiveSeconds as PositiveSecondsInternal,
-}
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal}
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
+import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, StackTraceUtil}
 import com.digitalasset.canton.{DiscardOps, checked}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.duration.Duration as PbDuration
 import io.circe.Encoder
 import io.scalaland.chimney.Transformer
@@ -26,13 +28,14 @@ import pureconfig.{ConfigReader, ConfigWriter}
 
 import java.time.Duration as JDuration
 import java.util.concurrent.TimeUnit
+import scala.annotation.tailrec
 import scala.concurrent.duration.*
-import scala.concurrent.{Future, TimeoutException}
+import scala.concurrent.{Await, Future, TimeoutException}
+import scala.util.{Failure, Success, Try}
 
 trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends PrettyPrinting {
-  this: {
-    def update(newDuration: Duration): D
-  } =>
+
+  protected[this] def update(newDuration: Duration): D
 
   override def pretty: Pretty[RefinedNonNegativeDuration[D]] = prettyOfParam(_.duration)
 
@@ -62,23 +65,21 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
       logFailing: Option[Level] = None,
       stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
       onTimeout: TimeoutException => Unit = _ => (),
-  )(fut: Future[F])(implicit loggingContext: ErrorLoggingContext): F = {
-    FutureUtil.noisyAwaitResult(
+  )(fut: Future[F])(implicit loggingContext: ErrorLoggingContext): F =
+    noisyAwaitResult(
       logFailing.fold(fut)(level => FutureUtil.logOnFailure(fut, description, level = level)),
       description,
       timeout = duration,
       stackTraceFilter = stackTraceFilter,
       onTimeout = onTimeout,
     )
-  }
 
   /** Same as await, but not returning a value */
   def await_(
       description: => String,
       logFailing: Option[Level] = None,
-  )(fut: Future[_])(implicit loggingContext: ErrorLoggingContext): Unit = {
+  )(fut: Future[?])(implicit loggingContext: ErrorLoggingContext): Unit =
     await(description, logFailing)(fut).discard
-  }
 
   def toProtoPrimitive: com.google.protobuf.duration.Duration = {
     val d = asJavaApproximation
@@ -87,9 +88,7 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 }
 
 trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
-  this: {
-    def apply(newDuration: Duration): D
-  } =>
+  protected[this] def apply(newDuration: Duration): D
 
   implicit val timeoutDurationEncoder: Encoder[D] =
     Encoder[String].contramap(_.unwrap.toString)
@@ -137,6 +136,127 @@ trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
 }
 
 object RefinedNonNegativeDuration {
+
+  /** Await the result of a future, logging periodically if the future is taking "too long".
+    *
+    * @param future      The future to await
+    * @param description A description of the future, for logging
+    * @param timeout     The timeout for the future to complete within
+    * @param warnAfter   The amount of time to wait for the future to complete before starting to complain.
+    * @param killAwait   A kill-switch for the noisy await
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
+  private def noisyAwaitResult[T](
+      future: Future[T],
+      description: => String,
+      timeout: Duration = Duration.Inf,
+      warnAfter: Duration = 1.minute,
+      killAwait: Unit => Boolean = _ => false,
+      stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
+      onTimeout: TimeoutException => Unit = _ => (),
+  )(implicit loggingContext: ErrorLoggingContext): T = {
+    val warnAfterAdjusted = {
+      // if warnAfter is larger than timeout, make a sensible choice
+      if (timeout.isFinite && warnAfter.isFinite && warnAfter > timeout) {
+        timeout / 2
+      } else warnAfter
+    }
+
+    // Use Await.ready instead of Await.result to be able to tell the difference between the awaitable throwing a
+    // TimeoutException and a TimeoutException being thrown because the awaitable is not ready.
+    def ready(f: Future[T], d: Duration): Try[Future[T]] = Try(Await.ready(f, d))
+
+    def log(level: Level, message: String): Unit = LoggerUtil.logAtLevel(level, message)
+
+    // TODO(i4008) increase the log level to WARN
+    val res =
+      noisyAwaitResultForTesting(
+        future,
+        description,
+        timeout,
+        log,
+        () => System.nanoTime(),
+        warnAfterAdjusted,
+        killAwait,
+        stackTraceFilter,
+      )(ready)
+
+    res match {
+      case Failure(ex: TimeoutException) => onTimeout(ex)
+      case _ => ()
+    }
+
+    res.get
+  }
+
+  @VisibleForTesting
+  private[config] def noisyAwaitResultForTesting[T](
+      future: Future[T],
+      description: => String,
+      timeout: Duration,
+      log: (Level, String) => Unit,
+      nanoTime: () => Long,
+      warnAfter: Duration,
+      killAwait: Unit => Boolean = _ => false,
+      stackTraceFilter: Thread => Boolean,
+  )(ready: (Future[T], Duration) => Try[Future[T]]): Try[T] = {
+
+    require(warnAfter >= Duration.Zero, show"warnAfter must not be negative: $warnAfter")
+
+    val startTime = nanoTime()
+
+    @tailrec def retry(remaining: Duration, interval: Duration): Try[T] = {
+
+      if (killAwait(())) {
+        throw new TimeoutException(s"Noisy await result $description cancelled with kill-switch.")
+      }
+
+      val toWait = remaining
+        .min(interval)
+        // never wait more than 10 seconds to prevent starving on excessively long awaits
+        .min(10.seconds)
+
+      if (toWait > Duration.Zero) {
+        ready(future, toWait) match {
+          case Success(future) =>
+            future.value.getOrElse(
+              Failure(
+                new RuntimeException(
+                  s"Future $future not complete after successful Await.ready, this should never happen"
+                )
+              )
+            )
+
+          case Failure(_: TimeoutException) =>
+            val now = nanoTime()
+            val waited = Duration(now - startTime, NANOSECONDS)
+            val waitedReadable = LoggerUtil.roundDurationForHumans(waited)
+            log(
+              if (waited >= warnAfter) Level.INFO else Level.DEBUG,
+              s"Task $description still not completed after $waitedReadable. Continue waiting...",
+            )
+            val leftOver = timeout.minus(waited)
+            retry(
+              leftOver,
+              if (waited < warnAfter)
+                warnAfter - waited // this enables warning at the earliest time we are asked to warn
+              else warnAfter / 2,
+            )
+
+          case Failure(exn) => Failure(exn)
+        }
+
+      } else {
+        val stackTraces = StackTraceUtil.formatStackTrace(stackTraceFilter)
+        val msg = s"Task $description did not complete within $timeout."
+        log(Level.WARN, s"$msg Stack traces:\n$stackTraces")
+        Failure(new TimeoutException(msg))
+      }
+    }
+
+    retry(timeout, warnAfter)
+  }
+
   def strToFiniteDuration(str: String): Either[String, FiniteDuration] =
     Either
       .catchOnly[NumberFormatException](Duration.apply(str))
@@ -156,7 +276,8 @@ final case class NonNegativeDuration(duration: Duration)
     extends RefinedNonNegativeDuration[NonNegativeDuration] {
   require(duration >= Duration.Zero, s"Expecting non-negative duration, found: $duration")
 
-  def update(newDuration: Duration): NonNegativeDuration = NonNegativeDuration(newDuration)
+  override protected[this] def update(newDuration: Duration): NonNegativeDuration =
+    NonNegativeDuration(newDuration)
 
   def asFiniteApproximation: FiniteDuration = duration match {
     case fd: FiniteDuration => fd
@@ -188,11 +309,12 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): NonNegativeFiniteDuration = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => NonNegativeFiniteDuration(duration)
-  }
+  override protected[this] def update(newDuration: Duration): NonNegativeFiniteDuration =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
+      case duration: FiniteDuration => NonNegativeFiniteDuration(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
 }
@@ -201,9 +323,10 @@ object NonNegativeFiniteDuration
     extends RefinedNonNegativeDurationCompanion[NonNegativeFiniteDuration] {
   val Zero: NonNegativeFiniteDuration = NonNegativeFiniteDuration(Duration.Zero)
 
-  def apply(duration: Duration): NonNegativeFiniteDuration = NonNegativeFiniteDuration
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def apply(duration: JDuration): NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryFromJavaDuration(duration)
@@ -250,19 +373,21 @@ final case class PositiveFiniteDuration(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): PositiveFiniteDuration = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => PositiveFiniteDuration(duration)
-  }
+  override protected[this] def update(newDuration: Duration): PositiveFiniteDuration =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
+      case duration: FiniteDuration => PositiveFiniteDuration(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
 }
 
 object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[PositiveFiniteDuration] {
-  def apply(duration: Duration): PositiveFiniteDuration = PositiveFiniteDuration
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): PositiveFiniteDuration =
+    PositiveFiniteDuration
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def fromDuration(duration: Duration): Either[String, PositiveFiniteDuration] = duration match {
     case x: FiniteDuration =>
@@ -305,19 +430,14 @@ final case class PositiveDurationSeconds(underlying: FiniteDuration)
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
 
-  def update(newDuration: Duration): PositiveDurationSeconds = newDuration match {
-    case _: Duration.Infinite =>
-      throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Inf")
-    case duration: FiniteDuration => PositiveDurationSeconds(duration)
-  }
+  override protected[this] def update(newDuration: Duration): PositiveDurationSeconds =
+    newDuration match {
+      case _: Duration.Infinite =>
+        throw new IllegalArgumentException(s"Duration must be finite, but is Duration.Infinite")
+      case duration: FiniteDuration => PositiveDurationSeconds(duration)
+    }
 
   def asFiniteApproximation: FiniteDuration = underlying
-
-  private[canton] def toInternal: PositiveSecondsInternal = checked(
-    PositiveSecondsInternal.tryCreate(
-      asJava
-    )
-  )
 }
 
 object PositiveDurationSeconds
@@ -325,9 +445,10 @@ object PositiveDurationSeconds
   private def isRoundedToTheSecond(duration: FiniteDuration): Boolean =
     duration == Duration(duration.toSeconds, SECONDS)
 
-  def apply(duration: Duration): PositiveDurationSeconds = PositiveDurationSeconds
-    .fromDuration(duration)
-    .fold(err => throw new IllegalArgumentException(err), identity)
+  override protected[this] def apply(duration: Duration): PositiveDurationSeconds =
+    PositiveDurationSeconds
+      .fromDuration(duration)
+      .fold(err => throw new IllegalArgumentException(err), identity)
 
   def apply(duration: JDuration): PositiveDurationSeconds =
     PositiveDurationSeconds.tryFromJavaDuration(duration)
@@ -349,5 +470,4 @@ object PositiveDurationSeconds
 
   def fromProtoPrimitive(durationP: PbDuration): Either[String, PositiveDurationSeconds] =
     fromJavaDuration(JDuration.of(durationP.seconds, java.time.temporal.ChronoUnit.SECONDS))
-
 }

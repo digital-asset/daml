@@ -1,13 +1,13 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast

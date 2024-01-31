@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -31,7 +31,6 @@ object CantonNodeParameters {
     def batchingConfig: BatchingConfig
     def nonStandardConfig: Boolean
     def dbMigrateAndStart: Boolean
-    def skipTopologyManagerSignatureValidation: Boolean
 
   }
   object General {
@@ -48,7 +47,6 @@ object CantonNodeParameters {
         batchingConfig: BatchingConfig,
         nonStandardConfig: Boolean,
         dbMigrateAndStart: Boolean,
-        skipTopologyManagerSignatureValidation: Boolean,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -85,9 +83,6 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def batchingConfig: BatchingConfig = general.batchingConfig
   override def nonStandardConfig: Boolean = general.nonStandardConfig
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
-  override def skipTopologyManagerSignatureValidation: Boolean =
-    general.skipTopologyManagerSignatureValidation
-
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -16,10 +16,9 @@ trait CloseNotification {
   val closedF: Future[Unit] = closedP.future
 
   def onClosed(callback: () => Unit)(implicit executionContext: ExecutionContext): Unit =
-    closedP.future
-      .onComplete { _ =>
-        callback()
-      }
+    closedP.future.onComplete { _ =>
+      callback()
+    }
 
   protected def notifyClosed(): Unit = closedP.success(())
 }

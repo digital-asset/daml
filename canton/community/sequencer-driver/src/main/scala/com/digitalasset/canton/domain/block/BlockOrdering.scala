@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.block
@@ -48,7 +48,9 @@ trait BlockOrderer extends AutoCloseable {
   /** Send a request.
     * Requests are ordered and delivered as [[com.digitalasset.canton.domain.block.BlockOrderer.Block]] to subscribers.
     */
-  def sendRequest(tag: String, body: ByteString)(implicit traceContext: TraceContext): Future[Unit]
+  def sendRequest(tag: String, body: ByteString, signature: Option[TransactionSignature] = None)(
+      implicit traceContext: TraceContext
+  ): Future[Unit]
 
   // Read operations
 

@@ -1,9 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
-import com.digitalasset.canton.participant.store.{ActiveContractStore, ContractKeyJournal}
+import com.digitalasset.canton.participant.store.ActiveContractStore
 
 /** Type class for operations on statuses that can be locked.
   *
@@ -47,24 +47,4 @@ private[conflictdetection] object LockableStatus {
 
       override def shouldEvict(status: Status): Boolean = true
     }
-
-  implicit val contractKeyJournalStateLockableStatus: LockableStatus[ContractKeyJournal.Status] =
-    new LockableStatus[ContractKeyJournal.Status] {
-      import ContractKeyJournal.*
-
-      override def kind: String = "key"
-
-      override def isFree(status: Status): Boolean = status match {
-        case Unassigned => true
-        case Assigned => false
-      }
-
-      override def isActive(status: Status): Boolean = status match {
-        case Assigned => true
-        case Unassigned => false
-      }
-
-      override def shouldEvict(status: Status): Boolean = true
-    }
-
 }

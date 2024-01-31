@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer.errors
@@ -20,14 +20,6 @@ sealed trait WriteRequestRefused extends SequencerWriteError[Nothing] {
 }
 
 object WriteRequestRefused {
-  case object SequencerClosing extends WriteRequestRefused {
-    override def asGrpcStatus: Status =
-      Status.UNAVAILABLE.withDescription("Sequencer has been shutdown")
-  }
-  case object SequencerUnavailable extends WriteRequestRefused {
-    override def asGrpcStatus: Status =
-      Status.UNAVAILABLE.withDescription("Sequencer is unavailable")
-  }
   case object SequencerOverloaded extends WriteRequestRefused {
     override def asGrpcStatus: Status =
       Status.RESOURCE_EXHAUSTED.withDescription("Sequencer is overloaded")

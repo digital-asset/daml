@@ -5,7 +5,7 @@ syntax = "proto3";
 
 import "scalapb/scalapb.proto";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api;
 
 option (scalapb.options) = {
   scope: PACKAGE

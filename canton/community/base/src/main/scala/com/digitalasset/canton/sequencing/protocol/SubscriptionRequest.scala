@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
 
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
@@ -29,16 +29,17 @@ final case class SubscriptionRequest(member: Member, counter: SequencerCounter)(
   @transient override protected lazy val companionObj: SubscriptionRequest.type =
     SubscriptionRequest
 
-  def toProtoV0: v0.SubscriptionRequest = v0.SubscriptionRequest(member.toProtoPrimitive, counter.v)
+  def toProtoV30: v30.SubscriptionRequest =
+    v30.SubscriptionRequest(member.toProtoPrimitive, counter.v)
 }
 
 object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionRequest] {
   override val name: String = "SubscriptionRequest"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> LegacyProtoConverter(ProtocolVersion.v3)(v0.SubscriptionRequest)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubscriptionRequest)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -49,15 +50,14 @@ object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionReq
   ): SubscriptionRequest =
     SubscriptionRequest(member, counter)(protocolVersionRepresentativeFor(protocolVersion))
 
-  def fromProtoV0(
-      subscriptionRequestP: v0.SubscriptionRequest
+  def fromProtoV30(
+      subscriptionRequestP: v30.SubscriptionRequest
   ): ParsingResult[SubscriptionRequest] = {
-    val v0.SubscriptionRequest(memberP, counter) = subscriptionRequestP
+    val v30.SubscriptionRequest(memberP, counter) = subscriptionRequestP
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
     } yield SubscriptionRequest(member, SequencerCounter(counter))(
       protocolVersionRepresentativeFor(ProtoVersion(0))
     )
   }
-
 }

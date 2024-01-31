@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interfaces
@@ -13,32 +13,6 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoContractsReader {
-
-  /** Looks up an active or divulged contract if it is visible for the given party.
-    *
-    * @param readers a set of parties for one of which the contract must be visible
-    * @param contractId the contract id to query
-    * @return the optional [[Contract]] value
-    */
-  def lookupActiveContractAndLoadArgument(
-      readers: Set[Party],
-      contractId: ContractId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]]
-
-  /** Looks up an active or divulged contract if it is visible for the given party.
-    * This method uses the provided create argument for building the [[Contract]] value
-    * instead of decoding it again.
-    *
-    * @param readers a set of parties for one of which the contract must be visible
-    * @param contractId the contract id to query
-    * @param createArgument the contract create argument
-    * @return the optional [[Contract]] value
-    */
-  def lookupActiveContractWithCachedArgument(
-      readers: Set[Party],
-      contractId: ContractId,
-      createArgument: Value,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]]
 
   /** Looks up the contract by id at a specific ledger event sequential id.
     *

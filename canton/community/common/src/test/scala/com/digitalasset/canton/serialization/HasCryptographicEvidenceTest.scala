@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.serialization
@@ -114,12 +114,8 @@ object MemoizedEvidenceSUT
 
   val name: String = "MemoizedEvidenceSUT"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter.raw(
-      ProtocolVersion.v3,
-      (),
-      _ => throw new NotImplementedError("Serialization is not implemented"),
-    )
+  val supportedProtoVersions: MemoizedEvidenceSUT.SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v30)
   )
 
   private val defaultProtocolVersionRepresentative = protocolVersionRepresentativeFor(

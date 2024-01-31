@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -42,7 +42,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessSet,
 }
 import com.digitalasset.canton.participant.store.{
-  ContractLookup,
   SyncDomainEphemeralState,
   SyncDomainEphemeralStateLookup,
   TransferLookup,
@@ -54,7 +53,7 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
   RootHash,
   ViewHash,
-  v0,
+  v30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
@@ -239,7 +238,6 @@ class TestProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
@@ -339,7 +337,7 @@ object TestProcessingSteps {
     override type View = TestViewTree
     override type FullView = TestViewTree
 
-    override def toProtoEnum: v0.ViewType =
+    override def toProtoEnum: v30.ViewType =
       throw new UnsupportedOperationException("TestViewType cannot be serialized")
   }
   type TestViewType = TestViewType.type

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -507,11 +507,11 @@ class SequencerReader(
             filteredBatch,
             protocolVersion,
           )
-        case DeliverErrorStoreEvent(_, messageId, message, error, _traceContext) =>
+        case DeliverErrorStoreEvent(_, messageId, error, _traceContext) =>
           val status = DeliverErrorStoreEvent
-            .deserializeError(message, error, protocolVersion)
+            .fromByteString(error, protocolVersion)
             .valueOr(err => throw new DbDeserializationException(err.toString))
-          DeliverError.tryCreate(
+          DeliverError.create(
             counter,
             timestamp,
             domainId,

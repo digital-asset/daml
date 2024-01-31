@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.postgresql
@@ -10,16 +10,6 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
 import com.digitalasset.canton.platform.store.backend.common.QueryStrategy
 
 object PostgresQueryStrategy extends QueryStrategy {
-
-  override def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      internedParties: Set[Int],
-  ): CompositeSql = {
-    require(internedParties.nonEmpty, "internedParties must be non-empty")
-    // anorm does not like primitive arrays, so we need to box it
-    val partiesArray: Array[java.lang.Integer] = internedParties.map(Int.box).toArray
-    cSQL"#$columnName::int[] && $partiesArray::int[]"
-  }
 
   override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
     s"$elementColumnName = any($arrayColumnName)"

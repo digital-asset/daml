@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -127,6 +127,33 @@ private[inner] object ToJsonGenerator {
     (methods, staticImports)
   }
 
+  def forKey(keyDamlType: Type)(implicit packagePrefixes: PackagePrefixes) = {
+    val encoder = MethodSpec
+      .methodBuilder("keyJsonEncoder")
+      .addModifiers(Modifier.PUBLIC)
+      .returns(classOf[JsonLfEncoder])
+      .addStatement("return this.key.map($L).orElse(null)", encoderOf(keyDamlType))
+      .build()
+
+    val toString = MethodSpec
+      .methodBuilder("keyToJson")
+      .addModifiers(Modifier.PUBLIC)
+      .addStatement("var enc = keyJsonEncoder()")
+      .addStatement("if (enc == null) return null")
+      .addStatement("var w = new $T()", classOf[StringWriter])
+      .beginControlFlow("try")
+      .addStatement("enc.encode(new $T(w))", classOf[JsonLfWriter])
+      .nextControlFlow("catch ($T e)", classOf[IOException])
+      .addComment("Not expected with StringWriter")
+      .addStatement("throw new $T(e)", classOf[UncheckedIOException])
+      .endControlFlow()
+      .addStatement("return w.toString()")
+      .returns(classOf[String])
+      .build()
+
+    Seq(encoder, toString)
+  }
+
   // When a type has type parameters (generic classes), we need to tell
   // the encoder how to encode that type argument,
   // e.g. if encoding a List<T>, we need to tell it how to encode a T.
@@ -199,7 +226,7 @@ private[inner] object ToJsonGenerator {
       CodeBlock.of(
         "$T.of($S, $L)",
         fieldClass,
-        f.javaName,
+        f.damlName,
         encoder,
       )
     }

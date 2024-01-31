@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -138,6 +138,15 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
     val fromAllOtherDars = Monoid.combineAll(darPackages.toMap.removed(removeDar.hash).values)
     val withoutDar = known.diff(fromAllOtherDars).headOption
     OptionT.fromOption(withoutDar)
+  }
+
+  override def determinePackagesExclusivelyInDar(
+      packages: Seq[PackageId],
+      removeDar: DarDescriptor,
+  )(implicit tc: TraceContext): Future[Seq[PackageId]] = {
+    val packagesInOtherDars = Monoid.combineAll(darPackages.toMap.removed(removeDar.hash).values)
+    val packagesNotInAnyOtherDars = packages.toSet.diff(packagesInOtherDars)
+    Future.successful(packagesNotInAnyOtherDars.toSeq)
   }
 
   override def removeDar(

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -114,13 +114,6 @@ trait ParticipantSettingsStoreTest
       behave like singleInsertion(maxDedupDuration, NonNegativeFiniteDuration.Zero)(
         _.insertMaxDeduplicationDuration(_).failOnShutdown,
         GenLens[Settings](_.maxDeduplicationDuration),
-      )
-    }
-
-    "unique contract keys" should {
-      behave like singleInsertion(false, true)(
-        _.insertUniqueContractKeysMode(_).failOnShutdown,
-        GenLens[Settings](_.uniqueContractKeys),
       )
     }
 

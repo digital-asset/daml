@@ -1,0 +1,56 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module GenMapMod {
+
+  record @serializable Box = {
+    x: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)),
+    party: Party
+  } ;
+
+  template (this : Box) =  {
+    precondition True;
+    signatories (PartyMod:one (GenMapMod:Box {party} this));
+    observers (Nil @Party);
+  };
+
+  val insert :
+    (RecordMod:Pair Int64 (Numeric 10)) ->
+       (VariantMod:Either Int64 (Numeric 10)) ->
+       GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) ->
+       GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))
+    = GENMAP_INSERT @(RecordMod:Pair Int64 (Numeric 10)) @(VariantMod:Either Int64 (Numeric 10));
+
+  val createContract:
+    GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))->
+      Scenario (ContractId GenMapMod:Box)
+    = \ (x: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))) ->
+        sbind
+          bob : Party <- sget_party "Bob"
+        in
+          commit @(ContractId GenMapMod:Box) bob (create @GenMapMod:Box (GenMapMod:Box { x = x, party = bob }));
+
+  val map0: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
+    GENMAP_EMPTY @(RecordMod:Pair Int64 (Numeric 10)) @(VariantMod:Either Int64 (Numeric 10));
+
+  val map1: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
+    GenMapMod:insert RecordMod:pair1 VariantMod:either1 GenMapMod:map0 ;
+
+  val map2: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
+    GenMapMod:insert RecordMod:pair2 VariantMod:either2 GenMapMod:map1 ;
+
+  val map3: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
+    GenMapMod:insert RecordMod:pair3 VariantMod:either3 GenMapMod:map2 ;
+
+  val createContracts: Scenario Unit =
+    sbind
+        c0 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map0 ;
+        c1 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map1 ;
+        c2 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map2 ;
+        c3 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map3
+      in
+        spure @Unit () ;
+
+  val equal: forall (x:*). x -> x -> Bool = EQUAL;
+
+}

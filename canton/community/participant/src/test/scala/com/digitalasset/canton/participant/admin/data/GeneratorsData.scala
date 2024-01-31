@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.data
@@ -15,13 +15,14 @@ final class GeneratorsData(
     protocolVersion: ProtocolVersion,
     generatorsProtocol: GeneratorsProtocol,
 ) {
+  import generatorsProtocol.*
 
   implicit val activeContractArb: Arbitrary[ActiveContract] = {
 
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
-      contract <- generatorsProtocol.serializableContractArb.arbitrary
-      transferCounter <- transferCounterOGen(protocolVersion)
+      contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+      transferCounter <- transferCounterOGen
 
       ac = ActiveContract.create(domainId, contract, transferCounter)(protocolVersion)
 

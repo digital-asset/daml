@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.participant.admin.DomainConnectivityService
-import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import io.grpc.Status
 
@@ -48,16 +48,6 @@ class GrpcDomainConnectivityService(service: DomainConnectivityService)(implicit
   override def registerDomain(request: RegisterDomainRequest): Future[RegisterDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     nonEmptyProcess(request.add, service.registerDomain)
-  }
-
-  override def getAgreement(request: GetAgreementRequest): Future[GetAgreementResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    service.getAgreement(request.domainAlias)
-  }
-
-  override def acceptAgreement(request: AcceptAgreementRequest): Future[AcceptAgreementResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    service.acceptAgreement(request.domainAlias, request.agreementId)
   }
 
   /** reconfigure a domain connection

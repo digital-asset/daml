@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -16,9 +16,6 @@ object DbDtoToStringsForInterning {
 
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
-      case dbDto: DbDto.EventDivulgence =>
-        dbDto.template_id.iterator
-
       case dbDto: DbDto.EventExercise =>
         dbDto.template_id.iterator
 
@@ -36,10 +33,6 @@ object DbDtoToStringsForInterning {
 
   private def partiesOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
-      case dbDto: DbDto.EventDivulgence =>
-        dbDto.submitters.getOrElse(Set.empty).iterator ++
-          dbDto.tree_event_witnesses.iterator
-
       case dbDto: DbDto.EventExercise =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
           dbDto.tree_event_witnesses.iterator ++
@@ -80,7 +73,6 @@ object DbDtoToStringsForInterning {
 
   private def domainIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
-      case dbDto: DbDto.EventDivulgence => dbDto.domain_id.iterator
       case dbDto: DbDto.EventExercise => dbDto.domain_id.iterator
       case dbDto: DbDto.EventCreate => dbDto.domain_id.iterator
       case dbDto: DbDto.EventUnassign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)

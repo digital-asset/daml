@@ -5,13 +5,12 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_library",
-    "da_scala_test_suite",
     "kind_projector_plugin",
     "scala_source_jar",
     "scaladoc_jar",
 )
 load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_macro_library", "da_scala_test_suite", "scaladoc_jar")
 load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
@@ -39,11 +38,11 @@ cat << EOF > $@
 package com.digitalasset.canton.buildinfo
 
 case object BuildInfo {{
-  val version: String = "2.7.0-SNAPSHOT"
+  val version: String = "3.0.0-SNAPSHOT"
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val protocolVersions = List("3", "4", "5")
+  val protocolVersions = Seq()
   override val toString: String = {{
     "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
       version, scalaVersion, sbtVersion, damlLibrariesVersion, protocolVersions
@@ -64,14 +63,19 @@ scala_library(
 
 ### daml-common-staging/daml-errors ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_daml-errors",
     srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
@@ -145,14 +149,20 @@ scala_macro_library(
 
 ### community/util-logging ###
 
-scala_library(
+da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    tags = ["maven_coordinates=com.daml:canton-community-util-logging:__VERSION__"],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//language-support/java/bindings-rxjava:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":daml-common-staging_daml-errors",
         ":pekko-stream-minus-patched-classes",
@@ -228,18 +238,30 @@ proto_jars(
     ],
 )
 
-scala_library(
+da_scala_library(
     name = "community_ledger_ledger-common",
-    srcs = glob(["community/ledger/ledger-common/src/main/scala/**/*.scala"]),
-    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
-    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
-    scalacopts = [
+    srcs = glob([
+        "community/ledger/ledger-common/src/main/scala/**/*.scala",
+        "community/ledger/ledger-common/src/main/scala/**/*.java",
+    ]),
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
+    resources = glob(["community/ledger/ledger-common/src/resources/**"]),
+    tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//compiler/repl-service:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//language-support/java:__subpackages__",
+        "//ledger-service/utils:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
+        ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -256,13 +278,17 @@ scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
@@ -272,10 +298,54 @@ scala_library(
         "@maven//:io_netty_netty_buffer",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+### community/admin-api
+
+proto_library(
+    name = "community_admin-api_proto",
+    srcs = glob(["community/admin-api/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/admin-api/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_admin-api_proto_scala",
+    srcs = [":community_admin-api_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "flat_package",
+        "grpc",
+    ],
+    visibility = ["//daml-script:__subpackages__"],
+)
+
+filegroup(
+    name = "community_admin-api-src",
+    srcs = ["community/admin-api/src/main/protobuf/com/digitalasset/canton/version/ProtocolVersionAnnotation.scala"],
+    visibility = ["//daml-script:__subpackages__"],
+)
+
+scala_library(
+    name = "community_admin-api",
+    srcs = [":community_admin-api-src"],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
 )
 
@@ -308,7 +378,7 @@ proto_gen(
 
 scala_library(
     name = "community_base",
-    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"],
+    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
@@ -323,6 +393,7 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_buildinfo",
         ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
@@ -356,7 +427,6 @@ scala_library(
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
@@ -415,18 +485,19 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
     deps = [
+        ":bindings-java",
+        ":community_admin-api",
+        ":community_base",
+        ":community_buildinfo",
+        ":community_ledger_ledger-common",
+        ":community_lib_Blake2b",
+        ":community_lib_slick_slick-fork",
+        ":community_lib_wartremover",
+        ":community_util-external",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
-        "//canton:bindings-java",
-        "//canton:community_base",
-        "//canton:community_buildinfo",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_lib_Blake2b",
-        "//canton:community_lib_slick_slick-fork",
-        "//canton:community_lib_wartremover",
-        "//canton:community_util-external",
-        "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
@@ -467,6 +538,8 @@ scala_library(
         "@maven//:net_logstash_logback_logstash_logback_encoder",
         "@maven//:org_apache_logging_log4j_log4j_core",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_apache_pekko_pekko_http_2_13",
+        "@maven//:org_apache_pekko_pekko_http_core_2_13",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
@@ -516,18 +589,20 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//language-support/java:__subpackages__",
+    ],
     deps = [
+        ":bindings-java",
+        ":community_base",
+        ":community_common",
+        ":community_ledger_ledger-common",
+        ":community_ledger_ledger-common_configuration_proto_java",
+        ":community_util-external",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
-        ":pekko-stream-patch",
-        "//canton:bindings-java",
-        "//canton:community_base",
-        "//canton:community_common",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_ledger_ledger-common_configuration_proto_java",
-        "//canton:community_util-external",
-        "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
@@ -541,7 +616,6 @@ scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/executors",
-        "//libs-scala/grpc-utils",
         "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -579,8 +653,6 @@ scala_library(
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_services",
@@ -618,14 +690,13 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":bindings-java",
+        ":community_base",
+        ":community_ledger_ledger-common",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
-        "//canton:bindings-java",
-        "//canton:community_base",
-        "//canton:community_ledger_ledger-api-core",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -683,6 +754,7 @@ proto_library(
     srcs = glob(["community/domain/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/domain/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -714,18 +786,20 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":bindings-java",
+        ":community_admin-api",
+        ":community_base",
+        ":community_common",
+        ":community_ledger_ledger-common",
+        ":community_lib_slick_slick-fork",
+        ":community_lib_wartremover",
+        ":community_sequencer-driver",
+        ":community_util-external",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
-        "//canton:bindings-java",
-        "//canton:community_base",
-        "//canton:community_common",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_lib_slick_slick-fork",
-        "//canton:community_lib_wartremover",
-        "//canton:community_util-external",
-        "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//libs-scala/executors",
@@ -737,7 +811,6 @@ scala_library(
         "//observability/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
-        "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -770,33 +843,12 @@ scala_library(
 
 ### community/participant/ ###
 
-# For now we include only the package service as the rest is not standalone
-proto_library(
-    name = "community_participant_admin_proto",
-    srcs = glob(["community/participant/src/main/protobuf/com/digitalasset/canton/participant/admin/v0/package_service.proto"]),
-    strip_import_prefix = "community/participant/src/main/protobuf",
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
-
-proto_gen(
-    name = "community_participant_admin_proto_scala",
-    srcs = [":community_participant_admin_proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
-    plugin_name = "scalapb",
-    plugin_options = [
-        "grpc",
-        "flat_package",
-    ],
-    visibility = ["//daml-script:__subpackages__"],
-)
-
 proto_library(
     name = "community_participant_proto",
     srcs = glob(["community/participant/src/main/protobuf/**/*.proto"]),
     strip_import_prefix = "community/participant/src/main/protobuf",
     deps = [
+        ":community_admin-api_proto",
         ":community_base_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -818,39 +870,30 @@ proto_gen(
     ],
 )
 
-copy_file(
-    name = "community_participant_admin-workflows_dar",
-    src = "community/participant/src/main/resources/dar/AdminWorkflows.dar",
-    out = "AdminWorkflows.dar",
-)
-
 genrule(
-    name = "community_participant_admin-workflows-with-vacuuming_dar",
-    srcs = glob(["community/participant/src/main/daml/ping-pong-vacuum/*"]) + [
-        ":community_participant_admin-workflows_dar",
-        "//daml-script/daml:daml-script-1.14.dar",
+    name = "community_participant_admin-workflows_dar",
+    srcs = glob(["community/participant/src/main/daml/**/*"]) + [
+        "//daml-script/daml3:daml3-script-2.1.dar",
     ],
-    outs = ["AdminWorkflowsWithVacuuming.dar"],
+    outs = ["AdminWorkflows.dar"],
     cmd = """
-      set -euo pipefail
-      project_dir=$$(dirname $(location community/participant/src/main/daml/ping-pong-vacuum/daml.yaml))
-      tmpdir=$$(mktemp -d)
-      trap "rm -rf $$tmpdir" EXIT
-      cp -r $$project_dir/* $$tmpdir
-      cp $(location :community_participant_admin-workflows_dar) $$tmpdir
-      cp $(location //daml-script/daml:daml-script-1.14.dar) $$tmpdir
-      sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
-      sed -i 's/-.*AdminWorkflows.dar/- AdminWorkflows.dar/' $$tmpdir/daml.yaml
-      sed -i 's/daml-script/daml-script-1.14.dar/' $$tmpdir/daml.yaml
-      $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
-    """.format(sdk_version = sdk_version),
+            set -euo pipefail
+            project_dir=$$(dirname $(location community/participant/src/main/daml/daml.yaml))
+            tmpdir=$$(mktemp -d)
+            trap "rm -rf $$tmpdir" EXIT
+            cp -r $$project_dir/* $$tmpdir
+            cp $(location //daml-script/daml3:daml3-script-2.1.dar) $$tmpdir
+            sed -i 's/sdk-version:.*/sdk-version: {sdk_version}/' $$tmpdir/daml.yaml
+            sed -i 's/daml3-script/daml3-script-2.1.dar/' $$tmpdir/daml.yaml
+            $(location //compiler/damlc) build --project-root=$$tmpdir --ghc-option=-Werror -o $$PWD/$@
+            """.format(sdk_version = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
 
 dar_to_java(
-    name = "community_participant_admin-workflows-with-vacuuming_java",
-    src = ":community_participant_admin-workflows-with-vacuuming_dar",
+    name = "community_participant_admin-workflows_java",
+    src = ":community_participant_admin-workflows_dar",
     package_prefix = "com.digitalasset.canton.participant.admin.workflows.java",
 )
 
@@ -868,7 +911,6 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton",
     resources = [
-        ":community_participant_admin-workflows-with-vacuuming_dar",
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
     ],
@@ -882,6 +924,7 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-api-core",
@@ -889,7 +932,7 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
-        ":community_participant_admin-workflows-with-vacuuming_java",
+        ":community_participant_admin-workflows_java",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -940,6 +983,7 @@ scala_library(
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_grpc_1_6",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -949,6 +993,101 @@ scala_library(
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
+### community/drivers/reference
+
+scala_library(
+    name = "community_reference-driver",
+    srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
+    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
+    resources = glob(["community/drivers/reference/src/main/resources/**"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        ":community_base",
+        ":community_common",
+        ":community_lib_slick_slick-fork",
+        ":community_sequencer-driver",
+        ":community_util-external",
+        ":community_util-logging",
+        ":daml-common-staging_daml-errors",
+        ":pekko-stream-minus-patched-classes",
+        "//daml-lf/data",
+        "//observability/metrics",
+        "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:com_typesafe_slick_slick_2_13",
+        "@maven//:dev_optics_monocle_core_2_13",
+        "@maven//:dev_optics_monocle_macro_2_13",
+        "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_postgresql_postgresql",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
+proto_library(
+    name = "community_reference-driver_proto",
+    srcs = glob(["community/drivers/reference/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/drivers/reference/src/main/protobuf",
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
+    ],
+)
+
+proto_gen(
+    name = "community_reference-driver_proto_scala",
+    srcs = [":community_reference-driver_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    plugin_options = [
+        "flat_package",
+    ],
+)
+
+### community/sequencer-driver
+
+scala_library(
+    name = "community_sequencer-driver",
+    srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
+    resources = glob(["community/sequencer-driver/src/main/resources/**"]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        ":community_util-external",
+        ":community_util-logging",
+        ":pekko-stream-minus-patched-classes",
+        "//daml-lf/data",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -964,8 +1103,10 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
+        ":community_admin-api",
         ":community_base",
         ":community_buildinfo",
         ":community_common",
@@ -975,6 +1116,7 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_wartremover",
         ":community_participant",
+        ":community_sequencer-driver",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -1035,8 +1177,6 @@ scala_library(
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
-        "@maven//:org_apache_pekko_pekko_http_2_13",
-        "@maven//:org_apache_pekko_pekko_http_core_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_jul_to_slf4j",
         "@maven//:org_slf4j_slf4j_api",
@@ -1219,8 +1359,9 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
-    visibility = [
-        "//ledger-service/http-json:__subpackages__",
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
     deps = [
         ":bindings-java",
@@ -1242,6 +1383,10 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
     ],
     deps = [
         ":bindings-java",

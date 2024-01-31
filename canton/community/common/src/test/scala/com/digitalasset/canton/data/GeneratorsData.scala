@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -34,8 +34,6 @@ import com.digitalasset.canton.{LfInterfaceId, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
-import scala.math.Ordered.orderingToOrdered
-
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
     generatorsDataTime: GeneratorsDataTime,
@@ -47,7 +45,6 @@ final class GeneratorsData(
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
-  import org.scalatest.EitherValues.*
   import org.scalatest.OptionValues.*
   import generatorsProtocol.*
   import generatorsDataTime.*
@@ -76,29 +73,19 @@ final class GeneratorsData(
       domainId <- Arbitrary.arbitrary[DomainId]
 
       mediatorRef <- Arbitrary.arbitrary[MediatorRef]
-      singleMediatorRef <- Arbitrary.arbitrary[MediatorRef.Single]
 
       salt <- Arbitrary.arbitrary[Salt]
       uuid <- Gen.uuid
-
-      updatedMediatorRef =
-        if (
-          CommonMetadata.shouldHaveSingleMediator(
-            CommonMetadata.protocolVersionRepresentativeFor(protocolVersion)
-          )
-        ) singleMediatorRef
-        else mediatorRef
 
       hashOps = TestHash // Not used for serialization
     } yield CommonMetadata
       .create(hashOps, protocolVersion)(
         confirmationPolicy,
         domainId,
-        updatedMediatorRef,
+        mediatorRef,
         salt,
         uuid,
       )
-      .value
   )
 
   implicit val participantMetadataArb: Arbitrary[ParticipantMetadata] = Arbitrary(
@@ -165,17 +152,11 @@ final class GeneratorsData(
     for {
       inputContractId <- Arbitrary.arbitrary[LfContractId]
 
-      templateId <-
-        if (rpv >= ExerciseActionDescription.templateIdSupportedSince)
-          Gen.option(Arbitrary.arbitrary[LfTemplateId])
-        else Gen.const(None)
+      templateId <- Gen.option(Arbitrary.arbitrary[LfTemplateId])
 
       choice <- Arbitrary.arbitrary[LfChoiceName]
 
-      interfaceId <-
-        if (rpv >= ExerciseActionDescription.interfaceSupportedSince)
-          Gen.option(Arbitrary.arbitrary[LfInterfaceId])
-        else Gen.const(None)
+      interfaceId <- Gen.option(Arbitrary.arbitrary[LfInterfaceId])
 
       // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
       chosenValue <- Gen.long.map(ValueInt64)
@@ -252,9 +233,7 @@ final class GeneratorsData(
       coreInputs <- Gen
         .listOf(
           Gen.zip(
-            generatorsProtocol
-              .serializableContractArb(canHaveEmptyKey = false, Some(protocolVersion))
-              .arbitrary,
+            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
             Gen.oneOf(true, false),
           )
         )
@@ -263,9 +242,7 @@ final class GeneratorsData(
       createdCore <- Gen
         .listOf(
           Gen.zip(
-            generatorsProtocol
-              .serializableContractArb(canHaveEmptyKey = false, Some(protocolVersion))
-              .arbitrary,
+            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
             Gen.oneOf(true, false),
             Gen.oneOf(true, false),
           )
@@ -290,7 +267,6 @@ final class GeneratorsData(
         AssignedKey must correspond to a contract in core input
        */
       coreInputWithResolvedKeys <- Gen.someOf(coreInputs)
-
       assignedResolvedKeys <- Gen.sequence[List[
         (LfGlobalKey, SerializableKeyResolution)
       ], (LfGlobalKey, SerializableKeyResolution)](coreInputWithResolvedKeys.map { contract =>
@@ -300,7 +276,6 @@ final class GeneratorsData(
           .zip(key, assignedKeyGen(contract.contractId))
           .map({ case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) })
       })
-
       freeResolvedKeys <- Gen.listOf(
         Gen
           .zip(Arbitrary.arbitrary[Versioned[LfGlobalKey]], Arbitrary.arbitrary[FreeKey])

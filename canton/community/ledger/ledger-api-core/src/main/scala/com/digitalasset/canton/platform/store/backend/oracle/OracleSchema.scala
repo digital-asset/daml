@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.oracle
@@ -35,10 +35,14 @@ private[oracle] object OracleSchema {
     ): Table[FROM] =
       Table.batchedInsert(tableName)(fields: _*)
 
-    override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+    override def idempotentInsert[FROM](
+        tableName: String,
+        keyFieldIndex: Int,
+        ordering: Ordering[FROM],
+    )(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      OracleTable.idempotentInsert(tableName, keyFieldIndex)(fields: _*)
+      OracleTable.idempotentInsert(tableName, keyFieldIndex, ordering)(fields: _*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(OracleFieldStrategy)

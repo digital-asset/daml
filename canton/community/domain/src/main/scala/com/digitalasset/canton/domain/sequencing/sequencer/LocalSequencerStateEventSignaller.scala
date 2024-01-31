@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -64,7 +64,7 @@ class LocalSequencerStateEventSignaller(
       member: Member,
       memberId: SequencerMemberId,
   )(implicit traceContext: TraceContext): Source[ReadSignal, NotUsed] = {
-    logger.debug(s"Creating signal soruce for $member")
+    logger.debug(s"Creating signal source for $member")
     notificationsHubSource
       .filter(_.includes(memberId))
       .map(_ => ReadSignal)
@@ -95,7 +95,7 @@ class LocalSequencerStateEventSignaller(
       AsyncCloseable(
         "queue.watchCompletion",
         queue.watchCompletion(),
-        timeouts.shutdownShort.unwrap,
+        timeouts.shutdownShort,
       ),
       // `watchCompletion` completes when the queue's contents have been consumed by the `conflate`,
       // but `conflate` need not yet have passed the conflated element to the BroadcastHub.
@@ -103,7 +103,7 @@ class LocalSequencerStateEventSignaller(
       AsyncCloseable(
         "queue.completion",
         notificationsHubSource.runWith(Sink.ignore),
-        timeouts.shutdownShort.unwrap,
+        timeouts.shutdownShort,
       ),
       // Other readers of the broadcast hub should be shut down separately
     )

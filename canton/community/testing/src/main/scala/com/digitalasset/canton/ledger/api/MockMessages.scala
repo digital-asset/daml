@@ -1,11 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV1
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest as SubmitRequestV1
+import com.daml.ledger.api.v1.commands.Commands as CommandsV1
 import com.daml.ledger.api.v1.event.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{LEDGER_BEGIN, LEDGER_END}
@@ -14,6 +14,11 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEve
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value.Sum.Text
 import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV2
+import com.daml.ledger.api.v2.command_submission_service.SubmitRequest as SubmitRequestV2
+import com.daml.ledger.api.v2.commands.Commands as CommandsV2
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random
@@ -21,6 +26,9 @@ import scala.util.Random
 object MockMessages {
 
   val ledgerBegin: LedgerOffset = LedgerOffset(Boundary(LEDGER_BEGIN))
+  val participantBegin: ParticipantOffset = ParticipantOffset(
+    ParticipantOffset.Value.Boundary(PARTICIPANT_BEGIN)
+  )
   val ledgerEnd: LedgerOffset = LedgerOffset(Boundary(LEDGER_END))
 
   val ledgerId = "ledgerId"
@@ -31,11 +39,18 @@ object MockMessages {
   val party2 = "party2"
   val ledgerEffectiveTime: Timestamp = Timestamp(0L, 0)
 
-  val commands: Commands = Commands(ledgerId, workflowId, applicationId, commandId, party, Nil)
+  val commandsV1: CommandsV1 =
+    CommandsV1(ledgerId, workflowId, applicationId, commandId, party, Nil)
 
-  val submitRequest: SubmitRequest = SubmitRequest(Some(commands))
+  val commands: CommandsV2 = CommandsV2(workflowId, applicationId, commandId, party, Nil)
 
-  val submitAndWaitRequest: SubmitAndWaitRequest = SubmitAndWaitRequest(Some(commands))
+  val submitRequestV1: SubmitRequestV1 = SubmitRequestV1(Some(commandsV1))
+
+  val submitRequest: SubmitRequestV2 = SubmitRequestV2(Some(commands))
+
+  val submitAndWaitRequestV1: SubmitAndWaitRequestV1 = SubmitAndWaitRequestV1(Some(commandsV1))
+
+  val submitAndWaitRequest: SubmitAndWaitRequestV2 = SubmitAndWaitRequestV2(Some(commands))
 
   val moduleName = "moduleName"
   val transactionId = "transactionId"

@@ -1,13 +1,23 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients}
+import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  OpenEnvelope,
+  ParticipantsOfParty,
+  Recipients,
+}
 import com.digitalasset.canton.topology.MediatorRef
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.version.ProtocolVersion
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Represents the confirmation request as sent from a submitting node to the sequencer.
   */
@@ -15,7 +25,8 @@ final case class ConfirmationRequest(
     informeeMessage: InformeeMessage,
     viewEnvelopes: Seq[OpenEnvelope[TransactionViewMessage]],
     protocolVersion: ProtocolVersion,
-) extends PrettyPrinting {
+) extends PrettyPrinting
+    with HasLoggerName {
 
   def mediator: MediatorRef = informeeMessage.mediator
 
@@ -27,41 +38,50 @@ final case class ConfirmationRequest(
     protocolVersion = protocolVersion,
   )
 
-  def asBatch: Batch[DefaultOpenEnvelope] = {
+  def asBatch(ipsSnapshot: TopologySnapshot)(implicit
+      loggingContext: NamedLoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[Batch[DefaultOpenEnvelope]] = {
+    val mediatorRecipient = mediator.toRecipient
     val mediatorEnvelope: DefaultOpenEnvelope =
-      OpenEnvelope(informeeMessage, Recipients.cc(mediator.toRecipient))(protocolVersion)
+      OpenEnvelope(informeeMessage, Recipients.cc(mediatorRecipient))(protocolVersion)
 
-    val recipientInfos = viewEnvelopes.map { envelope =>
-      val recipientsInfoOption = envelope.protocolMessage.recipientsInfo
-      recipientsInfoOption
-        .getOrElse {
-          // NOTE: We do not serialize the original informee participants as part of a serialized encrypted view message.
-          // Due to sharing of a key a fingerprint may map to multiple participants.
-          // However we only use the informee participants before serialization, so this information is not required afterwards.
-          throw new IllegalStateException(
-            s"Obtaining informee participants on deserialized encrypted view message"
-          )
-        }
+    val informees = informeeMessage.allInformees
+    RootHashMessageRecipients.rootHashRecipientsForInformees(informees, ipsSnapshot).map {
+      recipientsOfRootHashMessage =>
+        val rootHashMessageEnvelopes =
+          NonEmpty.from(recipientsOfRootHashMessage) match {
+            case Some(recipientsNE) =>
+              // TODO(#13883) Use BCC also for group addresses
+              // val groupsWithMediator =
+              //   recipientsOfRootHashMessage.map(recipient => NonEmpty(Set, recipient, mediatorRecipient))
+              // val rootHashMessageEnvelope = OpenEnvelope(
+              //   rootHashMessage,
+              //   Recipients.recipientGroups(NonEmptyUtil.fromUnsafe(groupsWithMediator)),
+              // )(protocolVersion)
+              val groupAddressing = recipientsOfRootHashMessage.exists {
+                case ParticipantsOfParty(_) => true
+                case _ => false
+              }
+              // if using group addressing, we just place all recipients in one group instead of separately as before (it was separate for legacy reasons)
+              val rootHashMessageRecipients =
+                if (groupAddressing)
+                  Recipients.recipientGroups(
+                    NonEmpty.mk(Seq, recipientsNE.toSet ++ Seq(mediatorRecipient))
+                  )
+                else
+                  Recipients.recipientGroups(
+                    recipientsNE.map(NonEmpty.mk(Set, _, mediator.toRecipient))
+                  )
+              List(OpenEnvelope(rootHashMessage, rootHashMessageRecipients)(protocolVersion))
+            case None =>
+              loggingContext.warn("Confirmation request without root hash message recipients")
+              List.empty
+          }
+        val envelopes =
+          rootHashMessageEnvelopes ++ (viewEnvelopes.toList: List[DefaultOpenEnvelope])
+        Batch(mediatorEnvelope +: envelopes, protocolVersion)
     }
-
-    val rootHashMessagesRecipients =
-      RootHashMessageRecipients.confirmationRequestRootHashMessagesRecipients(
-        recipientInfos,
-        mediator,
-      )
-
-    val rootHashMessages = rootHashMessagesRecipients.map { recipients =>
-      OpenEnvelope(
-        rootHashMessage,
-        recipients,
-      )(
-        protocolVersion
-      )
-    }
-
-    val envelopes: List[DefaultOpenEnvelope] =
-      rootHashMessages ++ (viewEnvelopes: Seq[DefaultOpenEnvelope])
-    Batch(mediatorEnvelope +: envelopes, protocolVersion)
   }
 
   override def pretty: Pretty[ConfirmationRequest] = prettyOfClass(

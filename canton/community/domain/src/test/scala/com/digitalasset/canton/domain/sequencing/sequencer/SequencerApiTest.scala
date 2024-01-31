@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -21,7 +21,6 @@ import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.actor.ActorSystem
@@ -42,7 +41,7 @@ abstract class SequencerApiTest
 
   import RecipientsTest.*
 
-  trait Env extends AutoCloseable with NamedLogging {
+  protected trait Env extends AutoCloseable with NamedLogging {
 
     private[SequencerApiTest] implicit lazy val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
@@ -247,8 +246,7 @@ abstract class SequencerApiTest
         }
       }
 
-      def testAggregation: Boolean =
-        testedProtocolVersion >= ProtocolVersion.CNTestNet && supportAggregation
+      def testAggregation: Boolean = supportAggregation
 
       "aggregate submission requests" onlyRunWhen testAggregation in { env =>
         import env.*
@@ -412,14 +410,14 @@ abstract class SequencerApiTest
         val content1 = "message1-to-sign"
         val content2 = "message2-to-sign"
         val recipients1 = Recipients.cc(p11, p13)
-        val envelope1 = ClosedEnvelope.tryCreate(
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8(content1),
           recipients1,
           Seq.empty,
           testedProtocolVersion,
         )
         val recipients2 = Recipients.cc(p12, p13)
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8(content2),
           recipients2,
           Seq.empty,
@@ -527,7 +525,7 @@ abstract class SequencerApiTest
         val aggregationRule =
           AggregationRule(NonEmpty(Seq, p14, p15), PositiveInt.tryCreate(2), testedProtocolVersion)
         val recipients = Recipients.cc(p14, p15)
-        val envelope = ClosedEnvelope.tryCreate(
+        val envelope = ClosedEnvelope.create(
           ByteString.copyFromUtf8(messageContent),
           recipients,
           Seq.empty,
@@ -894,7 +892,7 @@ trait SequencerApiTestUtils
 
     /** Closes the envelope by serializing the contents */
     def closeEnvelope: ClosedEnvelope =
-      ClosedEnvelope.tryCreate(
+      ClosedEnvelope.create(
         ByteString.copyFromUtf8(content),
         recipients,
         Seq.empty,

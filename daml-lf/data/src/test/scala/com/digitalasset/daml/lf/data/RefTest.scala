@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -182,6 +182,82 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       )
     }
   }
+
+  "PackageVersion.fromString" - {
+    "parse valid package version strings" in {
+      val testCases = Table(
+        "Raw version string" -> "Parsed package version",
+        "0" -> ImmArray(0),
+        "1" -> ImmArray(1),
+        "1.10" -> ImmArray(1, 10),
+        Int.MaxValue.toString -> ImmArray(Int.MaxValue),
+        "1.0.2" -> ImmArray(1, 0, 2),
+        // Max size (255)
+        "0" + ".123" * 63 + ".1" -> ImmArray.from(Seq(0) ++ Seq.fill(63)(123) ++ Seq(1)),
+        // Max size - 1 (254)
+        "0" + ".123" * 62 + ".1234" -> ImmArray.from(Seq(0) ++ Seq.fill(62)(123) ++ Seq(1234)),
+      )
+
+      testCases.forEvery { (input, expected) =>
+        PackageVersion.fromString(input) shouldBe Right(PackageVersion(expected))
+      }
+    }
+
+    "reject invalid package version strings" in {
+      val testCases = Table(
+        "(Invalid) Raw version string",
+        "",
+        ".",
+        "1.",
+        ".0",
+        "00",
+        "1.002",
+        "0.-1",
+        "+1.0",
+        "beef.0",
+        "0.1.beef",
+      )
+
+      testCases.forEvery(input =>
+        PackageVersion.fromString(input) shouldBe Left(
+          s"Invalid package version string: `$input`. Package versions are non-empty strings consisting of segments of digits (without leading zeros) separated by dots."
+        )
+      )
+
+      val tooBigForInt = s"${Int.MaxValue.toLong + 1}"
+      val versionWithNumberBiggerThanInt = s"1.$tooBigForInt"
+      PackageVersion.fromString(versionWithNumberBiggerThanInt) shouldBe Left(
+        s"Failed parsing $tooBigForInt as an integer"
+      )
+
+      // Correct format, but length over limit
+      PackageVersion.fromString("0" + ".123" * 63 + ".12") shouldBe Left(
+        "Package version string length (256) exceeds the maximum supported length (255)"
+      )
+
+      // Invalid format, but length over limit
+      // This checks that first the length is checked, and then the regex conformance
+      PackageVersion.fromString("abcd" * 64) shouldBe Left(
+        "Package version string length (256) exceeds the maximum supported length (255)"
+      )
+    }
+  }
+
+  private[this] val packageVersionsInOrder = List(
+    // Lowest possible package version
+    PackageVersion.assertFromString("0"),
+    PackageVersion.assertFromString("0.1"),
+    PackageVersion.assertFromString("0.11"),
+    PackageVersion.assertFromString("1.0"),
+    PackageVersion.assertFromString("2"),
+    PackageVersion.assertFromString("10"),
+    PackageVersion.assertFromString(s"${Int.MaxValue}"),
+    PackageVersion.assertFromString(s"${Int.MaxValue}.3"),
+    // Highest possible package version
+    PackageVersion.assertFromString(s"${Int.MaxValue}." * 23 + "99"),
+  )
+
+  testOrdered("PackageVersion", packageVersionsInOrder)
 
   private[this] val qualifiedNamesInOrder =
     for {
@@ -399,20 +475,20 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         } ((x compare y) == 0) shouldBe (x == y)
       }
 
-      "is reflexive" - {
+      "is reflexive" in {
         for {
           x <- elems
         } (x compare x) shouldBe 0
       }
 
-      "is symmetric" - {
+      "is symmetric" in {
         for {
           x <- elems
           y <- elems
         } (x compare y) shouldBe -(y compare x)
       }
 
-      "is transitive on comparable values" - {
+      "is transitive on comparable values" in {
         for {
           x <- elems
           y <- elems

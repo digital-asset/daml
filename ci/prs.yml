@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 trigger: none
@@ -46,14 +46,6 @@ jobs:
         fi
       env:
         PR: $(System.PullRequest.PullRequestNumber)
-
-- job: compatiblity_target_protobuf
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release

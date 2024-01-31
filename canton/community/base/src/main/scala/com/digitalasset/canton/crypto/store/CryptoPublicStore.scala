@@ -1,14 +1,16 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.store.db.DbCryptoPublicStore
 import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPublicStore
 import com.digitalasset.canton.crypto.{KeyName, *}
+import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -194,7 +196,21 @@ object CryptoPublicStore {
 }
 
 sealed trait CryptoPublicStoreError extends Product with Serializable with PrettyPrinting
-object CryptoPublicStoreError {
+object CryptoPublicStoreError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that a key could not be stored.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "CRYPTO_PUBLIC_STORE_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Wrap(reason: CryptoPublicStoreError)
+        extends BaseCantonError.Impl(cause = "An error occurred with the public crypto store")
+
+    final case class WrapStr(reason: String)
+        extends BaseCantonError.Impl(cause = "An error occurred with the public crypto store")
+  }
 
   final case class FailedToListKeys(reason: String) extends CryptoPublicStoreError {
     override def pretty: Pretty[FailedToListKeys] = prettyOfClass(unnamedParam(_.reason.unquoted))

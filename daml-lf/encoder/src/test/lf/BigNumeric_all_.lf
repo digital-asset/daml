@@ -1,0 +1,30 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module BigNumericMod {
+
+  val scaleBigNumeric: BigNumeric -> Int64 =
+    SCALE_BIGNUMERIC;
+  val precisionBigNumeric: BigNumeric -> Int64 =
+    PRECISION_BIGNUMERIC;
+  val addBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    ADD_BIGNUMERIC;
+  val subBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    SUB_BIGNUMERIC;
+  val mulBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
+    MUL_BIGNUMERIC;
+  val divBigNumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
+    DIV_BIGNUMERIC;
+  val shiftRightBigNumeric: Int64 -> BigNumeric -> BigNumeric =
+    SHIFT_RIGHT_BIGNUMERIC;
+  val toNumericBigNumeric: forall (n: nat). BigNumeric -> Numeric n =
+    BIGNUMERIC_TO_NUMERIC_LEGACY;
+  val toBigNumericNumeric: forall (n: nat). Numeric n -> BigNumeric =
+    NUMERIC_TO_BIGNUMERIC;
+  val toTextBigNumeric: BigNumeric -> Text =
+    BIGNUMERIC_TO_TEXT;
+
+  val roundingMode: RoundingMode =
+    ROUNDING_UP;
+
+}

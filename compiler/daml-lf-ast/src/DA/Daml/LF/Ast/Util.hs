@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
@@ -294,15 +294,11 @@ removeLocations = cata $ \case
 
 -- | Given the name of a DALF and the decoded package return package metadata.
 --
--- For newer Daml-LF versions this is taken directly from the
--- package metadata in Daml-LF. For older versions, we instead infer
--- metadata from the filename.
-packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
-packageMetadataFromFile file pkg pkgId
-    | Just (PackageMetadata name version _) <- packageMetadata pkg =
-          -- GHC insists on daml-prim not having a version so we filter it out.
-          (name, version <$ guard (name /= PackageName "daml-prim"))
-    | otherwise = splitUnitId (unitIdFromFile file pkgId)
+-- Extract the package metadata from the provided package, but returns no
+-- package version for daml-print, which GHC insists on not having a version.
+safePackageMetadata :: Package -> (PackageName, Maybe PackageVersion)
+safePackageMetadata (packageMetadata -> PackageMetadata name version _) =
+    (name, version <$ guard (name /= PackageName "daml-prim"))
 
 -- Get the name of a file and an expeted package id of the package, get the unit id
 -- by stripping away the package name at the end.

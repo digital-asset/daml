@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -31,6 +31,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.util.OptionUtil
 
 import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,7 +84,9 @@ final class ApiCommandSubmissionServiceV2(
             currentLedgerTime = currentLedgerTime(),
             currentUtcTime = currentUtcTime(),
             maxDeduplicationDuration = maxDeduplicationDuration(),
-            domainIdString = requestWithSubmissionId.commands.map(_.domainId),
+            domainIdString = requestWithSubmissionId.commands.flatMap(commands =>
+              OptionUtil.emptyStringAsNone(commands.domainId)
+            ),
           )(errorLogger),
         )
         .fold(

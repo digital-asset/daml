@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.update
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.User
-import com.digitalasset.canton.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
+import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
 object UserUpdateMapper extends UpdateMapperBase {
 

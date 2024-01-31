@@ -1,17 +1,16 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data
-
-import java.time.Duration
-import java.util.Optional
 
 import com.daml.ledger.api.v1.CommandsOuterClass
 import com.daml.ledger.api.v1.CommandsOuterClass.Commands.DeduplicationPeriodCase
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.jdk.CollectionConverters._
+import java.time.Duration
+import java.util.Optional
+import scala.jdk.CollectionConverters.*
 
 // Allows using deprecated Protobuf fields for testing
 @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")

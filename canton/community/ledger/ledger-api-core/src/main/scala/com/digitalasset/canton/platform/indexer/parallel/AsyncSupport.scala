@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.parallel
@@ -36,14 +36,13 @@ object AsyncSupport {
     val logger = loggerFactory.getTracedLogger(getClass)
     ResourceOwner
       .forExecutorService { () =>
-        val (executorName, executorServiceMetrics) = withMetric
+        val (executorName, _executorServiceMetrics) = withMetric
         InstrumentedExecutors.newFixedThreadPoolWithFactory(
           executorName,
           size,
           new ThreadFactoryBuilder()
             .setNameFormat(s"$namePrefix-%d")
             .build,
-          executorServiceMetrics,
           throwable =>
             logger
               .error(s"ExecutionContext $namePrefix has failed with an exception", throwable),

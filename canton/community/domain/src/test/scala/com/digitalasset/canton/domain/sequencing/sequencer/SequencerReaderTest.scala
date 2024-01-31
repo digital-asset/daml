@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -98,17 +98,17 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   }
 
   class Env extends FlagCloseableAsync {
-    protected val timeouts = SequencerReaderTest.this.timeouts
-    protected val logger = SequencerReaderTest.this.logger
+    protected val timeouts: ProcessingTimeout = SequencerReaderTest.this.timeouts
+    protected val logger: TracedLogger = SequencerReaderTest.this.logger
     val autoPushLatestTimestamps =
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
-    val actorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
+    val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
     implicit val materializer: Materializer = Materializer(actorSystem)
     val store = new InMemorySequencerStore(loggerFactory)
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
-    val storeSpy = spy[InMemorySequencerStore](store)
-    val testConfig =
+    val storeSpy: InMemorySequencerStore = spy[InMemorySequencerStore](store)
+    val testConfig: CommunitySequencerReaderConfig =
       CommunitySequencerReaderConfig(
         readBatchSize = 10,
         checkpointInterval = config.NonNegativeFiniteDuration.ofMillis(800),
@@ -125,7 +125,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
       timeouts,
       loggerFactory,
     )
-    val defaultTimeout = 20.seconds
+    val defaultTimeout: FiniteDuration = 20.seconds
     implicit val closeContext: CloseContext = CloseContext(reader)
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
@@ -172,7 +172,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
     // We don't update the topology client, so we expect to get a couple of warnings about unknown topology snapshots
     private def ignoreWarningsFromLackOfTopologyUpdates(entries: Seq[LogEntry]): Assertion =
       forEvery(entries) {
-        _.warningMessage should fullyMatch regex (".*Using approximate topology snapshot .* for desired timestamp.*")
+        _.warningMessage should fullyMatch regex ".*Using approximate topology snapshot .* for desired timestamp.*"
       }
 
     def pullFromQueue(
@@ -206,7 +206,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
       for {
         _ <- payloads
           .traverse_(store.savePayloads(_, instanceDiscriminator))
-          .valueOrFail(s"Save payloads")
+          .valueOrFail("Save payloads")
         _ <- store.saveEvents(instanceIndex, eventsNE)
         _ <- store
           .saveWatermark(instanceIndex, eventsNE.last1.timestamp)
@@ -218,7 +218,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
     }
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
-      AsyncCloseable("actorSystem", actorSystem.terminate(), 10.seconds),
+      AsyncCloseable(
+        "actorSystem",
+        actorSystem.terminate(),
+        config.NonNegativeFiniteDuration(10.seconds),
+      ),
       SyncCloseable("materializer", materializer.shutdown()),
     )
   }
@@ -407,7 +411,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
           events <- readAsSeq(alice, SequencerCounter(10), 15)
         } yield {
           // this assertion is a bit redundant as we're actually just looking for the prior fetch to complete rather than get stuck
-          events should have size (15)
+          events should have size 15
         }
       }
     }
@@ -418,7 +422,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
 
         import scala.jdk.CollectionConverters.*
 
-        def saveCounterCheckpointCallCount =
+        def saveCounterCheckpointCallCount: Int =
           Mockito
             .mockingDetails(storeSpy)
             .getInvocations
@@ -618,7 +622,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
           )
           batch = Batch.fromClosed(
             testedProtocolVersion,
-            ClosedEnvelope.tryCreate(
+            ClosedEnvelope.create(
               ByteString.copyFromUtf8("test envelope"),
               Recipients.cc(alice, bob),
               Seq.empty,
@@ -791,7 +795,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
           ) ++ (2L to 60L).map(i => (signingToleranceInSec + i, None, recipientsAlice))
           batch = Batch.fromClosed(
             testedProtocolVersion,
-            ClosedEnvelope.tryCreate(
+            ClosedEnvelope.create(
               ByteString.copyFromUtf8("test envelope"),
               Recipients.cc(alice, bob),
               Seq.empty,

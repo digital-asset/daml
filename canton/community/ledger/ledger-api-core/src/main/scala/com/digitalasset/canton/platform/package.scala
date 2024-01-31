@@ -1,9 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
 
+import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.offset.Offset
+
+import scala.concurrent.Future
 
 /** Type aliases used throughout the package */
 package object platform {
@@ -61,4 +64,15 @@ package object platform {
   private[platform] type Hash = crypto.Hash
 
   private[platform] type PruneBuffers = Offset => Unit
+
+  implicit class ResourceOwnerOps[T](val resourceOwner: ResourceOwner[T]) extends AnyVal {
+    def afterReleased(body: => Unit): ResourceOwner[T] =
+      afterReleasedF(Future.successful(body))
+
+    def afterReleasedF(bodyF: => Future[Unit]): ResourceOwner[T] =
+      for {
+        _ <- ResourceOwner.forReleasable(() => ())(_ => bodyF)
+        t <- resourceOwner
+      } yield t
+  }
 }

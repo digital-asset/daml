@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
@@ -65,10 +65,10 @@ final case class RecipientsTree(
     case _ => recipientGroup.map(m => m: Recipient)
   }
 
-  def toProtoV0: v0.RecipientsTree = {
+  def toProtoV30: v30.RecipientsTree = {
     val recipientsP = recipientGroup.toSeq.map(_.toProtoPrimitive).sorted
-    val childrenP = children.map(_.toProtoV0)
-    new v0.RecipientsTree(recipientsP, childrenP)
+    val childrenP = children.map(_.toProtoV30)
+    new v30.RecipientsTree(recipientsP, childrenP)
   }
 }
 
@@ -89,8 +89,8 @@ object RecipientsTree {
   def recipientsLeaf(group: NonEmpty[Set[Recipient]]): RecipientsTree =
     RecipientsTree(group, Seq.empty)
 
-  def fromProtoV0(
-      treeProto: v0.RecipientsTree,
+  def fromProtoV30(
+      treeProto: v30.RecipientsTree,
       supportGroupAddressing: Boolean,
   ): ParsingResult[RecipientsTree] = {
     for {
@@ -108,7 +108,7 @@ object RecipientsTree {
           )
         )
       children = treeProto.children
-      childTrees <- children.toList.traverse(fromProtoV0(_, supportGroupAddressing))
+      childTrees <- children.toList.traverse(fromProtoV30(_, supportGroupAddressing))
     } yield RecipientsTree(
       recipientsNonEmpty.toSet,
       childTrees,

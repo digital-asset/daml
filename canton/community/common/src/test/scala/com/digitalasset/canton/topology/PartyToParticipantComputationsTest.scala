@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -66,11 +66,11 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
         .value shouldBe Map(p2 -> Observation, p3 -> Confirmation)
     }
 
-    "not change existing permissions" in {
-      val initial = Map(p1 -> Submission)
+    "update existing added permissions" in {
+      val updated = Map(p1 -> Confirmation)
       computations
-        .computeNewPermissions(initial, adds = List((p1, Confirmation)))
-        .value shouldBe initial
+        .computeNewPermissions(Map(p1 -> Submission), adds = List((p1, Confirmation)))
+        .value shouldBe updated
     }
   }
 }

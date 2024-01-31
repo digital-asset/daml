@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -153,11 +153,17 @@ private[participant] class NaiveRequestTracker(
         taskScheduler.scheduleTask(checkActivenessAndLock)
         taskScheduler.scheduleTask(timeoutAction)
 
-        val f = conflictDetector.registerActivenessSet(rc, activenessSet).map { _ =>
-          // Tick the task scheduler only after all states have been prefetched into the conflict detector
-          taskScheduler.addTick(sc, requestTimestamp)
-          RequestFutures(data.activenessResult.futureUS, data.timeoutResult.futureUS)
-        }
+        val f = conflictDetector
+          .registerActivenessSet(rc, activenessSet)
+          .map { _ =>
+            // Tick the task scheduler only after all states have been prefetched into the conflict detector
+            taskScheduler.addTick(sc, requestTimestamp)
+            RequestFutures(data.activenessResult.futureUS, data.timeoutResult.futureUS)
+          }
+          .tapOnShutdown {
+            data.activenessResult.shutdown()
+            data.timeoutResult.shutdown()
+          }
         Right(f)
 
       case Some(oldData) =>

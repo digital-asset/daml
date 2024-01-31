@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.endpoints
@@ -18,7 +18,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadLedgerIdOnly, JwtPayloadTag, JwtWritePayload}
+import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
 import com.digitalasset.canton.http.json.*
 import com.digitalasset.canton.http.Endpoints
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
@@ -35,7 +35,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.digitalasset.canton.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.digitalasset.canton.http.{EndpointsCompanion, domain}
@@ -48,7 +47,6 @@ private[http] final class RouteSetup(
     decodeJwt: EndpointsCompanion.ValidateJwt,
     encoder: DomainJsonEncoder,
     userManagementClient: UserManagementClient,
-    ledgerIdentityClient: LedgerIdentityClient,
     maxTimeToCollectRequest: FiniteDuration,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, mat: Materializer)
@@ -94,7 +92,7 @@ private[http] final class RouteSetup(
       createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
   ): EitherT[Future, Error, (Jwt, P, A)] =
-    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
+    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
       (t2._1, t2._2, fa._2)
     )
 
@@ -126,15 +124,14 @@ private[http] final class RouteSetup(
 
   def inputSource(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ (Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
+  ): Error \/ (Jwt, Source[ByteString, Any]) =
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
-        Future.successful(e)
+        e
       case \/-(j) =>
-        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly](
-          (j, req.entity.dataBytes)
-        ).run
+        \/.right((j, req.entity.dataBytes))
+
     }
 
   private[this] def data(entity: RequestEntity): Future[String] =
@@ -182,7 +179,6 @@ object RouteSetup {
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
     withEnrichedLoggingContext(
       LoggingContextOf.label[JwtPayloadTag],
-      "ledger_id" -> jwtPayload.ledgerId.toString,
       "act_as" -> jwtPayload.actAs.toString,
       "application_id" -> jwtPayload.applicationId.toString,
       "read_as" -> jwtPayload.readAs.toString,

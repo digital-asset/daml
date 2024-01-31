@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -39,15 +39,21 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
   optionalString,
   requireEmptyString,
   requireParty,
-  requirePresence,
   requireResourceVersion,
   verifyMetadataAnnotations,
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
 import com.digitalasset.canton.ledger.error.groups.{
   AuthorizationChecksErrors,
   PartyManagementServiceErrors,
   RequestValidationErrors,
+}
+import com.digitalasset.canton.ledger.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
 }
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -61,12 +67,6 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagem
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.PartyRecordUpdateMapper
-import com.digitalasset.canton.platform.localstore.api.{
-  PartyDetailsUpdate,
-  PartyRecord,
-  PartyRecordStore,
-  PartyRecordUpdate,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer

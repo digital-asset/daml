@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -23,7 +23,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class InterfaceViewSpecV1 extends InterfaceViewSpec(LanguageMajorVersion.V1)
 class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
 
 @SuppressWarnings(

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -17,7 +17,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-class ParsersSpecV1 extends ParsersSpec(LanguageMajorVersion.V1)
 class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
 
 class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -646,7 +645,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [person] (Nil @Party);
             observers Cons @Party [Mod:Person {person} this] (Nil @Party);
-            agreement "Agreement";
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
               , controllers Cons @Party [person] (Nil @Party)
               to upure @(ContractId Mod:Person) self;
@@ -681,7 +679,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "Agreement" """,
           choices = Map(
             n"Sleep" ->
               TemplateChoice(
@@ -782,7 +779,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Unit;
               observers Nil @Unit;
-              agreement "Agreement";
             } ;
           }
         """
@@ -792,7 +788,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
-          agreementText = e""" "Agreement" """,
           choices = List.empty,
           observers = e"Nil @Unit",
           key = None,

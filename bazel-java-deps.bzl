@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -305,22 +305,6 @@ def install_java_deps():
         maven_install_json = "@//:canton_maven_install.json",
         artifacts = [
             "org.flywaydb:flyway-core:9.15.2",
-        ],
-        repositories = [
-            "https://repo1.maven.org/maven2",
-        ],
-        fetch_sources = True,
-        version_conflict_policy = "pinned",
-    )
-
-    # Triggers depend on sjsonnet whose latest version still depends transitively on upickle 1.x,
-    # while ammonite cannot work with upickle < 2.x. So we define the sjsonnet dependency in a
-    # different maven_install.
-    maven_install(
-        name = "triggers_maven",
-        maven_install_json = "@//:triggers_maven_install.json",
-        artifacts = [
-            "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
         ],
         repositories = [
             "https://repo1.maven.org/maven2",

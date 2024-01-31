@@ -1,11 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0 as protoV0
+import com.digitalasset.canton.protocol.v30 as protoV30
 import com.digitalasset.canton.sequencing.TrafficControlParameters.{
   DefaultBaseTrafficAmount,
   DefaultMaxBaseTrafficAccumulationDuration,
@@ -33,7 +33,7 @@ final case class TrafficControlParameters(
       maxBaseTrafficAmount.value / maxBaseTrafficAccumulationDuration.unwrap.toSeconds
     )
 
-  def toProtoV0: protoV0.TrafficControlParameters = protoV0.TrafficControlParameters(
+  def toProtoV30: protoV30.TrafficControlParameters = protoV30.TrafficControlParameters(
     maxBaseTrafficAmount.value,
     Some(maxBaseTrafficAccumulationDuration.toProtoPrimitive),
     readVsWriteScalingFactor.value,
@@ -54,8 +54,8 @@ object TrafficControlParameters {
   val DefaultMaxBaseTrafficAccumulationDuration: time.NonNegativeFiniteDuration =
     time.NonNegativeFiniteDuration.apply(time.PositiveSeconds.tryOfMinutes(10L))
 
-  def fromProtoV0(
-      proto: protoV0.TrafficControlParameters
+  def fromProtoV30(
+      proto: protoV30.TrafficControlParameters
   ): ParsingResult[TrafficControlParameters] = {
     for {
       maxBaseTrafficAmount <- ProtoConverter.parseNonNegativeLong(proto.maxBaseTrafficAmount)

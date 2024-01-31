@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.client
@@ -133,7 +133,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       PartyToParticipant(RequestSide.Both, party2, participant2, Submission)
     )
 
-    class Fixture(initialKeys: Map[KeyOwner, Seq[SigningPublicKey]] = Map()) {
+    class Fixture(initialKeys: Map[Member, Seq[SigningPublicKey]] = Map()) {
       val store = mk()
       val client =
         new StoreBasedDomainTopologyClient(

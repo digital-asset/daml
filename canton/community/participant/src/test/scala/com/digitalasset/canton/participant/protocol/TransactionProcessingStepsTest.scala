@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -15,7 +15,6 @@ import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -49,7 +48,6 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     new AuthenticationValidator(),
     new AuthorizationValidator(participantId, enableContractUpgrading = false),
     new InternalConsistencyChecker(
-      defaultStaticDomainParameters.uniqueContractKeys,
       defaultStaticDomainParameters.protocolVersion,
       loggerFactory,
     ),
@@ -77,24 +75,20 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
         val testInstance =
           buildTestInstance(c1 -> Right(()), c2 -> Left("some authentication failure"))
 
-        val (expectedLog, expectedResult) =
-          if (testedProtocolVersion >= ProtocolVersion.v4) {
-            val expectedLog: LogEntry => Assertion =
-              _.shouldBeCantonError(
-                ContractAuthenticationFailed,
-                _ should include(
-                  s"Contract with id (${contractId2.coid}) could not be authenticated: some authentication failure"
-                ),
-              )
+        val (expectedLog, expectedResult) = {
+          val expectedLog: LogEntry => Assertion =
+            _.shouldBeCantonError(
+              ContractAuthenticationFailed,
+              _ should include(
+                s"Contract with id (${contractId2.coid}) could not be authenticated: some authentication failure"
+              ),
+            )
 
-            val expectedError =
-              ContractAuthenticationFailed.Error(contractId2, "some authentication failure")
+          val expectedError =
+            ContractAuthenticationFailed.Error(contractId2, "some authentication failure")
 
-            Some(expectedLog) -> Left(expectedError)
-          } else {
-            // Contract id authentication not performed prior to PV4
-            None -> Right(())
-          }
+          Some(expectedLog) -> Left(expectedError)
+        }
 
         loggerFactory
           .assertLogs(

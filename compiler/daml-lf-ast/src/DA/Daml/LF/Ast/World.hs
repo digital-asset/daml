@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -6,7 +6,8 @@
 module DA.Daml.LF.Ast.World(
     World,
     DalfPackage(..),
-    getWorldSelf,
+    getWorldSelfPkgLfVersion,
+    getWorldSelfPkgModules,
     getWorldImported,
     initWorld,
     initWorldSelf,
@@ -50,12 +51,16 @@ import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 -- module dependencies but we don't enforce this here.
 data World = World
   { _worldImported :: HMS.HashMap PackageId Package
-  , _worldSelf :: Package
+  , _worldSelfPkgLfVersion :: Version
+  , _worldSelfPkgModules :: NM.NameMap Module
   }
 
 
-getWorldSelf :: World -> Package
-getWorldSelf = _worldSelf
+getWorldSelfPkgLfVersion :: World -> Version
+getWorldSelfPkgLfVersion = _worldSelfPkgLfVersion
+
+getWorldSelfPkgModules :: World -> NM.NameMap Module
+getWorldSelfPkgModules = _worldSelfPkgModules
 
 getWorldImported :: World -> [ExternalPackage]
 getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImported world)
@@ -69,7 +74,7 @@ data ExternalPackage = ExternalPackage
 
 instance NFData ExternalPackage
 
-makeLensesFor [("_worldSelf","worldSelf")] ''World
+makeLensesFor [("_worldSelfPkgModules","worldSelfPkgModules")] ''World
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: PackageId
@@ -85,17 +90,22 @@ initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
-    (Package version NM.empty Nothing)
+    version
+    NM.empty
   where
     insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
 -- | Create a World with an initial self package
 initWorldSelf :: [ExternalPackage] -> Package -> World
-initWorldSelf importedPkgs pkg = (initWorld importedPkgs $ packageLfVersion pkg){_worldSelf = pkg}
+initWorldSelf importedPkgs pkg =
+    (initWorld importedPkgs $ packageLfVersion pkg)
+        { _worldSelfPkgLfVersion = packageLfVersion pkg
+        , _worldSelfPkgModules = packageModules pkg
+        }
 
 -- | Extend the 'World' by a module in the current package.
 extendWorldSelf :: Module -> World -> World
-extendWorldSelf = over (worldSelf . _packageModules) . NM.insert
+extendWorldSelf = over worldSelfPkgModules . NM.insert
 
 data LookupError
   = LEPackage !PackageId
@@ -114,13 +124,13 @@ data LookupError
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
-lookupModule (Qualified pkgRef modName _) (World importedPkgs selfPkg) = do
-  Package { packageModules = mods } <- case pkgRef of
-    PRSelf -> pure selfPkg
+lookupModule (Qualified pkgRef modName _) (World importedPkgs _ selfPkgMods) = do
+  mods <- case pkgRef of
+    PRSelf -> pure selfPkgMods
     PRImport pkgId ->
       case HMS.lookup pkgId importedPkgs of
         Nothing -> Left (LEPackage pkgId)
-        Just mods -> pure mods
+        Just pkg -> pure (packageModules pkg)
   case NM.lookup modName mods of
     Nothing -> Left (LEModule pkgRef modName)
     Just mod0 -> Right mod0

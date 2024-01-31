@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -48,7 +48,6 @@ case object TPStakeholders extends TemplatePart
 case object TPPrecondition extends TemplatePart
 case object TPSignatories extends TemplatePart
 case object TPObservers extends TemplatePart
-case object TPAgreement extends TemplatePart
 final case class TPChoice(template: TemplateChoice) extends TemplatePart
 
 sealed abstract class SerializabilityRequirement extends Product with Serializable {

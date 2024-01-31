@@ -1,12 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
 
+import com.digitalasset.canton.admin.participant.v30.TrafficControlStateRequest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.grpc.GrpcTrafficControlService
-import com.digitalasset.canton.participant.admin.v0.TrafficControlStateRequest
 import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncDomain}
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.DefaultTestIdentities

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -40,7 +40,6 @@ abstract class InMemorySyncDomainPersistentStateCommon(
   val eventLog = new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), loggerFactory)
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore = new InMemoryActiveContractStore(protocolVersion, loggerFactory)
-  val contractKeyJournal = new InMemoryContractKeyJournal(loggerFactory)
   val transferStore = new InMemoryTransferStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
@@ -51,7 +50,7 @@ abstract class InMemorySyncDomainPersistentStateCommon(
   val sendTrackerStore = new InMemorySendTrackerStore()
   val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)
 
-  override def isMemory(): Boolean = true
+  override def isMemory: Boolean = true
 
   override def close(): Unit = ()
 }

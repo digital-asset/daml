@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -378,7 +378,7 @@ class SequencerWriter(
           "sequencingFlow",
           sequencerFlow.map(_.close()).getOrElse(Future.unit),
           // Use timeouts.closing.duration (as opposed to `shutdownShort`) as closing the sequencerFlow can be slow
-          timeouts.closing.duration,
+          timeouts.closing,
         ),
       )
   }

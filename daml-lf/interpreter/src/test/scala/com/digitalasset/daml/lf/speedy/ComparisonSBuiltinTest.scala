@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,7 +14,6 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ComparisonSBuiltinTestV1 extends ComparisonSBuiltinTest(LanguageMajorVersion.V1)
 class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
 
 class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
@@ -60,7 +59,6 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
              precondition True;
              signatories (Nil @Party);
              observers (Nil @Party);
-             agreement "Agreement for Mod:Template";
           };
         }
 

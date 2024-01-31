@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -201,8 +201,8 @@ object ConfirmationPolicy {
       val hasVipForEachNode = vipCheckPartiesPerNode.forall {
         _.exists(eligibleParticipants(_)._1)
       }
-      val hasConfirmersForEachNode = signatoriesCheckPartiesPerNode.forall {
-        _.exists(eligibleParticipants(_)._2)
+      val hasConfirmersForEachNode = signatoriesCheckPartiesPerNode.forall { signatoriesForNode =>
+        signatoriesForNode.nonEmpty && signatoriesForNode.forall(eligibleParticipants(_)._2)
       }
       List(hasVipForEachNode -> Vip, hasConfirmersForEachNode -> Signatory)
         .filter(_._1)

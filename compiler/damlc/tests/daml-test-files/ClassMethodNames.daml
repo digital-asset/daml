@@ -4,7 +4,7 @@
 -- Ensure that class method names are preserved during the translation
 -- to Daml-LF.
 --
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 -- @QUERY-LF ($pkg | .interned_strings | map(select(. == "m_baz")) == ["m_baz"])
 -- @QUERY-LF ($pkg | .interned_strings | map(select(. == "m_bar")) == ["m_bar"])
 -- @QUERY-LF ($pkg | .interned_strings | map(select(. == "m_foo1")) == ["m_foo1"])

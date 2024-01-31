@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,8 +22,6 @@ import com.daml.lf.transaction.{
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
-
-import scala.annotation.nowarn
 
 //
 // Pretty-printer for the interpreter errors and the scenario ledger
@@ -580,7 +578,6 @@ private[lf] object Pretty {
       case SELocF(i) => char('F') + str(i)
     }
 
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
         case SEVal(defId) =>
@@ -625,10 +622,6 @@ private[lf] object Pretty {
             case SBUGetTime | SBSGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEAppOnlyFunIsAtomic(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + text("@N(")
-          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
-            .tightBracketBy(prefix, char(')'))
         case SEAppAtomicGeneral(fun, args) =>
           val prefix = prettySExpr(index)(fun) + text("@A(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))

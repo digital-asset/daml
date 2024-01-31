@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.version.*
@@ -49,11 +49,11 @@ final case class ParticipantMetadata private (
   @transient override protected lazy val companionObj: ParticipantMetadata.type =
     ParticipantMetadata
 
-  private def toProtoV0: v0.ParticipantMetadata = v0.ParticipantMetadata(
+  private def toProtoV30: v30.ParticipantMetadata = v30.ParticipantMetadata(
     ledgerTime = Some(ledgerTime.toProtoPrimitive),
     submissionTime = Some(submissionTime.toProtoPrimitive),
     workflowId = workflowIdO.fold("")(_.toProtoPrimitive),
-    salt = Some(salt.toProtoV0),
+    salt = Some(salt.toProtoV30),
   )
 }
 
@@ -62,9 +62,9 @@ object ParticipantMetadata
   override val name: String = "ParticipantMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.ParticipantMetadata)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ParticipantMetadata)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -81,13 +81,13 @@ object ParticipantMetadata
       None,
     )
 
-  private def fromProtoV0(hashOps: HashOps, metadataP: v0.ParticipantMetadata)(
+  private def fromProtoV30(hashOps: HashOps, metadataP: v30.ParticipantMetadata)(
       bytes: ByteString
   ): ParsingResult[ParticipantMetadata] =
     for {
       let <- ProtoConverter
         .parseRequired(CantonTimestamp.fromProtoPrimitive, "ledgerTime", metadataP.ledgerTime)
-      v0.ParticipantMetadata(saltP, _ledgerTimeP, submissionTimeP, workflowIdP) = metadataP
+      v30.ParticipantMetadata(saltP, _ledgerTimeP, submissionTimeP, workflowIdP) = metadataP
       submissionTime <- ProtoConverter
         .parseRequired(CantonTimestamp.fromProtoPrimitive, "submissionTime", submissionTimeP)
       workflowId <- workflowIdP match {
@@ -99,7 +99,7 @@ object ParticipantMetadata
             .leftMap(ProtoDeserializationError.ValueDeserializationError("workflowId", _))
       }
       salt <- ProtoConverter
-        .parseRequired(Salt.fromProtoV0, "salt", saltP)
+        .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
     } yield ParticipantMetadata(let, submissionTime, workflowId, salt)(
       hashOps,

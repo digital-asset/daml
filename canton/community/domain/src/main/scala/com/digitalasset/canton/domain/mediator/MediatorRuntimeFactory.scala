@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.mediator
@@ -7,8 +7,8 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.EnterpriseMediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
+import com.digitalasset.canton.domain.api.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.domain.mediator.store.{
   FinalizedResponseStore,
   MediatorDeduplicationStore,
@@ -20,7 +20,7 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
 import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService}
 import com.digitalasset.canton.topology.*
@@ -79,7 +79,7 @@ private[mediator] class CommunityMediatorRuntime(
   )
   override val enterpriseAdministrationService: ServerServiceDefinition =
     StaticGrpcServices.notSupportedByCommunity(
-      EnterpriseMediatorAdministrationServiceGrpc.SERVICE,
+      MediatorAdministrationServiceGrpc.SERVICE,
       logger,
     )
 }
@@ -91,7 +91,7 @@ trait MediatorRuntimeFactory {
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
-      sequencerClient: SequencerClient,
+      sequencerClient: RichSequencerClient,
       syncCrypto: DomainSyncCryptoClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,
@@ -118,7 +118,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
-      sequencerClient: SequencerClient,
+      sequencerClient: RichSequencerClient,
       syncCrypto: DomainSyncCryptoClient,
       topologyClient: DomainTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessorCommon,

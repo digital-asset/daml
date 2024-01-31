@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -8,8 +8,8 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.domain.Domain.GrpcSequencerAuthenticationErrorGroup
-import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.domain.api.v0.{Authentication, Challenge}
+import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
+import com.digitalasset.canton.domain.api.v30.{Authentication, Challenge}
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationService
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAuthenticationService.{
   SequencerAuthenticationFailure,
@@ -48,7 +48,7 @@ class GrpcSequencerAuthenticationService(
       member <- eitherT(deserializeMember(request.member))
       signature <- eitherT(
         ProtoConverter
-          .parseRequired(Signature.fromProtoV0, "signature", request.signature)
+          .parseRequired(Signature.fromProtoV30, "signature", request.signature)
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
       )
       providedNonce <- eitherT(
@@ -158,7 +158,8 @@ class GrpcSequencerAuthenticationService(
     def maliciousOrFaulty(): Status =
       Status.INTERNAL.withDescription(err.reason)
     err match {
-      case MemberAuthentication.ParticipantDisabled(_) | MemberAuthentication.MediatorDisabled(_) =>
+      case MemberAuthentication.ParticipantAccessDisabled(_) |
+          MemberAuthentication.MediatorAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
       case MemberAuthentication.ServiceAgreementAcceptanceError(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)

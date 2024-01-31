@@ -1,22 +1,29 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
 
+import cats.Eq
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.{BaseTest, DiscardOps}
+import com.digitalasset.canton.util.PekkoUtil.{
+  ContextualizedFlowOps,
+  WithKillSwitch,
+  noOpKillSwitch,
+}
+import com.digitalasset.canton.{BaseTestWordSpec, DiscardOps}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.testkit.StreamSpec
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
 import org.apache.pekko.{Done, NotUsed}
+import org.scalacheck.Arbitrary
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
@@ -25,7 +32,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 
-class PekkoUtilTest extends StreamSpec with BaseTest {
+class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
   import PekkoUtilTest.*
 
   // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
@@ -807,36 +814,132 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
         Source.failed(ex).remember(NonNegativeInt.one).toMat(Sink.ignore)(Keep.right).run()
       doneF.failed.futureValue shouldBe ex
     }
+
+    "work for sources and flows" in assertAllStagesStopped {
+      // this is merely a compilation test, so no need to run the graphs
+      val flow = Flow[Int]
+        .remember(NonNegativeInt.tryCreate(5))
+        .mapAsyncAndDrainUS(1)(xs => FutureUnlessShutdown.pure(xs.size))
+        .withUniqueKillSwitchMat()(Keep.right)
+        .takeUntilThenDrain(_ > 0)
+
+      val source = Source
+        .empty[Int]
+        .remember(NonNegativeInt.tryCreate(5))
+        .mapAsyncAndDrainUS(1)(xs => FutureUnlessShutdown.pure(xs.size))
+        .withUniqueKillSwitchMat()(Keep.right)
+        .takeUntilThenDrain(_ > 0)
+        .map(_.unwrap)
+        .via(flow)
+
+      source.to(Sink.seq[WithKillSwitch[Int]])
+
+      succeed
+    }
   }
 
-  "work for sources and flows" in {
-    // this is merely a compilation test, so no need to run the graphs
-    val flow = Flow[Int]
-      .remember(NonNegativeInt.tryCreate(5))
-      .mapAsyncAndDrainUS(1)(xs => FutureUnlessShutdown.pure(xs.size))
-      .withUniqueKillSwitchMat()(Keep.right)
-      .takeUntilThenDrain(_ > 0)
+  "dropIf" should {
+    "drop only elements that satisfy the condition" in assertAllStagesStopped {
+      val elemF = Source(1 to 10).dropIf(3)(_ % 2 == 0).toMat(Sink.seq)(Keep.right).run()
+      elemF.futureValue shouldBe Seq(1, 3, 5, 7, 8, 9, 10)
+    }
 
-    val source = Source
-      .empty[Int]
-      .remember(NonNegativeInt.tryCreate(5))
-      .mapAsyncAndDrainUS(1)(xs => FutureUnlessShutdown.pure(xs.size))
-      .withUniqueKillSwitchMat()(Keep.right)
-      .takeUntilThenDrain(_ > 0)
-      .map(_.unwrap)
-      .via(flow)
+    "ignore negative counts" in assertAllStagesStopped {
+      val elemF = Source(1 to 10).dropIf(-1)(_ => false).toMat(Sink.seq)(Keep.right).run()
+      elemF.futureValue shouldBe (1 to 10)
+    }
+  }
 
-    source.to(Sink.seq[WithKillSwitch[Int]])
+  "statefulMapAsyncContextualizedUS" should {
+    "work with singleton contexts" in assertAllStagesStopped {
+      val sinkF = Source(Seq(None, Some(2), Some(4))).contextualize
+        .statefulMapAsyncContextualizedUS(1)((acc, _, i) =>
+          FutureUnlessShutdown.pure((acc + i, acc))
+        )
+        .toMat(Sink.seq)(Keep.right)
+        .run()
 
-    succeed
+      sinkF.futureValue shouldBe Seq(None, Some(Outcome(1)), Some(Outcome(3)))
+    }
+
+    "work with nested contexts" in assertAllStagesStopped {
+      val source =
+        Source[Option[(String, Int)]](Seq(Some("context1" -> 1), Some("context2" -> 2)))
+      // Nested contexts require a bit more manual work.
+      implicit val traverse: SingletonTraverse.Aux[Lambda[a => Option[(String, a)]], String] =
+        SingletonTraverse[Option].composeWith(SingletonTraverse[(String, *)])(Keep.right)
+      val sinkF = ContextualizedFlowOps
+        .contextualize[Lambda[`+a` => Option[(String, a)]]](source)
+        .statefulMapAsyncContextualizedUS(2)((acc, string, i) =>
+          FutureUnlessShutdown.pure((acc + i, acc * i + string.size))
+        )
+        .toMat(Sink.seq)(Keep.right)
+        .run()
+      sinkF.futureValue shouldBe Seq(
+        Some("context1" -> Outcome(2 * 1 + 8)),
+        Some("context2" -> Outcome(3 * 2 + 8)),
+      )
+    }
+
+    "propagate AbortedDueToShutdown" in assertAllStagesStopped {
+      val source = Source(Seq(Left("left1"), Right(1), Right(2), Right(3), Left("left2"), Right(4)))
+      val sinkF = source.contextualize
+        .statefulMapAsyncContextualizedUS(1)((acc, _, i) =>
+          if (i == 3) FutureUnlessShutdown.abortedDueToShutdown
+          else FutureUnlessShutdown.pure((acc + i, acc * i))
+        )
+        .toMat(Sink.seq)(Keep.right)
+        .run()
+      sinkF.futureValue shouldBe Seq(
+        Left("left1"),
+        Right(Outcome(1)),
+        Right(Outcome(4)),
+        Right(AbortedDueToShutdown),
+        Left("left2"),
+        Right(AbortedDueToShutdown),
+      )
+    }
+
+    "work for flows" in assertAllStagesStopped {
+      Flow[Option[Int]].contextualize.statefulMapAsyncContextualizedUS("abc")(
+        (_: String, _: Unit, _: Int) => ???
+      )
+
+      // The extension method contextualizes only over the outer-most type constructor
+      Flow[Either[Int, Option[String]]].contextualize
+        .statefulMapAsyncContextualizedUS(3L)((_: Long, _: Unit, _: Option[String]) => ???)
+
+      implicit val traverse: SingletonTraverse.Aux[Lambda[a => Either[Int, Option[a]]], Unit] =
+        SingletonTraverse[Either[Int, *]].composeWith(SingletonTraverse[Option])(Keep.right)
+      ContextualizedFlowOps
+        .contextualize[Lambda[`+a` => Either[Int, Option[a]]]](Flow[Either[Int, Option[String]]])
+        .statefulMapAsyncContextualizedUS(3L)((_: Long, _: Unit, _: String) => ???)
+
+      succeed
+    }
+  }
+
+  "WithKillSwitch satisfies the SingletonTraverse laws" should {
+    checkAllLaws(
+      "WithKillSwitch",
+      SingletonTraverseTests[WithKillSwitch].singletonTraverse[Int, Int, Int, Int, Option, Option],
+    )
   }
 }
 
 object PekkoUtilTest {
-  val noOpKillSwitch = new KillSwitch {
-    override def shutdown(): Unit = ()
-    override def abort(ex: Throwable): Unit = ()
-  }
-
   def withNoOpKillSwitch[A](value: A): WithKillSwitch[A] = WithKillSwitch(value)(noOpKillSwitch)
+
+  implicit val eqKillSwitch: Eq[KillSwitch] = Eq.fromUniversalEquals[KillSwitch]
+
+  /** A dedicated [[cats.Eq]] instance for [[com.digitalasset.canton.util.PekkoUtil.WithKillSwitch]]
+    * that takes the kill switch into account, unlike the default equality method on
+    * [[com.digitalasset.canton.util.PekkoUtil.WithKillSwitch]].
+    */
+  implicit def eqWithKillSwitch[A: Eq]: Eq[WithKillSwitch[A]] =
+    (x: WithKillSwitch[A], y: WithKillSwitch[A]) =>
+      Eq[A].eqv(x.unwrap, y.unwrap) && Eq[KillSwitch].eqv(x.killSwitch, y.killSwitch)
+
+  implicit def arbitraryChecked[A: Arbitrary]: Arbitrary[WithKillSwitch[A]] =
+    Arbitrary(Arbitrary.arbitrary[A].map(withNoOpKillSwitch))
 }

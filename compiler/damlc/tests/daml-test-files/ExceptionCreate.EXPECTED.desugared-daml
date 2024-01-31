@@ -27,11 +27,6 @@ instance DA.Internal.Desugar.HasEnsure MyTemplate where
     = False
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement MyTemplate where
-  agreement this@MyTemplate {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive MyTemplate where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -97,11 +92,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

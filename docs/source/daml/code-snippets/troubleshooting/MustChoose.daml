@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -38,11 +38,6 @@ template Invoice
     amount: Decimal
   where
     signatory payer, payee
-
-    agreement
-      show payer <> " will pay " <> show payee <> " " <>
-      show amount <> "$ for " <> service <>
-      " by " <> show timeLimit
 
     choice Pay : ()
       controller payer

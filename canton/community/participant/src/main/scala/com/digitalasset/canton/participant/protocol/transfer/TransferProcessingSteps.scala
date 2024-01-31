@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.transfer
@@ -12,17 +12,11 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.TransferViewType
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  TransferCommonData,
-  TransferSubmitterMetadata,
-  ViewType,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -54,10 +48,8 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 
@@ -252,8 +244,8 @@ trait TransferProcessingSteps[
     val tse = Option.when(isSubmittingParticipant)(
       TimestampedEvent(
         LedgerSyncEvent
-          .CommandRejected(ts.toLf, completionInfo, rejection, requestType, Some(domainId.unwrap)),
-        LocalOffset(rc),
+          .CommandRejected(ts.toLf, completionInfo, rejection, requestType, domainId.unwrap),
+        RequestOffset(ts, rc),
         Some(sc),
       )
     )
@@ -291,9 +283,9 @@ trait TransferProcessingSteps[
             info,
             rejection,
             requestType,
-            Some(domainId.unwrap),
+            domainId.unwrap,
           ),
-        LocalOffset(pendingTransfer.requestCounter),
+        RequestOffset(pendingTransfer.requestId.unwrap, pendingTransfer.requestCounter),
         Some(pendingTransfer.requestSequencerCounter),
       )
     )
@@ -535,46 +527,4 @@ object TransferProcessingSteps {
       param("error", _.error.unquoted),
     )
   }
-
-  // Disallow reassignments from a source domains that support transfer counters to a
-  // destination domain that does not support them
-  def incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-  ): Boolean =
-    (sourcePV.v >= TransferCommonData.minimumPvForTransferCounter) && (targetPV.v < TransferCommonData.minimumPvForTransferCounter)
-
-  def PVSourceDestinationDomainsAreCompatible(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    //  In PV=4, we introduced the sourceProtocolVersion in TransferInView, which is needed for
-    //  proper deserialization. Hence, we disallow some transfers
-    val missingSourceProtocolVersionInTransferIn = targetPV.v <= ProtocolVersion.v3
-    val isSourceProtocolVersionRequired = sourcePV.v >= ProtocolVersion.v4
-
-    condUnitET[FutureUnlessShutdown](
-      !(missingSourceProtocolVersionInTransferIn && isSourceProtocolVersionRequired) && !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-        sourcePV,
-        targetPV,
-      ),
-      IncompatibleProtocolVersions(contractId, sourcePV, targetPV),
-    )
-  }
-
-  def checkIncompatiblePV(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  ): Either[IncompatibleProtocolVersions, Unit] =
-    Either.cond(
-      !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(sourcePV, targetPV),
-      (),
-      IncompatibleProtocolVersions(
-        contractId,
-        sourcePV,
-        targetPV,
-      ),
-    )
 }

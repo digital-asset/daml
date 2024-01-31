@@ -1,9 +1,8 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
@@ -34,12 +33,12 @@ final case class ParticipantNodeParameters(
     stores: ParticipantStoreConfig,
     transferTimeProofFreshnessProportion: NonNegativeInt,
     protocolConfig: ParticipantProtocolConfig,
-    uniqueContractKeys: Boolean,
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     excludeInfrastructureTransactions: Boolean,
     enableEngineStackTrace: Boolean,
     enableContractUpgrading: Boolean,
     iterationsBetweenInterruptions: Long,
+    journalGarbageCollectionDelay: NonNegativeFiniteDuration,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -54,41 +53,40 @@ object ParticipantNodeParameters {
       tracing = TracingConfig(TracingConfig.Propagation.Disabled),
       delayLoggingThreshold = NonNegativeFiniteDuration.tryOfMillis(5000),
       enableAdditionalConsistencyChecks = true,
-      loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = Some(true))),
+      loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
       logQueryCost = None,
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      nonStandardConfig = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      nonStandardConfig = true,
       cachingConfigs = CachingConfigs(),
-      batchingConfig = BatchingConfig(),
+      batchingConfig = BatchingConfig(
+        maxPruningBatchSize = PositiveNumeric.tryCreate(10),
+        aggregator = BatchAggregatorConfig.defaultsForTesting,
+      ),
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
-      skipTopologyManagerSignatureValidation = false,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
-      bongTestMaxLevel = 10,
-      retries = 10,
-      submissionTimeout = config.NonNegativeFiniteDuration.ofHours(1),
+      bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),
     maxUnzippedDarSize = 10,
-    stores = ParticipantStoreConfig(
-      maxPruningBatchSize = PositiveNumeric.tryCreate(10),
-      acsPruningInterval = config.NonNegativeFiniteDuration.ofSeconds(30),
-      dbBatchAggregationConfig = BatchAggregatorConfig.defaultsForTesting,
-    ),
+    stores = ParticipantStoreConfig(),
     transferTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
-      devVersionSupport = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      devVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
       initialProtocolVersion = testedProtocolVersion,
     ),
-    uniqueContractKeys = false,
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions = true,
     enableEngineStackTrace = false,
     enableContractUpgrading = false,
-    iterationsBetweenInterruptions = 10000, // 10000 is the default value in the engine configuration
+    iterationsBetweenInterruptions =
+      10000, // 10000 is the default value in the engine configuration
+    journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
   )
 }

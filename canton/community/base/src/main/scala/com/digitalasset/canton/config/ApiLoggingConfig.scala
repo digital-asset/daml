@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
   * to monitor all incoming traffic to a node (ledger API, sequencer API, admin API).
   *
   * @param messagePayloads Indicates whether to log message payloads. (To be disabled in production!)
-  *                          Also applies to metadata. None is equivalent to false.
+  *                          Also applies to metadata.
   * @param maxMethodLength indicates how much to abbreviate the name of the called method.
   *                        E.g. "com.digitalasset.canton.MyMethod" may get abbreviated to "c.d.c.MyMethod".
   *                        The last token will never get abbreviated.
@@ -21,8 +21,7 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
   * @param warnBeyondLoad If API logging is turned on, emit a warning on each request if the load exceeds this threshold.
   */
 final case class ApiLoggingConfig(
-    // TODO(#15221) change to boolean (breaking change)
-    messagePayloads: Option[Boolean] = None,
+    messagePayloads: Boolean = false,
     maxMethodLength: Int = ApiLoggingConfig.defaultMaxMethodLength,
     maxMessageLines: Int = ApiLoggingConfig.defaultMaxMessageLines,
     maxStringLength: Int = ApiLoggingConfig.defaultMaxStringLength,
@@ -30,11 +29,8 @@ final case class ApiLoggingConfig(
     warnBeyondLoad: Option[Int] = ApiLoggingConfig.defaultWarnBeyondLoad,
 ) {
 
-  lazy val logMessagePayloads: Boolean = messagePayloads.getOrElse(false)
-
   /** Pretty printer for logging event details */
   lazy val printer = new CantonPrettyPrinter(maxStringLength, maxMessageLines)
-
 }
 
 object ApiLoggingConfig {

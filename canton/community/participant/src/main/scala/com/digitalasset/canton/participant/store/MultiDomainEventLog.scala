@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -35,7 +35,12 @@ import com.digitalasset.canton.participant.sync.{
   SyncDomainPersistentStateLookup,
   TimestampedEvent,
 }
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
+import com.digitalasset.canton.participant.{
+  GlobalOffset,
+  LocalOffset,
+  RequestOffset,
+  TopologyOffset,
+}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
@@ -152,15 +157,31 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       participantEventLogId: ParticipantEventLogId,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Map[DomainId, Option[LocalOffset]], Option[LocalOffset])] = {
+  ): Future[(Map[DomainId, (Option[LocalOffset], Option[RequestOffset])], Option[LocalOffset])] = {
     for {
       domainLogIds <- domainIds.parTraverse(IndexedDomain.indexed(indexedStringStore))
 
       domainOffsets <- domainLogIds.parTraverse { domainId =>
-        lastLocalOffset(
-          DomainEventLogId(domainId),
-          Option(upToInclusive),
-        ).map(domainId.domainId -> _)
+        for {
+          localOffset <- lastLocalOffset(
+            DomainEventLogId(domainId),
+            Option(upToInclusive),
+          )
+
+          requestOffset <- localOffset match {
+            // Last local offset is a request offset -> no need to query again
+            case Some(requestOffset: RequestOffset) => Future.successful(Some(requestOffset))
+
+            // No known offset -> no need to query again
+            case None => Future.successful(None)
+
+            case Some(_: TopologyOffset) =>
+              lastRequestOffset(
+                DomainEventLogId(domainId),
+                Option(upToInclusive),
+              )
+          }
+        } yield domainId.domainId -> (localOffset, requestOffset)
       }
 
       participantOffset <- lastLocalOffset(
@@ -182,6 +203,18 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       upToInclusive: Option[GlobalOffset] = None,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
 
+  /** Returns the greatest request offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
+    * such that the following holds:
+    * <ol>
+    * <li>The assigned global offset is below or at `upToInclusive` (if defined).</li>
+    * <li>The record time of the event is below or at `timestampInclusive` (if defined)</li>
+    * </ol>
+    */
+  def lastRequestOffset(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]]
+
   /** Returns the greatest local offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
     * such that the following holds:
     * <ol>
@@ -191,9 +224,22 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
     */
   def lastLocalOffsetBeforeOrAt(
       eventLogId: EventLogId,
-      upToInclusive: GlobalOffset,
+      upToInclusive: Option[GlobalOffset] = None,
       timestampInclusive: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Option[LocalOffset]]
+
+  /** Returns the greatest request offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
+    * such that the following holds:
+    * <ol>
+    * <li>The assigned global offset is below or at `upToInclusive` (if defined).</li>
+    * <li>The record time of the event is below or at `timestampInclusive` (if defined)</li>
+    * </ol>
+    */
+  def lastRequestOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]]
 
   /** Yields the `deltaFromBeginning`-lowest global offset (if it exists).
     * I.e., `locateOffset(0)` yields the smallest offset, `localOffset(1)` the second smallest offset, and so on.

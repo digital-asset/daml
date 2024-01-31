@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -55,9 +55,9 @@ class JournalGarbageCollectorTest extends BaseTestWordSpec with HasExecutionCont
       // eventually, the second flush should have run
       eventually() {
         val cur = t.runningPromise.get()
+        // should be next run, not the same one
+        cur should not be promise
         cur should not be empty
-        // should be next run
-        cur shouldNot contain(promise)
       }
       // shut down in background
       t.runningPromise.get().value.success(())

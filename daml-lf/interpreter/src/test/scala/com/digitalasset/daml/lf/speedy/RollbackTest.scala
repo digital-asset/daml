@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,7 +20,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class RollbackTestV1 extends RollbackTest(LanguageMajorVersion.V1)
 class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
 
 class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
@@ -61,7 +60,6 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T1 {party} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
       choice Ch1 (self) (i : Unit) : Unit,
         controllers Cons @Party [M:T1 {party} record] (Nil @Party)
         to

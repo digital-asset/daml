@@ -6,11 +6,11 @@
 # on a PR branch which touches those files.
 #
 
-DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 --format=%b | tr -d ' ' | grep '^run-all-tests:true$')}"
+DADE_SKIP_MAIN_ONLY_CHECK="${DADE_SKIP_MAIN_ONLY_CHECK:-$(git log -1 --format=%b | tr -d ' ' | grep '^run-all-tests: *true$')}"
 if [[ -n "$DADE_SKIP_MAIN_ONLY_CHECK" ]]; then
   # The user has been explicit about whether they want all tests run,
   # either by setting the env var, or adding a line to their last commit.
-  exit 0; 
+  exit 0
 fi
 
 MODIFIED_FILES=$(echo "$@" | xargs -n1 | sort)
@@ -24,7 +24,7 @@ if [[ -n "$SUSPECT_FILES" ]]; then
 The following modified files sit under a directory with 'main-only' targets:
 $SUSPECT_FILES
 
-Consider putting a line with 'run-all-tests: true' in your PR description, or \`export DADE_SKIP_MAIN_ONLY_CHECK=1\` and try again.
+Consider putting a 'run-all-tests: true' line at the end of your commit message, or \`export DADE_SKIP_MAIN_ONLY_CHECK=1\` and try again.
     " >&2
   exit 1
 fi

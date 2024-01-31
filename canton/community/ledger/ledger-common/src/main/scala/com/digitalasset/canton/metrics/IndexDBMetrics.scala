@@ -1,35 +1,24 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  Histogram,
-  LabeledMetricsFactory,
-  MetricsFactory,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
-
-import scala.annotation.nowarn
 
 class IndexDBMetrics(
     val prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") val factory: MetricsFactory,
-    labeledMetricsFactory: LabeledMetricsFactory,
-) extends MainIndexDBMetrics(prefix, factory, labeledMetricsFactory)
-    with TransactionStreamsDbMetrics {
-  self =>
-}
+    val dropWizardMetricsFactory: LabeledMetricsFactory,
+    override val openTelemetryMetricsFactory: LabeledMetricsFactory,
+) extends MainIndexDBMetrics(prefix, dropWizardMetricsFactory, openTelemetryMetricsFactory)
+    with TransactionStreamsDbMetrics
 
 trait TransactionStreamsDbMetrics {
   self: DatabaseMetricsFactory =>
   val prefix: MetricName
-  @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
-  val factory: MetricsFactory
+  val openTelemetryMetricsFactory: LabeledMetricsFactory
 
   object flatTxStream {
     val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
@@ -51,8 +40,7 @@ trait TransactionStreamsDbMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val translationTimer: Timer = factory.timer(prefix :+ "translation")
+    val translationTimer: Timer = openTelemetryMetricsFactory.timer(prefix :+ "translation")
   }
 
   object treeTxStream {
@@ -87,8 +75,7 @@ trait TransactionStreamsDbMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val translationTimer: Timer = factory.timer(prefix :+ "translation")
+    val translationTimer: Timer = openTelemetryMetricsFactory.timer(prefix :+ "translation")
   }
 
   object reassignmentStream {
@@ -111,16 +98,15 @@ trait TransactionStreamsDbMetrics {
           |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val translationTimer: Timer = factory.timer(prefix :+ "translation")
+    val translationTimer: Timer = openTelemetryMetricsFactory.timer(prefix :+ "translation")
   }
 }
 
 class MainIndexDBMetrics(
     prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
-    labeledMetricsFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) { self =>
+    dropWizardMetricsFactory: LabeledMetricsFactory,
+    openTelemetryMetricsFactory: LabeledMetricsFactory,
+) extends DatabaseMetricsFactory(prefix, openTelemetryMetricsFactory) { self =>
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
@@ -129,8 +115,7 @@ class MainIndexDBMetrics(
                     |into a transaction.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
-  val lookupKey: Timer = factory.timer(prefix :+ "lookup_key")
+  val lookupKey: Timer = dropWizardMetricsFactory.timer(prefix :+ "lookup_key")
 
   @MetricDoc.Tag(
     summary = "The time spent fetching a contract using its id.",
@@ -139,8 +124,8 @@ class MainIndexDBMetrics(
                     |into a transaction.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
-  val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
+  val lookupActiveContract: Timer =
+    dropWizardMetricsFactory.timer(prefix :+ "lookup_active_contract")
 
   @MetricDoc.Tag(
     summary = "The number of the currently pending active contract lookups.",
@@ -148,9 +133,8 @@ class MainIndexDBMetrics(
       "The number of the currently pending active contract lookups in the batch-loading queue of the Contract Service.",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val activeContractLookupBufferLength: Counter =
-    factory.counter(prefix :+ "active_contract_lookup_buffer_length")
+    dropWizardMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The capacity of the active contract lookup queue.",
@@ -159,9 +143,8 @@ class MainIndexDBMetrics(
         |in the batch-loading queue of the Contract Service.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val activeContractLookupBufferCapacity: Counter =
-    factory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
+    dropWizardMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
 
   @MetricDoc.Tag(
     summary = "The queuing delay for the active contract lookup queue.",
@@ -169,9 +152,8 @@ class MainIndexDBMetrics(
       "The queuing delay for the pending active contract lookups in the batch-loading queue of the Contract Service.",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val activeContractLookupBufferDelay: Timer =
-    factory.timer(prefix :+ "active_contract_lookup_buffer_delay")
+    dropWizardMetricsFactory.timer(prefix :+ "active_contract_lookup_buffer_delay")
 
   @MetricDoc.Tag(
     summary = "The batch sizes in the active contract lookup batch-loading Contract Service.",
@@ -179,9 +161,8 @@ class MainIndexDBMetrics(
       """The number of active contract lookups contained in a batch, used in the batch-loading Contract Service.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val activeContractLookupBatchSize: Histogram =
-    factory.histogram(prefix :+ "active_contract_lookup_batch_size")
+    dropWizardMetricsFactory.histogram(prefix :+ "active_contract_lookup_batch_size")
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
@@ -219,9 +200,6 @@ class MainIndexDBMetrics(
   val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
-  val lookupDivulgedActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
-    "lookup_divulged_active_contract"
-  )
   val lookupCreatedContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_created_contracts")
   val lookupAssignedContractsDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_assigned_contracts"
@@ -241,9 +219,6 @@ class MainIndexDBMetrics(
   )
   val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
   val getEventsByContractKey: DatabaseMetrics = createDbMetrics("get_events_by_contract_key")
-  val getEventSequentialIdForEventId: DatabaseMetrics = createDbMetrics(
-    "get_event_sequential_id_for_event_id"
-  )
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
   val getActiveContractIdsForCreated: DatabaseMetrics = createDbMetrics(
     "get_active_contract_ids_for_created"
@@ -295,8 +270,7 @@ class MainIndexDBMetrics(
                       |representation. This metric represents time necessary to do that.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val getLfPackage: Timer = factory.timer(prefix :+ "get_lf_package")
+    val getLfPackage: Timer = dropWizardMetricsFactory.timer(prefix :+ "get_lf_package")
   }
 
   object compression {
@@ -309,9 +283,8 @@ class MainIndexDBMetrics(
                       |arguments of a create event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val createArgumentCompressed: Histogram =
-      factory.histogram(prefix :+ "create_argument_compressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "create_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of a create event.",
@@ -320,9 +293,8 @@ class MainIndexDBMetrics(
                       |arguments of a create event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val createArgumentUncompressed: Histogram =
-      factory.histogram(prefix :+ "create_argument_uncompressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "create_argument_uncompressed")
 
     @MetricDoc.Tag(
       summary = "The size of the compressed key value of a create event.",
@@ -331,9 +303,8 @@ class MainIndexDBMetrics(
                       |value of a create event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val createKeyValueCompressed: Histogram =
-      factory.histogram(prefix :+ "create_key_value_compressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "create_key_value_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed key value of a create event.",
@@ -342,8 +313,7 @@ class MainIndexDBMetrics(
                       |value of a create event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val createKeyValueUncompressed: Histogram = factory.histogram(
+    val createKeyValueUncompressed: Histogram = dropWizardMetricsFactory.histogram(
       prefix :+ "create_key_value_uncompressed"
     )
 
@@ -354,9 +324,8 @@ class MainIndexDBMetrics(
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val exerciseArgumentCompressed: Histogram =
-      factory.histogram(prefix :+ "exercise_argument_compressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "exercise_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of an exercise event.",
@@ -365,8 +334,7 @@ class MainIndexDBMetrics(
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val exerciseArgumentUncompressed: Histogram = factory.histogram(
+    val exerciseArgumentUncompressed: Histogram = dropWizardMetricsFactory.histogram(
       prefix :+ "exercise_argument_uncompressed"
     )
 
@@ -377,9 +345,8 @@ class MainIndexDBMetrics(
                       |result of an exercise event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val exerciseResultCompressed: Histogram =
-      factory.histogram(prefix :+ "exercise_result_compressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "exercise_result_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed result of an exercise event.",
@@ -388,15 +355,13 @@ class MainIndexDBMetrics(
                       |result of an exercise event.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val exerciseResultUncompressed: Histogram =
-      factory.histogram(prefix :+ "exercise_result_uncompressed")
+      dropWizardMetricsFactory.histogram(prefix :+ "exercise_result_uncompressed")
   }
 
   object threadpool {
     private val prefix: MetricName = MainIndexDBMetrics.this.prefix :+ "threadpool"
 
     val connection: MetricName = prefix :+ "connection"
-
   }
 }

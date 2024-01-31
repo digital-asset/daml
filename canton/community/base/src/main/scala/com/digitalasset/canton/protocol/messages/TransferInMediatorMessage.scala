@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -29,13 +29,7 @@ import java.util.UUID
   * @param tree The transfer-in view tree blinded for the mediator
   * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
   */
-final case class TransferInMediatorMessage(tree: TransferInViewTree)
-    extends MediatorRequest
-    with ProtocolMessageV0
-    with ProtocolMessageV1
-    with ProtocolMessageV2
-    with ProtocolMessageV3
-    with UnsignedProtocolMessageV4 {
+final case class TransferInMediatorMessage(tree: TransferInViewTree) extends MediatorRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-out view must be blinded")
@@ -89,38 +83,11 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree)
     )
   }
 
-  override def toProtoEnvelopeContentV0: v0.EnvelopeContent =
-    v0.EnvelopeContent(
-      someEnvelopeContent =
-        v0.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV0)
-    )
+  override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+    v30.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV30)
 
-  override def toProtoEnvelopeContentV1: v1.EnvelopeContent =
-    v1.EnvelopeContent(
-      someEnvelopeContent =
-        v1.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
-  override def toProtoEnvelopeContentV2: v2.EnvelopeContent =
-    v2.EnvelopeContent(
-      someEnvelopeContent =
-        v2.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
-  override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
-    v3.EnvelopeContent(
-      someEnvelopeContent =
-        v3.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-    )
-
-  override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-    v4.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV1)
-
-  def toProtoV0: v0.TransferInMediatorMessage =
-    v0.TransferInMediatorMessage(tree = Some(tree.toProtoV0))
-
-  def toProtoV1: v1.TransferInMediatorMessage =
-    v1.TransferInMediatorMessage(tree = Some(tree.toProtoV1))
+  def toProtoV30: v30.TransferInMediatorMessage =
+    v30.TransferInMediatorMessage(tree = Some(tree.toProtoV30))
 
   override def rootHash: Option[RootHash] = Some(tree.rootHash)
 
@@ -133,43 +100,25 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree)
 }
 
 object TransferInMediatorMessage
-    extends HasProtocolVersionedWithContextCompanion[TransferInMediatorMessage, HashOps] {
+    extends HasProtocolVersionedWithContextCompanion[
+      TransferInMediatorMessage,
+      (HashOps, ProtocolVersion),
+    ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.TransferInMediatorMessage)(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV0(hashOps)(proto)),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.TransferInMediatorMessage)(
-      supportedProtoVersion(_)((hashOps, proto) => fromProtoV1(hashOps)(proto)),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInMediatorMessage)(
+      supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
+      _.toProtoV30.toByteString,
+    )
   )
 
-  def fromProtoV0(hashOps: HashOps)(
-      transferInMediatorMessageP: v0.TransferInMediatorMessage
+  def fromProtoV30(context: (HashOps, ProtocolVersion))(
+      transferInMediatorMessageP: v30.TransferInMediatorMessage
   ): ParsingResult[TransferInMediatorMessage] =
     for {
       tree <- ProtoConverter
         .required("TransferInMediatorMessage.tree", transferInMediatorMessageP.tree)
-        .flatMap(TransferInViewTree.fromProtoV0(hashOps, _))
-      _ <- EitherUtil.condUnitE(
-        tree.commonData.isFullyUnblinded,
-        OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),
-      )
-      _ <- EitherUtil.condUnitE(
-        tree.view.isBlinded,
-        OtherError(s"Transfer-in view data is not blinded in request ${tree.rootHash}"),
-      )
-    } yield TransferInMediatorMessage(tree)
-
-  def fromProtoV1(hashOps: HashOps)(
-      transferInMediatorMessageP: v1.TransferInMediatorMessage
-  ): ParsingResult[TransferInMediatorMessage] =
-    for {
-      tree <- ProtoConverter
-        .required("TransferInMediatorMessage.tree", transferInMediatorMessageP.tree)
-        .flatMap(TransferInViewTree.fromProtoV1(hashOps, _))
+        .flatMap(TransferInViewTree.fromProtoV30(context, _))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),

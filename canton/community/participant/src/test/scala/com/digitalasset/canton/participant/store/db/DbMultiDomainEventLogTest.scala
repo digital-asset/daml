@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -21,6 +21,7 @@ import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import com.digitalasset.canton.tracing.SerializableTraceContext
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import slick.dbio.DBIOAction
 import slick.jdbc.SetParameter
 
@@ -51,7 +52,7 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
       val transferStore = new DbTransferStore(
         storage,
         targetDomainId,
-        testedProtocolVersion,
+        TargetProtocolVersion(testedProtocolVersion),
         TestingIdentityFactory.pureCrypto(),
         futureSupervisor,
         timeouts,
@@ -102,8 +103,8 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
         IdempotentInsert.insertIgnoringConflicts(
           storage,
           "event_log pk_event_log",
-          sql"""event_log (log_id, local_offset, ts, request_sequencer_counter, event_id, content, trace_context)
-               values (${id.index}, ${localOffset.toLong},
+          sql"""event_log (log_id, local_offset_effective_time, local_offset_tie_breaker, local_offset_discriminator, ts, request_sequencer_counter, event_id, content, trace_context)
+               values (${id.index}, ${localOffset.effectiveTime}, ${localOffset.tieBreaker}, ${localOffset.discriminator},
                ${tsEvent.timestamp}, $requestSequencerCounter, $eventId, $serializableLedgerSyncEvent,
                  ${SerializableTraceContext(tsEvent.traceContext)})""",
         )

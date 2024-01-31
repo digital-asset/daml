@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -110,7 +110,6 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
   private def adaptEventSeqIds(dbDtos: Iterator[DbDto]): Vector[DbDto] =
     dbDtos.map {
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.IdFilterCreateStakeholder =>
         e.copy(event_sequential_id = lastEventSeqId)

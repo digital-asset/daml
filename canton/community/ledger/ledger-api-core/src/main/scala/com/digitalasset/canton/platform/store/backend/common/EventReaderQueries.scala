@@ -1,10 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.RowParser
-import anorm.SqlParser.long
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -140,19 +139,6 @@ class EventReaderQueries(
           WHERE contract_id = $contractId
         """
     query.as(archivedFlatEventParser(intRequestingParties, stringInterning).singleOpt)(conn)
-  }
-
-  def getEventSequentialIdForEventId(transactionId: String, eventId: String)(
-      conn: Connection
-  ): Option[EventSequentialId] = {
-    val query =
-      SQL"""
-        SELECT pec.event_sequential_id FROM participant_transaction_meta ptm
-        JOIN participant_events_create pec ON  pec.event_sequential_id >= ptm.event_sequential_id_first
-                                           AND pec.event_sequential_id <= ptm.event_sequential_id_last
-        WHERE ptm.transaction_id = $transactionId
-        AND pec.event_id = $eventId"""
-    query.as(long(1).singleOpt)(conn)
   }
 
   def fetchNextKeyEvents(

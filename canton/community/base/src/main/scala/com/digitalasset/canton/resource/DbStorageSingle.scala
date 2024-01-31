@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
@@ -147,7 +147,11 @@ object DbStorageSingle {
       tc: TraceContext,
       closeContext: CloseContext,
   ): EitherT[UnlessShutdown, String, DbStorageSingle] = {
-    val numCombined = config.numCombinedConnectionsCanton(connectionPoolForParticipant)
+    val numCombined = config.numCombinedConnectionsCanton(
+      connectionPoolForParticipant,
+      withWriteConnectionPool = false,
+      withMainConnection = false,
+    )
     val logger = loggerFactory.getTracedLogger(getClass)
     logger.info(s"Creating storage, num-combined: $numCombined")
     for {

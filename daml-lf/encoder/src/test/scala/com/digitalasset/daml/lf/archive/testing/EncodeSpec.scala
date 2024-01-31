@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -18,9 +18,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-// TODO (#17366): Once the LF2 syntax diverges from LF1, code sharing between these two tests is no
-//  longer possible.
-class EncodeV1Spec extends EncodeSpec(LanguageVersion.v1_dev)
 class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
 class EncodeSpec(languageVersion: LanguageVersion)
@@ -75,7 +72,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
               precondition True;
               signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
               observers Cons @Party [Mod:Person {person} this] (Nil @Party);
-              agreement "Agreement";
               choice Sleep (self) (u: Unit) : Unit,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Nil @Party
@@ -257,7 +253,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
              precondition True;
              signatories Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
              observers Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
-             agreement "";
            };
          }
       """

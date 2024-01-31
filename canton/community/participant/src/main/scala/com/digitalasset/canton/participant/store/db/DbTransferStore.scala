@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -39,23 +39,25 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
+import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
 import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
+import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 class DbTransferStore(
     override protected val storage: DbStorage,
     domain: TargetDomainId,
-    protocolVersion: ProtocolVersion,
+    targetDomainProtocolVersion: TargetProtocolVersion,
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
     override protected val timeouts: ProcessingTimeout,
@@ -71,22 +73,31 @@ class DbTransferStore(
   private val processingTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("transfer-store")
 
-  val getResultFullTransferOutTree: GetResult[FullTransferOutTree] = GetResult(r =>
-    FullTransferOutTree
-      .fromByteString(cryptoApi)(ByteString.copyFrom(r.<<[Array[Byte]]))
-      .fold[FullTransferOutTree](
-        error =>
-          throw new DbDeserializationException(s"Error deserializing transfer out request $error"),
-        Predef.identity,
-      )
-  )
+  private def getResultFullTransferOutTree(
+      sourceDomainProtocolVersion: SourceProtocolVersion
+  ): GetResult[FullTransferOutTree] =
+    GetResult(r =>
+      FullTransferOutTree
+        .fromByteString(cryptoApi, sourceDomainProtocolVersion)(
+          ByteString.copyFrom(r.<<[Array[Byte]])
+        )
+        .fold[FullTransferOutTree](
+          error =>
+            throw new DbDeserializationException(
+              s"Error deserializing transfer out request $error"
+            ),
+          Predef.identity,
+        )
+    )
 
-  private implicit val setParameterFullTransferOutTree: SetParameter[FullTransferOutTree] =
+  private def setResultFullTransferOutTree(
+      sourceProtocolVersion: SourceProtocolVersion
+  ): SetParameter[FullTransferOutTree] =
     (r: FullTransferOutTree, pp: PositionedParameters) =>
-      pp >> r.toByteString(protocolVersion).toByteArray
+      pp >> r.toByteString(sourceProtocolVersion.v).toByteArray
 
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
-    SerializableContract.getVersionedSetParameter(protocolVersion)
+    SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.v)
 
   private implicit val getResultOptionRawDeliveredTransferOutResult
       : GetResult[Option[RawDeliveredTransferOutResult]] = GetResult { r =>
@@ -116,27 +127,15 @@ class DbTransferStore(
   private implicit val getResultTransferData: GetResult[TransferData] = GetResult { r =>
     val sourceProtocolVersion = SourceProtocolVersion(GetResult[ProtocolVersion].apply(r))
 
-    /*
-      Context: Prior to Canton 2.4.0, we were missing the source protocol version in the
-      transfer store. In Canton 2.4.0, it was added with the default value of 2 (see in
-      the migration file). Now that pv=2 is removed, this confuses the deserializer of the
-      EnvelopeContent when deserializing the transfer-out result.
-      To solve that, we use at least ProtocolVersion.v3 for the deserialization of the
-      transfer-out result.
-     */
-    val fixedSourceProtocolVersion =
-      if (sourceProtocolVersion.v >= ProtocolVersion.v3) sourceProtocolVersion
-      else SourceProtocolVersion(ProtocolVersion.v3)
-
     TransferData(
       sourceProtocolVersion = sourceProtocolVersion,
       transferOutTimestamp = GetResult[CantonTimestamp].apply(r),
       transferOutRequestCounter = GetResult[RequestCounter].apply(r),
-      transferOutRequest = getResultFullTransferOutTree(r),
+      transferOutRequest = getResultFullTransferOutTree(sourceProtocolVersion).apply(r),
       transferOutDecisionTime = GetResult[CantonTimestamp].apply(r),
       contract = GetResult[SerializableContract].apply(r),
       creatingTransactionId = GetResult[TransactionId].apply(r),
-      transferOutResult = getResultDeliveredTransferOutResult(fixedSourceProtocolVersion).apply(r),
+      transferOutResult = getResultDeliveredTransferOutResult(sourceProtocolVersion).apply(r),
       transferGlobalOffset = TransferGlobalOffset
         .create(
           r.nextLongOption().map(GlobalOffset.tryFromLong),
@@ -169,6 +168,9 @@ class DbTransferStore(
       transferData: TransferData
   )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] =
     processingTime.eitherTEvent {
+      @unused implicit val setParameterFullTransferOutTree =
+        setResultFullTransferOutTree(transferData.sourceProtocolVersion)
+
       ErrorUtil.requireArgument(
         transferData.targetDomain == domain,
         s"Domain ${domain.unwrap}: Transfer store cannot store transfer for domain ${transferData.targetDomain.unwrap}",
@@ -202,6 +204,9 @@ class DbTransferStore(
       def insertExisting(
           existingEntry: TransferEntry
       ): Checked[TransferStoreError, TransferAlreadyCompleted, Option[DBIO[Int]]] = {
+        @unused implicit val setParameterFullTransferOutTree =
+          setResultFullTransferOutTree(existingEntry.transferData.sourceProtocolVersion)
+
         def update(entry: TransferEntry): DBIO[Int] = {
           val id = entry.transferData.transferId
           val data = entry.transferData
@@ -597,6 +602,50 @@ class DbTransferStore(
           .sortBy(_.transferEventGlobalOffset.globalOffset)
       )
     }
+
+  override def findEarliestIncomplete()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] = {
+    val result = storage
+      .query(
+        {
+          val maxCompletedOffset: SQLActionBuilder =
+            sql"""select min(coalesce(transfer_in_global_offset,${GlobalOffset.MaxValue})),
+                  min(coalesce(transfer_out_global_offset,${GlobalOffset.MaxValue})),
+                  origin_domain, transfer_out_timestamp
+                  from transfers
+                  where target_domain=$domain and (transfer_out_global_offset is null or transfer_in_global_offset is null)
+                  group by origin_domain, transfer_out_timestamp
+                  """
+
+          maxCompletedOffset
+            .as[(Option[GlobalOffset], Option[GlobalOffset], DomainId, CantonTimestamp)]
+        },
+        functionFullName,
+      )
+
+    result
+      .map(
+        _.toList
+          .map { case (in, out, source, ts) =>
+            ((in.toList ++ out.toList).minOption, TransferId(SourceDomainId(source), ts))
+          }
+          .foldLeft(
+            (
+              GlobalOffset.MaxValue,
+              TransferId(SourceDomainId(domain.unwrap), CantonTimestamp.MaxValue),
+            )
+          )((acc: (GlobalOffset, TransferId), n) =>
+            n match {
+              case (Some(o), tid) => if (acc._1 > o) (o, tid) else acc
+              case (None, _) => acc
+            }
+          ) match {
+          case (offset, transferId) =>
+            if (offset == GlobalOffset.MaxValue) None else Some((offset, transferId, domain))
+        }
+      )
+  }
 
   private def insertDependentDeprecated[E, W, A, R](
       exists: DBIO[Option[A]],

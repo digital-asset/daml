@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -32,20 +32,6 @@ trait QueryStrategy {
     */
   def columnEqualityBoolean(column: String, value: String): String =
     s"""$column = $value"""
-
-  /** An expression resulting to a boolean to check whether:
-    *   - the party set defined by columnName and
-    *   - the party set defined by parties
-    * have at least one element in common (eg their intersection is non empty).
-    *
-    * @param columnName the SQL table definition which holds the set of parties
-    * @param internedParties set of parties (their interned names)
-    * @return the composable SQL
-    */
-  def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      internedParties: Set[Int],
-  ): CompositeSql
 
   /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true
     * Example: getting all groups and see wheter they have someone who had covid:

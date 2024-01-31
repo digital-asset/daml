@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -24,9 +24,12 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v1.{EventQueryServiceOuterClass, ValueOuterClass}
+import com.daml.ledger.api.v2.completion.Completion as CompletionV2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.state_service.{
+  ActiveContract,
   GetActiveContractsResponse,
   GetConnectedDomainsResponse,
 }
@@ -35,12 +38,18 @@ import com.daml.ledger.api.v2.transaction.{
   TransactionTree as TransactionTreeV2,
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
+import com.daml.ledger.javaapi.data.ReassignmentV2
 import com.daml.ledger.{api, javaapi as javab}
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
+  WrappedContractEntry,
+  WrappedCreatedEvent,
+  WrappedIncompleteAssigned,
+  WrappedIncompleteUnassigned,
+}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.{
   AssignedWrapper,
@@ -57,8 +66,8 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.*
+import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -94,7 +103,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.{LedgerTransactionId, LfPartyId, config}
+import com.digitalasset.canton.{LedgerTransactionId, LfPackageId, LfPartyId, config}
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -105,6 +114,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.nowarn
 import scala.concurrent.{Await, ExecutionContext}
+import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 trait BaseLedgerApiAdministration extends NoTracing {
@@ -164,9 +174,40 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
+      ): Seq[UpdateTreeWrapper] =
+        trees_with_tx_filter(
+          filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap),
+          completeAfter = completeAfter,
+          beginOffset = beginOffset,
+          endOffset = endOffset,
+          verbose = verbose,
+          timeout = timeout,
+          resultFilter = resultFilter,
+        )
+
+      @Help.Summary("Get update trees", FeatureFlag.Testing)
+      @Help.Description(
+        """This function connects to the update tree stream for the transaction filter and collects update trees
+          |until either `completeAfter` update trees have been received or `timeout` has elapsed.
+          |The returned update trees can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error.
+          |NOTE: As opposed to the flat transaction streams, the transaction filter provided for transaction trees DO NOT
+          | filter the events in the tree, but decide instead the event payloads projection rules.
+          | (e.g. whether to include in the CreatedEvent the created event blob)."""
+      )
+      def trees_with_tx_filter(
+          filter: TransactionFilterV2,
+          completeAfter: Int,
+          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+          ),
+          endOffset: Option[ParticipantOffset] = None,
+          verbose: Boolean = true,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          resultFilter: UpdateTreeWrapper => Boolean = _ => true,
       ): Seq[UpdateTreeWrapper] = check(FeatureFlag.Testing)({
         val observer = new RecordingStreamObserver[UpdateTreeWrapper](completeAfter, resultFilter)
-        val filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
           subscribe_trees(observer, filter, beginOffset, endOffset, verbose),
           "getUpdateTrees",
@@ -174,24 +215,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
           timeout,
         )
       })
-
-      private def mkResult[Res](
-          call: => AutoCloseable,
-          requestDescription: String,
-          observer: RecordingStreamObserver[Res],
-          timeout: config.NonNegativeDuration,
-      ): Seq[Res] = consoleEnvironment.run {
-        try {
-          ResourceUtil.withResource(call) { _ =>
-            // Not doing noisyAwaitResult here, because we don't want to log warnings in case of a timeout.
-            CommandSuccessful(Await.result(observer.result, timeout.duration))
-          }
-        } catch {
-          case sre: StatusRuntimeException =>
-            GenericCommandError(GrpcError(requestDescription, name, sre).toString)
-          case _: TimeoutException => CommandSuccessful(observer.responses)
-        }
-      }
 
       @Help.Summary("Subscribe to the update tree stream", FeatureFlag.Testing)
       @Help.Description(
@@ -402,6 +425,13 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
+
+      @Help.Summary("Get the domain that a transaction was committed over.")
+      @Help.Description(
+        """Get the domain that a transaction was committed over. Throws an error if the transaction is not (yet) known
+          |to the participant or if the transaction has been pruned via `pruning.prune`."""
+      )
+      def domain_of(transactionId: String): DomainId = domainOfTransaction(transactionId)
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -409,8 +439,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     object commands extends Helpful {
 
       @Help.Summary(
-        "Submit command and wait for the resulting transaction, returning the transaction tree or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit command and wait for the resulting transaction, returning the transaction tree or failing otherwise"
       )
       @Help.Description(
         """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit and returns it.
@@ -426,18 +455,19 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def submit(
           actAs: Seq[PartyId],
           commands: Seq[Command],
-          domainId: DomainId,
+          domainId: Option[DomainId] = None,
           workflowId: String = "",
           commandId: String = "",
           // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
-      ): TransactionTreeV2 = check(FeatureFlag.Testing) {
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+      ): TransactionTreeV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
@@ -452,6 +482,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -459,8 +490,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       }
 
       @Help.Summary(
-        "Submit command and wait for the resulting transaction, returning the flattened transaction or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit command and wait for the resulting transaction, returning the flattened transaction or failing otherwise"
       )
       @Help.Description(
         """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit, and returns the "flattened" transaction.
@@ -476,18 +506,19 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def submit_flat(
           actAs: Seq[PartyId],
           commands: Seq[Command],
-          domainId: DomainId,
+          domainId: Option[DomainId] = None,
           workflowId: String = "",
           commandId: String = "",
           // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
-      ): TransactionV2 = check(FeatureFlag.Testing) {
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+      ): TransactionV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
@@ -502,6 +533,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -516,7 +548,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def submit_async(
           actAs: Seq[PartyId],
           commands: Seq[Command],
-          domainId: DomainId,
+          domainId: Option[DomainId] = None,
           workflowId: String = "",
           commandId: String = "",
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
@@ -525,6 +557,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -540,6 +573,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               disclosedContracts,
               domainId,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -623,6 +657,49 @@ trait BaseLedgerApiAdministration extends NoTracing {
           case invalid =>
             throw new IllegalStateException(s"UnassignedWrapper expected, but got: $invalid")
         }
+
+      @Help.Summary(
+        "Combines `submit_unassign` and `submit_assign` in a single macro",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """See `submit_unassign` and `submit_assign` for the parameters."""
+      )
+      def submit_reassign(
+          submitter: PartyId,
+          contractId: LfContractId,
+          source: DomainId,
+          target: DomainId,
+          workflowId: String = "",
+          applicationId: String = applicationId,
+          submissionId: String = UUID.randomUUID().toString,
+          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+      ): (UnassignedWrapper, AssignedWrapper) = {
+        val unassigned = submit_unassign(
+          submitter,
+          contractId,
+          source,
+          target,
+          workflowId,
+          applicationId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+        val assigned = submit_assign(
+          submitter,
+          unassigned.unassignedEvent.unassignId,
+          source,
+          target,
+          workflowId,
+          applicationId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+        (unassigned, assigned)
+      }
 
       // TODO(#15429) this could be improved to use pointwise lookups similarly to submit as soon as the pointwise lookups
       // for reassignments are available over the Ladger API.
@@ -737,7 +814,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         })
 
       @Help.Summary("Read the current connected domains for a party", FeatureFlag.Testing)
-      def connectedDomains(partyId: PartyId): GetConnectedDomainsResponse =
+      def connected_domains(partyId: PartyId): GetConnectedDomainsResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.StateService.GetConnectedDomains(partyId.toLf)
@@ -747,7 +824,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       @Help.Summary("Read active contracts", FeatureFlag.Testing)
       @Help.Group("Active Contracts")
       object acs extends Helpful {
-        @Help.Summary("List the set of active contracts of a given party", FeatureFlag.Testing)
+        @Help.Summary("List the set of active contract entries of a given party")
         @Help.Description(
           """This command will return the current set of active contracts and incomplete reassignments for the given party.
             |
@@ -758,7 +835,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
             |- timeout: the maximum wait time for the complete acs to arrive
             |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
-            |  if the filterTemplate is non-empty"""
+            |  if the filterTemplate is non-empty
+            |- resultFilter: custom filter of the results, applies before limit"""
         )
         def of_party(
             party: PartyId,
@@ -768,11 +846,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
             activeAtOffset: String = "",
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
-        ): Seq[GetActiveContractsResponse] =
-          check(FeatureFlag.Testing)(consoleEnvironment.run {
-            ledgerApiCommand(
-              LedgerApiV2Commands.StateService
-                .GetActiveContracts(
+            resultFilter: GetActiveContractsResponse => Boolean = _.contractEntry.isDefined,
+        ): Seq[WrappedContractEntry] = {
+          val observer =
+            new RecordingStreamObserver[GetActiveContractsResponse](limit.value, resultFilter)
+          mkResult(
+            consoleEnvironment.run {
+              ledgerApiCommand(
+                LedgerApiV2Commands.StateService.GetActiveContracts(
+                  observer,
                   Set(party.toLf),
                   limit,
                   filterTemplates,
@@ -780,13 +862,121 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   verbose,
                   timeout.asFiniteApproximation,
                   includeCreatedEventBlob,
-                )(consoleEnvironment.environment.scheduler)
-            )
-          })
+                )
+              )
+            },
+            "getActiveContracts",
+            observer,
+            timeout,
+          ).map(activeContract => WrappedContractEntry(activeContract.contractEntry))
+        }
+
+        @Help.Summary("List the set of active contracts of a given party")
+        @Help.Description(
+          """This command will return the current set of active contracts for the given party.
+            |
+            |Supported arguments:
+            |- party: for which party you want to load the acs
+            |- limit: limit (default set via canton.parameter.console)
+            |- verbose: whether the resulting events should contain detailed type information
+            |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- timeout: the maximum wait time for the complete acs to arrive
+            |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
+            |  if the filterTemplate is non-empty"""
+        )
+        def active_contracts_of_party(
+            party: PartyId,
+            limit: PositiveInt = defaultLimit,
+            verbose: Boolean = true,
+            filterTemplates: Seq[TemplateId] = Seq.empty,
+            activeAtOffset: String = "",
+            timeout: config.NonNegativeDuration = timeouts.unbounded,
+            includeCreatedEventBlob: Boolean = false,
+        ): Seq[ActiveContract] =
+          of_party(
+            party,
+            limit,
+            verbose,
+            filterTemplates,
+            activeAtOffset,
+            timeout,
+            includeCreatedEventBlob,
+            _.contractEntry.isActiveContract,
+          )
+            .flatMap(_.entry.activeContract)
+
+        @Help.Summary("List the set of incomplete unassigned events of a given party")
+        @Help.Description(
+          """This command will return the current set of incomplete unassigned events for the given party.
+            |
+            |Supported arguments:
+            |- party: for which party you want to load the acs
+            |- limit: limit (default set via canton.parameter.console)
+            |- verbose: whether the resulting events should contain detailed type information
+            |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- timeout: the maximum wait time for the complete acs to arrive
+            |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
+            |  if the filterTemplate is non-empty"""
+        )
+        def incomplete_unassigned_of_party(
+            party: PartyId,
+            limit: PositiveInt = defaultLimit,
+            verbose: Boolean = true,
+            filterTemplates: Seq[TemplateId] = Seq.empty,
+            activeAtOffset: String = "",
+            timeout: config.NonNegativeDuration = timeouts.unbounded,
+            includeCreatedEventBlob: Boolean = false,
+        ): Seq[WrappedIncompleteUnassigned] =
+          of_party(
+            party,
+            limit,
+            verbose,
+            filterTemplates,
+            activeAtOffset,
+            timeout,
+            includeCreatedEventBlob,
+            _.contractEntry.isIncompleteUnassigned,
+          )
+            .flatMap(_.entry.incompleteUnassigned)
+            .map(WrappedIncompleteUnassigned(_))
+
+        @Help.Summary("List the set of incomplete assigned events of a given party")
+        @Help.Description(
+          """This command will return the current set of incomplete assigned events for the given party.
+            |
+            |Supported arguments:
+            |- party: for which party you want to load the acs
+            |- limit: limit (default set via canton.parameter.console)
+            |- verbose: whether the resulting events should contain detailed type information
+            |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- timeout: the maximum wait time for the complete acs to arrive
+            |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
+            |  if the filterTemplate is non-empty"""
+        )
+        def incomplete_assigned_of_party(
+            party: PartyId,
+            limit: PositiveInt = defaultLimit,
+            verbose: Boolean = true,
+            filterTemplates: Seq[TemplateId] = Seq.empty,
+            activeAtOffset: String = "",
+            timeout: config.NonNegativeDuration = timeouts.unbounded,
+            includeCreatedEventBlob: Boolean = false,
+        ): Seq[WrappedIncompleteAssigned] =
+          of_party(
+            party,
+            limit,
+            verbose,
+            filterTemplates,
+            activeAtOffset,
+            timeout,
+            includeCreatedEventBlob,
+            _.contractEntry.isIncompleteAssigned,
+          )
+            .flatMap(_.entry.incompleteAssigned)
+            .map(WrappedIncompleteAssigned(_))
 
         @Help.Summary(
-          "List the set of active contracts for all parties hosted on this participant",
-          FeatureFlag.Testing,
+          "List the set of active contracts for all parties hosted on this participant"
         )
         @Help.Description(
           """This command will return the current set of active contracts for all parties.
@@ -799,6 +989,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
              - identityProviderId: limit the response to parties governed by the given identity provider
              - includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
                if the filterTemplate is non-empty
+             - resultFilter: custom filter of the results, applies before limit
           """
         )
         def of_all(
@@ -809,7 +1000,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             identityProviderId: String = "",
             includeCreatedEventBlob: Boolean = false,
-        ): Seq[GetActiveContractsResponse] = check(FeatureFlag.Testing)(
+            resultFilter: GetActiveContractsResponse => Boolean = _.contractEntry.isDefined,
+        ): Seq[WrappedContractEntry] =
           consoleEnvironment.runE {
             for {
               parties <- ledgerApiCommand(
@@ -821,22 +1013,35 @@ trait BaseLedgerApiAdministration extends NoTracing {
               res <- {
                 if (localParties.isEmpty) Right(Seq.empty)
                 else {
-                  ledgerApiCommand(
-                    LedgerApiV2Commands.StateService.GetActiveContracts(
-                      localParties.toSet,
-                      limit,
-                      filterTemplates,
-                      activeAtOffset,
-                      verbose,
-                      timeout.asFiniteApproximation,
-                      includeCreatedEventBlob,
-                    )(consoleEnvironment.environment.scheduler)
-                  ).toEither
+                  val observer = new RecordingStreamObserver[GetActiveContractsResponse](
+                    limit.value,
+                    resultFilter,
+                  )
+                  Try(
+                    mkResult(
+                      consoleEnvironment.run {
+                        ledgerApiCommand(
+                          LedgerApiV2Commands.StateService.GetActiveContracts(
+                            observer,
+                            localParties.toSet,
+                            limit,
+                            filterTemplates,
+                            activeAtOffset,
+                            verbose,
+                            timeout.asFiniteApproximation,
+                            includeCreatedEventBlob,
+                          )
+                        )
+                      },
+                      "getActiveContracts",
+                      observer,
+                      timeout,
+                    ).map(activeContract => WrappedContractEntry(activeContract.contractEntry))
+                  ).toEither.left.map(_.getMessage)
                 }
               }
             } yield res
           }
-        )
 
         @Help.Summary(
           "Wait until the party sees the given contract in the active contract service",
@@ -852,25 +1057,21 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Unit = check(FeatureFlag.Testing) {
           ConsoleMacros.utils.retry_until_true(timeout) {
             of_party(party, verbose = false)
-              .exists(
-                _.contractEntry.activeContract.exists(
-                  _.getCreatedEvent.contractId == contractId.coid
-                )
-              )
+              .exists(_.contractId == contractId.coid)
           }
         }
 
-        @Help.Summary("Generic search for contracts", FeatureFlag.Testing)
+        @Help.Summary("Generic search for contracts")
         @Help.Description(
           """This search function returns an untyped ledger-api event.
             |The find will wait until the contract appears or throw an exception once it times out."""
         )
         def find_generic(
             partyId: PartyId,
-            filter: GetActiveContractsResponse => Boolean,
+            filter: WrappedContractEntry => Boolean,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): GetActiveContractsResponse = check(FeatureFlag.Testing) {
-          def scan: Option[GetActiveContractsResponse] = of_party(partyId).find(filter(_))
+        ): WrappedContractEntry = {
+          def scan: Option[WrappedContractEntry] = of_party(partyId).find(filter(_))
 
           ConsoleMacros.utils.retry_until_true(timeout)(scan.isDefined)
           consoleEnvironment.runE {
@@ -1047,7 +1248,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           beginOffset: ParticipantOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: CompletionWrapper => Boolean = _ => true,
       ): Seq[CompletionWrapper] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -1057,6 +1258,34 @@ trait BaseLedgerApiAdministration extends NoTracing {
               beginOffset,
               atLeastNumCompletions,
               timeout.asJavaApproximation,
+              applicationId,
+            )(filter, consoleEnvironment.environment.scheduler)
+          )
+        })
+
+      @Help.Summary(
+        "Lists command completions following the specified offset along with the checkpoints included in the completions",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """If the participant has been pruned via `pruning.prune` and if `offset` is lower than
+          |the pruning offset, this command fails with a `NOT_FOUND` error."""
+      )
+      def list_with_checkpoint(
+          partyId: PartyId,
+          atLeastNumCompletions: Int,
+          beginExclusive: ParticipantOffset,
+          applicationId: String = applicationId,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          filter: CompletionV2 => Boolean = _ => true,
+      ): Seq[(CompletionV2, Option[Checkpoint])] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiV2Commands.CommandCompletionService.CompletionCheckpointRequest(
+              partyId.toLf,
+              beginExclusive,
+              atLeastNumCompletions,
+              timeout,
               applicationId,
             )(filter, consoleEnvironment.environment.scheduler)
           )
@@ -1520,10 +1749,454 @@ trait BaseLedgerApiAdministration extends NoTracing {
         })
     }
 
-    // TODO(#15274)
     @Help.Summary("Group of commands that utilize java bindings", FeatureFlag.Testing)
     @Help.Group("Ledger Api (Java bindings)")
-    object javaapi extends Helpful
+    object javaapi extends Helpful {
+      @Help.Summary("Submit commands (Java bindings)", FeatureFlag.Testing)
+      @Help.Group("Command Submission (Java bindings)")
+      object commands extends Helpful {
+        @Help.Summary(
+          "Submit java codegen commands and wait for the resulting transaction, returning the transaction tree or failing otherwise",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit and returns it.
+            | If the timeout is set, it also waits for the transaction to appear at all other configured
+            | participants who were involved in the transaction. The call blocks until the transaction commits or fails;
+            | the timeout only specifies how long to wait at the other participants.
+            | Fails if the transaction doesn't commit, or if it doesn't become visible to the involved participants in
+            | the allotted time.
+            | Note that if the optTimeout is set and the involved parties are concurrently enabled/disabled or their
+            | participants are connected/disconnected, the command may currently result in spurious timeouts or may
+            | return before the transaction appears at all the involved participants."""
+        )
+        def submit(
+            actAs: Seq[PartyId],
+            commands: Seq[javab.data.Command],
+            domainId: Option[DomainId] = None,
+            workflowId: String = "",
+            commandId: String = "",
+            // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
+            applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+        ): javab.data.TransactionTreeV2 = check(FeatureFlag.Testing) {
+          val tx = consoleEnvironment.run {
+            ledgerApiCommand(
+              LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
+                actAs.map(_.toLf),
+                readAs.map(_.toLf),
+                commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+                workflowId,
+                commandId,
+                deduplicationPeriod,
+                submissionId,
+                minLedgerTimeAbs,
+                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
+                domainId,
+                applicationId,
+                userPackageSelectionPreference,
+              )
+            )
+          }
+          javab.data.TransactionTreeV2.fromProto(
+            TransactionTreeV2.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
+          )
+        }
+
+        @Help.Summary(
+          "Submit java codegen command and wait for the resulting transaction, returning the flattened transaction or failing otherwise",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit, and returns the "flattened" transaction.
+            | If the timeout is set, it also waits for the transaction to appear at all other configured
+            | participants who were involved in the transaction. The call blocks until the transaction commits or fails;
+            | the timeout only specifies how long to wait at the other participants.
+            | Fails if the transaction doesn't commit, or if it doesn't become visible to the involved participants in
+            | the allotted time.
+            | Note that if the optTimeout is set and the involved parties are concurrently enabled/disabled or their
+            | participants are connected/disconnected, the command may currently result in spurious timeouts or may
+            | return before the transaction appears at all the involved participants."""
+        )
+        def submit_flat(
+            actAs: Seq[PartyId],
+            commands: Seq[javab.data.Command],
+            domainId: Option[DomainId] = None,
+            workflowId: String = "",
+            commandId: String = "",
+            // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
+            applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+        ): javab.data.TransactionV2 = check(FeatureFlag.Testing) {
+          val tx = consoleEnvironment.run {
+            ledgerApiCommand(
+              LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
+                actAs.map(_.toLf),
+                readAs.map(_.toLf),
+                commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+                workflowId,
+                commandId,
+                deduplicationPeriod,
+                submissionId,
+                minLedgerTimeAbs,
+                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
+                domainId,
+                applicationId,
+                userPackageSelectionPreference,
+              )
+            )
+          }
+          javab.data.TransactionV2.fromProto(
+            TransactionV2.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
+          )
+        }
+
+        @Help.Summary("Submit java codegen command asynchronously", FeatureFlag.Testing)
+        @Help.Description(
+          """Provides access to the command submission service of the Ledger API.
+            |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
+        )
+        def submit_async(
+            actAs: Seq[PartyId],
+            commands: Seq[javab.data.Command],
+            domainId: Option[DomainId] = None,
+            workflowId: String = "",
+            commandId: String = "",
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
+            applicationId: String = applicationId,
+        ): Unit =
+          ledger_api_v2.commands.submit_async(
+            actAs,
+            commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+            domainId,
+            workflowId,
+            commandId,
+            deduplicationPeriod,
+            submissionId,
+            minLedgerTimeAbs,
+            readAs,
+            disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
+            applicationId,
+          )
+
+        @Help.Summary(
+          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """Submits an unassignment command on behalf of `submitter` party, waits for the resulting unassignment to commit, and returns the reassignment.
+            | If waitForParticipants is set, it also waits for the reassignment(s) to appear at all other configured
+            | participants who were involved in the unassignment. The call blocks until the unassignment commits or fails.
+            | Fails if the unassignment doesn't commit, or if it doesn't become visible to the involved participants in time.
+            | Timout specifies the time how long to wait until the reassignment appears in the update stream for the submitting and all the specified participants."""
+        )
+        def submit_unassign(
+            submitter: PartyId,
+            contractId: LfContractId,
+            source: DomainId,
+            target: DomainId,
+            workflowId: String = "",
+            applicationId: String = applicationId,
+            submissionId: String = UUID.randomUUID().toString,
+            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+        ): ReassignmentV2 =
+          ledger_api_v2.commands
+            .submit_unassign(
+              submitter,
+              contractId,
+              source,
+              target,
+              workflowId,
+              applicationId,
+              submissionId,
+              waitForParticipants,
+              timeout,
+            )
+            .reassignment
+            .pipe(Reassignment.toJavaProto)
+            .pipe(ReassignmentV2.fromProto)
+
+        @Help.Summary(
+          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """Submits a assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
+            | If waitForParticipants is set, it also waits for the reassignment(s) to appear at all other configured
+            | participants who were involved in the assignment. The call blocks until the assignment commits or fails.
+            | Fails if the assignment doesn't commit, or if it doesn't become visible to the involved participants in time.
+            | Timout specifies the time how long to wait until the reassignment appears in the update stream for the submitting and all the specified participants.
+            | The unassignId should be the one returned by the corresponding submit_unassign command."""
+        )
+        def submit_assign(
+            submitter: PartyId,
+            unassignId: String,
+            source: DomainId,
+            target: DomainId,
+            workflowId: String = "",
+            applicationId: String = applicationId,
+            submissionId: String = UUID.randomUUID().toString,
+            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+        ): ReassignmentV2 =
+          ledger_api_v2.commands
+            .submit_assign(
+              submitter,
+              unassignId,
+              source,
+              target,
+              workflowId,
+              applicationId,
+              submissionId,
+              waitForParticipants,
+              timeout,
+            )
+            .reassignment
+            .pipe(Reassignment.toJavaProto)
+            .pipe(ReassignmentV2.fromProto)
+      }
+
+      @Help.Summary("Read from update stream (Java bindings)", FeatureFlag.Testing)
+      @Help.Group("Updates (Java bindings)")
+      object updates extends Helpful {
+
+        @Help.Summary(
+          "Get update trees in the format expected by the Java bindings",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """This function connects to the update tree stream for the given parties and collects update trees
+            |until either `completeAfter` update trees have been received or `timeout` has elapsed.
+            |The returned update trees can be filtered to be between the given offsets (default: no filtering).
+            |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+            |this command fails with a `NOT_FOUND` error."""
+        )
+        def trees(
+            partyIds: Set[PartyId],
+            completeAfter: Int,
+            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ),
+            endOffset: Option[ParticipantOffset] = None,
+            verbose: Boolean = true,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+            resultFilter: UpdateTreeWrapper => Boolean = _ => true,
+        ): Seq[javab.data.GetUpdateTreesResponseV2] = check(FeatureFlag.Testing)(
+          ledger_api_v2.updates
+            .trees(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
+            .map {
+              case tx: TransactionTreeWrapper =>
+                tx.transactionTree
+                  .pipe(TransactionTreeV2.toJavaProto)
+                  .pipe(javab.data.TransactionTreeV2.fromProto)
+                  .pipe(new javab.data.GetUpdateTreesResponseV2(_))
+
+              case reassignment: ReassignmentWrapper =>
+                reassignment.reassignment
+                  .pipe(Reassignment.toJavaProto)
+                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(new javab.data.GetUpdateTreesResponseV2(_))
+            }
+        )
+
+        @Help.Summary(
+          "Get flat updates in the format expected by the Java bindings",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """This function connects to the flat update stream for the given parties and collects updates
+            |until either `completeAfter` flat updates have been received or `timeout` has elapsed.
+            |The returned updates can be filtered to be between the given offsets (default: no filtering).
+            |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+            |this command fails with a `NOT_FOUND` error. If you need to specify filtering conditions for template IDs and
+            |including create event blobs for explicit disclosure, consider using `flat_with_tx_filter`."""
+        )
+        def flat(
+            partyIds: Set[PartyId],
+            completeAfter: Int,
+            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ),
+            endOffset: Option[ParticipantOffset] = None,
+            verbose: Boolean = true,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+            resultFilter: UpdateWrapper => Boolean = _ => true,
+        ): Seq[javab.data.GetUpdatesResponseV2] = check(FeatureFlag.Testing)(
+          ledger_api_v2.updates
+            .flat(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
+            .map {
+              case tx: TransactionWrapper =>
+                tx.transaction
+                  .pipe(TransactionV2.toJavaProto)
+                  .pipe(javab.data.TransactionV2.fromProto)
+                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+
+              case reassignment: ReassignmentWrapper =>
+                reassignment.reassignment
+                  .pipe(Reassignment.toJavaProto)
+                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+            }
+        )
+
+        @Help.Summary(
+          "Get flat updates in the format expected by the Java bindings",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """This function connects to the flat update stream for the given transaction filter and collects updates
+            |until either `completeAfter` transactions have been received or `timeout` has elapsed.
+            |The returned transactions can be filtered to be between the given offsets (default: no filtering).
+            |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+            |this command fails with a `NOT_FOUND` error. If you only need to filter by a set of parties, consider using
+            |`flat` instead."""
+        )
+        def flat_with_tx_filter(
+            filter: javab.data.TransactionFilterV2,
+            completeAfter: Int,
+            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ),
+            endOffset: Option[ParticipantOffset] = None,
+            verbose: Boolean = true,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+            resultFilter: UpdateWrapper => Boolean = _ => true,
+        ): Seq[javab.data.GetUpdatesResponseV2] = check(FeatureFlag.Testing)(
+          ledger_api_v2.updates
+            .flat_with_tx_filter(
+              TransactionFilterV2.fromJavaProto(filter.toProto),
+              completeAfter,
+              beginOffset,
+              endOffset,
+              verbose,
+              timeout,
+              resultFilter,
+            )
+            .map {
+              case tx: TransactionWrapper =>
+                tx.transaction
+                  .pipe(TransactionV2.toJavaProto)
+                  .pipe(javab.data.TransactionV2.fromProto)
+                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+
+              case reassignment: ReassignmentWrapper =>
+                reassignment.reassignment
+                  .pipe(Reassignment.toJavaProto)
+                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+            }
+        )
+      }
+
+      @Help.Summary("Collection of Ledger API state endpoints (Java bindings)", FeatureFlag.Testing)
+      @Help.Group("State (Java bindings)")
+      object state extends Helpful {
+
+        @Help.Summary("Read active contracts (Java bindings)", FeatureFlag.Testing)
+        @Help.Group("Active Contracts (Java bindings)")
+        object acs extends Helpful {
+
+          @Help.Summary(
+            "Wait until a contract becomes available and return the Java codegen contract",
+            FeatureFlag.Testing,
+          )
+          @Help.Description(
+            """This function can be used for contracts with a code-generated Scala model.
+              |You can refine your search using the `filter` function argument.
+              |The command will wait until the contract appears or throw an exception once it times out."""
+          )
+          def await[
+              TC <: javab.data.codegen.Contract[TCid, T],
+              TCid <: javab.data.codegen.ContractId[T],
+              T <: javab.data.Template,
+          ](companion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
+              partyId: PartyId,
+              predicate: TC => Boolean = (_: TC) => true,
+              timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          ): TC = check(FeatureFlag.Testing)({
+            val result = new AtomicReference[Option[TC]](None)
+            ConsoleMacros.utils.retry_until_true(timeout) {
+              val tmp = filter(companion)(partyId, predicate)
+              result.set(tmp.headOption)
+              tmp.nonEmpty
+            }
+            consoleEnvironment.runE {
+              result
+                .get()
+                .toRight(s"Failed to find contract of type ${companion.TEMPLATE_ID} after $timeout")
+            }
+          })
+
+          @Help.Summary(
+            "Filter the ACS for contracts of a particular Java code-generated template",
+            FeatureFlag.Testing,
+          )
+          @Help.Description(
+            """To use this function, ensure a code-generated Java model for the target template exists.
+              |You can refine your search using the `predicate` function argument."""
+          )
+          def filter[
+              TC <: javab.data.codegen.Contract[TCid, T],
+              TCid <: javab.data.codegen.ContractId[T],
+              T <: javab.data.Template,
+          ](templateCompanion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
+              partyId: PartyId,
+              predicate: TC => Boolean = (_: TC) => true,
+          ): Seq[TC] = check(FeatureFlag.Testing) {
+            val javaTemplateId = templateCompanion.TEMPLATE_ID
+            val templateId = TemplateId(
+              javaTemplateId.getPackageId,
+              javaTemplateId.getModuleName,
+              javaTemplateId.getEntityName,
+            )
+            ledger_api_v2.state.acs
+              .of_party(partyId, filterTemplates = Seq(templateId))
+              .map(_.event)
+              .flatMap(ev =>
+                JavaDecodeUtil
+                  .decodeCreated(templateCompanion)(
+                    javab.data.CreatedEvent.fromProto(CreatedEvent.toJavaProto(ev))
+                  )
+                  .toList
+              )
+              .filter(predicate)
+          }
+        }
+      }
+
+      @Help.Summary("Query event details", FeatureFlag.Testing)
+      @Help.Group("EventQuery")
+      object event_query extends Helpful {
+
+        @Help.Summary("Get events in java codegen by contract Id", FeatureFlag.Testing)
+        @Help.Description("""Return events associated with the given contract Id""")
+        def by_contract_id(
+            contractId: String,
+            requestingParties: Seq[PartyId],
+        ): com.daml.ledger.api.v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse =
+          ledger_api_v2.event_query
+            .by_contract_id(contractId, requestingParties)
+            .pipe(GetEventsByContractIdResponseV2.toJavaProto)
+      }
+
+    }
 
     private def waitForUpdateId(
         administration: BaseLedgerApiAdministration,
@@ -1548,7 +2221,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             timeout = timeout,
           )
       ) match {
-        case Success(values) if values.size == 1 => values(0)
+        case Success(values) if values.sizeIs == 1 => values(0)
         case Success(values) =>
           throw new IllegalStateException(
             s"$logPrefix Exactely one update expected, but received #${values.size}"
@@ -1796,27 +2469,26 @@ trait BaseLedgerApiAdministration extends NoTracing {
           subscribe_trees(observer, filterParty, end(), verbose = false)
         }
 
-      @Help.Summary("Get a (tree) transaction by its ID", FeatureFlag.Testing)
+      @Help.Summary("Get a (tree) transaction by its ID")
       @Help.Description(
         """Get a transaction tree from the transaction stream by its ID. Returns None if the transaction is not (yet)
           |known at the participant or if the transaction has been pruned via `pruning.prune`."""
       )
       def by_id(parties: Set[PartyId], id: String): Option[TransactionTree] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.TransactionService.GetTransactionById(parties.map(_.toLf), id)(
               consoleEnvironment.environment.executionContext
             )
           )
-        })
+        }
 
-      @Help.Summary("Get the domain that a transaction was committed over.", FeatureFlag.Testing)
+      @Help.Summary("Get the domain that a transaction was committed over.")
       @Help.Description(
         """Get the domain that a transaction was committed over. Throws an error if the transaction is not (yet) known
           |to the participant or if the transaction has been pruned via `pruning.prune`."""
       )
-      def domain_of(transactionId: String): DomainId =
-        check(FeatureFlag.Testing)(domainOfTransaction(transactionId))
+      def domain_of(transactionId: String): DomainId = domainOfTransaction(transactionId)
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -1843,7 +2515,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           commands: Seq[Command],
           workflowId: String = "",
           commandId: String = "",
-          optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+          optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
@@ -1957,7 +2629,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     @Help.Summary("Read active contracts", FeatureFlag.Testing)
     @Help.Group("Active Contracts")
     object acs extends Helpful {
-      @Help.Summary("List the set of active contracts of a given party", FeatureFlag.Testing)
+      @Help.Summary("List the set of active contracts of a given party")
       @Help.Description(
         """This command will return the current set of active contracts for the given party.
 
@@ -1979,7 +2651,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           timeout: config.NonNegativeDuration = timeouts.unbounded,
           includeCreatedEventBlob: Boolean = false,
       ): Seq[WrappedCreatedEvent] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.AcsService
               .GetActiveContracts(
@@ -1991,7 +2663,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 includeCreatedEventBlob,
               )(consoleEnvironment.environment.scheduler)
           )
-        })
+        }
 
       @Help.Summary(
         "List the set of active contracts for all parties hosted on this participant",
@@ -2085,7 +2757,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
     @Help.Group("Party Management")
     object parties extends Helpful {
 
-      @Help.Summary("Allocate a new party", FeatureFlag.Testing)
+      @Help.Summary("Allocate a new party")
       @Help.Description(
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
@@ -2099,7 +2771,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
       ): PartyDetails = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.AllocateParty(
               partyIdHint = party,
@@ -2108,23 +2780,23 @@ trait BaseLedgerApiAdministration extends NoTracing {
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
         PartyDetails.fromProtoPartyDetails(proto)
       }
 
-      @Help.Summary("List parties known by the Ledger API server", FeatureFlag.Testing)
+      @Help.Summary("List parties known by the Ledger API server")
       @Help.Description(
         """Lists parties known by the Ledger API server.
            identityProviderId: identity provider id"""
       )
       def list(identityProviderId: String = ""): Seq[PartyDetails] = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.ListKnownParties(
               identityProviderId = identityProviderId
             )
           )
-        })
+        }
         proto.map(PartyDetails.fromProtoPartyDetails)
       }
 
@@ -2256,7 +2928,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           offset: LedgerOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
       ): Seq[Completion] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -2284,7 +2956,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           atLeastNumCompletions: Int,
           offset: LedgerOffset,
           applicationId: String = applicationId,
-          timeout: NonNegativeDuration = timeouts.ledgerCommand,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
       ): Seq[(Completion, Option[Checkpoint])] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
@@ -2826,7 +3498,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             commands: Seq[javab.data.Command],
             workflowId: String = "",
             commandId: String = "",
-            optTimeout: Option[NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
@@ -3014,7 +3686,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Seq[javab.data.Transaction] = check(FeatureFlag.Testing)({
           ledger_api.transactions
             .flat_with_tx_filter(
-              javab.data.FilterConversion(filter),
+              TransactionFilter.fromJavaProto(filter.toProto),
               completeAfter,
               beginOffset,
               endOffset,
@@ -3155,6 +3827,23 @@ trait BaseLedgerApiAdministration extends NoTracing {
     modified.concat(deletions)
   }
 
+  private def mkResult[Res](
+      call: => AutoCloseable,
+      requestDescription: String,
+      observer: RecordingStreamObserver[Res],
+      timeout: config.NonNegativeDuration,
+  ): Seq[Res] = consoleEnvironment.run {
+    try {
+      ResourceUtil.withResource(call) { _ =>
+        // Not doing noisyAwaitResult here, because we don't want to log warnings in case of a timeout.
+        CommandSuccessful(Await.result(observer.result, timeout.duration))
+      }
+    } catch {
+      case sre: StatusRuntimeException =>
+        GenericCommandError(GrpcError(requestDescription, name, sre).toString)
+      case _: TimeoutException => CommandSuccessful(observer.responses)
+    }
+  }
 }
 
 trait LedgerApiAdministration extends BaseLedgerApiAdministration {
@@ -3182,7 +3871,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
         (
           participant,
           party,
-          participant.ledger_api.transactions.by_id(Set(party), transactionId).isDefined,
+          participant.ledger_api_v2.updates.by_id(Set(party), transactionId).isDefined,
         )
       }
     }
@@ -3200,21 +3889,16 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   private[console] def involvedParticipants(
       transactionId: String
   ): Map[ParticipantReferenceCommon, PartyId] = {
-    val txDomain = ledger_api.transactions.domain_of(transactionId)
+    val txDomain = ledger_api_v2.updates.domain_of(transactionId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
     // changes during the command's execution. We'll have to live with it for the moment, as there's no convenient
     // way to get the record time of the transaction to pass to the parties.list call.
     val domainPartiesAndParticipants = {
-      val pNodes = consoleEnvironment.participants.all.iterator
+      consoleEnvironment.participantsX.all.iterator
         .filter(x => x.health.running() && x.health.initialized() && x.name == name)
         .flatMap(_.parties.list(filterDomain = txDomain.filterString))
         .toSet
-      val pXNodes = consoleEnvironment.participantsX.all.iterator
-        .filter(x => x.health.running() && x.health.initialized() && x.name == name)
-        .flatMap(_.parties.list(filterDomain = txDomain.filterString))
-        .toSet
-      pNodes ++ pXNodes
     }
 
     val domainParties = domainPartiesAndParticipants.map(_.party)
@@ -3222,7 +3906,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     // Read the transaction under the authority of all parties on the domain, in order to get the witness_parties
     // to be all the actual witnesses of the transaction. There's no other convenient way to get the full witnesses,
     // as the Exercise events don't contain the informees of the Exercise action.
-    val tree = ledger_api.transactions
+    val tree = ledger_api_v2.updates
       .by_id(domainParties, transactionId)
       .getOrElse(
         throw new IllegalStateException(
@@ -3239,7 +3923,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
     // A participant identity equality check that doesn't blow up if the participant isn't running
     def identityIs(pRef: ParticipantReferenceCommon, id: ParticipantId): Boolean = pRef match {
-      case lRef: LocalParticipantReferenceCommon =>
+      case lRef: LocalParticipantReferenceCommon[?] =>
         lRef.is_running && lRef.health.initialized() && lRef.id == id
       case rRef: RemoteParticipantReferenceCommon =>
         rRef.health.initialized() && rRef.id == id
@@ -3252,7 +3936,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
         val involvedConsoleParticipants = cand.participants.mapFilter { pd =>
           for {
             participantReference <-
-              (consoleEnvironment.participants.all ++ consoleEnvironment.participantsX.all)
+              consoleEnvironment.participantsX.all
                 .filter(x => x.health.running() && x.health.initialized())
                 .find(identityIs(_, pd.participant))
             _ <- pd.domains.find(_.domain == txDomain)

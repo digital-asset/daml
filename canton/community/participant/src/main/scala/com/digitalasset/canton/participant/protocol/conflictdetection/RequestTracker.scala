@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -11,11 +11,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.NaiveRequestTracker.TimedTask
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
-import com.digitalasset.canton.participant.store.{
-  ActiveContractStore,
-  ContractKeyJournal,
-  TransferStore,
-}
+import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStore}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -396,8 +392,5 @@ object RequestTracker {
       extends RequestTrackerStoreError
 
   final case class TransferStoreError(error: TransferStore.TransferStoreError)
-      extends RequestTrackerStoreError
-
-  final case class ContractKeyJournalError(error: ContractKeyJournal.ContractKeyJournalError)
       extends RequestTrackerStoreError
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
@@ -42,7 +42,7 @@ final case class AggregationRule(
     with PrettyPrinting {
   @transient override protected lazy val companionObj: AggregationRule.type = AggregationRule
 
-  private[canton] def toProtoV0: v0.AggregationRule = v0.AggregationRule(
+  private[canton] def toProtoV30: v30.AggregationRule = v30.AggregationRule(
     eligibleMembers = eligibleSenders.map(_.toProtoPrimitive),
     threshold = threshold.value,
   )
@@ -79,15 +79,14 @@ object AggregationRule
   override def name: String = "AggregationRule"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v0.AggregationRule)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.AggregationRule)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
-  private[canton] def fromProtoV0(proto: v0.AggregationRule): ParsingResult[AggregationRule] = {
-    val v0.AggregationRule(eligibleMembersP, thresholdP) = proto
+  private[canton] def fromProtoV30(proto: v30.AggregationRule): ParsingResult[AggregationRule] = {
+    val v30.AggregationRule(eligibleMembersP, thresholdP) = proto
     for {
       eligibleMembers <- ProtoConverter.parseRequiredNonEmpty(
         Member.fromProtoPrimitive(_, "eligible_members"),

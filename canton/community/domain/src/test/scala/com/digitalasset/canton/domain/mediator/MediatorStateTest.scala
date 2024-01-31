@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.mediator
@@ -71,7 +71,6 @@ class MediatorStateTest
           s(5417),
           new UUID(0, 0),
         )
-        .value
       FullInformeeTree.tryCreate(
         GenTransactionTree.tryCreate(hashOps)(
           BlindedNode(rh(11)),
@@ -92,7 +91,6 @@ class MediatorStateTest
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           mockTopologySnapshot,
         )(anyTraceContext, executorService)
         .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext

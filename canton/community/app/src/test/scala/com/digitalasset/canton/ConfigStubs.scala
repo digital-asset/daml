@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -10,7 +10,9 @@ import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
   CommunityStorageConfig,
 }
-import com.digitalasset.canton.domain.config.{CommunityDomainConfig, DomainInitConfig}
+import com.digitalasset.canton.domain.config.CommunityPublicServerConfig
+import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeXConfig
+import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
@@ -30,16 +32,15 @@ object ConfigStubs {
       CommunityStorageConfig.Memory(),
     )
 
-  def domain: CommunityDomainConfig =
-    CommunityDomainConfig(
-      DomainInitConfig(),
-      false,
-      null,
-      null,
-      CommunityStorageConfig.Memory(),
-      CommunityCryptoConfig(),
-    )
+  def sequencerx: CommunitySequencerNodeXConfig =
+    CommunitySequencerNodeXConfig(adminApi = adminApi, publicApi = publicApi)
+
+  def mediatorx: CommunityMediatorNodeXConfig =
+    CommunityMediatorNodeXConfig(adminApi = adminApi)
 
   def adminApi: CommunityAdminServerConfig =
     CommunityAdminServerConfig(internalPort = Port.tryCreate(42).some)
+
+  def publicApi: CommunityPublicServerConfig =
+    CommunityPublicServerConfig(internalPort = Port.tryCreate(42).some)
 }

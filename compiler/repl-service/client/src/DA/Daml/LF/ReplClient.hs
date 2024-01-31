@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
@@ -26,7 +26,7 @@ import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Exception
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
+import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import DA.PortFile
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -163,7 +163,7 @@ runScript Handle{..} version m rspType = do
         (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)) grpcRspType)
     pure $ fmap handleResult r
   where
-    bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+    bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV2.encodeScenarioModule version m))
     handleResult r = case Grpc.runScriptResponseResult r of
         Nothing -> InternalError "Script produced neither a result nor an error"
         Just (Grpc.RunScriptResponseResultSuccess (Grpc.ScriptSuccess result)) ->

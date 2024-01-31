@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -49,7 +49,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
 import DA.Daml.Options.Types (EnableScenarios (..))
-import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
+import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit as C
@@ -115,8 +115,7 @@ data ContextUpdate = ContextUpdate
 
 encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeScenarioModule version m =
-    -- TODO(#17366): encode V2 separately once the formats diverge
-    BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+    BSL.toStrict (Proto.toLazyByteString (EncodeV2.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError

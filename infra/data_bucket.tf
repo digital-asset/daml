@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_storage_bucket" "data" {
@@ -22,8 +22,8 @@ resource "google_storage_bucket_acl" "data" {
   bucket = google_storage_bucket.data.name
 
   role_entity = [
-    "OWNER:project-owners-${data.google_project.current.number}",
-    "OWNER:project-editors-${data.google_project.current.number}",
+    "READER:project-owners-${data.google_project.current.number}",
+    "READER:project-editors-${data.google_project.current.number}",
     "READER:project-viewers-${data.google_project.current.number}",
   ]
 }

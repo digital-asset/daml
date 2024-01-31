@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -6,14 +6,16 @@ package com.daml.script.export
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.auth.TokenHolder
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event.Event.Event
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.update_service.{GetUpdatesResponse, GetUpdateTreesResponse}
+import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +38,11 @@ object LedgerUtils {
     }
   }
 
+  // TODO: Is there some way to inline this into the pattern match? Can't do (_.update.transaction) inline
+  private val getUpdatesResponseTransaction = (_: GetUpdatesResponse).update.transaction
+
   /** Fetch the active contract set from the ledger.
+    * Warning: Ignores reassignments
     *
     * @param parties Fetch the ACS for these parties.
     * @param offset Fetch the ACS as of this ledger offset.
@@ -44,26 +50,32 @@ object LedgerUtils {
   def getACS(
       client: LedgerClient,
       parties: Seq[Party],
-      offset: LedgerOffset,
+      offset: ParticipantOffset,
   )(implicit
       mat: Materializer
   ): Future[Map[ContractId, CreatedEvent]] = {
-    val ledgerBegin = LedgerOffset(
-      LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-    )
-    if (offset == ledgerBegin) {
+    val participantBegin =
+      ParticipantOffset().withBoundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+    if (offset == participantBegin) {
       Future.successful(Map.empty)
     } else {
-      client.transactionClient
-        .getTransactions(ledgerBegin, Some(offset), filter(Party.unsubst(parties)), verbose = true)
-        .runFold(Map.empty[ContractId, CreatedEvent]) { case (acs, tx) =>
-          tx.events.foldLeft(acs) { case (acs, ev) =>
-            ev.event match {
-              case Event.Empty => acs
-              case Event.Created(value) => acs + (ContractId(value.contractId) -> value)
-              case Event.Archived(value) => acs - ContractId(value.contractId)
+      client.v2.updateService
+        .getUpdatesSource(
+          begin = participantBegin,
+          end = Some(offset),
+          filter = filter(Party.unsubst(parties)),
+          verbose = true,
+        )
+        .runFold(Map.empty[ContractId, CreatedEvent]) {
+          case (acs, getUpdatesResponseTransaction.unlift(tx)) =>
+            tx.events.foldLeft(acs) { case (acs, ev) =>
+              ev.event match {
+                case Event.Empty => acs
+                case Event.Created(value) => acs + (ContractId(value.contractId) -> value)
+                case Event.Archived(value) => acs - ContractId(value.contractId)
+              }
             }
-          }
+          case (acs, _) => acs
         }
     }
   }
@@ -77,17 +89,29 @@ object LedgerUtils {
   def getTransactionTrees(
       client: LedgerClient,
       parties: Seq[Party],
-      start: LedgerOffset,
-      end: LedgerOffset,
+      start: ParticipantOffset,
+      end: ParticipantOffset,
   )(implicit
-      mat: Materializer
+      mat: Materializer,
+      ec: ExecutionContext,
   ): Future[Seq[TransactionTree]] = {
     if (start == end) {
       Future.successful(Seq.empty)
     } else {
-      client.transactionClient
-        .getTransactionTrees(start, Some(end), filter(Party.unsubst(parties)), verbose = true)
+      client.v2.updateService
+        .getUpdateTreesSource(
+          begin = start,
+          end = Some(end),
+          filter = filter(Party.unsubst(parties)),
+          verbose = true,
+        )
         .runWith(Sink.seq)
+        .map(
+          _.map(_.update)
+            .collect { case GetUpdateTreesResponse.Update.TransactionTree(tree) =>
+              tree
+            }
+        )
     }
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -20,7 +20,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
 }
-import com.digitalasset.canton.time.v0
+import com.digitalasset.canton.time.v30
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -37,7 +37,7 @@ import scala.concurrent.Future
   * @param deliver the time proof event itself. this must be the event content signedEvent wrapper.
   */
 final case class TimeProof private (
-    private val event: OrdinarySequencedEvent[Envelope[_]],
+    private val event: OrdinarySequencedEvent[Envelope[?]],
     private val deliver: Deliver[Nothing],
 ) extends PrettyPrinting
     with HasCryptographicEvidence {
@@ -49,7 +49,7 @@ final case class TimeProof private (
     unnamedParam(_.timestamp)
   )
 
-  def toProtoV0: v0.TimeProof = v0.TimeProof(Some(event.toProtoV0))
+  def toProtoV30: v30.TimeProof = v30.TimeProof(Some(event.toProtoV30))
 
   override def getCryptographicEvidence: ByteString = deliver.getCryptographicEvidence
 }
@@ -57,7 +57,7 @@ final case class TimeProof private (
 object TimeProof {
 
   private def apply(
-      event: OrdinarySequencedEvent[Envelope[_]],
+      event: OrdinarySequencedEvent[Envelope[?]],
       deliver: Deliver[Nothing],
   ): TimeProof = {
     require(
@@ -70,12 +70,12 @@ object TimeProof {
   def fromProtoV0(
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
-  )(timeProofP: v0.TimeProof): ParsingResult[TimeProof] = {
-    val v0.TimeProof(eventPO) = timeProofP
+  )(timeProofP: v30.TimeProof): ParsingResult[TimeProof] = {
+    val v30.TimeProof(eventPO) = timeProofP
     for {
       possiblyIgnoredProtocolEvent <- ProtoConverter
         .required("event", eventPO)
-        .flatMap(PossiblyIgnoredSequencedEvent.fromProtoV0(protocolVersion, hashOps))
+        .flatMap(PossiblyIgnoredSequencedEvent.fromProtoV30(protocolVersion, hashOps))
       event <- possiblyIgnoredProtocolEvent match {
         case ordinary: OrdinaryProtocolEvent => Right(ordinary)
         case _: IgnoredSequencedEvent[_] =>
@@ -86,7 +86,7 @@ object TimeProof {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def fromEvent(event: OrdinarySequencedEvent[Envelope[_]]): Either[String, TimeProof] =
+  def fromEvent(event: OrdinarySequencedEvent[Envelope[?]]): Either[String, TimeProof] =
     for {
       deliver <- PartialFunction
         .condOpt(event.signedEvent.content) { case deliver: Deliver[_] => deliver }
@@ -96,7 +96,7 @@ object TimeProof {
       emptyDeliver = deliver.asInstanceOf[Deliver[Nothing]]
     } yield new TimeProof(event, emptyDeliver)
 
-  private def validateDeliver(deliver: Deliver[Envelope[_]]): Either[String, Unit] = {
+  private def validateDeliver(deliver: Deliver[Envelope[?]]): Either[String, Unit] = {
     for {
       _ <- Either.cond(
         isTimeEventBatch(deliver.batch),
@@ -112,11 +112,11 @@ object TimeProof {
   }
 
   /** Return a wrapped [[TimeProof]] if the given `event` has the correct properties. */
-  def fromEventO(event: OrdinarySequencedEvent[Envelope[_]]): Option[TimeProof] =
+  def fromEventO(event: OrdinarySequencedEvent[Envelope[?]]): Option[TimeProof] =
     fromEvent(event).toOption
 
   /** Is the event a time proof */
-  def isTimeProofDeliver(deliver: Deliver[Envelope[_]]): Boolean =
+  def isTimeProofDeliver(deliver: Deliver[Envelope[?]]): Boolean =
     validateDeliver(deliver).isRight
 
   /** Does the submission request look like a request to create a time event */
@@ -147,7 +147,7 @@ object TimeProof {
   val timeEventMessageIdPrefix = "tick-"
   private def isTimeEventMessageId(messageId: MessageId): Boolean =
     messageId.unwrap.startsWith(timeEventMessageIdPrefix)
-  private def isTimeEventBatch(batch: Batch[_]): Boolean =
+  private def isTimeEventBatch(batch: Batch[?]): Boolean =
     batch.envelopes.isEmpty // should be entirely empty
 
   /** Make a unique message id for a time event submission request.
@@ -158,5 +158,4 @@ object TimeProof {
     MessageId(
       String73(s"$timeEventMessageIdPrefix${UUID.randomUUID()}")("time-proof-message-id".some)
     )
-
 }

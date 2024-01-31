@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -12,7 +12,6 @@ import com.digitalasset.canton.topology.{
   TestingIdentityFactoryX,
   TestingTopologyX,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 
 abstract class BftDomainSequencerApiTest extends SequencerApiTest {
 
@@ -41,5 +40,5 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
 
   override protected final def createEnv(): FixtureParam = new BftEnv
 
-  "BFT Domain" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet when runSequencerApiTests()
+  "BFT Domain" when runSequencerApiTests()
 }

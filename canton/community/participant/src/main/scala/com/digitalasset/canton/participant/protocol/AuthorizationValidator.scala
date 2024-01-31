@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -9,7 +9,6 @@ import com.digitalasset.canton.data.{FullTransactionViewTree, ViewPosition}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -47,45 +46,35 @@ class AuthorizationValidator(participantId: ParticipantId, enableContractUpgradi
               )
             } else {
               for {
-                notHostedBySubmitterParticipant <- submitterMetadata.actAs.toSeq.forgetNE
-                  .parTraverseFilter(p =>
-                    snapshot
-                      .hostedOn(p, submitterMetadata.submitterParticipant)
-                      .map {
-                        case Some(attributes)
-                            if attributes.permission == ParticipantPermission.Submission =>
-                          None
-                        case _ => Some(p)
-                      }
-                  )
+                notAllowedBySubmittingParticipant <- snapshot.canNotSubmit(
+                  submitterMetadata.submitterParticipant,
+                  submitterMetadata.actAs.toSeq,
+                )
               } yield
-                if (notHostedBySubmitterParticipant.nonEmpty)
+                if (notAllowedBySubmittingParticipant.nonEmpty) {
                   Some(
                     err(
-                      show"The submitting parties $notHostedBySubmitterParticipant are not hosted by the submitting participant ${submitterMetadata.submitterParticipant}."
+                      show"The submitter participant ${submitterMetadata.submitterParticipant} is not authorized to submit on behalf of the submitting parties ${notAllowedBySubmittingParticipant.toSeq}."
                     )
                   )
-                else None
+                } else None
             }
           case None =>
             // The submitter metadata is blinded -> rootView is not a top-level view
 
             for {
-              hostedAuthorizers <- authorizers.toSeq
-                .parTraverseFilter { authorizer =>
-                  for {
-                    attributesO <- snapshot.hostedOn(authorizer, participantId)
-                  } yield attributesO.map(_ => authorizer)
-                }
+              hostedAuthorizers <- authorizers.toSeq.parTraverseFilter { authorizer =>
+                for {
+                  attributesO <- snapshot.hostedOn(authorizer, participantId)
+                } yield attributesO.map(_ => authorizer)
+              }
             } yield {
               // If this participant hosts an authorizer, it should also have received the parent view.
               // As rootView is not a top-level (submitter metadata is blinded), there is a gap in the authorization chain.
 
-              if (hostedAuthorizers.isEmpty) None
-              else
-                Some(
-                  err(show"Missing authorization for $hostedAuthorizers, ${rootView.viewPosition}.")
-                )
+              Option.when(hostedAuthorizers.nonEmpty)(
+                err(show"Missing authorization for $hostedAuthorizers, ${rootView.viewPosition}.")
+              )
             }
         }
 

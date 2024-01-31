@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -101,7 +101,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       let decodeDalf_ dalf = do
             bs <- BS.readFile dalf
-            (dalf,) <$> either fail pure (decodeDalf builtinDependenciesIds dalf bs)
+            (dalf,) <$> either fail pure (decodeDalf builtinDependenciesIds bs)
 
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
       dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir

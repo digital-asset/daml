@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -6,13 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  InterfaceFilter,
-  TemplateFilter,
-  TransactionFilter,
-}
+import com.daml.ledger.api.v1.transaction_filter.*
 import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
@@ -21,6 +15,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.canton.ledger.api.domain
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -68,7 +63,9 @@ class TransactionServiceRequestValidatorTest
     verbose,
   )
   private val txReq = txReqBuilder(Seq(templateId))
-  private val txReqWithMissingPackageId = txReqBuilder(Seq(templateId.copy(packageId = "")))
+  private val txReqWithPackageNameScoping = txReqBuilder(
+    Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
+  )
 
   private val txTreeReq = GetTransactionsRequest(
     expectedLedgerId,
@@ -86,10 +83,7 @@ class TransactionServiceRequestValidatorTest
   private val txByIdReq =
     GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party))
 
-  private val transactionFilterValidator = new TransactionFilterValidator(
-    upgradingEnabled = false,
-    resolveTemplateIds = _ => fail("Code path should not be exercised"),
-  )
+  private val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled = false)
 
   private val validator = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
@@ -98,18 +92,7 @@ class TransactionServiceRequestValidatorTest
   )
 
   private val transactionFilterValidatorUpgradingEnabled = new TransactionFilterValidator(
-    upgradingEnabled = true,
-    resolveTemplateIds = {
-      case `templateQualifiedName` =>
-        _ => Right(Set(refTemplateId, refTemplateId2))
-      case _ =>
-        _ =>
-          Left(
-            io.grpc.Status.NOT_FOUND
-              .augmentDescription("template qualified name not resolved!")
-              .asRuntimeException()
-          )
-    },
+    upgradingEnabled = true
   )
 
   private val validatorUpgradingEnabled = new TransactionServiceRequestValidator(
@@ -330,7 +313,34 @@ class TransactionServiceRequestValidatorTest
         }
       }
 
+      "when upgrading disabled" should {
+        "disallow usage of package-name-scoped templates" in {
+          requestMustFailWith(
+            request = validator.validate(txReqWithPackageNameScoping, ledgerEnd),
+            code = INVALID_ARGUMENT,
+            description =
+              "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package-name scoping for requests is only possible when smart contract upgrading feature is enabled",
+            metadata = Map.empty,
+          )
+        }
+      }
+
       "when upgrading enabled" should {
+        "allow package-name scoped templates" in {
+          inside(validatorUpgradingEnabled.validate(txReqWithPackageNameScoping, ledgerEnd)) {
+            case Right(req) =>
+              req.ledgerId shouldEqual Some(expectedLedgerId)
+              req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+              req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+              hasExpectedFilters(
+                req,
+                expectedTemplates =
+                  Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
+              )
+              req.verbose shouldEqual verbose
+          }
+        }
+
         "still allow populated packageIds in templateIds (for backwards compatibility)" in {
           inside(validatorUpgradingEnabled.validate(txReq, ledgerEnd)) { case Right(req) =>
             req.ledgerId shouldEqual Some(expectedLedgerId)
@@ -339,42 +349,6 @@ class TransactionServiceRequestValidatorTest
             hasExpectedFilters(req)
             req.verbose shouldEqual verbose
           }
-        }
-
-        "resolve missing packageIds" in {
-          inside(validatorUpgradingEnabled.validate(txReqWithMissingPackageId, ledgerEnd)) {
-            case Right(req) =>
-              req.ledgerId shouldEqual Some(expectedLedgerId)
-              req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-              req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
-              val expectedTemplateIds =
-                Iterator(packageId, packageId2)
-                  .map(pkgId =>
-                    Ref.Identifier(
-                      Ref.PackageId.assertFromString(pkgId),
-                      Ref.QualifiedName(
-                        Ref.DottedName.assertFromString(includedModule),
-                        Ref.DottedName.assertFromString(includedTemplate),
-                      ),
-                    )
-                  )
-                  .toSet
-
-              hasExpectedFilters(req, expectedTemplateIds)
-              req.verbose shouldEqual verbose
-          }
-        }
-
-        "forward resolution error from resolver" in {
-          requestMustFailWith(
-            request = validatorUpgradingEnabled.validate(
-              txReqBuilder(Seq(Identifier("", "unknownModule", "unknownEntity"))),
-              ledgerEnd,
-            ),
-            code = NOT_FOUND,
-            description = "template qualified name not resolved!",
-            metadata = Map.empty,
-          )
         }
       }
 
@@ -526,7 +500,7 @@ class TransactionServiceRequestValidatorTest
                 domain.InclusiveFilters(
                   templateFilters = Set(
                     domain.TemplateFilter(
-                      Ref.Identifier.assertFromString("packageId:includedModule:includedTemplate"),
+                      TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
                       true,
                     )
                   ),

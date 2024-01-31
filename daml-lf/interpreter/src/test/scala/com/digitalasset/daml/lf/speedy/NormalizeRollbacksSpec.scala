@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -298,7 +298,7 @@ object NormalizeRollbackSpec {
       packageName = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueInt64(n),
-      agreementText = "dummyAgreement",
+      agreementText = "", // to be removed
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,

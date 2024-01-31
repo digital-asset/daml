@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.TransferDomainId.TransferDomainIdCast
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import slick.jdbc.{PositionedParameters, SetParameter}
 
@@ -55,6 +56,12 @@ object SourceDomainId {
     case x: SourceDomainId => Some(x)
     case _ => None
   }
+
+  def fromProtoPrimitive(
+      proto: String,
+      fieldName: String,
+  ): ParsingResult[SourceDomainId] =
+    DomainId.fromProtoPrimitive(proto, fieldName).map(SourceDomainId(_))
 }
 
 final case class TargetDomainId(id: DomainId) extends TransferDomainId {
@@ -69,4 +76,10 @@ object TargetDomainId {
     case x: TargetDomainId => Some(x)
     case _ => None
   }
+
+  def fromProtoPrimitive(
+      proto: String,
+      fieldName: String,
+  ): ParsingResult[TargetDomainId] =
+    DomainId.fromProtoPrimitive(proto, fieldName).map(TargetDomainId(_))
 }

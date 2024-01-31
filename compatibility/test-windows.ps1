@@ -4,9 +4,7 @@ $ErrorActionPreference = 'Stop'
 # SPDX-License-Identifier: Apache-2.0
 
 # Build the release artifacts required for running the compatibility
-# tests against HEAD. At the moment this includes the SDK release tarball
-# and the ledger-api-test-tool fat JAR.
-
+# tests against HEAD. At the moment this includes the SDK release tarball.
 $test_args = ""
 if (($args.length -ge 1) -and ($args[0] -eq "--quick")) {
   $test_args = "--test_tag_filters=+head-quick"

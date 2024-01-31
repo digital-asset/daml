@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -76,18 +76,16 @@ object GeneratorsCrypto {
   private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
   private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto
 
-  // TODO(#15813): Change arbitrary signing keys to match real keys
   implicit val signingPublicKeyArb: Arbitrary[SigningPublicKey] = Arbitrary(for {
     id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[SigningKeyScheme]
   } yield new SigningPublicKey(id, format, key, scheme))
 
-  // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
     id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[EncryptionKeyScheme]
   } yield new EncryptionPublicKey(id, format, key, scheme))

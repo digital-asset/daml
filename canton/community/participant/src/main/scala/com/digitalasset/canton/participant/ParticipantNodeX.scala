@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
@@ -173,6 +173,7 @@ class ParticipantNodeBootstrapX(
             clock,
             config,
             parameterConfig.processingTimeouts,
+            futureSupervisor,
             loggerFactory,
           )
 
@@ -241,7 +242,7 @@ class ParticipantNodeBootstrapX(
 
     }
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNodeX]]] = {
       val indexedStringStore =
@@ -295,7 +296,6 @@ class ParticipantNodeBootstrapX(
         packageDependencyResolver,
         componentFactory,
         skipRecipientsCheck,
-        overrideKeyUniqueness = Some(false),
       ).map {
         case (
               partyNotifier,
@@ -367,9 +367,8 @@ object ParticipantNodeBootstrapX {
   object CommunityParticipantFactory
       extends CommunityParticipantFactoryCommon[ParticipantNodeBootstrapX] {
 
-    override protected def createEngine(arguments: Arguments): Engine = super.createEngine(
-      arguments.copy(parameterConfig = arguments.parameterConfig.copy(uniqueContractKeys = false))
-    )
+    override protected def createEngine(arguments: Arguments): Engine =
+      super.createEngine(arguments)
 
     override protected def createNode(
         arguments: Arguments,
@@ -405,7 +404,7 @@ class ParticipantNodeX(
     val nodeParameters: ParticipantNodeParameters,
     storage: Storage,
     override protected val clock: Clock,
-    val cryptoPureApi: CryptoPureApi,
+    override val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcherCommon,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,

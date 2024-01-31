@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -7,6 +7,7 @@ import better.files.*
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf.archive
 import com.daml.lf.archive.DarParser
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
@@ -37,7 +38,7 @@ import scala.concurrent.Future
 object PackageServiceTest {
 
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  def loadExampleDar() =
+  def loadExampleDar(): archive.Dar[Archive] =
     DarParser
       .readArchiveFromFile(new File(BaseTest.CantonExamplesPath))
       .getOrElse(throw new IllegalArgumentException("Failed to read dar"))
@@ -56,19 +57,19 @@ object PackageServiceTest {
 class PackageServiceTest extends AsyncWordSpec with BaseTest {
   private val examplePackages: List[Archive] = readCantonExamples()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
-  val darName = String255.tryCreate("CantonExamples")
+  private val darName = String255.tryCreate("CantonExamples")
   private val eventPublisher = mock[ParticipantEventPublisher]
   when(eventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext))
     .thenAnswer(FutureUnlessShutdown.unit)
-  val participantId = DefaultTestIdentities.participant1
+  private val participantId = DefaultTestIdentities.participant1
 
   private class Env {
     val packageStore = new InMemoryDamlPackageStore(loggerFactory)
     private val processingTimeouts = ProcessingTimeout()
     val packageDependencyResolver =
       new PackageDependencyResolver(packageStore, processingTimeouts, loggerFactory)
-    val engine =
-      DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = false, enableStackTraces = false)
+    private val engine =
+      DAMLe.newEngine(enableLfDev = false, enableStackTraces = false)
     val sut =
       new PackageService(
         engine,
@@ -87,7 +88,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
     test(env)
   }
 
-  lazy val cantonExamplesDescription = String256M.tryCreate("CantonExamples")
+  private lazy val cantonExamplesDescription = String256M.tryCreate("CantonExamples")
 
   "PackageService" should {
     "append DAR and packages from file" in withEnv { env =>
@@ -113,7 +114,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {
-        packages should contain.only(expectedPackageIdsAndState: _*)
+        packages should contain.only(expectedPackageIdsAndState *)
         dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
       }
     }
@@ -130,8 +131,8 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
           .appendDarFromByteString(
             ByteString.copyFrom(bytes),
             "some/path/CantonExamples.dar",
-            false,
-            false,
+            vetAllPackages = false,
+            synchronizeVetting = false,
           )
           .value
           .map(_.valueOrFail("should be right"))
@@ -155,8 +156,8 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
           .appendDarFromByteString(
             ByteString.copyFrom(bytes),
             "some/path/CantonExamples.dar",
-            false,
-            false,
+            vetAllPackages = false,
+            synchronizeVetting = false,
           )
           .valueOrFail("appending dar")
           .failOnShutdown

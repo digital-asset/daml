@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.transfer
@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -52,7 +52,6 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
   checked,
 }
 
@@ -125,13 +124,6 @@ class TransferOutProcessingSteps(
       _ <- targetIsNotSource(contractId, targetDomain)
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
-      templateId = storedContract.contract.rawContractInstance.contractInstance.unversioned.template
-
-      _ <- PVSourceDestinationDomainsAreCompatible(
-        sourceDomainProtocolVersion,
-        targetProtocolVersion,
-        contractId,
-      )
 
       timeProofAndSnapshot <- transferCoordination.getTimeProofAndSnapshot(targetDomain)
       (timeProof, targetCrypto) = timeProofAndSnapshot
@@ -178,15 +170,13 @@ class TransferOutProcessingSteps(
 
       transferOutUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
-      fullTree <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          validated.request.toFullTransferOutTree(
-            pureCrypto,
-            pureCrypto,
-            seed,
-            transferOutUuid,
-          )
-        )
+      fullTree = validated.request.toFullTransferOutTree(
+        pureCrypto,
+        pureCrypto,
+        seed,
+        transferOutUuid,
+      )
+
       mediatorMessage = fullTree.mediatorMessage
       rootHash = fullTree.rootHash
       viewMessage <- EncryptedViewMessageFactory
@@ -282,10 +272,9 @@ class TransferOutProcessingSteps(
         sessionKeyStore,
         envelope.protocolMessage,
         participantId,
-        sourceDomainProtocolVersion.v,
       ) { bytes =>
         FullTransferOutTree
-          .fromByteString(sourceSnapshot.pureCrypto)(bytes)
+          .fromByteString(sourceSnapshot.pureCrypto, sourceDomainProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
@@ -340,8 +329,6 @@ class TransferOutProcessingSteps(
       activenessSet = ActivenessSet(
         contracts = contractsCheck,
         transferIds = Set.empty,
-        // We check keys on only domains with unique contract key semantics and there cannot be transfers on such domains
-        keys = ActivenessCheck.empty,
       )
     } yield CheckActivenessAndWritePendingContracts(
       activenessSet,
@@ -394,7 +381,6 @@ class TransferOutProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       mediator: MediatorRef,
       freshOwnTimelyTx: Boolean,
@@ -409,30 +395,15 @@ class TransferOutProcessingSteps(
       pendingDataAndResponseArgs
 
     val transferId: TransferId = TransferId(fullTree.sourceDomain, ts)
-
+    val view = fullTree.tree.view.tryUnwrap
     for {
       // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
       contractWithTransactionId <-
-        fullTree.tree.view.tryUnwrap match {
-          case view: TransferOutViewCNTestNet =>
-            // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
-            EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](
-              WithTransactionId(view.contract, view.creatingTransactionId)
-            )
-          case _: TransferOutViewV0 | _: TransferOutViewV4 =>
-            for {
-              storedContract <- getStoredContract(contractLookup, fullTree.contractId)
-
-              // Since the participant hosts a stakeholder, it should find the creating transaction ID in the contract store
-              creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
-                storedContract.creatingTransactionIdO
-                  .toRight[TransferProcessorError](
-                    CreatingTransactionIdNotFound(storedContract.contractId)
-                  )
-              )
-            } yield WithTransactionId(storedContract.contract, creatingTransactionId)
-        }
+        // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
+        EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](
+          WithTransactionId(view.contract, view.creatingTransactionId)
+        )
 
       WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
 
@@ -524,7 +495,6 @@ class TransferOutProcessingSteps(
         contract.contractId,
         fullTree.transferCounter,
         confirmingStakeholders.toSet,
-        fullTree.viewHash,
         fullTree.tree.rootHash,
       )
     } yield StorePendingDataAndSendResponseAndCreateTimeout(
@@ -592,12 +562,11 @@ class TransferOutProcessingSteps(
           creations = Map.empty,
           transferOuts = Map(
             contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
+              CommitSet.TransferOutCommit(targetDomain, stakeholders, Some(transferCounter)),
               contractHash,
             )
           ),
           transferIns = Map.empty,
-          keyUpdates = Map.empty,
         )
         val commitSetFO = Some(Future.successful(commitSet))
         for {
@@ -635,7 +604,7 @@ class TransferOutProcessingSteps(
           Some(
             TimestampedEvent(
               transferOutEvent,
-              LocalOffset(requestCounter),
+              RequestOffset(requestId.unwrap, requestCounter),
               Some(requestSequencerCounter),
             )
           ),
@@ -672,7 +641,7 @@ class TransferOutProcessingSteps(
       rootHash: RootHash,
       transferInExclusivity: Option[CantonTimestamp],
       isTransferringParticipant: Boolean,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
   ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] = {
     for {
@@ -704,9 +673,7 @@ class TransferOutProcessingSteps(
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.getOrElse(
-        TransferCounter.MinValue
-      ),
+      transferCounter = transferCounter,
     )
   }
 
@@ -740,17 +707,16 @@ class TransferOutProcessingSteps(
       transferringParticipant: Boolean,
       activenessResult: ActivenessResult,
       contractId: LfContractId,
-      declaredTransferCounter: TransferCounterO,
+      declaredTransferCounter: TransferCounter,
       confirmingStakeholders: Set[LfPartyId],
-      viewHash: ViewHash,
       rootHash: RootHash,
   ): Option[MediatorResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
-      contractId -> Some(ActiveContractStore.Active(declaredTransferCounter.map(_ - 1)))
+      contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
     )
 
     val successful =
-      declaredTransferCounter.forall(_ > TransferCounter.Genesis) &&
+      declaredTransferCounter > TransferCounter.Genesis &&
         activenessResult.isSuccessful &&
         activenessResult.contracts.priorStates == expectedPriorTransferCounter
     // send a response only if the participant is a transferring participant or the activeness check has failed
@@ -768,7 +734,6 @@ class TransferOutProcessingSteps(
         MediatorResponse.tryCreate(
           requestId,
           participantId,
-          Some(viewHash),
           Some(ViewPosition.root),
           localVerdict,
           Some(rootHash),
@@ -804,7 +769,7 @@ object TransferOutProcessingSteps {
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
       contractIdAndHash: WithContractHash[LfContractId],
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       templateId: LfTemplateId,
       transferringParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,

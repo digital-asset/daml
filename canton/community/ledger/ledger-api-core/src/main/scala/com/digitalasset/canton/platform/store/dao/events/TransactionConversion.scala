@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v1.event.Event
-import com.digitalasset.canton.platform.api.v1.event.EventOps.EventOps
+import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 
 private[platform] object TransactionConversion {
 

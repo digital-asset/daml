@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -180,20 +180,6 @@ object Value {
 
     def mapCid(f: ContractId => ContractId): ContractInstance =
       copy(arg = arg.mapCid(f))
-  }
-
-  final case class ContractInstanceWithAgreement(
-      contractInstance: ContractInstance,
-      agreementText: String,
-  ) extends CidContainer[ContractInstanceWithAgreement] {
-
-    override protected def self: this.type = this
-
-    def map(f: Value => Value): ContractInstanceWithAgreement =
-      copy(contractInstance = contractInstance.map(f))
-
-    def mapCid(f: ContractId => ContractId): ContractInstanceWithAgreement =
-      copy(contractInstance = contractInstance.mapCid(f))
   }
 
   type VersionedContractInstance = transaction.Versioned[ContractInstance]

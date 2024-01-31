@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -222,7 +222,6 @@ private[validation] object TypeIterable {
             param @ _,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
@@ -230,7 +229,6 @@ private[validation] object TypeIterable {
           ) =>
         iterator(precond) ++
           iterator(signatories) ++
-          iterator(agreementText) ++
           choices.values.flatMap(iterator(_)) ++
           iterator(observers) ++
           key.iterator.flatMap(iterator(_)) ++

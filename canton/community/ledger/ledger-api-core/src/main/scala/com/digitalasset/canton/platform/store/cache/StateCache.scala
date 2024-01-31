@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -9,7 +9,6 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.caching.Cache
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
 import com.digitalasset.canton.platform.store.cache.StateCache.PendingUpdatesState
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -155,25 +154,13 @@ private[platform] case class StateCache[K, V](
           }),
         )
       }
-      .recover {
-        // Negative contract lookups are forwarded to `putAsync` as failed futures as they should not be cached
-        // since they can still resolve on subsequent divulgence lookups (see [[MutableCacheBackedContractStore.readThroughContractsCache]]).
-        // Hence, this scenario is not considered an error condition and should not be logged as such.
-        // TODO(i12293) Remove this type-check when properly caching divulgence lookups
-        case contractNotFound: ContractReadThroughNotFound =>
-          blocking(
-            pendingUpdates.synchronized(
-              removeFromPending(key)
-            )
+      .recover { case err =>
+        blocking(
+          pendingUpdates.synchronized(
+            removeFromPending(key)
           )
-          logger.debug(s"Not caching negative lookup for contract at key $key", contractNotFound)
-        case err =>
-          blocking(
-            pendingUpdates.synchronized(
-              removeFromPending(key)
-            )
-          )
-          logger.warn(s"Failure in pending cache update for key $key", err)
+        )
+        logger.warn(s"Failure in pending cache update for key $key", err)
       }
 
   private def removeFromPending(key: K)(implicit traceContext: TraceContext): Unit =

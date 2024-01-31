@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state.v2
@@ -8,6 +8,7 @@ import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.CompletionStage
@@ -36,7 +37,6 @@ import java.util.concurrent.CompletionStage
 trait WriteService
     extends WritePackagesService
     with WritePartyService
-    with WriteConfigService
     with WriteParticipantPruningService
     with ReportsHealth {
 
@@ -88,6 +88,9 @@ trait WriteService
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
     *                                    associated [[com.digitalasset.canton.ledger.participant.state.v2.ReadService]].
+    * @param optDomainId                 the optional ID of the domain on which the submitter wants the transaction to be sequenced.
+    *                                    if empty, the participant will automatically attempt to find a suitable domain based on the
+    *                                    parties and contracts involved in the submission.
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
     *                                    See [[com.digitalasset.canton.ledger.participant.state.v2.TransactionMeta]] for more information.
     * @param transaction                 the submitted transaction. This transaction can contain local
@@ -100,10 +103,11 @@ trait WriteService
     * @param globalKeyMapping            Input key mapping inferred by interpretation.
     *                                    The map should contain all contract keys that were used during interpretation.
     *                                    A value of None means no contract was found with this contract key.
-    * @param processedDisclosedContracts      Explicitly disclosed contracts used during interpretation.
+    * @param processedDisclosedContracts Explicitly disclosed contracts used during interpretation.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
+      optDomainId: Option[DomainId],
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,

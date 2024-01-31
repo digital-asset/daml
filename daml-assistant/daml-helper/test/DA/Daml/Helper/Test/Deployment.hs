@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Test.Deployment (main) where
@@ -173,6 +173,8 @@ writeMinimalProject = do
       , "name: proj1"
       , "version: 0.0.1"
       , "source: ."
+      -- TODO(#17366): Remove this the default LF version is 2
+      , "build-options: [--target=2.1]"
       , "dependencies:"
       , "  - daml-prim"
       , "  - daml-stdlib"

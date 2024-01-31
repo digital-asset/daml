@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -9,17 +9,16 @@ import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, LfVersioned}
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {
 
-  val alice = LfPartyId.assertFromString("Alice")
-  val bob = LfPartyId.assertFromString("Bob")
+  private val alice = LfPartyId.assertFromString("Alice")
+  private val bob = LfPartyId.assertFromString("Bob")
 
-  val languageVersion = ExampleTransactionFactory.languageVersion
-  val templateId = ExampleTransactionFactory.templateId
+  private val languageVersion = ExampleTransactionFactory.languageVersion
+  private val templateId = ExampleTransactionFactory.templateId
 
   "SerializableContractInstance" should {
     "deserialize correctly" in {
@@ -42,7 +41,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
         ExampleTransactionFactory.contractInstance(Seq(contractId)),
         metadata,
         CantonTimestamp.now(),
-        Option.when(testedProtocolVersion >= ProtocolVersion.v4)(someContractSalt),
+        someContractSalt,
       )
       SerializableContract.fromProtoVersioned(
         sci.toProtoVersioned(testedProtocolVersion)
@@ -65,12 +64,8 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     val invalidFormatContractId = LfContractId.assertFromString("00" * 34)
 
     val authenticatedContractId =
-      AuthenticatedContractIdVersion.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
+      AuthenticatedContractIdVersionV2.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
-    val nonAuthenticatedContractId =
-      NonAuthenticatedContractIdVersion.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
-
-    val agreementText = "agreement"
     val disclosedContract = ProcessedDisclosedContract(
       templateId = templateId,
       contractId = authenticatedContractId,
@@ -80,7 +75,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      agreementText = agreementText,
+      agreementText = "", // not used anymore
       version = transactionVersion,
     )
 
@@ -96,12 +91,8 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .create(
               LfVersioned(
                 transactionVersion,
-                LfValue.ContractInstance(
-                  template = templateId,
-                  arg = LfValue.ValueNil,
-                ),
-              ),
-              AgreementText(agreementText),
+                LfValue.ContractInstance(template = templateId, arg = LfValue.ValueNil),
+              )
             )
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),
@@ -120,20 +111,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             )
           )
           .left
-          .value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 does not start with one of the supported prefixes: Bytes(ca02), Bytes(ca01) or Bytes(ca00)"
-      }
-    }
-
-    "provided a disclosed contract with non-authenticated contract id" should {
-      "fail" in {
-        SerializableContract
-          .fromDisclosedContract(
-            disclosedContract.copy(create =
-              disclosedContract.create.copy(coid = nonAuthenticatedContractId)
-            )
-          )
-          .left
-          .value shouldBe s"Disclosed contract with non-authenticated contract id: ${nonAuthenticatedContractId.toString}"
+          .value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 does not start with one of the supported prefixes: Bytes(ca02)"
       }
     }
 

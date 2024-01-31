@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
@@ -7,7 +7,8 @@ jobs:
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                  eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
-                 eq(variables['Build.SourceBranchName'], 'main'))
+                 or(eq(variables['Build.SourceBranchName'], 'main'),
+                    eq(variables['Build.SourceBranchName'], 'main-2.x')))
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -96,7 +97,7 @@ jobs:
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
-        tell_slack "Split release \`$(release_tag)\` just pushed to Artifactory." \
+        tell_slack "SDK release \`$(release_tag)\` just pushed to Artifactory." \
                    "$(Slack.team-canton)"
     - template: tell-slack-failed.yml
       parameters:

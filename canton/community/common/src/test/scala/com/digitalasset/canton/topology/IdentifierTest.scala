@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -124,7 +124,6 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
   "key owner serialization" should {
     "be able to convert back and forth" in {
       val pid = DefaultTestIdentities.participant1
-      KeyOwner.fromProtoPrimitive(pid.toProtoPrimitive, "Pid") shouldBe Right(pid)
       Member.fromProtoPrimitive(pid.toProtoPrimitive, "Pid") shouldBe Right(pid)
     }
 
@@ -139,7 +138,7 @@ class IdentifierTest extends AnyWordSpec with BaseTest {
         "::da::default",
       )
         .foreach { str =>
-          KeyOwner.fromProtoPrimitive(str, "owner").left.value shouldBe a[ProtoDeserializationError]
+          Member.fromProtoPrimitive(str, "owner").left.value shouldBe a[ProtoDeserializationError]
         }
     }
 

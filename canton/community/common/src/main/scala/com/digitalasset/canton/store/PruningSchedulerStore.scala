@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
@@ -11,7 +11,7 @@ import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.store.db.DbPruningSchedulerStore
 import com.digitalasset.canton.store.memory.InMemoryPruningSchedulerStore
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.KeyOwnerCode
+import com.digitalasset.canton.topology.MemberCode
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,7 +50,7 @@ trait PruningSchedulerStore extends AutoCloseable {
 
 object PruningSchedulerStore {
   def create(
-      nodeCode: KeyOwnerCode,
+      nodeCode: MemberCode,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,

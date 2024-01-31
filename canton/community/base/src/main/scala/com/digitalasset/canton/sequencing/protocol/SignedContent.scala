@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.protocol.{v0, v1}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
@@ -37,10 +37,8 @@ import scala.math.Ordered.orderingToOrdered
 
 /** @param timestampOfSigningKey The timestamp of the topology snapshot that was used for signing the content.
   *                              [[scala.None$]] if the signing timestamp can be derived from the content.
-  * @param signatures            Signatures of the content provided by the different sequencers. For protocol versions
-  *                              before [[com.digitalasset.canton.version.ProtocolVersion.CNTestNet]] must not look at signatures except for the last one.
+  * @param signatures            Signatures of the content provided by the different sequencers.
   */
-// TODO(#15153) Remove comment: remove second sentence of comment about signatures
 final case class SignedContent[+A <: HasCryptographicEvidence] private (
     content: A,
     signatures: NonEmpty[Seq[Signature]],
@@ -50,19 +48,13 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
 ) extends HasProtocolVersionedWrapper[SignedContent[HasCryptographicEvidence]]
     with Serializable
     with Product {
+
   @transient override protected lazy val companionObj: SignedContent.type = SignedContent
 
-  def toProtoV0: v0.SignedContent =
-    v0.SignedContent(
+  def toProtoV30: v30.SignedContent =
+    v30.SignedContent(
       Some(content.getCryptographicEvidence),
-      Some(signatures.last1.toProtoV0),
-      timestampOfSigningKey.map(_.toProtoPrimitive),
-    )
-
-  private def toProtoV1: v1.SignedContent =
-    v1.SignedContent(
-      Some(content.getCryptographicEvidence),
-      signatures.map(_.toProtoV0),
+      signatures.map(_.toProtoV30),
       timestampOfSigningKey.map(_.toProtoPrimitive),
     )
 
@@ -114,18 +106,14 @@ object SignedContent
   override def name: String = "SignedContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SignedContent)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v1.SignedContent)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedContent)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   val multipleSignaturesSupportedSince: RepresentativeProtocolVersion[SignedContent.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.CNTestNet)
+    protocolVersionRepresentativeFor(ProtocolVersion.v30)
 
   // TODO(i12076): Start using multiple signatures
   def apply[A <: HasCryptographicEvidence](
@@ -221,35 +209,14 @@ object SignedContent
     create(cryptoApi, cryptoPrivateApi, content, timestampOfSigningKey, purpose, protocolVersion)
       .valueOr(err => throw new IllegalStateException(s"Failed to create signed content: $err"))
 
-  def fromProtoV0(
-      signedValueP: v0.SignedContent
+  def fromProtoV30(
+      signedValueP: v30.SignedContent
   ): ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] = {
-    val v0.SignedContent(content, signatureP, timestampOfSigningKey) = signedValueP
-    for {
-      contentB <- ProtoConverter.required("content", content)
-      signature <- ProtoConverter.parseRequired(
-        Signature.fromProtoV0,
-        "signature",
-        signatureP,
-      )
-      ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
-      signedContent <- create(
-        BytestringWithCryptographicEvidence(contentB),
-        NonEmpty(Seq, signature),
-        ts,
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
-      ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
-    } yield signedContent
-  }
-
-  private def fromProtoV1(
-      signedValueP: v1.SignedContent
-  ): ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] = {
-    val v1.SignedContent(content, signatures, timestampOfSigningKey) = signedValueP
+    val v30.SignedContent(content, signatures, timestampOfSigningKey) = signedValueP
     for {
       contentB <- ProtoConverter.required("content", content)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "signature",
         signatures,
       )
@@ -295,7 +262,7 @@ object SignedContent
 
 }
 
-final case class EventWithErrors[Event <: SequencedEvent[_]](
+final case class EventWithErrors[Event <: SequencedEvent[?]](
     content: Event,
     openingErrors: Seq[ProtoDeserializationError],
     isIgnored: Boolean,

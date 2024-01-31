@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data;
@@ -10,17 +10,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class DamlOptional extends Value {
 
-  public static DamlOptional EMPTY = new DamlOptional(Optional.empty());
+  public static DamlOptional EMPTY = new DamlOptional(null);
 
   private final Value value;
 
   DamlOptional(Value value) {
     this.value = value;
-  }
-
-  @Deprecated // use DamlOptional.of
-  public DamlOptional(Optional<@NonNull Value> value) {
-    this(value.orElse(null));
   }
 
   public static DamlOptional of(@NonNull Optional<@NonNull Value> value) {
@@ -60,11 +55,6 @@ public final class DamlOptional extends Value {
   @Override
   public @NonNull String toString() {
     return "Optional{" + "value=" + value + '}';
-  }
-
-  @Deprecated // use DamlOptional::EMPTY
-  public static @NonNull DamlOptional empty() {
-    return EMPTY;
   }
 
   @Override

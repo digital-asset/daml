@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -22,7 +22,10 @@ da_scala_binary(
     resources = ["src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
@@ -30,6 +33,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//canton:community_ledger_ledger-common",
         "//compiler/repl-service/protos:repl_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -37,15 +41,15 @@ da_scala_binary(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings-pekko",
-        "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",
-        "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_handler",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.indexerbenchmark
@@ -79,7 +79,6 @@ class IndexerBenchmark extends NamedLogging {
               tracer,
               loggerFactory,
               multiDomainEnabled = false,
-              maxEventsByContractKeyCacheSize = None,
             )
             .acquire()
         indexerFactory = new JdbcIndexer.Factory(
@@ -166,7 +165,7 @@ class IndexerBenchmark extends NamedLogging {
           ),
           new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
           registry,
-          true,
+          reportExecutionContextMetrics = true,
         )
         config.metricsReporter
           .fold(ResourceOwner.unit)(reporter =>

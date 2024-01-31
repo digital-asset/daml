@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -382,19 +382,6 @@ class DatabaseSequencer(
       store,
     )(logger)
   }
-
-  override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    // unimplemented. We don't plan to implement ledger identity authorization for database sequencers, so this
-    // function will never be implemented.
-    Future.successful(false)
-
-  override def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    // see [[isLedgerIdentityRegistered]]
-    EitherT.leftT("authorizeLedgerIdentity is not implemented for database sequencers")
 
   override def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext

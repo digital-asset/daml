@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Compiler.Dar
     ( createDarFile
@@ -17,8 +17,6 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
-import Control.Applicative
-import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -277,15 +275,12 @@ getSrcRoot fileOrDir = do
 -- | Merge several packages into one.
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
-    foldl'
-        (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
-             LF.Package
-                 { LF.packageLfVersion = ver
-                 , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
-                 , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
-                 })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just meta }
-        pkgs
+    let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
+     in LF.Package
+            { LF.packageLfVersion = ver
+            , LF.packageModules = mergedMods
+            , LF.packageMetadata = meta
+            }
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as
 -- main and return that file and all dependencies.

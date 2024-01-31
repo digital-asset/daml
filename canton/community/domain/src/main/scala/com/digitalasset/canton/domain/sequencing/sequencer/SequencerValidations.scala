@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -65,7 +65,7 @@ object SequencerValidations {
   }
 
   /** An util to reject requests from participants that try to send something to multiple mediators (mediator groups).
-    * Mediators/groups are identified by their [[com.digitalasset.canton.topology.KeyOwnerCode]]
+    * Mediators/groups are identified by their [[com.digitalasset.canton.topology.MemberCode]]
     */
   def checkFromParticipantToAtMostOneMediator(submissionRequest: SubmissionRequest): Boolean =
     submissionRequest.sender match {

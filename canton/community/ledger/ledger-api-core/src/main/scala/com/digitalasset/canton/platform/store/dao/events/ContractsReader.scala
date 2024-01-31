@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -103,58 +103,6 @@ private[dao] sealed class ContractsReader(
           case raw: RawArchivedContract => ArchivedContract(raw.flatEventWitnesses)
         }),
     )
-
-  /** Lookup of a contract in the case the contract value is not already known */
-  override def lookupActiveContractAndLoadArgument(
-      readers: Set[Party],
-      contractId: ContractId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
-
-    Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
-      dispatcher
-        .executeSql(metrics.daml.index.db.lookupDivulgedActiveContractDbMetrics)(
-          storageBackend.activeContractWithArgument(readers, contractId)
-        )
-        .map(_.map { raw =>
-          toContract(
-            contractId = contractId,
-            templateId = raw.templateId,
-            createArgument = raw.createArgument,
-            createArgumentCompression =
-              Compression.Algorithm.assertLookup(raw.createArgumentCompression),
-            decompressionTimer =
-              metrics.daml.index.db.lookupDivulgedActiveContractDbMetrics.compressionTimer,
-            deserializationTimer =
-              metrics.daml.index.db.lookupDivulgedActiveContractDbMetrics.translationTimer,
-          )
-        }),
-    )
-  }
-
-  /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
-  override def lookupActiveContractWithCachedArgument(
-      readers: Set[Party],
-      contractId: ContractId,
-      createArgument: Value,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
-
-    Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
-      dispatcher
-        .executeSql(metrics.daml.index.db.lookupDivulgedActiveContractDbMetrics)(
-          storageBackend.activeContractWithoutArgument(readers, contractId)
-        )
-        .map(
-          _.map(templateId =>
-            toContract(
-              templateId = templateId,
-              createArgument = createArgument,
-            )
-          )
-        ),
-    )
-  }
 }
 
 private[dao] object ContractsReader {

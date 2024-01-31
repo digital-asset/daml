@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -235,7 +235,8 @@ object ApiPackageManagementServiceSpec {
     val pkg = Ast.GenPackage[Expr](
       Map.empty,
       Set.empty,
-      LanguageVersion.default,
+      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
+      LanguageVersion.v2_1,
       Some(
         Ast.PackageMetadata(
           Ref.PackageName.assertFromString("aPackage"),
@@ -246,7 +247,8 @@ object ApiPackageManagementServiceSpec {
     )
     Encode.encodeArchive(
       Ref.PackageId.assertFromString("-pkgId-") -> pkg,
-      LanguageVersion.default,
+      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
+      LanguageVersion.v2_1,
     )
   }
 

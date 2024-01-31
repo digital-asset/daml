@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -13,6 +13,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.NoDelegationFoundForKey
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
@@ -20,7 +21,6 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransactionX,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -32,9 +32,7 @@ class TopologyTransactionXTestFactory(loggerFactory: NamedLoggerFactory, initEc:
   import SigningKeys.*
 
   def createNsX(ns: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
-    NamespaceDelegationX
-      .create(ns, key, isRootDelegation)
-      .fold(err => sys.error(s"Failed to create NamespaceDelegationX: $err"), identity)
+    NamespaceDelegationX.tryCreate(ns, key, isRootDelegation)
 
   val ns1 = Namespace(key1.fingerprint)
   val ns2 = Namespace(key2.fingerprint)
@@ -174,30 +172,40 @@ class TopologyTransactionXTestFactory(loggerFactory: NamedLoggerFactory, initEc:
   val ns8k8_k8 = mkAdd(createNsX(ns8, key8, isRootDelegation = true), key8)
   val ns9k9_k9 = mkAdd(createNsX(ns9, key9, isRootDelegation = true), key9)
 
-  val us1 = mkAddMultiKey(
-    UnionspaceDefinitionX
+  val dns1 = mkAddMultiKey(
+    DecentralizedNamespaceDefinitionX
       .create(ns7, PositiveInt.two, NonEmpty(Set, ns1, ns8, ns9))
-      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 1: $err"), identity),
+      .fold(
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 1: $err"),
+        identity,
+      ),
     NonEmpty(Set, key1, key8, key9),
     serial = PositiveInt.one,
   )
-  val us2 = mkAdd(
-    UnionspaceDefinitionX
+  val dns2 = mkAdd(
+    DecentralizedNamespaceDefinitionX
       .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
-      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 2: $err"), identity),
+      .fold(
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 2: $err"),
+        identity,
+      ),
     key9,
     serial = PositiveInt.two,
     isProposal = true,
   )
-  val us3 = mkAdd(
-    UnionspaceDefinitionX
+  val dns3 = mkAdd(
+    DecentralizedNamespaceDefinitionX
       .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
-      .fold(err => sys.error(s"Failed to create UnionspaceDefinitionX 3: $err"), identity),
+      .fold(
+        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 3: $err"),
+        identity,
+      ),
     key8,
     serial = PositiveInt.two,
     isProposal = true,
   )
-  val unionspaceWithMultipleOwnerThreshold = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, us1)
+  val decentralizedNamespaceWithMultipleOwnerThreshold =
+    List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, dns1)
 }
 
 class IncomingTopologyTransactionAuthorizationValidatorTestX
@@ -206,7 +214,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec {
 
-  "topology transaction authorization" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet when {
+  "topology transaction authorization" when {
 
     object Factory extends TopologyTransactionXTestFactory(loggerFactory, parallelExecutionContext)
 
@@ -239,9 +247,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
       assert(true)
     }
-
-    val unauthorized =
-      Some((err: TopologyTransactionRejection) => err == TopologyTransactionRejection.NotAuthorized)
 
     "receiving transactions with signatures" should {
       "succeed to add if the signature is valid" in {
@@ -341,7 +346,16 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              None,
+              None,
+            ),
+          )
         }
       }
       "succeed and use load existing delegations" in {
@@ -380,7 +394,17 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           )
 
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, unauthorized, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
+              None,
+            ),
+          )
         }
       }
 
@@ -412,7 +436,15 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(unauthorized, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+            ),
+          )
         }
       }
     }
@@ -444,7 +476,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+            ),
+          )
         }
       }
       "succeed with loading existing identifier delegations" in {
@@ -503,7 +542,18 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None, None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              None,
+              None,
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+            ),
+          )
         }
       }
 
@@ -555,7 +605,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized))
+          check(res._2, Seq(None, Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint))))
           res._1.cascadingNamespaces shouldBe Set(ns1)
         }
       }
@@ -621,14 +671,17 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(None, None, None, Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint))),
+          )
           res._1.cascadingNamespaces shouldBe Set(ns1)
           res._1.filteredCascadingUids shouldBe Set(uid6)
         }
       }
     }
 
-    "evolving unionspace definitions with threshold > 1" should {
+    "evolving decentralized namespace definitions with threshold > 1" should {
       "succeed if proposing lower threshold and number of owners" in {
         val store =
           new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
@@ -640,14 +693,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(0)),
             removeMapping = Set.empty,
             removeTxs = Set.empty,
-            additions = unionspaceWithMultipleOwnerThreshold.map(
+            additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransactionX(_)
             ),
           )
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
-            List(us2),
-            unionspaceWithMultipleOwnerThreshold
+            List(dns2),
+            decentralizedNamespaceWithMultipleOwnerThreshold
               .map(tx => tx.transaction.mapping.uniqueKey -> tx)
               .toMap,
             expectFullAuthorization = false,
@@ -662,14 +715,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
         val validator = mk(store)
         import Factory.*
-        val proposeUnionspaceWithLowerThresholdAndOwnerNumber = List(us2)
+        val proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber = List(dns2)
         for {
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
             removeMapping = Set.empty,
             removeTxs = Set.empty,
-            additions = unionspaceWithMultipleOwnerThreshold.map(
+            additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransactionX(_)
             ),
           )
@@ -678,7 +731,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             EffectiveTime(ts(1)),
             removeMapping = Set.empty,
             removeTxs = Set.empty,
-            additions = proposeUnionspaceWithLowerThresholdAndOwnerNumber.map(
+            additions = proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber.map(
               ValidatedTopologyTransactionX(_)
             ),
           )
@@ -686,12 +739,12 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             ts(2),
             // Analogously to how the TopologyStateProcessorX merges the signatures of proposals
             // with the same serial, combine the signature of the previous proposal to the current proposal.
-            List(us3.addSignatures(us2.signatures.toSeq)),
-            (unionspaceWithMultipleOwnerThreshold ++ proposeUnionspaceWithLowerThresholdAndOwnerNumber)
+            List(dns3.addSignatures(dns2.signatures.toSeq)),
+            (decentralizedNamespaceWithMultipleOwnerThreshold ++ proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber)
               .map(tx => tx.transaction.mapping.uniqueKey -> tx)
               .toMap,
             // Expect to be able to authorize now that we have two signatures as required by
-            // unionspaceWithMultipleOwnerThreshold (us1).
+            // decentralizedNamespaceWithMultipleOwnerThreshold (dns1).
             expectFullAuthorization = true,
           )
         } yield {

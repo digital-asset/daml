@@ -1,15 +1,14 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data
 
-import java.util.Collections
-
 import com.daml.ledger.api.v1.ValueOuterClass
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-import scala.jdk.CollectionConverters._
+import java.util.Collections
+import scala.jdk.CollectionConverters.*
 
 class DamlRecordSpec extends AnyFlatSpec with Matchers {
 

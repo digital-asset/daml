@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -964,9 +964,6 @@ data Template = Template
   , tplObservers       :: !Expr
     -- ^ Observers of the contract. They have type @List Party@ and the
     -- template paramter in scope.
-  , tplAgreement       :: !Expr
-    -- ^ Agreement text associated with the contract. It has type @Text@ and
-    -- the template paramter in scope.
   , tplChoices         :: !(NM.NameMap TemplateChoice)
     -- ^ Choices of the template.
   , tplKey             :: !(Maybe TemplateKey)
@@ -1121,7 +1118,7 @@ data PackageMetadata = PackageMetadata
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
-    , packageMetadata :: Maybe PackageMetadata
+    , packageMetadata :: PackageMetadata
     }
   deriving (Eq, Data, Generic, NFData, Show)
 

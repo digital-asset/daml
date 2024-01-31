@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -40,11 +40,6 @@ class HasObserver t where
 class HasEnsure t where
   -- | A predicate that must be true, otherwise contract creation will fail.
   ensure : t -> Bool
-
--- | Exposes `agreement` function. Part of the `Template` constraint.
-class HasAgreement t where
-  -- | The agreement text of a contract.
-  agreement : t -> Text
 
 -- | Exposes `create` function. Part of the `Template` constraint.
 class HasCreate t where

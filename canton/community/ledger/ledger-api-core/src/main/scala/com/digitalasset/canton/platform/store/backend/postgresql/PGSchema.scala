@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.postgresql
@@ -40,10 +40,14 @@ private[postgresql] object PGSchema {
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields: _*)
 
-    override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+    override def idempotentInsert[FROM](
+        tableName: String,
+        keyFieldIndex: Int,
+        ordering: Ordering[FROM],
+    )(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex)(fields: _*)
+      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex, ordering)(fields: _*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)

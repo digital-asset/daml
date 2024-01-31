@@ -3,7 +3,7 @@
 
 module ChoiceObservers where
 
--- @SINCE-LF 1.11 2.0
+-- @SINCE-LF 2.1
 
 -- @QUERY-LF [ $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["TheTemplate"]) | .choices[] | select(lf::get_name($pkg) == "C1") | .observers | has("nil") ] == [ true ]
 

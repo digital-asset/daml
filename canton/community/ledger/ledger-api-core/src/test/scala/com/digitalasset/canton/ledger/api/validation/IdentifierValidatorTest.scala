@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -20,12 +20,12 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
 
   "validating identifiers" should {
     "convert a valid identifier" in {
-      FieldValidator.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
+      ValueValidator.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
     }
 
     "not allow missing package ids" in {
       requestMustFailWith(
-        FieldValidator.validateIdentifier(api.identifier.withPackageId("")),
+        ValueValidator.validateIdentifier(api.identifier.withPackageId("")),
         code = INVALID_ARGUMENT,
         description =
           "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
@@ -36,7 +36,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     "not allow missing names" in {
       requestMustFailWith(
         request =
-          FieldValidator.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
+          ValueValidator.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
         code = INVALID_ARGUMENT,
         description =
           "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",

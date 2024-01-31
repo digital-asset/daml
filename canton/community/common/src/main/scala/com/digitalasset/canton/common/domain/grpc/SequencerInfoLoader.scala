@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.common.domain.grpc
@@ -156,7 +156,7 @@ class SequencerInfoLoader(
       _ <- performHandshake(client, domainAlias, sequencerAlias)
 
       domainParameters <- client
-        .getDomainParameters(domainAlias)
+        .getDomainParameters(domainAlias.unwrap)
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(domainAlias))
     } yield (bootstrapInfo, domainParameters)
   }

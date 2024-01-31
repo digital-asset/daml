@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.data
@@ -17,17 +17,10 @@ final case class ActiveContractsData private (
     contracts: Iterable[ActiveContractData],
 ) {
 
-  if (protocolVersion < ProtocolVersion.CNTestNet) {
-    require(
-      contracts.forall(tc => tc.transferCounter.isEmpty),
-      s"The reassignment counter must be empty for protocol version lower than '${ProtocolVersion.CNTestNet}'.",
-    )
-  } else {
-    require(
-      contracts.forall(tc => tc.transferCounter.isDefined),
-      s"The reassignment counter must be defined for protocol version '${ProtocolVersion.CNTestNet}' or higher.",
-    )
-  }
+  require(
+    contracts.forall(tc => tc.transferCounter.isDefined),
+    s"The reassignment counter must be defined for protocol version '${ProtocolVersion.v30}' or higher.",
+  )
 
   def contractIds: Seq[LfContractId] = contracts.map(_.contractId).toSeq
 

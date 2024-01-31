@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -36,9 +36,6 @@ template Cash
     signatory bank
     observer owner
 
-    {- Helper function to create new amount records. -}
-    let newAmount = \x -> (Amount with currency = amount.currency, quantity = x)
-
     {- Choices available to the owner -}
 
     {- Transfer the ownership of this contract to a new owner -}
@@ -58,9 +55,9 @@ template Cash
           -- Ensure that the requested amount doesn't exceed available.
           assert (quantity > 0 && quantity <= amount.quantity)
           -- Calculate the remaining Cash contract
-          restId <- create this with amount = (newAmount (amount.quantity - quantity))
+          restId <- create this with amount = Amount { currency = amount.currency, quantity = amount.quantity - quantity }
           -- Create the new contract
-          newId <- create this with amount = (newAmount quantity)
+          newId <- create this with amount = Amount { currency = amount.currency, quantity = quantity }
           return (newId, restId)
 
     {- Merge this and another cash contract into one -}
@@ -78,7 +75,7 @@ template Cash
           -- Archive the other contract
           exercise cashId Archive
           -- Create the consolidated contract.
-          create this with amount = (newAmount (amount.quantity + cash.amount.quantity))
+          create this with amount = Amount { currency = amount.currency, quantity = amount.quantity + cash.amount.quantity }
 
     choice Settle : SettleCashId
       with
@@ -93,7 +90,7 @@ template Cash
   A settlement contract indicating a pending cash settlement.
 
   The given contract denotes a "real world" obligation to the bank,
-  requiring the bank to transfer the given ammount to the named
+  requiring the bank to transfer the given amount to the named
   bank account.
 
   Once the money arrives, the owner can confirm the settlement.
@@ -109,11 +106,6 @@ template SettleCash
 
     signatory bank
     observer owner
-
-    agreement "The issuing bank promises to transfer to any bank account "
-        <> "named by the bearer on demand"
-        <> "the sum of " <> amount.currency <> " " <> show amount.quantity
-        <> "within one business day starting from " <> show timestamp
 
     choice Received : ()
       controller owner

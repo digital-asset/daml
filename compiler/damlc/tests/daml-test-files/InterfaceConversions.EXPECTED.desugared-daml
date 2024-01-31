@@ -265,11 +265,6 @@ instance DA.Internal.Desugar.HasEnsure Template1 where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement Template1 where
-  agreement this@Template1 {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive Template1 where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
@@ -368,11 +363,6 @@ instance DA.Internal.Desugar.HasObserver Template2 where
 instance DA.Internal.Desugar.HasEnsure Template2 where
   ensure this@Template2 {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Template2 where
-  agreement this@Template2 {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Template2 where
@@ -500,11 +490,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

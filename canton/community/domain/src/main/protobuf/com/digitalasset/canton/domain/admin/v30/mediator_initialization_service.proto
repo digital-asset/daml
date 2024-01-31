@@ -1,0 +1,30 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.admin.v30;
+
+import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+
+service MediatorInitializationService {
+  // Initialize a Mediator service
+  // If the Mediator is uninitialized it should initialize itself with the provided configuration
+  // If the Mediator is already initialized then verify the request is for the domain we're running against,
+  // if correct then just return the current key otherwise fail.
+  rpc Initialize(InitializeMediatorRequest) returns (InitializeMediatorResponse);
+}
+
+message InitializeMediatorRequest {
+  // the domain identifier
+  string domain_id = 1;
+
+  // parameters for the domain, must match the parameters used by all other domain entities
+  com.digitalasset.canton.protocol.v30.StaticDomainParameters domain_parameters = 2;
+
+  // how should the member connect to the domain sequencer
+  com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 3; // required
+}
+
+message InitializeMediatorResponse {}

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -13,8 +13,8 @@ class SaltTest extends AnyWordSpec with BaseTest {
 
     "serializing and deserializing via protobuf" in {
       val salt = TestSalt.generateSalt(0)
-      val saltP = salt.toProtoV0
-      Salt.fromProtoV0(saltP).value shouldBe salt
+      val saltP = salt.toProtoV30
+      Salt.fromProtoV30(saltP).value shouldBe salt
     }
 
     "generate a fresh salt seeds" in {

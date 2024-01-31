@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.service
@@ -117,12 +117,12 @@ private[service] class DirectSequencerSubscription[E](
     AsyncCloseable(
       s"flushing direct-sequencer-subscription for $member",
       done,
-      timeouts.shutdownNetwork.duration,
+      timeouts.shutdownNetwork,
     ),
     AsyncCloseable(
       s"flushing other sinks in direct-sequencer-subscription for $member",
       sourceDone,
-      timeouts.shutdownNetwork.duration,
+      timeouts.shutdownNetwork,
     ),
   )
 }

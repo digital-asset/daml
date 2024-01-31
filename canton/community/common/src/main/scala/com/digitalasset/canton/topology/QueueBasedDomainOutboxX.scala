@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -55,7 +55,9 @@ class QueueBasedDomainOutboxX(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     TopologyStoreX.awaitTxObserved(targetClient, transaction, targetStore, timeout)
 
-  protected def findPendingTransactions(): Future[Seq[GenericSignedTopologyTransactionX]] = {
+  protected def findPendingTransactions()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[GenericSignedTopologyTransactionX]] = {
     Future.successful(
       domainOutboxQueue
         .dequeue(batchSize)
@@ -106,11 +108,7 @@ class QueueBasedDomainOutboxX(
         queuedApprox = queuedApprox + queuedNum
       )
       if (ret.hasPending) {
-        idleFuture.updateAndGet {
-          case None =>
-            Some(Promise())
-          case x => x
-        }
+        ensureIdleFutureIsSet()
       }
       ret
     }
@@ -209,12 +207,28 @@ class QueueBasedDomainOutboxX(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def markDone(delayRetry: Boolean = false): Unit = {
-      val updated = queueState.getAndUpdate(_.done())
+      val updated = queueState.updateAndGet(_.done())
       // if anything has been pushed in the meantime, we need to kick off a new flush
+      logger.debug(
+        s"Marked flush as done. Updated queue size: ${updated.queuedApprox}. IsClosing: ${isClosing}"
+      )
       if (updated.hasPending && !isClosing) {
         if (delayRetry) {
-          // kick off new flush in the background
-          DelayUtil.delay(functionFullName, 10.seconds, this).map(_ => kickOffFlush()).discard
+          val delay = 10.seconds
+          logger.debug(s"Kick off a new delayed flush in ${delay}")
+          DelayUtil
+            .delay(functionFullName, delay, this)
+            .map { _ =>
+              if (!isClosing) {
+                logger.debug(s"About to kick off a delayed flush scheduled ${delay} ago")
+                kickOffFlush()
+              } else {
+                logger.debug(
+                  s"Queue-based outbox is now closing. Ignoring delayed flushed schedule ${delay} ago"
+                )
+              }
+            }
+            .discard
         } else {
           kickOffFlush()
         }
@@ -223,8 +237,14 @@ class QueueBasedDomainOutboxX(
 
     val cur = queueState.getAndUpdate(_.setRunning())
 
+    logger.debug(s"Invoked flush with queue size ${queueState.get().queuedApprox}")
+
+    if (isClosing) {
+      logger.debug("Flush invoked in spite of closing")
+      EitherT.rightT(())
+    }
     // only flush if we are not running yet
-    if (cur.running) {
+    else if (cur.running) {
       logger.debug("Another flush cycle is currently ongoing")
       EitherT.rightT(())
     } else {
@@ -236,18 +256,24 @@ class QueueBasedDomainOutboxX(
           // find pending transactions
           pending <- findPendingTransactions()
           // filter out applicable
-          applicablePotentiallyPresent <- onlyApplicable(pending)
+          applicable <- onlyApplicable(pending)
+          _ = if (applicable.size != pending.size)
+            logger.debug(
+              s"applicable transactions: $applicable"
+            )
           // not already present
-          applicable <- notAlreadyPresent(applicablePotentiallyPresent)
-        } yield (pending, applicable))
+          notPresent <- notAlreadyPresent(applicable)
+          _ = if (notPresent.size != applicable.size)
+            logger.debug(s"not already present transactions: $notPresent")
+        } yield (pending, notPresent))
         val ret = for {
-          pendingAndApplicable <- EitherT.right(pendingAndApplicableF)
-          (pending, applicable) = pendingAndApplicable
+          pendingAndNotPresent <- EitherT.right(pendingAndApplicableF)
+          (pending, notPresent) = pendingAndNotPresent
 
-          _ = lastDispatched.set(applicable.lastOption)
+          _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
           convertedTxs <- performUnlessClosingEitherU(functionFullName) {
-            convertTransactions(applicable)
+            convertTransactions(notPresent)
           }
           // dispatch to domain
           _ <- dispatch(domain, transactions = convertedTxs)
@@ -277,11 +303,24 @@ class QueueBasedDomainOutboxX(
           markDone()
         }
 
-        EitherTUtil.onErrorOrFailureUnlessShutdown { () =>
-          domainOutboxQueue.requeue()
-          markDone(delayRetry = true)
-        }(ret)
+        EitherTUtil.onErrorOrFailureUnlessShutdown[String, Unit](
+          errorHandler = either => {
+            val errorDetails = either.fold(
+              throwable => s"exception ${throwable.getMessage}",
+              error => s"error $error",
+            )
+            logger.info(s"Requeuing and backing off due to $errorDetails")
+            domainOutboxQueue.requeue()
+            markDone(delayRetry = true)
+          },
+          shutdownHandler = () => {
+            logger.info(s"Requeuing and stopping due to closing/domain-disconnect")
+            domainOutboxQueue.requeue()
+            markDone()
+          },
+        )(ret)
       } else {
+        logger.debug("Nothing pending. Marking as done.")
         markDone()
         EitherT.rightT(())
       }
@@ -309,9 +348,11 @@ class QueueBasedDomainOutboxX(
         )
         .unlessShutdown(
           {
-            logger.debug(
-              s"Attempting to push ${transactions.size} topology transactions to $domain"
-            )
+            if (logger.underlying.isDebugEnabled()) {
+              logger.debug(
+                s"Attempting to push ${transactions.size} topology transactions to $domain, specifically: ${transactions}"
+              )
+            }
             FutureUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),
               s"Pushing topology transactions to $domain",
@@ -325,11 +366,14 @@ class QueueBasedDomainOutboxX(
               s"Topology request contained ${transactions.length} txs, but I received responses for ${responses.length}"
             )
           }
-          logger.debug(
-            s"$domain responded the following for the given topology transactions: $responses"
-          )
+          val responsesWithTransactions = responses.zip(transactions)
+          if (logger.underlying.isDebugEnabled()) {
+            logger.debug(
+              s"$domain responded the following for the given topology transactions: $responsesWithTransactions"
+            )
+          }
           val failedResponses =
-            responses.zip(transactions).collect {
+            responsesWithTransactions.collect {
               case (TopologyTransactionsBroadcastX.State.Failed, tx) => tx
             }
 

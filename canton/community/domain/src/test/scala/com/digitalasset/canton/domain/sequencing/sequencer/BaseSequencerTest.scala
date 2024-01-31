@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer
@@ -43,7 +43,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
   val messageId = MessageId.tryCreate("test-message-id")
   def mkBatch(recipients: Set[Member]): Batch[ClosedEnvelope] =
     Batch[ClosedEnvelope](
-      ClosedEnvelope.tryCreate(
+      ClosedEnvelope.create(
         ByteString.EMPTY,
         Recipients.ofSet(recipients).value,
         Seq.empty,
@@ -145,26 +145,16 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       ???
     override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] =
       ???
-    override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-        traceContext: TraceContext
-    ): Future[Boolean] = ???
-
-    override def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, String, Unit] = ???
-
     override protected def healthInternal(implicit
         traceContext: TraceContext
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
-
-    override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-
     override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
       ???
-
     override def trafficStatus(members: Seq[Member])(implicit
         traceContext: TraceContext
     ): Future[SequencerTrafficStatus] = ???
+
+    override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

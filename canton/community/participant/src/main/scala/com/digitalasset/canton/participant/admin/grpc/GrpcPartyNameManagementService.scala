@@ -1,16 +1,16 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.participant.admin.v0.{
+import com.digitalasset.canton.admin.participant.v30.{
   PartyNameManagementServiceGrpc,
   SetPartyDisplayNameRequest,
   SetPartyDisplayNameResponse,
 }
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.participant.topology.LedgerServerPartyNotifier
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}

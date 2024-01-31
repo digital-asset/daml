@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 
 trait SignedProtocolMessageContent
@@ -17,16 +17,10 @@ trait SignedProtocolMessageContent
     with Serializable {
 
   /** Converts this object into a [[com.google.protobuf.ByteString]] using [[com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence.getCryptographicEvidence]]
-    * and wraps the result in the appropriate [[com.digitalasset.canton.protocol.v0.SignedProtocolMessage.SomeSignedProtocolMessage]] constructor.
-    */
-  protected[messages] def toProtoSomeSignedProtocolMessage
-      : v0.SignedProtocolMessage.SomeSignedProtocolMessage
-
-  /** Converts this object into a [[com.google.protobuf.ByteString]] using [[com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence.getCryptographicEvidence]]
-    * and wraps the result in the appropriate [[com.digitalasset.canton.protocol.v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage]] constructor.
+    * and wraps the result in the appropriate [[com.digitalasset.canton.protocol.v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage]] constructor.
     */
   protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage
 
   /** Hash purpose that uniquely identifies the type of message content to be signed. */
   def hashPurpose: HashPurpose

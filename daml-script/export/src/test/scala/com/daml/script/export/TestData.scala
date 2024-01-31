@@ -1,11 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.script.export.TreeUtils.{Command, SimpleCommand, Submit}
@@ -130,7 +131,7 @@ object TestData {
       val (rootEventIds, eventsById) =
         rootEvents.foldLeft((Seq.empty[String], Map.empty[String, TreeEvent]))(go)
       TransactionTree(
-        transactionId = "txid",
+        updateId = "txid",
         commandId = "cmdid",
         workflowId = "flowid",
         effectiveAt = Some(

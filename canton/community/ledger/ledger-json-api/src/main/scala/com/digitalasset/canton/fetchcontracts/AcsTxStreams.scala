@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts
@@ -9,12 +9,19 @@ import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1 as lav1
-import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v2 as lav2
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
-import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import util.{
+  AbsoluteBookmark,
+  BeginBookmark,
+  ContractStreamStep,
+  InsertDeleteStep,
+  ParticipantBegin,
+}
 
 object AcsTxStreams extends NoTracing {
   import util.PekkoStreamsUtils.{last, max, project2}
@@ -41,13 +48,13 @@ object AcsTxStreams extends NoTracing {
     * or the ACS's last offset if there were no transactions.
     */
   def acsFollowingAndBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
+      transactionsSince: lav2.participant_offset.ParticipantOffset => Source[Transaction, NotUsed],
       logger: TracedLogger,
   )(implicit
       ec: concurrent.ExecutionContext,
       lc: com.daml.logging.LoggingContextOf[Any],
   ): Graph[FanOutShape2[
-    lav1.active_contracts_service.GetActiveContractsResponse,
+    lav2.state_service.GetActiveContractsResponse,
     ContractStreamStep.LAV1,
     BeginBookmark[domain.Offset],
   ], NotUsed] =
@@ -76,19 +83,21 @@ object AcsTxStreams extends NoTracing {
     * other with a single result, the last offset.
     */
   private[this] def acsAndBoundary
-      : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
+      : Graph[FanOutShape2[lav2.state_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
       ], BeginBookmark[domain.Offset]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits.*
-      import lav1.active_contracts_service.GetActiveContractsResponse as GACR
+      import lav2.state_service.GetActiveContractsResponse as GACR
       val dup = b add Broadcast[GACR](2, eagerCancel = true)
-      val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
+      val acs = b add (Flow fromFunction ((_: GACR).contractEntry.activeContract
+        .flatMap(_.createdEvent)
+        .toSeq))
       val off = b add Flow[GACR]
         .collect {
           case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(domain.Offset(gacr.offset))
         }
-        .via(last(LedgerBegin: BeginBookmark[domain.Offset]))
+        .via(last(ParticipantBegin: BeginBookmark[domain.Offset]))
       discard { dup ~> acs }
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
@@ -99,7 +108,7 @@ object AcsTxStreams extends NoTracing {
     * to `acsFollowingAndBoundary`.
     */
   def transactionsFollowingBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
+      transactionsSince: lav2.participant_offset.ParticipantOffset => Source[Transaction, NotUsed],
       logger: TracedLogger,
   )(implicit
       ec: concurrent.ExecutionContext,
@@ -119,8 +128,8 @@ object AcsTxStreams extends NoTracing {
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
       import domain.Offset.`Offset ordering`
-      val lastTxOff = b add last(LedgerBegin: Off)
-      val maxOff = b add max(LedgerBegin: Off)
+      val lastTxOff = b add last(ParticipantBegin: Off)
+      val maxOff = b add max(ParticipantBegin: Off)
       val logTxnOut =
         b add logTermination[ContractStreamStep.Txn.LAV1](logger, "first branch of tx stream split")
       // format: off
@@ -133,7 +142,7 @@ object AcsTxStreams extends NoTracing {
     }
 
   private[this] def transactionToInsertsAndDeletes(
-      tx: lav1.transaction.Transaction
+      tx: lav2.transaction.Transaction
   ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
@@ -142,13 +151,13 @@ object AcsTxStreams extends NoTracing {
   def transactionFilter(
       parties: domain.PartySet,
       contractTypeIds: List[ContractTypeId.Resolved],
-  ): lav1.transaction_filter.TransactionFilter = {
-    import lav1.transaction_filter.*
+  ): lav2.transaction_filter.TransactionFilter = {
+    import lav1.transaction_filter.{Filters, InterfaceFilter, InclusiveFilters}
 
     val (templateIds, interfaceIds) = ResolvedQuery.partition(contractTypeIds)
     val filters = Filters(
       Some(
-        lav1.transaction_filter.InclusiveFilters(
+        InclusiveFilters(
           templateIds = templateIds.map(apiIdentifier),
           interfaceFilters = interfaceIds.map(interfaceId =>
             InterfaceFilter(
@@ -160,8 +169,9 @@ object AcsTxStreams extends NoTracing {
       )
     )
 
-    TransactionFilter(
+    lav2.transaction_filter.TransactionFilter(
       domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
     )
   }
+
 }

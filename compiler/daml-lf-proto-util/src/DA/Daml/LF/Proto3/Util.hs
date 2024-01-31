@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DefaultSignatures #-}
@@ -21,7 +21,7 @@ import qualified Data.Text.Lazy as TL
 import           GHC.Generics
 import qualified Numeric
 
-import qualified Com.Daml.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf2 as P
 
 class EitherLike a b e where
     toEither :: e -> Either a b

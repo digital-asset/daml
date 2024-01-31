@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -31,7 +31,6 @@ import com.digitalasset.canton.topology.{
   TestingIdentityFactory,
   TestingTopologyTransactionFactory,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome}
@@ -134,7 +133,7 @@ class DomainTopologyTransactionMessageValidatorTest
           txs,
           mgrCryptoClient.headSnapshot,
           DefaultTestIdentities.domainId,
-          Some(ts.plusMillis(10)),
+          ts.plusMillis(10),
           testedProtocolVersion,
         )
         .futureValue
@@ -168,24 +167,16 @@ class DomainTopologyTransactionMessageValidatorTest
       ts: CantonTimestamp,
       msg: DomainTopologyTransactionMessage,
       assertion: (LogEntry => Assertion) = _.shouldBeCantonErrorCode(TopologyManagerAlarm),
-  ): Assertion = {
-    if (testedProtocolVersion < ProtocolVersion.v5) {
-      env.inject(
-        ts,
-        msg,
-      ) should have length (msg.transactions.length.toLong)
-    } else {
-      loggerFactory.assertLogs(
-        {
-          env.inject(
-            ts,
-            msg,
-          ) should have length (0)
-        },
-        assertion,
-      )
-    }
-  }
+  ): Assertion =
+    loggerFactory.assertLogs(
+      {
+        env.inject(
+          ts,
+          msg,
+        ) should have length (0)
+      },
+      assertion,
+    )
 
   private lazy val ts1 = CantonTimestamp.Epoch
   private lazy val ts2 = CantonTimestamp.Epoch.plusMillis(100)

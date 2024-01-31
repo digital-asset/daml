@@ -1,10 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.logging.pretty
 
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.pretty.PrettyUtil.nullTree
 import pprint.{Tree, Walker}
 
 import scala.annotation.tailrec
@@ -34,15 +35,17 @@ trait PrettyUtil {
           firstNonAnonmymousSuperclass(clazz.getSuperclass)
         } else clazz
 
-      val simpleName =
-        if (inst == null) "Null" else firstNonAnonmymousSuperclass(inst.getClass).getSimpleName
-
-      Tree.Apply(simpleName, getParamTrees.mapFilter(_(inst)).iterator)
+      if (inst == null) nullTree
+      else {
+        val simpleName = firstNonAnonmymousSuperclass(inst.getClass).getSimpleName
+        Tree.Apply(simpleName, getParamTrees.mapFilter(_(inst)).iterator)
+      }
     }
 
   /** A tree presenting the type name only. (E.g., for case objects.)
     */
-  def prettyOfObject[T <: Product]: Pretty[T] = inst => treeOfString(inst.productPrefix)
+  def prettyOfObject[T <: Product]: Pretty[T] = inst =>
+    if (inst == null) nullTree else treeOfString(inst.productPrefix)
 
   /** A tree consisting of a labelled node with the given children. */
   def prettyNode[T](label: String, children: (T => Option[Tree])*): Pretty[T] =
@@ -129,12 +132,14 @@ trait PrettyUtil {
 
   /** Use this to give a class with a singleton parameter the same pretty representation as the parameter.
     */
-  def prettyOfParam[T, V: Pretty](getValue: T => V): Pretty[T] = inst => getValue(inst).toTree
+  def prettyOfParam[T, V: Pretty](getValue: T => V): Pretty[T] = inst =>
+    if (inst == null) nullTree else getValue(inst).toTree
 
   /** Creates a pretty instance from a string function.
     * Do not use this with lengthy strings, as line wrapping is not supported.
     */
-  def prettyOfString[T](toString: T => String): Pretty[T] = inst => treeOfString(toString(inst))
+  def prettyOfString[T](toString: T => String): Pretty[T] = inst =>
+    if (inst == null) nullTree else treeOfString(toString(inst))
 
   private def treeOfString(s: String): Tree =
     if (s.isEmpty) {
@@ -171,7 +176,11 @@ object PrettyUtil extends PrettyUtil {
     def apply[U: Pretty, V: Pretty](first: T => U, infixOp: String, second: T => V): Pretty[T] = {
       inst =>
         import Pretty.PrettyOps
-        Tree.Infix(first(inst).toTree, infixOp, second(inst).toTree)
+        if (inst == null) nullTree
+        else Tree.Infix(first(inst).toTree, infixOp, second(inst).toTree)
     }
   }
+
+  /** How to pretty-print `null` values. This is consistent with [[pprint.Walker.treeify]] */
+  private[pretty] val nullTree = Tree.Literal("null")
 }

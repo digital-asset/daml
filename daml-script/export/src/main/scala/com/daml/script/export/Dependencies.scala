@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -6,9 +6,9 @@ package com.daml.script.export
 import java.io.FileOutputStream
 import java.nio.file.Path
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.{VersionRange, archive}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -32,7 +32,7 @@ object Dependencies {
         case Nil => Future.successful(acc)
         case p :: todo if acc.contains(p) => go(todo, acc)
         case p :: todo =>
-          client.packageClient.getPackage(p).flatMap { pkgResp =>
+          client.v2.packageService.getPackage(p).flatMap { pkgResp =>
             val pkgId = PackageId.assertFromString(pkgResp.hash)
             val pkg =
               archive.archivePayloadDecoder(pkgId).assertFromByteString(pkgResp.archivePayload)._2

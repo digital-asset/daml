@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -99,7 +99,16 @@ class LedgerTimeAwareCommandExecutorSpec
         None,
         configuration,
       ),
-      TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None, None),
+      None,
+      TransactionMeta(
+        let,
+        None,
+        Time.Timestamp.Epoch,
+        submissionSeed,
+        None,
+        None,
+        None,
+      ),
       transaction,
       dependsOnLedgerTime,
       5L,
@@ -170,7 +179,16 @@ class LedgerTimeAwareCommandExecutorSpec
             None,
             configuration,
           ),
-          TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None, None),
+          None,
+          TransactionMeta(
+            let,
+            None,
+            Time.Timestamp.Epoch,
+            submissionSeed,
+            None,
+            None,
+            None,
+          ),
           transaction,
           dependsOnLedgerTime,
           5L,

@@ -1,17 +1,15 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
-import com.daml.metrics.api.MetricHandle.{Counter, Meter, MetricsFactory, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
-
-import scala.annotation.nowarn
 
 class CommandMetrics(
     prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
+    factory: LabeledMetricsFactory,
 ) {
 
   @MetricDoc.Tag(
@@ -20,7 +18,6 @@ class CommandMetrics(
                     |interpreter.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val validation: Timer = factory.timer(prefix :+ "validation")
 
   @MetricDoc.Tag(
@@ -29,7 +26,6 @@ class CommandMetrics(
                     |interpreter.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val reassignmentValidation: Timer = factory.timer(prefix :+ "reassignment_validation")
 
   @MetricDoc.Tag(
@@ -38,7 +34,6 @@ class CommandMetrics(
                     |synchronization services to be finalized (either committed or rejected).""",
     qualification = Latency,
   )
-  @nowarn("cat=deprecation")
   val submissions: Timer = factory.timer(prefix :+ "submissions")
 
   @MetricDoc.Tag(
@@ -49,7 +44,6 @@ class CommandMetrics(
                     |over to the synchronization services).""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val submissionsRunning: Counter = factory.counter(prefix :+ "submissions_running")
 
   @MetricDoc.Tag(
@@ -58,7 +52,6 @@ class CommandMetrics(
                     |(e.g. badly authorized action).""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val failedCommandInterpretations: Meter =
     factory.meter(prefix :+ "failed_command_interpretations")
 
@@ -69,7 +62,6 @@ class CommandMetrics(
                     |expected latency.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val delayedSubmissions: Meter = factory.meter(prefix :+ "delayed_submissions")
 
   @MetricDoc.Tag(
@@ -78,7 +70,6 @@ class CommandMetrics(
                     |sent to interpretation in this ledger api server process.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val validSubmissions: Meter = factory.meter(prefix :+ "valid_submissions")
 
   @MetricDoc.Tag(
@@ -87,7 +78,6 @@ class CommandMetrics(
       "The number of the currently Daml commands awaiting completion in the Command Service.",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val maxInFlightLength: Counter = factory.counter(prefix :+ "max_in_flight_length")
 
   @MetricDoc.Tag(
@@ -96,6 +86,5 @@ class CommandMetrics(
       "The maximum number of Daml commands that can await completion in the Command Service.",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val maxInFlightCapacity: Counter = factory.counter(prefix :+ "max_in_flight_capacity")
 }

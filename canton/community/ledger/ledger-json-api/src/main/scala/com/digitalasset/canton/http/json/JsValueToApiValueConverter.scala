@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json
@@ -9,7 +9,7 @@ import JsValueToApiValueConverter.LfTypeLookup
 import JsonProtocol.LfValueCodec
 import com.daml.ledger.api.{v1 => lav1}
 import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import scalaz.std.string._
 import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue

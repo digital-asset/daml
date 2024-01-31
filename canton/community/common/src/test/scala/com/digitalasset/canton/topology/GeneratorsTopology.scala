@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -19,7 +19,6 @@ object GeneratorsTopology {
   implicit val authenticatedMemberArb: Arbitrary[AuthenticatedMember] = genArbitrary
   implicit val uniqueIdentifierArb: Arbitrary[UniqueIdentifier] = genArbitrary
   implicit val identityArb: Arbitrary[Identity] = genArbitrary
-  implicit val keyOwnerArb: Arbitrary[KeyOwner] = genArbitrary
   implicit val domainIdArb: Arbitrary[DomainId] = genArbitrary
   implicit val mediatorIdArb: Arbitrary[MediatorId] = genArbitrary
   implicit val memberArb: Arbitrary[Member] = genArbitrary

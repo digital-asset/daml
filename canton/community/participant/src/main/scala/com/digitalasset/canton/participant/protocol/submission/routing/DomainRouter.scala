@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission.routing
@@ -84,6 +84,7 @@ class DomainRouter(
 
   def submitTransaction(
       submitterInfo: SubmitterInfo,
+      optDomainId: Option[DomainId],
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: LfSubmittedTransaction,
@@ -139,7 +140,7 @@ class DomainRouter(
         snapshotProvider,
         domainIdResolver,
         contractRoutingParties,
-        transactionMeta.optDomainId,
+        optDomainId,
       )
 
       domainSelector <- domainSelectorFactory.create(transactionData)
@@ -202,9 +203,7 @@ class DomainRouter(
       domainSelector: DomainSelector
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, DomainRank] =
     for {
-      _ <- checkValidityOfMultiDomain(
-        domainSelector.transactionData
-      )
+      _ <- checkValidityOfMultiDomain(domainSelector.transactionData)
       domainRankTarget <- domainSelector.forMultiDomain
     } yield domainRankTarget
 

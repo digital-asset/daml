@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,7 +16,6 @@ import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import SpeedyTestLib.loggingContext
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.testing.parser.ParserParameters
@@ -28,7 +27,6 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.{Failure, Success, Try}
 
-class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
 class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
 
 class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
@@ -53,7 +51,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record @serializable T2 = { party: Party };
@@ -61,7 +58,6 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
           precondition True;
           signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
           observers Nil @Party;
-          agreement "Agreement";
         };
 
         record T3 (a: *) = { party: Party };
@@ -447,40 +443,7 @@ module M {
     }
 
     "use SBRecUpdMulti for non-atomic multi update" in {
-      lazy val partialAnfExpectation = Some(
-        SDefinition(
-          SELet1General(
-            SEVal(LfDefRef(qualify("M:origin"))),
-            SELet1General(
-              SEVal(LfDefRef(qualify("M:f"))),
-              SELet1General(
-                SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(3)))),
-                SELet1General(
-                  SEVal(LfDefRef(qualify("M:f"))),
-                  SELet1General(
-                    SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
-                    SEAppAtomicSaturatedBuiltin(
-                      SBRecUpdMulti(
-                        qualify("M:Point"),
-                        List(
-                          Name.assertFromString("x"),
-                          Name.assertFromString("y"),
-                        ).zipWithIndex,
-                      ),
-                      Array(
-                        SELocS(5),
-                        SELocS(3),
-                        SELocS(1),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          )
-        )
-      )
-      lazy val fullAnfExpectation = Some(
+      lazy val anfExpectation = Some(
         SDefinition(
           SELet1General(
             SEVal(LfDefRef(qualify("M:f"))),
@@ -509,12 +472,8 @@ module M {
           )
         )
       )
-      val expectation = majorLanguageVersion.evaluationOrder match {
-        case LeftToRight => partialAnfExpectation
-        case RightToLeft => fullAnfExpectation
-      }
       recUpdPkgs
-        .getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual expectation
+        .getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual anfExpectation
     }
 
     "produce expected output for non-atomic multi update" in {

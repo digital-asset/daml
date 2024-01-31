@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -31,8 +31,6 @@ final class StoreBasedTopologyStateForInitializationService(
     * 3. Find all transactions with sequence time <= t0'
     * 4. Find the maximum effective time of the transactions returned in 3. (here ts1')
     * 5. Set all validUntil > ts1' to None
-    *
-    * TODO(#13394) adapt this logic to allow onboarding of a previously offboarded member
     *
     * {{{
     *

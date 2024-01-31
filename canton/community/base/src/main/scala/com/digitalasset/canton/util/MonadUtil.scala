@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -62,6 +62,14 @@ object MonadUtil {
         val next = monad.flatMap(m)(f)
         repeatFlatmap(next, f, counter - 1)
     }
+  }
+
+  /** Monadic version of cats.Applicative.whenA.
+    *
+    * The effect `trueM` is only executed if `condM` evaluates to false within the effect `M`.
+    */
+  def unlessM[M[_], A](condM: M[Boolean])(trueM: => M[A])(implicit monad: Monad[M]): M[Unit] = {
+    monad.ifM(condM)(monad.unit, monad.void(trueM))
   }
 
   def sequentialTraverse[X, M[_], S](

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.{value => v}
 import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.script.export.TreeUtils.{contractsReferences, treesReferences, valueRefs}
 import com.google.protobuf.empty.Empty
 import org.scalatest.freespec.AnyFreeSpec

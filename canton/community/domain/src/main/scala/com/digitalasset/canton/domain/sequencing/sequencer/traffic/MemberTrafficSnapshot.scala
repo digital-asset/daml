@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.domain.sequencing.sequencer.traffic
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v1.SequencerSnapshot.MemberTrafficSnapshot as MemberTrafficSnapshotP
+import com.digitalasset.canton.domain.admin.v30.SequencerSnapshot.MemberTrafficSnapshot as MemberTrafficSnapshotP
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -16,7 +16,7 @@ final case class MemberTrafficSnapshot(
     member: Member,
     state: TrafficState,
 ) {
-  def toProtoV1: MemberTrafficSnapshotP = {
+  def toProtoV30: MemberTrafficSnapshotP = {
     MemberTrafficSnapshotP(
       member = member.toProtoPrimitive,
       extraTrafficRemainder = state.extraTrafficRemainder.value,

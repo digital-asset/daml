@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -11,7 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v2
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -52,7 +52,7 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     HashPurpose.TopologyTransactionSignature,
     signatures.toList
       .sortBy(_.signedBy.toProtoPrimitive)
-      .map(_.toProtoV0.toByteString)
+      .map(_.toProtoV30.toByteString)
       .reduceLeft(_.concat(_)),
     HashAlgorithm.Sha256,
   )
@@ -91,10 +91,10 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     selectMapping[TargetMapping].flatMap(_.selectOp[TargetOp])
   }
 
-  def toProtoV2: v2.SignedTopologyTransactionX =
-    v2.SignedTopologyTransactionX(
+  def toProtoV30: v30.SignedTopologyTransactionX =
+    v30.SignedTopologyTransactionX(
       transaction = transaction.getCryptographicEvidence,
-      signatures = signatures.toSeq.map(_.toProtoV0),
+      signatures = signatures.toSeq.map(_.toProtoV30),
       proposal = isProposal,
     )
 
@@ -119,8 +119,8 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
 }
 
 object SignedTopologyTransactionX
-    extends HasProtocolVersionedCompanion[
-      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
+    extends HasProtocolVersionedWithOptionalValidationCompanion[
+      SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
     ] {
   override val name: String = "SignedTopologyTransactionX"
 
@@ -131,13 +131,12 @@ object SignedTopologyTransactionX
     SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.minimum),
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(
-      v2.SignedTopologyTransactionX
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      v30.SignedTopologyTransactionX
     )(
-      supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
-    ),
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
@@ -199,16 +198,15 @@ object SignedTopologyTransactionX
       EitherT.rightT(signedTx)
   }
 
-  def fromProtoV2(
-      transactionP: v2.SignedTopologyTransactionX
+  def fromProtoV30(
+      protocolVersionValidation: ProtocolVersionValidation,
+      transactionP: v30.SignedTopologyTransactionX,
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
-    val v2.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
+    val v30.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
     for {
-      transaction <- TopologyTransactionX.fromByteStringUnsafe(
-        txBytes
-      ) // TODO(#12626) - try with context
+      transaction <- TopologyTransactionX.fromByteString(protocolVersionValidation)(txBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "SignedTopologyTransactionX.signatures",
         signaturesP,
       )
@@ -220,12 +218,11 @@ object SignedTopologyTransactionX
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =
     GetResult { r =>
-      fromByteStringUnsafe(r.<<[ByteString])
-        .valueOr(err =>
-          throw new DbSerializationException(
-            s"Failed to deserialize SignedTopologyTransactionX: $err"
-          )
+      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
+        throw new DbSerializationException(
+          s"Failed to deserialize SignedTopologyTransactionX: $err"
         )
+      )
     }
 
   implicit def setParameterTopologyTransaction(implicit

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.error.groups
@@ -15,6 +15,13 @@ import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiError
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServiceErrors extends AdminServicesErrorGroup {
+
+  val UserManagement: UserManagementServiceErrors.type =
+    UserManagementServiceErrors
+  val IdentityProviderConfig: IdentityProviderConfigServiceErrors.type =
+    IdentityProviderConfigServiceErrors
+  val PartyManagement: PartyManagementServiceErrors.type =
+    PartyManagementServiceErrors
 
   @Explanation("This rejection is given when a new configuration is rejected.")
   @Resolution("Fetch newest configuration and/or retry.")

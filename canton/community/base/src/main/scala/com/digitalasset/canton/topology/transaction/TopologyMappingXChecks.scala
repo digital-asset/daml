@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -8,9 +8,10 @@ import cats.instances.future.*
 import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.PositiveStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
   TopologyStoreX,
@@ -18,6 +19,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.Code
+import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
@@ -43,10 +45,11 @@ object NoopTopologyMappingXChecks extends TopologyMappingXChecks {
 
 class ValidatingTopologyMappingXChecks(
     store: TopologyStoreX[TopologyStoreId],
-    loggerFactory: NamedLoggerFactory,
+    val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends TopologyMappingXChecks {
+) extends TopologyMappingXChecks
+    with NamedLogging {
 
   def checkTransaction(
       effective: EffectiveTime,
@@ -58,7 +61,7 @@ class ValidatingTopologyMappingXChecks(
       case (Code.DomainTrustCertificateX, None | Some(Code.DomainTrustCertificateX)) =>
         toValidate
           .selectMapping[DomainTrustCertificateX]
-          .map(checkDomainTrustCertificate(effective, _))
+          .map(checkDomainTrustCertificate(effective, inStore.isEmpty, _))
 
       case (Code.PartyToParticipantX, None | Some(Code.PartyToParticipantX)) =>
         toValidate
@@ -80,28 +83,41 @@ class ValidatingTopologyMappingXChecks(
     checkOpt.getOrElse(EitherTUtil.unit)
   }
 
-  /** Checks that the DTC is not being removed if the participant still hosts a party.
-    * This check is potentially quite expensive: we have to fetch all party to participant mappings, because
-    * we cannot index by the hosting participants.
-    */
+  private def loadFromStore(
+      effective: EffectiveTime,
+      code: Code,
+      filterUid: Option[Seq[UniqueIdentifier]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TopologyTransactionRejection, PositiveStoredTopologyTransactionsX] =
+    EitherT
+      .right[TopologyTransactionRejection](
+        store
+          .findPositiveTransactions(
+            effective.value,
+            asOfInclusive = false,
+            isProposal = false,
+            types = Seq(code),
+            filterUid = filterUid,
+            filterNamespace = None,
+          )
+      )
+
   private def checkDomainTrustCertificate(
       effective: EffectiveTime,
+      isFirst: Boolean,
       toValidate: SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX],
-  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
-    if (toValidate.transaction.op == TopologyChangeOpX.Remove) {
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] =
+    if (toValidate.transaction.op == TopologyChangeOpX.Remove && isFirst) {
+      EitherT.leftT(TopologyTransactionRejection.Other("Cannot have a remove as the first DTC"))
+    } else if (toValidate.transaction.op == TopologyChangeOpX.Remove) {
+
+      /* Checks that the DTC is not being removed if the participant still hosts a party.
+       * This check is potentially quite expensive: we have to fetch all party to participant mappings, because
+       * we cannot index by the hosting participants.
+       */
       for {
-        storedPartyToParticipantMappings <- EitherT
-          .right[TopologyTransactionRejection](
-            store
-              .findPositiveTransactions(
-                effective.value,
-                asOfInclusive = false,
-                isProposal = false,
-                types = Seq(PartyToParticipantX.code),
-                filterUid = None,
-                filterNamespace = None,
-              )
-          )
+        storedPartyToParticipantMappings <- loadFromStore(effective, PartyToParticipantX.code, None)
         participantToOffboard = toValidate.mapping.participantId
         participantHostsParties = storedPartyToParticipantMappings.result.view
           .flatMap(_.selectMapping[PartyToParticipantX])
@@ -110,7 +126,6 @@ class ValidatingTopologyMappingXChecks(
               tx.mapping.partyId
           }
           .toSeq
-
         _ <- EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
           participantHostsParties.isEmpty,
           TopologyTransactionRejection.ParticipantStillHostsParties(
@@ -119,11 +134,85 @@ class ValidatingTopologyMappingXChecks(
           ),
         )
       } yield ()
+    } else if (isFirst) {
 
+      // Checks if the participant is allowed to submit its domain trust certificate
+      val participantId = toValidate.mapping.participantId
+      for {
+        domainParamCandidates <- loadFromStore(effective, DomainParametersStateX.code, None)
+        restrictions = domainParamCandidates.result.view
+          .flatMap(_.selectMapping[DomainParametersStateX])
+          .collect { case tx =>
+            tx.transaction.mapping.parameters.onboardingRestriction
+          }
+          .toList match {
+          case Nil =>
+            logger.error(
+              "Can not determine the onboarding restriction. Assuming the domain is locked."
+            )
+            OnboardingRestriction.RestrictedLocked
+          case param :: Nil => param
+          case param :: rest =>
+            logger.error(
+              s"Multiple domain parameters at ${effective} ${rest.size + 1}. Using first one with restriction ${param}."
+            )
+            param
+        }
+        _ <- (restrictions match {
+          case OnboardingRestriction.RestrictedLocked | OnboardingRestriction.UnrestrictedLocked =>
+            logger.info(s"Rejecting onboarding of new participant ${toValidate.mapping}")
+            EitherT.leftT(
+              TopologyTransactionRejection
+                .OnboardingRestrictionInPlace(
+                  participantId,
+                  restrictions,
+                  None,
+                ): TopologyTransactionRejection
+            )
+          case OnboardingRestriction.UnrestrictedOpen =>
+            EitherT.rightT(())
+          case OnboardingRestriction.RestrictedOpen =>
+            loadFromStore(
+              effective,
+              ParticipantDomainPermissionX.code,
+              filterUid = Some(Seq(toValidate.mapping.participantId.uid)),
+            ).subflatMap { storedPermissions =>
+              val isAllowlisted = storedPermissions.result.view
+                .flatMap(_.selectMapping[ParticipantDomainPermissionX])
+                .collectFirst {
+                  case x if x.mapping.domainId == toValidate.mapping.domainId =>
+                    x.mapping.loginAfter
+                }
+              isAllowlisted match {
+                case Some(Some(loginAfter)) if loginAfter > effective.value =>
+                  // this should not happen except under race conditions, as sequencers should not let participants login
+                  logger.warn(
+                    s"Rejecting onboarding of ${toValidate.mapping.participantId} as the participant still has a login ban until ${loginAfter}"
+                  )
+                  Left(
+                    TopologyTransactionRejection
+                      .OnboardingRestrictionInPlace(participantId, restrictions, Some(loginAfter))
+                  )
+                case Some(_) =>
+                  logger.info(
+                    s"Accepting onboarding of ${toValidate.mapping.participantId} as it is allow listed"
+                  )
+                  Right(())
+                case None =>
+                  logger.info(
+                    s"Rejecting onboarding of ${toValidate.mapping.participantId} as it is not allow listed as of ${effective.value}"
+                  )
+                  Left(
+                    TopologyTransactionRejection
+                      .OnboardingRestrictionInPlace(participantId, restrictions, None)
+                  )
+              }
+            }
+        }): EitherT[Future, TopologyTransactionRejection, Unit]
+      } yield ()
     } else {
       EitherTUtil.unit
     }
-  }
 
   private val requiredKeyPurposes = Set(KeyPurpose.Encryption, KeyPurpose.Signing)
 

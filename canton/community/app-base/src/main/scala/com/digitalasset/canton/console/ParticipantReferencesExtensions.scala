@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -8,10 +8,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 
-class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
+class ParticipantReferencesExtensions(participants: Seq[ParticipantReferenceCommon])(implicit
     override val consoleEnvironment: ConsoleEnvironment
 ) extends Helpful
     with NamedLogging
@@ -32,7 +33,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         darPath: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
-    ): Map[ParticipantReference, String] = {
+    ): Map[ParticipantReferenceCommon, String] = {
       val res = ConsoleCommandResult.runAll(participants)(
         ParticipantCommands.dars
           .upload(
@@ -55,28 +56,21 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
   object domains extends Helpful {
 
     @Help.Summary("Disconnect from domain")
-    def disconnect(alias: DomainAlias): Unit = {
-      val _ =
-        ConsoleCommandResult.runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
-    }
-
-    @Help.Summary("Disconnect from a local domain")
-    def disconnect_local(domain: LocalDomainReference): Unit = {
-      val _ =
-        ConsoleCommandResult.runAll(participants)(
-          ParticipantCommands.domains.disconnect(_, DomainAlias.tryCreate(domain.name))
-        )
-    }
+    def disconnect(alias: DomainAlias): Unit =
+      ConsoleCommandResult
+        .runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
+        .discard
 
     @Help.Summary("Reconnect to domain")
     @Help.Description(
       "If retry is set to true (default), the command will return after the first attempt, but keep on trying in the background."
     )
-    def reconnect(alias: DomainAlias, retry: Boolean = true): Unit = {
-      val _ = ConsoleCommandResult.runAll(participants)(
-        ParticipantCommands.domains.reconnect(_, alias, retry)
-      )
-    }
+    def reconnect(alias: DomainAlias, retry: Boolean = true): Unit =
+      ConsoleCommandResult
+        .runAll(participants)(
+          ParticipantCommands.domains.reconnect(_, alias, retry)
+        )
+        .discard
 
     @Help.Summary("Reconnect to all domains for which `manualStart` = false")
     @Help.Description(
@@ -90,21 +84,22 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     }
 
     @Help.Summary("Disconnect from all connected domains")
-    def disconnect_all(): Unit = {
-      val _ = ConsoleCommandResult.runAll(participants) { p =>
-        ConsoleCommandResult.fromEither(for {
-          connected <- ParticipantCommands.domains.list_connected(p).toEither
-          _ <- connected
-            .traverse(d => ParticipantCommands.domains.disconnect(p, d.domainAlias).toEither)
-        } yield ())
-      }
-    }
+    def disconnect_all(): Unit =
+      ConsoleCommandResult
+        .runAll(participants) { p =>
+          ConsoleCommandResult.fromEither(for {
+            connected <- ParticipantCommands.domains.list_connected(p).toEither
+            _ <- connected
+              .traverse(d => ParticipantCommands.domains.disconnect(p, d.domainAlias).toEither)
+          } yield ())
+        }
+        .discard
 
     @Help.Summary("Register and potentially connect to domain")
-    def register(config: DomainConnectionConfig): Unit = {
-      val _ =
-        ConsoleCommandResult.runAll(participants)(ParticipantCommands.domains.register(_, config))
-    }
+    def register(config: DomainConnectionConfig): Unit =
+      ConsoleCommandResult
+        .runAll(participants)(ParticipantCommands.domains.register(_, config))
+        .discard
 
     @Help.Summary("Register and potentially connect to new local domain")
     @Help.Description("""
@@ -115,14 +110,16 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         """)
     def connect_local(
         domain: InstanceReferenceWithSequencerConnection,
+        alias: DomainAlias,
         manualConnect: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): Unit = {
       val config =
-        ParticipantCommands.domains.referenceToConfig(
+        ParticipantCommands.domains.reference_to_config(
           NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
+          alias,
           manualConnect,
         )
       register(config)
@@ -134,9 +131,14 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
 
 }
 
-class LocalParticipantReferencesExtensions(participants: Seq[LocalParticipantReference])(implicit
+class LocalParticipantReferencesExtensions[
+    ParticipantNodeT <: ParticipantNodeCommon,
+    LocalParticipantRef <: LocalParticipantReferenceCommon[ParticipantNodeT],
+](
+    participants: Seq[LocalParticipantRef]
+)(implicit
     override val consoleEnvironment: ConsoleEnvironment
 ) extends ParticipantReferencesExtensions(participants)
-    with LocalInstancesExtensions {
-  override def instances: Seq[LocalInstanceReferenceCommon] = participants
+    with LocalInstancesExtensions[LocalParticipantRef] {
+  override def instances: Seq[LocalParticipantRef] = participants
 }

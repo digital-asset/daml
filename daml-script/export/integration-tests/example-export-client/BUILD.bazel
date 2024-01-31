@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,19 +13,24 @@ da_scala_binary(
     main_class = "com.daml.script.export.ExampleExportClient",
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-script/export",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-pekko",
-        "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "//libs-scala/fs-utils",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_netty_netty_handler",
     ],
 )

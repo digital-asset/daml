@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,7 +20,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ValueEnricherSpecV1 extends ValueEnricherSpec(LanguageMajorVersion.V1)
 class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
 
 class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -78,7 +77,6 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
              precondition True;
              signatories Mod:contractParties this;
              observers Mod:contractParties this;
-             agreement "Agreement";
              choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
                controllers
                  Mod:contractParties this

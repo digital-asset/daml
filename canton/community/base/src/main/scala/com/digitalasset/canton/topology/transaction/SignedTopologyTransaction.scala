@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -8,17 +8,18 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion,
+  HasMemoizedProtocolVersionedWithOptionalValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
 }
 import com.google.common.annotations.VisibleForTesting
@@ -56,11 +57,11 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
   @transient override protected lazy val companionObj: SignedTopologyTransaction.type =
     SignedTopologyTransaction
 
-  private def toProtoV0: v0.SignedTopologyTransaction =
-    v0.SignedTopologyTransaction(
+  private def toProtoV30: v30.SignedTopologyTransaction =
+    v30.SignedTopologyTransaction(
       transaction = transaction.getCryptographicEvidence,
-      key = Some(key.toProtoV0),
-      signature = Some(signature.toProtoV0),
+      key = Some(key.toProtoV30),
+      signature = Some(signature.toProtoV30),
     )
 
   def verifySignature(pureApi: CryptoPureApi): Either[SignatureCheckError, Unit] = {
@@ -90,17 +91,19 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp] private (
 }
 
 object SignedTopologyTransaction
-    extends HasMemoizedProtocolVersionedWrapperCompanion[SignedTopologyTransaction[
-      TopologyChangeOp
-    ]] {
+    extends HasMemoizedProtocolVersionedWithOptionalValidationCompanion[
+      SignedTopologyTransaction[
+        TopologyChangeOp
+      ]
+    ] {
   override val name: String = "SignedTopologyTransaction"
 
   type GenericSignedTopologyTransaction = SignedTopologyTransaction[TopologyChangeOp]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SignedTopologyTransaction)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedTopologyTransaction)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -164,20 +167,24 @@ object SignedTopologyTransaction
       EitherT.rightT(signedTx)
   }
 
-  private def fromProtoV0(transactionP: v0.SignedTopologyTransaction)(
+  private def fromProtoV30(
+      protocolVersionValidation: ProtocolVersionValidation,
+      transactionP: v30.SignedTopologyTransaction,
+  )(
       bytes: ByteString
   ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
     for {
-      transaction <- TopologyTransaction.fromByteStringUnsafe(
-        transactionP.transaction
-      ) // TODO(#12626) – try with context
+      transaction <-
+        TopologyTransaction.fromByteString(protocolVersionValidation)(
+          transactionP.transaction
+        )
       publicKey <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV0,
+        SigningPublicKey.fromProtoV30,
         "key",
         transactionP.key,
       )
       signature <- ProtoConverter.parseRequired(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "signature",
         transactionP.signature,
       )
@@ -191,12 +198,9 @@ object SignedTopologyTransaction
   def createGetResultDomainTopologyTransaction
       : GetResult[SignedTopologyTransaction[TopologyChangeOp]] =
     GetResult { r =>
-      fromByteStringUnsafe(
-        r.<<[ByteString]
+      fromByteStringUnsafe(r.<<[ByteString]).valueOr(err =>
+        throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
       )
-        .valueOr(err =>
-          throw new DbSerializationException(s"Failed to deserialize TopologyTransaction: $err")
-        )
     }
 
   implicit def setParameterTopologyTransaction(implicit

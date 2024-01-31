@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -178,7 +178,7 @@ class SimpleExecutionQueue(
       AsyncCloseable(
         s"simple-exec-queue: $name",
         flush(),
-        timeouts.shutdownProcessing.duration,
+        timeouts.shutdownProcessing,
         // In the event where the flush does not complete within the allocated timeout,
         // forcibly shutdown the remaining queued tasks, except the currently running one
         onTimeout = _ => forceShutdownTasks(),

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.release
@@ -16,35 +16,36 @@ import scala.sys.process.*
 
 /** The `CliIntegrationTest` tests Canton command line options by instantiating a Canton binary in a new process with
   * the to-be-tested CLI options as arguments.
-  * Before being able to run these tests locally, you need to execute `sbt bundle`.
+  * Before being able to run these tests locally, you need to execute `sbt bundle` and `sbt package`.
   */
-class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
+class CliXIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
 
   override protected def withFixture(test: OneArgTest): Outcome = test(new BufferedProcessLogger)
 
   override type FixtureParam = BufferedProcessLogger
 
-  lazy val cantonDir = "enterprise/app/target/release/canton"
-  lazy val repositoryRootFromCantonDir = "../../../../.."
-  lazy val cantonBin = s"$cantonDir/bin/canton"
-  lazy val resourceDir = "community/app/src/test/resources"
+  private lazy val cantonDir = "enterprise/app/target/release/canton"
+  private lazy val repositoryRootFromCantonDir = "../../../../.."
+  private lazy val cantonBin = s"$cantonDir/bin/canton"
+  private lazy val resourceDir = "community/app/src/test/resources"
 
   // turn off cache-dir to avoid compilation errors due to concurrent cache access
   private lazy val cacheTurnOff =
     s"$resourceDir/config-snippets/disable-ammonite-cache.conf"
 
-  lazy val simpleConf = "community/app/src/pack/examples/01-simple-topology/simple-topology.conf"
-  lazy val unsupportedProtocolVersionConfig =
+  private lazy val simpleConf =
+    "community/app/src/pack/examples/01-simple-topology/simple-topology-x.conf"
+  private lazy val unsupportedProtocolVersionConfig =
     "enterprise/app/src/test/resources/unsupported-protocol-version.conf"
   // this warning is potentially thrown when starting Canton with --no-tty
-  lazy val ttyWarning =
+  private lazy val ttyWarning =
     "WARN  org.jline - Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)"
-  lazy val jsonTtyWarning =
+  private lazy val jsonTtyWarning =
     "\"message\":\"Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\",\"logger_name\":\"org.jline\",\"thread_name\":\"main\",\"level\":\"WARN\""
 
   // Message printed out by the bootstrap script if Canton is started successfully
-  lazy val successMsg = "The last emperor is always the worst."
-  lazy val cantonShouldStartFlags =
+  private lazy val successMsg = "The last emperor is always the worst."
+  private lazy val cantonShouldStartFlags =
     s"--verbose --no-tty --config $cacheTurnOff --bootstrap $resourceDir/scripts/bootstrap.canton"
 
   "Calling Canton" should {
@@ -71,7 +72,8 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       checkOutput(processLogger, shouldContain = Seq(successMsg), shouldSucceed = false)
     }
 
-    "successfully start and auto-connect to local domains" in { processLogger =>
+    // TODO(#14048) re-enable once auto-connect-local is extended to x-nodes
+    "successfully start and auto-connect to local domains" ignore { processLogger =>
       s"""$cantonBin daemon
            |--config $cacheTurnOff
            |--bootstrap $resourceDir/scripts/startup.canton
@@ -99,7 +101,14 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     }
 
     "successfully start a Canton node when configured only using -C" in { processLogger =>
-      s"$cantonBin -C canton.participants.participant1.storage.type=memory -C canton.participants.participant1.admin-api.port=5012 -C canton.participants.participant1.ledger-api.port=5011 -C canton.domains.domain1.public-api.port=5018 -C canton.domains.domain1.admin-api.port=5019 -C canton.domains.domain1.storage.type=memory $cantonShouldStartFlags" ! processLogger
+      s"""$cantonBin
+          | -C canton.participants.participant1.storage.type=memory
+          | -C canton.participants.participant1.admin-api.port=5012
+          | -C canton.participants.participant1.ledger-api.port=5011
+          | -C canton.sequencers.sequencer1.sequencer.config.storage.type=memory
+          | -C canton.sequencers.sequencer1.sequencer.type=reference
+          | -C canton.sequencers.sequencer1.storage.type=memory
+          | $cantonShouldStartFlags""".stripMargin ! processLogger
       checkOutput(processLogger, shouldContain = Seq(successMsg))
     }
 
@@ -191,7 +200,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
 
       val basicCommand = {
         // user-manual-entry-begin: SetNumThreads
-        "bin/canton -Dscala.concurrent.context.numThreads=12 --config examples/01-simple-topology/simple-topology.conf"
+        "bin/canton -Dscala.concurrent.context.numThreads=12 --config examples/01-simple-topology/simple-topology-x.conf"
         // user-manual-entry-end: SetNumThreads
       }
       val cmd = basicCommand + " --no-tty"
@@ -215,10 +224,14 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
 
     "turn a local config into a remote" in { processLogger =>
       s"$cantonBin generate remote-config --config $simpleConf " ! processLogger
-      Seq("remote-participant1.conf", "remote-participant2.conf", "remote-mydomain.conf").foreach {
-        check =>
-          val fl = File(check)
-          assert(fl.exists, s"$check is missing")
+      Seq(
+        "remote-participant1.conf",
+        "remote-participant2.conf",
+        "remote-sequencer1.conf",
+        "remote-mediator1.conf",
+      ).foreach { check =>
+        val fl = File(check)
+        assert(fl.exists, s"$check is missing")
       }
     }
 

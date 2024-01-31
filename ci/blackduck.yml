@@ -1,10 +1,11 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
 - job: blackduck_scan
   timeoutInMinutes: 120
-  condition: or(and(eq(variables['Build.SourceBranchName'], 'main'),
+  condition: or(and(or(eq(variables['Build.SourceBranchName'], 'main'),
+                       eq(variables['Build.SourceBranchName'], 'main-2.x')),
                     eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat')),
                 and(eq(variables['Build.DefinitionName'], 'PRs'),
                     startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-')))
@@ -12,7 +13,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: bee7a8c6c04af059fa446efcd697cc097eded1cf
+    blackduck_script_sha: 745a1566cee2367270a8c27c05859b34c3ba447a
   steps:
   - checkout: self
     persistCredentials: true
@@ -152,11 +153,13 @@ jobs:
     displayName: open PR
     name: out
     condition: and(succeeded(),
-                     eq(variables['Build.SourceBranchName'], 'main'))
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
+                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
 
 - job: bump_blackduck_if_needed
   timeoutInMinutes: 10
-  condition: and(eq(variables['Build.SourceBranchName'], 'main'),
+  condition: and(or(eq(variables['Build.SourceBranchName'], 'main'),
+                    eq(variables['Build.SourceBranchName'], 'main-2.x')),
                  eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))
   pool:
     name: ubuntu_20_04

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -531,6 +531,7 @@ def _create_scaladoc_jar(
         versioned_deps = {},
         versioned_scala_deps = {},
         scalacopts = [],
+        override_scalacopts = None,
         generated_srcs = [],
         **kwargs):
     # Limit execution to Linux and MacOS
@@ -540,7 +541,7 @@ def _create_scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
             srcs = srcs,
-            scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+            scalacopts = (common_scalacopts + plugin_scalacopts + scalacopts) if override_scalacopts == None else override_scalacopts,
             plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],
@@ -579,7 +580,7 @@ def da_scala_library(name, scaladoc = True, override_scalacopts = None, **kwargs
     _wrap_rule(scala_library, name, override_scalacopts = override_scalacopts, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     if scaladoc == True:
-        _create_scaladoc_jar(name = name, **arguments)
+        _create_scaladoc_jar(name = name, override_scalacopts = override_scalacopts, **arguments)
     _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:

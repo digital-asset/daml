@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -33,8 +33,11 @@ trait TransactionAuthorizationValidatorX {
   protected val namespaceCache = new TrieMap[Namespace, AuthorizationGraphX]()
   protected val identifierDelegationCache =
     new TrieMap[UniqueIdentifier, Set[AuthorizedIdentifierDelegationX]]()
-  protected val unionspaceCache =
-    new TrieMap[Namespace, (UnionspaceDefinitionX, UnionspaceAuthorizationGraphX)]()
+  protected val decentralizedNamespaceCache =
+    new TrieMap[
+      Namespace,
+      (DecentralizedNamespaceDefinitionX, DecentralizedNamespaceAuthorizationGraphX),
+    ]()
 
   protected def store: TopologyStoreX[TopologyStoreId]
 
@@ -43,6 +46,8 @@ trait TransactionAuthorizationValidatorX {
   def isCurrentlyAuthorized(
       toValidate: GenericSignedTopologyTransactionX,
       inStore: Option[GenericSignedTopologyTransactionX],
+  )(implicit
+      traceContext: TraceContext
   ): Either[TopologyTransactionRejection, RequiredAuthXAuthorizations] = {
     // first determine all possible namespaces and uids that need to sign the transaction
     val requiredAuth = toValidate.transaction.mapping.requiredAuth(inStore.map(_.transaction))
@@ -93,14 +98,21 @@ trait TransactionAuthorizationValidatorX {
         _ <- Either.cond[TopologyTransactionRejection, Unit](
           // the key used for the signature must be a valid key for at least one of the delegation mechanisms
           actualNamespaceAuthorizationsWithRoot.nonEmpty || actualNamespaceAuthorizations.nonEmpty || actualUidAuthorizations.nonEmpty,
-          (),
-          TopologyTransactionRejection.NotAuthorized,
+          (), {
+            logger.debug(
+              s"The key ${sig.signedBy.singleQuoted} has no delegation to authorize the transaction $toValidate"
+            )
+            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
+          },
         )
 
         keyForSignature <- (rootKeys ++ nsKeys ++ uidKeys).headOption
-          .toRight[TopologyTransactionRejection](
-            TopologyTransactionRejection.NotAuthorized
-          )
+          .toRight[TopologyTransactionRejection]({
+            logger.debug(
+              s"Key ${sig.signedBy.singleQuoted} was delegated to, but no actual key was identified. This should not happen."
+            )
+            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
+          })
         _ <- pureCrypto
           .verifySignature(toValidate.transaction.hash.hash, keyForSignature, sig)
           .leftMap(TopologyTransactionRejection.SignatureCheckFailed)
@@ -151,11 +163,11 @@ trait TransactionAuthorizationValidatorX {
   protected def getAuthorizationCheckForNamespace(
       namespace: Namespace
   ): AuthorizationCheckX = {
-    val unionspaceCheck = unionspaceCache.get(namespace).map(_._2)
+    val decentralizedNamespaceCheck = decentralizedNamespaceCache.get(namespace).map(_._2)
     val namespaceCheck = namespaceCache.get(
       namespace
     )
-    unionspaceCheck
+    decentralizedNamespaceCheck
       .orElse(namespaceCheck)
       .getOrElse(AuthorizationCheckX.empty)
   }
@@ -174,25 +186,25 @@ trait TransactionAuthorizationValidatorX {
       namespaces: Set[Namespace],
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
     val uncachedNamespaces =
-      namespaces -- namespaceCache.keySet -- unionspaceCache.keySet // only load the ones we don't already hold in memory
+      namespaces -- namespaceCache.keySet -- decentralizedNamespaceCache.keySet // only load the ones we don't already hold in memory
 
     for {
       // TODO(#12390) this doesn't find fully validated transactions from the same batch
-      storedUnionspaces <- store.findPositiveTransactions(
+      storedDecentralizedNamespace <- store.findPositiveTransactions(
         timestamp,
         asOfInclusive = false,
         isProposal = false,
-        types = Seq(UnionspaceDefinitionX.code),
+        types = Seq(DecentralizedNamespaceDefinitionX.code),
         filterUid = None,
         filterNamespace = Some(uncachedNamespaces.toSeq),
       )
-      unionspaces = storedUnionspaces.result.flatMap(
-        _.transaction.selectMapping[UnionspaceDefinitionX]
+      decentralizedNamespaces = storedDecentralizedNamespace.result.flatMap(
+        _.transaction.selectMapping[DecentralizedNamespaceDefinitionX]
       )
-      unionspaceOwnersToLoad = unionspaces
+      decentralizedNamespaceOwnersToLoad = decentralizedNamespaces
         .flatMap(_.transaction.mapping.owners)
         .toSet -- namespaceCache.keySet
-      namespacesToLoad = uncachedNamespaces ++ unionspaceOwnersToLoad
+      namespacesToLoad = uncachedNamespaces ++ decentralizedNamespaceOwnersToLoad
 
       storedNamespaceDelegations <- store.findPositiveTransactions(
         timestamp,
@@ -234,13 +246,13 @@ trait TransactionAuthorizationValidatorX {
           graph.unauthorizedAdd(transactions.map(AuthorizedTopologyTransactionX(_)))
         }
 
-      unionspaces.foreach { us =>
-        import us.transaction.mapping.unionspace
+      decentralizedNamespaces.foreach { dns =>
+        import dns.transaction.mapping.namespace
         ErrorUtil.requireArgument(
-          !unionspaceCache.isDefinedAt(unionspace),
-          s"unionspace shouldn't already be cached before loading $unionspace vs ${unionspaceCache.keySet}",
+          !decentralizedNamespaceCache.isDefinedAt(namespace),
+          s"decentralized namespace shouldn't already be cached before loading $namespace vs ${decentralizedNamespaceCache.keySet}",
         )
-        val graphs = us.transaction.mapping.owners.forgetNE.toSeq.map(ns =>
+        val graphs = dns.transaction.mapping.owners.forgetNE.toSeq.map(ns =>
           namespaceCache.getOrElseUpdate(
             ns,
             new AuthorizationGraphX(
@@ -250,22 +262,22 @@ trait TransactionAuthorizationValidatorX {
             ),
           )
         )
-        val directUnionspaceGraph = namespaceCache.getOrElseUpdate(
-          unionspace,
+        val directDecentralizedNamespaceGraph = namespaceCache.getOrElseUpdate(
+          namespace,
           new AuthorizationGraphX(
-            unionspace,
+            namespace,
             extraDebugInfo = false,
             loggerFactory,
           ),
         )
-        unionspaceCache
+        decentralizedNamespaceCache
           .put(
-            unionspace,
+            namespace,
             (
-              us.transaction.mapping,
-              UnionspaceAuthorizationGraphX(
-                us.transaction.mapping,
-                directUnionspaceGraph,
+              dns.transaction.mapping,
+              DecentralizedNamespaceAuthorizationGraphX(
+                dns.transaction.mapping,
+                directDecentralizedNamespaceGraph,
                 graphs,
               ),
             ),

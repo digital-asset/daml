@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -39,16 +39,9 @@ class ContractStoreBasedMaximumLedgerTimeService(
 
         case (resultSoFar, contractId :: otherContractIds) =>
           contractStore
-            .lookupContractStateWithoutDivulgence(contractId)
+            .lookupContractState(contractId)
             .flatMap {
-              case ContractState.NotFound =>
-                // If cannot be found: no create or archive event for the contract.
-                // Since this contract is part of the input, it was able to be looked up once.
-                // So this is the case of a divulged contract, which was not archived.
-                // Divulged contract does not change maximumLedgerTime
-                goAsync(maximumLedgerTime, otherContractIds)
-
-              case ContractState.Archived =>
+              case ContractState.Archived | ContractState.NotFound =>
                 // early termination on the first archived contract in sight
                 Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
 

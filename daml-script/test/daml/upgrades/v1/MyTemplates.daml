@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module MyTemplates where
@@ -205,17 +205,17 @@ template VariantAdditional
       controller party
       do pure "V1"
 
-template V1Utils
+template ValidUpgradeUtils
   with
     party : Party
   where
     signatory party
-    choice V1Fetch : ValidUpgrade with
+    choice ValidUpgradeFetch : ValidUpgrade with
         cid : ContractId ValidUpgrade
       controller party
       do fetch cid
 
-    choice V1SameChoiceExercise : Text with
+    choice SameChoiceExercise : Text with
         cid : ContractId ValidUpgrade
       controller party
       do exercise cid SameTypeChoice

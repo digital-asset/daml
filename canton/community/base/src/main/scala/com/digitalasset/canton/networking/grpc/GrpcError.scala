@@ -1,14 +1,14 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.error.DecodedRpcStatus
+import com.daml.error.utils.DecodedCantonError
 import com.digitalasset.canton.error.ErrorCodeUtils.errorCategoryFromString
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   MissingToken,
-  ParticipantDisabled,
+  ParticipantAccessDisabled,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,18 +22,21 @@ sealed trait GrpcError {
   def request: String
   def serverName: String
   def status: Status
-  def decodedRpcStatus: Option[DecodedRpcStatus]
+  def decodedCantonError: Option[DecodedCantonError]
   def optTrailers: Option[Metadata]
   def hint: String = ""
 
   protected def logFullCause: Boolean = true
 
   override def toString: String = {
-    val trailersString = (optTrailers, decodedRpcStatus) match {
+    val trailersString = (optTrailers, decodedCantonError) match {
       case (_, Some(rpc)) =>
-        "\n  " + (rpc.correlationId.toList.map(s => s"CorrelationId: $s") ++ rpc.retryIn
-          .map(s => s"RetryIn: $s")
-          .toList ++ Seq(s"Context: ${rpc.context}")).mkString("\n  ")
+        val corrIdO = rpc.correlationId.toList.map(s => s"CorrelationId: $s")
+        val traceIdO = rpc.traceId.toList.map(tId => s"TraceId: $tId")
+        val retryIdO = rpc.retryIn.map(s => s"RetryIn: $s").toList
+        val context = Seq(s"Context: ${rpc.context}")
+
+        "\n  " + (corrIdO ++ traceIdO ++ retryIdO ++ context).mkString("\n  ")
       case (Some(trailers), None) if !trailers.keys.isEmpty => s"\n  Trailers: $trailers"
       case _ => ""
     }
@@ -54,7 +57,7 @@ sealed trait GrpcError {
       logger.debug("The warning was caused by:", status.getCause)
     }
 
-  def retry: Boolean = decodedRpcStatus.exists(_.isRetryable)
+  def retry: Boolean = decodedCantonError.exists(_.isRetryable)
 }
 
 object GrpcError {
@@ -75,7 +78,7 @@ object GrpcError {
       serverName: String,
       status: Status,
       optTrailers: Option[Metadata],
-      decodedRpcStatus: Option[DecodedRpcStatus],
+      decodedCantonError: Option[DecodedCantonError],
   ) extends GrpcError {
     override def log(logger: TracedLogger)(implicit traceContext: TraceContext): Unit =
       logger.error(toString, status.getCause)
@@ -90,7 +93,7 @@ object GrpcError {
       serverName: String,
       status: Status,
       optTrailers: Option[Metadata],
-      decodedRpcStatus: Option[DecodedRpcStatus],
+      decodedCantonError: Option[DecodedCantonError],
   ) extends GrpcError {
     override def log(logger: TracedLogger)(implicit traceContext: TraceContext): Unit =
       logger.error(toString, status.getCause)
@@ -113,7 +116,7 @@ object GrpcError {
       serverName: String,
       status: Status,
       optTrailers: Option[Metadata],
-      decodedRpcStatus: Option[DecodedRpcStatus],
+      decodedCantonError: Option[DecodedCantonError],
   ) extends GrpcError {
 
     lazy val isAuthenticationTokenMissing: Boolean =
@@ -138,7 +141,7 @@ object GrpcError {
       serverName: String,
       status: Status,
       optTrailers: Option[Metadata],
-      decodedRpcStatus: Option[DecodedRpcStatus],
+      decodedCantonError: Option[DecodedCantonError],
   ) extends GrpcError {
 
     lazy val isClientCancellation: Boolean = status.getCode == CANCELLED && status.getCause == null
@@ -164,7 +167,7 @@ object GrpcError {
       serverName: String,
       status: Status,
       optTrailers: Option[Metadata],
-      decodedRpcStatus: Option[DecodedRpcStatus],
+      decodedCantonError: Option[DecodedCantonError],
   ) extends GrpcError {
     override def logFullCause: Boolean = _logFullCause
     override def hint: String = _hint
@@ -195,31 +198,31 @@ object GrpcError {
   def apply(request: String, serverName: String, e: StatusRuntimeException): GrpcError = {
     val status = e.getStatus
     val optTrailers = Option(e.getTrailers)
-    val rpcStatus = DecodedRpcStatus.fromStatusRuntimeException(e)
+    val decodedError = DecodedCantonError.fromStatusRuntimeException(e).toOption
 
     status.getCode match {
       case INVALID_ARGUMENT | UNAUTHENTICATED
           if !checkAuthenticationError(
             optTrailers,
-            Seq(MissingToken.toString, ParticipantDisabled.toString),
+            Seq(MissingToken.toString, ParticipantAccessDisabled.toString),
           ) =>
-        GrpcClientError(request, serverName, status, optTrailers, rpcStatus)
+        GrpcClientError(request, serverName, status, optTrailers, decodedError)
 
       case FAILED_PRECONDITION | NOT_FOUND | OUT_OF_RANGE | RESOURCE_EXHAUSTED | ABORTED |
           PERMISSION_DENIED | UNAUTHENTICATED | ALREADY_EXISTS =>
-        GrpcRequestRefusedByServer(request, serverName, status, optTrailers, rpcStatus)
+        GrpcRequestRefusedByServer(request, serverName, status, optTrailers, decodedError)
 
       case DEADLINE_EXCEEDED | CANCELLED =>
-        GrpcClientGaveUp(request, serverName, status, optTrailers, rpcStatus)
+        GrpcClientGaveUp(request, serverName, status, optTrailers, decodedError)
 
       case UNAVAILABLE if errorCategoryFromString(status.getDescription).nonEmpty =>
-        GrpcClientError(request, serverName, status, optTrailers, rpcStatus)
+        GrpcClientError(request, serverName, status, optTrailers, decodedError)
 
       case UNAVAILABLE | UNIMPLEMENTED =>
-        GrpcServiceUnavailable(request, serverName, status, optTrailers, rpcStatus)
+        GrpcServiceUnavailable(request, serverName, status, optTrailers, decodedError)
 
       case INTERNAL | UNKNOWN | DATA_LOSS =>
-        GrpcServerError(request, serverName, status, optTrailers, rpcStatus)
+        GrpcServerError(request, serverName, status, optTrailers, decodedError)
 
       case OK =>
         GrpcServerError(
@@ -227,7 +230,7 @@ object GrpcError {
           serverName,
           status,
           optTrailers,
-          rpcStatus,
+          decodedError,
         ) // broken, as a call should never fail with status OK
     }
   }

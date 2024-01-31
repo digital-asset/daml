@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package engine.script.ledgerinteraction
 
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.speedy.{TraceLog, WarningLog}
@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext
 
 // Hopefully remove after json client application id check
 import com.daml.jwt.JwtDecoder
-import com.daml.ledger.api.auth.{
+import com.digitalasset.canton.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,

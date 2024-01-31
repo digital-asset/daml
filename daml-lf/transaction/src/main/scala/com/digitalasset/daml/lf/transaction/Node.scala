@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -90,7 +90,7 @@ object Node {
       override val packageName: Option[PackageName] = None,
       override val templateId: TypeConName,
       arg: Value,
-      agreementText: String,
+      agreementText: String, // to be removed
       signatories: Set[Party],
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],

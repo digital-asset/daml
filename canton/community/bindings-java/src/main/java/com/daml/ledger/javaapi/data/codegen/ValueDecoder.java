@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.daml.ledger.javaapi.data.codegen;
@@ -52,7 +52,7 @@ public interface ValueDecoder<Data> {
     throw new IllegalArgumentException("Cannot create contract id for this data type");
   }
 
-  // TODO i15640 delete
+  // TODO(i15640) delete
   /**
    * @deprecated since Daml 2.5.0; it is only used in deprecated fromValue method of all generated
    *     data class

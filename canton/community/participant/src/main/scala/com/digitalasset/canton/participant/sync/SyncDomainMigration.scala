@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -207,7 +207,7 @@ class SyncDomainMigration(
       )
       // move contracts from one domain to the other domain using repair service in batches of 1000
       _ <- performUnlessClosingEitherU(functionFullName)(
-        repair.changeDomain(
+        repair.changeAssignation(
           acs.keys.toSeq,
           source,
           target,

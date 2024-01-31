@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -42,15 +42,15 @@ class SubmissionRequestTest extends BaseTestWordSpec {
 
   "aggregation id" should {
     "authenticate the relevant fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
+      if (testedProtocolVersion >= ProtocolVersion.v30) {
 
-        val envelope1 = ClosedEnvelope.tryCreate(
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("Content1"),
           Recipients.cc(DefaultTestIdentities.participant1),
           Seq.empty,
           testedProtocolVersion,
         )
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("Content2"),
           Recipients.cc(DefaultTestIdentities.participant1),
           Seq.empty,
@@ -102,8 +102,8 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     }
 
     "ignore sender-specific fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
-        val envelope1 = ClosedEnvelope.tryCreate(
+      if (testedProtocolVersion >= ProtocolVersion.v30) {
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("some-content"),
           Recipients.cc(DefaultTestIdentities.participant1, DefaultTestIdentities.participant3),
           Seq.empty,
@@ -131,7 +131,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
 
         assertEquivalentRequests(requestsWithoutSignatures)
 
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("some-content"),
           Recipients.cc(DefaultTestIdentities.participant1, DefaultTestIdentities.participant2),
           Seq(Signature.noSignature),

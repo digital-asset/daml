@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -171,11 +171,6 @@ instance ActionThrow Update where
 
 instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
-
-#ifdef DAML_SCENARIOS
-instance ActionThrow Scenario where
-    throw e = pure () >>= \_ -> throwPure e
-#endif
 
 -- Can't catch in scenarios.
 

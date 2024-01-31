@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -22,7 +22,6 @@ object LedgerApiServer {
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
-      maxEventsByContractKeyCacheSize: Option[Int],
   )(implicit
       traceContext: TraceContext
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
@@ -32,7 +31,6 @@ object LedgerApiServer {
         bufferedStreamsPageSize = indexServiceConfig.bufferedStreamsPageSize,
         maxContractStateCacheSize = indexServiceConfig.maxContractStateCacheSize,
         maxContractKeyStateCacheSize = indexServiceConfig.maxContractKeyStateCacheSize,
-        maxEventsByContractKeyCacheSize = maxEventsByContractKeyCacheSize,
         maxTransactionsInMemoryFanOutBufferSize =
           indexServiceConfig.maxTransactionsInMemoryFanOutBufferSize,
         executionContext = executionContext,

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.ha
@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.wrapWithNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -99,10 +100,10 @@ final case class EndlessReadService(
               transaction = createTransaction(i),
               transactionId = transactionId(i),
               recordTime = recordTime(i),
-              divulgedContracts = List.empty,
               blindingInfoO = None,
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
+              domainId = DomainId.tryFromString("da::default"),
             )
           case i =>
             offset(i) -> Update.TransactionAccepted(
@@ -111,10 +112,10 @@ final case class EndlessReadService(
               transaction = exerciseTransaction(i),
               transactionId = transactionId(i),
               recordTime = recordTime(i),
-              divulgedContracts = List.empty,
               blindingInfoO = None,
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
+              domainId = DomainId.tryFromString("da::default"),
             )
         }
         .map(_.bimap(identity, wrapWithNewTraceContext))
@@ -188,7 +189,6 @@ object EndlessReadService {
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,
-    optDomainId = None,
   )
   // Creates contract #i
   private def createTransaction(i: Int): CommittedTransaction = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java
@@ -49,7 +49,6 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             ByteString.EMPTY,
             Map(ic.TEMPLATE_ID -> data.toValue).asJava,
             emptyMap,
-            Optional.empty,
             Optional.empty,
             emptyList,
             emptyList,

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -23,7 +23,7 @@ class HmacTest extends AnyWordSpec with BaseTest {
           Hmac
             .compute(secret, ByteString.copyFromUtf8(longString), algorithm)
             .valueOr(err => fail(err.toString))
-        val hmacP = hmac.toProtoV0
+        val hmacP = hmac.toProtoV30
         Hmac.fromProtoV0(hmacP).value shouldBe (hmac)
       }
 

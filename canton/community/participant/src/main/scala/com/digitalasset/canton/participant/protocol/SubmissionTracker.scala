@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -82,7 +82,7 @@ trait SubmissionTracker extends AutoCloseable {
 object SubmissionTracker {
   final case class SubmissionData(
       submitterParticipant: ParticipantId,
-      maxSequencingTimeO: Option[CantonTimestamp],
+      maxSequencingTime: CantonTimestamp,
   )
 
   def apply(protocolVersion: ProtocolVersion)(
@@ -294,17 +294,8 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
           // The slot is available to us -- yay!
           val amSubmitter = submissionData.submitterParticipant == participantId
 
-          val requestIsValidFUS = if (protocolVersion <= ProtocolVersion.v4) {
-            // Replay mitigation was introduced in PV=5; before that, we fall back on the previous behavior
-            FutureUnlessShutdown.pure(amSubmitter)
-          } else {
-            val maxSequencingTime = submissionData.maxSequencingTimeO.getOrElse(
-              ErrorUtil.internalError(
-                new InternalError(
-                  s"maxSequencingTime in SubmissionData for PV > 4 must be defined"
-                )
-              )
-            )
+          val requestIsValidFUS = {
+            val maxSequencingTime = submissionData.maxSequencingTime
             if (amSubmitter && requestId.unwrap <= maxSequencingTime) {
               store.registerFreshRequest(rootHash, requestId, maxSequencingTime)
             } else {

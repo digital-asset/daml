@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # architecture-handbook-entry-begin: GenTestCerts
@@ -11,7 +11,7 @@
 # create root certificate such that we can issue self-signed certs
 create_key "root-ca"
 create_certificate "root-ca" "/O=TESTING/OU=ROOT CA/emailAddress=canton@digitalasset.com"
-#print_certificate "root-ca"
+print_certificate "root-ca"
 
 # create public api certificate
 create_key "public-api"

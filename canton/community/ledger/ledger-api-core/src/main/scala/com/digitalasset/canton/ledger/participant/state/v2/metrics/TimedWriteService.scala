@@ -1,16 +1,15 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state.v2.metrics
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   PruningResult,
@@ -21,6 +20,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
   WriteService,
 }
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.CompletionStage
@@ -29,6 +29,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
+      optDomainId: Option[DomainId],
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
@@ -42,6 +43,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       metrics.daml.services.write.submitTransactionRunning,
       delegate.submitTransaction(
         submitterInfo,
+        optDomainId,
         transactionMeta,
         transaction,
         estimatedInterpretationCost,
@@ -61,8 +63,8 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
-      metrics.daml.services.write.submitTransaction,
-      metrics.daml.services.write.submitTransactionRunning,
+      metrics.daml.services.write.submitReassignment,
+      metrics.daml.services.write.submitReassignmentRunning,
       delegate.submitReassignment(
         submitter,
         applicationId,
@@ -95,18 +97,6 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
     Timed.completionStage(
       metrics.daml.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId),
-    )
-
-  override def submitConfiguration(
-      maxRecordTime: Time.Timestamp,
-      submissionId: Ref.SubmissionId,
-      config: Configuration,
-  )(implicit
-      traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    Timed.completionStage(
-      metrics.daml.services.write.submitConfiguration,
-      delegate.submitConfiguration(maxRecordTime, submissionId, config),
     )
 
   override def prune(

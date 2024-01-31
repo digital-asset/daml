@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.h2
@@ -14,8 +14,9 @@ private[h2] object H2Table {
   private def idempotentBatchedInsertBase[FROM](
       insertStatement: String,
       keyFieldIndex: Int,
+      ordering: Ordering[FROM],
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
-    new BaseTable[FROM](fields) {
+    new BaseTable[FROM](fields, Some(ordering)) {
       override def executeUpdate: Array[Array[_]] => Connection => Unit =
         data =>
           connection =>
@@ -71,11 +72,16 @@ private[h2] object H2Table {
        |""".stripMargin
   }
 
-  def idempotentBatchedInsert[FROM](tableName: String, keyFieldIndex: Int)(
+  def idempotentBatchedInsert[FROM](
+      tableName: String,
+      keyFieldIndex: Int,
+      ordering: Ordering[FROM],
+  )(
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
     idempotentBatchedInsertBase(
       idempotentBatchedInsertStatement(tableName, fields, keyFieldIndex),
       keyFieldIndex,
+      ordering,
     )(fields)
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -806,51 +806,22 @@ abstract class EventStorageBackendTemplate(
 
   // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
-    * 1.a if pruning-all-divulged-contracts is enabled: all divulgence events (retroactive divulgence),
-    * 1.b otherwise: divulgence events for which there are archive events (retroactive divulgence),
-    * 2. entries from filter for create stakeholders for there is an archive for the corresponding create event,
-    * 3. entries from filter for create non-stakeholder informees for there is an archive for the corresponding create event,
-    * 4. all entries from filter for consuming stakeholders,
-    * 5. all entries from filter for consuming non-stakeholders informees,
-    * 6. all entries from filter for non-consuming informees,
-    * 7. create events table for which there is an archive event,
-    * 8. if pruning-all-divulged-contracts is enabled: create contracts which did not have a locally hosted party before their creation offset (immediate divulgence),
-    * 9. all consuming events,
-    * 10. all non-consuming events,
-    * 11. transaction meta entries for which there exists at least one create event.
+    * 1. entries from filter for create stakeholders for there is an archive for the corresponding create event,
+    * 2. entries from filter for create non-stakeholder informees for there is an archive for the corresponding create event,
+    * 3. all entries from filter for consuming stakeholders,
+    * 4. all entries from filter for consuming non-stakeholders informees,
+    * 5. all entries from filter for non-consuming informees,
+    * 6. create events table for which there is an archive event,
+    * 7. if pruning-all-divulged-contracts is enabled: create contracts which did not have a locally hosted party before their creation offset (immediate divulgence),
+    * 8. all consuming events,
+    * 9. all non-consuming events,
+    * 10. transaction meta entries for which there exists at least one create event.
     */
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-
-    if (pruneAllDivulgedContracts) {
-      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
-        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
-        SQL"""
-          -- Retroactive divulgence events
-          delete from participant_events_divulgence delete_events
-          where delete_events.event_offset <= $pruneUpToInclusive
-            or delete_events.event_offset is null
-          """
-      }
-    } else {
-      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
-        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
-        SQL"""
-          -- Retroactive divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive
-            and exists (
-              select 1 from participant_events_consuming_exercise archive_events
-              where
-                archive_events.event_offset <= $pruneUpToInclusive and
-                archive_events.contract_id = delete_events.contract_id
-            )"""
-      }
-    }
 
     pruneIdFilterTables(pruneUpToInclusive)
 

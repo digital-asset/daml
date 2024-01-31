@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.transfer
@@ -14,7 +14,6 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -68,7 +67,7 @@ private[transfer] final case class TransferOutValidation(
       executionContext: ExecutionContext
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     EitherT.cond[FutureUnlessShutdown](
-      sourceProtocolVersion.v < ProtocolVersion.CNTestNet || expectedTemplateId == request.templateId,
+      expectedTemplateId == request.templateId,
       (),
       TemplateIdMismatch(
         declaredTemplateId = request.templateId,
@@ -108,11 +107,6 @@ private[transfer] object TransferOutValidation {
       _ <- validation.checkStakeholders
       _ <- validation.checkParticipants(logger)
       _ <- validation.checkTemplateId()
-      _ <- PVSourceDestinationDomainsAreCompatible(
-        sourceProtocolVersion,
-        request.targetDomainPV,
-        request.contractId,
-      )
     } yield ()
   }
 

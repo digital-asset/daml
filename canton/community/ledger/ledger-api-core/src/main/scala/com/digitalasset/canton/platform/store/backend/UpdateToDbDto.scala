@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -54,7 +54,7 @@ object UpdateToDbDto {
               IndexedUpdatesMetrics.Labels.status.rejected,
             )
           }
-          val domainId = u.domainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
+          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
           Iterator(
             commandCompletion(
               offset = offset,
@@ -85,23 +85,6 @@ object UpdateToDbDto {
               typ = JdbcLedgerDao.acceptType,
               configuration = Configuration.encode(u.newConfiguration).toByteArray,
               rejection_reason = None,
-            )
-          )
-
-        case u: ConfigurationChangeRejected =>
-          incrementCounterForEvent(
-            metrics.daml.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.configurationChange,
-            IndexedUpdatesMetrics.Labels.status.rejected,
-          )
-          Iterator(
-            DbDto.ConfigurationEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = u.submissionId,
-              typ = JdbcLedgerDao.rejectType,
-              configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
-              rejection_reason = Some(u.rejectionReason),
             )
           )
 
@@ -218,8 +201,7 @@ object UpdateToDbDto {
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
-          val domainId =
-            u.transactionMeta.optDomainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
+          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
           val events: Iterator[DbDto] = preorderTraversal.iterator
             .flatMap {
               case (nodeId, create: Create) =>
@@ -353,32 +335,6 @@ object UpdateToDbDto {
                 Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
             }
 
-          val divulgedContractIndex = u.divulgedContracts
-            .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
-            .toMap
-          val divulgences = blinding.divulgence.iterator.collect {
-            // only store divulgence events, which are divulging to parties
-            case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
-              val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-              DbDto.EventDivulgence(
-                event_offset = Some(offset.toHexString),
-                command_id = u.completionInfoO.map(_.commandId),
-                workflow_id = u.transactionMeta.workflowId,
-                application_id = u.completionInfoO.map(_.applicationId),
-                submitters = u.completionInfoO.map(_.actAs.toSet),
-                contract_id = contractId.coid,
-                template_id = contractInst.map(_.unversioned.template.toString),
-                tree_event_witnesses = visibleToParties.map(_.toString),
-                create_argument = contractInst
-                  .map(_.map(_.arg))
-                  .map(translation.serialize(contractId, _))
-                  .map(compressionStrategy.createArgumentCompression.compress),
-                create_argument_compression = compressionStrategy.createArgumentCompression.id,
-                event_sequential_id = 0, // this is filled later
-                domain_id = domainId,
-              )
-          }
-
           val completions =
             u.completionInfoO.iterator.map(
               commandCompletion(
@@ -395,7 +351,7 @@ object UpdateToDbDto {
           // because in a later stage the preceding events
           // will be assigned consecutive event sequential ids
           // and transaction meta is assigned sequential ids of its first and last event
-          events ++ divulgences ++ completions ++ Seq(transactionMeta)
+          events ++ completions ++ Seq(transactionMeta)
 
         case u: ReassignmentAccepted if multiDomainEnabled =>
           val events = u.reassignment match {

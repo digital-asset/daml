@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- architecture-handbook-entry-begin: PaintDaml
@@ -13,8 +13,6 @@ template PaintHouse
     houseOwner: Party
   where
     signatory painter, houseOwner
-    agreement
-      show painter <> " will paint the house of " <> show houseOwner
 
 template OfferToPaintHouseByPainter
   with
@@ -89,24 +87,3 @@ painterOffersAndHouseOwnerAccepts painter houseOwner bank =
 
 davidOffersAndAliceAccepts =
   painterOffersAndHouseOwnerAccepts "David" "Alice" "DavidsBank"
-
-aliceOffersAndPainterAccepts = houseOwnerOffersAndPainterAccepts "Painter" "Alice" "Bank"
-
-houseOwnerOffersAndPainterAccepts painter houseOwner bank =
-  script do
-    painter <- allocateParty painter
-    houseOwner <- allocateParty houseOwner
-    bank <- allocateParty bank
-    let price = Amount {value = 100.0; currency = "USD"}
-    iouId <- submit bank do
-        createCmd $ Iou with payer = bank; owner = houseOwner; amount = price; viewers = []
-    discloseIou <- submit houseOwner do
-        createCmd $ DiscloseIou with sender = houseOwner; receiver = painter; iou = iouId
-    submit houseOwner do exerciseCmd discloseIou Disclose
-    offerId <- submit houseOwner do
-        createCmd $ OfferToPaintHouseByOwner with
-          painter = painter; houseOwner = houseOwner; bank = bank; iouId = iouId
-    painterIouId <- submit painter do
-      exerciseCmd offerId AcceptByPainter
-    submit painter do
-      exerciseCmd painterIouId Call

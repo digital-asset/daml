@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -670,7 +670,7 @@ object Repl {
     private val seed = nextSeed()
 
     val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V1))) {
+      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V2))) {
         transaction.TransactionVersion.DevVersions
       } else {
         transaction.TransactionVersion.StableVersions

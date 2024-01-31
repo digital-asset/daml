@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.test.evidence.tag
@@ -74,11 +74,6 @@ object Security {
 
       /** Whether a secure configuration can effectively be enforced */
       case object SecureConfiguration extends Property
-
-      /** Assurance that the sender of information is provided with proof of delivery and the recipient is provided
-        * with proof of the sender’s identity, so neither can later deny having processed the information.
-        */
-      case object NonRepudiation extends Property
 
       /** Ability to withstand and recover from attacks, threats or incidents */
       case object Resilience extends Property

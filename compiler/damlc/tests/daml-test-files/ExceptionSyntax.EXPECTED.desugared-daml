@@ -44,11 +44,6 @@ instance DA.Internal.Desugar.HasEnsure Test where
     = DA.Internal.Desugar.True
     where
         _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
-    where
-        _ = this
 instance DA.Internal.Desugar.HasArchive Test where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive

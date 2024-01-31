@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
@@ -48,13 +48,12 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
   def signDeliver(event: Deliver[ClosedEnvelope]): SignedContent[Deliver[ClosedEnvelope]] =
     SignedContent(event, sign(s"deliver signature ${event.counter}"), None, testedProtocolVersion)
 
-  lazy val closedEnvelope =
-    ClosedEnvelope.tryCreate(
-      ByteString.copyFromUtf8("message"),
-      RecipientsTest.testInstance,
-      Seq.empty,
-      testedProtocolVersion,
-    )
+  lazy val closedEnvelope = ClosedEnvelope.create(
+    ByteString.copyFromUtf8("message"),
+    RecipientsTest.testInstance,
+    Seq.empty,
+    testedProtocolVersion,
+  )
 
   def mkDeliver(counter: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
     mkOrdinaryEvent(

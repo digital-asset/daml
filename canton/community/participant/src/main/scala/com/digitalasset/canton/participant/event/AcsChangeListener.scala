@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.event
@@ -167,11 +167,11 @@ object AcsChange extends HasLoggerName {
         )
     }
     loggingContext.debug(
-      show"Called fromCommitSet with inputs commitSet creations ${commitSet.creations}" +
-        show"transferIns ${commitSet.transferIns} archivals ${commitSet.archivals} transferOuts ${commitSet.transferOuts} and" +
+      show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
+        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts} and" +
         show"archival transfer counters from DB $transferCounterOfArchivalIncomplete" +
-        show"Completed fromCommitSet with results transient $transient" +
-        show"activations $activations archivalDeactivations $archivalDeactivations transferOutDeactivations $transferOutDeactivations"
+        show"Completed fromCommitSet with results transient=$transient;" +
+        show"activations=$activations; archivalDeactivations=$archivalDeactivations; transferOutDeactivations=$transferOutDeactivations"
     )
     AcsChange(
       activations = activations,

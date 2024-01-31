@@ -1,10 +1,6 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "//language-support/scala/codegen:codegen.bzl",
-    "dar_to_scala",
-)
 load(
     "//language-support/java/codegen:codegen.bzl",
     "dar_to_java",
@@ -14,7 +10,6 @@ load(
     "lf_version_configuration",
     "version_in",
 )
-load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 alias(
@@ -22,6 +17,11 @@ alias(
     actual = "dar-files-default",
     visibility = ["//visibility:public"],
 )
+
+canonical_lf_versions = [
+    "2.1",
+    "2.dev",
+]
 
 [
     [
@@ -69,7 +69,7 @@ test_names = {
                     v1_minor_version_range = ("15", "dev"),
                     v2_minor_version_range = ("0", "dev"),
                 ) else [])
-    for lf_version in testtool_lf_versions
+    for lf_version in canonical_lf_versions
 }
 
 da_scala_dar_resources_library(
@@ -92,7 +92,7 @@ da_scala_dar_resources_library(
             "**/*Interface*daml",
         ],
     },
-    lf_versions = testtool_lf_versions,
+    lf_versions = canonical_lf_versions,
     maven_name_prefix = "test",
     visibility = ["//visibility:public"],
 )
@@ -113,5 +113,5 @@ da_scala_dar_resources_library(
         ]
         for test_name in test_names.get(target, [])
     ]
-    for target in testtool_lf_versions
+    for target in canonical_lf_versions
 ]

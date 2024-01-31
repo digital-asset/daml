@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -33,7 +33,8 @@ trait DbTest
 
   /** Flag to define the migration mode for the schemas */
   def migrationMode: MigrationMode =
-    if (BaseTest.testedProtocolVersion == ProtocolVersion.dev) MigrationMode.DevVersion
+    // TODO(i15561): Revert back to `== ProtocolVersion.dev` once v30 is a stable Daml 3 protocol version
+    if (BaseTest.testedProtocolVersion >= ProtocolVersion.v30) MigrationMode.DevVersion
     else MigrationMode.Standard
 
   protected def mkDbConfig(basicConfig: DbBasicConfig): DbConfig

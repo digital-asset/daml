@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -840,12 +840,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   /** query interface used by DomainTopologyManager to find the set of initial keys */
   override def findInitialState(
       id: DomainTopologyManagerId
-  )(implicit traceContext: TraceContext): Future[Map[KeyOwner, Seq[PublicKey]]] = {
+  )(implicit traceContext: TraceContext): Future[Map[Member, Seq[PublicKey]]] = {
     val batchNum = 100
     def go(
         offset: Long,
-        acc: Map[KeyOwner, Seq[PublicKey]],
-    ): Future[(Boolean, Map[KeyOwner, Seq[PublicKey]])] = {
+        acc: Map[Member, Seq[PublicKey]],
+    ): Future[(Boolean, Map[Member, Seq[PublicKey]])] = {
       val query = sql" AND operation = ${TopologyChangeOp.Add}"
       val lm = storage.limit(batchNum, offset)
       val start = (false, 0, acc)

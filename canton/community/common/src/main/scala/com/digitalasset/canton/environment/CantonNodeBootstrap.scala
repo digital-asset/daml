@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -12,7 +12,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{InitConfigBase, LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.admin.v0.VaultServiceGrpc
+import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.HealthService
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
   GrpcTopologyManagerReadService,
   GrpcTopologyManagerWriteService,
 }
-import com.digitalasset.canton.topology.admin.v0.{
+import com.digitalasset.canton.topology.admin.v30old.{
   InitializationServiceGrpc,
   TopologyManagerWriteServiceGrpc,
 }
@@ -147,7 +147,7 @@ abstract class CantonNodeBootstrapBase[
     )
   this.adminServerRegistry
     .addService(
-      canton.topology.admin.v0.TopologyManagerReadServiceGrpc
+      canton.topology.admin.v30old.TopologyManagerReadServiceGrpc
         .bindService(
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores,
@@ -164,13 +164,13 @@ abstract class CantonNodeBootstrapBase[
     .addService(
       InitializationServiceGrpc
         .bindService(
-          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore),
+          new GrpcInitializationService(clock, this, crypto.value.cryptoPublicStore, loggerFactory),
           executionContext,
         )
     )
     ._2
     .addService(
-      canton.topology.admin.v0.TopologyAggregationServiceGrpc
+      canton.topology.admin.v30.TopologyAggregationServiceGrpc
         .bindService(
           new GrpcTopologyAggregationService(
             // TODO(#14048) remove map filter
@@ -183,7 +183,7 @@ abstract class CantonNodeBootstrapBase[
     )
     ._2
     .addService(
-      canton.topology.admin.v0.TopologyManagerReadServiceGrpc
+      canton.topology.admin.v30old.TopologyManagerReadServiceGrpc
         .bindService(
           new GrpcTopologyManagerReadService(
             sequencedTopologyStores :+ authorizedTopologyStore,
@@ -439,7 +439,7 @@ abstract class CantonNodeBootstrapBase[
   /** Health service component of the node
     */
   protected lazy val nodeHealthService: HealthService = mkNodeHealthService(storage)
-  protected val (healthReporter, grpcHealthServer, livenessHealthService) =
+  protected val (healthReporter, grpcHealthServer, httpHealthServer, livenessHealthService) =
     mkHealthComponents(nodeHealthService)
 
   override protected def onClosed(): Unit = {
@@ -454,7 +454,7 @@ abstract class CantonNodeBootstrapBase[
         Lifecycle.toCloseableOption(initializationWatcherRef.get()),
         adminServerRegistry,
         adminServer,
-      ) ++ grpcHealthServer.toList ++ getNode.toList ++ stores ++ List(
+      ) ++ grpcHealthServer.toList ++ httpHealthServer.toList ++ getNode.toList ++ stores ++ List(
         crypto.value,
         storage,
         clock,

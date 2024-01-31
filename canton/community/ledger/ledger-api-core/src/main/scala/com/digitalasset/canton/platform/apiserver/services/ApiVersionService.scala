@@ -1,8 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
 
+import com.daml.ledger.api.v1.experimental_features.ExperimentalCommitterEventLog.CommitterEventLogType.CENTRALIZED
 import com.daml.ledger.api.v1.experimental_features.*
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.*
@@ -64,11 +65,24 @@ private[apiserver] final class ApiVersionService private (
             "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
           ),
           staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
-          commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
+          commandDeduplication = Some(
+            CommandDeduplicationFeatures.of(
+              Some(
+                CommandDeduplicationPeriodSupport.of(
+                  offsetSupport =
+                    CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NATIVE_SUPPORT,
+                  durationSupport =
+                    CommandDeduplicationPeriodSupport.DurationSupport.DURATION_CONVERT_TO_OFFSET,
+                )
+              ),
+              CommandDeduplicationType.ASYNC_AND_CONCURRENT_SYNC,
+              maxDeduplicationDurationEnforced = false,
+            )
+          ),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
-          contractIds = Some(ledgerFeatures.contractIdFeatures),
-          committerEventLog = Some(ledgerFeatures.committerEventLog),
-          explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
+          contractIds = Some(ExperimentalContractIds.defaultInstance),
+          committerEventLog = Some(ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED)),
+          explicitDisclosure = Some(ExperimentalExplicitDisclosure.of(true)),
           userAndPartyLocalMetadataExtensions =
             Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
           acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),

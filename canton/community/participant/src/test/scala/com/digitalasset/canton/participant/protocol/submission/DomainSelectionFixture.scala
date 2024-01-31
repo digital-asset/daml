@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -40,9 +40,9 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
     }.last
 
   lazy val fixtureLanguageVersion: LanguageVersion = {
-    LanguageVersion
-      .fromString(s"1.${fixtureTransactionVersion.protoValue}")
-      .fold(err => throw new IllegalArgumentException(err), identity)
+    // TODO(#14706): map fixtureTransactionVersion to the right 2.x LF version once there is a 1:1 correspondance
+    //  between the two versions
+    LanguageVersion.v2_1
   }
 
   /*
@@ -52,9 +52,11 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
   object SimpleTopology {
     val submitterParticipantId: ParticipantId = ParticipantId("submitter")
     val observerParticipantId: ParticipantId = ParticipantId("counter")
+    val participantId3: ParticipantId = ParticipantId("participant3")
 
     val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
     val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
+    val party3: LfPartyId = LfPartyId.assertFromString("party3::default")
 
     val correctTopology: Map[LfPartyId, List[ParticipantId]] = Map(
       signatory -> List(submitterParticipantId),

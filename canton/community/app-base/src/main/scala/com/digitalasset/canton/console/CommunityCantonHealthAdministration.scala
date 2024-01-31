@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -188,8 +188,9 @@ class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnviro
   @Help.Summary("Aggregate status info of all participants and domains")
   def status(): CommunityCantonStatus = {
     CommunityCantonStatus.getStatus(
-      statusMap[DomainReference](consoleEnv.domains),
-      statusMap[ParticipantReference](consoleEnv.participants),
+      statusMap[SequencerNodeReferenceX](consoleEnv.sequencersX),
+      statusMap[MediatorReferenceX](consoleEnv.mediatorsX),
+      statusMap[ParticipantReferenceX](consoleEnv.participantsX),
     )
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -40,7 +40,6 @@ import scala.util.{Failure, Success}
 
 class DefaultMessageDispatcher(
     override protected val protocolVersion: ProtocolVersion,
-    override protected val uniqueContractKeys: Boolean,
     override protected val domainId: DomainId,
     override protected val participantId: ParticipantId,
     override protected val requestTracker: RequestTracker,

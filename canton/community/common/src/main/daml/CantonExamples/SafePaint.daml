@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -16,8 +16,6 @@ template PaintHouse
     beneficiary: Party
   where
     signatory painter, beneficiary
-    agreement
-      show painter <> " will paint the house of " <> show beneficiary
 
 template SafeOfferToPaintHouse
   with

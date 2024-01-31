@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.domain.grpc
@@ -24,12 +24,17 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
+  LedgerServerPartyNotifier,
   ParticipantTopologyDispatcherCommon,
   TopologyComponentFactory,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
+import com.digitalasset.canton.sequencing.client.{
+  RecordingConfig,
+  ReplayConfig,
+  RichSequencerClient,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -51,7 +56,6 @@ class GrpcDomainRegistry(
     val participantId: ParticipantId,
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     participantSettings: Eval[ParticipantSettingsLookup],
-    agreementService: AgreementService,
     topologyDispatcher: ParticipantTopologyDispatcherCommon,
     cryptoApiProvider: SyncCryptoApiProvider,
     cryptoConfig: CryptoConfig,
@@ -64,6 +68,7 @@ class GrpcDomainRegistry(
     packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
     metrics: DomainAlias => SyncDomainMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
+    partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(
@@ -83,7 +88,7 @@ class GrpcDomainRegistry(
       override val domainId: DomainId,
       override val domainAlias: DomainAlias,
       override val staticParameters: StaticDomainParameters,
-      sequencer: SequencerClient,
+      sequencer: RichSequencerClient,
       override val topologyClient: DomainTopologyClientWithInit,
       override val topologyFactory: TopologyComponentFactory,
       override val domainPersistentState: SyncDomainPersistentState,
@@ -92,7 +97,7 @@ class GrpcDomainRegistry(
       with FlagCloseableAsync
       with NamedLogging {
 
-    override val sequencerClient: SequencerClient = sequencer
+    override val sequencerClient: RichSequencerClient = sequencer
     override def loggerFactory: NamedLoggerFactory = GrpcDomainRegistry.this.loggerFactory
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
@@ -102,7 +107,6 @@ class GrpcDomainRegistry(
           "topologyOutbox",
           topologyDispatcher.domainDisconnected(domainAlias),
         ),
-        SyncCloseable("agreementService", agreementService.close()),
         SyncCloseable("sequencerClient", sequencerClient.close()),
       )
     }
@@ -116,12 +120,6 @@ class GrpcDomainRegistry(
 
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
-
-    val agreementClient = new AgreementClient(
-      agreementService,
-      sequencerConnections,
-      loggerFactory,
-    )
 
     val runE = for {
       info <- sequencerInfoLoader
@@ -154,8 +152,8 @@ class GrpcDomainRegistry(
         replaySequencerConfig,
         topologyDispatcher,
         packageDependencies,
+        partyNotifier,
         metrics,
-        agreementClient,
         participantSettings,
       )
     } yield new GrpcDomainHandle(

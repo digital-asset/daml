@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -237,12 +237,6 @@ trait ContractStorageBackend {
   def assignedContracts(contractIds: Seq[ContractId])(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
-  def activeContractWithArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[ContractStorageBackend.RawContract]
-  def activeContractWithoutArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String]
 }
 
 object ContractStorageBackend {

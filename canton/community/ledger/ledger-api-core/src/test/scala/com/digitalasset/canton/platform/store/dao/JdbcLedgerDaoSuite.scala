@@ -1,14 +1,15 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.{Dar, DarParser, Decode}
+import com.daml.lf.archive.{DarParser, Decode}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
@@ -19,7 +20,6 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoSuite.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.stream.scaladsl.Sink
@@ -54,18 +54,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private[this] val dar: Dar[DamlLf.Archive] =
-    TestModels.com_daml_ledger_test_ModelTestDar_1_15_path
+  private[this] val dar =
+    TestModels.com_daml_ledger_test_ModelTestDar_2_1_path
       .pipe(TestResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 
   private val now = Timestamp.now()
 
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
+  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
-  }
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
-  protected val testLanguageVersion = Decode.assertDecodeArchive(dar.main)._2.languageVersion
+  protected val testLanguageVersion: LanguageVersion =
+    Decode.assertDecodeArchive(dar.main)._2.languageVersion
 
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
@@ -174,7 +174,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offset: Offset,
-      divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] =
     for {
@@ -185,7 +184,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         ledgerEffectiveTime = tx.ledgerEffectiveTime,
         offset = offset,
         transaction = tx.transaction,
-        divulgedContracts = divulgedContracts,
         blindingInfo = blindingInfo,
         hostedWitnesses = Nil,
         recordTime = tx.recordedAt,
@@ -347,12 +345,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       maintainers: Set[Party]
   ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    GlobalKeyWithMaintainers.assertBuild(
-      someTemplateId,
-      aTextValue,
-      maintainers,
-      Util.sharedKey(testLanguageVersion),
-    )
+    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers, shared = true)
   }
 
   protected final def createAndStoreContract(
@@ -376,69 +369,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         actAs = submittingParties.toList,
       )
     )
-
-  protected final def storeCommitedContractDivulgence(
-      id: ContractId,
-      divulgees: Set[Party],
-  ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(
-      divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
-      blindingInfo = None,
-      offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
-    )
-
-  protected def divulgeAlreadyCommittedContract(
-      id: ContractId,
-      divulgees: Set[Party],
-  ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = newBuilder()
-    val exerciseId = txBuilder.add(
-      Node.Exercise(
-        targetCoid = id,
-        templateId = someTemplateId,
-        interfaceId = None,
-        choiceId = someChoiceName,
-        consuming = false,
-        actingParties = Set(alice),
-        chosenValue = someChoiceArgument,
-        stakeholders = divulgees,
-        signatories = divulgees,
-        choiceObservers = Set.empty,
-        choiceAuthorizers = None,
-        children = ImmArray.Empty,
-        exerciseResult = Some(someChoiceResult),
-        keyOpt = None,
-        byKey = false,
-        version = txVersion,
-      )
-    )
-    txBuilder.add(
-      Node.Fetch(
-        coid = id,
-        templateId = someTemplateId,
-        actingParties = divulgees,
-        signatories = Set(alice),
-        stakeholders = Set(alice),
-        keyOpt = None,
-        byKey = false,
-        version = txVersion,
-      ),
-      exerciseId,
-    )
-    val offset = nextOffset()
-    offset -> LedgerEntry.Transaction(
-      commandId = Some(s"just-divulged-${id.coid}"),
-      transactionId = s"trId${id.coid}",
-      applicationId = Some("appID1"),
-      submissionId = Some(s"submissionId${id.coid}"),
-      actAs = List(divulgees.head),
-      workflowId = None,
-      ledgerEffectiveTime = Timestamp.now(),
-      recordedAt = Timestamp.now(),
-      transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map.empty,
-    )
-  }
 
   protected def singleExercise(
       targetCid: ContractId,
@@ -677,16 +607,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   }
 
   protected final def store(
-      divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
     val info = completionInfoFrom(entry)
-    val divulged =
-      divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
-
-    store(info, entry, offset, divulged, blindingInfo)
+    store(info, entry, offset, blindingInfo)
   }
 
   protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
@@ -708,7 +634,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       offsetAndTx: (Offset, LedgerEntry.Transaction)
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
-      divulgedContracts = Map.empty,
       blindingInfo = None,
       offsetAndTx = offsetAndTx,
     )
@@ -743,12 +668,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         stakeholders = Set(party),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(
-              someTemplateId,
-              someContractKey(party, key),
-              Set(party),
-              Util.sharedKey(testLanguageVersion),
-            )
+            .assertBuild(someTemplateId, someContractKey(party, key), Set(party), shared = true)
         ),
         version = txVersion,
       )
@@ -792,12 +712,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         exerciseResult = Some(LfValue.ValueUnit),
         keyOpt = maybeKey.map(k =>
           GlobalKeyWithMaintainers
-            .assertBuild(
-              someTemplateId,
-              someContractKey(party, k),
-              Set(party),
-              Util.sharedKey(testLanguageVersion),
-            )
+            .assertBuild(someTemplateId, someContractKey(party, k), Set(party), shared = true)
         ),
         byKey = false,
         version = txVersion,
@@ -828,12 +743,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.LookupByKey(
         templateId = someTemplateId,
         key = GlobalKeyWithMaintainers
-          .assertBuild(
-            someTemplateId,
-            someContractKey(party, key),
-            Set(party),
-            Util.sharedKey(testLanguageVersion),
-          ),
+          .assertBuild(someTemplateId, someContractKey(party, key), Set(party), shared = true),
         result = result,
         version = txVersion,
       )

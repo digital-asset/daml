@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FunctionalDependencies #-}
@@ -395,7 +395,7 @@ scenarioResultsToTestResults allPackages results =
     pkgIdToPkgName targetPid =
         case mapMaybe isTargetPackage allPackages of
           [] -> targetPid
-          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+          [matchingPkg] -> LF.unPackageName $ LF.packageName $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
           _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
         where
             isTargetPackage loe

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -15,7 +15,6 @@ import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Add, Repla
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
@@ -29,15 +28,14 @@ trait TopologyStoreTest
     with HasExecutionContext
     with BeforeAndAfterAll {
 
-  def loggerFactory: NamedLoggerFactory
+  protected def loggerFactory: NamedLoggerFactory
 
   protected implicit def traceContext: TraceContext
 
-  val pid = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
-  lazy val submissionId = String255.tryCreate("submissionId")
-  lazy val submissionId2 = String255.tryCreate("submissionId2")
+  private lazy val submissionId = String255.tryCreate("submissionId")
+  private lazy val submissionId2 = String255.tryCreate("submissionId2")
 
-  def partyMetadataStore(mk: () => PartyMetadataStore): Unit = {
+  protected def partyMetadataStore(mk: () => PartyMetadataStore): Unit = {
     import DefaultTestIdentities.*
     "inserting new succeeds" in {
       val store = mk()
@@ -810,7 +808,7 @@ trait TopologyStoreTest
             _ <- append(store, ts1.plusSeconds(1), snd)
             initial <- store.findInitialState(domainManager)
           } yield {
-            initial shouldBe Map[KeyOwner, Seq[PublicKey]](
+            initial shouldBe Map[Member, Seq[PublicKey]](
               domainManager -> Seq(factory.SigningKeys.key1),
               sequencerId -> Seq(factory.SigningKeys.key3, factory.SigningKeys.key4),
             )
@@ -1209,43 +1207,8 @@ trait TopologyStoreTest
             state2 shouldBe Seq(ns1k1, rokm1, okm2)
             sub2 shouldBe Seq(rokm1, okm2)
           }
-
         }
-
       }
-
-      "store the same topology transaction for different protocol versions" in {
-        val store = mk()
-
-        val baseTx =
-          NamespaceDelegation(
-            Namespace(namespaceKey.fingerprint),
-            namespaceKey,
-            isRootDelegation = true,
-          )
-        val stateUpdateId = TopologyElementId.generate()
-
-        def addTx(protocolVersion: ProtocolVersion) =
-          TopologyStateUpdate(
-            TopologyChangeOp.Add,
-            TopologyStateUpdateElement(stateUpdateId, baseTx),
-            protocolVersion,
-          )
-
-        val oldTx = factory.mkTrans(addTx(ProtocolVersion.v3), namespaceKey)
-        val newTx = factory.mkTrans(addTx(ProtocolVersion.v4), namespaceKey)
-
-        for {
-          _ <- append(store, ts, List(oldTx))
-          _ <- append(store, ts.plusMillis(1), List(newTx))
-          txs <- store.allTransactions()
-        } yield {
-          txs.result.size shouldEqual 2
-        }
-
-      }
-
     }
   }
-
 }

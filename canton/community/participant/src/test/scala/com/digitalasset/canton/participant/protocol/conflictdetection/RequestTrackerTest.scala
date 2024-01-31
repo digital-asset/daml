@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -9,8 +9,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.*
+import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
-import com.digitalasset.canton.participant.store.{ActiveContractStore, ContractKeyJournal}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -29,7 +29,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 private[conflictdetection] trait RequestTrackerTest {
-  this: AsyncWordSpec with BaseTest with ConflictDetectionHelpers =>
+  this: AsyncWordSpec & BaseTest & ConflictDetectionHelpers =>
   import ConflictDetectionHelpers.*
 
   val coid00: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
@@ -38,7 +38,7 @@ private[conflictdetection] trait RequestTrackerTest {
   val coid11: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   private val active = Active(initialTransferCounter)
 
@@ -48,7 +48,6 @@ private[conflictdetection] trait RequestTrackerTest {
           SequencerCounter,
           CantonTimestamp,
           ActiveContractStore,
-          ContractKeyJournal,
       ) => RequestTracker
   ): Unit = {
     import com.digitalasset.canton.data.CantonTimestamp.ofEpochMilli
@@ -58,8 +57,7 @@ private[conflictdetection] trait RequestTrackerTest {
         sc: SequencerCounter,
         ts: CantonTimestamp,
         acs: ActiveContractStore = mkEmptyAcs(),
-        ckj: ContractKeyJournal = mkEmptyCkj(),
-    ): RequestTracker = genMk(rc, sc, ts, acs, ckj)
+    ): RequestTracker = genMk(rc, sc, ts, acs)
 
     "allow transaction result at the decision time" in {
       val ts = CantonTimestamp.Epoch
@@ -234,8 +232,7 @@ private[conflictdetection] trait RequestTrackerTest {
       val ts = CantonTimestamp.assertFromInstant(Instant.parse("2000-01-01T00:00:00.00Z"))
       for {
         acs <- mkAcs()
-        ckj <- mkCkj()
-        rt = mk(rc, sc, ts.minusMillis(2), acs, ckj)
+        rt = mk(rc, sc, ts.minusMillis(2), acs)
 
         rc0 = rc
         scCR0 = SequencerCounter(1)
@@ -335,8 +332,7 @@ private[conflictdetection] trait RequestTrackerTest {
           (coid01, toc0, active),
           (coid10, toc0, active),
         )
-        ckj <- mkCkj()
-        rt = mk(rc, sc, CantonTimestamp.Epoch, acs, ckj)
+        rt = mk(rc, sc, CantonTimestamp.Epoch, acs)
 
         (cdF1, toF1) <- enterCR(rt, rc + 1, sc + 1, ts.plusMillis(1), timeout, actSet1)
         (cdF0, toF0) <- enterCR(
@@ -392,8 +388,7 @@ private[conflictdetection] trait RequestTrackerTest {
           (coid10, toc2, active),
           (coid11, toc2, active),
         )
-        ckj <- mkCkj()
-        rt = mk(rc, sc, ts.addMicros(-1), acs, ckj)
+        rt = mk(rc, sc, ts.addMicros(-1), acs)
         activenessSet0 = mkActivenessSet(deact = Set(coid00, coid11), useOnly = Set(coid10))
         (cdF0, toF0) <- enterCR(rt, rc, sc, ts, ts.plusMillis(100), activenessSet0)
         _ <- checkConflictResult(rc, cdF0, mkActivenessResult())
@@ -449,8 +444,7 @@ private[conflictdetection] trait RequestTrackerTest {
       val toc0 = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
       for {
         acs <- mkAcs((coid00, toc0, active), (coid01, toc0, active))
-        ckj <- mkCkj()
-        rt = mk(RequestCounter(1), SequencerCounter(1), CantonTimestamp.Epoch, acs, ckj)
+        rt = mk(RequestCounter(1), SequencerCounter(1), CantonTimestamp.Epoch, acs)
         activenessSet = mkActivenessSet(deact = Set(coid00, coid10), useOnly = Set(coid01))
         (cdF, toF) <- enterCR(
           rt,
@@ -486,7 +480,7 @@ private[conflictdetection] trait RequestTrackerTest {
               finalizationResult == InvalidCommitSet(
                 RequestCounter(1),
                 commitSet,
-                LockedStates(Set.empty, Seq(coid00, coid10), Seq.empty),
+                LockedStates(Set.empty, Seq(coid00, coid10)),
               ),
               "commit set archives non-locked contracts",
             )
@@ -530,7 +524,7 @@ private[conflictdetection] trait RequestTrackerTest {
                 InvalidCommitSet(
                   RequestCounter(1),
                   commitSet,
-                  LockedStates(Set.empty, Seq(coid00, coid01), Seq.empty),
+                  LockedStates(Set.empty, Seq(coid00, coid01)),
                 ),
               "commit set creates non-locked contracts",
             )
@@ -585,8 +579,7 @@ private[conflictdetection] trait RequestTrackerTest {
       val tocN1 = TimeOfChange(rc - 1, ts.minusMillis(1))
       for {
         acs <- mkAcs((coid00, tocN1, active), (coid01, tocN1, active))
-        ckj <- mkCkj()
-        rt = mk(rc, sc, ts.minusMillis(1), acs, ckj)
+        rt = mk(rc, sc, ts.minusMillis(1), acs)
 
         to1 = ts.plusMillis(2)
         (cdF0, toF0) <- enterCR(
@@ -813,8 +806,7 @@ private[conflictdetection] trait RequestTrackerTest {
       val tocN1 = TimeOfChange(rc - 1, ts.minusMillis(10))
       for {
         acs <- mkAcs((coid10, tocN2, active), (coid00, tocN1, active), (coid01, tocN1, active))
-        ckj <- mkCkj()
-        rt = mk(rc, sc, CantonTimestamp.Epoch, acs, ckj)
+        rt = mk(rc, sc, CantonTimestamp.Epoch, acs)
         activenessSet0 = mkActivenessSet(deact = Set(coid00), useOnly = Set(coid01))
         (cdF0, toF0) <- enterCR(rt, rc, sc, ts, ts.plusMillis(100), activenessSet0)
         _ <- checkConflictResult(rc, cdF0, mkActivenessResult())
@@ -919,8 +911,7 @@ private[conflictdetection] trait RequestTrackerTest {
     "detect duplicate concurrent creates" in {
       for {
         acs <- mkAcs()
-        ckj <- mkCkj()
-        rt = mk(RequestCounter(1), SequencerCounter(1), CantonTimestamp.Epoch, acs, ckj)
+        rt = mk(RequestCounter(1), SequencerCounter(1), CantonTimestamp.Epoch, acs)
 
         activenessSet0 = mkActivenessSet(create = Set(coid00, coid01, coid11))
         (cdF0, toF0) <- enterCR(

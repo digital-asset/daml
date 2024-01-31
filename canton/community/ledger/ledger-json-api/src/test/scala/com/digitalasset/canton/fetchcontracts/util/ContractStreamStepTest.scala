@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
@@ -68,7 +68,7 @@ object ContractStreamStepTest {
 
   private val offGen: Gen[domain.Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
   private val acsGen = arbitrary[Inserts[Cid]] map (Acs(_))
-  private val noAcsLBGen = Gen const LiveBegin(LedgerBegin)
+  private val noAcsLBGen = Gen const LiveBegin(ParticipantBegin)
   private val postAcsGen = offGen map (o => LiveBegin(AbsoluteBookmark(o)))
   private val txnGen = ^(arbitrary[IDS], offGen)(Txn(_, _))
 

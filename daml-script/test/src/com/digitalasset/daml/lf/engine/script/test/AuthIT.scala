@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
 package test
 
-import com.daml.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
@@ -16,11 +16,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class AuthITV1 extends AuthIT(LanguageMajorVersion.V1)
-
-// TODO(https://github.com/digital-asset/daml/issues/17812): re-enable this test and control its run
-//  at the bazel target level.
-//class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
+class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
 
 class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

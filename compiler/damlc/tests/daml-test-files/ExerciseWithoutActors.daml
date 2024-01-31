@@ -5,7 +5,7 @@
 -- without actors. Also check that `internalExerciseWithActors` actually
 -- uses actors as a sanity check.
 
--- @SINCE-LF 1.5 2.0
+-- @SINCE-LF 2.1
 -- @QUERY-LF [$pkg | .modules[] | .values[] | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not] | (length > 0 and all)
 
 module ExerciseWithoutActors where

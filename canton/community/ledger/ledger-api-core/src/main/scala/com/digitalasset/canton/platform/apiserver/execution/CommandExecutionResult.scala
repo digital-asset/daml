@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -7,11 +7,13 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.participant.state.{v2 as state}
+import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.topology.DomainId
 
 /** The result of command execution.
   *
   * @param submitterInfo            The submitter info
+  * @param optDomainId              The ID of the domain where the submitter wants the transaction to be sequenced
   * @param transactionMeta          The transaction meta-data
   * @param transaction              The transaction
   * @param dependsOnLedgerTime      True if the output of command execution depends in any way
@@ -31,6 +33,7 @@ import com.digitalasset.canton.ledger.participant.state.{v2 as state}
   */
 private[apiserver] final case class CommandExecutionResult(
     submitterInfo: state.SubmitterInfo,
+    optDomainId: Option[DomainId],
     transactionMeta: state.TransactionMeta,
     transaction: SubmittedTransaction,
     dependsOnLedgerTime: Boolean,

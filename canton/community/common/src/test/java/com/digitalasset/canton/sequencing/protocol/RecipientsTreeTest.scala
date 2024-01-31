@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -56,8 +56,8 @@ class RecipientsTreeTest extends AnyWordSpec with BaseTest {
   "serialization and deserialization" should {
     "preserve the same thing" in {
 
-      val serialized = t5.toProtoV0
-      val deserialized = RecipientsTree.fromProtoV0(serialized, supportGroupAddressing = true)
+      val serialized = t5.toProtoV30
+      val deserialized = RecipientsTree.fromProtoV30(serialized, supportGroupAddressing = true)
 
       deserialized shouldBe Right(t5)
     }

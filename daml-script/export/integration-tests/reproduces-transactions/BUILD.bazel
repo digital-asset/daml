@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,8 +12,9 @@ da_scala_test(
     srcs = ["test/scala/com/daml/script/export/ReproducesTransactions.scala"],
     data = [
         "//compiler/damlc",
-        "//daml-script/daml:daml-script.dar",
-        "//test-common:dar-files",
+        "//daml-script/daml3:daml3-script.dar",
+        #TODO(#17366): change to dar-files once LF2 is the default
+        "//test-common:dar-files-2.1",
     ],
     resources = ["test/resources/logback-test.xml"],
     scala_deps = [
@@ -33,23 +34,23 @@ da_scala_test(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-script/export",
         "//daml-script/export/transaction-eq",
         "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/testing-utils",
-        "//test-common:dar-files-default-lib",
+        #TODO(#17366): change to dar-files-default-lib once LF2 is the default
+        "//test-common:dar-files-2.1-lib",
         "//test-common/canton/it-lib",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",

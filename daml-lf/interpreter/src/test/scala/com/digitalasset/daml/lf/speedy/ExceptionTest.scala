@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
@@ -24,7 +23,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
-class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
 class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
@@ -492,13 +490,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:example1", "RESULT: Happy Path"),
       ("M:example2", "HANDLED: oops1"),
       ("M:example3", "UNHANDLED"),
-      (
-        "M:example4",
-        majorLanguageVersion.evaluationOrder match {
-          case LeftToRight => "HANDLED: left"
-          case RightToLeft => "HANDLED: right"
-        },
-      ),
+      ("M:example4", "HANDLED: right"),
       ("M:example5", "HANDLED: throw-in-throw"),
     )
 
@@ -552,7 +544,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
        precondition True;
        signatories Cons @Party [M:T {party} this] Nil @Party;
        observers Nil @Party;
-       agreement "Agreement";
        choice BodyCrash (self) (u: Unit) : Unit,
          controllers Cons @Party [M:T {party} this] Nil @Party,
          observers Nil @Party
@@ -691,7 +682,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T1 {party} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
       choice MyChoice (self) (i : Unit) : Unit,
         controllers Cons @Party [M:T1 {party} record] (Nil @Party)
         to
@@ -741,7 +731,6 @@ template (record : OldT) = {
   precondition True;
   signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
   observers Nil @Party;
-  agreement "Agreement";
 };
 } """ (parserParameters)
       }
@@ -762,7 +751,6 @@ template (record : NewT) = {
   precondition True;
   signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
   observers Nil @Party;
-  agreement "Agreement";
   choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
     controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
     to
