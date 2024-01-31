@@ -643,10 +643,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case EScenario(s) =>
           builder.setScenario(s)
         case EToAny(ty, body) =>
-          assertSince(LV.Features.anyType, "Expr.FromAny")
           builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
         case EFromAny(ty, body) =>
-          assertSince(LV.Features.anyType, "Expr.FromAny")
           builder.setFromAny(PLF.Expr.FromAny.newBuilder().setType(ty).setExpr(body))
         case ETypeRep(ty) =>
           builder.setTypeRep(ty)

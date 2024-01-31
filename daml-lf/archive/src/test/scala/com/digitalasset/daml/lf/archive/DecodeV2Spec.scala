@@ -239,15 +239,8 @@ class DecodeV2Spec
       }
     }
 
-    "reject Any if version < 1.7" in {
-      forEveryVersionSuchThat(_ < LV.Features.anyType) { version =>
-        val decoder = moduleDecoder(version)
-        an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(buildPrimType(ANY)))
-      }
-    }
-
-    "accept Any if version >= 1.7" in {
-      forEveryVersionSuchThat(_ >= LV.Features.anyType) { version =>
+    "accept Any" in {
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         decoder.uncheckedDecodeTypeForTest(buildPrimType(ANY)) shouldBe TAny
       }
