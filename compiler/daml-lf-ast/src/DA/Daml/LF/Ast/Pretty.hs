@@ -276,8 +276,6 @@ instance Pretty BuiltinExpr where
     BEDivInt64 -> "DIV_INT64"
     BEModInt64 -> "MOD_INT64"
     BEExpInt64 -> "EXP_INT64"
-    BEFoldl -> "FOLDL"
-    BEFoldr -> "FOLDR"
     BETextMapEmpty -> "TEXTMAP_EMPTY"
     BETextMapInsert -> "TEXTMAP_INSERT"
     BETextMapLookup -> "TEXTMAP_LOOKUP"
@@ -291,7 +289,6 @@ instance Pretty BuiltinExpr where
     BEGenMapSize -> "GENMAP_SIZE"
     BEGenMapKeys -> "GENMAP_KEYS"
     BEGenMapValues -> "GENMAP_VALUES"
-    BEEqualList -> "EQUAL_LIST"
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> text (timestampToText ts)
     BEDate date -> text (dateToText date)

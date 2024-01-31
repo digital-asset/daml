@@ -56,8 +56,6 @@ convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
     pure $ EBuiltin BEGreaterGeneric `ETyApp` a1
 convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     pure $ EBuiltin BEGreaterEqGeneric `ETyApp` a1
-convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
-    pure $ EBuiltin BEEqualList `ETyApp` a1
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
@@ -82,12 +80,6 @@ convertPrim _ "BEDateToUnixDays" (TDate :-> TInt64) =
     pure $ EBuiltin BEDateToUnixDays
 convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
     pure $ EBuiltin BEUnixDaysToDate
-
--- List operations
-convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
-    pure $ EBuiltin BEFoldl `ETyApp` a1 `ETyApp` b1
-convertPrim _ "BEFoldr" ((a1 :-> b1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
-    pure $ EBuiltin BEFoldr `ETyApp` a1 `ETyApp` b1
 
 -- Error
 convertPrim _ "BEError" (TText :-> t2) =

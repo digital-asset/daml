@@ -462,10 +462,6 @@ object Ast {
   final case object BTimestampToUnixMicroseconds extends BuiltinFunction // : Timestamp -> Int64
   final case object BUnixMicrosecondsToTimestamp extends BuiltinFunction // : Int64 -> Timestamp
 
-  // Folds
-  final case object BFoldl extends BuiltinFunction // : ∀a b. (b → a → b) → b → List a → b
-  final case object BFoldr extends BuiltinFunction // : ∀a b. (a → b → b) → b → List a → b
-
   // Maps
   final case object BTextMapEmpty extends BuiltinFunction // : ∀ a. TextMap a
   final case object BTextMapInsert
@@ -522,8 +518,6 @@ object Ast {
   final case object BEqualNumeric
       extends BuiltinFunction // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
 
-  final case object BEqualList
-      extends BuiltinFunction // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId
       extends BuiltinFunction // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BEqual extends BuiltinFunction // ∀a. a -> a -> Bool

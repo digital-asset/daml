@@ -465,10 +465,7 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionDIV_INT64 -> pure BEDivInt64
   LF2.BuiltinFunctionMOD_INT64 -> pure BEModInt64
   LF2.BuiltinFunctionEXP_INT64 -> pure BEExpInt64
-
-  LF2.BuiltinFunctionFOLDL          -> pure BEFoldl
-  LF2.BuiltinFunctionFOLDR          -> pure BEFoldr
-  LF2.BuiltinFunctionEQUAL_LIST     -> pure BEEqualList
+  
   LF2.BuiltinFunctionAPPEND_TEXT    -> pure BEAppendText
 
   LF2.BuiltinFunctionERROR          -> pure BEError

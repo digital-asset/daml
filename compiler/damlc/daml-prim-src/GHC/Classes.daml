@@ -192,7 +192,9 @@ deriving instance (Eq a, Eq b) => Eq (Either a b)
 -- slightly strange encoding to avoid value level recursion
 -- and to optimise so we avoid going through the dictionary lots of times
 eqList : (a -> a -> Bool) -> [a] -> [a] -> Bool
-eqList = primitive @"BEEqualList"
+eqList f [] [] = True
+eqList f (x::xs) (y::ys) = f x y && eqList f xs ys
+eqList _ _ _ = False
 
 instance (Eq a) => Eq [a] where
     (==) = eqList (==)

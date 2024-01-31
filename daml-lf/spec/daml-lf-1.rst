@@ -4542,24 +4542,6 @@ ContractId functions
 
   [*Available in versions >= 1.11*]
 
-List functions
-~~~~~~~~~~~~~~
-
-* ``FOLDL : ∀ (α : ⋆) . ∀ (β : ⋆) . (β → α → β) → β  → 'List' α → β``
-
-  Left-associative fold of a list.
-
-* ``FOLDR : ∀ (α : ⋆) . ∀ (β : ⋆) . (α → β → β) →  β → 'List' α → β``
-
-  Right-associative fold of a list.
-
-* ``EQUAL_LIST : ∀ (α : ⋆) . (α → α → 'Bool') → 'List' α → 'List' α → 'Bool'``
-
-  Returns ``'False'`` if the two lists have different length or the
-  elements of the two lists are not pairwise equal according to the
-  predicate give as first argument.
-
-
 Text map functions
 ~~~~~~~~~~~~~~~~~~
 

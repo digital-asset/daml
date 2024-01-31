@@ -39,7 +39,8 @@ infixr 5 ++
 -- | `map f xs` applies the function `f` to all elements of the list `xs`
 --  and returns the list of results (in the same order as `xs`).
 map : (a -> b) -> [a] -> [b]
-map f = foldr (\x xs -> f x :: xs) []
+map _ [] = []
+map f (x :: xs) = f x :: map f xs
 
 -- | This function is a right fold, which you can use to manipulate lists.
 -- `foldr f i xs` performs a right fold over the list `xs` using
@@ -47,7 +48,8 @@ map f = foldr (\x xs -> f x :: xs) []
 --
 -- Note that foldr works from right-to-left over the list elements.
 foldr : (a -> b -> b) -> b -> [a] -> b
-foldr = primitive @"BEFoldr"
+foldr _ z [] = z
+foldr f z (x::xs) = f x (foldr f z xs)
 
 -- | Composes two functions, i.e., `(f . g) x = f (g x)`.
 (.)    : (b -> c) -> (a -> b) -> a -> c

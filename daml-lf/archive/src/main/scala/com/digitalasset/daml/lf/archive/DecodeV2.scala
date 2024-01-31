@@ -2034,8 +2034,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy, minVersion = numeric),
       BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
-      BuiltinFunctionInfo(FOLDL, BFoldl),
-      BuiltinFunctionInfo(FOLDR, BFoldr),
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
       BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
       BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),
@@ -2261,7 +2259,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(LESS_EQ, BLessEq, minVersion = genComparison),
       BuiltinFunctionInfo(GREATER, BGreater, minVersion = genComparison),
       BuiltinFunctionInfo(GREATER_EQ, BGreaterEq, minVersion = genComparison),
-      BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(
         EQUAL_INT64,
         BEqual,

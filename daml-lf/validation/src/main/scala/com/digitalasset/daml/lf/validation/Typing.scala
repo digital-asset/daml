@@ -150,17 +150,6 @@ private[validation] object Typing {
       BUnixDaysToDate -> (TInt64 ->: TDate),
       BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
       BUnixMicrosecondsToTimestamp -> (TInt64 ->: TTimestamp),
-      // Folds
-      BFoldl ->
-        TForall(
-          alpha.name -> KStar,
-          TForall(beta.name -> KStar, (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta),
-        ),
-      BFoldr ->
-        TForall(
-          alpha.name -> KStar,
-          TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
-        ),
       // Maps
       BTextMapEmpty ->
         TForall(
@@ -274,11 +263,6 @@ private[validation] object Typing {
       BGreaterEqNumeric -> tNumComparison,
       BImplodeText -> (TList(TText) ->: TText),
       BEqualNumeric -> tNumComparison,
-      BEqualList ->
-        TForall(
-          alpha.name -> KStar,
-          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool,
-        ),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
       BEqual -> tComparison,

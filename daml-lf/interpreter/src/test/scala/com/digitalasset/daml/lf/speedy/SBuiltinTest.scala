@@ -905,57 +905,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   }
 
-  "List operations" - {
-
-    val f = """(\ (x:Int64) (y:Int64) ->  ADD_INT64 3 (MUL_INT64 x y))"""
-    val g = """(\ (x:Int64) -> let z:Int64 = 3 in \ (y:Int64) -> ADD_INT64 z (MUL_INT64 x y))"""
-
-    "FOLDL" - {
-      "works as expected" in {
-        eval(e"FOLDL @Int64 @Int64 $f 5 ${intList()}") shouldBe Right(SInt64(5))
-        eval(e"FOLDL @Int64 @Int64 $f 5 ${intList(7, 11, 13)}") shouldBe Right(SInt64(5476))
-      }
-    }
-
-    "FOLDR" - {
-      "works as expected" in {
-        eval(e"FOLDR @Int64 @Int64 $f 5 ${intList()}") shouldBe Right(SInt64(5))
-        eval(e"FOLDR @Int64 @Int64 $f 5 ${intList(7, 11, 13)}") shouldBe Right(SInt64(5260))
-      }
-      "works as expected when step function takes one argument" in {
-        eval(e"FOLDR @Int64 @Int64 $g 5 ${intList()}") shouldBe Right(SInt64(5))
-        eval(e"FOLDR @Int64 @Int64 $g 5 ${intList(7, 11, 13)}") shouldBe Right(SInt64(5260))
-      }
-    }
-
-    "EQUAL_LIST" - {
-      "works as expected" in {
-        val sameParity =
-          """(\ (x:Int64) (y:Int64) -> EQUAL @Int64 (MOD_INT64 x 2) (MOD_INT64 y 2))"""
-
-        eval(e"EQUAL_LIST @Int64 $sameParity ${intList()} ${intList()}") shouldBe Right(
-          SBool(true)
-        )
-        eval(
-          e"EQUAL_LIST @Int64 $sameParity ${intList(1, 2, 3)} ${intList(5, 6, 7)}"
-        ) shouldBe Right(
-          SBool(true)
-        )
-        eval(e"EQUAL_LIST @Int64 $sameParity ${intList()} ${intList(1)}") shouldBe Right(
-          SBool(false)
-        )
-        eval(e"EQUAL_LIST @Int64 $sameParity ${intList(1)} ${intList(1, 2)}") shouldBe Right(
-          SBool(false)
-        )
-        eval(
-          e"EQUAL_LIST @Int64 $sameParity ${intList(1, 2, 3)} ${intList(5, 6, 4)}"
-        ) shouldBe Right(
-          SBool(false)
-        )
-      }
-    }
-  }
-
   "TextMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =

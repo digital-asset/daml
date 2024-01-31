@@ -2387,7 +2387,8 @@ convertCoercion env co = evalStateT (go env co) 0
     mkListFMap a b f = do
         h <- mkLamBinder
         t <- mkLamBinder
-        pure $ \x -> EBuiltin BEFoldr
+        pkgRef <- lift $ packageNameToPkgRef env primUnitId
+        pure $ \x -> EVal (Qualified pkgRef (mkModName ["GHC", "Base"]) (mkVal "foldr"))
             `ETyApp` a
             `ETyApp` TList b
             `ETmApp` (ETmLam (h, a) $ ETmLam (t, TList b) $ ECons b (f (EVar h)) (EVar t))

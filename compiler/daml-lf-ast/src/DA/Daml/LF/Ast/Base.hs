@@ -301,11 +301,6 @@ data BuiltinExpr
   | BEDateToUnixDays              -- :: Date -> Int64, in microseconds
   | BEUnixDaysToDate              -- :: Int64 -> Date, in microseconds
 
-  -- List operations
-  | BEFoldl                      -- :: ∀a b. (b -> a -> b) -> b -> List a -> b
-  | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
-  | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
-
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
   | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a

@@ -160,54 +160,6 @@ evExpRecUpdErr2_3 = script do
 -- evaluation of struct fields during typeclass desugaring, and we don't have
 -- a way to construct LF structs directly.
 
--- @ERROR EvExpFoldrErr1 OK
-evExpFoldrErr1 : Script Int
-evExpFoldrErr1 = script do
-  pure (foldr f 0 [1, 2])
-  where
-    f 2 0 = error "EvExpFoldrErr1 OK"
-    f _ _ = error "EvExpFoldrErr1 failed"
-
--- @ERROR EvExpFoldrErr2 OK
-evExpFoldrErr2 : Script Int
-evExpFoldrErr2 = script do
-  pure (foldr f 0 [1, 2])
-  where
-    f 1 = error "EvExpFoldrErr2 OK"
-    f _ = error "EvExpFoldrErr2 failed"
-
--- @ERROR EvExpFoldrErr3 OK
-evExpFoldrErr3 : Script Int
-evExpFoldrErr3 = script do
-  pure (foldr f identity [1] (error "EvExpFoldrErr3 OK"))
-  where
-    f: Int -> (Int -> Int) -> (Int -> Int)
-    f _ _ = error "EvExpFoldrErr3 failed"
-
--- @ERROR EvExpFoldlErr1 OK
-evExpFoldlErr1 : Script Int
-evExpFoldlErr1 = script do
-  pure (foldl f 0 [1, 2])
-  where
-    f 0 1 = error "EvExpFoldlErr1 OK"
-    f _ _ = error "EvExpFoldlErr1 failed"
-
--- @ERROR EvExpFoldlErr2 OK
-evExpFoldlErr2 : Script Int
-evExpFoldlErr2 = script do
-  pure (foldl f 0 [1, 2])
-  where
-    f 0 = error "EvExpFoldlErr2 OK"
-    f _ = error "EvExpFoldlErr2 failed"
-
--- @ERROR EvExpFoldlErr3 OK
-evExpFoldlErr3 : Script Int
-evExpFoldlErr3 = script do
-  pure (foldl f identity [1] (error "EvExpFoldlErr3 OK"))
-  where
-    f: (Int -> Int) -> Int -> (Int -> Int)
-    f _ _ = error "EvExpFoldlErr3 failed"
-
 -- @ERROR EvExpUpPureErr OK
 evExpUpPureErr : Script ()
 evExpUpPureErr = script do
@@ -242,7 +194,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (3)"
 
--- @ERROR range=255:1-255:16; Template precondition violated
+-- @ERROR Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party

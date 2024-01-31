@@ -498,9 +498,6 @@ encodeBuiltinExpr = \case
     BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
     BENumericToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
 
-    BEFoldl -> builtin P.BuiltinFunctionFOLDL
-    BEFoldr -> builtin P.BuiltinFunctionFOLDR
-    BEEqualList -> builtin P.BuiltinFunctionEQUAL_LIST
     BEExplodeText -> builtin P.BuiltinFunctionEXPLODE_TEXT
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
     BEImplodeText -> builtin P.BuiltinFunctionIMPLODE_TEXT

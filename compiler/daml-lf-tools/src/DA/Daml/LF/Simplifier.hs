@@ -142,8 +142,6 @@ safetyStep = \case
       BEDivInt64          -> Safe 1
       BEModInt64          -> Safe 1
       BEExpInt64          -> Safe 1
-      BEFoldl             -> Safe 2
-      BEFoldr             -> Safe 2
       BETextMapEmpty      -> Safe 0
       BETextMapInsert     -> Safe 3
       BETextMapLookup     -> Safe 2
@@ -157,7 +155,6 @@ safetyStep = \case
       BEGenMapKeys        -> Safe 1
       BEGenMapValues      -> Safe 1
       BEGenMapSize        -> Safe 1
-      BEEqualList         -> Safe 2 -- expects 3, 2-safe
       BEExplodeText       -> Safe 1
       BEImplodeText       -> Safe 1
       BESha256Text        -> Safe 1

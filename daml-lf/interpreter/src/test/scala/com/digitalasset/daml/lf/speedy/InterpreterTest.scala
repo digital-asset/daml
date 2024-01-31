@@ -19,8 +19,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.logging.ContextualizedLogger
 
-import scala.language.implicitConversions
-
 class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
 
 class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
@@ -30,8 +28,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
     with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
-
-  private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
   private implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
@@ -44,66 +40,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
     machine.run() match {
       case SResultFinal(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-    }
-  }
-
-  "evaluator behaves responsibly" should {
-    // isolated rendition of the DA.Test.List.concat_test scenario in
-    // stdlib, which failed after I introduced FrontQueue. It happened
-    // to be a missing reverse in Interp.
-    "concat works" in {
-      val int64 = TBuiltin(BTInt64)
-      val int64List = TApp(TBuiltin(BTList), int64)
-
-      def int64Cons(nums: ImmArray[Long], tail: Expr): Expr =
-        ECons(int64, nums.map(i => EPrimLit(PLInt64(i))), tail)
-
-      val int64Nil = ENil(int64)
-      val concat =
-        EAbs(
-          ("xss", TApp(TBuiltin(BTList), int64List)),
-          ELet(
-            Binding(
-              Some("work"),
-              TFun(int64List, TFun(int64List, int64List)),
-              EAbs(
-                ("xs", int64List),
-                EAbs(
-                  ("acc", int64List),
-                  EApp(
-                    EApp(
-                      EApp(
-                        EBuiltin(BFoldr),
-                        EAbs(
-                          ("x", int64),
-                          EAbs(
-                            ("accInner", int64List),
-                            ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
-                            None,
-                          ),
-                          None,
-                        ),
-                      ),
-                      EVar("acc"),
-                    ),
-                    EVar("xs"),
-                  ),
-                  None,
-                ),
-                None,
-              ),
-            ),
-            EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
-          ),
-          None,
-        )
-      val xss1 = ECons(
-        int64List,
-        ImmArray(int64Cons(ImmArray(2, 5), int64Nil), int64Cons(ImmArray[Long](7), int64Nil)),
-        ENil(int64List),
-      )
-      val xss2 = ECons(int64List, ImmArray(int64Cons(ImmArray(2, 5, 7), int64Nil)), ENil(int64List))
-      runExpr(EApp(concat, xss1)) shouldBe runExpr(EApp(concat, xss2))
     }
   }
 

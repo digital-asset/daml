@@ -280,10 +280,6 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> pure $ TText :-> TText
-  BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
-             (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
-  BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
-             (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
 
   BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
   BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
@@ -299,9 +295,6 @@ typeOfBuiltin = \case
   BEGenMapValues -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TList tBeta
   BEGenMapSize -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TInt64
 
-  BEEqualList -> pure $
-    TForall (alpha, KStar) $
-    (tAlpha :-> tAlpha :-> TBool) :-> TList tAlpha :-> TList tAlpha :-> TBool
   BETimestampToUnixMicroseconds -> pure $ TTimestamp :-> TInt64
   BEUnixMicrosecondsToTimestamp -> pure $ TInt64 :-> TTimestamp
   BEDateToUnixDays -> pure $ TDate :-> TInt64
