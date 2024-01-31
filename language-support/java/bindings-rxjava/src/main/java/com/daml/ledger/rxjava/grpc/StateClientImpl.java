@@ -16,6 +16,7 @@ import io.reactivex.Single;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class StateClientImpl implements StateClient {
@@ -67,7 +68,9 @@ public class StateClientImpl implements StateClient {
     return responses.map(
         response -> {
           List<Ct> activeContracts =
-              List.of(contractFilter.toContract(response.getContractEntry().getCreatedEvent()));
+              response.getContractEntry().stream()
+                  .map(ce -> contractFilter.toContract(ce.getCreatedEvent()))
+                  .collect(Collectors.toList());
           return new ActiveContracts<>(
               response.getOffset(), activeContracts, response.getWorkflowId());
         });
