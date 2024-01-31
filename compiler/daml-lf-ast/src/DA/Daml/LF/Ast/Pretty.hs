@@ -708,7 +708,6 @@ pPrintDefInterface lvl modName defInterface =
       , intView
       , intMethods
       , intChoices
-      , intCoImplements
       } = defInterface
 
     header = hsep
@@ -723,7 +722,6 @@ pPrintDefInterface lvl modName defInterface =
       [ viewDoc
       , vcat methodDocs
       , vcat choiceDocs
-      , vcat interfaceInstanceDocs
       ]
 
     requiresDoc = case S.toList intRequires of
@@ -733,11 +731,6 @@ pPrintDefInterface lvl modName defInterface =
     viewDoc = keyword_ "viewtype" <-> pPrint intView
     methodDocs = map (pPrintInterfaceMethod lvl) (NM.toList intMethods)
     choiceDocs = map (pPrintTemplateChoice lvl modName intName) (NM.toList intChoices)
-    interfaceInstanceDocs =
-      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template) body loc
-      | InterfaceCoImplements template body loc <- NM.toList intCoImplements
-      ]
-    qIntName = Qualified PRSelf modName intName
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags FeatureFlags = mempty

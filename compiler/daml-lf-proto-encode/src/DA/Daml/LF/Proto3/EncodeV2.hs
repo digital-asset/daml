@@ -1042,7 +1042,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
-    defInterfaceCoImplements <- encodeNameMap encodeInterfaceCoImplements intCoImplements
+    let defInterfaceCoImplements = mempty
     defInterfaceView <- encodeType intView
     pure $ P.DefInterface{..}
 
@@ -1052,13 +1052,6 @@ encodeInterfaceMethod InterfaceMethod {..} = do
     interfaceMethodMethodInternedName <- encodeMethodName ifmName
     interfaceMethodType <- encodeType ifmType
     pure $ P.InterfaceMethod{..}
-
-encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_CoImplements
-encodeInterfaceCoImplements InterfaceCoImplements {..} = do
-    defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
-    defInterface_CoImplementsBody <- encodeInterfaceInstanceBody iciBody
-    defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
-    pure P.DefInterface_CoImplements {..}
 
 encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
 encodeUpgradedPackageId upgradedPackageId = do

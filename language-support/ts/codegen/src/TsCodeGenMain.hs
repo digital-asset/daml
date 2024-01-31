@@ -314,7 +314,7 @@ genDataDef curPkgId mod ifcChoices tpls def = case unTypeConName (dataTypeCon de
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView, intCoImplements} =
+genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
@@ -322,10 +322,9 @@ genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView, intCoImplemen
            , ifModule = moduleName mod
            , ifPkgId = pkgId
            , ifView = view
-           , ifRetroImplements = retroImplements
            })
     ]
-  , Set.unions $ viewRefs : choiceRefs <> retroImplementRefs)
+  , Set.unions $ viewRefs : choiceRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
     (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
@@ -341,16 +340,9 @@ genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView, intCoImplemen
     -- TODO #14570 type in DefInterface is too big; this should be total
     intViewAlwaysRecord = case intView of
       TCon c -> c
-      ty -> error $ "invalid view type for " <> show intName <> ": " <> show ty 
+      ty -> error $ "invalid view type for " <> show intName <> ": " <> show ty
     view = genTypeCon (moduleName mod) intViewAlwaysRecord
     viewRefs = Set.setOf qualifiedModuleRef intViewAlwaysRecord
-    -- likewise, retroactive implementations only occur in type declarations
-    (retroImplements, retroImplementRefs) =
-      unzip $
-      [ (retroName, Set.setOf qualifiedModuleRef tpl)
-      | tpl <- NM.names intCoImplements
-      , let (TsTypeConRef retroName, _) = genTypeCon (moduleName mod) tpl
-      ]
 
 -- | The typescript declarations we produce.
 data TsDecl
@@ -482,12 +474,11 @@ data InterfaceDef = InterfaceDef
   , ifPkgId :: PackageId
   , ifChoices :: [ChoiceDef]
   , ifView :: (TsTypeConRef, JsSerializerConRef)
-  , ifRetroImplements :: [T.Text]
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
 renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
-                                ifPkgId, ifView, ifRetroImplements} = (jsSource, tsDecl)
+                                ifPkgId, ifView} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = damlTypes.assembleInterface("
@@ -515,13 +506,11 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
       , ifaceDefIface ifName Nothing ifChoices
       , [ "export declare const " <> ifName <> ":"
         , "  damlTypes.InterfaceCompanion<" <> ifName <> ", undefined, '" <> ifaceId <> "'> &"
-        , "  damlTypes.FromTemplate<" <> ifName <> ", " <> retroImplsIntersection <> "> &"
+        , "  damlTypes.FromTemplate<" <> ifName <> ", unknown> &"
         , "  " <> ifName <> "Interface;"
         ]
       ]
     (TsTypeConRef viewTy, JsSerializerConRef viewCompanion) = ifView
-    retroImplsIntersection = if null ifRetroImplements then "unknown"
-      else T.intercalate " & " ifRetroImplements
     ifaceId =
         unPackageId ifPkgId <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>

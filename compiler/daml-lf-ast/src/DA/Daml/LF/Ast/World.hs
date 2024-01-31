@@ -25,7 +25,6 @@ module DA.Daml.LF.Ast.World(
     lookupModule,
     lookupInterface,
     lookupTemplateOrInterface,
-    InterfaceInstanceInfo(..),
     lookupInterfaceInstance,
     ) where
 
@@ -43,7 +42,7 @@ import Data.Either.Extra (maybeToEither)
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
-import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface, TemplateOrInterface')
+import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface)
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 
 -- | The 'World' contains all imported packages together with (a subset of)
@@ -196,26 +195,14 @@ lookupInterfaceMethod (ifaceRef, methodName) world = do
   maybeToEither (LEInterfaceMethod ifaceRef methodName) $
       NM.lookup methodName (intMethods iface)
 
-data InterfaceInstanceInfo = InterfaceInstanceInfo
-  { defInterface :: DefInterface
-  , parent :: TemplateOrInterface' (Qualified TypeConName)
-  }
-
 lookupInterfaceInstance ::
-  InterfaceInstanceHead -> World -> Either LookupError InterfaceInstanceInfo
+  InterfaceInstanceHead -> World -> Either LookupError ()
 lookupInterfaceInstance iiHead@InterfaceInstanceHead {..} world = do
-  interface <- lookupInterface iiInterface world
+  _ <- lookupInterface iiInterface world
   template <- lookupTemplate iiTemplate world
-  let
-    onInterface = NM.lookup iiTemplate (intCoImplements interface)
-    onTemplate = NM.lookup iiInterface (tplImplements template)
-    ok = Right . InterfaceInstanceInfo interface
-    err mkErr = Left (mkErr iiHead)
-  case (onInterface, onTemplate) of
-    (Nothing, Nothing) -> err LEUnknownInterfaceInstance
-    (Just _, Nothing) -> ok (TemplateOrInterface.Interface iiInterface)
-    (Nothing, Just _) -> ok (TemplateOrInterface.Template iiTemplate)
-    (Just _, Just _) -> err LEAmbiguousInterfaceInstance
+  case NM.lookup iiInterface (tplImplements template) of
+    Nothing -> Left (LEUnknownInterfaceInstance iiHead)
+    Just _ -> Right ()
 
 instance Pretty LookupError where
   pPrint = \case

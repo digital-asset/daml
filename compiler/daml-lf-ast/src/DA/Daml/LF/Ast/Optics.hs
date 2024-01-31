@@ -195,7 +195,6 @@ instance MonoTraversable ModuleRef DefException
 
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
-instance MonoTraversable ModuleRef InterfaceCoImplements
 
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue

@@ -51,7 +51,6 @@ data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
-  | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -221,7 +220,6 @@ interfaceLocation i = \case
   IPWhole -> intLocation i
   IPMethod im -> ifmLocation im
   IPChoice tc -> chcLocation tc
-  IPInterfaceInstance _ loc -> loc
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -259,7 +257,6 @@ instance Show InterfacePart where
     IPWhole -> ""
     IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
     IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    IPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case

@@ -228,7 +228,6 @@ decodeDefInterface LF2.DefInterface {..} = do
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-  intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
   intView <- mayDecode "defInterfaceView" defInterfaceView decodeType
   pure DefInterface {..}
 
@@ -240,12 +239,6 @@ decodeInterfaceMethod LF2.InterfaceMethod {..} = InterfaceMethod
 
 decodeMethodName :: Int32 -> Decode MethodName
 decodeMethodName = decodeNameId MethodName
-
-decodeInterfaceCoImplements :: LF2.DefInterface_CoImplements -> Decode InterfaceCoImplements
-decodeInterfaceCoImplements LF2.DefInterface_CoImplements {..} = InterfaceCoImplements
-  <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
-  <*> mayDecode "defInterface_CoImplementsBody" defInterface_CoImplementsBody decodeInterfaceInstanceBody
-  <*> traverse decodeLocation defInterface_CoImplementsLocation
 
 decodeFeatureFlags :: LF2.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF2.FeatureFlags{..} =
