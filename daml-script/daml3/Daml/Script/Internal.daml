@@ -19,8 +19,10 @@ module Daml.Script.Internal
   , listAllPackages
   , vetDar
   , vetDarOnParticipant
+  , unsafeVetDarOnParticipant
   , unvetDar
   , unvetDarOnParticipant
+  , unsafeUnvetDarOnParticipant
 
   , -- Concurrent submit
     concurrently
