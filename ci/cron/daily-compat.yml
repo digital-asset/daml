@@ -238,16 +238,13 @@ jobs:
 
           ### code drop ###
 
-            tmp=$(mktemp -d)
-            trap "rm -rf ${tmp}" EXIT
-            
-            git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
-            git -C $tmp checkout $(canton_version_to_commitish $canton3_version)
+          tmp=$(mktemp -d)
+          trap "rm -rf ${tmp}" EXIT
 
-            ci/copy-canton.sh $tmp
-          }
+          git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
+          git -C $tmp checkout $(canton_version_to_commitish $canton3_version)
 
-          copy_canton_code $canton3_version canton
+          ci/copy-canton.sh $tmp
 
           ### create PR ###
 
