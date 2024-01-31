@@ -6,5 +6,6 @@ pkgs.mkShell {
     bash
     curl
     jq
+    leiningen
   ];
 }
