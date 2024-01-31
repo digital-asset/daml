@@ -65,6 +65,20 @@ class DecodeV2Spec
     val s1 =
       Set(
         DamlLf2.BuiltinFunction.UNRECOGNIZED,
+        DamlLf2.BuiltinFunction.EQUAL_DECIMAL,
+        DamlLf2.BuiltinFunction.INT64_TO_DECIMAL,
+        DamlLf2.BuiltinFunction.LESS_DECIMAL,
+        DamlLf2.BuiltinFunction.DECIMAL_TO_INT64,
+        DamlLf2.BuiltinFunction.MUL_DECIMAL,
+        DamlLf2.BuiltinFunction.ROUND_DECIMAL,
+        DamlLf2.BuiltinFunction.GREATER_DECIMAL,
+        DamlLf2.BuiltinFunction.DECIMAL_TO_TEXT,
+        DamlLf2.BuiltinFunction.DIV_DECIMAL,
+        DamlLf2.BuiltinFunction.GEQ_DECIMAL,
+        DamlLf2.BuiltinFunction.SUB_DECIMAL,
+        DamlLf2.BuiltinFunction.LEQ_DECIMAL,
+        DamlLf2.BuiltinFunction.ADD_DECIMAL,
+        DamlLf2.BuiltinFunction.TEXT_TO_DECIMAL,
         DamlLf2.BuiltinFunction.EQUAL_DATE,
         DamlLf2.BuiltinFunction.GREATER_TIMESTAMP,
         DamlLf2.BuiltinFunction.EQUAL_TIMESTAMP,
@@ -139,18 +153,9 @@ class DecodeV2Spec
 
   "decodeKind" should {
 
-    "reject nat kind if lf version < 1.7" in {
-
+    "accept nat kind" in {
       val input = DamlLf2.Kind.newBuilder().setNat(DamlLf2.Unit.newBuilder()).build()
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
-      }
-    }
-
-    "accept nat kind if lf version >= 1.7" in {
-      val input = DamlLf2.Kind.newBuilder().setNat(DamlLf2.Unit.newBuilder()).build()
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         moduleDecoder(version).decodeKindForTest(input) shouldBe Ast.KNat
       }
     }
@@ -165,25 +170,12 @@ class DecodeV2Spec
     val validNatTypes = List(0, 1, 2, 5, 11, 35, 36, 37)
     val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 38, 39, 200, Long.MaxValue)
 
-    "reject nat type if lf version < 1.7" in {
-
-      val testCases =
-        Table("proto nat type", (validNatTypes.map(_.toLong) ++ invalidNatTypes).map(buildNat): _*)
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(testCases) { natType =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(natType))
-        }
-      }
-    }
-
-    "accept only valid nat types if lf version >= 1.7" in {
+    "accept only valid nat types" in {
       val positiveTestCases =
         Table("proto nat type" -> "nat", validNatTypes.map(v => buildNat(v.toLong) -> v): _*)
       val negativeTestCases = Table("proto nat type", invalidNatTypes.map(buildNat): _*)
 
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(positiveTestCases) { (natType, nat) =>
           decoder.uncheckedDecodeTypeForTest(natType) shouldBe Ast.TNat(
@@ -224,26 +216,8 @@ class DecodeV2Spec
         TFun(TText, TNumeric.cons),
     )
 
-    "translate TDecimal to TApp(TNumeric, TNat(10))" in {
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(decimalTestCases) { (input, expectedOutput) =>
-          decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
-        }
-      }
-    }
-
-    "reject Numeric types if version < 1.7" in {
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(numericTestCases) { (input, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(input))
-        }
-      }
-    }
-
-    "translate TNumeric as is if version >= 1.7" in {
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+    "translate TNumeric as is" in {
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
           decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
@@ -251,10 +225,15 @@ class DecodeV2Spec
       }
     }
 
-    "reject Decimal types if version >= 1.7" in {
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+    "reject Decimal types" in {
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>
+          try {
+            decoder.uncheckedDecodeTypeForTest(input)
+          } catch {
+            case e: Throwable => e.printStackTrace()
+          }
           an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(input))
         }
       }
@@ -562,32 +541,9 @@ class DecodeV2Spec
       }
     }
 
-    "transparently apply TNat(10) to Decimal builtins if version < 1.7" in {
+    "translate Numeric builtins as is" in {
 
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-
-        forEvery(decimalBuiltinTestCases) { (proto, versionId, scala) =>
-          if (LV.Major.V1.minorVersionOrdering.gteq(LV.Minor(versionId), version.minor))
-            decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    "reject Numeric builtins if version < 1.7" in {
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-
-        forEvery(numericBuiltinTestCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
-        }
-      }
-    }
-
-    "translate Numeric builtins as is if version >= 1.7" in {
-
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
 
         forEvery(numericBuiltinTestCases) { (proto, scala) =>
@@ -607,66 +563,6 @@ class DecodeV2Spec
       }
     }
 
-    "parse properly decimal literal" in {
-
-      val testCases =
-        Table(
-          "string",
-          "9999999999999999999999999999.9999999999",
-          "0000000000000000000000000000.0000000000",
-          "0.0",
-          "-0.0",
-          "42",
-          "3.1415",
-          "+1.0",
-          "-9999999999999999999999999999.9999999999",
-        )
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(testCases) { string =>
-          inside(decoder.decodeExprForTest(toDecimalProto(string), "test")) {
-            case Ast.EPrimLit(Ast.PLNumeric(num)) =>
-              num shouldBe new BigDecimal(string).setScale(10)
-          }
-        }
-      }
-    }
-
-    "reject improper decimal literal" in {
-
-      val testCases =
-        Table(
-          "string",
-          "10000000000000000000000000000.0000000000",
-          "1000000000000000000000000000000",
-          "0.00000000001",
-          "0.0.0",
-          "0.",
-          "+-0.0",
-        )
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(testCases) { string =>
-          an[Error.Parsing] shouldBe thrownBy(
-            decoder.decodeExprForTest(toDecimalProto(string), "test")
-          )
-        }
-      }
-    }
-
-    "reject numeric literal if version < 1.7" in {
-
-      val decoder = moduleDecoder(LV(LV.Major.V1, LV.Features.numeric.minor), ImmArraySeq("0.0"))
-      decoder.decodeExprForTest(toNumericProto(0), "test")
-
-      forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq("0.0"))
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toNumericProto(0), "test"))
-      }
-    }
-
     "parse properly numeric literals" in {
 
       val testCases =
@@ -682,7 +578,7 @@ class DecodeV2Spec
           7 -> "-99999999999999999999.999999999999999999",
         )
 
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
         forEvery(testCases) { (id, string) =>
           inside(decoder.decodeExprForTest(toNumericProto(id), "test")) {
@@ -707,7 +603,7 @@ class DecodeV2Spec
           7 -> "0",
         )
 
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version, ImmArraySeq("0." +: testCases.map(_._2): _*))
         forEvery(testCases) { (id, _) =>
           decoder.decodeExprForTest(toNumericProto(0), "test")
@@ -716,9 +612,9 @@ class DecodeV2Spec
       }
     }
 
-    s"reject numeric decimal if version >= ${LV.Features.numeric}" in {
+    s"reject numeric decimal" in {
 
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         an[Error.Parsing] shouldBe thrownBy(
           decoder.decodeExprForTest(toDecimalProto("0.0"), "test")
