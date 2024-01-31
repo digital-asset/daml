@@ -13,6 +13,5 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-scala/scala-utils",
-        "//observability/metrics",
     ],
 )
