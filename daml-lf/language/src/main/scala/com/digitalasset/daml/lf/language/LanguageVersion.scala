@@ -51,8 +51,6 @@ object LanguageVersion {
 
   object Features {
     val default = v2_1
-    val internedStrings = v2_1
-    val internedDottedNames = v2_1
     val numeric = v2_1
     val anyType = v2_1
     val typeRep = v2_1
@@ -62,7 +60,6 @@ object LanguageVersion {
     val genMap = v2_1
     val contractIdTextConversions = v2_1
     val exerciseByKey = v2_1
-    val internedTypes = v2_1
     val choiceObservers = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
