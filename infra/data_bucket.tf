@@ -22,8 +22,8 @@ resource "google_storage_bucket_acl" "data" {
   bucket = google_storage_bucket.data.name
 
   role_entity = [
-    "OWNER:project-owners-${data.google_project.current.number}",
-    "OWNER:project-editors-${data.google_project.current.number}",
+    "READER:project-owners-${data.google_project.current.number}",
+    "READER:project-editors-${data.google_project.current.number}",
     "READER:project-viewers-${data.google_project.current.number}",
   ]
 }
