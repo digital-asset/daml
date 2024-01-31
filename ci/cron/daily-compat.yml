@@ -238,24 +238,13 @@ jobs:
 
           ### code drop ###
 
-          copy_canton_code() {
-            canton_version=$1
-            canton_dir=$2
-
-            commitish=$(canton_version_to_commitish $canton_version)
             tmp=$(mktemp -d)
             trap "rm -rf ${tmp}" EXIT
-
+            
             git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton $tmp
-            git -C $tmp checkout $commitish
-            for path in community daml-common-staging README.md; do
-              src=$tmp/$path
-              dst=$canton_dir/$path
-              rm -rf $dst
-              mkdir -p $(dirname $dst)
-              cp -rf $src $dst
-              git add $dst
-            done
+            git -C $tmp checkout $(canton_version_to_commitish $canton3_version)
+
+            ci/copy-canton.sh $tmp
           }
 
           copy_canton_code $canton3_version canton
