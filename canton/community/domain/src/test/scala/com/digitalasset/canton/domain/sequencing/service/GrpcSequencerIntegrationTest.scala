@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.domain.metrics.DomainTestMetrics
+import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
@@ -150,12 +150,12 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val service =
     new GrpcSequencerService(
       sequencer,
-      DomainTestMetrics.sequencer,
+      SequencerTestMetrics,
       loggerFactory,
       authenticationCheck,
       new SubscriptionPool[GrpcManagedSubscription[_]](
         clock,
-        DomainTestMetrics.sequencer,
+        SequencerTestMetrics,
         timeouts,
         loggerFactory,
       ),

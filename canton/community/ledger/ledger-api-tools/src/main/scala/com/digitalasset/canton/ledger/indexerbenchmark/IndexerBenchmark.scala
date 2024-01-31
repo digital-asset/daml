@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.ledger.indexerbenchmark
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.JvmMetricSet
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, ProxyMetricsFactory}
 import com.daml.resources
@@ -30,7 +29,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.io.StdIn
@@ -151,28 +150,22 @@ class IndexerBenchmark extends NamedLogging {
   private def metricsResource(config: Config) = {
     OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter, Seq.empty).flatMap {
       openTelemetry =>
-        val registry = new MetricRegistry
-        val dropwizardFactory = new DropwizardMetricsFactory(registry)
         val openTelemetryFactory =
           new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
         val inMemoryMetricFactory = new InMemoryMetricsFactory
         JvmMetricSet.registerObservers()
-        registry.registerAll(new JvmMetricSet)
         val metrics = new Metrics(
-          new ProxyMetricsFactory(
-            dropwizardFactory,
-            inMemoryMetricFactory,
-          ),
+          MetricName("test"),
           new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
-          registry,
-          reportExecutionContextMetrics = true,
         )
         config.metricsReporter
-          .fold(ResourceOwner.unit)(reporter =>
-            ResourceOwner
+          .fold(ResourceOwner.unit) { _ =>
+            noTracingLogger.warn("metrics reporting is not supported yet")
+            ResourceOwner.unit
+          /*ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-          )
+              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))*/
+          }
           .map(_ => metrics)
     }
   }

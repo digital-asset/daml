@@ -208,17 +208,21 @@ object MerkleTreeTest {
     override def name: String = "AbstractLeaf"
     override def supportedProtoVersions: data.MerkleTreeTest.AbstractLeaf.SupportedProtoVersions =
       SupportedProtoVersions(
-        ProtoVersion(1) -> VersionedProtoConverter.raw(
+        ProtoVersion(30) -> VersionedProtoConverter.raw(
           ProtocolVersion.v30,
-          fromProto(1),
+          fromProto(30),
           _.getCryptographicEvidence,
         )
       )
 
     def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] = {
-      leafFromByteString(i =>
-        Leaf1(i)(protocolVersionRepresentativeFor(ProtoVersion(protoVersion)))
-      )(bytes).leftMap(e => ProtoDeserializationError.OtherError(e.message))
+
+      protocolVersionRepresentativeFor(ProtoVersion(protoVersion)).flatMap { rpv =>
+        leafFromByteString(i => Leaf1(i)(rpv))(bytes).leftMap(e =>
+          ProtoDeserializationError.OtherError(e.message)
+        )
+      }
+
     }
   }
 

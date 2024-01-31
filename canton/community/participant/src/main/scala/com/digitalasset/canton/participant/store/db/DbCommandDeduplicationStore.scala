@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
 import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
@@ -45,9 +44,6 @@ class DbCommandDeduplicationStore(
   private val cachedLastPruning =
     new AtomicReference[Option[Option[OffsetAndPublicationTime]]](None)
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("command-deduplication-store")
-
   private implicit val setParameterStoredParties: SetParameter[StoredParties] =
     StoredParties.getVersionedSetParameter(releaseProtocolVersion.v)
   private implicit val setParameterTraceContext: SetParameter[SerializableTraceContext] =
@@ -57,26 +53,24 @@ class DbCommandDeduplicationStore(
 
   override def lookup(
       changeIdHash: ChangeIdHash
-  )(implicit traceContext: TraceContext): OptionT[Future, CommandDeduplicationData] =
-    processingTime.optionTEvent {
-      val query =
-        sql"""
+  )(implicit traceContext: TraceContext): OptionT[Future, CommandDeduplicationData] = {
+    val query =
+      sql"""
         select application_id, command_id, act_as,
           offset_definite_answer, publication_time_definite_answer, submission_id_definite_answer, trace_context_definite_answer,
           offset_acceptance, publication_time_acceptance, submission_id_acceptance, trace_context_acceptance
         from command_deduplication
         where change_id_hash = $changeIdHash
         """.as[CommandDeduplicationData].headOption
-      storage.querySingle(query, functionFullName)
-    }
+    storage.querySingle(query, functionFullName)
+  }
 
   override def storeDefiniteAnswers(
       answers: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)]
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      val update = storage.profile match {
-        case _: DbStorage.Profile.Postgres =>
-          """
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val update = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        """
           insert into command_deduplication(
             change_id_hash,
             application_id, command_id, act_as,
@@ -101,8 +95,8 @@ class DbCommandDeduplicationStore(
               trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else command_deduplication.trace_context_acceptance end)
             where command_deduplication.offset_definite_answer < excluded.offset_definite_answer
             """
-        case _: DbStorage.Profile.Oracle =>
-          """
+      case _: DbStorage.Profile.Oracle =>
+        """
           merge into command_deduplication using
              (select
                 ? as change_id_hash,
@@ -148,8 +142,8 @@ class DbCommandDeduplicationStore(
                 excluded.submission_id_acceptance, excluded.trace_context_acceptance
               )
             """
-        case _: DbStorage.Profile.H2 =>
-          """
+      case _: DbStorage.Profile.H2 =>
+        """
           merge into command_deduplication using
              (select
                 cast(? as varchar(300)) as change_id_hash,
@@ -194,56 +188,56 @@ class DbCommandDeduplicationStore(
                 excluded.submission_id_acceptance, excluded.trace_context_acceptance
               )
             """
-      }
-      val bulkUpdate =
-        DbStorage.bulkOperation(
-          update,
-          answers,
-          storage.profile,
-        ) { pp => update =>
-          val (changeId, definiteAnswerEvent, accepted) = update
-          val acceptance = if (accepted) definiteAnswerEvent.some else None
-          pp >> ChangeIdHash(changeId)
-          pp >> ApplicationId(changeId.applicationId)
-          pp >> CommandId(changeId.commandId)
-          pp >> StoredParties.fromIterable(changeId.actAs)
-          pp >> definiteAnswerEvent.offset
-          pp >> definiteAnswerEvent.publicationTime
-          pp >> definiteAnswerEvent.serializableSubmissionId
-          pp >> SerializableTraceContext(definiteAnswerEvent.traceContext)
-          pp >> acceptance.map(_.offset)
-          pp >> acceptance.map(_.publicationTime)
-          pp >> acceptance.flatMap(_.serializableSubmissionId)
-          pp >> acceptance.map(accept => SerializableTraceContext(accept.traceContext))
+    }
+    val bulkUpdate =
+      DbStorage.bulkOperation(
+        update,
+        answers,
+        storage.profile,
+      ) { pp => update =>
+        val (changeId, definiteAnswerEvent, accepted) = update
+        val acceptance = if (accepted) definiteAnswerEvent.some else None
+        pp >> ChangeIdHash(changeId)
+        pp >> ApplicationId(changeId.applicationId)
+        pp >> CommandId(changeId.commandId)
+        pp >> StoredParties.fromIterable(changeId.actAs)
+        pp >> definiteAnswerEvent.offset
+        pp >> definiteAnswerEvent.publicationTime
+        pp >> definiteAnswerEvent.serializableSubmissionId
+        pp >> SerializableTraceContext(definiteAnswerEvent.traceContext)
+        pp >> acceptance.map(_.offset)
+        pp >> acceptance.map(_.publicationTime)
+        pp >> acceptance.flatMap(_.serializableSubmissionId)
+        pp >> acceptance.map(accept => SerializableTraceContext(accept.traceContext))
 
-          @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
-          def setAcceptFlag(): Unit = {
-            val acceptedFlag = if (accepted) "1" else "0"
-            pp >> acceptedFlag
-            pp >> acceptedFlag
-            pp >> acceptedFlag
-            pp >> acceptedFlag
-          }
-          setAcceptFlag()
+        @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+        def setAcceptFlag(): Unit = {
+          val acceptedFlag = if (accepted) "1" else "0"
+          pp >> acceptedFlag
+          pp >> acceptedFlag
+          pp >> acceptedFlag
+          pp >> acceptedFlag
         }
-      // No need for synchronous commit across DB replicas, because this method is driven from the
-      // published events in the multi-domain event log, which itself uses synchronous commits and
-      // therefore ensures synchronization. After a crash, crash recovery will sync the
-      // command deduplication data with the MultiDomainEventLog.
-      storage.queryAndUpdate(bulkUpdate, functionFullName).flatMap { rowCounts =>
-        MonadUtil.sequentialTraverse_(rowCounts.iterator.zip(answers.tails)) {
-          case (rowCount, currentAndLaterAnswers) =>
-            val (changeId, definiteAnswerEvent, accepted) =
-              currentAndLaterAnswers.headOption.getOrElse(
-                throw new RuntimeException(
-                  s"Received a row count $rowCount for an non-existent definite answer"
-                )
+        setAcceptFlag()
+      }
+    // No need for synchronous commit across DB replicas, because this method is driven from the
+    // published events in the multi-domain event log, which itself uses synchronous commits and
+    // therefore ensures synchronization. After a crash, crash recovery will sync the
+    // command deduplication data with the MultiDomainEventLog.
+    storage.queryAndUpdate(bulkUpdate, functionFullName).flatMap { rowCounts =>
+      MonadUtil.sequentialTraverse_(rowCounts.iterator.zip(answers.tails)) {
+        case (rowCount, currentAndLaterAnswers) =>
+          val (changeId, definiteAnswerEvent, accepted) =
+            currentAndLaterAnswers.headOption.getOrElse(
+              throw new RuntimeException(
+                s"Received a row count $rowCount for an non-existent definite answer"
               )
-            val laterAnswers = currentAndLaterAnswers.drop(1)
-            checkRowCount(rowCount, changeId, definiteAnswerEvent, accepted, laterAnswers)
-        }
+            )
+          val laterAnswers = currentAndLaterAnswers.drop(1)
+          checkRowCount(rowCount, changeId, definiteAnswerEvent, accepted, laterAnswers)
       }
     }
+  }
 
   private def checkRowCount(
       rowCount: Int,
@@ -344,7 +338,7 @@ class DbCommandDeduplicationStore(
         Some(Some(OffsetAndPublicationTime(upToInclusive, prunedPublicationTime)))
     }
 
-    processingTime.event {
+    {
       val updatePruneOffset = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
@@ -379,15 +373,14 @@ class DbCommandDeduplicationStore(
   ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] = {
     cachedLastPruning.get() match {
       case None =>
-        processingTime
-          .optionTEvent {
-            val query =
-              sql"""
+        {
+          val query =
+            sql"""
           select pruning_offset, publication_time
           from command_deduplication_pruning
              """.as[OffsetAndPublicationTime].headOption
-            storage.querySingle(query, functionFullName)
-          }
+          storage.querySingle(query, functionFullName)
+        }
           .transform { offset =>
             // only replace if we haven't raced with another thread
             cachedLastPruning.compareAndSet(None, Some(offset))

@@ -42,7 +42,7 @@ object UpdatePackageMetadataView {
         packageId: PackageId
     ): Future[(PackageId, Array[Byte])] =
       dbDispatcher
-        .executeSql(metrics.daml.index.db.loadArchive)(connection =>
+        .executeSql(metrics.index.db.loadArchive)(connection =>
           packageStorageBackend
             .lfArchive(packageId)(connection)
             .getOrElse(
@@ -53,14 +53,14 @@ object UpdatePackageMetadataView {
         .map(packageId -> _)
 
     def lfPackagesSource(): Future[Source[PackageId, NotUsed]] =
-      dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
+      dbDispatcher.executeSql(metrics.index.db.loadPackages)(connection =>
         Source(packageStorageBackend.lfPackages(connection).map { case (pkgId, _) => pkgId })
       )
 
     def toMetadataDefinition(packageBytes: Array[Byte]): PackageMetadata = {
       val archive = ArchiveParser.assertFromByteArray(packageBytes)
       Timed.value(
-        metrics.daml.index.packageMetadata.decodeArchive,
+        metrics.index.packageMetadata.decodeArchive,
         PackageMetadata.from(archive),
       )
     }
@@ -92,7 +92,7 @@ object UpdatePackageMetadataView {
       }
       .map { _ =>
         val durationNanos = elapsedDurationNanos()
-        metrics.daml.index.packageMetadata.viewInitialisation
+        metrics.index.packageMetadata.viewInitialisation
           .update(durationNanos, TimeUnit.NANOSECONDS)
         logger.info(
           s"Package Metadata View has been initialized (${durationNanos / 1000000L} ms)"

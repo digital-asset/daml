@@ -9,7 +9,6 @@ import com.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.google.protobuf.ByteString
 
 object CantonContractIdVersion {
@@ -67,10 +66,6 @@ case object AuthenticatedContractIdVersionV2 extends CantonContractIdVersion {
 }
 
 object ContractIdSyntax {
-  implicit class ScalaCodegenContractIdSyntax[T](contractId: ApiTypes.ContractId) {
-    def toLf: LfContractId = LfContractId.assertFromString(contractId.toString)
-  }
-
   implicit class JavaCodegenContractIdSyntax[T](contractId: ContractId[?]) {
     def toLf: LfContractId = LfContractId.assertFromString(contractId.contractId)
   }

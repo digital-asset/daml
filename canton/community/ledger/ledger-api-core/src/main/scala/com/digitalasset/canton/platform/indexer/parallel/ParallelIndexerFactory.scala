@@ -58,7 +58,7 @@ object ParallelIndexerFactory {
         inputMappingParallelism,
         "input-mapping-pool",
         (
-          metrics.daml.parallelIndexer.inputMapping.executor,
+          metrics.parallelIndexer.inputMapping.executor,
           metrics.executorServiceMetrics,
         ),
         loggerFactory,
@@ -67,7 +67,7 @@ object ParallelIndexerFactory {
         batchingParallelism,
         "batching-pool",
         (
-          metrics.daml.parallelIndexer.batching.executor,
+          metrics.parallelIndexer.batching.executor,
           metrics.executorServiceMetrics,
         ),
         loggerFactory,

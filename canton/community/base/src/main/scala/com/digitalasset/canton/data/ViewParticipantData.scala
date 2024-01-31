@@ -335,8 +335,8 @@ object ViewParticipantData
   override val name: String = "ViewParticipantData"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewParticipantData)(
-      supportedProtoVersionMemoized(_)(fromProtoV3),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewParticipantData)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
@@ -425,7 +425,7 @@ object ViewParticipantData
       case SerializationCheckFailed(err) => Left(err.toString)
     }
 
-  private def fromProtoV3(hashOps: HashOps, dataP: v30.ViewParticipantData)(
+  private def fromProtoV30(hashOps: HashOps, dataP: v30.ViewParticipantData)(
       bytes: ByteString
   ): ParsingResult[ViewParticipantData] = {
     val v30.ViewParticipantData(
@@ -462,6 +462,7 @@ object ViewParticipantData
         .fromProtoV30(rbContextP)
         .leftMap(_.inField("rollbackContext"))
 
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       viewParticipantData <- returnLeftWhenInitializationFails(
         ViewParticipantData(
           coreInputs = coreInputs,
@@ -471,7 +472,7 @@ object ViewParticipantData
           actionDescription = actionDescription,
           rollbackContext = rollbackContext,
           salt = salt,
-        )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(3)), Some(bytes))
+        )(hashOps, rpv, Some(bytes))
       ).leftMap(ProtoDeserializationError.OtherError)
     } yield viewParticipantData
   }

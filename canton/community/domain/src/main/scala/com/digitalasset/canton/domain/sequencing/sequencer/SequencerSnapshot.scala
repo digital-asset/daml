@@ -32,7 +32,7 @@ final case class SequencerSnapshot(
 
   @transient override protected lazy val companionObj: SequencerSnapshot.type = SequencerSnapshot
 
-  def toProtoV1: v30.SequencerSnapshot = {
+  def toProtoV30: v30.SequencerSnapshot = {
     def serializeInFlightAggregation(
         args: (AggregationId, InFlightAggregation)
     ): v30.SequencerSnapshot.InFlightAggregationWithId = {
@@ -75,9 +75,9 @@ final case class SequencerSnapshot(
 
 object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencerSnapshot)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencerSnapshot)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV1.toByteString,
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -186,7 +186,8 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations <- request.inFlightAggregations
         .traverse(parseInFlightAggregationWithId)
         .map(_.toMap)
-      trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV1)
+      trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencerSnapshot(
       lastTs,
       heads,
@@ -194,7 +195,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations,
       request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
       trafficSnapshots = trafficSnapshots.map(s => s.member -> s).toMap,
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)))
+    )(rpv)
   }
 }
 

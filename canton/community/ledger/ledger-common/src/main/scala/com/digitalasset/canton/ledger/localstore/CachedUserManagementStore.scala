@@ -42,7 +42,7 @@ class CachedUserManagementStore(
             delegate.getUserInfo(key.id, key.identityProviderId)
           )
         ),
-      metrics.daml.userManagement.cache,
+      metrics.userManagement.cache,
     )
 
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit

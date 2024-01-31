@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
@@ -1089,7 +1090,7 @@ class RichSequencerClientImpl(
           val lastSc = eventBatchNE.last1.counter
           val firstEvent = eventBatchNE.head1
           val firstSc = firstEvent.counter
-
+          metrics.handler.numEvents.inc(eventBatch.size.toLong)(MetricsContext.Empty)
           logger.debug(
             s"Passing ${eventBatch.size} events to the application handler ${eventHandler.name}."
           )
@@ -1098,7 +1099,7 @@ class RichSequencerClientImpl(
           val asyncResultFT =
             Try(
               Timed
-                .future(metrics.applicationHandle, eventHandler(Traced(eventBatch)).unwrap)
+                .future(metrics.handler.applicationHandle, eventHandler(Traced(eventBatch)).unwrap)
             )
 
           def putApplicationHandlerFailure(

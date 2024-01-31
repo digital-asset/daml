@@ -310,7 +310,7 @@ object GenTransactionTree {
       rootViews <- MerkleSeq.fromProtoV30(
         (
           hashOps,
-          TransactionView.fromByteStringLegacy(ProtoVersion(1))(
+          TransactionView.fromByteStringLegacy(ProtoVersion(30))(
             (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
           ),
         ),

@@ -133,7 +133,7 @@ object GrpcSequencerConnection {
 }
 
 object SequencerConnection {
-  def fromProtoV0(
+  def fromProtoV30(
       configP: v30.SequencerConnection
   ): ParsingResult[SequencerConnection] =
     configP.`type` match {

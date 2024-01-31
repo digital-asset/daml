@@ -99,7 +99,7 @@ object FullInformeeTree
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -142,8 +142,9 @@ object FullInformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV30(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
+        .create(tree, rpv)
         .leftMap(e =>
           ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
         )

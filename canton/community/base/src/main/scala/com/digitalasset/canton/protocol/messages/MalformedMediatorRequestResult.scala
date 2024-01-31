@@ -80,7 +80,7 @@ object MalformedMediatorRequestResult
   override val name: String = "MalformedMediatorRequestResult"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.MalformedMediatorRequestResult
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
@@ -131,8 +131,9 @@ object MalformedMediatorRequestResult
         "rejection",
         rejectionPO,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
+      rpv,
       Some(bytes),
     )
   }

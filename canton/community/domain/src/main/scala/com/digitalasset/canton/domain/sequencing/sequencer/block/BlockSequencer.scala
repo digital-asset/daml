@@ -151,7 +151,7 @@ class BlockSequencer(
                 updateGenerator.asBlockUpdate(blockEvents)
               )
               .map { state =>
-                metrics.sequencerClient.delay
+                metrics.sequencerClient.handler.delay
                   .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
                 ()
               }

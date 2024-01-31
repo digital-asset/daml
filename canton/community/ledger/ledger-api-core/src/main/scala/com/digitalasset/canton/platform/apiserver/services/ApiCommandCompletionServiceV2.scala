@@ -96,7 +96,7 @@ final class ApiCommandCompletionServiceV2(
                   )
                 )
                 .via(logger.logErrorsOnStream)
-                .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
+                .via(StreamMetrics.countElements(metrics.lapi.streams.completions))
             },
           )
       }

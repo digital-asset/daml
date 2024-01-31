@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.data.EitherT
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*

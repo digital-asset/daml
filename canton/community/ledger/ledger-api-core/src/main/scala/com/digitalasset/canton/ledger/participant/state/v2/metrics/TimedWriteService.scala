@@ -39,8 +39,8 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
-      metrics.daml.services.write.submitTransaction,
-      metrics.daml.services.write.submitTransactionRunning,
+      metrics.services.write.submitTransaction,
+      metrics.services.write.submitTransactionRunning,
       delegate.submitTransaction(
         submitterInfo,
         optDomainId,
@@ -63,8 +63,8 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
-      metrics.daml.services.write.submitReassignment,
-      metrics.daml.services.write.submitReassignmentRunning,
+      metrics.services.write.submitReassignment,
+      metrics.services.write.submitReassignmentRunning,
       delegate.submitReassignment(
         submitter,
         applicationId,
@@ -83,7 +83,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.write.uploadPackages,
+      metrics.services.write.uploadPackages,
       delegate.uploadPackages(submissionId, archives, sourceDescription),
     )
 
@@ -95,7 +95,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.write.allocateParty,
+      metrics.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId),
     )
 
@@ -105,7 +105,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     Timed.completionStage(
-      metrics.daml.services.write.prune,
+      metrics.services.write.prune,
       delegate.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts),
     )
 

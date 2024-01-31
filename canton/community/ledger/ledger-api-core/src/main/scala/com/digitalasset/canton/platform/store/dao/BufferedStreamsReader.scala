@@ -43,7 +43,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
 
   private val directEc = DirectExecutionContext(noTracingLogger)
 
-  private val bufferReaderMetrics = metrics.daml.services.index.BufferedReader(streamName)
+  private val bufferReaderMetrics = metrics.services.index.BufferedReader(streamName)
 
   /** Serves processed and filtered events from the buffer, with fallback to persistence fetches
     * if the bounds are not within the buffer range bounds.

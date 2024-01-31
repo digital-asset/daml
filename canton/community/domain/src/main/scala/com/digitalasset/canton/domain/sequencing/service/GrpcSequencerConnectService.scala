@@ -47,7 +47,7 @@ class GrpcSequencerConnectService(
       request: GetDomainParameters.Request
   ): Future[GetDomainParameters.Response] = {
     val response = staticDomainParameters.protoVersion.v match {
-      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
+      case 30 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
       case unsupported =>
         Future.failed(
           new IllegalStateException(

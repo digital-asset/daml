@@ -64,7 +64,7 @@ private[dao] final class TransactionsReader(
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   override def getFlatTransactions(
       startExclusive: Offset,

@@ -101,7 +101,7 @@ private[apiserver] final class CommandCompletionServiceImpl private (
         )
       )
       .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
+      .via(StreamMetrics.countElements(metrics.lapi.streams.completions))
   }
 
   override def getLedgerEnd(implicit

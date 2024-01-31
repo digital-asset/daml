@@ -7,7 +7,6 @@ import better.files.File
 import cats.data.NonEmptyList
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.codahale.metrics
 import com.digitalasset.canton.admin.api.client.data.{CantonStatus, CommunityCantonStatus}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
@@ -22,44 +21,12 @@ import io.opentelemetry.sdk.metrics.data.MetricData
 
 import java.io.ByteArrayOutputStream
 import java.time.Instant
-import scala.concurrent.duration.TimeUnit
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object CantonHealthAdministrationEncoders {
-  implicit val timeUnitEncoder: Encoder[TimeUnit] = Encoder.encodeString.contramap(_.toString)
-
-  implicit val snapshotEncoder: Encoder[metrics.Snapshot] =
-    Encoder.forProduct4("mean", "std-dev", "p95", "median") { snapshot =>
-      def toMs(nanos: Double): Double = nanos / 1e6
-      (
-        toMs(snapshot.getMean),
-        toMs(snapshot.getStdDev),
-        toMs(snapshot.get95thPercentile()),
-        toMs(snapshot.getMedian),
-      )
-    }
-
-  implicit val counterEncoder: Encoder[metrics.Counter] = Encoder.forProduct1("count") { counter =>
-    counter.getCount
-  }
-  implicit val gaugeEncoder: Encoder[metrics.Gauge[_]] = Encoder.forProduct1("gauge") { gauge =>
-    gauge.getValue.toString
-  }
-  implicit val histoEncoder: Encoder[metrics.Histogram] =
-    Encoder.forProduct1("hist")(_.getSnapshot)
-
-  implicit val meterEncoder: Encoder[metrics.Meter] =
-    Encoder.forProduct3("count", "one-min-rate", "five-min-rate") { meter =>
-      (meter.getCount, meter.getFiveMinuteRate, meter.getOneMinuteRate)
-    }
-
-  implicit val timerEncoder: Encoder[metrics.Timer] =
-    Encoder.forProduct4("count", "one-min-rate", "five-min-rate", "hist") { timer =>
-      (timer.getCount, timer.getFiveMinuteRate, timer.getOneMinuteRate, timer.getSnapshot)
-    }
 
   /** Wraps the standardized log writer from OpenTelemetry, that outputs the metrics as JSON
     * Source: https://github.com/open-telemetry/opentelemetry-java/blob/main/exporters/logging-otlp/src/main/java/io/opentelemetry/exporter/logging/otlp/OtlpJsonLoggingMetricExporter.java

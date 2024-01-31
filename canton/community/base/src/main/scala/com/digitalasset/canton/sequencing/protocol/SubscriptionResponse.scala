@@ -33,7 +33,7 @@ object SubscriptionResponse {
       signedSequencedEvent <- signedContent.deserializeContent(
         SequencedEvent.fromByteString(protocolVersion)
       )
-      trafficState <- trafficStateP.traverse(SequencedEventTrafficState.fromProtoV0)
+      trafficState <- trafficStateP.traverse(SequencedEventTrafficState.fromProtoV30)
     } yield SubscriptionResponse(signedSequencedEvent, traceContext, trafficState)
 
   }

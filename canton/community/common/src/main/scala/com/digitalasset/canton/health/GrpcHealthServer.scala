@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.MetricHandle
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
@@ -19,7 +19,7 @@ import java.util.concurrent.ExecutorService
 
 class GrpcHealthServer(
     config: GrpcHealthServerConfig,
-    metrics: MetricHandle.LabeledMetricsFactory,
+    metrics: CantonLabeledMetricsFactory,
     executor: ExecutorService,
     override val loggerFactory: NamedLoggerFactory,
     apiConfig: ApiLoggingConfig,
@@ -32,7 +32,7 @@ class GrpcHealthServer(
   private val server = CantonServerBuilder
     .forConfig(
       config,
-      MetricName("canton", "health"),
+      MetricName.Daml :+ "health",
       metrics,
       executor,
       loggerFactory,

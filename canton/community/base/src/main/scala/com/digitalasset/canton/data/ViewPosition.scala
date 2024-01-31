@@ -60,7 +60,7 @@ object ViewPosition {
 
   def fromProtoV30(viewPositionP: v30.ViewPosition): ViewPosition = {
     val v30.ViewPosition(positionP) = viewPositionP
-    val position = positionP.map(MerkleSeqIndex.fromProtoV2).toList
+    val position = positionP.map(MerkleSeqIndex.fromProtoV30).toList
     ViewPosition(position)
   }
 
@@ -178,7 +178,7 @@ object ViewPosition {
       }
     }
 
-    def fromProtoV2(merkleSeqIndexP: v30.MerkleSeqIndex): MerkleSeqIndex = {
+    def fromProtoV30(merkleSeqIndexP: v30.MerkleSeqIndex): MerkleSeqIndex = {
       val v30.MerkleSeqIndex(isRightP) = merkleSeqIndexP
       MerkleSeqIndex(isRightP.map(if (_) Direction.Right else Direction.Left).toList)
     }

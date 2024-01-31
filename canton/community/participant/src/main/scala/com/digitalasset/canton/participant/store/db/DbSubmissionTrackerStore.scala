@@ -7,7 +7,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -98,20 +97,15 @@ class DbSubmissionTrackerStore(
 
   override protected[this] def pruning_status_table: String = "fresh_submitted_transaction_pruning"
 
-  override protected val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("submission-tracker-store")
-
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Int] = {
-    processingTime.event {
-      val deleteQuery =
-        sqlu"""delete from fresh_submitted_transaction
+    val deleteQuery =
+      sqlu"""delete from fresh_submitted_transaction
            where domain_id = $domainId and max_sequencing_time <= $beforeAndIncluding"""
 
-      storage.queryAndUpdate(deleteQuery, "prune fresh_submitted_transaction")
-    }
+    storage.queryAndUpdate(deleteQuery, "prune fresh_submitted_transaction")
   }
 
   override def size(implicit

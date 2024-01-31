@@ -126,7 +126,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
   override def name: String = "ClosedEnvelope"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
     )(v30.Envelope)(
       protoCompanion =>
@@ -160,12 +160,13 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
         recipientsP,
       )
       signatures <- signaturesP.traverse(Signature.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       closedEnvelope = ClosedEnvelope
         .create(
           contentP,
           recipients,
           signatures,
-          protocolVersionRepresentativeFor(ProtoVersion(1)),
+          rpv,
         )
     } yield closedEnvelope
   }

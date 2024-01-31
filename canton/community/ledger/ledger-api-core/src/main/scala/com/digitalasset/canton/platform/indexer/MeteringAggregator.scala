@@ -103,14 +103,14 @@ class MeteringAggregator(
   private[platform] def initialize(): Future[Unit] = {
     val initTimestamp = toOffsetDateTime(clock()).truncatedTo(ChronoUnit.HOURS).minusHours(1)
     val initLedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, toTimestamp(initTimestamp))
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeMeteringAggregator) {
+    dbDispatcher.executeSql(metrics.index.db.initializeMeteringAggregator) {
       meteringParameterStore.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
     }
   }
 
   private[platform] def run(): Future[Unit] = {
 
-    val future = dbDispatcher.executeSql(metrics.daml.index.db.meteringAggregator) { conn =>
+    val future = dbDispatcher.executeSql(metrics.index.db.meteringAggregator) { conn =>
       val nowUtcTime = toOffsetDateTime(clock())
       val lastLedgerMeteringEnd = meteringParameterStore.assertLedgerMeteringEnd(conn)
       val startUtcTime: OffsetDateTime = toOffsetDateTime(lastLedgerMeteringEnd.timestamp)

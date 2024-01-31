@@ -237,7 +237,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
 object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewMessage[ViewType]] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.EncryptedViewMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
       _.toByteString,
     )
@@ -314,6 +314,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         sessionKeyMapP,
       )
       domainUid <- UniqueIdentifier.fromProtoPrimitive(domainIdP, "domainId")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new EncryptedViewMessage(
       signature,
       viewHash,
@@ -322,7 +323,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       encryptedView,
       DomainId(domainUid),
       viewEncryptionScheme,
-    )(protocolVersionRepresentativeFor(ProtoVersion(2)))
+    )(rpv)
   }
 
   def decryptRandomness[VT <: ViewType](

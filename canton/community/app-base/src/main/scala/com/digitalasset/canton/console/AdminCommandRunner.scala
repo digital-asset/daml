@@ -61,7 +61,12 @@ trait LedgerApiCommandRunner {
   ): ConsoleCommandResult[Result]
 
   protected[console] def token: Option[String]
+}
 
+trait PublicApiCommandRunner {
+  protected[console] def publicApiCommand[Result](
+      command: GrpcAdminCommand[_, _, Result]
+  ): ConsoleCommandResult[Result]
 }
 
 /** Support for inspecting the instance */

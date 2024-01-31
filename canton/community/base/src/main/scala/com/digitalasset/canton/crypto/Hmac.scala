@@ -83,7 +83,7 @@ object Hmac {
     )
   }
 
-  def fromProtoV0(hmacP: v30.Hmac): ParsingResult[Hmac] =
+  def fromProtoV30(hmacP: v30.Hmac): ParsingResult[Hmac] =
     for {
       hmacAlgorithm <- HmacAlgorithm.fromProtoEnum("algorithm", hmacP.algorithm)
       hmac <- Hmac

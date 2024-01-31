@@ -767,7 +767,9 @@ object ParticipantPermissionX {
     override def toNonX: ParticipantPermission = ParticipantPermission.Observation
   }
 
-  def fromProtoV2(value: v30.EnumsX.ParticipantPermissionX): ParsingResult[ParticipantPermissionX] =
+  def fromProtoV30(
+      value: v30.EnumsX.ParticipantPermissionX
+  ): ParsingResult[ParticipantPermissionX] =
     value match {
       case v30.EnumsX.ParticipantPermissionX.MissingParticipantPermission =>
         Left(FieldNotSet(value.name))
@@ -802,7 +804,7 @@ object TrustLevelX {
     def toNonX: TrustLevel = TrustLevel.Vip
   }
 
-  def fromProtoV2(value: v30.EnumsX.TrustLevelX): ParsingResult[TrustLevelX] = value match {
+  def fromProtoV30(value: v30.EnumsX.TrustLevelX): ParsingResult[TrustLevelX] = value match {
     case v30.EnumsX.TrustLevelX.Ordinary => Right(Ordinary)
     case v30.EnumsX.TrustLevelX.Vip => Right(Vip)
     case v30.EnumsX.TrustLevelX.MissingTrustLevel => Left(FieldNotSet(value.name))
@@ -821,7 +823,7 @@ final case class ParticipantDomainLimits(maxRate: Int, maxNumParties: Int, maxNu
     v30.ParticipantDomainLimits(maxRate, maxNumParties, maxNumPackages)
 }
 object ParticipantDomainLimits {
-  def fromProtoV2(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
+  def fromProtoV30(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
     ParticipantDomainLimits(value.maxRate, value.maxNumParties, value.maxNumPackages)
 }
 
@@ -913,9 +915,9 @@ object ParticipantDomainPermissionX {
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-      permission <- ParticipantPermissionX.fromProtoV2(value.permission)
-      trustLevel <- TrustLevelX.fromProtoV2(value.trustLevel)
-      limits = value.limits.map(ParticipantDomainLimits.fromProtoV2)
+      permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+      trustLevel <- TrustLevelX.fromProtoV30(value.trustLevel)
+      limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
         CantonTimestamp.fromProtoPrimitive(_).map(_.some)
       )
@@ -1057,11 +1059,11 @@ final case class HostingParticipant(
 }
 
 object HostingParticipant {
-  def fromProtoV2(
+  def fromProtoV30(
       value: v30.PartyToParticipantX.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
     participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-    permission <- ParticipantPermissionX.fromProtoV2(value.permission)
+    permission <- ParticipantPermissionX.fromProtoV30(value.permission)
   } yield HostingParticipant(participantId, permission)
 }
 
@@ -1140,7 +1142,7 @@ object PartyToParticipantX {
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
       threshold <- ProtoConverter.parsePositiveInt(value.threshold)
-      participants <- value.participants.traverse(HostingParticipant.fromProtoV2)
+      participants <- value.participants.traverse(HostingParticipant.fromProtoV30)
       groupAddressing = value.groupAddressing
       domainId <-
         if (value.domain.nonEmpty)

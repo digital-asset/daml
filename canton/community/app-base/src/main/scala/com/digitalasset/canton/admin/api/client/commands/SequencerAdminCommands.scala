@@ -61,7 +61,7 @@ object SequencerAdminCommands {
         response: adminproto.TrafficControlStateResponse
     ): Either[String, SequencerTrafficStatus] =
       response.trafficStates
-        .traverse(com.digitalasset.canton.traffic.MemberTrafficStatus.fromProtoV0)
+        .traverse(com.digitalasset.canton.traffic.MemberTrafficStatus.fromProtoV30)
         .leftMap(_.toString)
         .map(SequencerTrafficStatus)
   }

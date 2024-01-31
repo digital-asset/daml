@@ -80,7 +80,7 @@ object TransferOutViewTree
   override val name: String = "TransferOutViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -101,15 +101,20 @@ object TransferOutViewTree
       transferOutViewTreeP: v30.TransferViewTree
   ): ParsingResult[TransferOutViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
-    GenTransferViewTree.fromProtoV30(
-      TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
-      TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
-    )((commonData, view) =>
-      TransferOutViewTree(commonData, view)(
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
-        hashOps,
-      )
-    )(transferOutViewTreeP)
+
+    for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      res <- GenTransferViewTree.fromProtoV30(
+        TransferOutCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        TransferOutView.fromByteString(expectedProtocolVersion)(hashOps),
+      )((commonData, view) =>
+        TransferOutViewTree(commonData, view)(
+          rpv,
+          hashOps,
+        )
+      )(transferOutViewTreeP)
+    } yield res
+
   }
 }
 
@@ -181,7 +186,7 @@ object TransferOutCommonData
   override val name: String = "TransferOutCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -319,8 +324,8 @@ object TransferOutView
   override val name: String = "TransferOutView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutView)(
-      supportedProtoVersionMemoized(_)(fromProtoV2),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferOutView)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
@@ -347,7 +352,7 @@ object TransferOutView
       transferCounter.getOrElse(throw new IllegalArgumentException("Missing transfer counter.")),
     )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
-  private[this] def fromProtoV2(hashOps: HashOps, transferOutViewP: v30.TransferOutView)(
+  private[this] def fromProtoV30(hashOps: HashOps, transferOutViewP: v30.TransferOutView)(
       bytes: ByteString
   ): ParsingResult[TransferOutView] = {
     val v30.TransferOutView(
@@ -373,7 +378,7 @@ object TransferOutView
       targetProtocolVersion <- ProtocolVersion.fromProtoPrimitive(targetProtocolVersionP)
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
-        .flatMap(TimeProof.fromProtoV0(targetProtocolVersion, hashOps))
+        .flatMap(TimeProof.fromProtoV30(targetProtocolVersion, hashOps))
       submittingParticipant <- ProtoConverter.parseLfParticipantId(submittingParticipantP)
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
@@ -383,7 +388,7 @@ object TransferOutView
       contract <- ProtoConverter
         .required("TransferOutViewTree.contract", contractPO)
         .flatMap(SerializableContract.fromProtoV30)
-
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransferOutView(
       salt,
       TransferSubmitterMetadata(
@@ -402,7 +407,7 @@ object TransferOutView
       TransferCounter(transferCounter),
     )(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(2)),
+      rpv,
       Some(bytes),
     )
 

@@ -89,7 +89,7 @@ object TransferInViewTree
   override val name: String = "TransferInViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.TransferViewTree)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -171,7 +171,7 @@ object TransferInCommonData
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -350,7 +350,7 @@ object TransferInView
   }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -416,6 +416,7 @@ object TransferInView
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
       workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
       commandId <- ProtoConverter.parseCommandId(commandIdP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransferInView(
       commonData.salt,
       TransferSubmitterMetadata(
@@ -431,7 +432,7 @@ object TransferInView
       commonData.transferOutResultEvent,
       commonData.sourceProtocolVersion,
       Some(TransferCounter(transferCounterP)),
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(2)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }
 

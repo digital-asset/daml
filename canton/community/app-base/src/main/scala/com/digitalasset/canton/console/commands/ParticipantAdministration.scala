@@ -721,6 +721,18 @@ class LocalCommitmentsAdministrationGroup(
       )
     }
 
+  def buffered(
+      domain: DomainAlias,
+      endAtOrBefore: Instant,
+      counterParticipant: Option[ParticipantId] = None,
+  ): Iterable[AcsCommitment] =
+    access { node =>
+      node.sync.stateInspection.bufferedCommitments(
+        domain,
+        timestampFromInstant(endAtOrBefore),
+      )
+    }
+
 }
 
 class ParticipantReplicationAdministrationGroup(
@@ -1504,7 +1516,7 @@ class ParticipantHealthAdministrationX(
 ) extends HealthAdministrationX(
       runner,
       consoleEnvironment,
-      ParticipantStatus.fromProtoV0,
+      ParticipantStatus.fromProtoV30,
     )
     with FeatureFlagFilter
     with ParticipantHealthAdministrationCommon

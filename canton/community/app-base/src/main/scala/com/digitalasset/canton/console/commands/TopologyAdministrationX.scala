@@ -2047,11 +2047,15 @@ class TopologyAdministrationGroupX(
         waitForParticipants: Seq[ParticipantReferenceX] = consoleEnvironment.participantsX.all,
         force: Boolean = false,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
+
+      val parametersInternal =
+        parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
+
       val res = synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommandsX.Write.Propose(
           DomainParametersStateX(
             domainId,
-            parameters.toInternal,
+            parametersInternal,
           ),
           signedBy.toList,
           serial = serial,

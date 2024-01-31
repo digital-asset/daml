@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.flatMap.*
 import cats.syntax.option.*
-import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
@@ -22,7 +22,7 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{AcsCommitment as _, *}
@@ -241,7 +241,7 @@ trait MessageDispatcherTest {
       val syncDomainMetrics = new SyncDomainMetrics(
         MetricName("test"),
         NoOpMetricsFactory,
-      )
+      )(MetricsContext.Empty)
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,

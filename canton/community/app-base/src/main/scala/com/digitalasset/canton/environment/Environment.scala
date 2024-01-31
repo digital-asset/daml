@@ -19,15 +19,14 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrapX, MediatorNodeParameters}
-import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
+import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
 import com.digitalasset.canton.environment.ParticipantNodes.ParticipantNodesX
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.MetricsConfig.Prometheus
-import com.digitalasset.canton.metrics.MetricsFactory
+import com.digitalasset.canton.metrics.MetricsRegistry
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
@@ -60,13 +59,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   val loggerFactory: NamedLoggerFactory
 
   lazy val configuredOpenTelemetry: ConfiguredOpenTelemetry = {
-    val isPrometheusEnabled = config.monitoring.metrics.reporters.exists {
-      case _: Prometheus => true
-      case _ => false
-    }
     OpenTelemetryFactory.initializeOpenTelemetry(
       testingConfig.initializeGlobalOpenTelemetry,
-      isPrometheusEnabled,
+      config.monitoring.metrics.reporters.nonEmpty,
+      MetricsRegistry
+        .registerReporters(config.monitoring.metrics, loggerFactory),
       config.monitoring.tracing.tracer,
       config.monitoring.metrics.histograms,
       loggerFactory,
@@ -74,12 +71,13 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   }
 
   // public for buildDocs task to be able to construct a fake participant and domain to document available metrics via reflection
-  lazy val metricsFactory: MetricsFactory =
-    MetricsFactory.forConfig(
-      config.monitoring.metrics,
-      configuredOpenTelemetry.openTelemetry,
-      testingConfig.metricsFactoryType,
-    )
+
+  lazy val metricsRegistry: MetricsRegistry = new MetricsRegistry(
+    config.monitoring.metrics.reportJvmMetrics,
+    configuredOpenTelemetry.openTelemetry.meterBuilder("canton").build(),
+    testingConfig.metricsFactoryType,
+  )
+
   protected def participantNodeFactoryX
       : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrapX]
   protected def migrationsFactory: DbMigrationsFactory
@@ -159,9 +157,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     Threading.newExecutionContext(
       loggerFactory.threadName + "-env-ec",
       noTracingLogger,
-      Option.when(config.monitoring.metrics.reportExecutionContextMetrics)(
-        metricsFactory.executionServiceMetrics
-      ),
+      None,
       numThreads,
     )
 
@@ -246,9 +242,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   }
 
   private val testingTimeService = new TestingTimeService(clock, () => simClocks)
-
-  private val envQueueSize = () => executionContext.queueSize
-  metricsFactory.forEnv.registerExecutionContextQueueSize(envQueueSize)
 
   lazy val participantsX =
     new ParticipantNodesX[Config#ParticipantConfigType](
@@ -469,7 +462,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           // this is okay for x-nodes, as we've merged the two parameter sequences
           config.participantNodeParametersByString(name),
           createClock(Some(ParticipantNodeBootstrap.LoggerFactoryKeyName -> name)),
-          metricsFactory.forParticipant(name),
+          metricsRegistry.forParticipant(name),
           testingConfig,
           futureSupervisor,
           loggerFactory.append(ParticipantNodeBootstrap.LoggerFactoryKeyName, name),
@@ -487,13 +480,13 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ): NodeFactoryArguments[
     Config#MediatorNodeXConfigType,
     MediatorNodeParameters,
-    MediatorNodeMetrics,
+    MediatorMetrics,
   ] = NodeFactoryArguments(
     name,
     mediatorConfig,
     config.mediatorNodeParametersByStringX(name),
     createClock(Some(MediatorNodeBootstrapX.LoggerFactoryKeyName -> name)),
-    metricsFactory.forMediator(name),
+    metricsRegistry.forMediator(name),
     testingConfig,
     futureSupervisor,
     loggerFactory.append(MediatorNodeBootstrapX.LoggerFactoryKeyName, name),
@@ -526,7 +519,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
     // the allNodes list is ordered in ideal startup order, so reverse to shutdown
     val instances =
-      monitorO.toList ++ userCloseables ++ allNodes.reverse :+ metricsFactory :+ configuredOpenTelemetry :+ clock :+
+      monitorO.toList ++ userCloseables ++ allNodes.reverse :+ metricsRegistry :+ configuredOpenTelemetry :+ clock :+
         closeHeadlessHealthAdministration :+ executionSequencerFactory :+ closeActorSystem :+ closeExecutionContext :+
         closeScheduler
     logger.info("Closing environment...")

@@ -50,7 +50,7 @@ object Verdict
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -114,14 +114,11 @@ object Verdict
     private[messages] def fromProtoV30(
         mediatorRejectP: v30.MediatorReject
     ): ParsingResult[MediatorReject] = {
-      // Proto version 3 because mediator rejections are versioned according to verdicts
-      // and verdicts use mediator reject V2 in proto version 3.
-      val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-
       val v30.MediatorReject(statusO) = mediatorRejectP
       for {
         status <- ProtoConverter.required("rejection_reason", statusO)
-      } yield MediatorReject(status)(representativeProtocolVersion)
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      } yield MediatorReject(status)(rpv)
     }
   }
 
@@ -196,14 +193,15 @@ object Verdict
     val v30.Verdict(someVerdictP) = verdictP
     import v30.Verdict.{SomeVerdict as V}
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-    someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
-      case V.MediatorReject(mediatorRejectP) =>
-        MediatorReject.fromProtoV30(mediatorRejectP)
-      case V.ParticipantReject(participantRejectP) =>
-        ParticipantReject.fromProtoV30(participantRejectP, representativeProtocolVersion)
-      case V.Empty => Left(OtherError("empty verdict type"))
+    protocolVersionRepresentativeFor(ProtoVersion(30)).flatMap { rpv =>
+      someVerdictP match {
+        case V.Approve(empty.Empty(_)) => Right(Approve()(rpv))
+        case V.MediatorReject(mediatorRejectP) =>
+          MediatorReject.fromProtoV30(mediatorRejectP)
+        case V.ParticipantReject(participantRejectP) =>
+          ParticipantReject.fromProtoV30(participantRejectP, rpv)
+        case V.Empty => Left(OtherError("empty verdict type"))
+      }
     }
   }
 
