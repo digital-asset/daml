@@ -33,9 +33,7 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  review if we should really provide a defaul package name.
-      packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
+      packageName: Option[PackageName] = None,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
       agreementText: String = "",
   ): Node.Create = {
@@ -73,8 +71,7 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
-      packageName =
-        if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
+      packageName = packageName.filter(_ => transactionVersion < TransactionVersion.minUpgrade),
       templateId = templateId,
       arg = argument,
       agreementText = agreementText,
