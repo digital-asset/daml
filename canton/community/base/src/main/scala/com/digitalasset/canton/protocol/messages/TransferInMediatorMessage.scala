@@ -106,7 +106,7 @@ object TransferInMediatorMessage
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInMediatorMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInMediatorMessage)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )

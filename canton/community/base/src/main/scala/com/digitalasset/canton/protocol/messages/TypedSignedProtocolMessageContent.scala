@@ -84,8 +84,9 @@ object TypedSignedProtocolMessageContent
   def apply[M <: SignedProtocolMessageContent](
       content: M,
       protoVersion: ProtoVersion,
-  ): TypedSignedProtocolMessageContent[M] =
-    TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
+  ): ParsingResult[TypedSignedProtocolMessageContent[M]] = protocolVersionRepresentativeFor(
+    protoVersion
+  ).map(TypedSignedProtocolMessageContent(content)(_, None))
 
   private def fromProtoV30(
       expectedProtocolVersion: ProtocolVersion,
@@ -96,6 +97,7 @@ object TypedSignedProtocolMessageContent
     import v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
     val v30.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
         case Sm.MediatorResponse(mediatorResponseBytes) =>
           MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
@@ -114,9 +116,6 @@ object TypedSignedProtocolMessageContent
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
-    } yield TypedSignedProtocolMessageContent(message)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
-      Some(bytes),
-    )
+    } yield TypedSignedProtocolMessageContent(message)(rpv, Some(bytes))
   }
 }

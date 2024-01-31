@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.api.v0
@@ -104,7 +104,7 @@ final class GrpcServerSpec
 
     "install rate limit interceptor" in {
       val metricsFactory = new InMemoryMetricsFactory
-      val metrics = new Metrics(metricsFactory, metricsFactory, new MetricRegistry, true)
+      val metrics = new Metrics(MetricName("test"), metricsFactory)
       val overLimitRejection = LedgerApiErrors.ThreadpoolOverloaded.Rejection(
         "test",
         "test",

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
@@ -13,10 +12,9 @@ import com.digitalasset.canton.domain.mediator.store.{
   InMemoryMediatorDeduplicationStore,
   MediatorState,
 }
-import com.digitalasset.canton.domain.metrics.{DomainTestMetrics, MediatorMetrics}
+import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.*
@@ -38,7 +36,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
   self =>
   private lazy val domainId = DefaultTestIdentities.domainId
   private lazy val mediatorId = DefaultTestIdentities.mediator
-  private lazy val mediatorMetrics = DomainTestMetrics.mediator
+  private lazy val mediatorMetrics = MediatorTestMetrics
   private lazy val participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(10)
   private lazy val factory = new ExampleTransactionFactory()(domainId = domainId)
   private lazy val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
@@ -103,7 +101,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       },
       testedProtocolVersion,
       noopDeduplicator,
-      new MediatorMetrics(MetricName("mediator-event-state-processor"), NoOpMetricsFactory),
+      MediatorTestMetrics,
       loggerFactory,
     )
 

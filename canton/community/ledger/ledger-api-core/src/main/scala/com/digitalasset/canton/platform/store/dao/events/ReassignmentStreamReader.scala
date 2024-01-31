@@ -58,7 +58,7 @@ class ReassignmentStreamReader(
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   def streamReassignments(reassignmentStreamQueryParams: ReassignmentStreamQueryParams)(implicit
       loggingContext: LoggingContextWithTrace

@@ -106,7 +106,7 @@ object SignedContent
   override def name: String = "SignedContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedContent)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedContent)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -135,14 +135,17 @@ object SignedContent
       signatures: NonEmpty[Seq[Signature]],
       timestampOfSigningKey: Option[CantonTimestamp],
       protoVersion: ProtoVersion,
-  ): SignedContent[A] = checked( // There is only a single signature
-    SignedContent.tryCreate(
-      content,
-      signatures,
-      timestampOfSigningKey,
-      protocolVersionRepresentativeFor(protoVersion),
-    )
-  )
+  ): ParsingResult[SignedContent[A]] =
+    protocolVersionRepresentativeFor(protoVersion).map { rpv =>
+      checked( // There is only a single signature
+        SignedContent.tryCreate(
+          content,
+          signatures,
+          timestampOfSigningKey,
+          rpv,
+        )
+      )
+    }
 
   def create[A <: HasCryptographicEvidence](
       content: A,
@@ -221,11 +224,12 @@ object SignedContent
         signatures,
       )
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       signedContent <- create(
         BytestringWithCryptographicEvidence(contentB),
         signatures,
         ts,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        rpv,
       ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
     } yield signedContent
   }

@@ -6,8 +6,8 @@ package com.digitalasset.canton.health.admin.grpc
 import better.files.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService.DefaultHealthDumpChunkSize
-import com.digitalasset.canton.health.admin.v0.{HealthDumpChunk, HealthDumpRequest}
-import com.digitalasset.canton.health.admin.{data, v0}
+import com.digitalasset.canton.health.admin.v30.{HealthDumpChunk, HealthDumpRequest}
+import com.digitalasset.canton.health.admin.{data, v30}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.stub.StreamObserver
@@ -26,17 +26,19 @@ class GrpcStatusService(
     processingTimeout: ProcessingTimeout,
 )(implicit
     ec: ExecutionContext
-) extends v0.StatusServiceGrpc.StatusService {
+) extends v30.StatusServiceGrpc.StatusService {
 
-  override def status(request: Empty): Future[v0.NodeStatus] =
+  override def status(request: Empty): Future[v30.NodeStatus] =
     status.map {
       case data.NodeStatus.Success(status) =>
-        v0.NodeStatus(v0.NodeStatus.Response.Success(status.toProtoV0))
+        v30.NodeStatus(v30.NodeStatus.Response.Success(status.toProtoV30))
       case data.NodeStatus.NotInitialized(active) =>
-        v0.NodeStatus(v0.NodeStatus.Response.NotInitialized(v0.NodeStatus.NotInitialized(active)))
+        v30.NodeStatus(
+          v30.NodeStatus.Response.NotInitialized(v30.NodeStatus.NotInitialized(active))
+        )
       case data.NodeStatus.Failure(_msg) =>
         // The node's status should never return a Failure here.
-        v0.NodeStatus(v0.NodeStatus.Response.Empty)
+        v30.NodeStatus(v30.NodeStatus.Response.Empty)
     }
 
   override def healthDump(

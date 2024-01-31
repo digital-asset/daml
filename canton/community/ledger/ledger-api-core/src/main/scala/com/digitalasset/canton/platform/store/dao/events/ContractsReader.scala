@@ -45,8 +45,8 @@ private[dao] sealed class ContractsReader(
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState] =
     Timed.future(
-      metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+      metrics.index.db.lookupKey,
+      dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
         storageBackend.keyState(key, validAt)
       ),
     )
@@ -55,15 +55,15 @@ private[dao] sealed class ContractsReader(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]] =
     Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
+      metrics.index.db.lookupActiveContract,
       contractLoader
         .load(contractId -> before)
         .map(_.map {
           case raw: RawCreatedContract =>
             val decompressionTimer =
-              metrics.daml.index.db.lookupCreatedContractsDbMetrics.compressionTimer
+              metrics.index.db.lookupCreatedContractsDbMetrics.compressionTimer
             val deserializationTimer =
-              metrics.daml.index.db.lookupCreatedContractsDbMetrics.translationTimer
+              metrics.index.db.lookupCreatedContractsDbMetrics.translationTimer
 
             val contract = toContract(
               contractId = contractId,

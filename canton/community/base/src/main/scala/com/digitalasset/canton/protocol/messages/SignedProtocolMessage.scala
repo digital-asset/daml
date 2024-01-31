@@ -133,7 +133,7 @@ object SignedProtocolMessage
   override val name: String = "SignedProtocolMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
     )(v30.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV30),
@@ -216,9 +216,8 @@ object SignedProtocolMessage
         "signatures",
         signaturesP,
       )
-      signedMessage = SignedProtocolMessage(typedMessage, signatures)(
-        protocolVersionRepresentativeFor(ProtoVersion(1))
-      )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      signedMessage = SignedProtocolMessage(typedMessage, signatures)(rpv)
     } yield signedMessage
   }
 

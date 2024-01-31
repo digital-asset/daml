@@ -42,7 +42,7 @@ import com.daml.ledger.javaapi.data.ReassignmentV2
 import com.daml.ledger.{api, javaapi as javab}
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
-import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedContractEntry,
@@ -51,15 +51,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedIncompleteUnassigned,
 }
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.CompletionWrapper
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.{
-  AssignedWrapper,
-  ReassignmentWrapper,
-  TransactionTreeWrapper,
-  TransactionWrapper,
-  UnassignedWrapper,
-  UpdateTreeWrapper,
-  UpdateWrapper,
-}
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.{
   LedgerApiCommands,
   LedgerApiV2Commands,
@@ -112,7 +104,6 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.nowarn
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
@@ -354,22 +345,24 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def start_measuring(
           parties: Set[PartyId],
-          metricSuffix: String,
+          metricName: String,
           onUpdate: UpdateTreeWrapper => Unit = _ => (),
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
         check(FeatureFlag.Testing) {
 
-          val metricName = MetricName(name, metricSuffix)
+          val wrappedMetricName = MetricName(metricName)
 
           val observer: StreamObserver[UpdateTreeWrapper] = new StreamObserver[UpdateTreeWrapper] {
 
-            @nowarn("cat=deprecation")
-            val metricsFactory: MetricHandle.MetricsFactory =
-              consoleEnvironment.environment.metricsFactory.metricsFactory
+            val metricsFactory = consoleEnvironment.environment.metricsRegistry
+              .forParticipant(name)
+              .openTelemetryMetricsFactory
 
-            val metric: Meter = metricsFactory.meter(metricName)
-            val nodeCount: Histogram = metricsFactory.histogram(metricName :+ "tx-node-count")
-            val transactionSize: Histogram = metricsFactory.histogram(metricName :+ "tx-size")
+            val metric: Meter = metricsFactory.meter(wrappedMetricName)
+            val nodeCount: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-node-count")
+            val transactionSize: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-size")
 
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {
@@ -2416,22 +2409,24 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def start_measuring(
           parties: Set[PartyId],
-          metricSuffix: String,
+          metricName: String,
           onTransaction: TransactionTree => Unit = _ => (),
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
         check(FeatureFlag.Testing) {
 
-          val metricName = MetricName(name, metricSuffix)
+          val wrappedMetricName = MetricName(metricName)
 
           val observer: StreamObserver[TransactionTree] = new StreamObserver[TransactionTree] {
 
-            @nowarn("cat=deprecation")
-            val metricsFactory: MetricHandle.MetricsFactory =
-              consoleEnvironment.environment.metricsFactory.metricsFactory
+            val metricsFactory = consoleEnvironment.environment.metricsRegistry
+              .forParticipant(name)
+              .openTelemetryMetricsFactory
 
-            val metric: Meter = metricsFactory.meter(metricName)
-            val nodeCount: Histogram = metricsFactory.histogram(metricName :+ "tx-node-count")
-            val transactionSize: Histogram = metricsFactory.histogram(metricName :+ "tx-size")
+            val metric: Meter = metricsFactory.meter(wrappedMetricName)
+            val nodeCount: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-node-count")
+            val transactionSize: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-size")
 
             override def onNext(tree: TransactionTree): Unit = {
               val s = tree.rootEventIds.size.toLong

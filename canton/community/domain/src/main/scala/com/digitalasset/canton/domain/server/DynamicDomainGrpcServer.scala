@@ -15,7 +15,7 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.Lifecycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.MetricHandle
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -32,7 +32,7 @@ class DynamicDomainGrpcServer(
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    metrics: MetricHandle.LabeledMetricsFactory,
+    metrics: CantonLabeledMetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
     domainHealthService: HealthService,

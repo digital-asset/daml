@@ -167,13 +167,12 @@ object TransactionSubmissionTrackingData {
       )
       cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV30, "rejection cause", causeP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransactionSubmissionTrackingData(
       completionInfo,
       cause,
       domainId,
-    )(
-      SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(0))
-    )
+    )(rpv)
   }
 
   trait RejectionCause extends Product with Serializable with PrettyPrinting {
@@ -192,7 +191,7 @@ object TransactionSubmissionTrackingData {
       val v30.TransactionSubmissionTrackingData.RejectionCause(cause) = proto
       cause match {
         case v30.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(empty) =>
-          TimeoutCause.fromProtoV0(empty)
+          TimeoutCause.fromProtoV30(empty)
         case v30.TransactionSubmissionTrackingData.RejectionCause.Cause
               .RejectionReasonTemplate(template) =>
           CauseWithTemplate.fromProtoV30(template)
@@ -219,7 +218,7 @@ object TransactionSubmissionTrackingData {
 
     override def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
 
-    def fromProtoV0(_empty: Empty): ParsingResult[TimeoutCause.type] = Right(
+    def fromProtoV30(_empty: Empty): ParsingResult[TimeoutCause.type] = Right(
       this
     )
   }

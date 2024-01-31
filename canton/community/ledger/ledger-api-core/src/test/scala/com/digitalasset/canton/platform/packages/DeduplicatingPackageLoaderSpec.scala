@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.packages
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
-import com.daml.metrics.api.dropwizard.DropwizardTimer
+import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.resources.TestResourceContext
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach
@@ -30,8 +30,7 @@ class DeduplicatingPackageLoaderSpec
 
   private[this] var actorSystem: ActorSystem = _
   private[this] val loadCount = new AtomicLong()
-  private[this] val metricRegistry = new MetricRegistry
-  private[this] val metric = DropwizardTimer("test-metric", metricRegistry.timer("test-metric"))
+  private[this] val metric = NoOpMetricsFactory.timer(MetricName("test-metric"))
 
   private[this] val dar =
     TestModels.com_daml_ledger_test_ModelTestDar_2_1_path

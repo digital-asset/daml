@@ -78,7 +78,7 @@ object SubmitterMetadata
   override val name: String = "SubmitterMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubmitterMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -191,6 +191,7 @@ object SubmitterMetadata
         "SubmitterMetadata.max_sequencing_time",
         maxSequencingTimeOP,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SubmitterMetadata(
       actAsNes,
       applicationId,
@@ -200,6 +201,6 @@ object SubmitterMetadata
       submissionIdO,
       dedupPeriod,
       maxSequencingTime,
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(1)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }

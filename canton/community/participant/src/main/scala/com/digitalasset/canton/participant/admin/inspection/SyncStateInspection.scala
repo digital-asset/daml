@@ -404,6 +404,16 @@ final class SyncStateInspection(
     )
   }
 
+  def bufferedCommitments(
+      domain: DomainAlias,
+      endAtOrBefore: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Iterable[AcsCommitment] = {
+    val persistentState = getPersistentState(domain)
+    timeouts.inspection.await(s"$functionFullName to and including $endAtOrBefore on $domain")(
+      getOrFail(persistentState, domain).acsCommitmentStore.queue.peekThrough(endAtOrBefore)
+    )
+  }
+
   def noOutstandingCommitmentsTs(domain: DomainAlias, beforeOrAt: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Option[CantonTimestamp] = {

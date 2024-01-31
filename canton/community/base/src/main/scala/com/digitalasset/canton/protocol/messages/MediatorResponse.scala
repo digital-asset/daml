@@ -22,8 +22,6 @@ import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
 
-import scala.math.Ordering.Implicits.infixOrderingOps
-
 /** Payload of a response sent to the mediator in reaction to a request.
   *
   * @param requestId The unique identifier of the request.
@@ -103,16 +101,11 @@ case class MediatorResponse private (
         )
       if (rootHash.isEmpty)
         throw InvalidMediatorResponse(show"Root hash must not be empty for verdict $localVerdict")
-      if (protoVersion >= ProtoVersion(2) && viewPositionO.isEmpty)
+      if (viewPositionO.isEmpty)
         throw InvalidMediatorResponse(
           show"View position must not be empty for verdict $localVerdict"
         )
   }
-
-  if (protoVersion < ProtoVersion(2) && viewPositionO.nonEmpty)
-    throw InvalidMediatorResponse(
-      s"View position must be empty for protoVersion $protoVersion."
-    )
 
   override def signingTimestamp: CantonTimestamp = requestId.unwrap
 
@@ -157,7 +150,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
   override val name: String = "MediatorResponse"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.MediatorResponse)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.MediatorResponse)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -278,6 +271,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       response <- Either
         .catchOnly[InvalidMediatorResponse](
           MediatorResponse(
@@ -288,10 +282,7 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
             rootHashO,
             confirmingParties.toSet,
             domainId,
-          )(
-            supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2)),
-            Some(bytes),
-          )
+          )(rpv, Some(bytes))
         )
         .leftMap(err => InvariantViolation(err.toString))
     } yield response

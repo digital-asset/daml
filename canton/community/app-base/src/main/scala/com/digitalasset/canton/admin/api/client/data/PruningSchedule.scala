@@ -14,7 +14,7 @@ final case class PruningSchedule(
 )
 
 object PruningSchedule {
-  private[admin] def fromProtoV0(scheduleP: v30.PruningSchedule): ParsingResult[PruningSchedule] =
+  private[admin] def fromProtoV30(scheduleP: v30.PruningSchedule): ParsingResult[PruningSchedule] =
     for {
       maxDuration <- config.PositiveDurationSeconds.fromProtoPrimitiveO("max_duration")(
         scheduleP.maxDuration

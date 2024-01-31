@@ -166,7 +166,7 @@ object SubmissionRequest
       MaxRequestSizeToDeserialize,
     ] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
     )(v30.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
@@ -177,16 +177,7 @@ object SubmissionRequest
   override def name: String = "submission request"
 
   override lazy val invariants: Seq[protocol.SubmissionRequest.Invariant] =
-    Seq(aggregationRuleDefaultValue, timestampOfSigningKeyInvariant)
-
-  lazy val aggregationRuleDefaultValue
-      : SubmissionRequest.DefaultValueUntilExclusive[Option[AggregationRule]] =
-    DefaultValueUntilExclusive(
-      _.aggregationRule,
-      "aggregationRule",
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
-      None,
-    )
+    Seq(timestampOfSigningKeyInvariant)
 
   lazy val timestampOfSigningKeyInvariant = new Invariant {
     override def validateInstance(
@@ -273,6 +264,7 @@ object SubmissionRequest
       )
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
       aggregationRule <- aggregationRuleP.traverse(AggregationRule.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new SubmissionRequest(
       sender,
       messageId,
@@ -281,6 +273,6 @@ object SubmissionRequest
       maxSequencingTime,
       ts,
       aggregationRule,
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)), Some(bytes))
+    )(rpv, Some(bytes))
   }
 }

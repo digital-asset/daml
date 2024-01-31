@@ -14,13 +14,13 @@ import scala.language.implicitConversions
 trait MetricsFactoryValues extends MetricValues {
 
   implicit def convertFactoryToValuable(
-      factory: MetricHandle.LabeledMetricsFactory
+      factory: CantonLabeledMetricsFactory
   ): MetricsFactoryValuable = MetricsFactoryValuable(
     factory
   )
 
   // Not final due to scalac: "The outer reference in this type test cannot be checked at run time."
-  case class MetricsFactoryValuable(factory: MetricHandle.LabeledMetricsFactory) {
+  case class MetricsFactoryValuable(factory: CantonLabeledMetricsFactory) {
 
     def asInMemory: InMemoryMetricsFactory = factory match {
       case inMemory: InMemoryMetricsFactory => inMemory

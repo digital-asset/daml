@@ -20,7 +20,7 @@ import com.digitalasset.canton.domain.mediator.store.{
   InMemoryMediatorDeduplicationStore,
   MediatorState,
 }
-import com.digitalasset.canton.domain.metrics.DomainTestMetrics
+import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
@@ -169,7 +169,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
       new InMemoryFinalizedResponseStore(loggerFactory),
       new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts),
       mock[Clock],
-      DomainTestMetrics.mediator,
+      MediatorTestMetrics,
       testedProtocolVersion,
       CachingConfigs.defaultFinalizedMediatorRequestsCache,
       timeouts,

@@ -12,15 +12,7 @@ import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
 import com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
-import com.daml.lf.transaction.TransactionErrors.{
-  DuplicateContractId,
-  DuplicateContractIdKIError,
-  DuplicateContractKey,
-  DuplicateContractKeyKIError,
-  InconsistentContractKey,
-  InconsistentContractKeyKIError,
-  KeyInputError,
-}
+import com.daml.lf.transaction.TransactionErrors.*
 import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
@@ -354,6 +346,7 @@ trait PrettyInstances {
   implicit val prettyServingStatus: Pretty[ServingStatus] = prettyOfClass(
     param("status", _.name().singleQuoted)
   )
+
 }
 
 object PrettyInstances extends PrettyInstances

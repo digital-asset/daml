@@ -29,7 +29,7 @@ import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcV
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.domain.mediator.*
-import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
+import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeXConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerFactory
@@ -82,7 +82,7 @@ class CommunityEnvironment(
       sequencerConfig,
       config.sequencerNodeParametersByStringX(name),
       createClock(Some(SequencerNodeBootstrapX.LoggerFactoryKeyName -> name)),
-      metricsFactory.forSequencer(name),
+      metricsRegistry.forSequencer(name),
       testingConfig,
       futureSupervisor,
       loggerFactory.append(SequencerNodeBootstrapX.LoggerFactoryKeyName, name),
@@ -129,7 +129,7 @@ class CommunityEnvironment(
       ): CantonNodeBootstrapCommonArguments[
       MediatorNodeConfigCommon,
       MediatorNodeParameters,
-      MediatorNodeMetrics,
+      MediatorMetrics,
     ]
 
     new MediatorNodeBootstrapX(

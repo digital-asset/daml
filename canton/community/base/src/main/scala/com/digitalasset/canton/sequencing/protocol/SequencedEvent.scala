@@ -74,7 +74,7 @@ object SequencedEvent
   override def name: String = "SequencedEvent"
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencedEvent)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencedEvent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -87,10 +87,10 @@ object SequencedEvent
     val v30.SequencedEvent(counter, tsP, domainIdP, mbMsgIdP, mbBatchP, mbDeliverErrorReasonP) =
       sequencedEventP
 
-    val rpv = protocolVersionRepresentativeFor(ProtoVersion(1))
     val sequencerCounter = SequencerCounter(counter)
 
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       timestamp <- ProtoConverter
         .required("SequencedEvent.timestamp", tsP)
         .flatMap(CantonTimestamp.fromProtoPrimitive)

@@ -118,7 +118,7 @@ private[apiserver] final class TransactionServiceImpl private (
       .mapConcat(ApiConversions.toV1)
       .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
+      .via(StreamMetrics.countElements(metrics.lapi.streams.transactions))
   }
 
   override def getTransactionTrees(
@@ -150,7 +150,7 @@ private[apiserver] final class TransactionServiceImpl private (
         logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
       )
       .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+      .via(StreamMetrics.countElements(metrics.lapi.streams.transactionTrees))
   }
 
   override def getTransactionByEventId(

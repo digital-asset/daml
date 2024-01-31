@@ -94,7 +94,6 @@ object ApiConversions {
       )
     }
   }
-
   def toV1(
       getTransactionByEventIdRequest: GetTransactionByEventIdRequest
   ): GetTransactionByEventIdRequestV1 =

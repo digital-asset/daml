@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.AboveTrafficLimit
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
@@ -48,8 +48,8 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
   private val sequencerMetrics = new SequencerMetrics(
     MetricName("test"),
     NoOpMetricsFactory,
-    Metrics.ForTesting.daml.grpc,
-    metrics.Metrics.ForTesting.daml.health,
+    Metrics.ForTesting.grpc,
+    metrics.Metrics.ForTesting.health,
   )
 
   private def makeBatch(envelopes: List[ClosedEnvelope]) = {

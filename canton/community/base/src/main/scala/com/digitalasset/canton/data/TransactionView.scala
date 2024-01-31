@@ -389,7 +389,7 @@ object TransactionView
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewNode)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewNode)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )
@@ -486,11 +486,12 @@ object TransactionView
         ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV30(context, protoView.subviews)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       view <- createFromRepresentativePV(hashOps)(
         commonData,
         participantData,
         subViews,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        rpv,
       ).leftMap(e =>
         ProtoDeserializationError.OtherError(s"Unable to create transaction views: $e")
       )

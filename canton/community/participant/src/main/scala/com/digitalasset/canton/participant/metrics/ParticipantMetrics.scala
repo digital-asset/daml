@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
@@ -15,48 +14,44 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
-import com.digitalasset.canton.metrics.{Metrics as LedgerApiServerMetrics, *}
+import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, *}
+import com.digitalasset.canton.metrics.{Metrics as LedgerApiServerMetrics}
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
 
 class ParticipantMetrics(
-    name: String,
-    val prefix: MetricName,
-    val dropWizardMetricsFactory: LabeledMetricsFactory,
-    override val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    registry: MetricRegistry,
-    reportExecutionContextMetrics: Boolean,
+    parent: MetricName,
+    override val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
 ) extends BaseMetrics {
 
-  override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.daml.grpc
-  override def healthMetrics: HealthMetrics = ledgerApiServer.daml.health
+  override val prefix: MetricName = parent
+
+  override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.grpc
+  override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  private implicit val mc: MetricsContext = MetricsContext("participant_name" -> name)
+  private implicit val mc: MetricsContext =
+    MetricsContext.Empty // participant -> participant1 is already set in MetricsFactory
 
-  object dbStorage extends DbStorageMetrics(prefix, dropWizardMetricsFactory)
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
 
   val ledgerApiServer: LedgerApiServerMetrics =
-    new LedgerApiServerMetrics(
-      dropWizardMetricsFactory,
-      openTelemetryMetricsFactory,
-      registry,
-      reportExecutionContextMetrics,
-    )
+    new LedgerApiServerMetrics(prefix, openTelemetryMetricsFactory)
 
   val httpApiServer: HttpApiMetrics =
-    new HttpApiMetrics(dropWizardMetricsFactory, openTelemetryMetricsFactory)
+    new HttpApiMetrics(openTelemetryMetricsFactory, openTelemetryMetricsFactory)
 
   private val clients = TrieMap[DomainAlias, SyncDomainMetrics]()
 
-  object pruning extends ParticipantPruningMetrics(prefix, dropWizardMetricsFactory)
+  object pruning extends ParticipantPruningMetrics(prefix, openTelemetryMetricsFactory)
 
   def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
     clients.getOrElseUpdate(
       alias,
-      new SyncDomainMetrics(prefix :+ alias.unwrap, dropWizardMetricsFactory),
+      new SyncDomainMetrics(prefix, openTelemetryMetricsFactory)(
+        mc.withExtraLabels("domain" -> alias.unwrap)
+      ),
     )
   }
 
@@ -67,7 +62,7 @@ class ParticipantMetrics(
         |The indexer will subsequently store the update in a form that allows for querying the ledger efficiently.""",
     qualification = Debug,
   )
-  val updatesPublished: Meter = dropWizardMetricsFactory.meter(prefix :+ "updates-published")
+  val updatesPublished: Meter = openTelemetryMetricsFactory.meter(prefix :+ "updates-published")
 
   @MetricDoc.Tag(
     summary = "Number of requests being validated.",
@@ -115,8 +110,8 @@ class ParticipantMetrics(
 
 class SyncDomainMetrics(
     prefix: MetricName,
-    factory: LabeledMetricsFactory,
-) {
+    factory: CantonLabeledMetricsFactory,
+)(implicit context: MetricsContext) {
 
   object sequencerClient extends SequencerClientMetrics(prefix, factory)
 
@@ -145,7 +140,7 @@ class SyncDomainMetrics(
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
     def taskQueue(size: () => Int): CloseableGauge =
-      factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
+      factory.gauge(prefix :+ "task-queue", 0)
 
   }
 

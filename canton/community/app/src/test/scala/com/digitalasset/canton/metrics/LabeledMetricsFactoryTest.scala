@@ -11,13 +11,14 @@ class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
 
   "metrics factory" should {
     "generate valid documentation" in {
-      val mf = MetricsFactory.forConfig(
-        MetricsConfig(),
-        OpenTelemetry.noop(),
+      val mf = MetricsRegistry(
+        false,
+        OpenTelemetry.noop().getMeter("test"),
         MetricsFactoryType.InMemory(_ => new InMemoryMetricsFactory),
       )
-      val (participantMetrics, domainMetrics) = mf.metricsDoc()
-      domainMetrics should not be empty
+      val (participantMetrics, sequencerMetrics, mediatorMetrics) = mf.metricsDoc()
+      sequencerMetrics should not be empty
+      mediatorMetrics should not be empty
       participantMetrics should not be empty
     }
   }

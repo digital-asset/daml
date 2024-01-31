@@ -3,12 +3,10 @@
 
 package com.digitalasset.canton.console
 
-import cats.syntax.either.*
 import com.digitalasset.canton.*
-import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
+import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, SequencerPublicCommands}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
-import com.digitalasset.canton.common.domain.grpc.GrpcSequencerConnectClient
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
@@ -28,6 +26,7 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.metrics.MetricValue
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -40,11 +39,12 @@ import com.digitalasset.canton.participant.{
 }
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracingConfig}
+import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
 
 // TODO(#15161): Fold all *Common traits into X-derivers
@@ -115,6 +115,7 @@ trait InstanceReferenceX extends InstanceReferenceCommon {
   @Help.Summary("Traffic control related commands")
   @Help.Group("Traffic")
   def traffic_control: TrafficControlAdministrationGroup = trafficControl_
+
 }
 
 /** Pointer for a potentially running instance by instance type (domain/participant) and its id.
@@ -231,7 +232,121 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
 }
 
-trait LocalInstanceReferenceX extends LocalInstanceReferenceCommon with InstanceReferenceX
+trait LocalInstanceReferenceX extends LocalInstanceReferenceCommon with InstanceReferenceX {
+
+  @Help.Summary("Access the local nodes metrics")
+  @Help.Group("Metrics")
+  object metrics {
+
+    private def filterByNodeAndAttribute(
+        attributes: Map[String, String]
+    )(value: MetricValue): Boolean = {
+      value.attributes.get("node").contains(name) && attributes.forall { case (k, v) =>
+        value.attributes.get(k).contains(v)
+      }
+    }
+
+    private def getOne(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): Either[String, MetricValue] = check(FeatureFlag.Testing) {
+      val res = consoleEnvironment.environment.configuredOpenTelemetry.onDemandMetricsReader
+        .read()
+        .find { data =>
+          data.getName.equals(metricName)
+        }
+        .toList
+        .flatMap(MetricValue.fromMetricData)
+        .filter(filterByNodeAndAttribute(attributes))
+      res match {
+        case one :: Nil => Right(one)
+        case Nil =>
+          Left(s"No metric of name ${metricName} with instance name ${name} found")
+        case other => Left(s"Found ${other.length} matching metrics")
+      }
+    }
+
+    private def getOneOfType[TargetType <: MetricValue](
+        metricName: String,
+        attributes: Map[String, String],
+    )(implicit
+        M: ClassTag[TargetType]
+    ): TargetType =
+      consoleEnvironment.run(ConsoleCommandResult.fromEither(for {
+        item <- getOne(metricName, attributes)
+        casted <- item
+          .select[TargetType]
+          .toRight(s"Metric is not a ${M.showType} but ${item.getClass}")
+      } yield casted))
+
+    @Help.Summary("Get a particular metric")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes, or error if multiple matching are found."""
+    )
+    def get(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): MetricValue =
+      consoleEnvironment.run(ConsoleCommandResult.fromEither(getOne(metricName, attributes)))
+
+    @Help.Summary("Get a particular histogram")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes, or error if multiple matching are found."""
+    )
+    def get_histogram(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): MetricValue.Histogram = getOneOfType[MetricValue.Histogram](metricName, attributes)
+
+    @Help.Summary("Get a particular summary")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes, or error if multiple matching are found."""
+    )
+    def get_summary(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): MetricValue.Summary = getOneOfType[MetricValue.Summary](metricName, attributes)
+
+    @Help.Summary("Get a particular long point")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes, or error if multiple matching are found."""
+    )
+    def get_long_point(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): MetricValue.LongPoint = getOneOfType[MetricValue.LongPoint](metricName, attributes)
+
+    @Help.Summary("Get a particular double point")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes, or error if multiple matching are found."""
+    )
+    def get_double_point(
+        metricName: String,
+        attributes: Map[String, String] = Map(),
+    ): MetricValue.DoublePoint = getOneOfType[MetricValue.DoublePoint](metricName, attributes)
+
+    @Help.Summary("List all metrics")
+    @Help.Description(
+      """Returns the metric with the given name and optionally matching attributes."""
+    )
+    def list(
+        filterName: String = "",
+        attributes: Map[String, String] = Map(),
+    ): Map[String, Seq[MetricValue]] =
+      check(FeatureFlag.Testing) {
+        consoleEnvironment.environment.configuredOpenTelemetry.onDemandMetricsReader
+          .read()
+          .filter(_.getName.startsWith(filterName))
+          .flatMap(dt => MetricValue.fromMetricData(dt).map((dt.getName, _)))
+          .filter { case (_, value) =>
+            filterByNodeAndAttribute(attributes)(value)
+          }
+          .groupMap { case (name, _) => name } { case (_, value) => value }
+      }
+
+  }
+
+}
 
 trait RemoteInstanceReference extends InstanceReferenceCommon {
   @Help.Summary("Manage public and secret keys")
@@ -302,6 +417,42 @@ class ExternalLedgerApiClient(
       optTimeout: Option[NonNegativeDuration],
   ): Tx = tx
 
+}
+
+/** Allows to query the public api of a sequencer (e.g., sequencer connect service).
+  *
+  * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
+  */
+class SequencerPublicApiClient(
+    sequencerConnection: GrpcSequencerConnection,
+    trustCollectionFile: Option[ExistingFile],
+)(implicit val consoleEnvironment: ConsoleEnvironment)
+    extends PublicApiCommandRunner
+    with NamedLogging {
+
+  private val endpoint = sequencerConnection.endpoints.head1
+
+  private val name: String = endpoint.toString
+
+  override val loggerFactory: NamedLoggerFactory =
+    consoleEnvironment.environment.loggerFactory.append("sequencer-public-api", name)
+
+  protected[console] def publicApiCommand[Result](
+      command: GrpcAdminCommand[?, ?, Result]
+  ): ConsoleCommandResult[Result] =
+    consoleEnvironment.grpcAdminCommandRunner
+      .runCommand(
+        sequencerConnection.sequencerAlias.unwrap,
+        command,
+        ClientConfig(
+          endpoint.host,
+          endpoint.port,
+          tls = trustCollectionFile.map(f =>
+            TlsClientConfig(trustCollectionFile = Some(f), clientCert = None)
+          ),
+        ),
+        token = None,
+      )
 }
 
 object ExternalLedgerApiClient {
@@ -646,12 +797,7 @@ abstract class SequencerNodeReferenceX(
       loggerFactory,
     )
 
-  private lazy val grpcSequencerConnectClient = new GrpcSequencerConnectClient(
-    sequencerConnection = sequencerConnection,
-    timeouts = ProcessingTimeout(),
-    traceContextPropagation = TracingConfig.Propagation.Enabled,
-    loggerFactory = loggerFactory,
-  )(consoleEnvironment.environment.executionContext)
+  protected def publicApiClient: SequencerPublicApiClient
 
   override def topology: TopologyAdministrationGroupX = topology_
 
@@ -671,7 +817,7 @@ abstract class SequencerNodeReferenceX(
     new HealthAdministrationX[SequencerNodeStatus](
       this,
       consoleEnvironment,
-      SequencerNodeStatus.fromProtoV0,
+      SequencerNodeStatus.fromProtoV30,
     )
 
   private lazy val sequencerXTrafficControl = new TrafficControlSequencerAdministrationGroup(
@@ -692,16 +838,11 @@ abstract class SequencerNodeReferenceX(
     domainId.get() match {
       case Some(id) => id
       case None =>
-        val id = TraceContext.withNewTraceContext { implicit traceContext =>
-          Await
-            .result(
-              grpcSequencerConnectClient.getDomainId(name).value,
-              consoleEnvironment.commandTimeouts.bounded.duration,
-            )
-            .valueOr(_ => throw new CommandFailure())
-        }
-
+        val id = consoleEnvironment.run(
+          publicApiClient.publicApiCommand(SequencerPublicCommands.GetDomainId)
+        )
         domainId.set(Some(id))
+
         id
     }
   }
@@ -817,15 +958,9 @@ abstract class SequencerNodeReferenceX(
         staticDomainParameters.get() match {
           case Some(parameters) => parameters
           case None =>
-            val parameters = TraceContext.withNewTraceContext { implicit traceContext =>
-              Await
-                .result(
-                  grpcSequencerConnectClient.getDomainParameters(name).value,
-                  consoleEnvironment.commandTimeouts.bounded.duration,
-                )
-                .map(ConsoleStaticDomainParameters(_))
-                .valueOr(_ => throw new CommandFailure())
-            }
+            val parameters = consoleEnvironment.run(
+              publicApiClient.publicApiCommand(SequencerPublicCommands.GetStaticDomainParameters)
+            )
 
             staticDomainParameters.set(Some(parameters))
             parameters
@@ -868,6 +1003,11 @@ class LocalSequencerNodeReferenceX(
 
   override protected[console] def startingNode: Option[SequencerNodeBootstrapX] =
     nodes.getStarting(name)
+
+  protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
+    sequencerConnection = sequencerConnection,
+    trustCollectionFile = config.publicApi.tls.map(_.certChainFile),
+  )(consoleEnvironment)
 }
 
 trait RemoteSequencerNodeReferenceCommon
@@ -906,6 +1046,11 @@ class RemoteSequencerNodeReferenceX(val environment: ConsoleEnvironment, val nam
   @Help.Summary("Returns the sequencerx configuration")
   override def config: RemoteSequencerConfig =
     environment.environment.config.remoteSequencersByString(name)
+
+  protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
+    sequencerConnection = sequencerConnection,
+    trustCollectionFile = config.publicApi.customTrustCertificates.map(_.pemFile),
+  )(consoleEnvironment)
 }
 
 trait MediatorReferenceCommon extends InstanceReferenceCommon {
@@ -942,7 +1087,7 @@ abstract class MediatorReferenceX(val consoleEnvironment: ConsoleEnvironment, na
     new HealthAdministrationX[MediatorNodeStatus](
       this,
       consoleEnvironment,
-      MediatorNodeStatus.fromProtoV0,
+      MediatorNodeStatus.fromProtoV30,
     )
 
   private lazy val topology_ =

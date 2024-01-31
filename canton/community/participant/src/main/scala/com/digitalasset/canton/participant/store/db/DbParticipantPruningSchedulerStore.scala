@@ -8,7 +8,6 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String1
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningSchedule
 import com.digitalasset.canton.participant.store.ParticipantPruningSchedulerStore
 import com.digitalasset.canton.resource.DbStorage.Profile
@@ -29,9 +28,6 @@ final class DbParticipantPruningSchedulerStore(
     with NamedLogging {
   import storage.api.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("pruning-scheduler-store")
-
   // sentinel value used to ensure the table can only have a single row
   // see create table sql for more details
   private val singleRowLockValue: String1 = String1.fromChar('X')
@@ -40,23 +36,22 @@ final class DbParticipantPruningSchedulerStore(
       tc: TraceContext
   ): Future[Unit] = {
     val schedule = participantSchedule.schedule
-    processingTime
-      .event {
-        storage.update_(
-          storage.profile match {
-            case _: Profile.Postgres =>
-              sqlu"""insert into participant_pruning_schedules (cron, max_duration, retention, prune_internally_only)
+
+    storage.update_(
+      storage.profile match {
+        case _: Profile.Postgres =>
+          sqlu"""insert into participant_pruning_schedules (cron, max_duration, retention, prune_internally_only)
                      values (${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                      on conflict (lock) do
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention},
                                   prune_internally_only = ${participantSchedule.pruneInternallyOnly}
                   """
-            case _: Profile.H2 =>
-              sqlu"""merge into participant_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
+        case _: Profile.H2 =>
+          sqlu"""merge into participant_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
                      values (${singleRowLockValue}, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                   """
-            case _: Profile.Oracle =>
-              sqlu"""merge into participant_pruning_schedules pps
+        case _: Profile.Oracle =>
+          sqlu"""merge into participant_pruning_schedules pps
                        using (
                          select ${schedule.cron} cron,
                                 ${schedule.maxDuration} max_duration,
@@ -72,23 +67,21 @@ final class DbParticipantPruningSchedulerStore(
                        insert (cron, max_duration, retention, prune_internally_only)
                        values (excluded.cron, excluded.max_duration, excluded.retention, excluded.prune_internally_only)
                   """
-          },
-          functionFullName,
-        )
-      }
+      },
+      functionFullName,
+    )
   }
 
-  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = processingTime
-    .event {
-      storage.update_(
-        sqlu"""delete from participant_pruning_schedules""",
-        functionFullName,
-      )
-    }
+  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = {
+    storage.update_(
+      sqlu"""delete from participant_pruning_schedules""",
+      functionFullName,
+    )
+  }
 
   override def getParticipantSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]] = processingTime.event {
+  ): Future[Option[ParticipantPruningSchedule]] = {
     storage
       .query(
         sql"""select cron, max_duration, retention, prune_internally_only from participant_pruning_schedules"""
@@ -111,47 +104,38 @@ final class DbParticipantPruningSchedulerStore(
   }
 
   override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update participant_pruning_schedules set cron = $cron""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("cron"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update participant_pruning_schedules set cron = $cron""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("cron"))
+    }
 
   override def updateMaxDuration(
       maxDuration: PositiveSeconds
   )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update participant_pruning_schedules set max_duration = $maxDuration""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("max_duration"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update participant_pruning_schedules set max_duration = $maxDuration""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("max_duration"))
+    }
 
   override def updateRetention(
       retention: PositiveSeconds
   )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update participant_pruning_schedules set retention = $retention""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("retention"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update participant_pruning_schedules set retention = $retention""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("retention"))
+    }
 
   private def errorOnUpdateOfMissingSchedule(
       field: String

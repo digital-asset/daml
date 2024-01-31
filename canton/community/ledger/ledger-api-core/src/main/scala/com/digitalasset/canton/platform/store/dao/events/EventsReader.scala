@@ -35,7 +35,7 @@ private[dao] sealed class EventsReader(
 )(implicit ec: ExecutionContext)
     extends LedgerDaoEventsReader {
 
-  protected val dbMetrics: metrics.daml.index.db.type = metrics.daml.index.db
+  protected val dbMetrics: metrics.index.db.type = metrics.index.db
 
   override def getEventsByContractId(contractId: ContractId, requestingParties: Set[Party])(implicit
       loggingContext: LoggingContextWithTrace

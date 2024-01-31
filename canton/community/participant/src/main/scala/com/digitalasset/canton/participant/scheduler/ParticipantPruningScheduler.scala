@@ -30,7 +30,7 @@ final case class ParticipantPruningSchedule(
     pruneInternallyOnly: Boolean,
 ) {
   def toProtoV30: v30.ParticipantPruningSchedule = v30.ParticipantPruningSchedule(
-    schedule = Some(schedule.toProtoV0),
+    schedule = Some(schedule.toProtoV30),
     pruneInternallyOnly = pruneInternallyOnly,
   )
 }
@@ -42,7 +42,7 @@ object ParticipantPruningSchedule {
   ): ParsingResult[ParticipantPruningSchedule] =
     for {
       scheduleP <- ProtoConverter.required("schedule", participantSchedule.schedule)
-      schedule <- PruningSchedule.fromProtoV0(scheduleP)
+      schedule <- PruningSchedule.fromProtoV30(scheduleP)
     } yield ParticipantPruningSchedule(
       schedule,
       participantSchedule.pruneInternallyOnly,

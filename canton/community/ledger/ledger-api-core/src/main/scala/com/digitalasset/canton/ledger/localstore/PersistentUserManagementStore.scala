@@ -306,12 +306,12 @@ class PersistentUserManagementStore(
     }
 
   private def inTransaction[T](
-      dbMetric: metrics.daml.userManagement.type => DatabaseMetrics
+      dbMetric: metrics.userManagement.type => DatabaseMetrics
   )(
       thunk: Connection => Result[T]
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] =
     dbDispatcher
-      .executeSql(dbMetric(metrics.daml.userManagement))(thunk)
+      .executeSql(dbMetric(metrics.userManagement))(thunk)
       .recover[Result[T]] {
         case TooManyUserRightsRuntimeException(userId) => Left(TooManyUserRights(userId))
         case ConcurrentUserUpdateDetectedRuntimeException(userId) =>

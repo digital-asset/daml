@@ -26,7 +26,7 @@ object EnvelopeContent
     extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(4) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
     )(v30.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV30),
@@ -60,6 +60,7 @@ object EnvelopeContent
     val (_, expectedProtocolVersion) = context
     import v30.EnvelopeContent.SomeEnvelopeContent as Content
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       content <- (contentP.someEnvelopeContent match {
         case Content.InformeeMessage(messageP) =>
           InformeeMessage.fromProtoV30(context)(messageP)
@@ -84,7 +85,7 @@ object EnvelopeContent
           TopologyTransactionsBroadcastX.fromProtoV30(expectedProtocolVersion, messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
       }): ParsingResult[UnsignedProtocolMessage]
-    } yield EnvelopeContent(content)(protocolVersionRepresentativeFor(ProtoVersion(4)))
+    } yield EnvelopeContent(content)(rpv)
   }
 
   override def name: String = "EnvelopeContent"

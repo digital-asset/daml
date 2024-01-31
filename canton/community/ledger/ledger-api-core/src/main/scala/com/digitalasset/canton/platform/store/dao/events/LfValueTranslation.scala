@@ -192,7 +192,7 @@ final class LfValueTranslation(
           .loadPackage(
             packageId = packageId,
             delegate = packageId => loadPackage(packageId, loggingContext),
-            metric = metrics.daml.index.db.translation.getLfPackage,
+            metric = metrics.index.db.translation.getLfPackage,
           )
           .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
       case result =>
@@ -568,7 +568,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
   ): Future[Either[Status, Versioned[Value]]] = Timed.future(
-    metrics.daml.index.lfValue.computeInterfaceView, {
+    metrics.index.lfValue.computeInterfaceView, {
       implicit val errorLogger: ContextualizedErrorLogger =
         ErrorLoggingContext(logger, loggingContext)
 
@@ -600,7 +600,7 @@ final class LfValueTranslation(
               .loadPackage(
                 packageId = packageId,
                 delegate = packageId => loadPackage(packageId, loggingContext),
-                metric = metrics.daml.index.db.translation.getLfPackage,
+                metric = metrics.index.db.translation.getLfPackage,
               )
               .map(resume)
               .flatMap(goAsync)

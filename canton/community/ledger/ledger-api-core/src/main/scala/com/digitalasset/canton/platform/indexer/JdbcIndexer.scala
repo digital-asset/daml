@@ -161,7 +161,7 @@ object JdbcIndexer {
       (fromExclusive, toInclusive) => {
         implicit val loggingContext: LoggingContextWithTrace =
           LoggingContextWithTrace.empty
-        dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+        dbDispatcher.executeSql(metrics.index.db.loadStringInterningEntries) {
           stringInterningStorageBackend.loadStringInterningEntries(
             fromExclusive,
             toInclusive,

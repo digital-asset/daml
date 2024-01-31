@@ -9,7 +9,6 @@ import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class IndexMetrics(
     prefix: MetricName,
-    dropWizardMetricsFactory: LabeledMetricsFactory,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
 
@@ -22,7 +21,7 @@ class IndexMetrics(
     qualification = Saturation,
   )
   val transactionTreesBufferSize: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "transaction_trees_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "transaction_trees_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for flat transactions requests.",
@@ -34,7 +33,7 @@ class IndexMetrics(
     qualification = Saturation,
   )
   val flatTransactionsBufferSize: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "flat_transactions_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "flat_transactions_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for active contracts requests.",
@@ -46,7 +45,7 @@ class IndexMetrics(
     qualification = Saturation,
   )
   val activeContractsBufferSize: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "active_contracts_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "active_contracts_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for completions requests.",
@@ -58,10 +57,13 @@ class IndexMetrics(
     qualification = Saturation,
   )
   val completionsBufferSize: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "completions_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "completions_buffer_size")
 
   object db
-      extends IndexDBMetrics(prefix :+ "db", dropWizardMetricsFactory, openTelemetryMetricsFactory)
+      extends IndexDBMetrics(
+        prefix :+ "db",
+        openTelemetryMetricsFactory,
+      )
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in memory.",
@@ -76,7 +78,9 @@ class IndexMetrics(
     qualification = Debug,
   )
   val ledgerEndSequentialId: Gauge[Long] =
-    dropWizardMetricsFactory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(
+      MetricsContext.Empty
+    )
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"
@@ -89,7 +93,7 @@ class IndexMetrics(
       qualification = Debug,
     )
     val computeInterfaceView: Timer =
-      dropWizardMetricsFactory.timer(prefix :+ "compute_interface_view")
+      openTelemetryMetricsFactory.timer(prefix :+ "compute_interface_view")
   }
 
   object packageMetadata {
@@ -101,7 +105,7 @@ class IndexMetrics(
                       |interfaces and corresponding templates.""",
       qualification = Debug,
     )
-    val decodeArchive: Timer = dropWizardMetricsFactory.timer(prefix :+ "decode_archive")
+    val decodeArchive: Timer = openTelemetryMetricsFactory.timer(prefix :+ "decode_archive")
 
     @MetricDoc.Tag(
       summary = "The time to initialize package metadata view.",
@@ -110,6 +114,6 @@ class IndexMetrics(
                       |uploaded and scanning them to extract metadata information.""",
       qualification = Debug,
     )
-    val viewInitialisation: Timer = dropWizardMetricsFactory.timer(prefix :+ "view_init")
+    val viewInitialisation: Timer = openTelemetryMetricsFactory.timer(prefix :+ "view_init")
   }
 }

@@ -20,7 +20,6 @@ import com.digitalasset.canton.crypto.{Fingerprint, PublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -50,20 +49,16 @@ class DbPartyMetadataStore(
   import DbStorage.Implicits.BuilderChain.*
   import storage.api.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("party-metadata-store")
-
   override def metadataForParty(
       partyId: PartyId
-  )(implicit traceContext: TraceContext): Future[Option[PartyMetadata]] =
-    processingTime.event {
-      storage
-        .query(
-          metadataForPartyQuery(sql"party_id = $partyId #${storage.limit(1)}"),
-          functionFullName,
-        )
-        .map(_.headOption)
-    }
+  )(implicit traceContext: TraceContext): Future[Option[PartyMetadata]] = {
+    storage
+      .query(
+        metadataForPartyQuery(sql"party_id = $partyId #${storage.limit(1)}"),
+        functionFullName,
+      )
+      .map(_.headOption)
+  }
 
   private def metadataForPartyQuery(
       where: SQLActionBuilderChain
@@ -102,12 +97,11 @@ class DbPartyMetadataStore(
       displayName: Option[DisplayName],
       effectiveTimestamp: CantonTimestamp,
       submissionId: String255,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      val participantS = dbValue(participantId)
-      val query = storage.profile match {
-        case _: DbStorage.Profile.Postgres =>
-          sqlu"""insert into party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val participantS = dbValue(participantId)
+    val query = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        sqlu"""insert into party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
                     VALUES ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
                  on conflict (party_id) do update
                   set
@@ -117,8 +111,8 @@ class DbPartyMetadataStore(
                     effective_at = $effectiveTimestamp,
                     notified = false
                  """
-        case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
-          sqlu"""merge into party_metadata
+      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+        sqlu"""merge into party_metadata
                   using dual
                   on (party_id = $partyId)
                   when matched then
@@ -132,9 +126,9 @@ class DbPartyMetadataStore(
                     insert (party_id, display_name, participant_id, submission_id, effective_at)
                     values ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
                  """
-      }
-      storage.update_(query, functionFullName)
     }
+    storage.update_(query, functionFullName)
+  }
 
   private def dbValue(participantId: Option[ParticipantId]): Option[String300] =
     participantId.map(_.uid.toLengthLimitedString.asString300)
@@ -142,7 +136,7 @@ class DbPartyMetadataStore(
   /** mark the given metadata has having been successfully forwarded to the domain */
   override def markNotified(
       metadata: PartyMetadata
-  )(implicit traceContext: TraceContext): Future[Unit] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val partyId = metadata.partyId
     val effectiveAt = metadata.effectiveTimestamp
     val query =
@@ -151,14 +145,15 @@ class DbPartyMetadataStore(
   }
 
   /** fetch the current set of party data which still needs to be notified */
-  override def fetchNotNotified()(implicit traceContext: TraceContext): Future[Seq[PartyMetadata]] =
-    processingTime.event {
-      storage
-        .query(
-          metadataForPartyQuery(sql"notified = ${false}"),
-          functionFullName,
-        )
-    }
+  override def fetchNotNotified()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[PartyMetadata]] = {
+    storage
+      .query(
+        metadataForPartyQuery(sql"notified = ${false}"),
+        functionFullName,
+      )
+  }
 
 }
 
@@ -170,8 +165,6 @@ trait DbTopologyStoreCommon[+StoreId <: TopologyStoreId] extends NamedLogging {
 
   protected def maxItemsInSqlQuery: PositiveInt
   protected def transactionStoreIdName: LengthLimitedString
-  protected def updatingTime: TimedLoadGauge
-  protected def readTime: TimedLoadGauge
 
   override def currentDispatchingWatermark(implicit
       traceContext: TraceContext
@@ -180,9 +173,8 @@ trait DbTopologyStoreCommon[+StoreId <: TopologyStoreId] extends NamedLogging {
       sql"SELECT watermark_ts FROM topology_dispatching WHERE store_id =$transactionStoreIdName"
         .as[CantonTimestamp]
         .headOption
-    readTime.event {
-      storage.query(query, functionFullName)
-    }
+    storage.query(query, functionFullName)
+
   }
 
   override def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
@@ -208,9 +200,8 @@ trait DbTopologyStoreCommon[+StoreId <: TopologyStoreId] extends NamedLogging {
                     values ($transactionStoreIdName, $timestamp)
                  """
     }
-    updatingTime.event {
-      storage.update_(query, functionFullName)
-    }
+    storage.update_(query, functionFullName)
+
   }
 
   protected def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
@@ -272,11 +263,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     case TopologyStoreId.DomainStore(_, _) => true
     case _ => false
   }
-
-  protected val updatingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("topology-store-update")
-  protected val readTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("topology-store-read")
 
   private def buildTransactionStoreNames(
       storeId: TopologyStoreId
@@ -381,12 +367,11 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           sql") SELECT * FROM UPDATES").asUpdate
     }
 
-    updatingTime.event {
-      storage.update_(
-        dbioSeq(Seq((updateSeq.nonEmpty, updateAction), (add.nonEmpty, insertAction))),
-        operationName = "append-topology-transactions",
-      )
-    }
+    storage.update_(
+      dbioSeq(Seq((updateSeq.nonEmpty, updateAction), (add.nonEmpty, insertAction))),
+      operationName = "append-topology-transactions",
+    )
+
   }
 
   private def dbioSeq[E <: Effect](
@@ -408,32 +393,31 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql"SELECT id, instance, sequenced, valid_from, valid_until FROM topology_transactions WHERE store_id = $store " ++
         subQuery ++ (if (!includeRejected) sql" AND ignore_reason IS NULL"
                      else sql"") ++ sql" #${orderBy} #${limit}"
-    readTime.event {
-      storage
-        .query(
-          query.as[
-            (
-                Long,
-                SignedTopologyTransaction[TopologyChangeOp],
-                Option[CantonTimestamp],
-                CantonTimestamp,
-                Option[CantonTimestamp],
-            )
-          ],
-          functionFullName,
-        )
-        .flatMap(_.toList.parTraverse { case (id, dt, sequencedTsO, validFrom, validUntil) =>
-          getOrComputeSequencedTime(store, id, sequencedTsO, validFrom).map { sequencedTs =>
-            StoredTopologyTransaction(
-              SequencedTime(sequencedTs),
-              EffectiveTime(validFrom),
-              validUntil.map(EffectiveTime(_)),
-              dt,
-            )
-          }
-        })
-        .map(StoredTopologyTransactions(_))
-    }
+    storage
+      .query(
+        query.as[
+          (
+              Long,
+              SignedTopologyTransaction[TopologyChangeOp],
+              Option[CantonTimestamp],
+              CantonTimestamp,
+              Option[CantonTimestamp],
+          )
+        ],
+        functionFullName,
+      )
+      .flatMap(_.toList.parTraverse { case (id, dt, sequencedTsO, validFrom, validUntil) =>
+        getOrComputeSequencedTime(store, id, sequencedTsO, validFrom).map { sequencedTs =>
+          StoredTopologyTransaction(
+            SequencedTime(sequencedTs),
+            EffectiveTime(validFrom),
+            validUntil.map(EffectiveTime(_)),
+            dt,
+          )
+        }
+      })
+      .map(StoredTopologyTransactions(_))
+
   }
 
   // TODO(#15208) remove once we move to 3.0
@@ -597,18 +581,17 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
              OR (transaction_type = $pdsm AND identifier LIKE $filterPartyIdentifier AND namespace LIKE $filterPartyNamespace
                  AND identifier LIKE $filterParticipantIdentifier AND namespace LIKE $filterParticipantNamespace)
             ) AND ignore_reason IS NULL GROUP BY (identifier, namespace) #${limitS}"""
-    readTime.event {
-      storage
-        .query(
-          query.as[
-            (String, String)
-          ],
-          functionFullName,
-        )
-        .map(_.map { case (id, ns) =>
-          PartyId(UniqueIdentifier(Identifier.tryCreate(id), Namespace(Fingerprint.tryCreate(ns))))
-        }.toSet)
-    }
+    storage
+      .query(
+        query.as[
+          (String, String)
+        ],
+        functionFullName,
+      )
+      .map(_.map { case (id, ns) =>
+        PartyId(UniqueIdentifier(Identifier.tryCreate(id), Namespace(Fingerprint.tryCreate(ns))))
+      }.toSet)
+
   }
 
   /** query optimized for inspection */
@@ -919,9 +902,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql"SELECT watermark_ts FROM topology_dispatching WHERE store_id =$transactionStoreIdName"
         .as[CantonTimestamp]
         .headOption
-    readTime.event {
-      storage.query(query, functionFullName)
-    }
+    storage.query(query, functionFullName)
+
   }
 
   override def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
@@ -947,9 +929,9 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                     values ($transactionStoreIdName, $timestamp)
                  """
     }
-    updatingTime.event {
-      storage.update_(query, functionFullName)
-    }
+
+    storage.update_(query, functionFullName)
+
   }
 
   override def findDispatchingTransactionsAfter(

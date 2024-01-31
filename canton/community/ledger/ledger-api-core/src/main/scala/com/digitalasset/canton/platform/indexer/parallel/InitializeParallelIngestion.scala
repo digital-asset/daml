@@ -45,7 +45,7 @@ private[platform] final case class InitializeParallelIngestion(
       LoggingContextWithTrace.empty
     logger.info(s"Attempting to initialize with participant ID $providedParticipantId")
     for {
-      _ <- dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
+      _ <- dbDispatcher.executeSql(metrics.index.db.initializeLedgerParameters)(
         parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             participantId = domain.ParticipantId(providedParticipantId)
@@ -53,10 +53,10 @@ private[platform] final case class InitializeParallelIngestion(
           loggerFactory,
         )
       )
-      ledgerEnd <- dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(
+      ledgerEnd <- dbDispatcher.executeSql(metrics.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
-      _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
+      _ <- dbDispatcher.executeSql(metrics.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
       _ <- additionalInitialization(ledgerEnd)

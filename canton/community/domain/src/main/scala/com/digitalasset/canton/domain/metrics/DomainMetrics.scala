@@ -6,23 +6,25 @@ package com.digitalasset.canton.domain.metrics
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.{Gauge, Meter}
-import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, NoOpMetricsFactory}
-import com.digitalasset.canton.metrics.{DbStorageMetrics, SequencerClientMetrics}
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.{
+  CantonLabeledMetricsFactory,
+  DbStorageMetrics,
+  SequencerClientMetrics,
+}
 import com.google.common.annotations.VisibleForTesting
 
 class SequencerMetrics(
     parent: MetricName,
-    val openTelemetryMetricsFactory: LabeledMetricsFactory,
+    val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
-  override val prefix: MetricName = MetricName(parent :+ "sequencer")
-
+  override val prefix: MetricName = parent
+  private implicit val mc: MetricsContext = MetricsContext.Empty
   override def storageMetrics: DbStorageMetrics = dbStorage
 
   object sequencerClient extends SequencerClientMetrics(prefix, openTelemetryMetricsFactory)
@@ -122,77 +124,21 @@ object SequencerMetrics {
 
 }
 
-class EnvMetrics(
-    factory: LabeledMetricsFactory
-) {
-  def prefix: MetricName = MetricName("env")
-
-  private val executionContextQueueSizeName: MetricName =
-    prefix :+ "execution-context" :+ "queue-size"
-  @MetricDoc.Tag(
-    summary = "Gives the number size of the global execution context queue",
-    description = """This execution context is shared across all nodes running on the JVM""",
-    qualification = Debug,
-  )
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  private val executionContextQueueSizeDoc: Gauge[Long] = // For docs only
-    NoOpGauge(executionContextQueueSizeName, 0L)
-
-  def registerExecutionContextQueueSize(f: () => Long): Unit = {
-    factory
-      .gaugeWithSupplier(
-        executionContextQueueSizeName,
-        f,
-      )(MetricsContext.Empty)
-      .discard
-  }
-}
-
-@MetricDoc.GroupTag(
-  representative = "canton.<component>.sequencer-client",
-  groupableClass = classOf[SequencerClientMetrics],
-)
-class DomainMetrics(
-    val prefix: MetricName,
-    val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    val grpcMetrics: GrpcServerMetrics,
-    val healthMetrics: HealthMetrics,
-) extends BaseMetrics {
-
-  override def storageMetrics: DbStorageMetrics = dbStorage
-
-  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
-
-  object sequencer
-      extends SequencerMetrics(prefix, openTelemetryMetricsFactory, grpcMetrics, healthMetrics)
-
-  object mediator extends MediatorMetrics(prefix, openTelemetryMetricsFactory)
-
-  object topologyManager extends IdentityManagerMetrics(prefix, openTelemetryMetricsFactory)
-}
-
-class MediatorNodeMetrics(
-    val prefix: MetricName,
-    val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    val grpcMetrics: GrpcServerMetrics,
-    val healthMetrics: HealthMetrics,
-) extends BaseMetrics {
-
-  override def storageMetrics: DbStorageMetrics = dbStorage
-
-  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
-
-  object mediator extends MediatorMetrics(prefix, openTelemetryMetricsFactory)
-}
-
 class MediatorMetrics(
-    basePrefix: MetricName,
-    metricsFactory: LabeledMetricsFactory,
-) {
+    parent: MetricName,
+    val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
+    val grpcMetrics: GrpcServerMetrics,
+    val healthMetrics: HealthMetrics,
+) extends BaseMetrics {
 
-  val prefix: MetricName = basePrefix :+ "mediator"
+  val prefix: MetricName = parent
+  private implicit val mc: MetricsContext = MetricsContext.Empty
 
-  object sequencerClient extends SequencerClientMetrics(prefix, metricsFactory)
+  override def storageMetrics: DbStorageMetrics = dbStorage
+
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
+
+  object sequencerClient extends SequencerClientMetrics(prefix, openTelemetryMetricsFactory)
 
   @MetricDoc.Tag(
     summary = "Number of currently outstanding requests",
@@ -201,7 +147,7 @@ class MediatorMetrics(
     qualification = Debug,
   )
   val outstanding: Gauge[Int] =
-    metricsFactory.gauge(prefix :+ "outstanding-requests", 0)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge(prefix :+ "outstanding-requests", 0)(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary = "Number of totally processed requests",
@@ -209,7 +155,7 @@ class MediatorMetrics(
                     |has been started.""",
     qualification = Debug,
   )
-  val requests: Meter = metricsFactory.meter(prefix :+ "requests")
+  val requests: Meter = openTelemetryMetricsFactory.meter(prefix :+ "requests")
 
   @MetricDoc.Tag(
     summary = "Age of oldest unpruned mediator response.",
@@ -219,7 +165,9 @@ class MediatorMetrics(
     qualification = Debug,
   )
   val maxEventAge: Gauge[Long] =
-    metricsFactory.gauge[Long](MetricName(prefix :+ "max-event-age"), 0L)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge[Long](MetricName(prefix :+ "max-event-age"), 0L)(
+      MetricsContext.Empty
+    )
 
   // TODO(i14580): add testing
   object trafficControl {
@@ -230,15 +178,6 @@ class MediatorMetrics(
            the sender does not have enough credit.""",
       qualification = Traffic,
     )
-    val eventRejected: Meter = metricsFactory.meter(prefix :+ "event-rejected")
+    val eventRejected: Meter = openTelemetryMetricsFactory.meter(prefix :+ "event-rejected")
   }
-}
-
-class IdentityManagerMetrics(
-    basePrefix: MetricName,
-    metricsFactory: LabeledMetricsFactory,
-) {
-  val prefix: MetricName = basePrefix :+ "topology-manager"
-
-  object sequencerClient extends SequencerClientMetrics(prefix, metricsFactory)
 }

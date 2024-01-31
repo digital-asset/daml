@@ -243,13 +243,13 @@ object TopologyTransaction
   override val name: String = "TopologyTransaction"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
 
-  private def fromProtoV1(
+  private def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
       transactionP: v30.TopologyTransaction,
   )(
@@ -258,9 +258,9 @@ object TopologyTransaction
     case v30.TopologyTransaction.Transaction.Empty =>
       Left(FieldNotSet("TopologyTransaction.transaction.version"))
     case v30.TopologyTransaction.Transaction.StateUpdate(stateUpdate) =>
-      TopologyStateUpdate.fromProtoV1(protocolVersionValidation, stateUpdate, bytes)
+      TopologyStateUpdate.fromProtoV30(protocolVersionValidation, stateUpdate, bytes)
     case v30.TopologyTransaction.Transaction.DomainGovernance(domainGovernance) =>
-      DomainGovernanceTransaction.fromProtoV1(domainGovernance, bytes)
+      DomainGovernanceTransaction.fromProtoV30(domainGovernance, bytes)
   }
 }
 
@@ -346,7 +346,7 @@ object TopologyStateUpdate {
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  private[transaction] def fromProtoV1(
+  private[transaction] def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
       protoTopologyTransaction: v30.TopologyStateUpdate,
       bytes: ByteString,
@@ -385,8 +385,9 @@ object TopologyStateUpdate {
       op <- AddRemoveChangeOp.fromProtoV30(protoTopologyTransaction.operation)
       mapping <- mappingRes
       id <- TopologyElementId.fromProtoPrimitive(protoTopologyTransaction.id)
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TopologyStateUpdate(op, TopologyStateUpdateElement(id, mapping))(
-      TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }
@@ -467,23 +468,24 @@ object DomainGovernanceTransaction {
     TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
   )
 
-  private[transaction] def fromProtoV1(
+  private[transaction] def fromProtoV30(
       protoTopologyTransaction: v30.DomainGovernanceTransaction,
       bytes: ByteString,
   ): ParsingResult[DomainGovernanceTransaction] = {
     val mapping: ParsingResult[DomainGovernanceMapping] = protoTopologyTransaction.mapping match {
       case v30.DomainGovernanceTransaction.Mapping.DomainParametersChange(domainParametersChange) =>
-        DomainParametersChange.fromProtoV1(domainParametersChange)
+        DomainParametersChange.fromProtoV30(domainParametersChange)
 
       case v30.DomainGovernanceTransaction.Mapping.Empty =>
         Left(UnrecognizedField("DomainGovernanceTransaction.Mapping is empty"))
     }
 
-    mapping.map(mapping =>
-      DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
-        TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(1)),
-        Some(bytes),
-      )
+    for {
+      mapping <- mapping
+      rpv <- TopologyTransaction.protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield DomainGovernanceTransaction(DomainGovernanceElement(mapping))(
+      rpv,
+      Some(bytes),
     )
   }
 

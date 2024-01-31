@@ -28,9 +28,9 @@ class CommunityHealthDumpGenerator(
 
   override def status(): CommunityCantonStatus = {
     CommunityCantonStatus.getStatus(
-      statusMap(environment.config.sequencersByString, SequencerNodeStatus.fromProtoV0),
-      statusMap(environment.config.mediatorsByString, MediatorNodeStatus.fromProtoV0),
-      statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV0),
+      statusMap(environment.config.sequencersByString, SequencerNodeStatus.fromProtoV30),
+      statusMap(environment.config.mediatorsByString, MediatorNodeStatus.fromProtoV30),
+      statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV30),
     )
   }
 }

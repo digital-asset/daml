@@ -9,7 +9,8 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory
 /** Metric instances that can be used for testing.
   * Also check:
   * - [[com.digitalasset.canton.participant.metrics.ParticipantTestMetrics]]
-  * - [[com.digitalasset.canton.domain.metrics.DomainTestMetrics]]
+  * - [[com.digitalasset.canton.domain.metrics.SequencerTestMetrics]]
+  * - [[com.digitalasset.canton.domain.metrics.MediatorTestMetrics]]*
   */
 trait TestMetrics {
 

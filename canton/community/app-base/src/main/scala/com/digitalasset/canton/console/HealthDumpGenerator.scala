@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v0}
+import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.metrics.MetricsSnapshot
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ReleaseVersion
@@ -31,7 +31,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
   protected def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
       nodeConfig: LocalNodeConfig,
-      deserializer: v0.NodeStatus.Status => ParsingResult[S],
+      deserializer: v30.NodeStatus.Status => ParsingResult[S],
   ): NodeStatus[S] = {
     grpcAdminCommandRunner
       .runCommand(
@@ -47,7 +47,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
-      deserializer: v0.NodeStatus.Status => ParsingResult[S],
+      deserializer: v30.NodeStatus.Status => ParsingResult[S],
   ): Map[String, () => NodeStatus[S]] = {
     nodes.map { case (nodeName, nodeConfig) =>
       nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer))
@@ -78,8 +78,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
     val env = EnvironmentInfo(sys.props("os.name"), javaVersion)
 
     val metricsSnapshot = MetricsSnapshot(
-      environment.metricsFactory.registry,
-      environment.configuredOpenTelemetry.onDemandMetricsReader,
+      environment.configuredOpenTelemetry.onDemandMetricsReader
     )
     val config = environment.config.dumpString
 

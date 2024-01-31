@@ -565,7 +565,7 @@ class SyncDomain(
         clock,
         logger,
         parameters.delayLoggingThreshold,
-        metrics.sequencerClient.delay,
+        metrics.sequencerClient.handler.delay,
       )
 
     def firstUnpersistedEventScF: Future[SequencerCounter] =
