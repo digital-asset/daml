@@ -47,7 +47,8 @@ template DisclosureDelegation
       controller actor
       do fetch secretCid -- actor will divulge secretCid to p
 
--- @ERROR range=51:1-51:5; Attempt to fetch or exercise a contract not visible to the reading parties.
+-- TODO use trySubmit to capture the error when swtiching to daml-script 2
+-- @ERROR range=52:1-52:5; Attempt to fetch or exercise a contract not visible to the reading parties.
 main = script do
   me <- allocateParty "Me"
   spy <- allocateParty "Spy"
