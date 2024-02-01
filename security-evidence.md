@@ -167,7 +167,7 @@
 - ill-formed exercise replay command is rejected: [ReplayCommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ReplayCommandPreprocessorSpec.scala#L126)
 - ill-formed exercise-by-key API command is rejected: [ApiCommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ApiCommandPreprocessorSpec.scala#L192)
 - ill-formed exercise-by-key replay command is rejected: [ReplayCommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ReplayCommandPreprocessorSpec.scala#L133)
-- ill-formed expressions are rejected: [TypingSpec.scala](daml-lf/validation/src/test/scala/com/digitalasset/daml/lf/validation/TypingSpec.scala#L476)
+- ill-formed expressions are rejected: [TypingSpec.scala](daml-lf/validation/src/test/scala/com/digitalasset/daml/lf/validation/TypingSpec.scala#L470)
 - ill-formed fetch command is rejected: [ReplayCommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ReplayCommandPreprocessorSpec.scala#L180)
 - ill-formed fetch-by-key command is rejected: [ReplayCommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ReplayCommandPreprocessorSpec.scala#L183)
 - ill-formed interfaces are rejected: [TypingSpec.scala](daml-lf/validation/src/test/scala/com/digitalasset/daml/lf/validation/TypingSpec.scala#L1434)
