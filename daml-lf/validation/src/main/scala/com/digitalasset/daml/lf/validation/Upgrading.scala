@@ -38,12 +38,12 @@ final case class MissingTemplate(name: Ref.DottedName) extends UpgradeError {
 
 final case class MissingDataCon(name: Ref.DottedName) extends UpgradeError {
   override def message(): String =
-    s"Choice $name appears in package that is being upgraded, but does not appear in this package."
+    s"Datatype $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class MissingChoice(name: Ref.ChoiceName) extends UpgradeError {
   override def message(): String =
-    s"Datatype $name appears in package that is being upgraded, but does not appear in this package."
+    s"Choice $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class TemplateChangedKeyType(key: Upgrading[Ast.Type]) extends UpgradeError {
