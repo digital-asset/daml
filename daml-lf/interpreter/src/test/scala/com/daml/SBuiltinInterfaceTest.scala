@@ -131,7 +131,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
   lazy val basePkg =
-      p"""  metadata ( 'basic-package' : '1.0.0' )
+    p"""  metadata ( 'basic-package' : '1.0.0' )
         module Mod {
 
           record @serializable MyUnit = {};
