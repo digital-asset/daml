@@ -11,7 +11,7 @@ resource "azurerm_linux_virtual_machine" "bracin" {
   os_disk {
     caching              = "ReadOnly"
     storage_account_type = "Standard_LRS"
-    disk_size_gb         = "30"
+    disk_size_gb         = "10"
   }
 
   source_image_reference {
@@ -40,7 +40,6 @@ useradd \
 mkdir /nix
 chown nonroot:nonroot /nix
 
-sudo apt-get install -y tree
 su --login nonroot <<'NONROOT'
 set -euo pipefail
 
@@ -56,15 +55,6 @@ echo "${filebase64("${path.module}/bracin/nix/nixpkgs.nix")}" | base64 -d > brac
 echo "${filebase64("${path.module}/bracin/nix/src.json")}" | base64 -d > bracin/nix/src.json
 mkdir -p bracin/src/bracin
 echo "${filebase64("${path.module}/bracin/src/bracin/core.clj")}" | base64 -d > bracin/src/bracin/core.clj
-
-tree bracin
-echo "-----"
-for f in $(find bracin -type f); do
-  echo $f
-  echo "-----"
-  cat $f
-  echo "-----"
-done
 
 cd bracin
 $HOME/.nix-profile/bin/nix-shell --pure --run 'lein run'
