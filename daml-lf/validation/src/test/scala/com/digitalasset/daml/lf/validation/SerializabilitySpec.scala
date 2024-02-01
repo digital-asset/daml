@@ -6,7 +6,7 @@ package validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -46,7 +46,7 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
+          .Env(defaultPkgInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -75,7 +75,7 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
+            .Env(defaultPkgInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -265,9 +265,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
     "reject unserializable interface definitions" in {
 
-      implicit val basicInterfacesParserParameters: ParserParameters[this.type] =
-        defaultParserParameters.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
-
       val pkg =
         p"""
           metadata ( 'pkg' : '1.0.0' )
@@ -313,7 +310,7 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
                 to upure @(PositiveTestCase:Token) this;
             } ;
           }
-        """ (basicInterfacesParserParameters)
+        """
 
       check(pkg, "NegativeTestCase1")
       check(pkg, "NegativeTestCase2")
@@ -322,9 +319,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "reject unserializable interface view" in {
-
-      implicit val basicInterfacesParserParameters: ParserParameters[this.type] =
-        defaultParserParameters.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
 
       val pkg =
         p"""
@@ -346,7 +340,7 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
               viewtype Mod:Unserializable;
             } ;
           }
-        """ (basicInterfacesParserParameters)
+        """
 
       check(pkg, "NegativeTestCase")
       an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
@@ -374,7 +368,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
       }
      """
 
-  private val defaultFlags = Serializability.Flags.fromVersion(LanguageVersion.default)
   private val defaultPkgInterface = pkgInterface(defaultPkg)
   private def pkgInterface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
 

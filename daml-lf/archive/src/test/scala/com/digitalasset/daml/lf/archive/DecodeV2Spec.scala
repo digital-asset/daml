@@ -904,7 +904,7 @@ class DecodeV2Spec
     val interfacePrimitivesDecoder =
       (version: LV) => moduleDecoder(version, dottedNameTable = interfaceDottedNameTable)
 
-    s"decode basic interface primitives iff version >= ${LV.Features.basicInterfaces}" in {
+    s"decode basic interface primitives" in {
       val testCases = {
 
         val unit = DamlLf2.Unit.newBuilder().build()
@@ -1073,10 +1073,7 @@ class DecodeV2Spec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (version < LV.Features.basicInterfaces)
-            inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
-          else
-            result shouldBe Success(scala)
+          result shouldBe Success(scala)
         }
       }
     }
@@ -1107,7 +1104,7 @@ class DecodeV2Spec
       }
     }
 
-    s"decode interface update iff version >= ${LV.Features.basicInterfaces} " in {
+    s"decode interface update" in {
       val testCases = {
 
         val unit = DamlLf2.Unit.newBuilder().build()
@@ -1157,7 +1154,7 @@ class DecodeV2Spec
         )
       }
 
-      forEveryVersionSuchThat(_ >= LV.Features.basicInterfaces) { version =>
+      forEveryVersion { version =>
         forEvery(testCases) { (protoUpdate, scala) =>
           val decoder =
             moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
@@ -1251,7 +1248,7 @@ class DecodeV2Spec
         moduleDecoder(version, interfaceDefStringTable, interfaceDefDottedNameTable, typeTable)
     }
 
-    s"decode interface definitions correctly iff version >= ${LV.Features.basicInterfaces}" in {
+    s"decode interface definitions correctly" in {
 
       val fearureFlags = DamlLf2.FeatureFlags
         .newBuilder()
@@ -1346,28 +1343,21 @@ class DecodeV2Spec
               .addInterfaces(proto)
               .build()
           val result = Try(interfaceDefDecoder(version).decodeModule(module))
-          if (version < LV.Features.basicInterfaces)
-            inside(result) { case Failure(error) =>
-              if (error.isInstanceOf[Error.Parsing])
-                error shouldBe an[Error.Parsing]
-            }
-          else {
-            result shouldBe Success(
-              Ast.Module(
-                name = modName,
-                definitions = Map.empty,
-                templates = Map.empty,
-                exceptions = Map.empty,
-                interfaces = Map(interfaceName -> scala),
-                featureFlags = Ast.FeatureFlags(),
-              )
+          result shouldBe Success(
+            Ast.Module(
+              name = modName,
+              definitions = Map.empty,
+              templates = Map.empty,
+              exceptions = Map.empty,
+              interfaces = Map(interfaceName -> scala),
+              featureFlags = Ast.FeatureFlags(),
             )
-          }
+          )
         }
       }
     }
 
-    s"accept interface requires iff version >= ${LV.Features.basicInterfaces}" in {
+    s"accept interface requires" in {
 
       val interfaceName = Ref.DottedName.assertFromString("I")
 
@@ -1408,10 +1398,7 @@ class DecodeV2Spec
       forEveryVersion { version =>
         val decoder = interfaceDefDecoder(version)
         val result = Try(decoder.decodeDefInterfaceForTest(interfaceName, requiresDefInterface))
-        if (version >= LV.Features.basicInterfaces)
-          result shouldBe Success(requiresDefInterfaceScala)
-        else
-          inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
+        result shouldBe Success(requiresDefInterfaceScala)
       }
     }
 
