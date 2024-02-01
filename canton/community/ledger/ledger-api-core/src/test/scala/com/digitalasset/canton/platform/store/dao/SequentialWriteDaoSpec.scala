@@ -228,6 +228,7 @@ object SequentialWriteDaoSpec {
     event_id = None,
     contract_id = "1",
     template_id = None,
+    package_name = None,
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = None,
@@ -280,6 +281,7 @@ object SequentialWriteDaoSpec {
     submitters = None,
     contract_id = "1",
     template_id = None,
+    package_name = None,
     tree_event_witnesses = Set.empty,
     create_argument = None,
     create_argument_compression = None,
@@ -322,6 +324,9 @@ object SequentialWriteDaoSpec {
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView = {
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[Ref.Identifier] =
+        throw new NotImplementedException
+
+      override def packageName: StringInterningDomain[Ref.PackageName] =
         throw new NotImplementedException
 
       override def party: StringInterningDomain[Party] = throw new NotImplementedException

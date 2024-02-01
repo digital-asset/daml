@@ -58,7 +58,6 @@ import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import scala.collection.MapView
 import scala.concurrent.{ExecutionContext, Future}
 
 /** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
@@ -118,7 +117,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
-        commands.packageMap.view.mapValues({ case (n, _) => n }),
       )
     } yield {
       submission
@@ -223,7 +221,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: AtomicLong,
       ledgerEffectiveTime: Time.Timestamp,
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
-      packageMap: MapView[Ref.PackageId, Ref.PackageName],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, A]] = {
@@ -248,15 +245,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               metrics.daml.execution.lookupActiveContract,
               contractStore.lookupActiveContract(readers, acoid),
             )
-            .flatMap { _instance =>
-              // TODO Only needed until https://github.com/DACH-NY/canton/issues/16624 lands
-              val instance = _instance.map(v =>
-                v.copy(unversioned =
-                  v.unversioned.copy(packageName = v.unversioned.packageName.orElse({
-                    packageMap.get(v.unversioned.template.packageId)
-                  }))
-                )
-              )
+            .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
@@ -567,8 +556,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractId = disclosedContract.contractId,
         driverMetadataBytes = disclosedContract.driverMetadata.toByteArray,
         contractInstance = Versioned(
-          unusedTxVersion,
+          disclosedContract.version,
           ContractInstance(
+            packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),
@@ -581,7 +571,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               case (value, maintainers) =>
                 val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
                 Versioned(
-                  unusedTxVersion,
+                  disclosedContract.version,
                   GlobalKeyWithMaintainers
                     .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
                 )

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
+import com.daml.lf.data.Ref.PackageName
 import com.digitalasset.canton.platform.{Identifier, Party}
 import com.digitalasset.canton.topology.DomainId
 
@@ -13,6 +14,7 @@ import com.digitalasset.canton.topology.DomainId
   */
 trait StringInterning {
   def templateId: StringInterningDomain[Identifier]
+  def packageName: StringInterningDomain[PackageName]
   def party: StringInterningDomain[Party]
   def domainId: StringInterningDomain[DomainId]
 }

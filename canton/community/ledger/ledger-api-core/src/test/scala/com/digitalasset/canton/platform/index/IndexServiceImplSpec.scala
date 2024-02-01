@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.index
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -15,12 +16,7 @@ import com.digitalasset.canton.ledger.api.domain.{
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.platform.TemplatePartiesFilter
-import com.digitalasset.canton.platform.index.IndexServiceImpl.{
-  checkUnknownIdentifiers,
-  memoizedTransactionFilterProjection,
-  templateFilter,
-  wildcardFilter,
-}
+import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
@@ -30,11 +26,16 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
 }
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import org.mockito.MockitoSugar
-import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{EitherValues, OptionValues}
 
-class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar with EitherValues {
+class IndexServiceImplSpec
+    extends AnyFlatSpec
+    with Matchers
+    with MockitoSugar
+    with EitherValues
+    with OptionValues {
 
   behavior of "IndexServiceImpl.memoizedTransactionFilterProjection"
 
@@ -393,6 +394,59 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar w
       )
       .cause shouldBe "Interfaces do not exist: [PackageId:ModuleName:iface1, PackageId:ModuleName:iface2]."
   }
+
+  behavior of "IndexServiceImpl.resolveUpgradableTemplates"
+
+  it should "resolve all known upgradable template-ids for a (package-name, qualified-name) tuple" in new Scope {
+    val packageResolution: PackageResolution = {
+      val preferredPackageId = Ref.PackageId.assertFromString("PackageId")
+      PackageResolution(
+        preference =
+          LocalPackagePreference(Ref.PackageVersion.assertFromString("0.1"), preferredPackageId),
+        allPackageIdsForName =
+          NonEmpty(Set, Ref.PackageId.assertFromString("PackageId0"), preferredPackageId),
+      )
+    }
+    private val packageMetadata: PackageMetadata = PackageMetadata(
+      templates = Set(template2),
+      packageNameMap = Map(packageName1 -> packageResolution),
+    )
+    resolveUpgradableTemplates(
+      packageMetadata,
+      packageName1,
+      template2.qualifiedName,
+    ) shouldBe Set(template2)
+  }
+
+  it should "return an empty set if any of the resolution sets in PackageMetadata are empty" in new Scope {
+    val packageResolution: PackageResolution = {
+      val preferredPackageId = Ref.PackageId.assertFromString("PackageId")
+      PackageResolution(
+        preference =
+          LocalPackagePreference(Ref.PackageVersion.assertFromString("0.1"), preferredPackageId),
+        allPackageIdsForName =
+          NonEmpty(Set, Ref.PackageId.assertFromString("PackageId0"), preferredPackageId),
+      )
+    }
+
+    resolveUpgradableTemplates(
+      PackageMetadata(
+        templates = Set.empty,
+        packageNameMap = Map(packageName1 -> packageResolution),
+      ),
+      packageName1,
+      template2.qualifiedName,
+    ) shouldBe Set.empty
+
+    resolveUpgradableTemplates(
+      PackageMetadata(
+        templates = Set(template2),
+        packageNameMap = Map.empty,
+      ),
+      packageName1,
+      template2.qualifiedName,
+    ) shouldBe Set.empty
+  }
 }
 
 object IndexServiceImplSpec {
@@ -439,7 +493,7 @@ object IndexServiceImplSpec {
         Ref.PackageVersion.assertFromString("0.1"),
         Ref.PackageId.assertFromString("pId"),
       ),
-      allPackageIdsForName = Set.empty,
+      allPackageIdsForName = NonEmpty(Set, Ref.PackageId.assertFromString("pId")),
     )
   }
 }

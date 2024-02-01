@@ -51,6 +51,10 @@ message CreatedEvent {
   // Required
   Identifier template_id = 3;
 
+  // The package name of the created contract.
+  // Optional
+  google.protobuf.StringValue package_name = 15;
+
   // The key of the created contract.
   // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
   // Optional

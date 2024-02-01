@@ -57,6 +57,7 @@ private[backend] trait StorageBackendTestsContracts
     createdContracts.get(contractId).isDefined shouldBe true
     createdContracts.get(contractId).foreach { c =>
       c.templateId shouldBe someTemplateId.toString
+      c.packageName shouldBe Some(somePackageName)
       c.createArgumentCompression shouldBe None
       c.flatEventWitnesses shouldBe Set(signatory, observer)
     }

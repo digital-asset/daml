@@ -88,7 +88,11 @@ object ExampleTransactionFactory {
       capturedIds: Seq[LfContractId] = Seq.empty,
       templateId: LfTemplateId = templateId,
   ): LfContractInst =
-    LfContractInst(template = templateId, arg = versionedValueCapturing(capturedIds.toList))
+    LfContractInst(
+      template = templateId,
+      packageName = None,
+      arg = versionedValueCapturing(capturedIds.toList),
+    )
 
   val veryDeepValue: Value = {
     def deepValue(depth: Int): Value =
@@ -100,7 +104,7 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(template = templateId, arg = veryDeepVersionedValue)
+    LfContractInst(template = templateId, packageName = None, arg = veryDeepVersionedValue)
 
   def globalKey(
       templateId: LfTemplateId,
@@ -129,6 +133,7 @@ object ExampleTransactionFactory {
     LfNodeFetch(
       coid = cid,
       templateId = templateId,
+      packageName = None,
       actingParties = actingParties,
       signatories = signatories,
       stakeholders = signatories ++ observers,
@@ -149,6 +154,7 @@ object ExampleTransactionFactory {
     LfNodeCreate(
       coid = cid,
       templateId = unversionedContractInst.template,
+      packageName = None,
       arg = unversionedContractInst.arg,
       agreementText = agreementText,
       signatories = signatories,
@@ -175,6 +181,7 @@ object ExampleTransactionFactory {
     LfNodeExercises(
       targetCoid = targetCoid,
       templateId = templateId,
+      packageName = None,
       interfaceId = None,
       choiceId = LfChoiceName.assertFromString("choice"),
       consuming = consuming,
@@ -218,6 +225,7 @@ object ExampleTransactionFactory {
   ): LfNodeLookupByKey =
     LfNodeLookupByKey(
       templateId = key.templateId,
+      packageName = None,
       key = LfGlobalKeyWithMaintainers(key, maintainers),
       result = resolution,
       version = transactionVersion,

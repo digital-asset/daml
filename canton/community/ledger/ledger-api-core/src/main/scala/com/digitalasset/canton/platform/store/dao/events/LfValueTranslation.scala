@@ -55,6 +55,7 @@ import com.digitalasset.canton.platform.{
   QualifiedName as LfQualifiedName,
   Value as LfValue,
 }
+import com.digitalasset.canton.protocol.LfPackageName
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ApiTimestamp
@@ -282,6 +283,7 @@ final class LfValueTranslation(
           moduleName <- DottedName.fromString(apiTemplateId.moduleName)
           entityName <- DottedName.fromString(apiTemplateId.entityName)
           templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
+          packageName <- raw.partial.packageName.traverse(LfPackageName.fromString)
           signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
@@ -300,6 +302,7 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = templateId,
+            packageName = packageName,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
             signatories = signatories,
@@ -404,6 +407,7 @@ final class LfValueTranslation(
       Option(createdEvent.driverMetadata).filter(_.nonEmpty).map { driverMetadataBytes =>
         for {
           contractId <- ContractId.fromString(createdEvent.contractId)
+          packageName <- createdEvent.packageName.traverse(LfPackageName.fromString)
           signatories <- createdEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
           observers <- createdEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
           maintainers <- createdEvent.createKeyMaintainers.toList
@@ -420,6 +424,7 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = createdEvent.templateId,
+            packageName = packageName,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),
             signatories = signatories,

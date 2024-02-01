@@ -102,7 +102,9 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       } yield {
         import fatContractInstance.*
         UpgradableDisclosedContract(
+          version = version,
           contractId = validatedContractId,
+          packageName = packageName,
           templateId = templateId,
           argument = createArg,
           createdAt = createdAt,

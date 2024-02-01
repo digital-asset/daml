@@ -25,6 +25,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
+import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
@@ -220,7 +221,11 @@ class StoreBackedCommandExecutorSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.maxVersion,
-        ContractInstance(template = identifier, arg = Value.ValueTrue),
+        ContractInstance(
+          template = identifier,
+          packageName = pvPackageName,
+          arg = Value.ValueTrue,
+        ),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -239,7 +244,9 @@ class StoreBackedCommandExecutorSpec
     val disclosedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "02")
 
     val disclosedContract: domain.DisclosedContract = domain.UpgradableDisclosedContract(
+      version = pvTransactionVersion,
       templateId = identifier,
+      packageName = pvPackageName,
       contractId = disclosedContractId,
       argument = ValueTrue,
       createdAt = mock[Timestamp],

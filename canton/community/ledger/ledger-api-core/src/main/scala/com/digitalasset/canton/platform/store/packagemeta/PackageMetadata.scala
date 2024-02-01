@@ -9,6 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
@@ -34,7 +35,7 @@ object PackageMetadata {
 
   final case class PackageResolution(
       preference: LocalPackagePreference,
-      allPackageIdsForName: Set[Ref.PackageId],
+      allPackageIdsForName: NonEmpty[Set[Ref.PackageId]],
   )
 
   def from(archive: DamlLf.Archive): PackageMetadata = {
@@ -62,7 +63,7 @@ object PackageMetadata {
             packageNameMap = Map(
               packageName -> PackageResolution(
                 preference = LocalPackagePreference(packageVersion, packageId),
-                allPackageIdsForName = Set(packageId),
+                allPackageIdsForName = NonEmpty(Set, packageId),
               )
             ),
             packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
@@ -102,7 +103,7 @@ object PackageMetadata {
         PackageResolution(
           preference =
             if (y.preference.version > x.preference.version) y.preference else x.preference,
-          allPackageIdsForName = x.allPackageIdsForName |+| y.allPackageIdsForName,
+          allPackageIdsForName = x.allPackageIdsForName ++ y.allPackageIdsForName,
         )
       }
   }

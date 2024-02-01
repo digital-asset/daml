@@ -303,7 +303,8 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def contract(idx: Long): Contract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
     val contractArgument = Value.ValueInt64(idx)
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance =
+      ContractInstance(template = templateId, packageName = None, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 
@@ -474,6 +475,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     override def lookupActiveContractWithCachedArgument(
         readers: Set[Party],
         contractId: ContractId,
+        packageName: Option[Ref.PackageName],
         createArgument: VersionedValue,
     )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
       val _ = (loggingContext, readers, contractId, createArgument)

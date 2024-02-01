@@ -699,7 +699,20 @@ object IndexServiceImpl {
     case TypeConRef(PackageRef.Id(packageId), qName) => Set(Identifier(packageId, qName))
   }
 
-  private def resolveUpgradableTemplates(
+  /** Resolve all template ids for (package-name, qualified-name).
+    *
+    * As context, package-level upgrading compatibility between two packages pkg1 and pkg2,
+    * where pkg2 upgrades pkg1 and they both have the same package-name,
+    * ensures that all templates defined in pkg1 are present in pkg2.
+    * Then, for resolving all the template-ids for (package-name, qualified-name):
+    *
+    * * we first create all possible template-ids by concatenation with the requested qualified-name
+    *   of the known package-ids for the requested package-name.
+    *
+    * * Then, since some templates can only be defined later (in a package with greater package-version),
+    *   we filter the previous result by intersection with the known template-id set.
+    */
+  private[index] def resolveUpgradableTemplates(
       packageMetadata: PackageMetadata,
       packageName: Ref.PackageName,
       qualifiedName: Ref.QualifiedName,
@@ -710,6 +723,7 @@ object IndexServiceImpl {
       .getOrElse(Iterator.empty)
       .map(packageId => Identifier(packageId, qualifiedName))
       .toSet
+      .intersect(packageMetadata.templates)
 
   private def templateIds(
       metadata: PackageMetadata,

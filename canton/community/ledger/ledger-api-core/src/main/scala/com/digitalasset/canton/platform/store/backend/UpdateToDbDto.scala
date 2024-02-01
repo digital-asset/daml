@@ -225,6 +225,7 @@ object UpdateToDbDto {
               case (nodeId, create: Create) =>
                 val eventId = EventId(u.transactionId, nodeId)
                 val templateId = create.templateId.toString
+                val packageName = create.packageName.map(_.toString)
                 val stakeholders = create.stakeholders.map(_.toString)
                 val (createArgument, createKeyValue) = translation.serialize(create)
                 val informees = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
@@ -242,6 +243,7 @@ object UpdateToDbDto {
                     event_id = Some(eventId.toLedgerString),
                     contract_id = create.coid.coid,
                     template_id = Some(templateId),
+                    package_name = packageName,
                     flat_event_witnesses = stakeholders,
                     tree_event_witnesses = informees,
                     create_argument = Some(createArgument)
@@ -368,6 +370,7 @@ object UpdateToDbDto {
                 submitters = u.completionInfoO.map(_.actAs.toSet),
                 contract_id = contractId.coid,
                 template_id = contractInst.map(_.unversioned.template.toString),
+                package_name = contractInst.flatMap(_.unversioned.packageName),
                 tree_event_witnesses = visibleToParties.map(_.toString),
                 create_argument = contractInst
                   .map(_.map(_.arg))

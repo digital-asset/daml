@@ -71,6 +71,7 @@ class LedgerTimeAwareCommandExecutorSpec
   private val processedDisclosedContracts = ImmArray(
     ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = None,
       contractId = cid,
       argument = Value.ValueNil,
       createdAt = Time.Timestamp.Epoch,

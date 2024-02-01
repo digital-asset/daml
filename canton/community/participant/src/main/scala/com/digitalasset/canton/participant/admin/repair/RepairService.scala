@@ -922,6 +922,7 @@ final class RepairService(
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
+    packageName = c.rawContractInstance.contractInstance.unversioned.packageName,
     interfaceId = None,
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
@@ -1346,6 +1347,7 @@ object RepairService {
 
     def contractDataToInstance(
         templateId: Identifier,
+        packageName: Option[String],
         createArguments: Record,
         signatories: Set[String],
         observers: Set[String],
@@ -1365,7 +1367,13 @@ object RepairService {
           argsValue,
         )
 
-        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue)
+        lfPackageName <- packageName.traverse(LfPackageName.fromString)
+
+        lfContractInst = LfContractInst(
+          template = template,
+          packageName = lfPackageName,
+          arg = argsVersionedValue,
+        )
 
         /*
          It is fine to set the agreement text to empty because method `addContract` recomputes the agreement text
@@ -1396,7 +1404,16 @@ object RepairService {
         contract: SerializableContract
     ): Either[
       String,
-      (Identifier, Record, Set[String], Set[String], LfContractId, Option[Salt], LedgerCreateTime),
+      (
+          Identifier,
+          Option[String],
+          Record,
+          Set[String],
+          Set[String],
+          LfContractId,
+          Option[Salt],
+          LedgerCreateTime,
+      ),
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
       LfEngineToApi
@@ -1409,6 +1426,7 @@ object RepairService {
             val stakeholders = contract.metadata.stakeholders.map(_.toString)
             (
               LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
+              contractInstance.unversioned.packageName.map(_.toString),
               record,
               signatories,
               stakeholders -- signatories,

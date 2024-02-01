@@ -181,6 +181,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       observer = observerParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
+      packageName = None,
     )
     // a consuming event in its own transaction
     val archive = dtoExercise(
@@ -263,6 +264,7 @@ private[backend] trait StorageBackendTestsPruning
       contractId = hashCid("#1"),
       signatory = signatoryParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
+      packageName = None,
     )
     val createTxId = dtoTransactionId(create)
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

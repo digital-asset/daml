@@ -21,6 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoSuite.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
+import com.digitalasset.canton.protocol.LfPackageName
 import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.{AsyncTestSuite, OptionValues}
@@ -93,6 +94,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
+  protected final val somePackageName = LfPackageName.assertFromString("PackageX")
   protected final val someTemplateIdFilter =
     TemplateFilter(someTemplateId, includeCreatedEventBlob = false)
   protected final val someValueText = LfValue.ValueText("some text")
@@ -153,7 +155,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
   protected final val someContractInstance =
-    ContractInstance(template = someTemplateId, arg = someContractArgument)
+    ContractInstance(
+      template = someTemplateId,
+      packageName = Some(somePackageName),
+      arg = someContractArgument,
+    )
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
@@ -204,10 +210,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
+      packageName: Option[LfPackageName] = Some(somePackageName),
       contractArgument: LfValue = someContractArgument,
       observers: Set[Party] = Set.empty,
   ): Node.Create =
-    createNode(absCid, signatories, signatories ++ observers, None, templateId, contractArgument)
+    createNode(
+      absCid,
+      signatories,
+      signatories ++ observers,
+      None,
+      templateId,
+      packageName,
+      contractArgument,
+    )
 
   protected final def createNode(
       absCid: ContractId,
@@ -215,11 +230,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       stakeholders: Set[Party],
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
+      packageName: Option[LfPackageName] = Some(somePackageName),
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
     Node.Create(
       coid = absCid,
       templateId = templateId,
+      packageName = packageName,
       arg = contractArgument,
       agreementText = someAgreement,
       signatories = signatories,
@@ -235,6 +252,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Node.Exercise(
       targetCoid = targetCid,
       templateId = someTemplateId,
+      packageName = Some(somePackageName),
       interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
@@ -258,6 +276,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Node.Fetch(
       coid = contractId,
       templateId = someTemplateId,
+      packageName = Some(somePackageName),
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
@@ -396,6 +415,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Exercise(
         targetCoid = id,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = false,
@@ -416,6 +436,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Fetch(
         coid = id,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
@@ -658,7 +679,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val disclosure = for {
       entry <- signatoriesAndTemplates
       (signatory, template, argument) = entry
-      contract = create(txBuilder.newCid, Set(signatory), template, argument)
+      contract = create(txBuilder.newCid, Set(signatory), template, Some(somePackageName), argument)
       parties = Set[Party](operator, signatory)
       nodeId = txBuilder.add(contract)
     } yield nodeId -> parties
@@ -737,6 +758,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Create(
         coid = txBuilder.newCid,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(party),
@@ -779,6 +801,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Exercise(
         targetCoid = contractId,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
@@ -827,6 +850,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         key = GlobalKeyWithMaintainers
           .assertBuild(
             someTemplateId,
@@ -861,6 +885,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Fetch(
         coid = contractId,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),

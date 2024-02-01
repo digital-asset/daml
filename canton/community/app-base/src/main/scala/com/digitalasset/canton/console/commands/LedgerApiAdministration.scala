@@ -71,7 +71,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.{LedgerTransactionId, LfPartyId, config}
+import com.digitalasset.canton.{LedgerTransactionId, LfPackageId, LfPartyId, config}
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -404,6 +404,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): TransactionTree = check(FeatureFlag.Testing) {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
@@ -418,6 +419,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               minLedgerTimeAbs,
               disclosedContracts,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -451,6 +453,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): Transaction = check(FeatureFlag.Testing) {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
@@ -465,6 +468,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               minLedgerTimeAbs,
               disclosedContracts,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -487,6 +491,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -501,6 +506,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               minLedgerTimeAbs,
               disclosedContracts,
               applicationId,
+              userPackageSelectionPreference,
             )
           )
         }
@@ -1387,6 +1393,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): javab.data.TransactionTree = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
@@ -1401,6 +1408,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 minLedgerTimeAbs,
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 applicationId,
+                userPackageSelectionPreference,
               )
             )
           }
@@ -1436,6 +1444,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): javab.data.Transaction = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
@@ -1450,6 +1459,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 minLedgerTimeAbs,
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 applicationId,
+                userPackageSelectionPreference,
               )
             )
           }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.lf.data.Ref
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
@@ -27,7 +28,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version1, pkgId1),
-            Set(pkgId1),
+            NonEmpty(Set, pkgId1),
           )
         ),
         packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version1)),
@@ -55,7 +56,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version1, pkgId1),
-            Set(pkgId1),
+            NonEmpty(Set, pkgId1),
           )
         ),
         packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version1)),
@@ -67,7 +68,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version2, pkgId3),
-            Set(pkgId3),
+            NonEmpty(Set, pkgId3),
           )
         ),
         packageIdVersionMap = Map(pkgId3 -> (pkgName1, pkg1Version2)),
@@ -85,7 +86,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version2, pkgId3),
-            Set(pkgId1, pkgId3),
+            NonEmpty(Set, pkgId1, pkgId3),
           )
         ),
         packageIdVersionMap = Map(
@@ -98,13 +99,19 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
     "select package-id with higher preference in the package id map" in new Scope {
       private val pkgMeta1 = PackageMetadata(
         packageNameMap = Map(
-          pkgName1 -> PackageResolution(LocalPackagePreference(pkg1Version1, pkgId1), Set(pkgId1))
+          pkgName1 -> PackageResolution(
+            LocalPackagePreference(pkg1Version1, pkgId1),
+            NonEmpty(Set, pkgId1),
+          )
         )
       )
 
       private val pkgMeta2 = PackageMetadata(
         packageNameMap = Map(
-          pkgName1 -> PackageResolution(LocalPackagePreference(pkg1Version2, pkgId2), Set(pkgId2))
+          pkgName1 -> PackageResolution(
+            LocalPackagePreference(pkg1Version2, pkgId2),
+            NonEmpty(Set, pkgId2),
+          )
         )
       )
 
@@ -112,7 +119,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version2, pkgId2),
-            Set(pkgId1, pkgId2),
+            NonEmpty(Set, pkgId1, pkgId2),
           )
         )
       )

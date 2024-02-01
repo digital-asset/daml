@@ -14,6 +14,7 @@ import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.daml.lf.value.Value as Lf
+import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.ledger.api.domain.UpgradableDisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
@@ -269,7 +270,6 @@ object ValidateDisclosedContractsTest {
         Ref.DottedName.assertFromString(api.templateId.entityName),
       ),
     )
-    private val txVersion = TransactionVersion.maxVersion
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
@@ -292,7 +292,7 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      shared = Util.sharedKey(txVersion),
+      shared = Util.sharedKey(pvTransactionVersion),
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash
@@ -301,12 +301,13 @@ object ValidateDisclosedContractsTest {
       create = Node.Create(
         coid = lf.lfContractId,
         templateId = lf.templateId,
+        packageName = pvPackageName,
         arg = lf.createArg,
         agreementText = "",
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),
-        version = txVersion,
+        version = pvTransactionVersion,
       ),
       createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
       cantonData = lf.driverMetadataBytes,
@@ -314,7 +315,9 @@ object ValidateDisclosedContractsTest {
 
     val expectedDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
       UpgradableDisclosedContract(
+        pvTransactionVersion,
         templateId,
+        pvPackageName,
         lfContractId,
         argument = createArgWithoutLabels,
         createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),

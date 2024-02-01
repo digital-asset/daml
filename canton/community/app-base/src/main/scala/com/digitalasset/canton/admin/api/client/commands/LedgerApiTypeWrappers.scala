@@ -87,6 +87,7 @@ object LedgerApiTypeWrappers {
 
       ContractData(
         templateId = templateId,
+        packageName = event.packageName,
         createArguments = createArguments,
         signatories = event.signatories.toSet,
         observers = event.observers.toSet,
@@ -100,6 +101,7 @@ object LedgerApiTypeWrappers {
   /** Holder of "core" contract defining fields (particularly those relevant for importing contracts) */
   final case class ContractData(
       templateId: TemplateId,
+      packageName: Option[String],
       createArguments: Record,
       // track signatories and observers for use as auth validation by daml engine
       signatories: Set[String],

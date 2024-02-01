@@ -573,6 +573,7 @@ private[transfer] class TransferInProcessingSteps(
       LfNodeCreate(
         coid = contract.contractId,
         templateId = contractInst.template,
+        packageName = contractInst.packageName,
         arg = contractInst.arg,
         agreementText = "", // TODO(i12451): get the right agreement text from `contractInst`
         signatories = contract.metadata.signatories,

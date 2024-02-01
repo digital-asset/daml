@@ -248,6 +248,7 @@ private[platform] object InMemoryStateUpdater {
               contractId = createdEvent.contractId,
               contract = Contract(
                 template = createdEvent.templateId,
+                packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument,
               ),
               globalKey = createdEvent.contractKey.map(k =>
@@ -336,6 +337,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
+          packageName = create.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -501,6 +503,7 @@ private[platform] object InMemoryStateUpdater {
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,
+              packageName = create.packageName,
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey =

@@ -506,6 +506,7 @@ private[platform] object TransactionLogUpdatesConversions {
               Node.Create(
                 coid = createdEvent.contractId,
                 templateId = createdEvent.templateId,
+                packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument.unversioned,
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
                 signatories = createdEvent.createSignatories,
@@ -535,6 +536,7 @@ private[platform] object TransactionLogUpdatesConversions {
           eventId = createdEvent.eventId.toLedgerString,
           contractId = createdEvent.contractId.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          packageName = createdEvent.packageName,
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),

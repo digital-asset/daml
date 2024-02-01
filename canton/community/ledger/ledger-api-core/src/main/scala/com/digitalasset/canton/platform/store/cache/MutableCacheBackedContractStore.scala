@@ -145,6 +145,7 @@ private[platform] class MutableCacheBackedContractStore(
         contractsReader.lookupActiveContractWithCachedArgument(
           forParties,
           contractId,
+          contract.unversioned.packageName,
           contract.map(_.arg),
         )
       case _: Archived | NotFound =>

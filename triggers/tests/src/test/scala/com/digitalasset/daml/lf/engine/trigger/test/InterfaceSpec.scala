@@ -315,7 +315,7 @@ object InterfaceSpec extends Matchers with Inside {
               transactionId,
               Seq(
                 Event(
-                  Created(CreatedEvent(_, _, Some(`templateId`), _, _, _, _, _, _, _, _, _))
+                  Created(CreatedEvent(_, _, Some(`templateId`), _, _, _, _, _, _, _, _, _, _))
                 )
               ),
             ) =>
@@ -330,7 +330,7 @@ object InterfaceSpec extends Matchers with Inside {
         case Seq(
               Event(
                 Created(
-                  CreatedEvent(_, _, Some(`templateId`), _, None, _, Seq(_), _, _, _, _, _)
+                  CreatedEvent(_, _, Some(`templateId`), _, _, None, _, Seq(_), _, _, _, _, _)
                 )
               )
             ) =>
@@ -342,7 +342,7 @@ object InterfaceSpec extends Matchers with Inside {
         case Seq(
               Event(
                 Created(
-                  CreatedEvent(_, _, Some(`templateId`), _, Some(_), _, Seq(_), _, _, _, _, _)
+                  CreatedEvent(_, _, Some(`templateId`), _, _, Some(_), _, Seq(_), _, _, _, _, _)
                 )
               )
             ) =>
@@ -354,7 +354,7 @@ object InterfaceSpec extends Matchers with Inside {
         case Seq(
               Event(
                 Created(
-                  CreatedEvent(_, _, _, _, _, _, Seq(view), _, _, _, _, _)
+                  CreatedEvent(_, _, _, _, _, _, _, Seq(view), _, _, _, _, _)
                 )
               )
             ) =>
