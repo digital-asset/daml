@@ -238,6 +238,9 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",

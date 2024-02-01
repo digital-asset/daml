@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.concurrent.{ExecutionException, TimeoutException}
 import java.util.{Timer, TimerTask}
-
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -23,6 +22,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 object LedgerTestCasesRunner {
   private val DefaultTimeout = 30.seconds
@@ -36,18 +36,17 @@ object LedgerTestCasesRunner {
 
   private final class UncaughtExceptionError(cause: Throwable)
       extends RuntimeException(uncaughtExceptionErrorMessage, cause)
-
 }
 
 final class LedgerTestCasesRunner(
     testCases: Vector[LedgerTestCase],
     participantChannels: Vector[ChannelEndpoint],
+    skipDarNamesPattern: Option[Regex],
     maxConnectionAttempts: Int = 10,
     partyAllocation: PartyAllocationConfiguration = ClosedWorldWaitingForAllParticipants,
     shuffleParticipants: Boolean = false,
     timeoutScaleFactor: Double = 1.0,
     concurrentTestRuns: Int = 8,
-    uploadDars: Boolean = true,
     identifierSuffix: String = "test",
     commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
 ) {
@@ -146,25 +145,37 @@ final class LedgerTestCasesRunner(
 
   private def uploadDarsIfRequired(
       sessions: Vector[ParticipantSession]
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
-    if (uploadDars) {
-      FutureUtil
-        .sequential(sessions) { session =>
-          logger.info(s"Uploading DAR files for session $session")
-          for {
-            context <- session.createInitContext(
-              applicationId = "upload-dars",
-              identifierSuffix = identifierSuffix,
-              features = session.features,
-            )
-            // upload the dars sequentially to avoid conflicts
-            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
-          } yield ()
-        }
-        .map(_ => ())
-    } else {
-      Future.successful(logger.info("DAR files upload skipped."))
-    }
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    val allDars = Dars.resources
+    val darsToUpload = skipDarNamesPattern
+      .map { skipRegex =>
+        val darsToUpload = allDars.filterNot(skipRegex.matches)
+        logger.info(
+          s"Uploading DARs excluding pattern ${skipRegex.pattern.toString}: ${darsToUpload
+              .mkString("[", ",", "]")}"
+        )
+        darsToUpload
+      }
+      .getOrElse {
+        logger.info(s"Uploading all available test DARs")
+        allDars
+      }
+
+    FutureUtil
+      .sequential(sessions) { session =>
+        logger.info(s"Uploading DAR files for session $session")
+        for {
+          context <- session.createInitContext(
+            applicationId = "upload-dars",
+            identifierSuffix = identifierSuffix,
+            features = session.features,
+          )
+          // upload the dars sequentially to avoid conflicts
+          _ <- FutureUtil.sequential(darsToUpload)(uploadDar(context, _))
+        } yield ()
+      }
+      .map(_ => ())
+  }
 
   private def uploadDar(
       context: ParticipantTestContext,

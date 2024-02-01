@@ -11,5 +11,8 @@ package object v1_dev {
     v1_15.default(timeoutScaleFactor)
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
-    v1_15.optional(tlsConfig)
+    v1_15.optional(tlsConfig) ++ Vector(
+      // TODO(16362): Make non-optional once all failure-exclusions are removed
+      new UpgradingIT
+    )
 }

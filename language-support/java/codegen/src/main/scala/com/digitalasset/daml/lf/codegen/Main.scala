@@ -16,7 +16,7 @@ object StandaloneMain extends StrictLogging {
       Main.main(args)
     } catch {
       case NonFatal(t) =>
-        logger.error(s"Error generating code: {}", t.getMessage)
+        logger.error(s"Error generating code: {}", t)
         sys.exit(-1)
     }
 }

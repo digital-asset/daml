@@ -8,6 +8,7 @@ import com.daml.ledger.api.testtool.runner
 import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.matching.Regex
 
 final case class Config(
     participantsEndpoints: Vector[(String, Int)],
@@ -26,7 +27,7 @@ final case class Config(
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
     ledgerClockGranularity: FiniteDuration,
-    uploadDars: Boolean,
+    skipDarNamesPattern: Option[Regex],
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config = {
     val base = tlsConfig.getOrElse(TlsConfiguration.Empty)
@@ -35,6 +36,8 @@ final case class Config(
 }
 
 object Config {
+  val DefaultTestDarExclusions = new Regex(".*upgrade-tests.*")
+
   val default: Config = Config(
     participantsEndpoints = Vector.empty,
     maxConnectionAttempts = 10,
@@ -52,6 +55,6 @@ object Config {
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
     ledgerClockGranularity = runner.Defaults.LedgerClockGranularity,
-    uploadDars = true,
+    skipDarNamesPattern = Some(DefaultTestDarExclusions),
   )
 }

@@ -16,6 +16,9 @@ load(
 )
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
+load("//test-common:test-common.bzl", "merge_test_dars_versioned")
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//daml-lf/language:daml-lf.bzl", "mangle_for_java")
 
 alias(
     name = "dar-files",
@@ -46,35 +49,40 @@ alias(
 ]
 
 # Carbon tests helps to test upgrades when packages are dependent on each other
-carbon_test_names = [
-    "carbonv1",
-    "carbonv2",  #carbonv2 depends on carbon v1
-    "carbonv3",  #carbonv3 depends on carbon v2
-    "modelext",  #modelext depends on model
-]
-
-general_test_names = [
-    "benchtool",
-    "model",
-    "semantic",
-    "performance",
-    "package_management",
-]
-
-# Correspond to the directories under src/test/lib/daml
-test_names = {
-    lf_version: general_test_names +
-                (carbon_test_names if version_in(
-                    lf_version,
-                    v1_minor_version_range = ("15", "dev"),
-                    v2_minor_version_range = ("0", "dev"),
-                ) else [])
-    for lf_version in testtool_lf_versions
+carbon_test_dars = {
+    "carbonv1": [],
+    "carbonv2": [],  #carbonv2 depends on carbon v1
+    "carbonv3": [],  #carbonv3 depends on carbon v2
+    "modelext": [],  #modelext depends on model
 }
+
+general_test_dars = {
+    "benchtool": [],
+    "model": [],
+    "semantic": [],
+    "performance": [],
+    "package_management": [],
+}
+
+upgrading_test_dars = {"upgrade": [
+    "1.0.0",
+    "2.0.0",
+    "3.0.0",
+]}
+
+test_dars = merge_test_dars_versioned(
+    carbon_test_dars = carbon_test_dars,
+    carbon_test_dars_v1_minor_version_range = ("15", "dev"),
+    carbon_test_dars_v2_minor_version_range = ("0", "dev"),
+    general_test_dars = general_test_dars,
+    lf_versions = testtool_lf_versions,
+    upgrading_test_dars = upgrading_test_dars,
+    upgrading_test_dars_v1_minor_version_range = ("16", "dev"),
+    upgrading_test_dars_v2_minor_version_range = ("0", "dev"),
+)
 
 da_scala_dar_resources_library(
     add_maven_tag = True,
-    daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
     data_dependencies = {
         "carbonv2": ["//test-common:carbonv1-tests-%s.build"],
@@ -94,6 +102,7 @@ da_scala_dar_resources_library(
     },
     lf_versions = testtool_lf_versions,
     maven_name_prefix = "test",
+    test_dars = test_dars,
     visibility = ["//visibility:public"],
 )
 
@@ -111,7 +120,34 @@ da_scala_dar_resources_library(
                 visibility = ["//visibility:public"],
             ),
         ]
-        for test_name in test_names.get(target, [])
+        for test_name in test_dars.get(target, []).keys()
+        if not test_dars[target][test_name]
+    ]
+    for target in testtool_lf_versions
+]
+
+[
+    [
+        [
+            [
+                dar_to_java(
+                    name = "%s-tests-%s-%s.java-codegen" % (test_name, package_version, target),
+                    src = ":%s-tests-%s-%s.dar" % (test_name, package_version, target),
+                    package_prefix = "com.daml.ledger.test.java.%s.v%s" % (
+                        test_name,
+                        mangle_for_java(package_version),
+                    ),
+                    tags = ["maven_coordinates=com.daml:test-common-%s-tests-java-%s-%s:__VERSION__" % (
+                        test_name.replace("_", "-"),
+                        package_version,
+                        target,
+                    )],
+                    visibility = ["//visibility:public"],
+                ),
+            ]
+            for package_version in test_dars[target][test_name]
+        ]
+        for test_name in test_dars.get(target, []).keys()
     ]
     for target in testtool_lf_versions
 ]

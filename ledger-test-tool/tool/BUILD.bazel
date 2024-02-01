@@ -273,3 +273,54 @@ conformance_test(
     ]
     if not is_windows
 ]
+
+# Conformance tests with contract upgrading enabled
+# TODO(16362): Merge with the default LF dev test once the tests failing due to upgrading are fixed
+[
+    conformance_test(
+        name = "conformance-test-upgrading-dev",
+        dev_mod_flag = "",
+        extra_data =
+            conformance_test_extra_data_base + [
+                "//canton:community_app_deploy.jar",
+            ],
+        extra_runner_args = ["7000"],
+        lf_versions = lf_versions,
+        ports = conformance_test_ports,
+        preview_mod_flag = "",
+        runner = "@//bazel_tools/client_server/runner_with_health_check",
+        server = ":canton-test-runner-with-dependencies",
+        server_args = conformance_server_args_base + [
+            "-C",
+            ",".join([
+                "dev-mode=yes",
+                "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
+                "_shared.participant_parameters.enable-contract-upgrading=true",
+            ]),
+        ],
+        tags = ["dev-canton-test"] + extra_tags,
+        test_tool_args = conformance_test_tool_args_base + [
+            "--include=UpgradingIT " + "--exclude=" + ",".join(conformance_test_excluded_test + [
+                # we skip those tests for preview/dev
+                "TLSOnePointThreeIT",
+                "TLSAtLeastOnePointTwoIT",
+                # Tests failing due to upgrading
+                "CommandServiceIT:CSRefuseBadParameter",
+                "CommandServiceIT:CSBadCreateAndExercise",
+                "InterfaceIT:ExerciseInterfaceSuccess",
+                "InterfaceIT:ExerciseRetroactiveInterfaceInstanceSuccess",
+            ]),
+        ],
+    )
+    for (lf_versions, extra_tags) in [
+        (
+            [LF_DEFAULT_DEV_VERSION],
+            [],
+        ),
+        (
+            ["preview"] + [v for v in LF_DEV_VERSIONS if v != LF_DEFAULT_DEV_VERSION],
+            ["main-only"],
+        ),
+    ]
+    if not is_windows
+]
