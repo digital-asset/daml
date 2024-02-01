@@ -2040,11 +2040,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
       BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
-      BuiltinFunctionInfo(
-        CONTRACT_ID_TO_TEXT,
-        BContractIdToText,
-        minVersion = contractIdTextConversions,
-      ),
+      BuiltinFunctionInfo(CONTRACT_ID_TO_TEXT, BContractIdToText),
       BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
