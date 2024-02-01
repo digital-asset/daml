@@ -191,7 +191,7 @@ class TransactionSpec
   "isReplayedBy" - {
     def genTrans(node: Node) = {
       val nid = NodeId(1)
-      val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
+      val version = node.optVersion.getOrElse(TransactionVersion.minVersion)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
@@ -227,7 +227,7 @@ class TransactionSpec
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
+        val version = n.optVersion.getOrElse(TransactionVersion.minVersion)
         n match {
           case _: Node.Rollback => ()
           case n: Node.Action =>

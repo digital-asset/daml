@@ -286,14 +286,6 @@ private[speedy] case class PartialTransaction(
     }.toMap
   }
 
-  private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
-    if (version < TxVersion.minByKey) {
-      false
-    } else {
-      byKey
-    }
-  }
-
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -396,7 +388,7 @@ private[speedy] case class PartialTransaction(
         signatories = contract.signatories,
         stakeholders = contract.stakeholders,
         keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
-        byKey = normByKey(version, byKey),
+        byKey = byKey,
         version = version,
       )
 
@@ -577,7 +569,7 @@ private[speedy] case class PartialTransaction(
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = ec.contractKey,
-      byKey = normByKey(ec.version, ec.byKey),
+      byKey = ec.byKey,
       version = ec.version,
     )
   }
@@ -618,13 +610,7 @@ private[speedy] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  def rollbackTry(ex: SValue.SAny): PartialTransaction = {
-    // we must never create a rollback containing a node with a version pre-dating exceptions
-    if (context.minChildVersion < TxVersion.minExceptions) {
-      throw SError.SErrorDamlException(
-        interpretation.Error.UnhandledException(ex.ty, ex.value.toUnnormalizedValue)
-      )
-    }
+  def rollbackTry: PartialTransaction = {
     context.info match {
       case info: TryContextInfo =>
         // In the case of there being no children we could drop the entire rollback node.

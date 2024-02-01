@@ -44,47 +44,32 @@ class Normalization {
     }
   }
 
-  private def normNode(
-      node: Node
-  ): Node = {
-    import scala.Ordering.Implicits.infixOrderingOps
-    node match {
+  private def normNode(node: Node): Node = node match {
 
-      case old: Node.Create =>
-        old
-          .copy(arg = normValue(old.version)(old.arg))
-          .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
+    case old: Node.Create =>
+      old
+        .copy(arg = normValue(old.version)(old.arg))
+        .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
 
-      case old: Node.Fetch =>
-        (if (old.version >= TransactionVersion.minByKey) {
-           old
-         } else {
-           old.copy(byKey = false)
-         })
-          .copy(
-            keyOpt = old.keyOpt.map(normKWM(old.version))
-          )
+    case old: Node.Fetch =>
+      old.copy(
+        keyOpt = old.keyOpt.map(normKWM(old.version))
+      )
 
-      case old: Node.Exercise =>
-        (if (old.version >= TransactionVersion.minByKey) {
-           old
-         } else {
-           old.copy(byKey = false)
-         })
-          .copy(
-            chosenValue = normValue(old.version)(old.chosenValue),
-            exerciseResult = old.exerciseResult.map(normValue(old.version)),
-            keyOpt = old.keyOpt.map(normKWM(old.version)),
-          )
+    case old: Node.Exercise =>
+      old.copy(
+        chosenValue = normValue(old.version)(old.chosenValue),
+        exerciseResult = old.exerciseResult.map(normValue(old.version)),
+        keyOpt = old.keyOpt.map(normKWM(old.version)),
+      )
 
-      case old: Node.LookupByKey =>
-        old.copy(
-          key = normKWM(old.version)(old.key)
-        )
+    case old: Node.LookupByKey =>
+      old.copy(
+        key = normKWM(old.version)(old.key)
+      )
 
-      case old: Node.Rollback => old
+    case old: Node.Rollback => old
 
-    }
   }
 
   private def normValue(version: TransactionVersion)(x: Val): Val = {

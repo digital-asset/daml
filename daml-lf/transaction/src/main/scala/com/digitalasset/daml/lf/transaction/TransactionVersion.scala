@@ -44,8 +44,6 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  private[lf] val minExceptions = V14
-  private[lf] val minByKey = V14
   private[lf] val minInterfaces = V15
   private[lf] val minExplicitDisclosure = VDev
   private[lf] val minChoiceAuthorizers = VDev
@@ -75,7 +73,7 @@ object TransactionVersion {
     import scala.Ordering.Implicits.infixOrderingOps
     tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
-      case (acc, _: Node.Rollback) => acc max minExceptions
+      case (acc, _: Node.Rollback) => acc
     }
   }
 
