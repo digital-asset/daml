@@ -22,7 +22,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar',
     runLedgerFetchDar,
     runLedgerExport,
-    runLedgerReset,
+    -- runLedgerReset,
     runLedgerGetDalfs,
     runLedgerListPackages,
     runLedgerListPackages0,
@@ -35,7 +35,7 @@ import Control.Exception (SomeException(..), catch)
 import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
-import Control.Monad.IO.Class (liftIO)
+-- import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=), encode)
 import qualified Data.Aeson as A
 import Data.Aeson.Text
@@ -51,8 +51,8 @@ import Data.String (fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
-import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
+-- import qualified Data.UUID as UUID
+-- import qualified Data.UUID.V4 as UUID
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Numeric.Natural
 import System.Exit
@@ -60,7 +60,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
 
-import Com.Daml.Ledger.Api.V1.TransactionFilter
+-- import Com.Daml.Ledger.Api.V1.TransactionFilter
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
@@ -340,8 +340,7 @@ downloadPackage args pid = do
   bs <-
       do
         runWithLedgerArgs args $ do
-          lid <- L.getLedgerIdentity
-          mbPkg <- L.getPackage lid $ convPid pid
+          mbPkg <- L.getPackage $ convPid pid
           case mbPkg of
             Nothing -> fail $ "Unable to download package with identity: " <> show pid
             Just (L.Package bs) -> pure bs
@@ -390,8 +389,7 @@ runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
 runLedgerListPackages lflags = do
     args <- getDefaultArgs lflags
     runWithLedgerArgs args $ do
-            lid <- L.getLedgerIdentity
-            pkgIds <- L.listPackages lid
+            pkgIds <- L.listPackages
             pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
 
 -- | Same as runLedgerListPackages, but print output.
@@ -431,56 +429,58 @@ allocateParty args name = do
         L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
   return party
 
-runLedgerReset :: LedgerFlags -> IO ()
-runLedgerReset flags = do
-  putStrLn "Resetting ledger."
-  args <- getDefaultArgs flags
-  reset args
+-- TODO[SW] Implementation not ported to ledger-api-v1, as it wasn't fully working in the first place, and we're moving away from
+-- hs-bindings stream support. We may add this back later in a different form.
+-- runLedgerReset :: LedgerFlags -> IO ()
+-- runLedgerReset flags = do
+--   putStrLn "Resetting ledger."
+--   args <- getDefaultArgs flags
+--   reset args
 
-reset :: LedgerArgs -> IO ()
-reset args = do
-    runWithLedgerArgs args $ do
-        parties <- map L.party <$> L.listKnownParties
-        unless (null parties) $ do
-          ledgerId <- L.getLedgerIdentity
-          activeContracts <-
-            L.getActiveContracts
-              ledgerId
-              (TransactionFilter $
-               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
-              (L.Verbosity False)
-          let chunks = chunksOf 100 activeContracts
-          forM_ chunks $ \chunk -> do
-            let cmds cmdId =
-                  L.Commands
-                    { coms =
-                        [ L.ExerciseCommand
-                          { tid = tid
-                          , cid = cid
-                          , choice = L.Choice "Archive"
-                          , arg = L.VRecord $ L.Record Nothing []
-                          }
-                        | (_offset, _mbWid, events) <- chunk
-                        , L.CreatedEvent {cid, tid} <- events
-                        ]
-                    , lid = ledgerId
-                    , wid = Nothing
-                    , aid = L.ApplicationId "ledger-reset"
-                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                    , actAs = parties
-                    , readAs = []
-                    , dedupPeriod = Nothing
-                    , minLeTimeAbs = Nothing
-                    , minLeTimeRel = Nothing
-                    , sid = Nothing
-                    }
-            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
-            unless noCommands $ do
-              cmdId <- liftIO UUID.nextRandom
-              errOrEmpty <- L.submit $ cmds cmdId
-              case errOrEmpty of
-                Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-                Right () -> pure ()
+-- reset :: LedgerArgs -> IO ()
+-- reset args = do
+--     runWithLedgerArgs args $ do
+--         parties <- map L.party <$> L.listKnownParties
+--         unless (null parties) $ do
+--           ledgerId <- L.getLedgerIdentity
+--           activeContracts <-
+--             L.getActiveContracts
+--               ledgerId
+--               (TransactionFilter $
+--                Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+--               (L.Verbosity False)
+--           let chunks = chunksOf 100 activeContracts
+--           forM_ chunks $ \chunk -> do
+--             let cmds cmdId =
+--                   L.Commands
+--                     { coms =
+--                         [ L.ExerciseCommand
+--                           { tid = tid
+--                           , cid = cid
+--                           , choice = L.Choice "Archive"
+--                           , arg = L.VRecord $ L.Record Nothing []
+--                           }
+--                         | (_offset, _mbWid, events) <- chunk
+--                         , L.CreatedEvent {cid, tid} <- events
+--                         ]
+--                     , lid = ledgerId
+--                     , wid = Nothing
+--                     , aid = L.ApplicationId "ledger-reset"
+--                     , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+--                     , actAs = parties
+--                     , readAs = []
+--                     , dedupPeriod = Nothing
+--                     , minLeTimeAbs = Nothing
+--                     , minLeTimeRel = Nothing
+--                     , sid = Nothing
+--                     }
+--             let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+--             unless noCommands $ do
+--               cmdId <- liftIO UUID.nextRandom
+--               errOrEmpty <- L.submit $ cmds cmdId
+--               case errOrEmpty of
+--                 Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+--                 Right () -> pure ()
 
 -- | Run export against configured ledger.
 runLedgerExport :: LedgerFlags -> [String] -> IO ()

@@ -1491,28 +1491,17 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"]),
+    srcs = glob(
+      ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"]
+      + ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
+# Minimal set of ledger-api services we need for hs-bindings
 ledger_api_haskellpb_sources = [
-    "ActiveContractsService.hs",
-    "CommandCompletionService.hs",
-    "CommandService.hs",
-    "CommandSubmissionService.hs",
-    "Commands.hs",
-    "ContractMetadata.hs",
-    "Completion.hs",
-    "Event.hs",
-    "LedgerConfigurationService.hs",
-    "LedgerIdentityService.hs",
-    "LedgerOffset.hs",
-    "PackageService.hs",
-    "TraceContext.hs",
-    "Transaction.hs",
-    "TransactionFilter.hs",
-    "TransactionService.hs",
-    "Value.hs",
+    # V2.PackageService depends on V1, so we still include it here
+    "V1/PackageService.hs",
+    "V2/PackageService.hs",
 ]
 
 genrule(
@@ -1522,44 +1511,16 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
+    outs = ["Com/Daml/Ledger/Api/" + b for b in ledger_api_haskellpb_sources],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v1/$$(basename $$src) \
+                --proto $${src#*community/ledger-api/src/main/protobuf/} \
                 --out $(@D)
         done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-)
-
-filegroup(
-    name = "ledger-api-protos-fg-testing",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/testing/*.proto"]),
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "ledger-api-haskellpb-sources-testing",
-    srcs = [
-        "@com_google_protobuf//:well_known_type_protos",
-        "@go_googleapis//google/rpc:status.proto",
-        ":ledger-api-protos-fg-testing",
-    ],
-    outs = ["Com/Daml/Ledger/Api/V1/Testing/TimeService.hs"],
-    cmd = """
-        $(location @proto3-suite//:compile-proto-file) \
-            --includeDir """ + google_protobuf_src + """ \
-            --includeDir """ + google_rpc_src + """ \
-            --includeDir """ + ledger_api_proto_source_root + """ \
-            --proto com/daml/ledger/api/v1/testing/time_service.proto \
-            --out $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $(@D)))))))
-                #6x dirname because @D works differently for a single output
     """,
     tools = [
         "@proto3-suite//:compile-proto-file",
@@ -1613,7 +1574,6 @@ filegroup(
         ":google-rpc-haskellpb-sources",
         ":ledger-api-haskellpb-sources",
         ":ledger-api-haskellpb-sources-admin",
-        ":ledger-api-haskellpb-sources-testing",
     ],
     visibility = ["//visibility:public"],
 )
