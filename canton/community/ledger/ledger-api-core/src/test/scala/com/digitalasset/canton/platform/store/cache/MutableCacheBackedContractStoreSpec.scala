@@ -21,6 +21,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyAssigned,
   KeyUnassigned,
 }
+import com.digitalasset.canton.protocol.LfPackageName
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
@@ -385,6 +386,7 @@ object MutableCacheBackedContractStoreSpec {
     override def lookupActiveContractWithCachedArgument(
         forParties: Set[Party],
         contractId: ContractId,
+        packageName: Option[LfPackageName],
         createArgument: Value,
     )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] =
       (contractId, forParties) match {
@@ -427,11 +429,16 @@ object MutableCacheBackedContractStoreSpec {
 
   private def contract(templateName: String): Contract = {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
+    val packageName = LfPackageName.assertFromString("some_package")
     val contractArgument = ValueRecord(
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance = ContractInstance(
+      template = templateId,
+      packageName = Some(packageName),
+      arg = contractArgument,
+    )
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

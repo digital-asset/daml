@@ -13,9 +13,11 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
+import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -276,6 +278,7 @@ object InMemoryStateUpdaterSpec {
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             templateId = templateId,
+            packageName = pvPackageName,
             commandId = "",
             workflowId = workflowId,
             contractKey = None,
@@ -491,7 +494,9 @@ object InMemoryStateUpdaterSpec {
         signatories = Set(party1),
         observers = Set(party2),
         agreementText = "agreement text",
+        version = CreateTransactionVersion.Version(pvTransactionVersion),
       )
+      .copy(packageName = pvPackageName)
   }
 
   private val someContractMetadataBytes = Bytes.assertFromString("00aabb")

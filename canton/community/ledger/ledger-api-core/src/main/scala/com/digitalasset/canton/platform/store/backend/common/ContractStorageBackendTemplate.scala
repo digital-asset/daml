@@ -95,6 +95,7 @@ class ContractStorageBackendTemplate(
       : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
     (str("contract_id")
       ~ int("template_id")
+      ~ int("package_name").?
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?
@@ -106,9 +107,10 @@ class ContractStorageBackendTemplate(
       ~ array[Int]("create_key_maintainers").?
       ~ byteArray("driver_metadata").?)
       .map {
-        case coid ~ internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
+        case coid ~ internalTemplateId ~ internalPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
           ContractId.assertFromString(coid) -> RawCreatedContract(
             templateId = stringInterning.templateId.unsafe.externalize(internalTemplateId),
+            packageName = internalPackageName.map(stringInterning.packageName.externalize),
             flatEventWitnesses =
               flatEventWitnesses.view.map(stringInterning.party.externalize).toSet,
             createArgument = createArgument,
@@ -134,6 +136,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
+           package_name,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,
@@ -190,15 +193,18 @@ class ContractStorageBackendTemplate(
 
   private val rawContractRowParser: RowParser[ContractStorageBackend.RawContract] =
     (int("template_id")
+      ~ int("package_name").?
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?)
       .map(SqlParser.flatten)
-      .map { case (internalTemplateId, createArgument, createArgumentCompression) =>
-        new ContractStorageBackend.RawContract(
-          stringInterning.templateId.unsafe.externalize(internalTemplateId),
-          createArgument,
-          createArgumentCompression,
-        )
+      .map {
+        case (internalTemplateId, internalPackageName, createArgument, createArgumentCompression) =>
+          new ContractStorageBackend.RawContract(
+            stringInterning.templateId.unsafe.externalize(internalTemplateId),
+            internalPackageName.map(stringInterning.packageName.externalize),
+            createArgument,
+            createArgumentCompression,
+          )
       }
 
   protected def activeContractSqlLiteral(
@@ -302,7 +308,8 @@ class ContractStorageBackendTemplate(
   )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
     activeContract(
       resultSetParser = rawContractRowParser.singleOpt,
-      resultColumns = List("template_id", "create_argument", "create_argument_compression"),
+      resultColumns =
+        List("template_id", "package_name", "create_argument", "create_argument_compression"),
     )(
       readers = readers,
       contractId = contractId,

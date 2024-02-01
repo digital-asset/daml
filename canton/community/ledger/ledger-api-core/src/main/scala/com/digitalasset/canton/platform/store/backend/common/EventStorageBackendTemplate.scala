@@ -44,6 +44,7 @@ object EventStorageBackendTemplate {
       "event_id",
       "contract_id",
       "template_id",
+      "package_name",
       "create_argument",
       "create_argument_compression",
       "create_signatories",
@@ -70,6 +71,8 @@ object EventStorageBackendTemplate {
       "event_id",
       "contract_id",
       "template_id",
+      // TODO Populate package name (https://github.com/DACH-NY/canton/issues/16757)
+      "NULL as package_name",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
@@ -116,7 +119,9 @@ object EventStorageBackendTemplate {
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~ Option[Array[Byte]]
+      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~ Option[
+        Array[Byte]
+      ] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -129,7 +134,8 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("driver_metadata").?
+      byteArray("driver_metadata").? ~
+      int("package_name").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -167,7 +173,8 @@ object EventStorageBackendTemplate {
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata =>
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~
+          driverMetadata ~ packageName =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -186,6 +193,7 @@ object EventStorageBackendTemplate {
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = packageName.map(stringInterning.packageName.externalize),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -269,7 +277,7 @@ object EventStorageBackendTemplate {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~
           createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~
-          createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata =>
+          createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageName =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -288,6 +296,7 @@ object EventStorageBackendTemplate {
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = packageName.map(stringInterning.packageName.externalize),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -384,6 +393,7 @@ object EventStorageBackendTemplate {
     "contract_id",
     "ledger_effective_time",
     "template_id",
+    "package_name",
     "workflow_id",
     "create_argument",
     "create_argument_compression",
@@ -416,6 +426,8 @@ object EventStorageBackendTemplate {
     "contract_id",
     "ledger_effective_time",
     "template_id",
+    // TODO Populate package name (https://github.com/DACH-NY/canton/issues/16757)
+    "NULL as package_name",
     "workflow_id",
     "NULL as create_argument",
     "NULL as create_argument_compression",
@@ -513,6 +525,7 @@ object EventStorageBackendTemplate {
             updateId = updateId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = None, // TODO See https://github.com/DACH-NY/canton/issues/16709
             witnessParties = flatEventWitnesses.view
               .filter(allQueryingParties)
               .map(stringInterning.party.unsafe.externalize)
@@ -645,6 +658,7 @@ object EventStorageBackendTemplate {
             updateId = updateId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = None, // TODO See https://github.com/DACH-NY/canton/issues/16709
             witnessParties = flatEventWitnesses.view
               .filter(allQueryingParties)
               .map(stringInterning.party.unsafe.externalize)
@@ -719,6 +733,7 @@ object EventStorageBackendTemplate {
             updateId = transactionId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            packageName = None, // TODO See https://github.com/DACH-NY/canton/issues/16709
             witnessParties = flatEventWitnesses.view
               .filter(allQueryingParties)
               .map(stringInterning.party.unsafe.externalize)

@@ -105,7 +105,6 @@ import com.daml.ledger.api.v1.transaction_filter.{
 }
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
 import com.daml.ledger.api.v1.transaction_service.*
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -131,6 +130,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
@@ -700,6 +700,7 @@ object LedgerApiCommands {
     def minLedgerTimeAbs: Option[Instant]
     def disclosedContracts: Seq[DisclosedContract]
     def applicationId: String
+    def packageIdSelectionPreference: Seq[LfPackageId]
 
     protected def mkCommand: CommandsV1 = CommandsV1(
       workflowId = workflowId,
@@ -724,6 +725,7 @@ object LedgerApiCommands {
         minLedgerTimeAbs.map(t => ProtoConverter.InstantConverter.toProtoPrimitive(t)),
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
+      packageIdSelectionPreference = packageIdSelectionPreference.map(_.toString),
     )
 
     override def pretty: Pretty[this.type] =
@@ -758,6 +760,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, Empty, Unit] {
       override def createRequest(): Either[String, SubmitRequest] = Right(
@@ -793,6 +796,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[
           SubmitAndWaitRequest,
@@ -829,6 +833,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
 

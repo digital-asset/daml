@@ -151,6 +151,7 @@ CREATE TABLE participant_events_divulgence (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER,
+    package_name INTEGER,
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
@@ -198,6 +199,7 @@ CREATE TABLE participant_events_create (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 

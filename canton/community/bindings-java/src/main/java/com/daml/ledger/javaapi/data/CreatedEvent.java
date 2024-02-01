@@ -22,6 +22,8 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final Identifier templateId;
 
+  private final Optional<String> packageName;
+
   private final String contractId;
 
   private final DamlRecord arguments;
@@ -49,6 +51,7 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
+      @NonNull Optional<String> packageName,
       @NonNull String contractId,
       @NonNull DamlRecord arguments,
       @NonNull ByteString createdEventBlob,
@@ -62,6 +65,7 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.witnessParties = List.copyOf(witnessParties);
     this.eventId = eventId;
     this.templateId = templateId;
+    this.packageName = packageName;
     this.contractId = contractId;
     this.arguments = arguments;
     this.createdEventBlob = createdEventBlob;
@@ -95,6 +99,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         witnessParties,
         eventId,
         templateId,
+        Optional.empty(),
         contractId,
         arguments,
         ByteString.EMPTY,
@@ -153,6 +158,11 @@ public final class CreatedEvent implements Event, TreeEvent {
   public Identifier getTemplateId() {
     return templateId;
   }
+
+  @NonNull
+  public Optional<String> getPackageName() {
+    return packageName;
+}
 
   @NonNull
   @Override
@@ -334,6 +344,9 @@ public final class CreatedEvent implements Event, TreeEvent {
         createdEvent.getWitnessPartiesList(),
         createdEvent.getEventId(),
         Identifier.fromProto(createdEvent.getTemplateId()),
+        createdEvent.hasPackageName()
+                ? Optional.of(createdEvent.getPackageName().getValue())
+                : Optional.empty(),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
         createdEvent.getCreatedEventBlob(),

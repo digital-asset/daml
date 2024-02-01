@@ -8,6 +8,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
@@ -143,7 +144,9 @@ final case class NonUpgradableDisclosedContract(
 ) extends DisclosedContract
 
 final case class UpgradableDisclosedContract(
+    version: TransactionVersion,
     templateId: Ref.TypeConName,
+    packageName: Option[Ref.PackageName],
     contractId: Lf.ContractId,
     argument: Value,
     createdAt: Timestamp,

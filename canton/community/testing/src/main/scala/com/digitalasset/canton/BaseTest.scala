@@ -6,6 +6,8 @@ package com.digitalasset.canton
 import cats.Functor
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
+import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.transaction.TransactionVersion
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
@@ -394,6 +396,17 @@ object BaseTest {
   lazy val testedReleaseProtocolVersion: ReleaseProtocolVersion = ReleaseProtocolVersion(
     testedProtocolVersion
   )
+
+  lazy val pvPackageName: Option[PackageName] = {
+    Option.when(testedProtocolVersion >= ProtocolVersion.dev)(
+      PackageName.assertFromString("package_name")
+    )
+  }
+
+  lazy val pvTransactionVersion: TransactionVersion = {
+    if (testedProtocolVersion >= ProtocolVersion.dev) TransactionVersion.maxVersion
+    else TransactionVersion.StableVersions.max
+  }
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")

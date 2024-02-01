@@ -223,6 +223,7 @@ class CommandSubmissionServiceImplSpec
       )
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = None,
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
       createdAt = Timestamp.Epoch,

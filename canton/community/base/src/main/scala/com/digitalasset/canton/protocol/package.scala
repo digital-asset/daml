@@ -105,6 +105,9 @@ package object protocol {
   type LfTemplateId = Ref.TypeConName
   val LfTemplateId: Ref.TypeConName.type = Ref.TypeConName
 
+  type LfPackageName = Ref.PackageName
+  val LfPackageName: Ref.PackageName.type = Ref.PackageName
+
   type LfChoiceName = Ref.ChoiceName
   val LfChoiceName: Ref.ChoiceName.type = Ref.ChoiceName
 

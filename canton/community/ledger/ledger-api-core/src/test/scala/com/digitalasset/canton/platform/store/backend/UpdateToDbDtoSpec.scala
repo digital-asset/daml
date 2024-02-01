@@ -315,10 +315,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val contractId = builder.newCid
       val keyValue = Value.ValueUnit
       val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
+      val packageName = Ref.PackageName.assertFromString("package_name_1")
       val createNode = builder
         .create(
           id = contractId,
           templateId = contractTemplate,
+          packageName = packageName,
           argument = keyValue,
           signatories = Set("signatory1", "signatory2", "signatory3"),
           observers = Set("observer"),
@@ -352,6 +354,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
         contract_id = createNode.coid.coid,
         template_id = Some(createNode.templateId.toString),
+        package_name = createNode.packageName.map(_.toString),
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -451,6 +454,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
         contract_id = createNode.coid.coid,
         template_id = Some(createNode.templateId.toString),
+        package_name = createNode.packageName.map(_.toString),
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -1455,6 +1459,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id =
             None, // No contract details stored. That's ok because the participant sees the create event.
+          package_name =
+            None, // No contract details stored. That's ok because the participant sees the create event.
           tree_event_witnesses = Set("divulgee"),
           create_argument =
             None, // No contract details stored. That's ok because the participant sees the create event.
@@ -1540,6 +1546,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
         contract_id = createNode.coid.coid,
         template_id = Some(createNode.templateId.toString),
+        package_name = createNode.packageName.map(_.toString),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = Some(emptyArray),
@@ -1608,6 +1615,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = Some(completionInfo.actAs.toSet),
         contract_id = exerciseNode.targetCoid.coid,
         template_id =
+          None, // No contract details stored. That's ok because the participant sees the create event.
+        package_name =
           None, // No contract details stored. That's ok because the participant sees the create event.
         tree_event_witnesses = Set("divulgee"),
         create_argument =
@@ -1732,6 +1741,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = Some(completionInfo.actAs.toSet),
         contract_id = exerciseNode.targetCoid.coid,
         template_id = Some(createNode.templateId.toString), // taken from explicit divulgedContracts
+        package_name = createNode.packageName, // taken from explicit divulgedContracts
         tree_event_witnesses = Set("divulgee"), // taken from explicit blinding info
         create_argument = Some(emptyArray), // taken from explicit divulgedContracts
         create_argument_compression = compressionAlgorithmId,
@@ -1820,6 +1830,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = None,
+          package_name = None,
           tree_event_witnesses = Set("divulgee"),
           create_argument = None,
           create_argument_compression = compressionAlgorithmId,
@@ -1891,6 +1902,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
         contract_id = createNode.coid.coid,
         template_id = Some(createNode.templateId.toString),
+        package_name = createNode.packageName.map(_.toString),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = Some(emptyArray),
@@ -1954,6 +1966,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
         contract_id = createNode.coid.coid,
         template_id = Some(createNode.templateId.toString),
+        package_name = createNode.packageName.map(_.toString),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = Some(emptyArray),
@@ -2091,6 +2104,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
             contract_id = createNode.coid.coid,
             template_id = Some(createNode.templateId.toString),
+            package_name = createNode.packageName.map(_.toString),
             flat_event_witnesses = Set("signatory", "observer"), // stakeholders
             tree_event_witnesses = Set("signatory", "observer"), // informees
             create_argument = Some(emptyArray),
@@ -2404,8 +2418,6 @@ object UpdateToDbDtoSpec {
   private val someConfiguration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
-  private val someParty2 = Ref.Party.assertFromString("UpdateToDbDtoSpecParty2")
-  private val someParty3 = Ref.Party.assertFromString("UpdateToDbDtoSpecParty3")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
   private val someArchive1 = DamlLf.Archive.newBuilder

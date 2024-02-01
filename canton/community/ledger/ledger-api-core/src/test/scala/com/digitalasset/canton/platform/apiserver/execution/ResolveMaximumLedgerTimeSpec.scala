@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{Bytes, ImmArray, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -79,6 +79,7 @@ class ResolveMaximumLedgerTimeSpec
   private def buildProcessedDisclosedContract(cId: ContractId, createdAt: Time.Timestamp) =
     ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = Some(Ref.PackageName.assertFromString("package_name_1")),
       contractId = cId,
       argument = Value.ValueNil,
       createdAt = createdAt,

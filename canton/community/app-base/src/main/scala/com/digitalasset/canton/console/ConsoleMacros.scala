@@ -288,13 +288,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       TraceContext.withNewTraceContext { implicit traceContext =>
         env.runE(
           RepairService.ContractConverter.contractDataToInstance(
-            contractData.templateId.toIdentifier,
-            contractData.createArguments,
-            contractData.signatories,
-            contractData.observers,
-            contractData.inheritedContractId,
-            contractData.ledgerCreateTime.map(_.toInstant).getOrElse(ledgerTime),
-            contractData.contractSalt,
+            templateId = contractData.templateId.toIdentifier,
+            packageName = contractData.packageName,
+            createArguments = contractData.createArguments,
+            signatories = contractData.signatories,
+            observers = contractData.observers,
+            lfContractId = contractData.inheritedContractId,
+            ledgerTime = contractData.ledgerCreateTime.map(_.toInstant).getOrElse(ledgerTime),
+            contractSalt = contractData.contractSalt,
           )
         )
       }
@@ -314,6 +315,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         RepairService.ContractConverter.contractInstanceToData(contract).map {
           case (
                 templateId,
+                packageName,
                 createArguments,
                 signatories,
                 observers,
@@ -323,6 +325,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               ) =>
             ContractData(
               TemplateId.fromIdentifier(templateId),
+              packageName,
               createArguments,
               signatories,
               observers,

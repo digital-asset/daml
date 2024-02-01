@@ -29,6 +29,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Create(
           coid = contractId,
           templateId = someTemplateId,
+          packageName = Some(somePackageName),
           arg = someContractArgument,
           agreementText = someAgreement,
           signatories = Set(alice),
@@ -44,6 +45,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Create(
           coid = contractId,
           templateId = someTemplateId,
+          packageName = Some(somePackageName),
           arg = someContractArgument,
           agreementText = someAgreement,
           signatories = Set(bob),
@@ -65,6 +67,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val exercise3a = Node.Exercise(
         targetCoid = create1,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,
@@ -84,6 +87,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val fetch3b = Node.Fetch(
         coid = create2Cid,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         actingParties = Set(bob),
         signatories = Set(bob),
         stakeholders = Set(bob),
@@ -102,6 +106,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val exercise3c = Node.Exercise(
         targetCoid = create2Cid,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,
@@ -129,6 +134,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val create3d = Node.Create(
         coid = TransactionBuilder.newCid,
         templateId = someTemplateId,
+        packageName = Some(somePackageName),
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(bob),
@@ -160,6 +166,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         TransactionVersion.V14,
         ContractInstance(
           template = someContractInstance.template,
+          packageName = None,
           arg = someContractInstance.arg,
         ),
       )
