@@ -1492,8 +1492,10 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg",
     srcs = glob(
-      ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"]
-      + ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto"]),
+        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"] + [
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
+        ],
+    ),
     visibility = ["//visibility:private"],
 )
 
