@@ -8,7 +8,8 @@ import Daml.Script
 main : Script ()
 main = pure ()
 
-data TKey1 = TKey1 { p : Party }
+data TKey1 = TKey1 with
+  p : Party
 
 template T with
     p: Party
@@ -17,7 +18,8 @@ template T with
   key (TKey1 p) : TKey1
   maintainer key.p
 
-data TKey2 = TKey2 { p : Party }
+data TKey2 = TKey2 with
+  p : Party
 
 template U with
     p: Party
@@ -26,5 +28,8 @@ template U with
   key (TKey2 p) : TKey2
   maintainer key.p
 
-data D = D { t : Text, u : Optional Text }
-data E = E { t : Text }
+data D = D with
+  t : Text
+  u : Optional Text
+data E = E with
+  t : Text

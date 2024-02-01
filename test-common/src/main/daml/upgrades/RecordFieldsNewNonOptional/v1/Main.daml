@@ -8,7 +8,6 @@ import Daml.Script
 main : Script ()
 main = pure ()
 
-data Struct = Struct
-  { field1 : Int
-  }
+data Struct = Struct with
+  field1 : Int
 

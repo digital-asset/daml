@@ -8,7 +8,11 @@ import Daml.Script
 main : Script ()
 main = pure ()
 
-data T = T { x : Text } deriving Show
+data T = T with
+    x : Text
+  deriving Show
 
 -- Remove U from v2, causing MissingDataCon error
---data U = U { x : Text } deriving Show
+--data U = U with
+--    x : Text
+--  deriving Show
