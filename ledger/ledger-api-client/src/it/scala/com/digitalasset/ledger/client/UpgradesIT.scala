@@ -65,7 +65,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
     } yield {
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
       cantonLog should include regex s"Package $testPackageV1Id does not upgrade anything"
-      cantonLog should include regex s"Package $testPackageV2Id upgrades package id $testPackageV1Id"
+      cantonLog should include regex s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
       uploadV1Result match {
         case Some(err) =>
           fail(s"Uploading first package $testPackageV1Id failed with message: $err");
