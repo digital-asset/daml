@@ -11,8 +11,8 @@ import com.digitalasset.canton.console.commands.DomainChoice
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleMacros,
-  ParticipantReferenceX,
-  SequencerNodeReferenceX,
+  ParticipantReference,
+  SequencerNodeReference,
 }
 import com.digitalasset.canton.demo.Step.{Action, Noop}
 import com.digitalasset.canton.demo.model.ai.java as ME
@@ -36,7 +36,7 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 
 class ReferenceDemoScript(
-    participantsX: Seq[ParticipantReferenceX],
+    participantsX: Seq[ParticipantReference],
     bankingConnection: SequencerConnection,
     medicalConnection: SequencerConnection,
     rootPath: String,
@@ -103,11 +103,11 @@ class ReferenceDemoScript(
     ("Registry", participant5, Seq(SequencerMedicalAndConnection), Seq("medical-records")),
   )
 
-  override def parties(): Seq[(String, ParticipantReferenceX)] = partyIdCache.toSeq.map {
+  override def parties(): Seq[(String, ParticipantReference)] = partyIdCache.toSeq.map {
     case (name, (_, participant)) => (name, participant)
   }
 
-  private val partyIdCache = mutable.LinkedHashMap[String, (PartyId, ParticipantReferenceX)]()
+  private val partyIdCache = mutable.LinkedHashMap[String, (PartyId, ParticipantReference)]()
   private def partyId(name: String): PartyId = {
     partyIdCache.getOrElse(name, sys.error(s"Failed to lookup party $name"))._1
   }
@@ -186,7 +186,7 @@ class ReferenceDemoScript(
   }
 
   private def connectDomain(
-      participant: ParticipantReferenceX,
+      participant: ParticipantReference,
       name: String,
       connection: SequencerConnection,
   ): Unit = {
@@ -602,7 +602,7 @@ object ReferenceDemoScript {
       consoleEnvironment: ConsoleEnvironment
   ): Unit = {
 
-    def getSequencer(str: String): SequencerNodeReferenceX =
+    def getSequencer(str: String): SequencerNodeReference =
       consoleEnvironment.sequencersX.all
         .find(_.name == str)
         .getOrElse(sys.error(s"can not find domain named ${str}"))

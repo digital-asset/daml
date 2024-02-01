@@ -77,7 +77,7 @@ trait CantonHealthAdministration[Status <: CantonStatus]
   implicit private val ec: ExecutionContext = consoleEnv.environment.executionContext
   override val loggerFactory: NamedLoggerFactory = consoleEnv.environment.loggerFactory
 
-  protected def statusMap[A <: InstanceReferenceCommon](
+  protected def statusMap[A <: InstanceReference](
       nodes: NodeReferences[A, _, _]
   ): Map[String, () => NodeStatus[A#Status]] = {
     nodes.all.map { node => node.name -> (() => node.health.status) }.toMap
@@ -109,7 +109,7 @@ trait CantonHealthAdministration[Status <: CantonStatus]
     }
 
     // Try to get a local dump by going through the local nodes and returning the first one that succeeds
-    def getLocalDump(nodes: NonEmptyList[InstanceReferenceCommon]): Future[String] = {
+    def getLocalDump(nodes: NonEmptyList[InstanceReference]): Future[String] = {
       Future {
         nodes.head.health.dump(
           File.newTemporaryFile(s"local-"),
@@ -155,9 +155,9 @@ class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnviro
   @Help.Summary("Aggregate status info of all participants and domains")
   def status(): CommunityCantonStatus = {
     CommunityCantonStatus.getStatus(
-      statusMap[SequencerNodeReferenceX](consoleEnv.sequencersX),
-      statusMap[MediatorReferenceX](consoleEnv.mediatorsX),
-      statusMap[ParticipantReferenceX](consoleEnv.participantsX),
+      statusMap[SequencerNodeReference](consoleEnv.sequencersX),
+      statusMap[MediatorReference](consoleEnv.mediatorsX),
+      statusMap[ParticipantReference](consoleEnv.participantsX),
     )
   }
 }

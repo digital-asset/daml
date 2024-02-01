@@ -147,22 +147,3 @@ class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
   }
 
 }
-
-trait MediatorXAdministrationGroupWithInit extends ConsoleCommandGroup {
-
-  private lazy val setup_ = new MediatorXSetupGroup(this)
-  @Help.Summary("Methods used to initialize the node")
-  def setup: MediatorXSetupGroup = setup_
-
-  private lazy val testing_ = new MediatorTestingGroup(runner, consoleEnvironment, loggerFactory)
-  @Help.Summary("Testing functionality for the mediator")
-  @Help.Group("Testing")
-  def testing: MediatorTestingGroup = testing_
-
-  private lazy val pruning_ =
-    new MediatorPruningAdministrationGroup(runner, consoleEnvironment, loggerFactory)
-  @Help.Summary("Pruning functionality for the mediator")
-  @Help.Group("Testing")
-  def pruning: MediatorPruningAdministrationGroup = pruning_
-
-}

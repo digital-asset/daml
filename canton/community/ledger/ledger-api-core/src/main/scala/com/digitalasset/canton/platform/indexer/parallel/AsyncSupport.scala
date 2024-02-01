@@ -36,13 +36,14 @@ object AsyncSupport {
     val logger = loggerFactory.getTracedLogger(getClass)
     ResourceOwner
       .forExecutorService { () =>
-        val (executorName, _executorServiceMetrics) = withMetric
+        val (executorName, executorServiceMetrics) = withMetric
         InstrumentedExecutors.newFixedThreadPoolWithFactory(
           executorName,
           size,
           new ThreadFactoryBuilder()
             .setNameFormat(s"$namePrefix-%d")
             .build,
+          executorServiceMetrics,
           throwable =>
             logger
               .error(s"ExecutionContext $namePrefix has failed with an exception", throwable),

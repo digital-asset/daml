@@ -7,7 +7,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.transaction.{Util, Versioned}
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ValueContractId,
@@ -25,7 +25,7 @@ import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameV
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{contractInstance, *}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -110,7 +110,7 @@ object ExampleTransactionFactory {
   ): Versioned[LfGlobalKey] =
     LfVersioned(
       transactionVersion,
-      LfGlobalKey.assertBuild(templateId, value, Util.sharedKey(transactionVersion)),
+      LfGlobalKey.assertBuild(templateId, value, true),
     )
 
   def globalKeyWithMaintainers(
@@ -315,11 +315,11 @@ object ExampleTransactionFactory {
 
   // Parties and participants
 
-  val submitterParticipant: ParticipantId = ParticipantId("submitterParticipant")
+  val submittingParticipant: ParticipantId = ParticipantId("submittingParticipant")
   val signatoryParticipant: ParticipantId = ParticipantId("signatoryParticipant")
   val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
   val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
-  val submitter: LfPartyId = submitterParticipant.adminParty.toLf
+  val submitter: LfPartyId = submittingParticipant.adminParty.toLf
   val submitters: List[LfPartyId] = List(submitter)
 
   // Request metadata
@@ -331,7 +331,7 @@ object ExampleTransactionFactory {
   val defaultTestingTopology: TestingTopology =
     TestingTopology(
       topology = Map(
-        submitter -> Map(submitterParticipant -> Submission),
+        submitter -> Map(submittingParticipant -> Submission),
         signatory -> Map(
           signatoryParticipant -> Confirmation
         ),
@@ -339,8 +339,9 @@ object ExampleTransactionFactory {
           signatoryParticipant -> Observation
         ),
       ),
-      participants = Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
-      packages = Seq(submitterParticipant, signatoryParticipant).map(
+      participants =
+        Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
+      packages = Seq(submittingParticipant, signatoryParticipant).map(
         VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
       ),
     )
@@ -404,7 +405,7 @@ class ExampleTransactionFactory(
     val rootRbContext = RollbackContext.empty
 
     val submittingAdminPartyO =
-      Option.when(isRoot)(submitterMetadata.submitterParticipant.adminParty.toLf)
+      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
     confirmationPolicy
       .informeesAndThreshold(rootNode, topologySnapshot)
       .map { case (viewInformees, viewThreshold) =>
@@ -486,7 +487,7 @@ class ExampleTransactionFactory(
 
   val lfTransactionSeed: LfHash = LfHash.deriveTransactionSeed(
     ExampleTransactionFactory.submissionSeed,
-    ExampleTransactionFactory.submitterParticipant.toLf,
+    ExampleTransactionFactory.submittingParticipant.toLf,
     submissionTime.toLf,
   )
 
@@ -569,7 +570,7 @@ class ExampleTransactionFactory(
   ): TransactionView = {
 
     val submittingAdminPartyO =
-      Option.when(isRoot)(submitterMetadata.submitterParticipant.adminParty.toLf)
+      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
     val (rawInformees, rawThreshold) =
       Await.result(
         confirmationPolicy.informeesAndThreshold(node, topologySnapshot),
@@ -650,7 +651,7 @@ class ExampleTransactionFactory(
       NonEmpty(Set, submitter),
       applicationId,
       commandId,
-      submitterParticipant,
+      submittingParticipant,
       Salt.tryDeriveSalt(transactionSeed, 0, cryptoOps),
       DefaultDamlValues.submissionId().some,
       DeduplicationDuration(JDuration.ofSeconds(100)),
@@ -705,8 +706,8 @@ class ExampleTransactionFactory(
         )
     }
 
-  def informeeTree(rootViews: MerkleTree[TransactionView]*): InformeeTree =
-    InformeeTree.tryCreate(
+  def mkFullInformeeTree(rootViews: MerkleTree[TransactionView]*): FullInformeeTree =
+    FullInformeeTree.tryCreate(
       GenTransactionTree.tryCreate(cryptoOps)(
         blinded(submitterMetadata),
         commonMetadata,
@@ -772,10 +773,7 @@ class ExampleTransactionFactory(
 
     override def transactionTree: GenTransactionTree = genTransactionTree()
 
-    override def fullInformeeTree: FullInformeeTree = informeeTree().tryToFullInformeeTree
-
-    override def informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (Set.empty[LfPartyId], informeeTree())
+    override def fullInformeeTree: FullInformeeTree = mkFullInformeeTree()
 
     override def reinterpretedSubtransactions: Seq[
       (
@@ -889,12 +887,9 @@ class ExampleTransactionFactory(
 
     override lazy val transactionTree: GenTransactionTree = genTransactionTree(view0)
 
-    override lazy val fullInformeeTree: FullInformeeTree = informeeTree(
+    override lazy val fullInformeeTree: FullInformeeTree = mkFullInformeeTree(
       blindedForInformeeTree(view0)
-    ).tryToFullInformeeTree
-
-    override lazy val informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (Set.empty, informeeTree(blinded(view0)))
+    )
 
     override lazy val rootTransactionViewTrees: Seq[FullTransactionViewTree] = transactionViewTrees
 
@@ -1237,10 +1232,7 @@ class ExampleTransactionFactory(
     override def transactionTree: GenTransactionTree = genTransactionTree(rootViews: _*)
 
     override def fullInformeeTree: FullInformeeTree =
-      informeeTree(rootViews.map(blindedForInformeeTree(_)): _*).tryToFullInformeeTree
-
-    override def informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (Set.empty, informeeTree(rootViews.map(blinded): _*))
+      mkFullInformeeTree(rootViews.map(blindedForInformeeTree(_)): _*)
 
     override def reinterpretedSubtransactions: Seq[
       (
@@ -1642,21 +1634,12 @@ class ExampleTransactionFactory(
     override lazy val transactionTree: GenTransactionTree = genTransactionTree(view0, view1)
 
     override lazy val fullInformeeTree: FullInformeeTree =
-      informeeTree(
+      mkFullInformeeTree(
         blindedForInformeeTree(view0),
         blindedForInformeeTree(
           view1,
           blindedForInformeeTree(view10),
           blindedForInformeeTree(view11, blindedForInformeeTree(view110)),
-        ),
-      ).tryToFullInformeeTree
-
-    override lazy val informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (
-        Set(observer),
-        informeeTree(
-          blindedForInformeeTree(view0),
-          leafsBlinded(view1, blinded(view10), blindedForInformeeTree(view11, blinded(view110))),
         ),
       )
 
@@ -2243,7 +2226,7 @@ class ExampleTransactionFactory(
     override lazy val transactionTree: GenTransactionTree = genTransactionTree(view0, view1, view2)
 
     override lazy val fullInformeeTree: FullInformeeTree =
-      informeeTree(
+      mkFullInformeeTree(
         blindedForInformeeTree(view0),
         blindedForInformeeTree(
           view1,
@@ -2251,20 +2234,6 @@ class ExampleTransactionFactory(
           blindedForInformeeTree(view11, blindedForInformeeTree(view110)),
         ),
         blindedForInformeeTree(view2),
-      ).tryToFullInformeeTree
-
-    override lazy val informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (
-        Set(observer),
-        informeeTree(
-          blindedForInformeeTree(view0),
-          leafsBlinded(
-            view1,
-            leafsBlinded(view10, blindedForInformeeTree(view100)),
-            leafsBlinded(view11, blindedForInformeeTree(view110)),
-          ),
-          blindedForInformeeTree(view2),
-        ),
       )
 
     val transactionViewTree0: FullTransactionViewTree =
@@ -2680,15 +2649,9 @@ class ExampleTransactionFactory(
       genTransactionTree(view0, view1)
 
     override def fullInformeeTree: FullInformeeTree =
-      informeeTree(
+      mkFullInformeeTree(
         blindedForInformeeTree(view0),
         blindedForInformeeTree(view1, blindedForInformeeTree(view10)),
-      ).tryToFullInformeeTree
-
-    override def informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (
-        Set(observer),
-        informeeTree(blindedForInformeeTree(view0), blindedForInformeeTree(view1, blinded(view10))),
       )
 
     val transactionViewTree0: FullTransactionViewTree =

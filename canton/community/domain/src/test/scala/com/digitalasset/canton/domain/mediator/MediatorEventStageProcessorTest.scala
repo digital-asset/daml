@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.store.{
   InMemoryFinalizedResponseStore,
@@ -142,7 +142,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
 
     val informeeMessage = mock[InformeeMessage]
     when(informeeMessage.domainId).thenReturn(domainId)
-    when(informeeMessage.rootHash).thenReturn(None)
+    when(informeeMessage.rootHash).thenReturn(RootHash(TestHash.digest(0)))
 
     val mediatorResponse = mock[MediatorResponse]
     when(mediatorResponse.representativeProtocolVersion).thenReturn(

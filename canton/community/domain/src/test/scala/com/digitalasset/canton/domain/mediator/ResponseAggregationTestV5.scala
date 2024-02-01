@@ -135,7 +135,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         viewPosition: ViewPosition,
         verdict: LocalVerdict,
         confirmingParties: Set[LfPartyId],
-        rootHashO: Option[RootHash],
+        rootHash: RootHash,
         sender: ParticipantId = solo,
     ): MediatorResponse =
       MediatorResponse.tryCreate(
@@ -143,7 +143,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         sender,
         Some(viewPosition),
         verdict,
-        rootHashO,
+        Some(rootHash),
         confirmingParties,
         domainId,
         testedProtocolVersion,
@@ -168,7 +168,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val requestId = RequestId(CantonTimestamp.Epoch)
       val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
       val rootHash = informeeMessage.rootHash
-      val someOtherRootHash = Some(RootHash(TestHash.digest(12345)))
+      val someOtherRootHash = RootHash(TestHash.digest(12345))
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]
       when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]]))
@@ -212,7 +212,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
           solo,
           Some(view1Position),
           LocalApprove(testedProtocolVersion),
-          someOtherRootHash,
+          Some(someOtherRootHash),
           Set(alice.party),
           domainId,
           testedProtocolVersion,
@@ -224,7 +224,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
             .futureValue,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
-            _ shouldBe show"Received a mediator response at $responseTs by $solo for request $requestId with an invalid root hash ${someOtherRootHash.showValue} instead of ${rootHash.showValue}. Discarding response...",
+            _ shouldBe show"Received a mediator response at $responseTs by $solo for request $requestId with an invalid root hash ${someOtherRootHash} instead of ${rootHash}. Discarding response...",
           ),
         )
         result shouldBe None
@@ -534,11 +534,15 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
       describe("for a single view") {
         it("should update the pending confirming parties set for all hosted parties") {
-          val response = mkResponse(
-            view1Position,
+          val response = MediatorResponse.tryCreate(
+            requestId,
+            solo,
+            Some(view1Position),
             testReject("malformed view"),
-            Set.empty,
             None,
+            Set.empty,
+            domainId,
+            testedProtocolVersion,
           )
           val result = loggerFactory.assertLogs(
             valueOrFail(

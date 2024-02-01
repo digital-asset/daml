@@ -51,10 +51,10 @@ class TransferOutValidationTest
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
       submitter,
-      DefaultDamlValues.lfApplicationId(),
-      participant.toLf,
+      participant,
       DefaultDamlValues.lfCommandId(),
       submissionId = None,
+      DefaultDamlValues.lfApplicationId(),
       workflowId = None,
     )
   }

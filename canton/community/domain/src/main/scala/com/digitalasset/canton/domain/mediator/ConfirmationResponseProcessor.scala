@@ -247,7 +247,7 @@ private[mediator] class ConfirmationResponseProcessor(
             } yield {
               timeTracker.requestTick(participantResponseDeadline)
               logger.info(
-                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewHash.size} view(s). Initial state: ${aggregation.showMergedState}"
+                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
               )
             }
 
@@ -464,43 +464,35 @@ private[mediator] class ConfirmationResponseProcessor(
         distinctPayloads.sizeCompare(1) <= 0,
         show"Different payloads in root hash messages. Sizes: ${distinctPayloads.map(_.bytes.size).mkShow()}.",
       )
-      _ <- request.rootHash match {
-        case None =>
+      wrongHashes = wrongRootHashes(request.rootHash)
+      wrongViewTypes = wrongViewType(request.viewType)
+      wrongMembersF = RootHashMessageRecipients.wrongMembers(
+        rootHashMessagesRecipients,
+        request,
+        topologySnapshot,
+      )
+      _ <- for {
+        _ <- EitherTUtil
+          .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
+        wrongMems <- EitherT.liftF(wrongMembersF)
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongViewTypes.isEmpty,
+          show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
+        )
+        _ <-
           EitherTUtil.condUnitET[Future](
-            rootHashMessages.isEmpty,
-            show"No root hash messages expected, but received for recipients: $rootHashMessagesRecipients",
+            wrongMems.missingInformeeParticipants.isEmpty,
+            show"Missing root hash message for informee participants: ${wrongMems.missingInformeeParticipants}",
           )
-        case Some(rootHash) =>
-          val wrongHashes = wrongRootHashes(rootHash)
-          val wrongViewTypes = wrongViewType(request.viewType)
-          val wrongMembersF = RootHashMessageRecipients.wrongMembers(
-            rootHashMessagesRecipients,
-            request,
-            topologySnapshot,
-          )
-          for {
-            _ <- EitherTUtil
-              .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
-            wrongMems <- EitherT.liftF(wrongMembersF)
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongViewTypes.isEmpty,
-              show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
-            )
-            _ <-
-              EitherTUtil.condUnitET[Future](
-                wrongMems.missingInformeeParticipants.isEmpty,
-                show"Missing root hash message for informee participants: ${wrongMems.missingInformeeParticipants}",
-              )
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongMems.superfluousMembers.isEmpty,
-              show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
-            )
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongMems.superfluousInformees.isEmpty,
-              show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
-            )
-          } yield ()
-      }
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongMems.superfluousMembers.isEmpty,
+          show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
+        )
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongMems.superfluousInformees.isEmpty,
+          show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
+        )
+      } yield ()
     } yield ()
 
     unitOrRejectionReason.leftMap { rejectionReason =>
@@ -620,7 +612,7 @@ private[mediator] class ConfirmationResponseProcessor(
           .leftMap(err =>
             MediatorError.MalformedMessage
               .Reject(
-                s"$domainId (requestId: $ts): invalid signature from ${response.sender} with $err"
+                s"$domainId (timestamp: $ts): invalid signature from ${response.sender} with $err"
               )
               .report()
           )

@@ -12,7 +12,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId, Util}
+import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
@@ -100,12 +100,14 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newWorkStealingExecutor(
         metrics.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
+        metrics.executorServiceMetrics,
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
       InstrumentedExecutors.newFixedThreadPool(
         metrics.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
+        metrics.executorServiceMetrics,
       )
     )
     logger = loggerFactory.getTracedLogger(getClass)
@@ -244,7 +246,7 @@ private[platform] object InMemoryStateUpdater {
                 arg = createdEvent.createArgument,
               ),
               globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.unversioned, Util.sharedKey(k.version))
+                Key.assertBuild(createdEvent.templateId, k.unversioned, true)
               ),
               ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
@@ -259,7 +261,7 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Archived(
               contractId = exercisedEvent.contractId,
               globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(exercisedEvent.templateId, k.unversioned, Util.sharedKey(k.version))
+                Key.assertBuild(exercisedEvent.templateId, k.unversioned, true)
               ),
               stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = exercisedEvent.eventOffset,

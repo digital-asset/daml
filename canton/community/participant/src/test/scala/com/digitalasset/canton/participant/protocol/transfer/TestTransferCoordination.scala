@@ -105,13 +105,13 @@ private[transfer] object TestTransferCoordination {
       .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(VettedPackages(_, packages)).toSeq)
       .build(loggerFactory)
-      .forOwner(submitterParticipant)
+      .forOwner(submittingParticipant)
 
   private val observerParticipant1: ParticipantId = ParticipantId("observerParticipant1")
   private val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")
 
   private val defaultTopology = Map(
-    submitterParticipant -> Map(submitter -> Submission),
+    submittingParticipant -> Map(submitter -> Submission),
     signatoryParticipant -> Map(signatory -> Submission),
     observerParticipant1 -> Map(observer -> Confirmation),
     observerParticipant2 -> Map(observer -> Observation),

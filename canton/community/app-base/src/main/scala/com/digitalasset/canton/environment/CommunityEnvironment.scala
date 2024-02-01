@@ -18,10 +18,10 @@ import com.digitalasset.canton.console.{
   GrpcAdminCommandRunner,
   HealthDumpGenerator,
   Help,
-  LocalInstanceReferenceCommon,
-  LocalMediatorReferenceX,
-  LocalParticipantReferenceX,
-  LocalSequencerNodeReferenceX,
+  LocalInstanceReference,
+  LocalMediatorReference,
+  LocalParticipantReference,
+  LocalSequencerNodeReference,
   StandardConsoleOutput,
 }
 import com.digitalasset.canton.crypto.CommunityCryptoFactory
@@ -169,11 +169,11 @@ class CommunityConsoleEnvironment(
   override def health: CantonHealthAdministration[Status] =
     health_
 
-  override def startupOrderPrecedence(instance: LocalInstanceReferenceCommon): Int =
+  override def startupOrderPrecedence(instance: LocalInstanceReference): Int =
     instance match {
-      case _: LocalSequencerNodeReferenceX => 1
-      case _: LocalMediatorReferenceX => 2
-      case _: LocalParticipantReferenceX => 3
+      case _: LocalSequencerNodeReference => 1
+      case _: LocalMediatorReference => 2
+      case _: LocalParticipantReference => 3
       case _ => 4
     }
 }

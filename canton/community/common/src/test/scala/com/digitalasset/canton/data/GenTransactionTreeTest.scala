@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.LightTransactionViewTree.InvalidLightTransactionViewTree
-import com.digitalasset.canton.data.MerkleTree.RevealIfNeedBe
+import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, RevealSubtree}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{
   MemberRecipient,
@@ -65,15 +65,10 @@ class GenTransactionTreeTest
 
       val fullInformeeTree = transactionTree.tryFullInformeeTree(testedProtocolVersion)
 
-      val expectedInformeesAndThresholdByView = example.viewWithSubviews.map { case (view, _) =>
-        val viewCommonData = view.viewCommonData.tryUnwrap
-        ViewHash
-          .fromRootHash(view.rootHash) -> ((viewCommonData.informees, viewCommonData.threshold))
+      val expectedInformeesAndThresholdByView = example.transactionViewTrees.map { viewTree =>
+        val viewCommonData = viewTree.view.viewCommonData.tryUnwrap
+        viewTree.viewPosition -> ((viewCommonData.informees, viewCommonData.threshold))
       }.toMap
-
-      "be converted between informee and full informee tree" in {
-        example.fullInformeeTree.toInformeeTree.tryToFullInformeeTree shouldEqual example.fullInformeeTree
-      }
 
       "compute the set of informees" in {
         example.fullInformeeTree.allInformees shouldEqual example.allInformees
@@ -82,28 +77,7 @@ class GenTransactionTreeTest
       "compute the full informee tree" in {
         fullInformeeTree should equal(example.fullInformeeTree)
 
-        fullInformeeTree.informeeTreeUnblindedFor(
-          example.allInformees,
-          testedProtocolVersion,
-        ) should equal(example.fullInformeeTree.toInformeeTree)
-
-        fullInformeeTree.informeesAndThresholdByViewHash shouldEqual expectedInformeesAndThresholdByView
-      }
-
-      "compute a partially blinded informee tree" in {
-        val (parties, expectedInformeeTree) = example.informeeTreeBlindedFor
-
-        fullInformeeTree.informeeTreeUnblindedFor(parties, testedProtocolVersion) should equal(
-          expectedInformeeTree
-        )
-
-        val expectedInformeesByView = expectedInformeesAndThresholdByView
-          .map { case (viewHash, (informees, _)) => viewHash -> informees }
-          .filter { case (_, informees) =>
-            informees.exists(i => parties.contains(i.party))
-          }
-
-        expectedInformeeTree.informeesByViewHash shouldEqual expectedInformeesByView
+        fullInformeeTree.informeesAndThresholdByViewPosition shouldEqual expectedInformeesAndThresholdByView
       }
 
       "be serialized and deserialized" in {
@@ -111,13 +85,6 @@ class GenTransactionTreeTest
         FullInformeeTree.fromByteString(factory.cryptoOps, testedProtocolVersion)(
           fullInformeeTree.toByteString
         ) shouldEqual Right(fullInformeeTree)
-
-        val (_, informeeTree) = example.informeeTreeBlindedFor
-        InformeeTree.fromByteString(factory.cryptoOps, testedProtocolVersion)(
-          informeeTree.toByteString
-        ) shouldEqual Right(
-          informeeTree
-        )
 
         forAll(example.transactionTree.allLightTransactionViewTrees()) { lt =>
           LightTransactionViewTree.fromByteString((example.cryptoOps, testedProtocolVersion))(
@@ -444,7 +411,7 @@ class GenTransactionTreeTest
     }
   }
 
-  "An informee tree" when {
+  "A full informee tree" when {
 
     val example = factory.MultipleRootsAndViewNestings
 
@@ -458,14 +425,14 @@ class GenTransactionTreeTest
           )
 
         val corruptedGlobalMetadataMessage = Left(
-          "The submitter metadata of an informee tree must be blinded. " +
+          "The submitter metadata of a full informee tree must be blinded. " +
             "The common metadata of an informee tree must be unblinded. " +
             "The participant metadata of an informee tree must be blinded."
         )
 
         val globalMetadataIncorrectlyBlinded1 =
-          corruptGlobalMetadataBlinding(example.informeeTreeBlindedFor._2.tree)
-        InformeeTree.create(
+          corruptGlobalMetadataBlinding(example.fullInformeeTree.tree)
+        FullInformeeTree.create(
           globalMetadataIncorrectlyBlinded1,
           testedProtocolVersion,
         ) shouldEqual corruptedGlobalMetadataMessage
@@ -482,7 +449,7 @@ class GenTransactionTreeTest
     "view metadata is incorrectly unblinded" must {
       "reject creation" in {
         val Seq(_, view1Unblinded) = example.transactionTree.rootViews.unblindedElements
-        val informeeTree = example.fullInformeeTree.toInformeeTree.tree
+        val informeeTree = example.fullInformeeTree.tree
         val Seq(_, view1) = informeeTree.rootViews.unblindedElements
 
         val view1WithParticipantDataUnblinded =
@@ -497,7 +464,7 @@ class GenTransactionTreeTest
         val corruptedViewMetadataMessage = "(?s)" +
           "The view participant data in an informee tree must be blinded\\. Found .*\\."
 
-        InformeeTree
+        FullInformeeTree
           .create(treeWithViewMetadataUnblinded, testedProtocolVersion)
           .left
           .value should fullyMatch regex corruptedViewMetadataMessage
@@ -508,19 +475,29 @@ class GenTransactionTreeTest
           .value should fullyMatch regex corruptedViewMetadataMessage
       }
     }
-  }
-
-  "A full informee tree" when {
-
-    val example = factory.MultipleRootsAndViewNestings
 
     "a view is blinded" should {
       "reject creation" in {
-        val allBlinded =
-          example.fullInformeeTree.informeeTreeUnblindedFor(Set.empty, testedProtocolVersion).tree
+        // Keep metadata of view0 and view1 unblinded, blind every other view
+        val hashesOfUnblindedViews = Set(example.view0.viewHash, example.view1.viewHash)
+
+        val partiallyBlindedTree =
+          example.fullInformeeTree.tree.blind {
+            {
+              case _: GenTransactionTree => RevealIfNeedBe
+              case _: CommonMetadata => RevealSubtree
+              case _: SubmitterMetadata => RevealSubtree
+
+              case v: TransactionView =>
+                if (hashesOfUnblindedViews.contains(v.viewHash))
+                  RevealIfNeedBe // Necessary to reveal view0 and view1
+                else BlindSubtree // This will blind every other view
+              case _: ViewCommonData => RevealSubtree // Necessary to reveal view0 and view1
+            }
+          }.tryUnwrap
 
         FullInformeeTree
-          .create(allBlinded, testedProtocolVersion)
+          .create(partiallyBlindedTree, testedProtocolVersion)
           .left
           .value should fullyMatch regex "(?s)All views in a full informee tree must be unblinded\\. Found .*\\."
       }

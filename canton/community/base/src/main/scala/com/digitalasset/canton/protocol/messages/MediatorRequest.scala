@@ -7,7 +7,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash}
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.MediatorRef
 
 import java.util.UUID
@@ -16,8 +16,6 @@ trait MediatorRequest extends UnsignedProtocolMessage {
   def requestUuid: UUID
 
   def mediator: MediatorRef
-
-  def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)]
 
   def informeesAndThresholdByViewPosition: Map[ViewPosition, (Set[Informee], NonNegativeInt)]
 
@@ -38,9 +36,8 @@ trait MediatorRequest extends UnsignedProtocolMessage {
   def minimumThreshold(informees: Set[Informee]): NonNegativeInt
 
   /** Returns the hash that all [[com.digitalasset.canton.protocol.messages.RootHashMessage]]s of the request batch should contain.
-    * [[scala.None$]] indicates that no [[com.digitalasset.canton.protocol.messages.RootHashMessage]] should be in the batch.
     */
-  def rootHash: Option[RootHash]
+  def rootHash: RootHash
 
   def viewType: ViewType
 }

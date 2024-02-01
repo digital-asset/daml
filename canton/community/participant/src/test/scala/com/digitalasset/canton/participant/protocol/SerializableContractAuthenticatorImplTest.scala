@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.daml.lf.transaction.{Util, Versioned}
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef, UniqueIdentifier}
-import com.digitalasset.canton.util.LfTransactionBuilder.{defaultLanguageVersion, defaultTemplateId}
+import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
 import com.digitalasset.canton.{BaseTest, LfPartyId, protocol}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
@@ -143,7 +143,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
             key = LfGlobalKey.assertBuild(
               defaultTemplateId,
               Value.ValueInt64(0),
-              Util.sharedKey(defaultLanguageVersion),
+              true,
             ),
             maintainers = maintainers,
           )

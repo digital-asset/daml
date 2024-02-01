@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{Informee, TransferOutViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{v30, *}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -49,12 +49,6 @@ final case class TransferOutMediatorMessage(
 
   override def requestUuid: UUID = commonData.uuid
 
-  override def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] = {
-    val confirmingParties = commonData.confirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewHash -> ((confirmingParties, threshold)))
-  }
-
   override def informeesAndThresholdByViewPosition
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
     val confirmingParties = commonData.confirmingParties
@@ -89,7 +83,7 @@ final case class TransferOutMediatorMessage(
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV30)
 
-  override def rootHash: Option[RootHash] = Some(tree.rootHash)
+  override def rootHash: RootHash = tree.rootHash
 
   override def viewType: ViewType = ViewType.TransferOutViewType
 
@@ -116,10 +110,12 @@ object TransferOutMediatorMessage
 
   def fromProtoV30(context: (HashOps, ProtocolVersion))(
       transferOutMediatorMessageP: v30.TransferOutMediatorMessage
-  ): ParsingResult[TransferOutMediatorMessage] =
+  ): ParsingResult[TransferOutMediatorMessage] = {
+    val v30.TransferOutMediatorMessage(treePO) =
+      transferOutMediatorMessageP
     for {
       tree <- ProtoConverter
-        .required("TransferOutMediatorMessage.tree", transferOutMediatorMessageP.tree)
+        .required("TransferOutMediatorMessage.tree", treePO)
         .flatMap(TransferOutViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
@@ -130,6 +126,7 @@ object TransferOutMediatorMessage
         OtherError(s"Transfer-out view data is not blinded in request ${tree.rootHash}"),
       )
     } yield TransferOutMediatorMessage(tree)
+  }
 
   override def name: String = "TransferOutMediatorMessage"
 }

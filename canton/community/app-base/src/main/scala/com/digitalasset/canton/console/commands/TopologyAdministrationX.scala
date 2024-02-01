@@ -25,9 +25,8 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceCommon,
-  InstanceReferenceX,
-  ParticipantReferenceX,
+  InstanceReference,
+  ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
@@ -81,7 +80,7 @@ trait InitNodeIdX extends ConsoleCommandGroup {
 }
 
 class TopologyAdministrationGroupX(
-    instance: InstanceReferenceX,
+    instance: InstanceReference,
     topologyQueueStatus: => Option[TopologyQueueStatus],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
@@ -819,13 +818,13 @@ class TopologyAdministrationGroupX(
       """
     )
     def rotate_key(
-        nodeInstance: InstanceReferenceCommon,
+        nodeInstance: InstanceReference,
         member: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
         synchronize: Option[config.NonNegativeDuration],
     ): Unit = nodeInstance match {
-      case nodeInstanceX: InstanceReferenceX =>
+      case nodeInstanceX: InstanceReference =>
         val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
         require(
           keysInStore.contains(currentKey),
@@ -877,7 +876,7 @@ class TopologyAdministrationGroupX(
         }
       case _ =>
         throw new IllegalArgumentException(
-          "InstanceReferenceX.owner_to_key_mapping.rotate_key called with a non-XNode"
+          "InstanceReference.owner_to_key_mapping.rotate_key called with a non-XNode"
         )
     }
 
@@ -893,7 +892,7 @@ class TopologyAdministrationGroupX(
         add: Boolean,
         mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-        nodeInstance: InstanceReferenceX,
+        nodeInstance: InstanceReference,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
       val publicKey = nodeInstance.keys.secret.list(
@@ -2044,7 +2043,7 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReferenceX] = consoleEnvironment.participantsX.all,
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participantsX.all,
         force: Boolean = false,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
 
@@ -2121,7 +2120,7 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReferenceX] = consoleEnvironment.participantsX.all,
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participantsX.all,
         force: Boolean = false,
     ): Unit = {
       val domainStore = domainId.filterString

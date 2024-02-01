@@ -168,6 +168,7 @@ object DbDispatcher {
                     .error("Uncaught exception in the SQL executor.", e)(TraceContext.empty)
                 )
                 .build(),
+              metrics.executorServiceMetrics,
             ),
           gracefulAwaitTerminationMillis =
             5000, // waiting 5s for ongoing SQL operations to finish and then forcing them with Thread.interrupt...

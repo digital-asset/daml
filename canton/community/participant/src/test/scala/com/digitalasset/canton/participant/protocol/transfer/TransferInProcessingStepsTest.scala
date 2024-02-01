@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
   TransferStoreTest,
 }
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, submitterParticipant}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, submittingParticipant}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -91,10 +91,10 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
       submitter,
-      LedgerApplicationId.assertFromString("tests"),
-      participant.toLf,
+      participant,
       LedgerCommandId.assertFromString("transfer-in-processing-steps-command-id"),
       submissionId = None,
+      LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
   }
@@ -102,14 +102,14 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
-      Map(submitterParticipant -> Map(party1 -> ParticipantPermission.Submission))
+      Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
   private val cryptoSnapshot =
     identityFactory
-      .forOwnerAndDomain(submitterParticipant, sourceDomain.unwrap)
+      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private val pureCrypto = TestingIdentityFactory.pureCrypto()
@@ -314,7 +314,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
       val failingTopology = TestingTopology(domains = Set(sourceDomain.unwrap))
         .withReversedTopology(
-          Map(submitterParticipant -> Map(party1 -> ParticipantPermission.Observation))
+          Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Observation))
         )
         .build(loggerFactory)
       val cryptoSnapshot2 = failingTopology
@@ -407,7 +407,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       TransferResultHelpers.transferOutResult(
         sourceDomain,
         cryptoSnapshot,
-        submitterParticipant,
+        submittingParticipant,
       )
     val inTree =
       makeFullTransferInTree(
@@ -533,7 +533,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       TransferResultHelpers.transferOutResult(
         sourceDomain,
         cryptoSnapshot,
-        submitterParticipant,
+        submittingParticipant,
       )
 
     "fail when wrong stakeholders given" in {
@@ -688,7 +688,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
     new TransferInProcessingSteps(
       targetDomain,
-      submitterParticipant,
+      submittingParticipant,
       damle,
       TestTransferCoordination.apply(
         Set(),

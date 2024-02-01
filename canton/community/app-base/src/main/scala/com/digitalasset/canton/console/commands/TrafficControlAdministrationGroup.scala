@@ -11,7 +11,7 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceX,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 class TrafficControlAdministrationGroup(
-    instance: InstanceReferenceX,
+    instance: InstanceReference,
     topology: TopologyAdministrationGroupX,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,

@@ -12,15 +12,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, Informee,
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
-import com.digitalasset.canton.protocol.messages.{
-  LocalApprove,
-  LocalReject,
-  LocalVerdict,
-  Malformed,
-  MediatorRequest,
-  MediatorResponse,
-}
-import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash}
+import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.util.ErrorUtil
@@ -132,10 +125,10 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
     for {
       _ <- OptionT.fromOption[Future](rootHashO.traverse_ { rootHash =>
-        if (request.rootHash.forall(_ == rootHash)) Some(())
+        if (request.rootHash == rootHash) Some(())
         else {
           val cause =
-            show"Received a mediator response at $responseTimestamp by $sender for request $requestId with an invalid root hash $rootHash instead of ${request.rootHash.showValueOrNone}. Discarding response..."
+            show"Received a mediator response at $responseTimestamp by $sender for request $requestId with an invalid root hash $rootHash instead of ${request.rootHash}. Discarding response..."
           val alarm = MediatorError.MalformedMessage.Reject(cause)
           alarm.report()
 
@@ -230,17 +223,5 @@ object ViewKey {
       request.informeesAndThresholdByViewPosition
 
     override def treeOf(t: ViewPosition): Tree = t.pretty.treeOf(t)
-  }
-  implicit case object ViewHashKey extends ViewKey[ViewHash] {
-    override def name: String = "view hash"
-
-    override def keyOfResponse(response: MediatorResponse): Option[ViewHash] = None
-
-    override def informeesAndThresholdByKey(
-        request: MediatorRequest
-    ): Map[ViewHash, (Set[Informee], NonNegativeInt)] =
-      request.informeesAndThresholdByViewHash
-
-    override def treeOf(t: ViewHash): Tree = t.pretty.treeOf(t)
   }
 }

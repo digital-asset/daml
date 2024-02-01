@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
-import com.digitalasset.canton.console.ParticipantReferenceCommon
+import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.topology.PartyId
@@ -22,8 +22,8 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
     */
   def runCycle(
       partyId: PartyId,
-      participant1: ParticipantReferenceCommon,
-      participant2: ParticipantReferenceCommon,
+      participant1: ParticipantReference,
+      participant2: ParticipantReference,
       commandId: String = "",
   ): Unit = {
 
@@ -59,7 +59,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
   }
 
   def createCycleContract(
-      participant: ParticipantReferenceCommon,
+      participant: ParticipantReference,
       partyId: PartyId,
       id: String,
       commandId: String = "",

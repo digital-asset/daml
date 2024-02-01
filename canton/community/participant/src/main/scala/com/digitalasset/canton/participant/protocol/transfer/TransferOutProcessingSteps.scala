@@ -650,7 +650,7 @@ class TransferOutProcessingSteps(
         .leftMap[TransferProcessorError](FieldConversionError(transferId, "Transaction Id", _))
 
       completionInfo =
-        Option.when(participantId.toLf == submitterMetadata.submittingParticipant)(
+        Option.when(participantId == submitterMetadata.submittingParticipant)(
           CompletionInfo(
             actAs = List(submitterMetadata.submitter),
             applicationId = submitterMetadata.applicationId,

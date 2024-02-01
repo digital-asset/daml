@@ -82,6 +82,7 @@ object ParallelIndexerFactory {
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
+                    metrics.executorServiceMetrics,
                     throwable =>
                       logger
                         .error(

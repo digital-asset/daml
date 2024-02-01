@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.config.CommunityStorageConfig
-import com.digitalasset.canton.console.{CommandFailure, InstanceReferenceX}
+import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -44,7 +44,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
           domainAlias,
           Seq(sequencer1x),
           Seq(mediator1x),
-          Seq[InstanceReferenceX](sequencer1x, mediator1x),
+          Seq[InstanceReference](sequencer1x, mediator1x),
         )
 
         sequencer1x.health.wait_for_initialized()

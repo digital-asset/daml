@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v30}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -48,9 +48,6 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
 
   override def mediator: MediatorRef = fullInformeeTree.mediator
 
-  override def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] =
-    fullInformeeTree.informeesAndThresholdByViewHash
-
   override def informeesAndThresholdByViewPosition
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
     fullInformeeTree.informeesAndThresholdByViewPosition
@@ -83,7 +80,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt =
     fullInformeeTree.confirmationPolicy.minimumThreshold(informees)
 
-  override def rootHash: Option[RootHash] = Some(fullInformeeTree.transactionId.toRootHash)
+  override def rootHash: RootHash = fullInformeeTree.transactionId.toRootHash
 
   override def viewType: ViewType = ViewType.TransactionViewType
 
