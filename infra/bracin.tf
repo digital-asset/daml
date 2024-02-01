@@ -1,6 +1,89 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+resource "azurerm_virtual_network" "bracin" {
+  name                = "bracin"
+  location            = azurerm_resource_group.daml-ci.location
+  resource_group_name = azurerm_resource_group.daml-ci.name
+  address_space       = ["10.0.0.0/16"]
+
+  subnet {
+    name           = "subnet"
+    address_prefix = "10.0.0.0/24"
+    security_group = azurerm_network_security_group.bracin.id
+  }
+
+}
+
+resource "azurerm_nat_gateway" "bracin" {
+  name                = "bracin"
+  location            = azurerm_resource_group.daml-ci.location
+  resource_group_name = azurerm_resource_group.daml-ci.name
+}
+
+resource "azurerm_public_ip_prefix" "bracin" {
+  name                = "bracin-ip-prefix"
+  location            = azurerm_resource_group.daml-ci.location
+  resource_group_name = azurerm_resource_group.daml-ci.name
+  prefix_length       = 28
+}
+
+resource "azurerm_nat_gateway_public_ip_prefix_association" "bracin" {
+  nat_gateway_id      = azurerm_nat_gateway.bracin.id
+  public_ip_prefix_id = azurerm_public_ip_prefix.bracin.id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "bracin" {
+  subnet_id      = one(azurerm_virtual_network.bracin.subnet).id
+  nat_gateway_id = azurerm_nat_gateway.bracin.id
+}
+
+resource "azurerm_network_security_group" "bracin" {
+  name                = "bracin"
+  location            = azurerm_resource_group.daml-ci.location
+  resource_group_name = azurerm_resource_group.daml-ci.name
+
+  security_rule {
+    name                       = "deny-inbound"
+    priority                   = 102
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                   = "allow-http-from-vpn"
+    priority               = 100
+    direction              = "Inbound"
+    access                 = "Allow"
+    protocol               = "Tcp"
+    source_port_range      = "*"
+    destination_port_range = "3000"
+    source_address_prefixes = [
+      "35.194.81.56/32",  # North Virginia
+      "35.189.40.124/32", # Sydney
+      "35.198.147.95/32", # Frankfurt
+    ]
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow-internet-for-letsencrypt"
+    priority                   = 101
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
 resource "azurerm_linux_virtual_machine" "bracin" {
   name                  = "bracin"
   location              = azurerm_resource_group.daml-ci.location
@@ -11,7 +94,7 @@ resource "azurerm_linux_virtual_machine" "bracin" {
   os_disk {
     caching              = "ReadOnly"
     storage_account_type = "Standard_LRS"
-    disk_size_gb         = "10"
+    disk_size_gb         = "30"
   }
 
   source_image_reference {
@@ -87,7 +170,7 @@ resource "azurerm_network_interface" "bracin" {
 
   ip_configuration {
     name                          = "public"
-    subnet_id                     = one(azurerm_virtual_network.ubuntu.subnet).id
+    subnet_id                     = one(azurerm_virtual_network.bracin.subnet).id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.bracin.id
   }
@@ -119,4 +202,3 @@ resource "azurerm_role_assignment" "bracin" {
   role_definition_id = azurerm_role_definition.bracin.role_definition_resource_id
   principal_id       = azurerm_linux_virtual_machine.bracin.identity[0].principal_id
 }
-

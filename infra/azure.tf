@@ -49,29 +49,13 @@ resource "azurerm_network_security_group" "ubuntu" {
 
   security_rule {
     name                       = "deny-inbound"
-    priority                   = 101
+    priority                   = 100
     direction                  = "Inbound"
     access                     = "Deny"
     protocol                   = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
     source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                   = "allow-http-from-vpn"
-    priority               = 100
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "Tcp"
-    source_port_range      = "*"
-    destination_port_range = "3000"
-    source_address_prefixes = [
-      "35.194.81.56/32",  # North Virginia
-      "35.189.40.124/32", # Sydney
-      "35.198.147.95/32", # Frankfurt
-    ]
     destination_address_prefix = "*"
   }
 }
