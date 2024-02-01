@@ -10,6 +10,21 @@ import DA.Assert ((===))
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 
+interface I where
+  viewtype EmptyInterfaceView
+
+  pi : Party
+
+  choice C3 : ()
+    controller pi this
+    do pure ()
+  choice C4 : ()
+    with
+      q, r : Party
+    observer r
+    controller pi this, q
+    do pure ()
+    
 template T
   with
     p : Party
@@ -25,25 +40,10 @@ template T
       observer r
       controller p, q
       do pure ()
-
-interface I where
-  viewtype EmptyInterfaceView
-
-  pi : Party
-
-  choice C3 : ()
-    controller pi this
-    do pure ()
-  choice C4 : ()
-    with
-      q, r : Party
-    observer r
-    controller pi this, q
-    do pure ()
-
-  interface instance I for T where
-    view = EmptyInterfaceView
-    pi = p
+      
+    interface instance I for T where
+      view = EmptyInterfaceView
+      pi = p    
 
 main = script do
   a <- allocateParty "a"

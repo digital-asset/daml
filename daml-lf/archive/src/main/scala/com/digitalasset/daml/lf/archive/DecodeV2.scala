@@ -777,26 +777,21 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         methods =>
           sequenceWork(lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _))) {
             choices =>
-              sequenceWork(
-                lfInterface.getCoImplementsList.asScala.view.map(decodeInterfaceCoImplements(_))
-              ) { coImplements =>
-                decodeType(lfInterface.getView) { view =>
-                  Ret(
-                    DefInterface.build(
-                      requires =
-                        if (lfInterface.getRequiresCount != 0) {
-                          assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
-                          lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
-                        } else
-                          List.empty,
-                      param = getInternedName(lfInterface.getParamInternedStr),
-                      choices,
-                      methods,
-                      coImplements,
-                      view,
-                    )
+              decodeType(lfInterface.getView) { view =>
+                Ret(
+                  DefInterface.build(
+                    requires =
+                      if (lfInterface.getRequiresCount != 0) {
+                        assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
+                        lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
+                      } else
+                        List.empty,
+                    param = getInternedName(lfInterface.getParamInternedStr),
+                    choices,
+                    methods,
+                    view,
                   )
-                }
+                )
               }
           }
       }
@@ -810,19 +805,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           InterfaceMethod(
             name = getInternedName(lfMethod.getMethodInternedName),
             returnType,
-          )
-        )
-      }
-    }
-
-    private[this] def decodeInterfaceCoImplements(
-        lfCoImpl: PLF.DefInterface.CoImplements
-    ): Work[InterfaceCoImplements] = {
-      bindWork(decodeInterfaceInstanceBody(lfCoImpl.getBody)) { body =>
-        Ret(
-          InterfaceCoImplements.build(
-            templateId = decodeTypeConName(lfCoImpl.getTemplate),
-            body,
           )
         )
       }

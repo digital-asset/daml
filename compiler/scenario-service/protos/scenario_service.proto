@@ -284,17 +284,11 @@ message ScenarioError {
       string context = 2;
     }
 
-    message AmbiguousInterfaceInstance {
-      string instance = 1;
-      string context = 2;
-    }
-    
     oneof error {
       NotFound not_found = 1;
-      AmbiguousInterfaceInstance ambiguous_interface_instance = 2;
     }
-    PackageMetadata package_metadata = 3; // optional
-    string package_id = 4;
+    PackageMetadata package_metadata = 2; // optional
+    string package_id = 3;
   }
 
   // The state of the ledger at the time of the error

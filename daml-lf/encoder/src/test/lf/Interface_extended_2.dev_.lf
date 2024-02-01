@@ -23,14 +23,6 @@ module InterfaceExtMod {
     precondition True;
     signatories Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
     observers Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
-
-    implements InterfaceExtMod:Root {
-      view = RecordMod:MyUnit {};
-    };
-    implements InterfaceExtMod:Boxy {
-      view = RecordMod:MyUnit {};
-      method getParty = InterfaceExtMod:Box {party} this;
-    };
   };
 
   val unsafeBoxyToBox: ContractId InterfaceMod:Boxy -> InterfaceMod:Boxy -> InterfaceMod:Box =

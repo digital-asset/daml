@@ -226,9 +226,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
 
            interface (this: Root) = {
              viewtype Mod:MyUnit;
-             coimplements Mod0:Parcel {
-               view = Mod:MyUnit {};
-             };
            };
 
            interface (this: Boxy) = {
@@ -239,10 +236,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
                , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)
                , observers Nil @Party
                to upure @Int64 i;
-             coimplements Mod0:Parcel {
-               view = Mod:MyUnit {};
-               method getParty = Mod0:Parcel {party} this;
-             };
            };
          }
 

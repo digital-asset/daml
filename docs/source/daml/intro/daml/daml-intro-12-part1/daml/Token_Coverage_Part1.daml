@@ -18,6 +18,10 @@ template T1 with owner : Party where
   nonconsuming choice C_T1_2 : ()
     controller owner
     do pure ()
+    
+  interface instance I for T1 where
+    view = IView
+    getController = owner  
 
 template T2 with owner : Party where
   signatory owner
@@ -29,6 +33,10 @@ template T2 with owner : Party where
   nonconsuming choice C_T2_2 : ()
     controller owner
     do pure ()
+  
+  interface instance I for T2 where
+    view = IView
+    getController = owner
 
 template T3 with owner : Party where
   signatory owner
@@ -56,14 +64,6 @@ interface I where
   nonconsuming choice C_I_2 : ()
     controller (getController this)
     do pure ()
-
-  interface instance I for T1 where
-    view = IView
-    getController = owner
-
-  interface instance I for T2 where
-    view = IView
-    getController = owner
 -- INTERFACE_DEFINITIONS_END
 
 -- ALLOCATE_PARTY_START

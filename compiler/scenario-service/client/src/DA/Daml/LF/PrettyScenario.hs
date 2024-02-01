@@ -508,12 +508,7 @@ prettyScenarioErrorError lvl (Just err) =  do
               "Failed to find " <> scenarioError_LookupError_NotFoundNotFound <>
                 if scenarioError_LookupError_NotFoundNotFound == scenarioError_LookupError_NotFoundContext
                   then ""
-                  else " when looking for " <> scenarioError_LookupError_NotFoundContext
-            Just (ScenarioError_LookupErrorErrorAmbiguousInterfaceInstance ScenarioError_LookupError_AmbiguousInterfaceInstance {..}) ->
-              "Multiple possible instances of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceInstance <>
-                if scenarioError_LookupError_AmbiguousInterfaceInstanceInstance == scenarioError_LookupError_AmbiguousInterfaceInstanceContext
-                  then ""
-                  else " in the context of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceContext
+                  else " when looking for " <> scenarioError_LookupError_NotFoundContext     
             Nothing -> "Unknown Lookup error"
       pure $ vcat
         [ text $ TL.toStrict errMsg

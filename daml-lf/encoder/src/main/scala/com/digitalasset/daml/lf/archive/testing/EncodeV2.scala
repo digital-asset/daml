@@ -850,7 +850,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
         builder.accumulateLeft(interface.requires)(_ addRequires _)
       }
-      builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
       builder.setView(interface.view)
       builder.build()
     }
@@ -862,16 +861,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val b = PLF.InterfaceMethod.newBuilder()
       b.setMethodInternedName(stringsTable.insert(name))
       b.setType(method.returnType)
-      b.build()
-    }
-
-    private implicit def encodeInterfaceCoImplements(
-        templateWithCoImplements: (TypeConName, InterfaceCoImplements)
-    ): PLF.DefInterface.CoImplements = {
-      val (template, coImplements) = templateWithCoImplements
-      val b = PLF.DefInterface.CoImplements.newBuilder()
-      b.setTemplate(template)
-      b.setBody(coImplements.body)
       b.build()
     }
 

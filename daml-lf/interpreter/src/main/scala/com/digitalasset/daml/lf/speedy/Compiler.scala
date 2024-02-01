@@ -433,15 +433,6 @@ private[lf] final class Compiler(
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
       }
-      iface.coImplements.values.foreach { coimpl =>
-        compileInterfaceInstance(
-          parent = ifaceId,
-          tmplParam = iface.param,
-          interfaceId = ifaceId,
-          templateId = coimpl.templateId,
-          interfaceInstanceBody = coimpl.body,
-        ).foreach(addDef)
-      }
     }
 
     builder.result()

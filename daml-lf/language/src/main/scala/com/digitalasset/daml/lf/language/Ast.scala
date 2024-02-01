@@ -745,7 +745,6 @@ object Ast {
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-      coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
       view: Type,
   )
 
@@ -756,7 +755,6 @@ object Ast {
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
-        coImplements: Iterable[GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
@@ -771,12 +769,8 @@ object Ast {
         methods.view.map(c => c.name -> c),
         (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
-      val coImplementsMap = toMapWithoutDuplicate(
-        coImplements.view.map(c => c.templateId -> c),
-        (templateId: TypeConName) =>
-          PackageError(s"repeated interface co-implementation ${templateId.toString}"),
-      )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
+
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, view)
     }
 
     def apply(
@@ -784,10 +778,9 @@ object Ast {
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
-        coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, coImplements, view)
+      GenDefInterface(requires, param, choices, methods, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -795,11 +788,10 @@ object Ast {
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
-          Map[TypeConName, GenInterfaceCoImplements[E]],
           Type,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.coImplements, arg.view))
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.view))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -812,39 +804,6 @@ object Ast {
       name: MethodName,
       returnType: Type,
   )
-
-  final case class GenInterfaceCoImplements[E](
-      templateId: TypeConName,
-      body: GenInterfaceInstanceBody[E],
-  )
-
-  final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
-    def build(
-        templateId: TypeConName,
-        body: GenInterfaceInstanceBody[E],
-    ): GenInterfaceCoImplements[E] =
-      new GenInterfaceCoImplements[E](
-        templateId = templateId,
-        body = body,
-      )
-
-    def apply(
-        templateId: TypeConName,
-        body: GenInterfaceInstanceBody[E],
-    ): GenInterfaceCoImplements[E] =
-      GenInterfaceCoImplements[E](templateId, body)
-
-    def unapply(
-        arg: GenInterfaceCoImplements[E]
-    ): Some[(TypeConName, GenInterfaceInstanceBody[E])] =
-      Some((arg.templateId, arg.body))
-  }
-
-  type InterfaceCoImplements = GenInterfaceCoImplements[Expr]
-  val InterfaceCoImplements = new GenInterfaceCoImplementsCompanion[Expr]
-
-  type InterfaceCoImplementsSignature = GenInterfaceCoImplements[Unit]
-  val InterfaceCoImplementsSignature = new GenInterfaceCoImplementsCompanion[Unit]
 
   final case class GenTemplate[E](
       param: ExprVarName, // Binder for template argument.
