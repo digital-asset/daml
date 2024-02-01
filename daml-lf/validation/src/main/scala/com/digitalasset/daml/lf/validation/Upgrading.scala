@@ -47,78 +47,102 @@ final case class MissingChoice(name: Ref.ChoiceName) extends UpgradeError {
     s"Choice $name appears in package that is being upgraded, but does not appear in this package."
 }
 
-final case class TemplateChangedKeyType(key: Upgrading[Ast.Type]) extends UpgradeError {
-  override def message(): String = s"TemplateChangedKeyType"
+final case class TemplateChangedKeyType(templateName: Ref.DottedName, key: Upgrading[Ast.Type]) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded template $templateName cannot change its key type."
 }
 
-final case class TemplateRemovedKey(key: Ast.TemplateKey) extends UpgradeError {
-  override def message(): String = s"TemplateRemovedKey"
+final case class TemplateRemovedKey(templateName: Ref.DottedName, key: Ast.TemplateKey) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded template $templateName cannot remove its key."
 }
 
-final case class ChoiceChangedReturnType(typ: Upgrading[Ast.Type]) extends UpgradeError {
-  override def message(): String = s"ChoiceChangedReturnType"
+final case class ChoiceChangedReturnType(choice: Ref.ChoiceName, typ: Upgrading[Ast.Type]) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded choice $choice cannot change its return type."
 }
 
-final case class RecordChangedOrigin(origin: Upgrading[UpgradedRecordOrigin]) extends UpgradeError {
-  override def message(): String = "RecordChangedOrigin"
+final case class RecordChangedOrigin(dataConName: Ref.DottedName, origin: Upgrading[UpgradedRecordOrigin]) extends UpgradeError {
+  override def message(): String =
+    s"The record $dataConName has changed origin from ${origin.past} to ${origin.present}"
 }
 
-final case class MismatchDataConsVariety(variety: Upgrading[Ast.DataCons]) extends UpgradeError {
-  override def message(): String = "MismatchDataConsVariety"
+final case class MismatchDataConsVariety(dataConName: Ref.DottedName, variety: Upgrading[Ast.DataCons]) extends UpgradeError {
+  override def message(): String =
+    s"EUpgradeMismatchDataConsVariety $dataConName"
 }
 
-final case class RecordFieldsMissing(fields: Map[Ast.FieldName, Ast.Type]) extends UpgradeError {
-  override def message(): String = "RecordFieldsMissing"
+final case class RecordFieldsMissing(origin: UpgradedRecordOrigin, fields: Map[Ast.FieldName, Ast.Type]) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded $origin is missing some of its original fields."
 }
 
-final case class RecordFieldsExistingChanged(fields: Map[Ast.FieldName, Upgrading[Ast.Type]]) extends UpgradeError {
-  override def message(): String = "RecordFieldsExistingChanged"
+final case class RecordFieldsExistingChanged(origin: UpgradedRecordOrigin, fields: Map[Ast.FieldName, Upgrading[Ast.Type]]) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded $origin has changed the types of some of its original fields."
 }
 
-final case class RecordFieldsNewNonOptional() extends UpgradeError {
-  override def message(): String = "RecordFieldsNewNonOptional"
+final case class RecordFieldsNewNonOptional(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded $origin has added new fields, but those fields are not Optional."
 }
 
-final case class RecordFieldsOrderChanged() extends UpgradeError {
-  override def message(): String = "RecordFieldsOrderChanged"
+final case class RecordFieldsOrderChanged(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String =
+    s"The upgraded $origin has changed the order of its fields - any new fields must be added at the end of the record."
 }
 
 final case class VariantAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "VariantAddedVariant"
+  override def message(): String =
+    s"The upgraded $origin has added a new variant."
 }
 
 final case class VariantRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "VariantRemovedVariant"
+  override def message(): String =
+    s"The upgraded $origin has removed an existing variant."
 }
 
 final case class VariantChangedVariantType(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "VariantChangedVariantType"
+  override def message(): String =
+    s"The upgraded $origin has changed the type of a variant."
 }
 
 final case class VariantAddedVariantField(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "VariantAddedVariantField"
+  override def message(): String =
+    s"The upgraded $origin has added a field."
 }
 
 final case class EnumAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "EnumAddedVariant"
+  override def message(): String =
+    s"The upgraded $origin has added a new variant."
 }
 
 final case class EnumRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String = "EnumRemovedVariant"
-}
-
-final case class UnknownUpgradeError(msg: String) extends UpgradeError {
-  override def message(): String = this.msg
+  override def message(): String =
+    s"The upgraded $origin has removed an existing variant."
 }
 
 sealed abstract class UpgradedRecordOrigin
 
-final case class TemplateBody(template: Ref.DottedName) extends UpgradedRecordOrigin
-final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName)
-    extends UpgradedRecordOrigin
-final case class VariantConstructor(template: Ref.DottedName, choice: Ref.TypeConName)
-    extends UpgradedRecordOrigin
-final case object TopLevel extends UpgradedRecordOrigin
+final case class TemplateBody(template: Ref.DottedName) extends UpgradedRecordOrigin {
+  override def toString(): String =
+    s"template $template"
+}
+
+final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName) extends UpgradedRecordOrigin {
+  override def toString(): String =
+    s"input type of choice $choice on template $template"
+}
+
+final case class VariantConstructor(datatype: Ref.DottedName, variant: Ref.TypeConName) extends UpgradedRecordOrigin {
+  override def toString(): String =
+    s"variant constructor $variant from variant $datatype"
+}
+
+final case class TopLevel(datatype: Ref.DottedName) extends UpgradedRecordOrigin {
+  override def toString(): String =
+    s"datatype $datatype"
+}
 
 object TypecheckUpgrades {
   def typecheckUpgrades(
@@ -220,17 +244,18 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => MissingTemplate(name)
       )
-      _ <- tryAll(existingTemplates.values, checkTemplate(_))
+      _ <- tryAll(existingTemplates, checkTemplate(_))
 
       (existingDatatypes, _new) <- checkDeleted(
         module.map(datatypes(_)),
         (name: Ref.DottedName, _: Ast.DDataType) => MissingDataCon(name),
       )
-      _ <- Try { existingDatatypes.map { case (name, dt) => checkDatatype(moduleWithMetadata, name, dt).get } }
+      _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
     } yield ()
   }
 
-  private def checkTemplate(template: Upgrading[Ast.Template]): Try[Unit] = {
+  private def checkTemplate(templateAndName: (Ref.DottedName, Upgrading[Ast.Template])): Try[Unit] = {
+    val (templateName, template) = templateAndName
     for {
       (existingChoices, _newChoices) <- checkDeleted(
         template.map(_.choices),
@@ -238,7 +263,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       )
 
       _ <- tryAll(existingChoices.values, checkChoice(_))
-      _ <- checkKey(template.map(_.key))
+      _ <- checkKey(templateName, template.map(_.key))
     } yield ()
   }
 
@@ -268,18 +293,18 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  private def checkKey(key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
+  private def checkKey(templateName: Ref.DottedName, key: Upgrading[Option[Ast.TemplateKey]]): Try[Unit] = {
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
         val key = Upgrading(pastKey.typ, presentKey.typ)
         if (!checkType(key))
-          Failure(TemplateChangedKeyType(key))
+          Failure(TemplateChangedKeyType(templateName, key))
         else
           Success(())
       }
       case Upgrading(Some(pastKey @ _), None) =>
-        Failure(TemplateRemovedKey(pastKey))
+        Failure(TemplateRemovedKey(templateName, pastKey))
       case Upgrading(None, Some(presentKey @ _)) =>
         Success(
           ()
@@ -292,7 +317,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     if (checkType(returnType)) {
       Success(())
     } else {
-      Failure(ChoiceChangedReturnType(returnType))
+      Failure(ChoiceChangedReturnType(choice.present.name, returnType))
     }
   }
 
@@ -308,9 +333,9 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
             TemplateChoiceInput(templateName, choiceName)
           case None =>
             moduleWithMetadata.variantNameMap.get(name) match {
-              case Some((templateName, variantName)) =>
-                VariantConstructor(templateName, variantName);
-              case _ => TopLevel
+              case Some((dataTypeName, variantName)) =>
+                VariantConstructor(dataTypeName, variantName);
+              case _ => TopLevel(name)
             }
         }
       }
@@ -325,12 +350,12 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
   private def checkDatatype(
       moduleWithMetadata: Upgrading[ModuleWithMetadata],
-      name: Ref.DottedName,
-      datatype: Upgrading[Ast.DDataType],
+      nameAndDatatype: (Ref.DottedName, Upgrading[Ast.DDataType]),
   ): Try[Unit] = {
+    val (name, datatype) = nameAndDatatype
     val origin = moduleWithMetadata.map(m => dataTypeOrigin(m, name))
     if (origin.present != origin.past) {
-      Failure(RecordChangedOrigin(origin))
+      Failure(RecordChangedOrigin(name, origin))
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
@@ -363,7 +388,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
             _ <- if (new_.nonEmpty) Failure(EnumAddedVariant(origin.present)) else Success(())
           } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-        case other => Failure(MismatchDataConsVariety(other))
+        case other => Failure(MismatchDataConsVariety(name, other))
       }
     }
   }
@@ -380,11 +405,11 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
     for {
       // Much like in the Haskell impl, first we check for missing fields
-      _ <- failIf(_deleted.nonEmpty, RecordFieldsMissing(_deleted))
+      _ <- failIf(_deleted.nonEmpty, RecordFieldsMissing(origin, _deleted))
 
       // Then we check for changed types
       changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
-      _ <- failIf(changedTypes.nonEmpty, RecordFieldsExistingChanged(changedTypes))
+      _ <- failIf(changedTypes.nonEmpty, RecordFieldsExistingChanged(origin, changedTypes))
 
       // Then we check for new non-optional types, and vary the message if its a variant
       newNonOptionalTypes = _new_.find { case (field @ _, typ) => !fieldTypeOptional(typ) }
@@ -392,7 +417,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         case _: VariantConstructor =>
           failIf(_new_.nonEmpty, VariantAddedVariantField(origin))
         case _ =>
-          failIf(newNonOptionalTypes.nonEmpty, RecordFieldsNewNonOptional())
+          failIf(newNonOptionalTypes.nonEmpty, RecordFieldsNewNonOptional(origin))
       }
 
       // Finally, reordered field names
@@ -400,7 +425,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         val fieldNames: Upgrading[ImmArray[Ast.FieldName]] = records.map(_.fields.map(_._1))
         fieldNames.past.zip(fieldNames.present).filter { case (past, present) => past != present }
       }
-      _ <- failIf(changedFieldNames.nonEmpty, RecordFieldsOrderChanged())
+      _ <- failIf(changedFieldNames.nonEmpty, RecordFieldsOrderChanged(origin))
     } yield ()
   }
 }

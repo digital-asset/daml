@@ -142,14 +142,14 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
       testPackagePair(
         "test-common/upgrades-TemplateChangedKeyType-v1.dar",
         "test-common/upgrades-TemplateChangedKeyType-v2.dar",
-        Some("TemplateChangedKeyType"),
+        Some("The upgraded template T cannot change its key type."),
       )
     }
     "report error when record fields change" in {
       testPackagePair(
         "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
         "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-        Some("RecordFieldsNewNonOptional"),
+        Some("The upgraded datatype Struct has added new fields, but those fields are not Optional."),
       )
     }
   }
