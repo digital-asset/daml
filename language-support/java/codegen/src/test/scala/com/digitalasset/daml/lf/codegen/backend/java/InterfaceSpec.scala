@@ -44,6 +44,7 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             emptyList,
             "e",
             TemplateRetro.TEMPLATE_ID,
+            Optional.empty(),
             "c",
             new TemplateRetro("", "", 0).toValue,
             ByteString.EMPTY,

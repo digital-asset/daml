@@ -39,6 +39,7 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with PekkoTest
           contractId,
           Some(Identifier("pkgId", "modName", "createdTemplateId")),
           None,
+          None,
           Some(Record()),
         )
       )

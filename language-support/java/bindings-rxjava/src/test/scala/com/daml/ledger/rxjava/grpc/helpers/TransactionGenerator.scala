@@ -208,6 +208,7 @@ object TransactionGenerator {
     contractId <- nonEmptyId
     agreementText <- Gen.option(Gen.asciiStr)
     contractKey <- Gen.option(valueGen(0))
+    packageName <- Gen.option(nonEmptyId)
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaCreatedAtTimestamp, createdAtInstant) <- timestampGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
@@ -221,6 +222,7 @@ object TransactionGenerator {
         eventId,
         contractId,
         Some(scalaTemplateId),
+        packageName,
         contractKey.map(_._1),
         Some(scalaRecord),
         createdEventBlob,
@@ -236,6 +238,7 @@ object TransactionGenerator {
       (signatories ++ observers).asJava,
       eventId,
       javaTemplateId,
+      packageName.toJava,
       contractId,
       javaRecord,
       createdEventBlob,
