@@ -146,7 +146,7 @@ private[apiserver] final class ApiPackageManagementService private (
             upgradedArchiveMb.traverse(Decode.decodeArchive(_))
               .handleError(Validation.handleLfArchiveError)
           }
-          upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradingPackageId, upgradedPackageMb.map(_._2))
+          upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradedPackageId, upgradedPackageMb.map(_._2))
           _ <- upgradeCheckResult match {
             case Success(()) => {
               logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
