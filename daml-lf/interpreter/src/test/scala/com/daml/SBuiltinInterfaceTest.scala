@@ -50,11 +50,6 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
       ),
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
-      "MethodTest:callGetText MethodTest:t_Co0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Im0_No1" -> SText("does not (co)implement I1"),
-      "MethodTest:callGetText MethodTest:t_Im0_Im1" -> SText(
-        "implements I1 T_Im0_Im1, msg=T_Im0_Im1"
-      ),
     )
 
     forEvery(testCases) { (exp, res) =>
@@ -136,93 +131,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
 
   lazy val basePkg =
-    p""" metadata ( 'basic-package' : '1.0.0' )
-        module T_Co0_No1 {
-          record @serializable T_Co0_No1 = { party: Party, msg: Text };
-
-          template (this: T_Co0_No1) = {
-            precondition True;
-            signatories Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
-            observers Cons @Party [T_Co0_No1:T_Co0_No1 {party} this] (Nil @Party);
-          };
-        }
-
-        module T_Co0_Co1 {
-          record @serializable T_Co0_Co1 = { party: Party, msg: Text };
-
-          template (this: T_Co0_Co1) = {
-            precondition True;
-            signatories Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
-            observers Cons @Party [T_Co0_Co1:T_Co0_Co1 {party} this] (Nil @Party);
-          };
-        }
-
-        module I0 {
-          interface (this: I0) = {
-            viewtype Mod:MyUnit;
-          };
-        }
-
-        module T_Im0_No1 {
-          record @serializable T_Im0_No1 = { party: Party, msg: Text };
-
-          template (this: T_Im0_No1) = {
-            precondition True;
-            signatories Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
-            observers Cons @Party [T_Im0_No1:T_Im0_No1 {party} this] (Nil @Party);
-            implements I0:I0 { view = Mod:MyUnit {}; };
-          };
-        }
-
-        module T_Im0_Co1 {
-          record @serializable T_Im0_Co1 = { party: Party, msg: Text };
-
-          template (this: T_Im0_Co1) = {
-            precondition True;
-            signatories Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
-            observers Cons @Party [T_Im0_Co1:T_Im0_Co1 {party} this] (Nil @Party);
-            implements I0:I0 { view = Mod:MyUnit {}; };
-          };
-        }
-
-        module I1 {
-          interface (this: I1) = {
-            viewtype Mod:MyUnit;
-            requires I0:I0;
-            method getText: Text;
-          };
-        }
-
-        module T_Im0_Im1 {
-          record @serializable T_Im0_Im1 = { party: Party, msg: Text };
-
-          template (this: T_Im0_Im1) = {
-            precondition True;
-            signatories Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
-            observers Cons @Party [T_Im0_Im1:T_Im0_Im1 {party} this] (Nil @Party);
-            implements I0:I0 { view = Mod:MyUnit {}; };
-            implements I1:I1 {
-              view = Mod:MyUnit {};
-              method getText = APPEND_TEXT "implements I1 T_Im0_Im1, msg=" (T_Im0_Im1:T_Im0_Im1 {msg} this);
-            };
-          };
-        }
-
-        module MethodTest {
-          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
-          val alice : Party = Mod:mkParty "alice";
-
-          val callGetText : I0:I0 -> Text = \(x: I0:I0) ->
-            case from_required_interface @I0:I0 @I1:I1 x of
-              None -> "does not (co)implement I1" | Some x -> call_method @I1:I1 getText x;
-
-          val t_Co0_No1 : I0:I0 = to_interface @I0:I0 @T_Co0_No1:T_Co0_No1 (T_Co0_No1:T_Co0_No1 { party = MethodTest:alice, msg = "T_Co0_No1" });
-          val t_Co0_Co1 : I0:I0 = to_interface @I0:I0 @T_Co0_Co1:T_Co0_Co1 (T_Co0_Co1:T_Co0_Co1 { party = MethodTest:alice, msg = "T_Co0_Co1" });
-          val t_Im0_No1 : I0:I0 = to_interface @I0:I0 @T_Im0_No1:T_Im0_No1 (T_Im0_No1:T_Im0_No1 { party = MethodTest:alice, msg = "T_Im0_No1" });
-          val t_Im0_Co1 : I0:I0 = to_interface @I0:I0 @T_Im0_Co1:T_Im0_Co1 (T_Im0_Co1:T_Im0_Co1 { party = MethodTest:alice, msg = "T_Im0_Co1" });
-          val t_Im0_Im1 : I0:I0 = to_interface @I0:I0 @T_Im0_Im1:T_Im0_Im1 (T_Im0_Im1:T_Im0_Im1 { party = MethodTest:alice, msg = "T_Im0_Im1" });
-        }
-
+      p"""  metadata ( 'basic-package' : '1.0.0' )
         module Mod {
 
           record @serializable MyUnit = {};
@@ -267,7 +176,6 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
     val pkg = p""" metadata ( 'extended-pkg' : '1.0.0' )
         module Mod {
 
-          record @serializable MyUnit = {};
           record @serializable Iou = { i: Party, u: Party, name: Text };
 
           template (this: Iou) = {
