@@ -47,7 +47,8 @@ template DisclosureDelegation
       controller actor
       do fetch secretCid -- actor will divulge secretCid to p
 
--- @WARN range=86:3-87:49; Use of divulged contracts is deprecated
+-- TODO use trySubmit to capture the error when swtiching to daml-script 2
+-- @ERROR range=52:1-52:5; Attempt to fetch or exercise a contract not visible to the reading parties.
 main = script do
   me <- allocateParty "Me"
   spy <- allocateParty "Spy"
@@ -82,7 +83,7 @@ main = script do
   -- spy still cannot fetch
   spy `cantSee` secretCid
 
-  -- now spy can fetch using delegation from me
+  --  spy still cannot fetch even bt using delegation from me
   submit spy do
     exerciseCmd accCid ReadSecret with secretCid
 

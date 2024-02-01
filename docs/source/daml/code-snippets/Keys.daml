@@ -220,8 +220,8 @@ lookupTest = script do
       lookupKey = sig
   mcid === Some keyedCid
 
-  -- Divulgee _can_ fetch the contract directly
-  submit divulgee do
+  -- Divulgee can't fetch the contract directly
+  submitMustFail divulgee do
     exerciseCmd obsDelegationCid UnkeyedFetch with
         delegee = divulgee
         cid = keyedCid
@@ -322,11 +322,15 @@ lookupTest = script do
 
   -- TESTING CREATES AND ARCHIVES
 
-  -- Divulgee can archive
-  submit divulgee do
+  -- Divulgee can't archive
+  submitMustFail divulgee do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = divulgee
       keyedCid
+
+  submit sig do
+     exerciseCmd keyedCid Archive
+
   -- Divulgee can create
   keyedCid2 <- submit divulgee do
     exerciseCmd sigDelegationCid CreateKeyed with

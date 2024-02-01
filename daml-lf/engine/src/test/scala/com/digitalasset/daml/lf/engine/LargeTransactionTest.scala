@@ -73,7 +73,8 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     ): PartialFunction[ContractId, VersionedContractInstance] =
       Function.unlift((id: ContractId) =>
         ledger.lookupGlobalContract(
-          ParticipantView(Set(submitter), Set.empty),
+          Set(submitter),
+          Set.empty,
           effectiveAt,
           id,
         ) match {

@@ -157,15 +157,6 @@ final class Conversions(
                     .setDeclaredHash(hash.toHexString)
                     .build
                 )
-              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-                builder.setScenarioContractKeyNotVisible(
-                  proto.ScenarioError.ContractKeyNotVisible.newBuilder
-                    .setContractRef(mkContractRef(coid, gk.templateId))
-                    .addAllActAs(actAs.map(convertParty).asJava)
-                    .addAllReadAs(readAs.map(convertParty).asJava)
-                    .addAllStakeholders(stakeholders.map(convertParty).asJava)
-                    .build
-                )
               case ContractKeyNotFound(gk) =>
                 builder.setScenarioContractKeyNotFound(
                   proto.ScenarioError.ContractKeyNotFound.newBuilder

@@ -133,7 +133,8 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
@@ -155,9 +156,10 @@ class IdeLedgerClient(
   ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
-      cid,
+      coid = cid,
     ) match {
       case ScenarioLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
         Some(contract)
@@ -229,7 +231,8 @@ class IdeLedgerClient(
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered: Seq[FatContractInstance] = acs.collect {
@@ -329,9 +332,6 @@ class IdeLedgerClient(
         )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
-      // Hide not visible as not found
-      case ContractKeyNotVisible(_, key, _, _, _) =>
-        SubmitError.ContractKeyNotFound(key)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon
@@ -393,9 +393,6 @@ class IdeLedgerClient(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
-
-    case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
-      SubmitError.ContractKeyNotFound(key)
 
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))

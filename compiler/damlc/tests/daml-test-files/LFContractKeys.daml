@@ -191,12 +191,17 @@ lookupTest = script do
 
   -- TESTING CREATES AND ARCHIVES
 
-  -- Divulgee can archive
-  -- @WARN range=196:3-199:15; Use of divulged contracts is deprecated
-  submit divulgee do
+  -- Divulgee cannot archive
+  submitMustFail divulgee do
     exerciseCmd sigDelegationCid ArchiveKeyed with
       delegee = divulgee
       keyedCid
+
+  _ <- submit sig do
+    exerciseCmd sigDelegationCid ArchiveKeyed with
+      delegee = sig
+      keyedCid
+
   -- Divulgee can create
   keyedCid2 <- submit divulgee do
     exerciseCmd sigDelegationCid CreateKeyed with
