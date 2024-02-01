@@ -59,7 +59,6 @@ object LanguageVersion {
     val genComparison = v2_1
     val genMap = v2_1
     val contractIdTextConversions = v2_1
-    val exerciseByKey = v2_1
     val choiceObservers = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
