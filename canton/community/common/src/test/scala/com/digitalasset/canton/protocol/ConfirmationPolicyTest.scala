@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.{ConfirmingParty, PlainInformee}
 import com.digitalasset.canton.protocol.ConfirmationPolicy.{Signatory, Vip}
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   signatoryParticipant,
-  submitterParticipant,
+  submittingParticipant,
   templateId,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -46,7 +46,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
               )
             case _ =>
               Future.successful(
-                Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+                Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
               )
           }
 
@@ -68,7 +68,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
             )
           )
 
@@ -86,7 +86,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
             )
           )
         val policies = gen.standardHappyCases
@@ -102,7 +102,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
             )
           )
         val policies = gen.standardHappyCases
@@ -121,7 +121,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
             )
           )
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
@@ -133,7 +133,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
             )
           )
         val policies = ConfirmationPolicy
@@ -170,7 +170,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
             )
           )
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
@@ -182,7 +182,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
             )
           )
         val policies = ConfirmationPolicy.choose(txCreateWithKey, topologySnapshot).futureValue
@@ -196,7 +196,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
             )
           )
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
@@ -208,7 +208,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
           .thenReturn(
             Future.successful(
-              Map(submitterParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
             )
           )
         val policies = ConfirmationPolicy.choose(txCreateWithKey, topologySnapshot).futureValue

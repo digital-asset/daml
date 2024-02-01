@@ -72,6 +72,10 @@ class DbReferenceBlockOrderingStore(
   ): Future[Unit] = {
     val uuid = LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent
     val tracedRequest = Traced(request)
+
+    // Logging the UUID to be able to correlate the block on the read side.
+    logger.debug(s"Storing an ordered request with UUID: $uuid")
+
     storage.update_(
       (profile match {
         case _: Postgres =>

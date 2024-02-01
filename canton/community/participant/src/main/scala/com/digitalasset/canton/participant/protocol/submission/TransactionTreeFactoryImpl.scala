@@ -145,7 +145,7 @@ abstract class TransactionTreeFactoryImpl(
             submitterCommandId = submitterInfo.commandId,
             submitterSubmissionId = submitterInfo.submissionId,
             submitterDeduplicationPeriod = submitterInfo.deduplicationPeriod,
-            submitterParticipant = participantId,
+            submittingParticipant = participantId,
             salt = submitterMetadataSalt,
             maxSequencingTime,
             protocolVersion = protocolVersion,
@@ -573,14 +573,14 @@ object TransactionTreeFactoryImpl {
 
   /** Creates a `TransactionTreeFactory`. */
   def apply(
-      submitterParticipant: ParticipantId,
+      submittingParticipant: ParticipantId,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImplV3(
-      submitterParticipant,
+      submittingParticipant,
       domainId,
       protocolVersion,
       contractSerializer,

@@ -312,7 +312,7 @@ trait MessageDispatcherTest {
   private val encryptedOtherTestView = EncryptedView(OtherTestViewType)(emptyEncryptedViewTree)
   private val encryptedOtherTestViewMessage =
     EncryptedViewMessage(
-      submitterParticipantSignature = None,
+      submittingParticipantSignature = None,
       viewHash = ViewHash(TestHash.digest(9001)),
       randomness = encryptedRandomnessTest,
       sessionKey = sessionKeyMapTest,

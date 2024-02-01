@@ -71,9 +71,9 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
   LedgerApiCommandRunner,
-  LocalParticipantReferenceCommon,
-  ParticipantReferenceCommon,
-  RemoteParticipantReferenceCommon,
+  LocalParticipantReference,
+  ParticipantReference,
+  RemoteParticipantReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.auth.{
@@ -592,7 +592,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): AssignedWrapper =
         submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
@@ -631,7 +631,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): UnassignedWrapper =
         submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
@@ -666,7 +666,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): (UnassignedWrapper, AssignedWrapper) = {
         val unassigned = submit_unassign(
@@ -698,7 +698,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       // for reassignments are available over the Ladger API.
       private def submitReassignment(
           submitter: PartyId,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration,
       )(submit: String => Unit): ReassignmentWrapper = {
         val commandId = UUID.randomUUID().toString
@@ -1907,7 +1907,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             workflowId: String = "",
             applicationId: String = applicationId,
             submissionId: String = UUID.randomUUID().toString,
-            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): ReassignmentV2 =
           ledger_api_v2.commands
@@ -1946,7 +1946,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             workflowId: String = "",
             applicationId: String = applicationId,
             submissionId: String = UUID.randomUUID().toString,
-            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): ReassignmentV2 =
           ledger_api_v2.commands
@@ -3858,7 +3858,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   private def awaitTransaction(
       transactionId: String,
-      at: Map[ParticipantReferenceCommon, PartyId],
+      at: Map[ParticipantReference, PartyId],
       timeout: config.NonNegativeDuration,
   ): Unit = {
     def scan() = {
@@ -3883,7 +3883,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   private[console] def involvedParticipants(
       transactionId: String
-  ): Map[ParticipantReferenceCommon, PartyId] = {
+  ): Map[ParticipantReference, PartyId] = {
     val txDomain = ledger_api_v2.updates.domain_of(transactionId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
@@ -3917,10 +3917,10 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       .toSet
 
     // A participant identity equality check that doesn't blow up if the participant isn't running
-    def identityIs(pRef: ParticipantReferenceCommon, id: ParticipantId): Boolean = pRef match {
-      case lRef: LocalParticipantReferenceCommon[?] =>
+    def identityIs(pRef: ParticipantReference, id: ParticipantId): Boolean = pRef match {
+      case lRef: LocalParticipantReference =>
         lRef.is_running && lRef.health.initialized() && lRef.id == id
-      case rRef: RemoteParticipantReferenceCommon =>
+      case rRef: RemoteParticipantReference =>
         rRef.health.initialized() && rRef.id == id
       case _ => false
     }

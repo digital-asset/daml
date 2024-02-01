@@ -1530,7 +1530,7 @@ class CantonSyncService(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,
-                submittingParticipant = participantId.toLf,
+                submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,
                 workflowId = workflowId,
@@ -1550,7 +1550,7 @@ class CantonSyncService(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,
-                submittingParticipant = participantId.toLf,
+                submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,
                 workflowId = workflowId,

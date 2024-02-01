@@ -51,6 +51,26 @@ final class GeneratorsTransferData(
   private val sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
   private val targetProtocolVersion = TargetProtocolVersion(protocolVersion)
 
+  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
+    Arbitrary(
+      for {
+        submitter <- Arbitrary.arbitrary[LfPartyId]
+        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
+        submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
+        commandId <- commandIdArb.arbitrary.map(_.unwrap)
+        submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
+        workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
+
+      } yield TransferSubmitterMetadata(
+        submitter,
+        submittingParticipant,
+        commandId,
+        submissionId,
+        applicationId,
+        workflowId,
+      )
+    )
+
   implicit val transferInCommonData: Arbitrary[TransferInCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
@@ -98,26 +118,6 @@ final class GeneratorsTransferData(
         sourceProtocolVersion,
       )
   )
-
-  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
-    Arbitrary(
-      for {
-        submitter <- Arbitrary.arbitrary[LfPartyId]
-        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
-        submittingParticipant <- Arbitrary.arbitrary[ParticipantId].map(_.toLf)
-        commandId <- commandIdArb.arbitrary.map(_.unwrap)
-        submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
-        workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
-
-      } yield TransferSubmitterMetadata(
-        submitter,
-        applicationId,
-        submittingParticipant,
-        commandId,
-        submissionId,
-        workflowId,
-      )
-    )
 
   private def deliveryTransferOutResultGen(
       contract: SerializableContract,

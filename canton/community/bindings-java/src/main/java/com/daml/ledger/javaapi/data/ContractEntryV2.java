@@ -3,6 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 /**
  * This interface represents events in {@link ActiveContractV2}s.
  *
@@ -10,4 +12,7 @@ package com.daml.ledger.javaapi.data;
  * @see IncompleteUnassignedV2
  * @see IncompleteAssignedV2
  */
-public interface ContractEntryV2 {}
+public interface ContractEntryV2 {
+  @NonNull
+  CreatedEvent getCreatedEvent();
+}

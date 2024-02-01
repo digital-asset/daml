@@ -860,12 +860,8 @@ object CantonConfig {
       deriveReader[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigReader: ConfigReader[SequencerHealthConfig] =
       deriveReader[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcReader: ConfigReader[RemoteSequencerConfig.Grpc] =
-      deriveReader[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigReader: ConfigReader[RemoteSequencerConfig] =
       deriveReader[RemoteSequencerConfig]
-        // since the big majority of users will use GRPC, default to it so that they don't need to specify `type = grpc`
-        .orElse(ConfigReader[RemoteSequencerConfig.Grpc])
     lazy implicit val mediatorNodeParameterConfigReader: ConfigReader[MediatorNodeParameterConfig] =
       deriveReader[MediatorNodeParameterConfig]
     lazy implicit val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
@@ -1247,8 +1243,6 @@ object CantonConfig {
       deriveWriter[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigWriter: ConfigWriter[SequencerHealthConfig] =
       deriveWriter[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcWriter: ConfigWriter[RemoteSequencerConfig.Grpc] =
-      deriveWriter[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigWriter: ConfigWriter[RemoteSequencerConfig] =
       deriveWriter[RemoteSequencerConfig]
     lazy implicit val mediatorNodeParameterConfigWriter: ConfigWriter[MediatorNodeParameterConfig] =

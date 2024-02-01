@@ -161,7 +161,7 @@ object EncryptedView {
   *                   we send an encrypted <SecureRandomness>.
   */
 final case class EncryptedViewMessage[+VT <: ViewType](
-    submitterParticipantSignature: Option[Signature],
+    submittingParticipantSignature: Option[Signature],
     viewHash: ViewHash,
     randomness: Encrypted[SecureRandomness],
     sessionKey: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
@@ -180,7 +180,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
   def viewType: VT = encryptedView.viewType
 
   def copy[A <: ViewType](
-      submitterParticipantSignature: Option[Signature] = this.submitterParticipantSignature,
+      submittingParticipantSignature: Option[Signature] = this.submittingParticipantSignature,
       viewHash: ViewHash = this.viewHash,
       randomness: Encrypted[SecureRandomness] = this.randomness,
       sessionKeyRandomness: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]] = this.sessionKey,
@@ -188,7 +188,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
       domainId: DomainId = this.domainId,
       viewEncryptionScheme: SymmetricKeyScheme = this.viewEncryptionScheme,
   ): EncryptedViewMessage[A] = new EncryptedViewMessage(
-    submitterParticipantSignature,
+    submittingParticipantSignature,
     viewHash,
     randomness,
     sessionKeyRandomness,
@@ -200,7 +200,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
   private def toProtoV30: v30.EncryptedViewMessage = v30.EncryptedViewMessage(
     viewTree = encryptedView.viewTree.ciphertext,
     encryptionScheme = viewEncryptionScheme.toProtoEnum,
-    submitterParticipantSignature = submitterParticipantSignature.map(_.toProtoV30),
+    submittingParticipantSignature = submittingParticipantSignature.map(_.toProtoV30),
     viewHash = viewHash.toProtoPrimitive,
     randomness = randomness.ciphertext,
     sessionKeyRandomness = sessionKey.map(EncryptedViewMessage.serializeSessionKeyEntry),
@@ -244,7 +244,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   )
 
   def apply[VT <: ViewType](
-      submitterParticipantSignature: Option[Signature],
+      submittingParticipantSignature: Option[Signature],
       viewHash: ViewHash,
       randomness: Encrypted[SecureRandomness],
       sessionKey: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
@@ -253,7 +253,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       viewEncryptionScheme: SymmetricKeyScheme,
       protocolVersion: ProtocolVersion,
   ): EncryptedViewMessage[VT] = EncryptedViewMessage(
-    submitterParticipantSignature,
+    submittingParticipantSignature,
     viewHash,
     randomness,
     sessionKey,

@@ -110,7 +110,7 @@ final class GeneratorsData(
       actAs <- nonEmptySet(lfPartyIdArb).arbitrary
       applicationId <- applicationIdArb.arbitrary
       commandId <- commandIdArb.arbitrary
-      submitterParticipant <- Arbitrary.arbitrary[ParticipantId]
+      submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
       salt <- Arbitrary.arbitrary[Salt]
       submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
       dedupPeriod <- Arbitrary.arbitrary[DeduplicationPeriod]
@@ -120,7 +120,7 @@ final class GeneratorsData(
       actAs,
       applicationId,
       commandId,
-      submitterParticipant,
+      submittingParticipant,
       salt,
       submissionId,
       dedupPeriod,

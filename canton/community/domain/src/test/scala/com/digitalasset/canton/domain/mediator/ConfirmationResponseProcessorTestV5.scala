@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
-import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -84,7 +83,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
   protected lazy val fullInformeeTree: FullInformeeTree =
     factory.MultipleRootsAndViewNestings.fullInformeeTree
   private lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
-  protected val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
+  protected val participant: ParticipantId = ExampleTransactionFactory.submittingParticipant
 
   protected lazy val view0Position =
     factory.MultipleRootsAndViewNestings.transactionViewTree0.viewPosition
@@ -251,8 +250,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               (key, (informees, NonNegativeInt.zero))
             }
           }
-
-          override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
         }
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(120)
         for {
@@ -293,8 +290,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               else (key, (informee, NonNegativeInt.one))
             }
           }
-
-          override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
         }
 
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(12345)
@@ -390,21 +385,11 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             )
           } yield succeed
         }
-
-        "mediator response contains timestamp from the request" in {
-          val sut = new Fixture(mockedSnapshotCrypto)
-          for {
-            _ <- handleEvents(sut.processor)
-          } yield {
-            val sentResult = sut.verdictSender.sentResults.loneElement
-            sentResult.requestId.unwrap shouldBe requestTimestamp
-          }
-        }
       }
 
       "accept root hash messages" in {
         val sut = new Fixture(domainSyncCryptoApi2)
-        val correctRootHash = RootHash(TestHash.digest("root-hash"))
+        val correctRootHash = fullInformeeTree.tree.rootHash
         // Create a custom informee message with several recipient participants
         val informeeMessage = new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
           override val informeesAndThresholdByViewPosition
@@ -420,8 +405,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               ) -> NonNegativeInt.one)
             )
           }
-
-          override def rootHash: Option[RootHash] = correctRootHash.some
         }
         val allParticipants = NonEmpty(Seq, participant1, participant2, participant3)
 
@@ -480,7 +463,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         val sut = new Fixture()
 
         val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
-        val rootHash = informeeMessage.rootHash.value
+        val rootHash = informeeMessage.rootHash
         val wrongRootHash =
           RootHash(
             domainSyncCryptoApi.pureCrypto.digest(TestHash.testHashPurpose, ByteString.EMPTY)
@@ -582,15 +565,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           ) -> Recipients
             .cc(mediatorRef.toRecipient, MemberRecipient(otherParticipant)),
         )
-        val requestWithoutExpectedRootHashMessage = exampleForRequest(
-          new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
-            override def rootHash: Option[RootHash] = None
-          },
-          correctRootHashMessage -> Recipients.cc(
-            mediatorRef.toRecipient,
-            MemberRecipient(participant),
-          ),
-        )
 
         // format: off
         val testCases
@@ -625,9 +599,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
           (batchWithDifferentPayloads -> show"Different payloads in root hash messages. Sizes: 0, 17.") ->
             List(Set[Member](participant, otherParticipant) -> correctViewType),
-
-          (requestWithoutExpectedRootHashMessage -> show"No root hash messages expected, but received for recipients: ${MemberRecipient(participant)}") ->
-            List(Set[Member](participant) -> correctViewType)
         )
         // format: on
 
@@ -697,7 +668,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           factoryOtherMediatorId.MultipleRootsAndViewNestings.fullInformeeTree
         val mediatorRequest = InformeeMessage(fullInformeeTreeOther)(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
-          mediatorRequest.rootHash.value,
+          mediatorRequest.rootHash,
           domainId,
           testedProtocolVersion,
           mediatorRequest.viewType,
@@ -838,7 +809,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                     Set.empty,
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
-                        Set(ExampleTransactionFactory.submitterParticipant)
+                        Set(ExampleTransactionFactory.submittingParticipant)
                       )
                     ),
                     0,
@@ -849,7 +820,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                     Set(ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary)),
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
-                        Set(ExampleTransactionFactory.submitterParticipant)
+                        Set(ExampleTransactionFactory.submittingParticipant)
                       ),
                       signatory -> ConsortiumVotingState(),
                     ),
@@ -868,7 +839,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                     Set(ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary)),
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
-                        Set(ExampleTransactionFactory.submitterParticipant)
+                        Set(ExampleTransactionFactory.submittingParticipant)
                       ),
                       signatory -> ConsortiumVotingState(),
                     ),
@@ -880,7 +851,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                     Set.empty,
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
-                        Set(ExampleTransactionFactory.submitterParticipant)
+                        Set(ExampleTransactionFactory.submittingParticipant)
                       )
                     ),
                     0,
@@ -957,9 +928,16 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
               ) -> NonNegativeInt.one),
             )
           }
-
-          override def rootHash: Option[RootHash] = None // don't require root hash messages
         }
+
+        val rootHashMessage = RootHashMessage(
+          fullInformeeTree.transactionId.toRootHash,
+          domainId,
+          testedProtocolVersion,
+          ViewType.TransactionViewType,
+          SerializedRootHashMessagePayload.empty,
+        )
+
         val requestIdTs = CantonTimestamp.Epoch
         val requestId = RequestId(requestIdTs)
 
@@ -1001,7 +979,21 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             requestIdTs.plusSeconds(60),
             requestIdTs.plusSeconds(120),
             informeeMessage,
-            List.empty,
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                Recipients.recipientGroups(
+                  NonEmpty(
+                    Seq,
+                    NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant1)),
+                    NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant2)),
+                    NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant3)),
+                  )
+                ),
+              )(
+                testedProtocolVersion
+              )
+            ),
             batchAlsoContainsTopologyXTransaction = false,
           )
 
@@ -1118,7 +1110,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
         val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
-          mediatorRequest.rootHash.value,
+          mediatorRequest.rootHash,
           domainId,
           testedProtocolVersion,
           mediatorRequest.viewType,
@@ -1267,7 +1259,7 @@ class ConfirmationResponseProcessorTestV5
 
       val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
-        mediatorRequest.rootHash.value,
+        mediatorRequest.rootHash,
         domainId,
         testedProtocolVersion,
         mediatorRequest.viewType,

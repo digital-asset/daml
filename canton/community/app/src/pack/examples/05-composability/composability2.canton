@@ -45,8 +45,8 @@ val Painter = participant3.parties.enable("Painter", waitForDomain = DomainChoic
 
 // Enable the house owner on participant 5 and the painter on participant 4
 // This works here because the parties are fresh, i.e., they do not have any contracts yet.
-import com.digitalasset.canton.console.ParticipantReferenceX
-def addPartyToParticipant(partyId: PartyId, domainId: DomainId, createdAt: ParticipantReferenceX, to: ParticipantReferenceX): Unit = {
+import com.digitalasset.canton.console.ParticipantReference
+def addPartyToParticipant(partyId: PartyId, domainId: DomainId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
   Seq(createdAt, to).foreach(participant =>
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,

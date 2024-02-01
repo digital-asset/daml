@@ -14,7 +14,7 @@ import com.digitalasset.canton.console.{
   FeatureFlag,
   Help,
   Helpful,
-  InstanceReferenceCommon,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 // TODO(#15161): fold TopologyAdministrationGroupCommon into TopologyAdministrationX
 abstract class TopologyAdministrationGroupCommon(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     topologyQueueStatus: => Option[TopologyQueueStatus],
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
@@ -112,7 +112,7 @@ abstract class OwnerToKeyMappingsGroup(
     commandTimeouts: ConsoleCommandTimeout
 ) {
   def rotate_key(
-      nodeInstance: InstanceReferenceCommon,
+      nodeInstance: InstanceReference,
       owner: Member,
       currentKey: PublicKey,
       newKey: PublicKey,

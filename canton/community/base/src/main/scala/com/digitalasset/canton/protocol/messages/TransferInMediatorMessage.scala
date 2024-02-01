@@ -32,7 +32,7 @@ import java.util.UUID
 final case class TransferInMediatorMessage(tree: TransferInViewTree) extends MediatorRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
-  require(tree.view.isBlinded, "The transfer-out view must be blinded")
+  require(tree.view.isBlinded, "The transfer-in view must be blinded")
 
   private[this] val commonData = tree.commonData.tryUnwrap
 
@@ -48,12 +48,6 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree) extends Med
   override def mediator: MediatorRef = commonData.targetMediator
 
   override def requestUuid: UUID = commonData.uuid
-
-  override def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] = {
-    val confirmingParties = commonData.confirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewHash -> ((confirmingParties, threshold)))
-  }
 
   override def informeesAndThresholdByViewPosition
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
@@ -89,7 +83,7 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree) extends Med
   def toProtoV30: v30.TransferInMediatorMessage =
     v30.TransferInMediatorMessage(tree = Some(tree.toProtoV30))
 
-  override def rootHash: Option[RootHash] = Some(tree.rootHash)
+  override def rootHash: RootHash = tree.rootHash
 
   override def viewType: ViewType = ViewType.TransferInViewType
 
@@ -114,10 +108,12 @@ object TransferInMediatorMessage
 
   def fromProtoV30(context: (HashOps, ProtocolVersion))(
       transferInMediatorMessageP: v30.TransferInMediatorMessage
-  ): ParsingResult[TransferInMediatorMessage] =
+  ): ParsingResult[TransferInMediatorMessage] = {
+    val v30.TransferInMediatorMessage(treePO) =
+      transferInMediatorMessageP
     for {
       tree <- ProtoConverter
-        .required("TransferInMediatorMessage.tree", transferInMediatorMessageP.tree)
+        .required("TransferInMediatorMessage.tree", treePO)
         .flatMap(TransferInViewTree.fromProtoV30(context, _))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
@@ -128,6 +124,7 @@ object TransferInMediatorMessage
         OtherError(s"Transfer-in view data is not blinded in request ${tree.rootHash}"),
       )
     } yield TransferInMediatorMessage(tree)
+  }
 
   override def name: String = "TransferInMediatorMessage"
 }

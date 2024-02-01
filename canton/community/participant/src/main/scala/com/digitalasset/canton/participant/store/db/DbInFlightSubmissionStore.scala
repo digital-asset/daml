@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
-import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps

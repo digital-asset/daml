@@ -224,7 +224,7 @@ trait TransferProcessingSteps[
     val mediator = someView.unwrap.mediator
     val submitterMetadata = someView.unwrap.submitterMetadata
 
-    val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId.toLf
+    val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId
 
     lazy val completionInfo = CompletionInfo(
       actAs = List(submitterMetadata.submitter),
@@ -259,7 +259,7 @@ trait TransferProcessingSteps[
 
     val RejectionArgs(pendingTransfer, rejectionReason) = rejectionArgs
     val isSubmittingParticipant =
-      pendingTransfer.submitterMetadata.submittingParticipant == participantId.toLf
+      pendingTransfer.submitterMetadata.submittingParticipant == participantId
 
     val completionInfoO = Option.when(isSubmittingParticipant)(
       CompletionInfo(

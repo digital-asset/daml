@@ -215,7 +215,7 @@ class DefaultVerdictSenderTest
       ViewType.TransactionViewType,
       SerializedRootHashMessagePayload.empty,
     )
-    val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
+    val participant: ParticipantId = ExampleTransactionFactory.submittingParticipant
     val rhmEnvelope = OpenEnvelope(
       rootHashMessage,
       Recipients.cc(transactionMediatorRef.toRecipient, MemberRecipient(participant)),

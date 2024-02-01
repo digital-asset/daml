@@ -60,7 +60,6 @@ import com.google.protobuf.ByteString
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
-import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.collection.immutable.{Map, SortedSet}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, blocking}
