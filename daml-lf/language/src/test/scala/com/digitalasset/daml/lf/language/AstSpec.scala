@@ -3,7 +3,7 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -31,7 +31,11 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         Set.empty,
         defaultVersion,
-        None,
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("foo"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
       )
       a[PackageError] shouldBe thrownBy(
         Package.build(
@@ -41,7 +45,11 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           Set.empty,
           defaultVersion,
-          None,
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("bar"),
+            Ref.PackageVersion.assertFromString("0.0.0"),
+            None,
+          ),
         )
       )
 

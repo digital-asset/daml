@@ -1200,15 +1200,17 @@ object Ast {
       modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
-      metadata: Option[PackageMetadata],
+      metadata: PackageMetadata,
   ) {
     import Ordering.Implicits._
 
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] = metadata.collect {
-      case md if languageVersion >= LanguageVersion.Features.packageUpgrades => md.name
+    private[lf] val name: Option[Ref.PackageName] = {
+      if (languageVersion >= LanguageVersion.Features.packageUpgrades)
+        Some(metadata.name)
+      else None
     }
   }
 
@@ -1218,7 +1220,7 @@ object Ast {
         modules: Iterable[GenModule[E]],
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
-        metadata: Option[PackageMetadata],
+        metadata: PackageMetadata,
     ): GenPackage[E] =
       GenPackage(
         modules = toMapWithoutDuplicate(
@@ -1233,7 +1235,7 @@ object Ast {
         modules: Map[ModuleName, GenModule[E]],
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
-        metadata: Option[PackageMetadata],
+        metadata: PackageMetadata,
     ): GenPackage[E] =
       GenPackage(
         modules = modules,
@@ -1247,7 +1249,7 @@ object Ast {
           Map[ModuleName, GenModule[E]],
           Set[PackageId],
           LanguageVersion,
-          Option[PackageMetadata],
+          PackageMetadata,
       )
     ] = {
       Some(

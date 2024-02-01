@@ -47,7 +47,9 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
       .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
-  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  metadata ( 'pkg' : '1.0.0' )
+
   module M {
 
     record @serializable MyException = { message: Text } ;

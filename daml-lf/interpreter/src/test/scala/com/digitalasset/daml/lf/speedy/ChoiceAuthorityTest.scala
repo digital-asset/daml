@@ -31,7 +31,9 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
+  metadata ( 'pkg' : '1.0.0' )
+
   module M {
 
     record @serializable Goal = { goal: Party } ;

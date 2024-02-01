@@ -3,10 +3,10 @@
 
 package com.daml.lf.codegen
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
-import com.daml.lf.typesig.{DefDataType, PackageSignature, Record, Variant}
+import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
+import com.daml.lf.typesig.{DefDataType, PackageMetadata, PackageSignature, Record, Variant}
 import PackageSignature.TypeDecl
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,7 +19,15 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
   it should "traverse an empty tree" in {
     val pkgSig =
-      PackageSignature(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty)
+      PackageSignature(
+        PackageId.assertFromString("packageid"),
+        PackageMetadata(
+          Ref.PackageName.assertFromString("pkgName"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+        ),
+        Map.empty,
+        Map.empty,
+      )
     val interfaceTree =
       InterfaceTree(
         Map.empty,
@@ -49,7 +57,15 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
     val interface =
-      PackageSignature(PackageId.assertFromString("packageId2"), None, typeDecls, Map.empty)
+      PackageSignature(
+        PackageId.assertFromString("packageId2"),
+        PackageMetadata(
+          Ref.PackageName.assertFromString("pkgName"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+        ),
+        typeDecls,
+        Map.empty,
+      )
     val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((ab, n) =>
       n match {
@@ -87,7 +103,15 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
     val typeDecls = Map(bazQuux -> record)
     val interface =
-      PackageSignature(PackageId.assertFromString("pkgid"), None, typeDecls, Map.empty)
+      PackageSignature(
+        PackageId.assertFromString("pkgid"),
+        PackageMetadata(
+          Ref.PackageName.assertFromString("pkgName"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+        ),
+        typeDecls,
+        Map.empty,
+      )
     val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((types, n) =>
       n match {

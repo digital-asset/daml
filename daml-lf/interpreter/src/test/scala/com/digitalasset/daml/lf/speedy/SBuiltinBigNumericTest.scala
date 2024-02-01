@@ -344,7 +344,9 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  private val pkg = p""" metadata ( 'pkg' : '1.0.0' )
+  private val pkg = p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module BigNumeric {
 
           val maxScale: Int64 = ${SValue.SBigNumeric.MaxScale};

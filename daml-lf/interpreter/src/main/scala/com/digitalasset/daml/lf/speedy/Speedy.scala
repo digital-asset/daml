@@ -894,16 +894,9 @@ private[lf] object Speedy {
       import Ordering.Implicits._
       if (version < TxVersion.minUpgrade)
         None
-      else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
-          case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${version.pretty} package without metadata",
-            )
-        }
+      else {
+        Some(compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata.name)
+      }
     }
 
     /* kont manipulation... */

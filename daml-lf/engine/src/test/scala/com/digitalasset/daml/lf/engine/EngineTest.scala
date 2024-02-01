@@ -2368,7 +2368,16 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
     def pkg(version: LV) =
-      language.Ast.Package(Map.empty, Set.empty, version, None)
+      language.Ast.Package(
+        Map.empty,
+        Set.empty,
+        version,
+        PackageMetadata(
+          PackageName.assertFromString("foo"),
+          PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
+      )
 
     "reject disallowed packages" in {
       val negativeTestCases = Table(
@@ -2536,7 +2545,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
       None
     else
-      Some(basicTestsPkg.metadata.get.name)
+      Some(basicTestsPkg.metadata.name)
   }
 
   def newEngine(requireCidSuffixes: Boolean = false) =

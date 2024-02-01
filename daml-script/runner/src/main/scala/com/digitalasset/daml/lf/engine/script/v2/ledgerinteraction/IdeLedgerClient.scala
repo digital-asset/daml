@@ -818,7 +818,7 @@ class IdeLedgerClient(
         Function.unlift(pkgId =>
           for {
             pkgSig <- originalCompiledPackages.pkgInterface.lookupPackage(pkgId).toOption
-            meta <- pkgSig.metadata
+            meta = pkgSig.metadata
             readablePackageId = meta match {
               case PackageMetadata(name, version, _) =>
                 ScriptLedgerClient.ReadablePackageId(name, version)

@@ -4,10 +4,11 @@
 package com.daml.lf
 package validation
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -51,7 +52,11 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
         Map(modName -> mod),
         depRefs.iterator.map(_._1).toSet - pkgId,
         langVersion,
-        None,
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("foo"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
       )
     }
 

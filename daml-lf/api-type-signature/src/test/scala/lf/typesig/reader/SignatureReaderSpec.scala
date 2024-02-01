@@ -170,25 +170,18 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     actual.typeDecls shouldBe expectedResult
   }
 
-  "Package metadata should be extracted if present" in {
-    def pkg(metadata: Option[Ast.PackageMetadata]) =
+  "Package metadata should be extracted" in {
+    val name = Ref.PackageName.assertFromString("my-package")
+    val version = Ref.PackageVersion.assertFromString("1.2.3")
+    val pkg =
       Ast.Package(
         modules = Map.empty,
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
-        metadata = metadata,
+        metadata = Ast.PackageMetadata(name, version, None),
       )
-    val notPresent = pkg(None)
-    val name = Ref.PackageName.assertFromString("my-package")
-    val version = Ref.PackageVersion.assertFromString("1.2.3")
-    val present = pkg(Some(Ast.PackageMetadata(name, version, None)))
-    SignatureReader
-      .readPackageSignature(() => \/-((packageId, notPresent)))
-      ._2
-      .metadata shouldBe None
-    SignatureReader.readPackageSignature(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+    SignatureReader.readPackageSignature(() => \/-((packageId, pkg)))._2.metadata shouldBe
       PackageMetadata(name, version)
-    )
   }
 
   "a real dar" should {

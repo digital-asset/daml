@@ -26,7 +26,9 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  val pkgs = SpeedyTestLib.typeAndCompile(p"""metadata ( 'pkg' : '1.0.0' )
+  val pkgs = SpeedyTestLib.typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
+
    module F {
 
      // *Non* tail-recursive definition

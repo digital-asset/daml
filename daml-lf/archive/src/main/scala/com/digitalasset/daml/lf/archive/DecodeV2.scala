@@ -45,16 +45,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     val dependencyTracker = new PackageDependencyTracker(packageId)
 
-    val metadata: Option[PackageMetadata] =
-      if (lfPackage.hasMetadata) {
-        assertSince(LV.Features.packageMetadata, "Package.metadata")
-        Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
-      } else {
-        if (!versionIsOlderThan(LV.Features.packageMetadata)) {
-          throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
-        }
-        None
-      }
+    val metadata: PackageMetadata = {
+      if (!lfPackage.hasMetadata)
+        throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
+      decodePackageMetadata(lfPackage.getMetadata, internedStrings)
+    }
 
     val env0 = Env(
       packageId,
@@ -90,8 +85,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       eitherToParseError(PackageId.fromString(getInternedStr(id)))
 
     PackageMetadata(
-      toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
-      toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22"),
+      toPackageName(getInternedStr(metadata.getNameInternedStr)),
+      toPackageVersion(getInternedStr(metadata.getVersionInternedStr)),
       if (metadata.hasUpgradedPackageId) {
         assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
@@ -1852,13 +1847,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[this] def toName(s: String): Name =
     eitherToParseError(Name.fromString(s))
 
-  private[this] def toPackageName(s: String, description: => String): PackageName = {
-    assertSince(LV.Features.packageMetadata, description)
+  private def toPackageName(s: String): PackageName = {
     eitherToParseError(PackageName.fromString(s))
   }
 
-  private[this] def toPackageVersion(s: String, description: => String): PackageVersion = {
-    assertSince(LV.Features.packageMetadata, description)
+  private def toPackageVersion(s: String) = {
     eitherToParseError(PackageVersion.fromString(s))
   }
 
