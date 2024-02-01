@@ -47,22 +47,19 @@ public class IouMain {
     // Connects to the ledger and runs initial validation.
     client.connect();
 
-    String ledgerId = client.getLedgerId();
-
-    logger.info("ledger-id: {}", ledgerId);
-
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
-    AtomicReference<LedgerOffset> acsOffset =
-        new AtomicReference<>(LedgerOffset.LedgerBegin.getInstance());
+    AtomicReference<ParticipantOffsetV2> acsOffset =
+        new AtomicReference<>(ParticipantOffsetV2.ParticipantBegin.getInstance());
 
     client
-        .getActiveContractSetClient()
+        .getStateClient()
         .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
             response -> {
-              response.offset.ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
+              response.offset.ifPresent(
+                  offset -> acsOffset.set(new ParticipantOffsetV2.Absolute(offset)));
               response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
@@ -134,7 +131,7 @@ public class IouMain {
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
     var updateSubmission =
-        UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
+        UpdateSubmissionV2.create(APP_ID, randomUUID().toString(), update).withActAs(party);
 
     return client.getCommandClient().submitAndWaitForResult(updateSubmission).blockingGet();
   }

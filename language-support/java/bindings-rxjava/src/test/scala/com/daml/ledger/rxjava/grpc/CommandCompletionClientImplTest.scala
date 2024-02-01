@@ -3,15 +3,16 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import java.util.Optional
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.javaapi.data.LedgerOffset
-import com.daml.ledger.javaapi.data.LedgerOffset.LedgerBegin
+import com.daml.ledger.api.v1.command_completion_service.Checkpoint
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.javaapi.data.ParticipantOffsetV2.ParticipantBegin
+import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.completion.Completion
 import com.google.rpc.status.Status
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -27,34 +28,8 @@ class CommandCompletionClientImplTest
     with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("command-completion-service-ledger")
-
-  behavior of "[4.1] CommandCompletionClientImpl.getLedgerEnd"
-
-  it should "return the ledger end" in {
-    val offset = "offset"
-    val response = genCompletionEndResponse(offset)
-    ledgerServices.withCommandCompletionClient(List.empty, response) { (client, _) =>
-      val end = client
-        .completionEnd()
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingGet()
-      end.getOffset shouldBe a[LedgerOffset.Absolute]
-      end.getOffset.asInstanceOf[LedgerOffset.Absolute].getOffset shouldBe offset
-    }
-  }
-
-  behavior of "[4.2] CommandCompletionClientImpl.completionEnd"
-
-  it should "send the request with the correct ledgerId" in {
-    ledgerServices.withCommandCompletionClient(List.empty, genCompletionEndResponse("")) {
-      (client, serviceImpl) =>
-        client
-          .completionEnd()
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingGet()
-        serviceImpl.getLastCompletionEndRequest.value.ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
+  private val offset1 = LedgerOffset(LedgerOffset.Value.Absolute("1"))
+  private val offset2 = LedgerOffset(LedgerOffset.Value.Absolute("2"))
 
   behavior of "[4.3] CommandCompletionClientImpl.completionStream"
 
@@ -62,50 +37,52 @@ class CommandCompletionClientImplTest
     val applicationId = "applicationId"
     val completion1 = Completion("cid1", Option(new Status(0)), "1")
     val completion2 = Completion("cid2", Option(new Status(1)))
-    val completionResponse = CompletionStreamResponse(None, List(completion1, completion2))
+
+    val completionResponses = List(
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1)),
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset2))), Some(completion2)),
+    )
     ledgerServices.withCommandCompletionClient(
-      List(completionResponse),
-      genCompletionEndResponse(""),
+      completionResponses
     ) { (client, _) =>
       val completions = client
-        .completionStream(applicationId, LedgerBegin.getInstance(), Set("Alice").asJava)
-        .take(1)
+        .completionStream(applicationId, ParticipantBegin.getInstance(), List("Alice").asJava)
+        .take(2)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .iterator()
-        .next()
-      completions.getCheckpoint shouldBe Optional.empty()
-      completions.getCompletions.size() shouldBe 2
-      val receivedCompletion1 = completions.getCompletions.get(0)
-      val receivedCompletion2 = completions.getCompletions.get(1)
-      receivedCompletion1.getCommandId shouldBe completion1.commandId
-      receivedCompletion1.getStatus.getCode shouldBe completion1.getStatus.code
-      receivedCompletion1.getTransactionId shouldBe completion1.transactionId
-      receivedCompletion2.getCommandId shouldBe completion2.commandId
-      receivedCompletion2.getStatus.getCode shouldBe completion2.getStatus.code
+
+      val receivedCompletion1 = completions.next()
+      val receivedCompletion2 = completions.next()
+      receivedCompletion1.getCheckpoint.getOffset shouldBe new Absolute(offset1.getAbsolute)
+      receivedCompletion1.getCompletion.getCommandId shouldBe completion1.commandId
+      receivedCompletion1.getCompletion.getStatus.getCode shouldBe completion1.getStatus.code
+      receivedCompletion1.getCompletion.getUpdateId shouldBe completion1.updateId
+      receivedCompletion2.getCheckpoint.getOffset shouldBe new Absolute(offset2.getAbsolute)
+      receivedCompletion2.getCompletion.getCommandId shouldBe completion2.commandId
+      receivedCompletion2.getCompletion.getStatus.getCode shouldBe completion2.getStatus.code
     }
   }
 
   behavior of "[4.4] CommandCompletionClientImpl.completionStream"
 
-  it should "send the request with the correct ledgerId" in {
+  it should "send the request with the correct arguments" in {
     val applicationId = "applicationId"
     val completion1 = Completion("cid1", Option(new Status(0)))
-    val completionResponse = CompletionStreamResponse(None, List(completion1))
-    val parties = Set("Alice")
+    val completionResponse =
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
+    val parties = List("Alice")
     ledgerServices.withCommandCompletionClient(
-      List(completionResponse),
-      genCompletionEndResponse(""),
+      List(completionResponse)
     ) { (client, serviceImpl) =>
       client
-        .completionStream(applicationId, LedgerBegin.getInstance(), parties.asJava)
+        .completionStream(applicationId, ParticipantBegin.getInstance(), parties.asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
-      serviceImpl.getLastCompletionStreamRequest.value.ledgerId shouldBe ledgerServices.ledgerId
       serviceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe applicationId
-      serviceImpl.getLastCompletionStreamRequest.value.getOffset.getAbsolute shouldBe "" // grpc default string is empty string
-      serviceImpl.getLastCompletionStreamRequest.value.getOffset.getBoundary.isLedgerEnd shouldBe false
-      serviceImpl.getLastCompletionStreamRequest.value.getOffset.getBoundary.isLedgerBegin shouldBe true
+      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getAbsolute shouldBe "" // grpc default string is empty string
+      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantEnd shouldBe false
+      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBegin shouldBe true
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
   }
@@ -114,10 +91,10 @@ class CommandCompletionClientImplTest
 
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
     val completion1 = Completion("cid1", Option(new Status(0)))
-    val completionResponse = CompletionStreamResponse(None, List(completion1))
+    val completionResponse =
+      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
-      genCompletionEndResponse(""),
       mockedAuthService,
     ) { (client, _) =>
       fn(client)
@@ -129,7 +106,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream") {
         expectUnauthenticated {
           client
-            .completionStream("appId", LedgerBegin.getInstance(), Set(someParty).asJava)
+            .completionStream("appId", ParticipantBegin.getInstance(), List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -137,14 +114,9 @@ class CommandCompletionClientImplTest
       withClue("completionStream unbounded") {
         expectUnauthenticated {
           client
-            .completionStream("appId", Set(someParty).asJava)
+            .completionStream("appId", List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
-        }
-      }
-      withClue("completionEnd") {
-        expectUnauthenticated {
-          client.completionEnd().blockingGet()
         }
       }
     }
@@ -157,8 +129,8 @@ class CommandCompletionClientImplTest
           client
             .completionStream(
               "appId",
-              LedgerBegin.getInstance(),
-              Set(someParty).asJava,
+              ParticipantBegin.getInstance(),
+              List(someParty).asJava,
               someOtherPartyReadToken,
             )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -168,14 +140,9 @@ class CommandCompletionClientImplTest
       withClue("completionStream unbounded") {
         expectPermissionDenied {
           client
-            .completionStream("appId", Set(someParty).asJava, someOtherPartyReadToken)
+            .completionStream("appId", List(someParty).asJava, someOtherPartyReadToken)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
-        }
-      }
-      withClue("completionEnd") {
-        expectUnauthenticated {
-          client.completionEnd(emptyToken).blockingGet()
         }
       }
     }
@@ -187,8 +154,8 @@ class CommandCompletionClientImplTest
         client
           .completionStream(
             "appId",
-            LedgerBegin.getInstance(),
-            Set(someParty).asJava,
+            ParticipantBegin.getInstance(),
+            List(someParty).asJava,
             somePartyReadToken,
           )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -196,12 +163,9 @@ class CommandCompletionClientImplTest
       }
       withClue("completionStream unbounded") {
         client
-          .completionStream("appId", Set(someParty).asJava, somePartyReadToken)
+          .completionStream("appId", List(someParty).asJava, somePartyReadToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingFirst()
-      }
-      withClue("completionEnd") {
-        client.completionEnd(somePartyReadToken).blockingGet()
       }
     }
   }

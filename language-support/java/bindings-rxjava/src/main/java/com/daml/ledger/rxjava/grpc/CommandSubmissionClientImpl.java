@@ -5,13 +5,13 @@ package com.daml.ledger.rxjava.grpc;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
-import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
-import com.daml.ledger.javaapi.data.CommandsSubmission;
-import com.daml.ledger.javaapi.data.SubmitRequest;
+import com.daml.ledger.api.v2.CommandSubmissionServiceGrpc;
+import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass;
+import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass.SubmitResponse;
+import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
+import com.daml.ledger.javaapi.data.SubmitRequestV2;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.google.protobuf.Empty;
 import io.grpc.Channel;
 import io.reactivex.Single;
 import java.time.Duration;
@@ -20,25 +20,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
-  private final String ledgerId;
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
   private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
-      @NonNull String ledgerId,
-      @NonNull Channel channel,
-      Optional<String> accessToken,
-      Optional<Duration> timeout) {
-    this.ledgerId = ledgerId;
+      @NonNull Channel channel, Optional<String> accessToken, Optional<Duration> timeout) {
     this.timeout = timeout;
     this.serviceStub =
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
   @Override
-  public Single<Empty> submit(CommandsSubmission submission) {
-    CommandSubmissionServiceOuterClass.SubmitRequest request =
-        SubmitRequest.toProto(ledgerId, submission);
+  public Single<SubmitResponse> submit(CommandsSubmissionV2 submission) {
+    CommandSubmissionServiceOuterClass.SubmitRequest request = SubmitRequestV2.toProto(submission);
     CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))

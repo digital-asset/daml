@@ -6,8 +6,8 @@ package com.daml.ledger.rxjava.grpc;
 import static com.daml.ledger.javaapi.data.EventUtils.firstExercisedEvent;
 import static com.daml.ledger.javaapi.data.EventUtils.singleCreatedEvent;
 
-import com.daml.ledger.api.v1.CommandServiceGrpc;
-import com.daml.ledger.api.v1.CommandServiceOuterClass;
+import com.daml.ledger.api.v2.CommandServiceGrpc;
+import com.daml.ledger.api.v2.CommandServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Exercised;
@@ -22,20 +22,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class CommandClientImpl implements CommandClient {
 
-  private final String ledgerId;
   private final CommandServiceGrpc.CommandServiceFutureStub serviceStub;
 
-  public CommandClientImpl(
-      @NonNull String ledgerId, @NonNull Channel channel, @NonNull Optional<String> accessToken) {
-    this.ledgerId = ledgerId;
+  public CommandClientImpl(@NonNull Channel channel, @NonNull Optional<String> accessToken) {
     this.serviceStub =
         StubHelper.authenticating(CommandServiceGrpc.newFutureStub(channel), accessToken);
   }
 
   @Override
-  public Single<Empty> submitAndWait(CommandsSubmission submission) {
+  public Single<Empty> submitAndWait(CommandsSubmissionV2 submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+        SubmitAndWaitRequestV2.toProto(submission);
 
     return Single.fromFuture(
         StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
@@ -43,41 +40,42 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<String> submitAndWaitForTransactionId(CommandsSubmission submission) {
+  public Single<String> submitAndWaitForTransactionId(CommandsSubmissionV2 submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+        SubmitAndWaitRequestV2.toProto(submission);
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
-                .submitAndWaitForTransactionId(request))
-        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionIdResponse::getTransactionId);
+                .submitAndWaitForUpdateId(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse::getUpdateId);
   }
 
   @Override
-  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission) {
+  public Single<TransactionV2> submitAndWaitForTransaction(CommandsSubmissionV2 submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+        SubmitAndWaitRequestV2.toProto(submission);
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransaction(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionResponse::getTransaction)
-        .map(Transaction::fromProto);
+        .map(TransactionV2::fromProto);
   }
 
   @Override
-  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission) {
+  public Single<TransactionTreeV2> submitAndWaitForTransactionTree(
+      CommandsSubmissionV2 submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+        SubmitAndWaitRequestV2.toProto(submission);
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransactionTree(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse::getTransaction)
-        .map(TransactionTree::fromProto);
+        .map(TransactionTreeV2::fromProto);
   }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmission<U> submission) {
+  public <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmissionV2<U> submission) {
     return submission
         .getUpdate()
         .foldUpdate(
