@@ -314,7 +314,7 @@ genDataDef curPkgId mod ifcChoices tpls def = case unTypeConName (dataTypeCon de
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView, intCoImplements} =
+  genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView, intCoImplements} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
