@@ -338,7 +338,7 @@ genrule(
             --output=daml-base-rst \\
             --input-format=json \\
             --format=Rst \\
-            --exclude-instances=HasField \\
+            --exclude-instances=GetField,SetField \\
             --drop-orphan-instances \\
             --template=$(location :daml-base-rst-template) \\
             --index-template=$(location :daml-base-rst-index-template) \\
