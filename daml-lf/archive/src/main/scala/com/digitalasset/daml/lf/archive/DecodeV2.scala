@@ -707,13 +707,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller") { controllers =>
           bindWork(
             if (lfChoice.hasObservers) {
-              assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
               decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers") { observers =>
                 Ret(Some(observers))
               }
             } else {
-              assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
-              Ret(None)
+              throw notSupportedError("missing TemplateChoice.observers")
             }
           ) { choiceObservers =>
             bindWork(

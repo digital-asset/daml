@@ -27,11 +27,6 @@ class DecodeV2Spec
     with OptionValues
     with ScalaCheckPropertyChecks {
 
-  val unitTyp: DamlLf2.Type = DamlLf2.Type
-    .newBuilder()
-    .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
-    .build()
-
   val typeTable = ImmArraySeq(TUnit, TBool, TText)
   val unitTypInterned = DamlLf2.Type.newBuilder().setInterned(0).build()
   val boolTypInterned = DamlLf2.Type.newBuilder().setInterned(1).build()
@@ -1599,37 +1594,6 @@ class DecodeV2Spec
     val observersExpr = DamlLf2.Expr.newBuilder().setVarInternedStr(2).build()
     val bodyExp = DamlLf2.Expr.newBuilder().setVarInternedStr(5).build()
 
-    // TODO: https://github.com/digital-asset/daml/issues/15882
-    // -- When choice authority encode/decode has been implemented,
-    // -- test that we reject explicit choice authorizers prior to the feature version.
-
-    "reject choice with observers if 1.7 < lf version < 1.11" in {
-      val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
-        .newBuilder()
-        .setNameInternedStr(0)
-        .setConsuming(true)
-        .setControllers(controllersExpr)
-        .setSelfBinderInternedStr(3)
-        .setArgBinder(DamlLf2.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
-        .setRetType(unitTyp)
-        .setUpdate(bodyExp)
-        .build()
-
-      val protoChoiceWithObservers =
-        protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
-
-      forEveryVersionSuchThat(v => v < LV.Features.choiceObservers) { version =>
-        val decoder = moduleDecoder(version, stringTable)
-
-        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
-        an[Error.Parsing] should be thrownBy (
-          decoder
-            .decodeChoiceForTest(templateName, protoChoiceWithObservers),
-        )
-
-      }
-    }
-
     "reject choice without observers if lv version >= 1.11" in {
 
       val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
@@ -1648,7 +1612,7 @@ class DecodeV2Spec
       val protoChoiceWithObservers =
         protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
 
-      forEveryVersionSuchThat(LV.Features.choiceObservers <= _) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
