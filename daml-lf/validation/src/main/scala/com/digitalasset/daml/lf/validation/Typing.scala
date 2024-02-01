@@ -600,10 +600,13 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkUniqueInterfaceInstanceExists(
+    private def checkInterfaceInstance(
         interfaceId: TypeConName,
         templateId: TypeConName,
-    ): Unit = discard(pkgInterface.lookupInterfaceInstance(interfaceId, templateId))
+    ): Unit = {
+      discard(handleLookup(ctx, pkgInterface.lookupInterface(interfaceId)))
+      discard(handleLookup(ctx, pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
+    }
 
     private def checkInterfaceInstance(
         tmplParam: ExprVarName,
@@ -1086,17 +1089,17 @@ private[validation] object Typing {
 
     private[this] def typOfExprInterface(expr: ExprInterface): Work[Type] = expr match {
       case EToInterface(iface, tpl, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(value, TTyCon(tpl)) {
           Ret(TTyCon(iface))
         }
       case EFromInterface(iface, tpl, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(value, TTyCon(iface)) {
           Ret(TOptional(TTyCon(tpl)))
         }
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(cid, TContractId(TTyCon(iface))) {
           checkExpr(value, TTyCon(iface)) {
             Ret(TTyCon(tpl))

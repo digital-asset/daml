@@ -276,18 +276,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         // EToInterface
         E"λ (t: Mod:Ti) → (( to_interface @Mod:I @Mod:Ti t ))" ->
           T"Mod:Ti → Mod:I",
-        E"λ (t: Mod:CoTi) → (( to_interface @Mod:I @Mod:CoTi t ))" ->
-          T"Mod:CoTi → Mod:I",
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
-        E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:CoTi i ))" ->
-          T"Mod:I → Option Mod:CoTi",
         // EUnsafeFromInterface
         E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
           T"ContractId Mod:I → Mod:I → Mod:Ti",
-        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:CoTi cid i ))" ->
-          T"ContractId Mod:I → Mod:I → Mod:CoTi",
         // EToRequiredInterface
         E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
           T"Mod:SubI → Mod:I",
@@ -959,31 +953,37 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
           { case _: ETypeMismatch => },
         // EToInterface
-// Why ?
-//        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:T @Mod:Ti t  ⸩""" -> //
-//          {
-//            case EUnknownDefinition(
-//                  _,
-//                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
-//                ) =>
-//          },
-// Why ?
-//        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
-//          { case EMissingInterfaceInstance(_, _, _) => },
+        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:T @Mod:Ti t  ⸩""" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.Interface(_), _),
+                ) =>
+          },
+        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.InterfaceInstance(_, _), _),
+                ) =>
+          },
         E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
           { case _: ETypeMismatch => },
         // EFromInterface
-// Why ?
-//        E"""λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:I i ⸩""" -> //
-//          {
-//            case EUnknownDefinition(
-//                  _,
-//                  LookupError.NotFound(Reference.Template(_), Reference.InterfaceInstance(_, _)),
-//                ) =>
-//          },
-// Why ?
-//        E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
-//          { case EMissingInterfaceInstance(_, _, _) => },
+        E"""λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:I i ⸩""" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.Template(_), _),
+                ) =>
+          },
+        E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.InterfaceInstance(_, _), _),
+                ) =>
+          },
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
@@ -1066,7 +1066,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
       val expectedContext = Context.Location(expectedLocation)
 
-      forEvery(testCases) { (exp, checkError) =>
+      forAll(testCases) { (exp, checkError) =>
         import scala.util.{Failure, Try}
 
         val x = Try(env.typeOfTopExpr(exp))
@@ -1949,13 +1949,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            observers Nil @Party;
            choice Ch (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
-         };
-
-         record @serializable CoTi = { person: Party, name: Text };
-         template (this: CoTi) = {
-            precondition True;
-            signatories Nil @Party;
-            observers Nil @Party;
          };
 
          interface (this : I) = {

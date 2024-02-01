@@ -463,15 +463,6 @@ final case class EUnknownMethodInInterfaceInstance(
     s"Tried to implement method $method but interface $iface does not have a method with that name."
 }
 
-final case class EMissingInterfaceInstance(
-    context: Context,
-    interfaceId: TypeConName,
-    templateId: TypeConName,
-) extends ValidationError {
-  override protected def prettyInternal: String =
-    s"There is no interface instance $interfaceId for $templateId"
-}
-
 final case class EMissingRequiredInterfaceInstance(
     context: Context,
     requiringIface: TypeConName,
