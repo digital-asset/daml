@@ -63,7 +63,6 @@ object LanguageVersion {
     val choiceObservers = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
-    val basicInterfaces = v2_1
     val natTypeErasure = v2_1
     val packageUpgrades = v2_1
     val sharedKeys = v2_1
