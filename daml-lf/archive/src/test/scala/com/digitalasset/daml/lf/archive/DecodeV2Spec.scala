@@ -60,8 +60,45 @@ class DecodeV2Spec
 
   "The entries of builtinFunctionInfos correspond to Protobuf DamlLf2.BuiltinFunction" in {
 
+    // TODO(https://github.com/digital-asset/daml/issues/18240): remove these builtins from the
+    //  proto and revert s1 to the UNRECOGNIZED singleton.
     val s1 =
-      Set(DamlLf2.BuiltinFunction.UNRECOGNIZED) ++ DecodeV2.builtinFunctionInfos.map(_.proto)
+      Set(
+        DamlLf2.BuiltinFunction.UNRECOGNIZED,
+        DamlLf2.BuiltinFunction.EQUAL_DATE,
+        DamlLf2.BuiltinFunction.GREATER_TIMESTAMP,
+        DamlLf2.BuiltinFunction.EQUAL_TIMESTAMP,
+        DamlLf2.BuiltinFunction.GEQ_PARTY,
+        DamlLf2.BuiltinFunction.GEQ_INT64,
+        DamlLf2.BuiltinFunction.GREATER_NUMERIC,
+        DamlLf2.BuiltinFunction.EQUAL_INT64,
+        DamlLf2.BuiltinFunction.EQUAL_BOOL,
+        DamlLf2.BuiltinFunction.LEQ_PARTY,
+        DamlLf2.BuiltinFunction.LESS_DATE,
+        DamlLf2.BuiltinFunction.GREATER_INT64,
+        DamlLf2.BuiltinFunction.GEQ_DATE,
+        DamlLf2.BuiltinFunction.GEQ_TEXT,
+        DamlLf2.BuiltinFunction.GREATER_TEXT,
+        DamlLf2.BuiltinFunction.LESS_PARTY,
+        DamlLf2.BuiltinFunction.EQUAL_TEXT,
+        DamlLf2.BuiltinFunction.LESS_TEXT,
+        DamlLf2.BuiltinFunction.EQUAL_PARTY,
+        DamlLf2.BuiltinFunction.LESS_TIMESTAMP,
+        DamlLf2.BuiltinFunction.GEQ_NUMERIC,
+        DamlLf2.BuiltinFunction.LESS_INT64,
+        DamlLf2.BuiltinFunction.GREATER_PARTY,
+        DamlLf2.BuiltinFunction.LESS_NUMERIC,
+        DamlLf2.BuiltinFunction.LEQ_NUMERIC,
+        DamlLf2.BuiltinFunction.EQUAL_TYPE_REP,
+        DamlLf2.BuiltinFunction.LEQ_DATE,
+        DamlLf2.BuiltinFunction.GREATER_DATE,
+        DamlLf2.BuiltinFunction.LEQ_TEXT,
+        DamlLf2.BuiltinFunction.GEQ_TIMESTAMP,
+        DamlLf2.BuiltinFunction.EQUAL_NUMERIC,
+        DamlLf2.BuiltinFunction.LEQ_TIMESTAMP,
+        DamlLf2.BuiltinFunction.EQUAL_CONTRACT_ID,
+        DamlLf2.BuiltinFunction.LEQ_INT64,
+      ) ++ DecodeV2.builtinFunctionInfos.map(_.proto)
     val s2 = DamlLf2.BuiltinFunction.values().toSet
     (s1 -- s2) shouldBe Set.empty
     (s2 -- s1) shouldBe Set.empty
@@ -495,15 +532,6 @@ class DecodeV2Spec
       DamlLf2.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
     )
 
-    val numericComparisonBuiltinCases = Table(
-      "numeric comparison builtins" -> "expected output",
-      DamlLf2.BuiltinFunction.EQUAL_NUMERIC -> Ast.EBuiltin(Ast.BEqualNumeric),
-      DamlLf2.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
-      DamlLf2.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
-      DamlLf2.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
-      DamlLf2.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
-    )
-
     val genericComparisonBuiltinCases = Table(
       "generic comparison builtins" -> "expected output",
       DamlLf2.BuiltinFunction.EQUAL -> Ast.EBuiltin(Ast.BEqual),
@@ -568,23 +596,9 @@ class DecodeV2Spec
       }
     }
 
-    "translate numeric comparison builtins as is if version >= 1.7" in {
+    "reject Decimal builtins" in {
 
-      forEveryVersionSuchThat(version =>
-        LV.Features.numeric <= version && version < LV.Features.genComparison
-      ) { version =>
-        val decoder = moduleDecoder(version)
-
-        forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
-          if (proto != DamlLf2.BuiltinFunction.EQUAL_NUMERIC || version == LV.v1_7)
-            decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    "reject Decimal builtins if version >= 1.7" in {
-
-      forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
 
         forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
@@ -712,20 +726,9 @@ class DecodeV2Spec
       }
     }
 
-    s"translate comparison builtins as is if version < ${LV.Features.genComparison}" in {
+    s"reject comparison builtins as is" in {
 
-      forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
-        val decoder = moduleDecoder(version)
-
-        forEvery(comparisonBuiltinCases) { (proto, scala) =>
-          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    s"reject comparison builtins as is if version >= ${LV.Features.genComparison}" in {
-
-      forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(comparisonBuiltinCases) { (proto, _) =>
           an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
@@ -733,20 +736,11 @@ class DecodeV2Spec
       }
     }
 
-    s"translate generic comparison builtins as is if version >= ${LV.Features.genComparison}" in {
-      forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
+    s"translate generic comparison builtins as is" in {
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
           decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    s"translate generic comparison builtins as is if version < ${LV.Features.genComparison}" in {
-      forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
