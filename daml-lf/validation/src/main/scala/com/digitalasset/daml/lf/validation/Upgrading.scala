@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
+import com.daml.lf.data.ImmArray
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -78,6 +79,34 @@ final case class RecordFieldsNewNonOptional() extends UpgradeError {
   override def message(): String = "RecordFieldsNewNonOptional"
 }
 
+final case class RecordFieldsOrderChanged() extends UpgradeError {
+  override def message(): String = "RecordFieldsOrderChanged"
+}
+
+final case class VariantAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "VariantAddedVariant"
+}
+
+final case class VariantRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "VariantRemovedVariant"
+}
+
+final case class VariantChangedVariantType(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "VariantChangedVariantType"
+}
+
+final case class VariantAddedVariantField(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "VariantAddedVariantField"
+}
+
+final case class EnumAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "EnumAddedVariant"
+}
+
+final case class EnumRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
+  override def message(): String = "EnumRemovedVariant"
+}
+
 final case class UnknownUpgradeError(msg: String) extends UpgradeError {
   override def message(): String = this.msg
 }
@@ -86,6 +115,8 @@ sealed abstract class UpgradedRecordOrigin
 
 final case class TemplateBody(template: Ref.DottedName) extends UpgradedRecordOrigin
 final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName)
+    extends UpgradedRecordOrigin
+final case class VariantConstructor(template: Ref.DottedName, choice: Ref.TypeConName)
     extends UpgradedRecordOrigin
 final case object TopLevel extends UpgradedRecordOrigin
 
@@ -102,6 +133,37 @@ object TypecheckUpgrades {
         tc.check()
     }
   }
+}
+
+case class ModuleWithMetadata(module: Ast.Module) {
+  type ChoiceNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.ChoiceName)]
+
+  lazy val choiceNameMap: ChoiceNameMap =
+    for {
+      (templateName, template) <- module.templates
+      prefix = templateName.segments.init
+      (choiceName, choice) <- template.choices
+      fullName = prefix.slowSnoc(choiceName)
+    } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
+
+  type VariantNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.TypeConName)]
+
+  lazy val variantNameMap: VariantNameMap =
+    for {
+      (dataTypeName, Ast.DDataType(_, _, variant: Ast.DataVariant)) <- module.definitions
+      (recordName, variantType) <- variant.variants.iterator
+      variantName <- leftMostApp(variantType).iterator
+      fullName = dataTypeName.segments.init.slowSnoc(recordName)
+    } yield (Ref.DottedName.unsafeFromNames(fullName), (dataTypeName, variantName))
+
+  private def leftMostApp(typ: Ast.Type): Option[Ref.TypeConName] = {
+    typ match {
+      case Ast.TApp(func, arg@_) => leftMostApp(func)
+      case Ast.TTyCon(typeConName) => Some(typeConName)
+      case _ => None
+    }
+  }
+
 }
 
 case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
@@ -152,7 +214,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         case _ => None;
       })
 
-    val moduleWithChoiceNameMap = module.map(module => (module, getChoiceNameMap(module)))
+    val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
@@ -164,7 +226,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         module.map(datatypes(_)),
         (name: Ref.DottedName, _: Ast.DDataType) => MissingDataCon(name),
       )
-      _ <- Try { existingDatatypes.map { case (name, dt) => checkDatatype(moduleWithChoiceNameMap, name, dt).get } }
+      _ <- Try { existingDatatypes.map { case (name, dt) => checkDatatype(moduleWithMetadata, name, dt).get } }
     } yield ()
   }
 
@@ -234,53 +296,79 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     }
   }
 
-  type ChoiceNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.ChoiceName)]
-
-  private def getChoiceNameMap(module: Ast.Module): ChoiceNameMap =
-    for {
-      (templateName, template) <- module.templates
-      prefix = templateName.segments.init
-      (choiceName, choice) <- template.choices
-      fullName = prefix.slowSnoc(choiceName)
-    } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
-
   private def dataTypeOrigin(
-      moduleWithChoiceNameMap: (Ast.Module, ChoiceNameMap),
+      moduleWithMetadata: ModuleWithMetadata,
       name: Ref.DottedName,
   ): UpgradedRecordOrigin = {
-    moduleWithChoiceNameMap._1.templates.get(name) match {
-      case Some(template @ _) => TemplateBody(name);
+    moduleWithMetadata.module.templates.get(name) match {
+      case Some(template @ _) => TemplateBody(name)
       case None => {
-        moduleWithChoiceNameMap._2.get(name) match {
+        moduleWithMetadata.choiceNameMap.get(name) match {
           case Some((templateName, choiceName)) =>
-            TemplateChoiceInput(templateName, choiceName);
-          case _ => TopLevel;
+            TemplateChoiceInput(templateName, choiceName)
+          case None =>
+            moduleWithMetadata.variantNameMap.get(name) match {
+              case Some((templateName, variantName)) =>
+                VariantConstructor(templateName, variantName);
+              case _ => TopLevel
+            }
         }
       }
     }
   }
 
+  private def failIf(predicate: Boolean, err: => UpgradeError): Try[Unit] =
+    if (predicate)
+      Failure(err)
+    else
+      Success(())
+
   private def checkDatatype(
-      moduleWithChoiceNameMap: Upgrading[(Ast.Module, ChoiceNameMap)],
+      moduleWithMetadata: Upgrading[ModuleWithMetadata],
       name: Ref.DottedName,
       datatype: Upgrading[Ast.DDataType],
   ): Try[Unit] = {
-    val origin = moduleWithChoiceNameMap.map(dataTypeOrigin(_, name))
+    val origin = moduleWithMetadata.map(m => dataTypeOrigin(m, name))
     if (origin.present != origin.past) {
       Failure(RecordChangedOrigin(origin))
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(Upgrading(past, present))
-        case Upgrading(_: Ast.DataVariant, _: Ast.DataVariant) => Try(())
-        case Upgrading(_: Ast.DataEnum, _: Ast.DataEnum) => Try(())
+          checkFields(origin.present, Upgrading(past, present))
+        case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
+          val upgrade = Upgrading(past, present)
+          val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
+            upgrade.map(variant => Map.from(variant.variants.iterator))
+          for {
+            (existing, new_) <- checkDeleted(
+              variants,
+              (_: Ast.VariantConName, _: Ast.Type) => VariantRemovedVariant(origin.present),
+            )
+
+            _ <- failIf(new_.nonEmpty, VariantAddedVariant(origin.present))
+
+            changedTypes = existing.filter { case (field @ _, typ) => !checkType(typ) }
+            _ <- if (changedTypes.nonEmpty) Failure(VariantChangedVariantType(origin.present)) else Success(())
+          } yield ()
+        case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
+          val upgrade = Upgrading(past, present)
+          val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
+            upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
+          for {
+            (_, new_) <- checkDeleted(
+              enums,
+              (_: Ast.EnumConName, _: Unit) => EnumRemovedVariant(origin.present)
+            )
+
+            _ <- if (new_.nonEmpty) Failure(EnumAddedVariant(origin.present)) else Success(())
+          } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case other => Failure(MismatchDataConsVariety(other))
       }
     }
   }
 
-  private def checkFields(records: Upgrading[Ast.DataRecord]): Try[Unit] = {
+  private def checkFields(origin: UpgradedRecordOrigin, records: Upgrading[Ast.DataRecord]): Try[Unit] = {
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
       records.map(rec => Map.from(rec.fields.iterator))
     def fieldTypeOptional(typ: Ast.Type): Boolean =
@@ -290,15 +378,29 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       }
 
     val (_deleted, _existing, _new_) = extractDelExistNew(fields)
-    lazy val changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
-    if (_deleted.nonEmpty) {
-      Failure(RecordFieldsMissing(_deleted))
-    } else if (changedTypes.nonEmpty) {
-      Failure(RecordFieldsExistingChanged(changedTypes))
-    } else if (_new_.find({ case (field @ _, typ) => !fieldTypeOptional(typ) }).nonEmpty) {
-      Failure(RecordFieldsNewNonOptional())
-    } else {
-      Success(())
-    }
+    for {
+      // Much like in the Haskell impl, first we check for missing fields
+      _ <- failIf(_deleted.nonEmpty, RecordFieldsMissing(_deleted))
+
+      // Then we check for changed types
+      changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
+      _ <- failIf(changedTypes.nonEmpty, RecordFieldsExistingChanged(changedTypes))
+
+      // Then we check for new non-optional types, and vary the message if its a variant
+      newNonOptionalTypes = _new_.find { case (field @ _, typ) => !fieldTypeOptional(typ) }
+      _ <- origin match {
+        case _: VariantConstructor =>
+          failIf(_new_.nonEmpty, VariantAddedVariantField(origin))
+        case _ =>
+          failIf(newNonOptionalTypes.nonEmpty, RecordFieldsNewNonOptional())
+      }
+
+      // Finally, reordered field names
+      changedFieldNames: ImmArray[(Ast.FieldName, Ast.FieldName)] = {
+        val fieldNames: Upgrading[ImmArray[Ast.FieldName]] = records.map(_.fields.map(_._1))
+        fieldNames.past.zip(fieldNames.present).filter { case (past, present) => past != present }
+      }
+      _ <- failIf(changedFieldNames.nonEmpty, RecordFieldsOrderChanged())
+    } yield ()
   }
 }
