@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
@@ -114,28 +114,36 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
       testPackagePair(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
-        Some("Module Other appears in package that is being upgraded, but does not appear in this package."),
+        Some(
+          "Module Other appears in package that is being upgraded, but does not appear in this package."
+        ),
       )
     }
     "report error when template is missing in upgrading package" in {
       testPackagePair(
         "test-common/upgrades-MissingTemplate-v1.dar",
         "test-common/upgrades-MissingTemplate-v2.dar",
-        Some("Template U appears in package that is being upgraded, but does not appear in this package."),
+        Some(
+          "Template U appears in package that is being upgraded, but does not appear in this package."
+        ),
       )
     }
     "report error when datatype is missing in upgrading package" in {
       testPackagePair(
         "test-common/upgrades-MissingDataCon-v1.dar",
         "test-common/upgrades-MissingDataCon-v2.dar",
-        Some("Datatype U appears in package that is being upgraded, but does not appear in this package."),
+        Some(
+          "Datatype U appears in package that is being upgraded, but does not appear in this package."
+        ),
       )
     }
     "report error when choice is missing in upgrading package" in {
       testPackagePair(
         "test-common/upgrades-MissingChoice-v1.dar",
         "test-common/upgrades-MissingChoice-v2.dar",
-        Some("Choice C2 appears in package that is being upgraded, but does not appear in this package."),
+        Some(
+          "Choice C2 appears in package that is being upgraded, but does not appear in this package."
+        ),
       )
     }
     "report error when key type changes" in {
@@ -149,7 +157,9 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
       testPackagePair(
         "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
         "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-        Some("The upgraded datatype Struct has added new fields, but those fields are not Optional."),
+        Some(
+          "The upgraded datatype Struct has added new fields, but those fields are not Optional."
+        ),
       )
     }
   }
