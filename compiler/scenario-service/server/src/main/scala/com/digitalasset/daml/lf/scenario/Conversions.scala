@@ -345,12 +345,6 @@ final class Conversions(
                 .setNotFound(notFound.pretty)
                 .setContext(context.pretty)
             )
-          case language.LookupError.AmbiguousInterfaceInstance(instance, context) =>
-            nstBuilder.setAmbiguousInterfaceInstance(
-              proto.ScenarioError.LookupError.AmbiguousInterfaceInstance.newBuilder
-                .setInstance(instance.pretty)
-                .setContext(context.pretty)
-            )
         }
         oPackageMeta.foreach(packageMeta =>
           nstBuilder.setPackageMetadata(mkPackageMetadata(packageMeta))

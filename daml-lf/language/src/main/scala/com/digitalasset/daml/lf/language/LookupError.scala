@@ -23,16 +23,6 @@ object LookupError {
     )
   }
 
-  final case class AmbiguousInterfaceInstance(
-      instance: Reference.InterfaceInstance,
-      context: Reference,
-  ) extends LookupError {
-    def pretty: String =
-      s"Ambiguous interface instance: two instances for ${instance.pretty} found" + (
-        if (context == instance) "" else LookupError.contextDetails(context)
-      )
-  }
-
   object MissingPackage {
     def unapply(err: NotFound): Option[(PackageId, Reference)] =
       err.notFound match {

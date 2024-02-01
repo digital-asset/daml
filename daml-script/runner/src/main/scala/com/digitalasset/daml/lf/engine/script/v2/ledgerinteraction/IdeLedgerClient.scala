@@ -464,7 +464,6 @@ class IdeLedgerClient(
   private def getLookupErrorPackageId(err: LookupError): PackageId =
     err match {
       case LookupError.NotFound(notFound, _) => getReferencePackageId(notFound)
-      case LookupError.AmbiguousInterfaceInstance(instance, _) => getReferencePackageId(instance)
     }
 
   private def makeLookupError(
