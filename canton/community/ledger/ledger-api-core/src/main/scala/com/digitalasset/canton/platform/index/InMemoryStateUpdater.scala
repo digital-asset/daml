@@ -100,14 +100,12 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newWorkStealingExecutor(
         metrics.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
-        metrics.executorServiceMetrics,
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
       InstrumentedExecutors.newFixedThreadPool(
         metrics.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
-        metrics.executorServiceMetrics,
       )
     )
     logger = loggerFactory.getTracedLogger(getClass)
