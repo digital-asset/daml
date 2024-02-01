@@ -61,7 +61,7 @@ public class StateClientImpl implements StateClient {
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilterV2 filter = contractFilter.transactionFilterV2(parties);
+    TransactionFilterV2 filter = contractFilter.transactionFilter(parties);
 
     Flowable<GetActiveContractsResponseV2> responses =
         getActiveContracts(filter, verbose, accessToken);
