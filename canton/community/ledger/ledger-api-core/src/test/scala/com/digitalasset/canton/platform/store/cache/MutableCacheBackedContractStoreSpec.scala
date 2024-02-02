@@ -396,11 +396,7 @@ object MutableCacheBackedContractStoreSpec {
     ContractId.V1(Hash.hashPrivateKey(id.toString))
 
   private def globalKey(desc: String): Key =
-    GlobalKey.assertBuild(
-      Identifier.assertFromString(s"some:template:$desc"),
-      ValueText(desc),
-      shared = true,
-    )
+    GlobalKey.assertBuild(ValueText(desc))
 
   private def offset(idx: Long) = Offset.fromByteArray(BigInt(idx).toByteArray)
 }

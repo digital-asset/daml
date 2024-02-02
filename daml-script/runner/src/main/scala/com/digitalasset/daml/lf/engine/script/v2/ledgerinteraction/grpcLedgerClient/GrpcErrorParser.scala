@@ -4,9 +4,7 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.assertRight
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Util}
+import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.CidDecoder
@@ -36,10 +34,7 @@ object GrpcErrorParser {
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
-  def convertStatusRuntimeException(
-      status: Status,
-      languageVersionLookup: PackageId => Either[String, LanguageVersion],
-  ): SubmitError = {
+  def convertStatusRuntimeException(status: Status): SubmitError = {
     import com.daml.error.utils.ErrorDetails._
     import com.daml.error.ErrorResource
 
@@ -57,9 +52,6 @@ object GrpcErrorParser {
         name,
       )
     }
-
-    def assertSharedKey(packageId: PackageId): Boolean =
-      Util.sharedKey(assertRight(languageVersionLookup(packageId)))
 
     def classNameOf[A: ClassTag]: String = implicitly[ClassTag[A]].runtimeClass.getSimpleName
 
@@ -99,16 +91,7 @@ object GrpcErrorParser {
               ) =>
             val templateId = Identifier.assertFromString(tid)
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
-            )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, sharedKeyText),
-              ) =>
-            SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
+              GlobalKey.assertBuild(templateId, key)
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
@@ -130,20 +113,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId)),
-              keyHash,
-            )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractId, cid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, sharedKeyText),
-                (ErrorResource.ContractKeyHash, keyHash),
-              ) =>
-            SubmitError.DisclosedContractKeyHashingError(
-              ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean),
+              GlobalKey.assertBuild(templateId, key),
               keyHash,
             )
         }
@@ -155,21 +125,7 @@ object GrpcErrorParser {
               ) =>
             val templateId = Identifier.assertFromString(tid)
             SubmitError.DuplicateContractKey(
-              Some(GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId)))
-            )
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, sharedKeyText),
-              ) =>
-            SubmitError.DuplicateContractKey(
-              Some(
-                GlobalKey.assertBuild(
-                  Identifier.assertFromString(tid),
-                  key,
-                  sharedKeyText.toBoolean,
-                )
-              )
+              Some(GlobalKey.assertBuild(templateId, key))
             )
           // TODO[SW] Canton can omit the key, unsure why.
           case Seq() => SubmitError.DuplicateContractKey(None)
@@ -197,16 +153,7 @@ object GrpcErrorParser {
               ) =>
             val templateId = Identifier.assertFromString(tid)
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
-            )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, sharedKeyText),
-              ) =>
-            SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
+              GlobalKey.assertBuild(templateId, key)
             )
         }
       case "UNHANDLED_EXCEPTION" =>
@@ -239,16 +186,7 @@ object GrpcErrorParser {
               ) =>
             val templateId = Identifier.assertFromString(tid)
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(templateId, key, assertSharedKey(templateId.packageId))
-            )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, sharedKeyText),
-              ) =>
-            SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key, sharedKeyText.toBoolean)
+              GlobalKey.assertBuild(templateId, key)
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>

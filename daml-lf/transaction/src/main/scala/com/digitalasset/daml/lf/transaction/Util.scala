@@ -4,8 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.LanguageVersion
-
 import scala.math.Ordered.orderingToOrdered
 
 object Util {
@@ -80,9 +78,7 @@ object Util {
       version: TransactionVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey =
-        GlobalKey.assertBuild(key.globalKey.templateId, normalized, Util.sharedKey(version))
-      )
+      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
     )
 
   def normalizeOptKey(
@@ -97,9 +93,4 @@ object Util {
   def sharedKey(version: TransactionVersion): Boolean = {
     version >= TransactionVersion.minSharedKeys
   }
-
-  def sharedKey(version: LanguageVersion): Boolean = {
-    version >= LanguageVersion.Features.sharedKeys
-  }
-
 }

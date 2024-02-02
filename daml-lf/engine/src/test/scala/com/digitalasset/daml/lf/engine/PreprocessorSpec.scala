@@ -20,7 +20,6 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.transaction.Util
 
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
@@ -349,7 +348,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
     ),
   )
   val keyHash: Hash =
-    crypto.Hash.assertHashContractKey(withKeyTmplId, key, Util.sharedKey(pkg.languageVersion))
+    crypto.Hash.assertHashContractKey(withKeyTmplId, key)
   val choiceId = Ref.Name.assertFromString("Noop")
 
   def buildDisclosedContract(

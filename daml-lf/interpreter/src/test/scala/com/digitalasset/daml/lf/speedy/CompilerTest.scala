@@ -14,13 +14,7 @@ import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.lf.value.Value.ContractId.`Cid Order`
@@ -126,7 +120,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
 
     "using a template with no key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId, version)
+      val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -135,7 +129,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
       )
-      val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId, version)
+      val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -303,7 +297,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     "using a template with a key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:RecordKey")
       val disclosedContract1 =
-        buildDisclosedContract(disclosedCid1, alice, templateId, version, keyLabel = "test-label-1")
+        buildDisclosedContract(disclosedCid1, alice, templateId, keyLabel = "test-label-1")
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -313,7 +307,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       val disclosedContract2 =
-        buildDisclosedContract(disclosedCid2, alice, templateId, version, keyLabel = "test-label-2")
+        buildDisclosedContract(disclosedCid2, alice, templateId, keyLabel = "test-label-2")
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -574,7 +568,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       contractId: ContractId,
       maintainer: Party,
       templateId: Ref.Identifier,
-      version: TransactionVersion,
       keyLabel: String = "",
   ): DisclosedContract = {
     val withKey = keyLabel.nonEmpty
@@ -593,7 +586,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       if (withKey) {
         Some(
           GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue, Util.sharedKey(version)),
+            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue),
             Set(maintainer),
           )
         )

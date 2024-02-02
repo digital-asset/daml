@@ -104,7 +104,7 @@ object Node {
     override def byKey: Boolean = false
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f))
@@ -143,7 +143,7 @@ object Node {
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
@@ -188,7 +188,7 @@ object Node {
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Exercise =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Exercise = copy(
       targetCoid = f(targetCoid),
@@ -239,7 +239,7 @@ object Node {
     override def byKey: Boolean = true
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
-      copy(version = version, key = rehash(version)(key))
+      copy(version = version, key = rehash(key))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
@@ -271,15 +271,8 @@ object Node {
     override protected def self: Node = this
   }
 
-  private def rehash(
-      version: TransactionVersion
-  )(gk: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(
-      gk.globalKey.templateId,
-      gk.value,
-      gk.maintainers,
-      Util.sharedKey(version),
-    )
+  private def rehash(gk: GlobalKeyWithMaintainers) =
+    GlobalKeyWithMaintainers.assertBuild(gk.globalKey.templateId, gk.value, gk.maintainers)
 
 }
 

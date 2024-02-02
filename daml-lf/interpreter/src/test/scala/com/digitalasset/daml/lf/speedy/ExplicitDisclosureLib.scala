@@ -85,7 +85,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
        }
        """
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
-  val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
   val disclosureParty: IdString.Party = Ref.Party.assertFromString("disclosureParty")
@@ -191,11 +190,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     )
 
   def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
-    GlobalKey.assertBuild(
-      houseTemplateType,
-      buildContractKeyValue(maintainer, label),
-      useSharedKeys,
-    )
+    GlobalKey.assertBuild(houseTemplateType, buildContractKeyValue(maintainer, label))
 
   def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
     SValue.SRecord(
@@ -264,7 +259,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
           CachedKey(
             packageName = packageName,
             GlobalKeyWithMaintainers
-              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
             contract,
             sharedKey,
           )

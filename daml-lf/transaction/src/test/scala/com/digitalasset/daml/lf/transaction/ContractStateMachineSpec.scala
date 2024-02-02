@@ -68,7 +68,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       templateId: Ref.TypeConName,
       key: String,
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, sharedKeys)
+    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS)
 
   private def toOptKeyWithMaintainers(
       templateId: Ref.TypeConName,
@@ -78,7 +78,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
-    GlobalKey.assertBuild(templateId, Value.ValueText(key), sharedKeys)
+    GlobalKey.assertBuild(templateId, Value.ValueText(key))
 
   def mkCreate(
       contractId: ContractId,

@@ -383,7 +383,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, Util.sharedKey(version))
+        .build(templateId, value)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -403,7 +403,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, Util.sharedKey(version))
+        .build(templateId, value)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -829,7 +829,7 @@ object TransactionCoder {
       tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
       value <- ValueCoder.decodeValue(ValueCoder.NoCidDecoder, nodeVersion, rawKey)
       key <- GlobalKey
-        .build(tmplId, value, Util.sharedKey(nodeVersion))
+        .build(tmplId, value)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield key

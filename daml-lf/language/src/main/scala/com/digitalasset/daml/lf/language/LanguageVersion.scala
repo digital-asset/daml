@@ -61,7 +61,6 @@ object LanguageVersion {
     val exceptions = v2_1
     val natTypeErasure = v2_1
     val packageUpgrades = v2_1
-    val sharedKeys = v2_1
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
     val dynamicExercise = v2_dev

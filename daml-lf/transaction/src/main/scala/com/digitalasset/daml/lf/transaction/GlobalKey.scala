@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.data.Ref.{Party, TypeConName}
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -36,8 +36,8 @@ object GlobalKey {
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, value, true) != key.hash &&
-      Hash.assertHashContractKey(key.templateId, value, false) != key.hash
+      Hash.assertHashContractKey(key.templateId, value) != key.hash &&
+      Hash.assertHashContractKey(key.templateId, value) != key.hash
     ) {
       throw new IllegalArgumentException(
         s"Hash must not change as a result of value renormalization key=$key, value=$value"
@@ -49,25 +49,21 @@ object GlobalKey {
   }
 
   // Will fail if key contains contract ids
-  def build(
-      templateId: Ref.TypeConName,
-      key: Value,
-      shared: Boolean,
-  ): Either[crypto.Hash.HashingError, GlobalKey] =
+  def build(templateId: TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
-      .hashContractKey(templateId, key, shared)
+      .hashContractKey(templateId, key)
       .map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
-  def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
-    data.assertRight(build(templateId, key, shared).left.map(_.msg))
+  def assertBuild(templateId: TypeConName, key: Value): GlobalKey =
+    data.assertRight(build(templateId, key).left.map(_.msg))
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
   def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
+    Hash.hashContractKey(key.templateId, key.key) == Right(key.hash)
 
 }
 
@@ -81,20 +77,18 @@ final case class GlobalKeyWithMaintainers(
 object GlobalKeyWithMaintainers {
 
   def assertBuild(
-      templateId: Ref.TypeConName,
+      templateId: TypeConName,
       value: Value,
-      maintainers: Set[Ref.Party],
-      shared: Boolean,
+      maintainers: Set[Party],
   ): GlobalKeyWithMaintainers =
-    data.assertRight(build(templateId, value, maintainers, shared).left.map(_.msg))
+    data.assertRight(build(templateId, value, maintainers).left.map(_.msg))
 
   def build(
-      templateId: Ref.TypeConName,
+      templateId: TypeConName,
       value: Value,
-      maintainers: Set[Ref.Party],
-      shared: Boolean,
+      maintainers: Set[Party],
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
-    GlobalKey.build(templateId, value, shared).map(GlobalKeyWithMaintainers(_, maintainers))
+    GlobalKey.build(templateId, value).map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

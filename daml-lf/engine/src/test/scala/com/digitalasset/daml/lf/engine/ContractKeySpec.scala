@@ -13,12 +13,7 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.InitialSeeding
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
-import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Util,
-}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ContractId,
@@ -124,7 +119,6 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     GlobalKey.assertBuild(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-      Util.sharedKey(basicTestsPkg.languageVersion),
     )
       ->
         toContractId("BasicTests:WithKey:1")
