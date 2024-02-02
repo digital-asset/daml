@@ -514,7 +514,7 @@ object Runner {
     compiledPackages.pkgInterface
       .lookupPackage(pkgId)
       .toOption
-      .flatMap(_.metadata)
+      .map(_.metadata)
       .map(meta => meta.name.toString)
 }
 
@@ -564,7 +564,7 @@ private[lf] class Runner(
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
+    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.map(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   def runWithClients(

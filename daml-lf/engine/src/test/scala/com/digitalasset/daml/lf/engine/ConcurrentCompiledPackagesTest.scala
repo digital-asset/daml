@@ -27,6 +27,7 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     val pkg =
       p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = "t";
         }
@@ -45,6 +46,7 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
       val illFormedPackage =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = 1;
         }

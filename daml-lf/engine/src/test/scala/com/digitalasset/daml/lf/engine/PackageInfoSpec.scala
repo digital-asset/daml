@@ -27,7 +27,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg0-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
         module Mod0 {
           record @serializable MyUnit = {};
           record @serializable T0 = {};
@@ -44,7 +44,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg1-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
         module Mod11 {
           record @serializable T11 = {};
           template (this : T11) =  {
@@ -73,7 +73,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg2-")
 
-    p"""
+    p""" metadata ( 'pkg' : '1.0.0' )
+
          module Mod {
            record @serializable MyUnit = {};
          }
@@ -96,7 +97,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg3-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
 
         module Mod31 {
           record @serializable T31 = {};

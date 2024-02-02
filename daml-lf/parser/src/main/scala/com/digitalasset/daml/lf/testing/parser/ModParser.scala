@@ -38,7 +38,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    opt(metadata) ~ rep(mod) ^^ { case metadata ~ modules =>
+    metadata ~ rep(mod) ^^ { case metadata ~ modules =>
       Package.build(modules, List.empty, parameters.languageVersion, metadata)
     }
 

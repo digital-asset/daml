@@ -1475,7 +1475,7 @@ class DecodeV2Spec
 
   "decodePackageMetadata" should {
     "accept a valid package name and version" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+      forEveryVersion { version =>
         new DecodeV2(version.minor).decodePackageMetadata(
           DamlLf2.PackageMetadata
             .newBuilder()
@@ -1492,7 +1492,7 @@ class DecodeV2Spec
     }
 
     "reject a package namewith space" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+      forEveryVersion { version =>
         an[Error.Parsing] shouldBe thrownBy(
           new DecodeV2(version.minor).decodePackageMetadata(
             DamlLf2.PackageMetadata
@@ -1507,7 +1507,7 @@ class DecodeV2Spec
     }
 
     "reject a package version with leading zero" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+      forEveryVersion { version =>
         an[Error.Parsing] shouldBe thrownBy(
           new DecodeV2(version.minor).decodePackageMetadata(
             DamlLf2.PackageMetadata
@@ -1522,7 +1522,7 @@ class DecodeV2Spec
     }
 
     "reject a package version with a dash" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+      forEveryVersion { version =>
         an[Error.Parsing] shouldBe thrownBy(
           new DecodeV2(version.minor).decodePackageMetadata(
             DamlLf2.PackageMetadata
@@ -1537,7 +1537,7 @@ class DecodeV2Spec
     }
 
     s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+      forEveryVersion { version =>
         val result = Try(
           new DecodeV2(version.minor).decodePackageMetadata(
             DamlLf2.PackageMetadata
@@ -1578,31 +1578,9 @@ class DecodeV2Spec
   }
 
   "decodePackage" should {
-    "reject PackageMetadata if lf version < 1.8" in {
-      forEveryVersionSuchThat(_ < LV.Features.packageMetadata) { version =>
-        val decoder = new DecodeV2(version.minor)
-        val pkgId = Ref.PackageId.assertFromString(
-          "0000000000000000000000000000000000000000000000000000000000000000"
-        )
-        val metadata =
-          DamlLf2.PackageMetadata.newBuilder
-            .setNameInternedStr(0)
-            .setVersionInternedStr(1)
-            .build()
-        val pkg = DamlLf2.Package
-          .newBuilder()
-          .addInternedStrings("foobar")
-          .addInternedStrings("0.0.0")
-          .setMetadata(metadata)
-          .build()
-        inside(decoder.decodePackage(pkgId, pkg, false)) { case Left(err) =>
-          err shouldBe an[Error.Parsing]
-        }
-      }
-    }
 
-    "require PackageMetadata to be present if lf version >= 1.8" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+    "require PackageMetadata" in {
+      forEveryVersion { version =>
         val decoder = new DecodeV2(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
@@ -1613,8 +1591,8 @@ class DecodeV2Spec
       }
     }
 
-    "decode PackageMetadata if lf version >= 1.8" in {
-      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+    "decode PackageMetadata" in {
+      forEveryVersion { version =>
         val decoder = new DecodeV2(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
@@ -1631,13 +1609,12 @@ class DecodeV2Spec
           .setMetadata(metadata)
           .build()
         inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
-          pkg.metadata shouldBe Some(
+          pkg.metadata shouldBe
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),
               Ref.PackageVersion.assertFromString("0.0.0"),
               None,
             )
-          )
         }
       }
     }

@@ -3,9 +3,10 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.data.Ref.{DottedName, PackageName, PackageVersion}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{
+  Ast,
   LanguageMajorVersion,
   LookupError,
   PackageInterface,
@@ -29,6 +30,11 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     ParserParameters.defaultFor(majorLanguageVersion)
   private[this] val defaultPackageId = parserParameters.defaultPackageId
   private[this] val defaultLanguageVersion = parserParameters.languageVersion
+  private[this] val packageMetadata = Ast.PackageMetadata(
+    PackageName.assertFromString("pkg"),
+    PackageVersion.assertFromString("0.0.0"),
+    None,
+  )
 
   import SpecUtil._
 
@@ -1083,6 +1089,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable MyUnit = {};
 
@@ -1436,6 +1444,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable MyUnit = {};
             record @serializable Box a = {x: a};
@@ -1702,6 +1712,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
 
           module Mod {
             record @serializable Exception = { message: Text };
@@ -1765,6 +1776,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       // This is a regression test for https://github.com/digital-asset/daml/issues/3777
       def pkg =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module TypeVarShadowing2 {
 
          val bar : forall b1 b2 a1 a2. (b1 -> b2) -> (a1 -> a2) -> a1 -> a2 =
@@ -1843,7 +1856,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type record definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -1866,7 +1879,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type variant definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -1889,7 +1902,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type synonym definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -1923,6 +1936,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val env = {
     val pkg =
       p"""
+       metadata ( 'pkg' : '1.0.0' )
+
        module Mod {
          record R (a: *) = { f1: Int64, f2: List a } ;
 

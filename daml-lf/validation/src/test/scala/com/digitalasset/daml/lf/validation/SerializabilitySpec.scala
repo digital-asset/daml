@@ -86,6 +86,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable SerializableType = {};
             record UnserializableType = {};
@@ -115,6 +117,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable SerializableType = {};
             record UnserializableType = {};
@@ -151,6 +155,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable SerializableType = {};
             record UnserializableType = {};
@@ -232,6 +238,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           // well-formed module
           module NegativeTestCase {
             record @serializable SerializableRecord = { message: Text } ;
@@ -262,6 +270,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable MyUnit = {};
           }
@@ -318,6 +328,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable MyUnit = {};
             record Unserializable = {};
@@ -343,6 +355,8 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
 
   private val defaultPkg =
     p"""
+      metadata ( 'pkg' : '1.0.0' )
+
       module Mod {
 
         record R (a: *) (b: *) = {f: a -> b };

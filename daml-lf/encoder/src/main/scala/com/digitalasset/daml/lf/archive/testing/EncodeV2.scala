@@ -54,22 +54,19 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val builder = PLF.Package.newBuilder()
       pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
 
-      if (LV.Features.packageMetadata <= languageVersion)
-        pkg.metadata.foreach { metadata =>
-          val metadataBuilder = PLF.PackageMetadata.newBuilder
-          metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
-          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version.toString))
-          metadata.upgradedPackageId match {
-            case None =>
-            case Some(pid) =>
-              metadataBuilder.setUpgradedPackageId(
-                PLF.UpgradedPackageId.newBuilder
-                  .setUpgradedPackageIdInternedStr(stringsTable.insert(pid))
-                  .build
-              )
-          }
-          builder.setMetadata(metadataBuilder.build)
-        }
+      val metadataBuilder = PLF.PackageMetadata.newBuilder
+      metadataBuilder.setNameInternedStr(stringsTable.insert(pkg.metadata.name))
+      metadataBuilder.setVersionInternedStr(stringsTable.insert(pkg.metadata.version.toString))
+      pkg.metadata.upgradedPackageId match {
+        case None =>
+        case Some(pid) =>
+          metadataBuilder.setUpgradedPackageId(
+            PLF.UpgradedPackageId.newBuilder
+              .setUpgradedPackageIdInternedStr(stringsTable.insert(pid))
+              .build
+          )
+      }
+      builder.setMetadata(metadataBuilder.build)
 
       typeTable.build.foreach(builder.addInternedTypes)
       dottedNameTable.build.foreach(builder.addInternedDottedNames)

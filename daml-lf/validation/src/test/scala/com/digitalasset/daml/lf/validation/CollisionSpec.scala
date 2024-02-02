@@ -32,6 +32,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // a record definition without collision
       val negativeTestCase = p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Mod {                  // fully resolved name: "Mod"
            record R = {                // fully resolved name: "Mod.R."
              field1: Int64,            // fully resolved name: "Mod.R.field1"
@@ -44,6 +45,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         "module",
         // a record definition with collision
         p"""
+          metadata ( 'pkg' : '1.0.0' )
           module Mod {                  // fully resolved name: "Mod"
             record R = {                // fully resolved name: "Mod.R."
               field: Int64,             // fully resolved name: "Mod.R.field"  (collision)
@@ -53,6 +55,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           """,
         // a record definition with case-insensitive collision
         p"""
+          metadata ( 'pkg' : '1.0.0' )
           module Mod {                  // fully resolved name: "Mod"
             record R = {                  // fully resolved name: "Mod.R."
               field: Int64,             // fully resolved name: "Mod.R.field"  (collision)
@@ -72,6 +75,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // a variant definition without collision
       val negativeTestCase = p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Mod {                  // fully resolved name: "Mod"
            variant V =                 // fully resolved name: "Mod.V"
              Variant1: Int64           // fully resolved name: "Mod.V.Variant1"
@@ -83,6 +87,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         "module",
         // a variant definition with case sensitive collision
         p"""
+          metadata ( 'pkg' : '1.0.0' )
           module Mod {                 // fully resolved name: "Mod"
             variant V =                // fully resolved name: "Mod.V"
               Variant: Int64           // fully resolved name: "Mod.V.Variant" (collision)
@@ -91,6 +96,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           """,
         // a variant definition with case insensitive collision
         p"""
+          metadata ( 'pkg' : '1.0.0' )
           module Mod {                 // fully resolved name: "Mod"
             variant V =                   // fully resolved name: "Mod.V"
               Variant: Int64           // fully resolved name: "Mod.V.Variant" (collision)
@@ -109,6 +115,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // a collision-free package
       val negativeTestCase = p"""
+          metadata ( 'pkg' : '1.0.0' )
           module A {                    // fully resolved name: "A"
             record B = {};              // fully resolved name: "A.B"
           }
@@ -121,6 +128,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         "module",
         // a package with collision: two constructs have the same fully resoled name "A.B"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                    // fully resolved name: "A"
             record B = {};              // fully resolved name: "A.B" (collision)
           }
@@ -131,6 +140,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with collision: two constructs have the same fully resoled name "A.B"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                    // fully resolved name: "A"
             record B = {};                // fully resolved name: "A.B" (collision)
           }
@@ -141,6 +152,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with collision: two constructs have the same fully resoled name "A.B"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                    // fully resolved name: "A"
             synonym B = |Mod:A|;        // fully resolved name: "A.B" (collision)
           }
@@ -161,6 +174,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // a collision-free package
       val negativeTestCase = p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C"
           }
@@ -174,6 +189,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         "module",
         // a package with collision: two constructs have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C" (collision)
           }
@@ -184,6 +201,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: two constructs have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C" (collision)
           }
@@ -194,6 +213,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a record and a variant have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C" (collision)
           }
@@ -204,6 +225,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a record and a enum the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C" (collision)
           }
@@ -214,6 +237,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a variant and a enum have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             variant B.C =;              // fully resolved name: "A.B.C" (collision)
           }
@@ -224,6 +249,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a record and a synonym have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             record B.C = {};              // fully resolved name: "A.B.C" (collision)
           }
@@ -234,6 +261,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a variant and a synonym have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             variant B.C =;              // fully resolved name: "A.B.C" (collision)
           }
@@ -244,6 +273,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: a variant and a synonym have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             variant B.C =;              // fully resolved name: "A.B.C" (collision)
           }
@@ -254,6 +285,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: two constructs have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             synonym B.C = |Mod:T|;        // fully resolved name: "A.B.C"
           }
@@ -264,6 +297,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         """,
         // a package with case insensitive collision: two constructs have the same fully resoled name "A.B.C"
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module A {                      // fully resolved name: "A"
             synonym B.C = |Mod:T|;        // fully resolved name: "A.B.C"
           }
@@ -284,6 +319,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       // a package containing a allowed collision between variant constructor and record type
       val negativeTestCase = p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {                     // fully resolved name: "Mod"
             variant Tree (a: * ) =         // fully resolved name: "Mod.Tree"
               Leaf : Unit                  // fully resolved name: "Mod.Tree.Leaf"
@@ -302,6 +339,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         // a package containing a disallowed collision between variant constructor and record type
         // variant and record are from different modules
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {                    // fully resolved name: "Mod"
             variant Tree (a: * ) =        // fully resolved name: "Mod.Tree"
               Leaf : Unit                 // fully resolved name: "Mod.Tree.Leaf"
@@ -319,6 +358,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
         // a package containing a disallowed collision between variant constructor and record type
         // variant and record have different cases.
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {                     // fully resolved name: "Mod"
             variant Tree (a: * ) =         // fully resolved name: "Mod.Tree"
               Leaf : Unit                  // fully resolved name: "Mod.Tree.Leaf"
@@ -344,6 +385,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val negativeTestCase =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module Mod {                     // fully resolved name: "Mod"
 
           template (this: T) = {
@@ -363,6 +406,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val positiveTestCase =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module Mod {                     // fully resolved name: "Mod"
 
          template (this: T) = {
@@ -389,6 +434,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val negativeTestCase =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module Mod {                     // fully resolved name: "Mod"
 
           record @serializable MyUnit = {};
@@ -408,6 +455,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val positiveTestCase =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module Mod {                     // fully resolved name: "Mod"
 
           record @serializable MyUnit = {};
@@ -433,6 +482,8 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
     "do not consider inherited choices for collision" in {
 
       val testCase = p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable MyUnit = {};

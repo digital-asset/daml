@@ -50,13 +50,10 @@ object PackageMetadata {
       packageIdVersionMap = Map.empty,
     )
 
-    pkg.metadata
-      .collect {
-        case decodedPackageMeta
-            // TODO(#16362): Replace with own feature
-            if packageLanguageVersion >= LanguageVersion.Features.sharedKeys =>
-          val packageName = decodedPackageMeta.name
-          val packageVersion = decodedPackageMeta.version
+    // TODO(#16362): Replace with own feature
+    if (packageLanguageVersion >= LanguageVersion.Features.sharedKeys) {
+          val packageName = pkg.metadata.name
+          val packageVersion = pkg.metadata.version
 
           // Update with upgradable package metadata
           nonUpgradablePackageMetadata.copy(
@@ -69,7 +66,7 @@ object PackageMetadata {
             packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
           )
       }
-      .getOrElse(nonUpgradablePackageMetadata)
+    else nonUpgradablePackageMetadata
   }
 
   object Implicits {

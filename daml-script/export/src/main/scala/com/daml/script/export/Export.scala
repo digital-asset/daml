@@ -166,10 +166,10 @@ object Export {
     val deps = Files.createDirectory(dir.resolve("deps"))
     val dalfFiles = pkgs.toSeq
       .sortBy { case (pkgId, (_, pkg)) =>
-        (pkg.metadata.map(md => (md.name.toString, md.version.toString)), pkgId.toString)
+        ((pkg.metadata.name.toString, pkg.metadata.version.toString), pkgId.toString)
       }
       .map { case (pkgId, (bs, pkg)) =>
-        val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
+        val prefix = s"${pkg.metadata.name}-${pkg.metadata.version}-"
         val file = deps.resolve(s"$prefix$pkgId.dalf")
         Dependencies.writeDalf(file, pkgId, bs)
         dir.relativize(file)

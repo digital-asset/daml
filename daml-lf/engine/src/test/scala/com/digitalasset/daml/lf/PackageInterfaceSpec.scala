@@ -35,7 +35,8 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
     parserParameters.defaultPackageId
 
   private[this] val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           val unit: Unit = ();

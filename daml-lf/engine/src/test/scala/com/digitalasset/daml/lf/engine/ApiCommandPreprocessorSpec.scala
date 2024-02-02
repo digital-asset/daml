@@ -38,7 +38,8 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   private implicit val defaultPackageId: PackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable MyUnit = {};
