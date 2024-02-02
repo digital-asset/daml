@@ -75,7 +75,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   override lazy val name: String = "ActionDescription"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActionDescription)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActionDescription)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -199,7 +199,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         } yield actionDescription
     }
 
-  private def fromCreateProtoV2(
+  private def fromCreateProtoV30(
       c: v30.ActionDescription.CreateActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[CreateActionDescription] = {
@@ -216,7 +216,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       .fromString(choiceP)
       .leftMap(err => ValueDeserializationError("choice", err))
 
-  private def fromExerciseProtoV2(
+  private def fromExerciseProtoV30(
       e: v30.ActionDescription.ExerciseActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[ExerciseActionDescription] = {
@@ -261,7 +261,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     } yield actionDescription
   }
 
-  private def fromLookupByKeyProtoV2(
+  private def fromLookupByKeyProtoV30(
       k: v30.ActionDescription.LookupByKeyActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[LookupByKeyActionDescription] = {
@@ -276,7 +276,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     } yield actionDescription
   }
 
-  private def fromFetchProtoV2(
+  private def fromFetchProtoV30(
       f: v30.ActionDescription.FetchActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[FetchActionDescription] = {
@@ -294,13 +294,13 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     import v30.ActionDescription.Description.*
     val v30.ActionDescription(description) = actionDescriptionP
 
-    val pv = protocolVersionRepresentativeFor(ProtoVersion(2))
+    val pv = protocolVersionRepresentativeFor(ProtoVersion(30))
 
     description match {
-      case Create(create) => fromCreateProtoV2(create, pv)
-      case Exercise(exercise) => fromExerciseProtoV2(exercise, pv)
-      case Fetch(fetch) => fromFetchProtoV2(fetch, pv)
-      case LookupByKey(lookup) => fromLookupByKeyProtoV2(lookup, pv)
+      case Create(create) => pv.flatMap(fromCreateProtoV30(create, _))
+      case Exercise(exercise) => pv.flatMap(fromExerciseProtoV30(exercise, _))
+      case Fetch(fetch) => pv.flatMap(fromFetchProtoV30(fetch, _))
+      case LookupByKey(lookup) => pv.flatMap(fromLookupByKeyProtoV30(lookup, _))
       case Empty => Left(FieldNotSet("description"))
     }
   }

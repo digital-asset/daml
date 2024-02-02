@@ -48,7 +48,7 @@ class GrpcTrafficControlServiceTest
       val response = timeouts.default.await("wait_for_response") {
         service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))
       }
-      response.trafficState shouldBe Some(status.toProtoV0)
+      response.trafficState shouldBe Some(status.toProtoV30)
     }
 
     "return FAILED_PRECONDITION if the domain is not found" in {

@@ -6,12 +6,9 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.util.Optional
 
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_completion_service.CompletionEndResponse
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
+import com.daml.ledger.api.v2.state_service.{ActiveContract, GetActiveContractsResponse}
+import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.jdk.CollectionConverters._
@@ -24,7 +21,13 @@ trait DataLayerHelpers {
     new GetActiveContractsResponse(
       "",
       "workflowId",
-      Seq[CreatedEvent](),
+      ContractEntry.ActiveContract(
+        new ActiveContract(
+          createdEvent = TransactionGenerator.createdEventGen.sample.map(_._1.value),
+          domainId = "someDomain",
+          reassignmentCounter = 0,
+        )
+      ),
     )
   }
 
@@ -44,16 +47,11 @@ trait DataLayerHelpers {
       commands.asJava,
     )
   }
-  def genLedgerOffset(absVal: String): LedgerOffset =
-    new LedgerOffset(Absolute(absVal))
 
-  def genCompletionEndResponse(absVal: String): CompletionEndResponse =
-    new CompletionEndResponse(Some(genLedgerOffset(absVal)))
+  val filterNothing: FiltersByPartyV2 = new FiltersByPartyV2(Map[String, Filter]().asJava)
 
-  val filterNothing: FiltersByParty = new FiltersByParty(Map[String, Filter]().asJava)
-
-  def filterFor(party: String): FiltersByParty =
-    new FiltersByParty(
+  def filterFor(party: String): FiltersByPartyV2 =
+    new FiltersByPartyV2(
       Map(party -> (InclusiveFilter.ofTemplateIds(Set.empty[Identifier].asJava): Filter)).asJava
     )
 }

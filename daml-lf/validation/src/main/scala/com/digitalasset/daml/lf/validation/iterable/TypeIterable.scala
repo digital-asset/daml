@@ -282,19 +282,12 @@ private[validation] object TypeIterable {
         iterator(value)
     }
 
-  private[validation] def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
-    coImpl match {
-      case InterfaceCoImplements(template, body) =>
-        Iterator(TTyCon(template)) ++ iterator(body)
-    }
-
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(requires, _, choices, methods, coImplements, view) =>
+      case DefInterface(requires, _, choices, methods, view) =>
         requires.iterator.map(TTyCon) ++
           choices.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator) ++
-          coImplements.values.flatMap(iterator) ++
           iterator(view)
     }
 

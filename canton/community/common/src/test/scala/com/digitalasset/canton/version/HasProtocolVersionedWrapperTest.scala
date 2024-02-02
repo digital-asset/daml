@@ -5,6 +5,7 @@ package com.digitalasset.canton.version
 
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.ProtoDeserializationError.UnknownProtoVersion
 import com.digitalasset.canton.protobuf.{VersionedMessageV0, VersionedMessageV1, VersionedMessageV2}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.ByteString
@@ -77,8 +78,18 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
       protocolVersionRepresentative(basePV + 5).representative shouldBe basePV + 3
     }
 
-    "return the highest inclusive protocol representative for an unknown proto version" in {
+    "return the highest inclusive protocol representative for an unknown protocol version" in {
       protocolVersionRepresentative(ProtocolVersion(-1)).representative shouldBe basePV + 3
+    }
+
+    "fail for an unknown proto version" in {
+      val maxProtoVersion = Message.supportedProtoVersions.table.keys.max.v
+      val unknownProtoVersion = ProtoVersion(maxProtoVersion + 1)
+
+      Message
+        .protocolVersionRepresentativeFor(unknownProtoVersion)
+        .left
+        .value shouldBe UnknownProtoVersion(unknownProtoVersion, Message.name)
     }
 
     "fail deserialization when the representative protocol version from the proto version does not match the expected (representative) protocol version" in {
@@ -163,6 +174,8 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 }
 
 object HasProtocolVersionedWrapperTest {
+  import org.scalatest.EitherValues.*
+
   private val basePV = ProtocolVersion.minimum
 
   implicit class RichProtocolVersion(val pv: ProtocolVersion) {
@@ -228,7 +241,7 @@ object HasProtocolVersionedWrapperTest {
         0,
         0,
       )(
-        protocolVersionRepresentativeFor(ProtoVersion(0)),
+        protocolVersionRepresentativeFor(ProtoVersion(0)).value,
         Some(bytes),
       ).asRight
 
@@ -238,7 +251,7 @@ object HasProtocolVersionedWrapperTest {
         message.value,
         1,
       )(
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        protocolVersionRepresentativeFor(ProtoVersion(1)).value,
         Some(bytes),
       ).asRight
 
@@ -248,7 +261,7 @@ object HasProtocolVersionedWrapperTest {
         message.iValue,
         message.dValue,
       )(
-        protocolVersionRepresentativeFor(ProtoVersion(2)),
+        protocolVersionRepresentativeFor(ProtoVersion(2)).value,
         Some(bytes),
       ).asRight
   }

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
-import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
@@ -17,7 +16,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
@@ -59,9 +57,6 @@ class DbContractStore(
 
   private val profile = storage.profile
   private val domainId = domainIdIndexed.index
-
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("contract-store")
 
   override protected[store] def logger: TracedLogger = super.logger
 
@@ -116,7 +111,6 @@ class DbContractStore(
     BatchAggregator(
       processor,
       dbQueryBatcherConfig,
-      Some(storage.metrics.loadGaugeM("contract-store-query-batcher")),
     )
   }
 
@@ -173,7 +167,7 @@ class DbContractStore(
   private def lookupManyUncachedInternal(
       ids: NonEmpty[Seq[LfContractId]]
   )(implicit traceContext: TraceContext) = {
-    processingTime.event {
+    {
       storage.sequentialQueryAndCombine(lookupQueries(ids), functionFullName)(
         traceContext,
         closeContext,
@@ -186,59 +180,56 @@ class DbContractStore(
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[List[SerializableContract]] =
-    processingTime.event {
+  )(implicit traceContext: TraceContext): Future[List[SerializableContract]] = {
 
-      import DbStorage.Implicits.BuilderChain.*
+    import DbStorage.Implicits.BuilderChain.*
 
-      // If filter is set returns a conjunctive (`and` prepended) constraint on attribute `name`.
-      // Otherwise empty sql action.
-      @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
-      def createConjunctiveFilter(name: String, filter: Option[String]): SQLActionBuilderChain =
-        filter
-          .map { f =>
-            sql" and #$name " ++ (f match {
-              case rs if rs.startsWith("!") => sql"= ${rs.drop(1)}" // Must be equal
-              case rs if rs.startsWith("^") => sql"""like ${rs.drop(1) + "%"}""" // Starts with
-              case rs => sql"""like ${"%" + rs + "%"}""" // Contains
-            })
-          }
-          .getOrElse(sql" ")
+    // If filter is set returns a conjunctive (`and` prepended) constraint on attribute `name`.
+    // Otherwise empty sql action.
+    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+    def createConjunctiveFilter(name: String, filter: Option[String]): SQLActionBuilderChain =
+      filter
+        .map { f =>
+          sql" and #$name " ++ (f match {
+            case rs if rs.startsWith("!") => sql"= ${rs.drop(1)}" // Must be equal
+            case rs if rs.startsWith("^") => sql"""like ${rs.drop(1) + "%"}""" // Starts with
+            case rs => sql"""like ${"%" + rs + "%"}""" // Contains
+          })
+        }
+        .getOrElse(sql" ")
 
-      val where = sql" where "
-      val domainConstraint = sql" domain_id = $domainId "
-      val pkgFilter = createConjunctiveFilter("package_id", filterPackage)
-      val templateFilter = createConjunctiveFilter("template_id", filterTemplate)
-      val coidFilter = createConjunctiveFilter("contract_id", filterId)
-      val limitFilter = sql" #${storage.limit(limit)}"
+    val where = sql" where "
+    val domainConstraint = sql" domain_id = $domainId "
+    val pkgFilter = createConjunctiveFilter("package_id", filterPackage)
+    val templateFilter = createConjunctiveFilter("template_id", filterTemplate)
+    val coidFilter = createConjunctiveFilter("contract_id", filterId)
+    val limitFilter = sql" #${storage.limit(limit)}"
 
-      val contractsQuery = contractsBaseQuery ++ where ++
-        domainConstraint ++ pkgFilter ++ templateFilter ++ coidFilter ++ limitFilter
+    val contractsQuery = contractsBaseQuery ++ where ++
+      domainConstraint ++ pkgFilter ++ templateFilter ++ coidFilter ++ limitFilter
 
-      storage
-        .query(contractsQuery.as[StoredContract], functionFullName)
-        .map(_.map(_.contract).toList)
-    }
+    storage
+      .query(contractsQuery.as[StoredContract], functionFullName)
+      .map(_.map(_.contract).toList)
+  }
 
   override def storeCreatedContracts(
       requestCounter: RequestCounter,
       creations: Seq[WithTransactionId[SerializableContract]],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      creations.parTraverse_ { case WithTransactionId(creation, transactionId) =>
-        storeContract(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
-      }
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    creations.parTraverse_ { case WithTransactionId(creation, transactionId) =>
+      storeContract(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
     }
+  }
 
   override def storeDivulgedContracts(
       requestCounter: RequestCounter,
       divulgences: Seq[SerializableContract],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      divulgences.parTraverse_ { divulgence =>
-        storeContract(StoredContract.fromDivulgedContract(divulgence, requestCounter))
-      }
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    divulgences.parTraverse_ { divulgence =>
+      storeContract(StoredContract.fromDivulgedContract(divulgence, requestCounter))
     }
+  }
 
   private def storeContract(
       contract: StoredContract
@@ -444,25 +435,23 @@ class DbContractStore(
       override def prettyItem: Pretty[StoredContract] = implicitly
     }
 
-    BatchAggregator(processor, insertBatchAggregatorConfig, processingTime.some)
+    BatchAggregator(processor, insertBatchAggregatorConfig)
   }
 
   def deleteContract(
       id: LfContractId
-  )(implicit traceContext: TraceContext): EitherT[Future, UnknownContract, Unit] =
-    processingTime
-      .eitherTEvent {
-        lookupE(id)
-          .flatMap { _ =>
-            EitherT.right[UnknownContract](
-              storage.update_(
-                sqlu"delete from contracts where contract_id = $id and domain_id = $domainId",
-                functionFullName,
-              )
-            )
-          }
+  )(implicit traceContext: TraceContext): EitherT[Future, UnknownContract, Unit] = {
+    lookupE(id)
+      .flatMap { _ =>
+        EitherT.right[UnknownContract](
+          storage.update_(
+            sqlu"delete from contracts where contract_id = $id and domain_id = $domainId",
+            functionFullName,
+          )
+        )
       }
-      .thereafter(_ => invalidateCache(id))
+  }
+    .thereafter(_ => invalidateCache(id))
 
   override def deleteIgnoringUnknown(
       contractIds: Iterable[LfContractId]
@@ -477,37 +466,32 @@ class DbContractStore(
           cids
             .map(value => sql"$value")
             .intercalate(sql", ") ++ sql")"
-        processingTime
-          .event {
-            storage.update_(
-              (sql"""delete from contracts where domain_id = $domainId and """ ++ inClause).asUpdate,
-              functionFullName,
-            )
-          }
+        storage.update_(
+          (sql"""delete from contracts where domain_id = $domainId and """ ++ inClause).asUpdate,
+          functionFullName,
+        )
       }
       .thereafter(_ => cache.synchronous().invalidateAll(contractIds))
   }
 
   override def deleteDivulged(
       upTo: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime
-      .event {
-        val query = profile match {
-          case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-            sqlu"""delete from contracts
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val query = profile match {
+      case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
+        sqlu"""delete from contracts
                  where domain_id = $domainId and request_counter <= $upTo and creating_transaction_id is null"""
-          case _: DbStorage.Profile.Oracle =>
-            // Here we use exactly the same expression as in idx_contracts_request_counter
-            // to make sure the index is used.
-            sqlu"""delete from contracts
+      case _: DbStorage.Profile.Oracle =>
+        // Here we use exactly the same expression as in idx_contracts_request_counter
+        // to make sure the index is used.
+        sqlu"""delete from contracts
                  where (case when creating_transaction_id is null then domain_id end) = $domainId and
                        (case when creating_transaction_id is null then request_counter end) <= $upTo"""
-        }
+    }
 
-        storage.update_(query, functionFullName)
-      }
-      .thereafter(_ => cache.synchronous().invalidateAll())
+    storage.update_(query, functionFullName)
+  }
+    .thereafter(_ => cache.synchronous().invalidateAll())
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
@@ -532,10 +516,9 @@ class DbContractStore(
         )
     }
 
-  override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
-    processingTime.event {
-      storage.query(sql"select count(*) from contracts".as[Int].head, functionFullName)
-    }
+  override def contractCount()(implicit traceContext: TraceContext): Future[Int] = {
+    storage.query(sql"select count(*) from contracts".as[Int].head, functionFullName)
+  }
 }
 
 object DbContractStore {

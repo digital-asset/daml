@@ -8,45 +8,22 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{
   DeliveredTransferOutResult,
   TransferInMediatorMessage,
 }
-import com.digitalasset.canton.protocol.{
-  RootHash,
-  SerializableContract,
-  TargetDomainId,
-  TransactionId,
-  ViewHash,
-  v30,
-}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.transaction.TrustLevel
-import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWithContextCompanion,
-  HasProtocolVersionedWrapper,
-  HasVersionedMessageWithContextCompanion,
-  HasVersionedToByteString,
-  ProtoVersion,
-  ProtocolVersion,
-  RepresentativeProtocolVersion,
-}
-import com.digitalasset.canton.{
-  LedgerApplicationId,
-  LedgerCommandId,
-  LedgerParticipantId,
-  LedgerSubmissionId,
-  LfPartyId,
-  LfWorkflowId,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.version.*
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter, TransferCounterO}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -54,7 +31,7 @@ import java.util.UUID
 /** A blindable Merkle tree for transfer-in requests */
 
 final case class TransferInViewTree(
-    commonData: MerkleTree[TransferInCommonData],
+    commonData: MerkleTreeLeaf[TransferInCommonData],
     view: MerkleTree[TransferInView],
 )(hashOps: HashOps)
     extends GenTransferViewTree[
@@ -64,16 +41,32 @@ final case class TransferInViewTree(
       TransferInMediatorMessage,
     ](commonData, view)(hashOps) {
 
-  override def createMediatorMessage(blindedTree: TransferInViewTree): TransferInMediatorMessage =
-    TransferInMediatorMessage(blindedTree)
+  def submittingParticipant: ParticipantId =
+    commonData.tryUnwrap.submitterMetadata.submittingParticipant
+
+  override def createMediatorMessage(
+      blindedTree: TransferInViewTree,
+      submittingParticipantSignature: Signature,
+  ): TransferInMediatorMessage =
+    TransferInMediatorMessage(blindedTree, submittingParticipantSignature)
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
-  ): MerkleTree[TransferInViewTree] =
+  ): MerkleTree[TransferInViewTree] = {
+
+    if (
+      optimizedBlindingPolicy.applyOrElse(
+        commonData.rootHash,
+        (_: RootHash) => RevealSubtree,
+      ) != RevealSubtree
+    )
+      throw new IllegalArgumentException("Blinding of common data is not supported.")
+
     TransferInViewTree(
-      commonData.doBlind(optimizedBlindingPolicy),
+      commonData,
       view.doBlind(optimizedBlindingPolicy),
     )(hashOps)
+  }
 
   override def pretty: Pretty[TransferInViewTree] = prettyOfClass(
     param("common data", _.commonData),
@@ -89,7 +82,7 @@ object TransferInViewTree
   override val name: String = "TransferInViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.TransferViewTree)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -117,6 +110,7 @@ object TransferInViewTree
   * @param targetMediator The mediator that coordinates the transfer-in request on the target domain
   * @param stakeholders The stakeholders of the transferred contract
   * @param uuid The uuid of the transfer-in request
+  * @param submitterMetadata information about the submission
   */
 final case class TransferInCommonData private (
     override val salt: Salt,
@@ -124,6 +118,7 @@ final case class TransferInCommonData private (
     targetMediator: MediatorRef,
     stakeholders: Set[LfPartyId],
     uuid: UUID,
+    submitterMetadata: TransferSubmitterMetadata,
 )(
     hashOps: HashOps,
     val targetProtocolVersion: TargetProtocolVersion,
@@ -149,6 +144,7 @@ final case class TransferInCommonData private (
       targetMediator = targetMediator.toProtoPrimitive,
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
+      submitterMetadata = Some(submitterMetadata.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
     )
 
@@ -158,6 +154,7 @@ final case class TransferInCommonData private (
     super[HasProtocolVersionedWrapper].toByteString
 
   override def pretty: Pretty[TransferInCommonData] = prettyOfClass(
+    param("submitter metadata", _.submitterMetadata),
     param("target domain", _.targetDomain),
     param("target mediator", _.targetMediator),
     param("stakeholders", _.stakeholders),
@@ -171,7 +168,7 @@ object TransferInCommonData
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -183,6 +180,7 @@ object TransferInCommonData
       targetMediator: MediatorRef,
       stakeholders: Set[LfPartyId],
       uuid: UUID,
+      submitterMetadata: TransferSubmitterMetadata,
       targetProtocolVersion: TargetProtocolVersion,
   ): TransferInCommonData = TransferInCommonData(
     salt,
@@ -190,6 +188,7 @@ object TransferInCommonData
     targetMediator,
     stakeholders,
     uuid,
+    submitterMetadata,
   )(hashOps, targetProtocolVersion, None)
 
   private[this] def fromProtoV30(hashOps: HashOps, transferInCommonDataP: v30.TransferInCommonData)(
@@ -202,6 +201,7 @@ object TransferInCommonData
       uuidP,
       targetMediatorP,
       protocolVersionP,
+      submitterMetadataPO,
     ) =
       transferInCommonDataP
     for {
@@ -211,12 +211,16 @@ object TransferInCommonData
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      submitterMetadata <- ProtoConverter
+        .required("submitter_metadata", submitterMetadataPO)
+        .flatMap(TransferSubmitterMetadata.fromProtoV30)
     } yield TransferInCommonData(
       salt,
       targetDomain,
       targetMediator,
       stakeholders.toSet,
       uuid,
+      submitterMetadata,
     )(
       hashOps,
       TargetProtocolVersion(protocolVersion),
@@ -237,7 +241,6 @@ object TransferInCommonData
   */
 final case class TransferInView private (
     override val salt: Salt,
-    submitterMetadata: TransferSubmitterMetadata,
     contract: SerializableContract,
     creatingTransactionId: TransactionId,
     transferOutResultEvent: DeliveredTransferOutResult,
@@ -256,26 +259,13 @@ final case class TransferInView private (
 
   @transient override protected lazy val companionObj: TransferInView.type = TransferInView
 
-  val submitter: LfPartyId = submitterMetadata.submitter
-  val submittingParticipant: LedgerParticipantId = submitterMetadata.submittingParticipant
-  val applicationId: LedgerApplicationId = submitterMetadata.applicationId
-  val submissionId: Option[LedgerSubmissionId] = submitterMetadata.submissionId
-  val commandId: LedgerCommandId = submitterMetadata.commandId
-  val workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
-
   protected def toProtoV30: v30.TransferInView =
     v30.TransferInView(
       salt = Some(salt.toProtoV30),
-      submitter = submitter,
       contract = Some(contract.toProtoV30),
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV30),
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
-      submittingParticipant = submittingParticipant,
-      applicationId = applicationId,
-      submissionId = submissionId.getOrElse(""),
-      workflowId = workflowId.getOrElse(""),
-      commandId = commandId,
       transferCounter = transferCounter
         .getOrElse(
           throw new IllegalStateException(
@@ -289,15 +279,10 @@ final case class TransferInView private (
     super[HasProtocolVersionedWrapper].toByteString
 
   override def pretty: Pretty[TransferInView] = prettyOfClass(
-    param("submitter", _.submitter),
     param("contract", _.contract), // TODO(#3269) this may contain confidential data
     paramIfDefined("transfer counter", _.transferCounter),
     param("creating transaction id", _.creatingTransactionId),
     param("transfer out result", _.transferOutResultEvent),
-    param("submitting participant", _.submittingParticipant),
-    param("application id", _.applicationId),
-    paramIfDefined("submission id", _.submissionId),
-    paramIfDefined("workflow id", _.workflowId),
     param("salt", _.salt),
   )
 }
@@ -308,7 +293,6 @@ object TransferInView
 
   private[TransferInView] final case class CommonData(
       salt: Salt,
-      submitter: LfPartyId,
       creatingTransactionId: TransactionId,
       transferOutResultEvent: DeliveredTransferOutResult,
       sourceProtocolVersion: SourceProtocolVersion,
@@ -318,14 +302,12 @@ object TransferInView
     def fromProto(
         hashOps: HashOps,
         saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
-        submitterP: String,
         transferOutResultEventPO: Option[v30.SignedContent],
         creatingTransactionIdP: ByteString,
         sourceProtocolVersion: ProtocolVersion,
     ): ParsingResult[CommonData] = {
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-        submitter <- ProtoConverter.parseLfPartyId(submitterP)
         // TransferOutResultEvent deserialization
         transferOutResultEventP <- ProtoConverter
           .required("TransferInView.transferOutResultEvent", transferOutResultEventPO)
@@ -341,7 +323,6 @@ object TransferInView
         creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       } yield CommonData(
         salt,
-        submitter,
         creatingTransactionId,
         transferOutResultEvent,
         SourceProtocolVersion(sourceProtocolVersion),
@@ -350,7 +331,7 @@ object TransferInView
   }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferInView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -358,7 +339,6 @@ object TransferInView
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      submitterMetadata: TransferSubmitterMetadata,
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       transferOutResultEvent: DeliveredTransferOutResult,
@@ -369,7 +349,6 @@ object TransferInView
     .catchOnly[IllegalArgumentException](
       TransferInView(
         salt,
-        submitterMetadata,
         contract,
         creatingTransactionId,
         transferOutResultEvent,
@@ -384,16 +363,10 @@ object TransferInView
   ): ParsingResult[TransferInView] = {
     val v30.TransferInView(
       saltP,
-      submitterP,
       contractP,
       transferOutResultEventPO,
       creatingTransactionIdP,
       sourceProtocolVersionP,
-      submittingParticipantP,
-      applicationIdP,
-      submissionIdP,
-      workflowIdP,
-      commandIdP,
       transferCounterP,
     ) =
       transferInViewP
@@ -402,7 +375,6 @@ object TransferInView
       commonData <- CommonData.fromProto(
         hashOps,
         saltP,
-        submitterP,
         transferOutResultEventPO,
         creatingTransactionIdP,
         protocolVersion,
@@ -410,28 +382,15 @@ object TransferInView
       contract <- ProtoConverter
         .required("contract", contractP)
         .flatMap(SerializableContract.fromProtoV30)
-      submittingParticipantId <-
-        ProtoConverter.parseLfParticipantId(submittingParticipantP)
-      applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
-      submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
-      workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
-      commandId <- ProtoConverter.parseCommandId(commandIdP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransferInView(
       commonData.salt,
-      TransferSubmitterMetadata(
-        commonData.submitter,
-        applicationId,
-        submittingParticipantId,
-        commandId,
-        submissionId,
-        workflowId,
-      ),
       contract,
       commonData.creatingTransactionId,
       commonData.transferOutResultEvent,
       commonData.sourceProtocolVersion,
       Some(TransferCounter(transferCounterP)),
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(2)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }
 
@@ -448,11 +407,11 @@ final case class FullTransferInTree(tree: TransferInViewTree)
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
 
-  def submitter: LfPartyId = view.submitter
+  def submitterMetadata: TransferSubmitterMetadata = commonData.submitterMetadata
 
-  def submitterMetadata: TransferSubmitterMetadata = view.submitterMetadata
+  def submitter: LfPartyId = submitterMetadata.submitter
 
-  def workflowId: Option[LfWorkflowId] = view.workflowId
+  def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   def stakeholders: Set[LfPartyId] = commonData.stakeholders
 
@@ -464,7 +423,9 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   def transferOutResultEvent: DeliveredTransferOutResult = view.transferOutResultEvent
 
-  def mediatorMessage: TransferInMediatorMessage = tree.mediatorMessage
+  def mediatorMessage(
+      submittingParticipantSignature: Signature
+  ): TransferInMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 

@@ -32,7 +32,7 @@ sealed trait TransactionPointwiseReader {
   val dbMetric: DatabaseMetrics
   implicit def ec: ExecutionContext
 
-  protected val dbMetrics: metrics.daml.index.db.type = metrics.daml.index.db
+  protected val dbMetrics: metrics.index.db.type = metrics.index.db
 
   protected def fetchTransaction(
       firstEventSequentialId: Long,

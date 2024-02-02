@@ -161,8 +161,8 @@ class ModelConformanceChecker(
       }
 
     val rootViewsWithInfo = rootViewTrees.map { viewTree =>
-      val submitterParticipantO = viewTree.submitterMetadataO.map(_.submitterParticipant)
-      (viewTree.view, viewTree.viewPosition, submitterParticipantO)
+      val submittingParticipantO = viewTree.submitterMetadataO.map(_.submittingParticipant)
+      (viewTree.view, viewTree.viewPosition, submittingParticipantO)
     }
 
     val resultFE = findValidSubtransactions(rootViewsWithInfo).map { case (errors, viewsTxs) =>

@@ -79,10 +79,10 @@ private[participant] object AutomaticTransferIn {
             targetDomain,
             TransferSubmitterMetadata(
               inParty,
-              transferOutSubmitterMetadata.applicationId,
-              participantId.toLf,
+              participantId,
               transferOutSubmitterMetadata.commandId,
               submissionId = None,
+              transferOutSubmitterMetadata.applicationId,
               workflowId = None,
             ),
             id,

@@ -81,7 +81,7 @@ trait SubmissionTracker extends AutoCloseable {
 
 object SubmissionTracker {
   final case class SubmissionData(
-      submitterParticipant: ParticipantId,
+      submittingParticipant: ParticipantId,
       maxSequencingTime: CantonTimestamp,
   )
 
@@ -292,7 +292,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
       prevFUS.map { isAvailable =>
         if (isAvailable) {
           // The slot is available to us -- yay!
-          val amSubmitter = submissionData.submitterParticipant == participantId
+          val amSubmitter = submissionData.submittingParticipant == participantId
 
           val requestIsValidFUS = {
             val maxSequencingTime = submissionData.maxSequencingTime

@@ -3,7 +3,7 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -31,7 +31,11 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         Set.empty,
         defaultVersion,
-        None,
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("foo"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
       )
       a[PackageError] shouldBe thrownBy(
         Package.build(
@@ -41,7 +45,11 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           Set.empty,
           defaultVersion,
-          None,
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("bar"),
+            Ref.PackageVersion.assertFromString("0.0.0"),
+            None,
+          ),
         )
       )
 
@@ -65,7 +73,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
-      coImplements = Map.empty,
       view = TUnit,
     )
 
@@ -376,7 +383,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choiceBuilder(choice3, TText, eText),
         ),
         methods = List(ifaceMethod1, ifaceMethod2),
-        coImplements = List.empty,
         view = TUnit,
       )
     }
@@ -392,7 +398,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             choiceBuilder(choice1, TText, eText),
           ),
           methods = List.empty,
-          coImplements = List.empty,
           view = TUnit,
         )
       )
@@ -405,7 +410,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           param = Name.assertFromString("x"),
           choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
-          coImplements = List.empty,
           view = TUnit,
         )
       )
@@ -417,20 +421,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         param = Name.assertFromString("x"),
         choices = List.empty,
         methods = List(ifaceMethod1, ifaceMethod2),
-        coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
         view = TUnit,
       )
 
-      a[PackageError] shouldBe thrownBy(
-        DefInterface.build(
-          requires = List.empty,
-          param = Name.assertFromString("x"),
-          choices = List.empty,
-          methods = List(ifaceMethod1, ifaceMethod2),
-          coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
-          view = TUnit,
-        )
-      )
     }
   }
 
@@ -452,28 +445,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   )
   private val ifaceImpl2 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
-    InterfaceInstanceBody(
-      methods = Map.empty,
-      view = EAbs(
-        (Name.assertFromString("this"), TUnit),
-        EPrimCon(PCUnit),
-        None,
-      ),
-    ),
-  )
-  private val ifaceCoImpl1 = InterfaceCoImplements(
-    templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
-    InterfaceInstanceBody(
-      methods = Map.empty,
-      view = EAbs(
-        (Name.assertFromString("this"), TUnit),
-        EPrimCon(PCUnit),
-        None,
-      ),
-    ),
-  )
-  private val ifaceCoImpl2 = InterfaceCoImplements(
-    templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(

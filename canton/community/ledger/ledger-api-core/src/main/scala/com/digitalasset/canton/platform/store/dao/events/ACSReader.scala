@@ -89,7 +89,7 @@ class ACSReader(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
@@ -156,7 +156,7 @@ class ACSReader(
       )((state: IdPaginationState) =>
         createIdQueriesLimiter.execute(
           globalIdQueriesLimiter.execute(
-            dispatcher.executeSql(metrics.daml.index.db.getActiveContractIdsForCreated) { connection =>
+            dispatcher.executeSql(metrics.index.db.getActiveContractIdsForCreated) { connection =>
               val ids =
                 eventStorageBackend.transactionStreamingQueries
                   .fetchIdsOfCreateEventsForStakeholder(
@@ -185,22 +185,21 @@ class ACSReader(
       )((state: IdPaginationState) =>
         assignIdQueriesLimiter.execute(
           globalIdQueriesLimiter.execute(
-            dispatcher.executeSql(metrics.daml.index.db.getActiveContractIdsForAssigned) {
-              connection =>
-                val ids =
-                  eventStorageBackend.fetchAssignEventIdsForStakeholder(
-                    stakeholder = filter.party,
-                    templateId = filter.templateId,
-                    startExclusive = state.fromIdExclusive,
-                    endInclusive = activeAtEventSeqId,
-                    limit = state.pageSize,
-                  )(connection)
-                logger.debug(
-                  s"ActiveContractIds for assign events $filter returned #${ids.size} ${ids.lastOption
-                      .map(last => s"until $last")
-                      .getOrElse("")}"
-                )
-                ids
+            dispatcher.executeSql(metrics.index.db.getActiveContractIdsForAssigned) { connection =>
+              val ids =
+                eventStorageBackend.fetchAssignEventIdsForStakeholder(
+                  stakeholder = filter.party,
+                  templateId = filter.templateId,
+                  startExclusive = state.fromIdExclusive,
+                  endInclusive = activeAtEventSeqId,
+                  limit = state.pageSize,
+                )(connection)
+              logger.debug(
+                s"ActiveContractIds for assign events $filter returned #${ids.size} ${ids.lastOption
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
+              )
+              ids
             }
           )
         )
@@ -210,10 +209,37 @@ class ACSReader(
         ids: Iterable[Long]
     ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
       globalPayloadQueriesLimiter.execute(
-        dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatchForNotArchived) {
-          connection =>
+        dispatcher.executeSql(metrics.index.db.getActiveContractBatchForNotArchived) { connection =>
+          val result = queryNonPruned.executeSql(
+            eventStorageBackend.activeContractCreateEventBatch(
+              eventSequentialIds = ids,
+              allFilterParties = allFilterParties,
+              endInclusive = activeAtEventSeqId,
+            )(connection),
+            activeAtOffset,
+            pruned =>
+              ACSReader.acsBeforePruningErrorReason(
+                acsOffset = activeAtOffset.toHexString,
+                prunedUpToOffset = pruned.toHexString,
+              ),
+          )(connection, implicitly)
+          logger.debug(
+            s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                .map(last => s"until $last")
+                .getOrElse("")}"
+          )
+          result
+        }
+      )
+
+    def fetchActiveCreatePayloads(
+        ids: Iterable[Long]
+    ): Future[Vector[EventStorageBackend.RawActiveContract]] =
+      localPayloadQueriesLimiter.execute(
+        globalPayloadQueriesLimiter.execute(
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) { connection =>
             val result = queryNonPruned.executeSql(
-              eventStorageBackend.activeContractCreateEventBatch(
+              eventStorageBackend.activeContractCreateEventBatchV2(
                 eventSequentialIds = ids,
                 allFilterParties = allFilterParties,
                 endInclusive = activeAtEventSeqId,
@@ -231,35 +257,6 @@ class ACSReader(
                   .getOrElse("")}"
             )
             result
-        }
-      )
-
-    def fetchActiveCreatePayloads(
-        ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.RawActiveContract]] =
-      localPayloadQueriesLimiter.execute(
-        globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatchForCreated) {
-            connection =>
-              val result = queryNonPruned.executeSql(
-                eventStorageBackend.activeContractCreateEventBatchV2(
-                  eventSequentialIds = ids,
-                  allFilterParties = allFilterParties,
-                  endInclusive = activeAtEventSeqId,
-                )(connection),
-                activeAtOffset,
-                pruned =>
-                  ACSReader.acsBeforePruningErrorReason(
-                    acsOffset = activeAtOffset.toHexString,
-                    prunedUpToOffset = pruned.toHexString,
-                  ),
-              )(connection, implicitly)
-              logger.debug(
-                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              result
           }
         )
       )
@@ -269,27 +266,26 @@ class ACSReader(
     ): Future[Vector[EventStorageBackend.RawActiveContract]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatchForAssigned) {
-            connection =>
-              val result = queryNonPruned.executeSql(
-                eventStorageBackend.activeContractAssignEventBatch(
-                  eventSequentialIds = ids,
-                  allFilterParties = allFilterParties,
-                  endInclusive = activeAtEventSeqId,
-                )(connection),
-                activeAtOffset,
-                pruned =>
-                  ACSReader.acsBeforePruningErrorReason(
-                    acsOffset = activeAtOffset.toHexString,
-                    prunedUpToOffset = pruned.toHexString,
-                  ),
-              )(connection, implicitly)
-              logger.debug(
-                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              result
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssigned) { connection =>
+            val result = queryNonPruned.executeSql(
+              eventStorageBackend.activeContractAssignEventBatch(
+                eventSequentialIds = ids,
+                allFilterParties = allFilterParties,
+                endInclusive = activeAtEventSeqId,
+              )(connection),
+              activeAtOffset,
+              pruned =>
+                ACSReader.acsBeforePruningErrorReason(
+                  acsOffset = activeAtOffset.toHexString,
+                  prunedUpToOffset = pruned.toHexString,
+                ),
+            )(connection, implicitly)
+            logger.debug(
+              s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+            )
+            result
           }
         )
       )
@@ -298,7 +294,7 @@ class ACSReader(
         offsets: Iterable[Offset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
-        dispatcher.executeSql(metrics.daml.index.db.getAssingIdsForOffsets) { connection =>
+        dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
               .lookupAssignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
@@ -315,7 +311,7 @@ class ACSReader(
         offsets: Iterable[Offset]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
-        dispatcher.executeSql(metrics.daml.index.db.getUnassingIdsForOffsets) { connection =>
+        dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
               .lookupUnassignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
@@ -336,7 +332,7 @@ class ACSReader(
         localPayloadQueriesLimiter.execute(
           globalPayloadQueriesLimiter.execute(
             dispatcher.executeSql(
-              metrics.daml.index.db.reassignmentStream.fetchEventAssignPayloads
+              metrics.index.db.reassignmentStream.fetchEventAssignPayloads
             ) { connection =>
               val result = queryNonPruned.executeSql(
                 eventStorageBackend.assignEventBatch(
@@ -366,7 +362,7 @@ class ACSReader(
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(
-            metrics.daml.index.db.reassignmentStream.fetchEventUnassignPayloads
+            metrics.index.db.reassignmentStream.fetchEventUnassignPayloads
           ) { connection =>
             val result = queryNonPruned.executeSql(
               eventStorageBackend.unassignEventBatch(
@@ -394,7 +390,7 @@ class ACSReader(
         contractIds: Iterable[String]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
-        dispatcher.executeSql(metrics.daml.index.db.getCreateIdsForContractIds) { connection =>
+        dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
           val ids =
             eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(connection)
           logger.debug(
@@ -412,7 +408,7 @@ class ACSReader(
       if (contractIds.isEmpty) Future.successful(Vector.empty)
       else
         globalIdQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.daml.index.db.getAssignIdsForContractIds) { connection =>
+          dispatcher.executeSql(metrics.index.db.getAssignIdsForContractIds) { connection =>
             val ids =
               eventStorageBackend.lookupAssignSequentialIdByContractId(contractIds)(connection)
             logger.debug(
@@ -431,7 +427,7 @@ class ACSReader(
       else
         globalPayloadQueriesLimiter.execute(
           dispatcher
-            .executeSql(metrics.daml.index.db.flatTxStream.fetchEventCreatePayloads) { connection =>
+            .executeSql(metrics.index.db.flatTxStream.fetchEventCreatePayloads) { connection =>
               val result = queryNonPruned.executeSql(
                 eventStorageBackend.transactionStreamingQueries
                   .fetchEventPayloadsFlat(EventPayloadSourceForFlatTx.Create)(

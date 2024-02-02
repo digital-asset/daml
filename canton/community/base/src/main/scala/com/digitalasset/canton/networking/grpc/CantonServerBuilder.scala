@@ -9,7 +9,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.MetricHandle
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*
 import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
@@ -141,7 +141,7 @@ object CantonServerBuilder {
   def forConfig(
       config: ServerConfig,
       metricsPrefix: MetricName,
-      metricsFactory: MetricHandle.LabeledMetricsFactory,
+      metricsFactory: CantonLabeledMetricsFactory,
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,

@@ -49,7 +49,6 @@ import com.digitalasset.canton.{
   BaseTest,
   LedgerApplicationId,
   LedgerCommandId,
-  LedgerParticipantId,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -1339,8 +1338,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
-    val submittingParticipant: LedgerParticipantId =
-      LedgerParticipantId.assertFromString("participant1")
+    val submittingParticipant: ParticipantId = DefaultTestIdentities.participant1
 
     val applicationId: LedgerApplicationId =
       LedgerApplicationId.assertFromString("application-tests")
@@ -1349,10 +1347,10 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
     TransferSubmitterMetadata(
       submitter,
-      applicationId,
       submittingParticipant,
       commandId,
       submissionId = None,
+      applicationId,
       workflowId = None,
     )
   }
@@ -1430,7 +1428,8 @@ object TransferStoreTest extends EitherValues with NoTracing {
     DeliveredTransferOutResult {
       val requestId = RequestId(transferData.transferOutTimestamp)
 
-      val mediatorMessage = transferData.transferOutRequest.tree.mediatorMessage
+      val mediatorMessage =
+        transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
       val result = mediatorMessage.createMediatorResult(
         requestId,
         Verdict.Approve(BaseTest.testedProtocolVersion),

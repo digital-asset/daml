@@ -41,10 +41,10 @@ private[routing] class ContractsTransfer(
             TargetDomainId(domainRankTarget.domainId),
             TransferSubmitterMetadata(
               lfParty,
-              submitterInfo.applicationId,
-              submittingParticipant.toLf,
+              submittingParticipant,
               submitterInfo.commandId,
               submitterInfo.submissionId,
+              submitterInfo.applicationId,
               workflowId = None,
             ),
             cid,

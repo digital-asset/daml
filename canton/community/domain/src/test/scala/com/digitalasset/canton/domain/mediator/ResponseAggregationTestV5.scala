@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.mediator
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{HashOps, Salt, TestHash, TestSalt}
+import com.digitalasset.canton.crypto.{HashOps, Salt, Signature, TestHash, TestSalt}
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex.Direction
 import com.digitalasset.canton.data.*
@@ -16,6 +16,7 @@ import com.digitalasset.canton.domain.mediator.ResponseAggregation.{
   ViewState,
 }
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.*
@@ -23,9 +24,10 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{BaseTest, LfPartyId}
+import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
 import org.scalatest.funspec.PathAnyFunSpec
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
@@ -45,14 +47,16 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     val domainId = DefaultTestIdentities.domainId
     val mediator = MediatorRef(DefaultTestIdentities.mediator)
+    val participantId = DefaultTestIdentities.participant1
 
+    val aliceParty = LfPartyId.assertFromString("alice")
     val alice = ConfirmingParty(
-      LfPartyId.assertFromString("alice"),
+      aliceParty,
       PositiveInt.tryCreate(3),
       TrustLevel.Ordinary,
     )
     val aliceVip = ConfirmingParty(
-      LfPartyId.assertFromString("alice"),
+      aliceParty,
       PositiveInt.tryCreate(3),
       TrustLevel.Vip,
     )
@@ -122,6 +126,19 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     val requestId = RequestId(CantonTimestamp.Epoch)
 
+    val submitterMetadata = SubmitterMetadata(
+      NonEmpty(Set, aliceParty),
+      ApplicationId.assertFromString("kaese"),
+      CommandId.assertFromString("wurst"),
+      participantId,
+      salt = salt(6638),
+      None,
+      DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      CantonTimestamp.MaxValue,
+      hashOps,
+      testedProtocolVersion,
+    )
+
     val commonMetadataSignatory = CommonMetadata
       .create(hashOps, testedProtocolVersion)(
         ConfirmationPolicy.Signatory,
@@ -135,7 +152,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         viewPosition: ViewPosition,
         verdict: LocalVerdict,
         confirmingParties: Set[LfPartyId],
-        rootHashO: Option[RootHash],
+        rootHash: RootHash,
         sender: ParticipantId = solo,
     ): MediatorResponse =
       MediatorResponse.tryCreate(
@@ -143,7 +160,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         sender,
         Some(viewPosition),
         verdict,
-        rootHashO,
+        Some(rootHash),
         confirmingParties,
         domainId,
         testedProtocolVersion,
@@ -158,7 +175,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val fullInformeeTree =
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
-            b(0),
+            submitterMetadata,
             commonMetadataSignatory,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: Nil),
@@ -166,9 +183,10 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
           testedProtocolVersion,
         )
       val requestId = RequestId(CantonTimestamp.Epoch)
-      val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      val informeeMessage =
+        InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
       val rootHash = informeeMessage.rootHash
-      val someOtherRootHash = Some(RootHash(TestHash.digest(12345)))
+      val someOtherRootHash = RootHash(TestHash.digest(12345))
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]
       when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]]))
@@ -212,7 +230,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
           solo,
           Some(view1Position),
           LocalApprove(testedProtocolVersion),
-          someOtherRootHash,
+          Some(someOtherRootHash),
           Set(alice.party),
           domainId,
           testedProtocolVersion,
@@ -224,7 +242,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
             .futureValue,
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
-            _ shouldBe show"Received a mediator response at $responseTs by $solo for request $requestId with an invalid root hash ${someOtherRootHash.showValue} instead of ${rootHash.showValue}. Discarding response...",
+            _ shouldBe show"Received a mediator response at $responseTs by $solo for request $requestId with an invalid root hash ${someOtherRootHash} instead of ${rootHash}. Discarding response...",
           ),
         )
         result shouldBe None
@@ -496,13 +514,14 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val informeeMessage = InformeeMessage(
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
-            b(0),
+            submitterMetadata,
             commonMetadataSignatory,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: view2 :: Nil),
           ),
           testedProtocolVersion,
-        )
+        ),
+        Signature.noSignature,
       )(testedProtocolVersion)
 
       val view1Position = ViewPosition(List(MerkleSeqIndex(List(Direction.Left))))
@@ -534,11 +553,15 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
       describe("for a single view") {
         it("should update the pending confirming parties set for all hosted parties") {
-          val response = mkResponse(
-            view1Position,
+          val response = MediatorResponse.tryCreate(
+            requestId,
+            solo,
+            Some(view1Position),
             testReject("malformed view"),
-            Set.empty,
             None,
+            Set.empty,
+            domainId,
+            testedProtocolVersion,
           )
           val result = loggerFactory.assertLogs(
             valueOrFail(
@@ -646,14 +669,15 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         )
       val fullInformeeTree = FullInformeeTree.tryCreate(
         GenTransactionTree.tryCreate(hashOps)(
-          b(0),
+          submitterMetadata,
           commonMetadata,
           b(2),
           MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(viewVip :: Nil),
         ),
         testedProtocolVersion,
       )
-      val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      val informeeMessage =
+        InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
       val rootHash = informeeMessage.rootHash
       val nonVip = ParticipantId("notAVip")
 
@@ -848,7 +872,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val fullInformeeTree =
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
-            b(0),
+            submitterMetadata,
             commonMetadataSignatory,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: Nil),
@@ -856,7 +880,8 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
           testedProtocolVersion,
         )
       val requestId = RequestId(CantonTimestamp.Epoch)
-      val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      val informeeMessage =
+        InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
       val rootHash = informeeMessage.rootHash
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]

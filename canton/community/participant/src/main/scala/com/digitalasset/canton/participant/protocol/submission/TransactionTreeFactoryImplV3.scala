@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v30]] on
   */
 class TransactionTreeFactoryImplV3(
-    submitterParticipant: ParticipantId,
+    submittingParticipant: ParticipantId,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
     contractSerializer: LfContractInst => SerializableRawContractInstance,
@@ -43,7 +43,7 @@ class TransactionTreeFactoryImplV3(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TransactionTreeFactoryImpl(
-      submitterParticipant,
+      submittingParticipant,
       domainId,
       protocolVersion,
       contractSerializer,

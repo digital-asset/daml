@@ -105,7 +105,9 @@ class DriverBlockSequencerFactory[C](
       rateLimitManager,
       implicitMemberRegistration,
       orderingTimeFixMode,
-      nodeParameters,
+      nodeParameters.processingTimeouts,
+      nodeParameters.loggingConfig.eventDetails,
+      nodeParameters.loggingConfig.api.printer,
       metrics,
       domainLoggerFactory,
     )

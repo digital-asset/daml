@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import com.daml.lf.data.Bytes
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
@@ -30,7 +29,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
         stakeholders = Set(alice, bob),
         maybeKeyWithMaintainers = Some(
           ExampleTransactionFactory.globalKeyWithMaintainers(
-            LfGlobalKey.build(templateId, Value.ValueUnit, Util.sharedKey(languageVersion)).value,
+            LfGlobalKey.build(templateId, Value.ValueUnit, true).value,
             Set(alice),
           )
         ),

@@ -14,7 +14,7 @@ final case class VersionedStatus private (status: Status)(
 ) extends HasProtocolVersionedWrapper[VersionedStatus] {
 
   override protected val companionObj: VersionedStatus.type = VersionedStatus
-  def toProtoV0: v30.VersionedStatus = v30.VersionedStatus(Some(status))
+  def toProtoV30: v30.VersionedStatus = v30.VersionedStatus(Some(status))
 }
 
 object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, VersionedStatus] {
@@ -31,16 +31,16 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
         ReleaseProtocolVersion(ProtocolVersion.v30),
         v30.VersionedStatus.messageCompanion,
       )(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
       )
   )
 
-  def fromProtoV0(versionedStatusP: v30.VersionedStatus): ParsingResult[VersionedStatus] = {
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(0))
+  def fromProtoV30(versionedStatusP: v30.VersionedStatus): ParsingResult[VersionedStatus] = {
     for {
       status <- versionedStatusP.status.toRight(ProtoDeserializationError.FieldNotSet("status"))
-    } yield VersionedStatus(status)(protocolVersion)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield VersionedStatus(status)(rpv)
   }
 
   def create(status: Status, protocolVersion: ProtocolVersion): VersionedStatus = {

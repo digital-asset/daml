@@ -59,7 +59,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // 3. User Exception thrown; no handler in scope
     // 4. User Exception thrown; no handler in scope; secondary throw from the message function of the 1st exception
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -125,7 +126,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     // Basic throw/catch example a user defined exception
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -160,7 +162,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     // Throw/catch example of a user defined exception, passing an integer payload.
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -202,7 +205,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // -- The inner handler does not catch (none); allowing the outer handler to catch
     // -- The inner handler throws while deciding whether to catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  metadata ( 'pkg' : '1.0.0' )
 
   module M {
     record @serializable MyException = { message: Text } ;
@@ -295,7 +299,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // 200 -- normal controlflow following inner catch
     // 100 -- normal controlflow following outer catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
     record @serializable MyException = { payload: Int64 } ;
@@ -355,7 +360,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // - variations 1..4 selected by an integer arg
     // - final result contains elements which demonstrate the control flow taken
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -432,7 +438,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // - example4 -- throw handled exception on left & right of a binary op
     // - example5 -- throw handled exception which computing the payload of an outer throw
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -508,7 +515,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   "uncatchable exceptions" - {
     "not be caught" in {
 
-      val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+      val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -670,7 +678,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       val parserParameters: parser.ParserParameters[this.type] =
         parser.ParserParameters(defaultPackageId, languageVersion)
 
-      typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+      typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 

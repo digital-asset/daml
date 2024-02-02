@@ -11,9 +11,9 @@ import java.util.Objects;
 // TODO (i15873) Eliminate V2 suffix
 public final class ActiveContractV2 implements ContractEntryV2 {
 
-  private final CreatedEvent createdEvent;
+  @NonNull private final CreatedEvent createdEvent;
 
-  private final String domainId;
+  @NonNull private final String domainId;
 
   private final long reassignmentCounter;
 
@@ -25,6 +25,7 @@ public final class ActiveContractV2 implements ContractEntryV2 {
   }
 
   @NonNull
+  @Override
   public CreatedEvent getCreatedEvent() {
     return createdEvent;
   }

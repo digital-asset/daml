@@ -57,10 +57,10 @@ object UntypedVersionedMessageTest {
       dummyMessageP.version match {
         case VersionedDummyMessage.Version.Empty =>
           Left(FieldNotSet("VersionedDummyMessage.version"))
-        case VersionedDummyMessage.Version.V0(parameters) => fromProtoV0(parameters)
+        case VersionedDummyMessage.Version.V0(parameters) => fromProtoV30(parameters)
       }
 
-    def fromProtoV0(dummyMessageP: DummyMessage): Right[Nothing, Message] =
+    def fromProtoV30(dummyMessageP: DummyMessage): Right[Nothing, Message] =
       Right(Message(dummyMessageP.content))
 
     ProtoConverter
@@ -72,21 +72,21 @@ object UntypedVersionedMessageTest {
 
     override protected def companionObj = Message
 
-    def toProtoV0: DummyMessage = DummyMessage(content)
+    def toProtoV30: DummyMessage = DummyMessage(content)
   }
 
   object Message extends HasVersionedMessageCompanion[Message] {
     val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
         ProtocolVersion.v30,
-        supportedProtoVersion(DummyMessage)(fromProtoV0),
-        _.toProtoV0.toByteString,
+        supportedProtoVersion(DummyMessage)(fromProtoV30),
+        _.toProtoV30.toByteString,
       )
     )
 
     val name: String = "Message"
 
-    def fromProtoV0(messageP: DummyMessage): ParsingResult[Message] = Right(
+    def fromProtoV30(messageP: DummyMessage): ParsingResult[Message] = Right(
       Message(messageP.content)
     )
   }

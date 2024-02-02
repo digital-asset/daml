@@ -25,7 +25,7 @@ final case class SubmitterMetadata private (
     actAs: NonEmpty[Set[LfPartyId]],
     applicationId: ApplicationId,
     commandId: CommandId,
-    submitterParticipant: ParticipantId,
+    submittingParticipant: ParticipantId,
     salt: Salt,
     submissionId: Option[LedgerSubmissionId],
     dedupPeriod: DeduplicationPeriod,
@@ -49,7 +49,7 @@ final case class SubmitterMetadata private (
     param("act as", _.actAs),
     param("application id", _.applicationId),
     param("command id", _.commandId),
-    param("submitter participant", _.submitterParticipant),
+    param("submitting participant", _.submittingParticipant),
     param("salt", _.salt),
     paramIfDefined("submission id", _.submissionId),
     param("deduplication period", _.dedupPeriod),
@@ -62,7 +62,7 @@ final case class SubmitterMetadata private (
     actAs = actAs.toSeq,
     applicationId = applicationId.toProtoPrimitive,
     commandId = commandId.toProtoPrimitive,
-    submitterParticipant = submitterParticipant.toProtoPrimitive,
+    submittingParticipant = submittingParticipant.toProtoPrimitive,
     salt = Some(salt.toProtoV30),
     submissionId = submissionId.getOrElse(""),
     dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV30),
@@ -78,7 +78,7 @@ object SubmitterMetadata
   override val name: String = "SubmitterMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubmitterMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -88,7 +88,7 @@ object SubmitterMetadata
       actAs: NonEmpty[Set[LfPartyId]],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submitterParticipant: ParticipantId,
+      submittingParticipant: ParticipantId,
       salt: Salt,
       submissionId: Option[LedgerSubmissionId],
       dedupPeriod: DeduplicationPeriod,
@@ -99,7 +99,7 @@ object SubmitterMetadata
     actAs, // Canton ignores SubmitterInfo.readAs per https://github.com/digital-asset/daml/pull/12136
     applicationId,
     commandId,
-    submitterParticipant,
+    submittingParticipant,
     salt,
     submissionId,
     dedupPeriod,
@@ -112,7 +112,7 @@ object SubmitterMetadata
       submitterCommandId: Ref.CommandId,
       submitterSubmissionId: Option[Ref.SubmissionId],
       submitterDeduplicationPeriod: DeduplicationPeriod,
-      submitterParticipant: ParticipantId,
+      submittingParticipant: ParticipantId,
       salt: Salt,
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
@@ -123,7 +123,7 @@ object SubmitterMetadata
           actAsNes, // Canton ignores SubmitterInfo.readAs per https://github.com/digital-asset/daml/pull/12136
           ApplicationId(submitterApplicationId),
           CommandId(submitterCommandId),
-          submitterParticipant,
+          submittingParticipant,
           salt,
           submitterSubmissionId,
           submitterDeduplicationPeriod,
@@ -142,15 +142,15 @@ object SubmitterMetadata
       actAsP,
       applicationIdP,
       commandIdP,
-      submitterParticipantP,
+      submittingParticipantP,
       submissionIdP,
       dedupPeriodOP,
       maxSequencingTimeOP,
     ) = metaDataP
 
     for {
-      submitterParticipant <- ParticipantId
-        .fromProtoPrimitive(submitterParticipantP, "SubmitterMetadata.submitter_participant")
+      submittingParticipant <- ParticipantId
+        .fromProtoPrimitive(submittingParticipantP, "SubmitterMetadata.submitter_participant")
       actAs <- actAsP.traverse(
         ProtoConverter
           .parseLfPartyId(_)
@@ -191,15 +191,16 @@ object SubmitterMetadata
         "SubmitterMetadata.max_sequencing_time",
         maxSequencingTimeOP,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SubmitterMetadata(
       actAsNes,
       applicationId,
       commandId,
-      submitterParticipant,
+      submittingParticipant,
       salt,
       submissionIdO,
       dedupPeriod,
       maxSequencingTime,
-    )(hashOps, protocolVersionRepresentativeFor(ProtoVersion(1)), Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }

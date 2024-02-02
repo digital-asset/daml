@@ -91,7 +91,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 multiDomainEnabled = multiDomainEnabled,
               )
             ),
-            UpdateToMeteringDbDto(metrics = metrics.daml.indexerEvents),
+            UpdateToMeteringDbDto(metrics = metrics.indexerEvents),
             logger,
           )
         ),
@@ -121,11 +121,11 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         ),
       )(
         initialized.readServiceSource
-          .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
+          .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
         .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
         .buffered(
-          counter = metrics.daml.parallelIndexer.outputBatchedBufferLength,
+          counter = metrics.parallelIndexer.outputBatchedBufferLength,
           size = maxOutputBatchedBufferSize,
         )
         .via(inMemoryStateUpdaterFlow)
@@ -165,7 +165,7 @@ object ParallelIndexerSubscription {
       toMeteringDbDto: Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering],
       logger: TracedLogger,
   ): Iterable[(Offset, Traced[Update])] => Batch[Vector[DbDto]] = { input =>
-    metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
+    metrics.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
     val mainBatch = input.iterator.flatMap { case (offset, update) =>
       val prefix = update.value match {
@@ -224,7 +224,7 @@ object ParallelIndexerSubscription {
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] = {
     Timed.value(
-      metrics.daml.parallelIndexer.seqMapping.duration, {
+      metrics.parallelIndexer.seqMapping.duration, {
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var eventSeqId = previous.lastSeqEventId
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -315,8 +315,8 @@ object ParallelIndexerSubscription {
       LoggingContextWithTrace.withNewLoggingContext(
         "updateOffsets" -> batch.offsetsUpdates.map(_._1)
       ) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
+        dbDispatcher.executeSql(metrics.parallelIndexer.ingestion) { connection =>
+          metrics.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
           ingestFunction(connection, batch.batch)
           cleanUnusedBatch(zeroDbBatch)(batch)
         }
@@ -341,11 +341,11 @@ object ParallelIndexerSubscription {
       case Some(lastBatch) =>
         LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> lastBatch.lastOffset) {
           implicit loggingContext =>
-            dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
+            dbDispatcher.executeSql(metrics.parallelIndexer.tailIngestion) { connection =>
               ingestTailFunction(ledgerEndFrom(lastBatch))(connection)
-              metrics.daml.indexer.ledgerEndSequentialId
+              metrics.indexer.ledgerEndSequentialId
                 .updateValue(lastBatch.lastSeqEventId)
-              metrics.daml.indexer.lastReceivedRecordTime
+              metrics.indexer.lastReceivedRecordTime
                 .updateValue(lastBatch.lastRecordTime)
               logger.debug(
                 s"Ledger end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."

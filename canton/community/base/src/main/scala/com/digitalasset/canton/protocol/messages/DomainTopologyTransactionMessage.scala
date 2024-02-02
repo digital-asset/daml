@@ -85,7 +85,7 @@ object DomainTopologyTransactionMessage
     }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.DomainTopologyTransactionMessage
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -182,12 +182,13 @@ object DomainTopologyTransactionMessage
         "not_sequenced_after",
         timestamp,
       )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield DomainTopologyTransactionMessage(
       signature,
       succeededContent,
       notSequencedAfter = notSequencedAfter,
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)))
+    )(rpv)
   }
 
   override def name: String = "DomainTopologyTransactionMessage"
@@ -243,7 +244,7 @@ object TopologyTransactionsBroadcastX
     }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.TopologyTransactionsBroadcastX
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -259,9 +260,8 @@ object TopologyTransactionsBroadcastX
     for {
       domainId <- DomainId.fromProtoPrimitive(domain, "domain")
       broadcasts <- broadcasts.traverse(broadcastFromProtoV30(expectedProtocolVersion))
-    } yield TopologyTransactionsBroadcastX(domainId, broadcasts.toList)(
-      protocolVersionRepresentativeFor(ProtoVersion(2))
-    )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield TopologyTransactionsBroadcastX(domainId, broadcasts.toList)(rpv)
   }
 
   private def broadcastFromProtoV30(expectedProtocolVersion: ProtocolVersion)(

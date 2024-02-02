@@ -321,12 +321,12 @@ class PersistentPartyRecordStore(
   }
 
   private def inTransaction[T](
-      dbMetric: metrics.daml.partyRecordStore.type => DatabaseMetrics
+      dbMetric: metrics.partyRecordStore.type => DatabaseMetrics
   )(
       thunk: Connection => Result[T]
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] = {
     dbDispatcher
-      .executeSql(dbMetric(metrics.daml.partyRecordStore))(thunk)
+      .executeSql(dbMetric(metrics.partyRecordStore))(thunk)
       .recover[Result[T]] {
         case ConcurrentPartyRecordUpdateDetectedRuntimeException(userId) =>
           Left(ConcurrentPartyUpdate(userId))

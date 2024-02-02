@@ -60,7 +60,7 @@ object SignatureReader {
       interfaces: Map[QualifiedName, typesig.DefInterface.FWT] = Map.empty,
       errors: Error.Tree = mzero[Error.Tree],
   ) {
-    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): typesig.PackageSignature =
+    def asOut(packageId: PackageId, metadata: PackageMetadata): typesig.PackageSignature =
       typesig.PackageSignature(packageId, metadata, typeDecls, interfaces)
   }
 
@@ -94,8 +94,12 @@ object SignatureReader {
     readPackageSignature(() => DamlLfArchiveReader.readPackage(payload))
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
-
-  private val dummyInterface = typesig.PackageSignature(dummyPkgId, None, Map.empty, Map.empty)
+  private val dummyPkgMetadata = PackageMetadata(
+    Ref.PackageName.assertFromString("dummyPkg"),
+    Ref.PackageVersion.assertFromString("0.0.0"),
+  )
+  private val dummyInterface =
+    typesig.PackageSignature(dummyPkgId, dummyPkgMetadata, Map.empty, Map.empty)
 
   def readPackageSignature(
       f: () => String \/ (PackageId, Ast.Package)
@@ -112,7 +116,7 @@ object SignatureReader {
         }
         val r = (
           filterOutUnserializableErrors(s.errors),
-          s.asOut(templateGroupId, lfPackage.metadata.map(toIfaceMetadata(_))),
+          s.asOut(templateGroupId, toIfaceMetadata(lfPackage.metadata)),
         )
         lfprintln(s"result: $r")
         r
@@ -256,8 +260,7 @@ object SignatureReader {
           s"interface view type ${astIf.view.pretty} must be either a no-argument type reference or unit",
         )
     }
-    retroImplements = astIf.coImplements.keySet
-  } yield name -> typesig.DefInterface(choices, retroImplements, viewType)
+  } yield name -> typesig.DefInterface(choices, Set.empty, viewType)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,

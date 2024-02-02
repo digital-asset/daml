@@ -61,7 +61,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   userManagementServiceConfigConvert,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.metrics.{MetricsConfig, MetricsPrefix, MetricsReporterConfig}
+import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
@@ -860,12 +860,8 @@ object CantonConfig {
       deriveReader[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigReader: ConfigReader[SequencerHealthConfig] =
       deriveReader[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcReader: ConfigReader[RemoteSequencerConfig.Grpc] =
-      deriveReader[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigReader: ConfigReader[RemoteSequencerConfig] =
       deriveReader[RemoteSequencerConfig]
-        // since the big majority of users will use GRPC, default to it so that they don't need to specify `type = grpc`
-        .orElse(ConfigReader[RemoteSequencerConfig.Grpc])
     lazy implicit val mediatorNodeParameterConfigReader: ConfigReader[MediatorNodeParameterConfig] =
       deriveReader[MediatorNodeParameterConfig]
     lazy implicit val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
@@ -879,24 +875,11 @@ object CantonConfig {
 
     lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
       deriveReader[MetricsConfig.MetricsFilterConfig]
-    lazy implicit val metricsConfigGraphitePrefixStatic: ConfigReader[MetricsPrefix.Static] =
-      deriveReader[MetricsPrefix.Static]
-    lazy implicit val metricsConfigGraphitePrefixNoPrefix
-        : ConfigReader[MetricsPrefix.NoPrefix.type] =
-      deriveReader[MetricsPrefix.NoPrefix.type]
-    lazy implicit val metricsConfigGraphitePrefixHostname
-        : ConfigReader[MetricsPrefix.Hostname.type] =
-      deriveReader[MetricsPrefix.Hostname.type]
-    lazy implicit val metricsConfigGraphitePrefix: ConfigReader[MetricsPrefix] =
-      deriveReader[MetricsPrefix]
-    lazy implicit val metricsConfigGraphiteReader: ConfigReader[MetricsConfig.Graphite] =
-      deriveReader[MetricsConfig.Graphite]
-    lazy implicit val metricsConfigPrometheusReader: ConfigReader[MetricsConfig.Prometheus] =
-      deriveReader[MetricsConfig.Prometheus]
-    lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsConfig.Csv] =
-      deriveReader[MetricsConfig.Csv]
-    lazy implicit val metricsConfigJMXReader: ConfigReader[MetricsConfig.JMX] =
-      deriveReader[MetricsConfig.JMX]
+    lazy implicit val metricsConfigPrometheusReader
+        : ConfigReader[MetricsReporterConfig.Prometheus] =
+      deriveReader[MetricsReporterConfig.Prometheus]
+    lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsReporterConfig.Csv] =
+      deriveReader[MetricsReporterConfig.Csv]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
       deriveReader[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
@@ -1260,8 +1243,6 @@ object CantonConfig {
       deriveWriter[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigWriter: ConfigWriter[SequencerHealthConfig] =
       deriveWriter[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcWriter: ConfigWriter[RemoteSequencerConfig.Grpc] =
-      deriveWriter[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigWriter: ConfigWriter[RemoteSequencerConfig] =
       deriveWriter[RemoteSequencerConfig]
     lazy implicit val mediatorNodeParameterConfigWriter: ConfigWriter[MediatorNodeParameterConfig] =
@@ -1277,22 +1258,12 @@ object CantonConfig {
 
     lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsConfig.MetricsFilterConfig] =
       deriveWriter[MetricsConfig.MetricsFilterConfig]
-    lazy implicit val metricsConfigGraphiteNoPrefix: ConfigWriter[MetricsPrefix.NoPrefix.type] =
-      deriveWriter[MetricsPrefix.NoPrefix.type]
-    lazy implicit val metricsConfigGraphiteStatic: ConfigWriter[MetricsPrefix.Static] =
-      deriveWriter[MetricsPrefix.Static]
-    lazy implicit val metricsConfigGraphiteHostname: ConfigWriter[MetricsPrefix.Hostname.type] =
-      deriveWriter[MetricsPrefix.Hostname.type]
-    lazy implicit val metricsConfigGraphitePrefix: ConfigWriter[MetricsPrefix] =
-      deriveWriter[MetricsPrefix]
-    lazy implicit val metricsConfigGraphiteWriter: ConfigWriter[MetricsConfig.Graphite] =
-      deriveWriter[MetricsConfig.Graphite]
-    lazy implicit val metricsConfigPrometheusWriter: ConfigWriter[MetricsConfig.Prometheus] =
-      deriveWriter[MetricsConfig.Prometheus]
-    lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsConfig.Csv] =
-      deriveWriter[MetricsConfig.Csv]
-    lazy implicit val metricsConfigJMXWriter: ConfigWriter[MetricsConfig.JMX] =
-      deriveWriter[MetricsConfig.JMX]
+    lazy implicit val metricsConfigPrometheusWriter
+        : ConfigWriter[MetricsReporterConfig.Prometheus] =
+      deriveWriter[MetricsReporterConfig.Prometheus]
+    lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsReporterConfig.Csv] =
+      deriveWriter[MetricsReporterConfig.Csv]
+
     lazy implicit val metricsReporterConfigWriter: ConfigWriter[MetricsReporterConfig] =
       deriveWriter[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigWriter: ConfigWriter[HistogramDefinition] =

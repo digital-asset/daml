@@ -51,7 +51,7 @@ class GrpcSequencerAdministrationService(
     sequencer
       .trafficStatus(members)
       .map {
-        _.members.map(_.toProtoV0)
+        _.members.map(_.toProtoV30)
       }
       .map(
         TrafficControlStateResponse(_)

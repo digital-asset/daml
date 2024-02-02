@@ -7,13 +7,12 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.InformeeTree.InvalidInformeeTree
-import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
@@ -29,8 +28,8 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     with PrettyPrinting {
 
   def validated: Either[String, this.type] = for {
-    _ <- InformeeTree.checkGlobalMetadata(tree)
-    _ <- InformeeTree.checkViews(tree.rootViews, assertFull = true)
+    _ <- FullInformeeTree.checkGlobalMetadata(tree)
+    _ <- FullInformeeTree.checkViews(tree.rootViews)
   } yield this
 
   @transient override protected lazy val companionObj: FullInformeeTree.type = FullInformeeTree
@@ -41,42 +40,12 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   lazy val domainId: DomainId = commonMetadata.domainId
   lazy val mediator: MediatorRef = commonMetadata.mediator
 
-  /** Yields the informee tree unblinded for a defined set of parties.
-    * If a view common data is already blinded, then it remains blinded even if one of the given parties is a stakeholder.
-    */
-  def informeeTreeUnblindedFor(
-      parties: collection.Set[LfPartyId],
-      protocolVersion: ProtocolVersion,
-  ): InformeeTree = {
-    val rawResult = tree
-      .blind({
-        case _: GenTransactionTree => RevealIfNeedBe
-        case _: SubmitterMetadata => BlindSubtree
-        case _: CommonMetadata => RevealSubtree
-        case _: ParticipantMetadata => BlindSubtree
-        case _: TransactionView => RevealIfNeedBe
-        case v: ViewCommonData =>
-          if (v.informees.map(_.party).intersect(parties).nonEmpty)
-            RevealSubtree
-          else
-            BlindSubtree
-        case _: ViewParticipantData => BlindSubtree
-      })
-      .tryUnwrap
-    InformeeTree.tryCreate(rawResult, protocolVersion)
-  }
-
-  lazy val informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] =
-    InformeeTree.viewCommonDataByViewHash(tree).map { case (hash, viewCommonData) =>
-      hash -> ((viewCommonData.informees, viewCommonData.threshold))
-    }
-
   lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
-    InformeeTree.viewCommonDataByViewPosition(tree).map { case (position, viewCommonData) =>
+    FullInformeeTree.viewCommonDataByViewPosition(tree).map { case (position, viewCommonData) =>
       position -> ((viewCommonData.informees, viewCommonData.threshold))
     }
 
-  lazy val allInformees: Set[LfPartyId] = InformeeTree
+  lazy val allInformees: Set[LfPartyId] = FullInformeeTree
     .viewCommonDataByViewPosition(tree)
     .flatMap { case (_, viewCommonData) => viewCommonData.informees }
     .map(_.party)
@@ -87,6 +56,9 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   lazy val confirmationPolicy: ConfirmationPolicy = checked(
     tree.commonMetadata.tryUnwrap
   ).confirmationPolicy
+
+  lazy val submittingParticipant: ParticipantId =
+    tree.submitterMetadata.tryUnwrap.submittingParticipant
 
   def toProtoV30: v30.FullInformeeTree =
     v30.FullInformeeTree(tree = Some(tree.toProtoV30))
@@ -99,14 +71,14 @@ object FullInformeeTree
   override val name: String = "FullInformeeTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
 
   /** Creates a full informee tree from a [[GenTransactionTree]].
-    * @throws InformeeTree$.InvalidInformeeTree if `tree` is not a valid informee tree (i.e. the wrong nodes are blinded)
+    * @throws FullInformeeTree$.InvalidInformeeTree if `tree` is not a valid full informee tree (i.e. the wrong nodes are blinded)
     */
   def tryCreate(tree: GenTransactionTree, protocolVersion: ProtocolVersion): FullInformeeTree =
     create(tree, protocolVersionRepresentativeFor(protocolVersion)).valueOr(err =>
@@ -125,6 +97,68 @@ object FullInformeeTree
   ): Either[String, FullInformeeTree] =
     create(tree, protocolVersionRepresentativeFor(protocolVersion))
 
+  private[data] def checkGlobalMetadata(tree: GenTransactionTree): Either[String, Unit] = {
+    val errors = Seq.newBuilder[String]
+
+    if (tree.submitterMetadata.unwrap.isLeft)
+      errors += "The submitter metadata of a full informee tree must be unblinded."
+    if (tree.commonMetadata.unwrap.isLeft)
+      errors += "The common metadata of an informee tree must be unblinded."
+    if (tree.participantMetadata.unwrap.isRight)
+      errors += "The participant metadata of an informee tree must be blinded."
+
+    val message = errors.result().mkString(" ")
+    EitherUtil.condUnitE(message.isEmpty, message)
+  }
+
+  private[data] def checkViews(
+      rootViews: MerkleSeq[TransactionView]
+  ): Either[String, Unit] = {
+
+    val errors = Seq.newBuilder[String]
+
+    def checkIsEmpty(blinded: Seq[RootHash]): Unit =
+      if (blinded.nonEmpty) {
+        val hashes = blinded.map(_.toString).mkString(", ")
+        errors += s"All views in a full informee tree must be unblinded. Found $hashes"
+      }
+
+    checkIsEmpty(rootViews.blindedElements)
+
+    def go(wrappedViews: Seq[TransactionView]): Unit =
+      wrappedViews.foreach { view =>
+        checkIsEmpty(view.subviews.blindedElements)
+
+        if (view.viewCommonData.unwrap.isLeft)
+          errors += s"The view common data in a full informee tree must be unblinded. Found ${view.viewCommonData}."
+
+        if (view.viewParticipantData.unwrap.isRight)
+          errors += s"The view participant data in an informee tree must be blinded. Found ${view.viewParticipantData}."
+
+        go(view.subviews.unblindedElements)
+      }
+
+    go(rootViews.unblindedElements)
+
+    val message = errors.result().mkString("\n")
+    EitherUtil.condUnitE(message.isEmpty, message)
+  }
+
+  private[data] def viewCommonDataByViewPosition(
+      tree: GenTransactionTree
+  ): Map[ViewPosition, ViewCommonData] =
+    tree.rootViews.unblindedElementsWithIndex
+      .flatMap { case (view, index) =>
+        view.allSubviewsWithPosition(ViewPosition(List(index))).map { case (subview, position) =>
+          position -> subview.viewCommonData.unwrap
+        }
+      }
+      .collect { case (position, Right(viewCommonData)) => position -> viewCommonData }
+      .toMap
+
+  /** Indicates an attempt to create an invalid [[FullInformeeTree]]. */
+  final case class InvalidInformeeTree(message: String) extends RuntimeException(message) {}
+
   /** Lens for modifying the [[GenTransactionTree]] inside of a full informee tree.
     * It does not check if the new `tree` actually constitutes a valid full informee tree, therefore:
     * DO NOT USE IN PRODUCTION.
@@ -142,8 +176,9 @@ object FullInformeeTree
     for {
       protoTree <- ProtoConverter.required("tree", protoInformeeTree.tree)
       tree <- GenTransactionTree.fromProtoV30(context, protoTree)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       fullInformeeTree <- FullInformeeTree
-        .create(tree, protocolVersionRepresentativeFor(ProtoVersion(1)))
+        .create(tree, rpv)
         .leftMap(e =>
           ProtoDeserializationError.OtherError(s"Unable to create full informee tree: $e")
         )

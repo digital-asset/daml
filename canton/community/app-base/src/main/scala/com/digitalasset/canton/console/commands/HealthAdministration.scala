@@ -22,8 +22,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.v0.HealthDumpChunk
-import com.digitalasset.canton.health.admin.{data, v0}
+import com.digitalasset.canton.health.admin.v30.HealthDumpChunk
+import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.ResourceUtil
@@ -36,7 +36,7 @@ import scala.concurrent.{Await, Promise, TimeoutException}
 abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
-    deserialize: v0.NodeStatus.Status => ParsingResult[S],
+    deserialize: v30.NodeStatus.Status => ParsingResult[S],
 ) extends Helpful {
   private val initializedCache = new AtomicReference[Boolean](false)
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
@@ -152,7 +152,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
 class HealthAdministrationX[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
-    deserialize: v0.NodeStatus.Status => ParsingResult[S],
+    deserialize: v30.NodeStatus.Status => ParsingResult[S],
 ) extends HealthAdministrationCommon[S](runner, consoleEnvironment, deserialize) {
 
   override def has_identity(): Boolean = runner

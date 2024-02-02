@@ -286,10 +286,8 @@ object CodeGenRunner extends StrictLogging {
       generatedModules: Set[Reference.Module],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
-      .flatMap(iface =>
-        iface.metadata.iterator.map(metadata =>
-          PackageReference.NameVersion(metadata.name, metadata.version) -> iface.packageId
-        )
+      .map(iface =>
+        PackageReference.NameVersion(iface.metadata.name, iface.metadata.version) -> iface.packageId
       )
       .toMap
     def resolveRef(ref: PackageReference): PackageId = ref match {

@@ -79,9 +79,6 @@ object TraceContext {
       implicit val emptyTraceContext: TraceContext = TraceContext.empty
     }
 
-    object Todo {
-      implicit val traceContext: TraceContext = TraceContext.todo
-    }
   }
 
   val empty: TraceContext = new TraceContext(OpenTelemetryContext.root())

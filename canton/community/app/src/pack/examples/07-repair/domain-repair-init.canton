@@ -24,13 +24,13 @@ utils.retry_until_true {
 }
 
 import com.digitalasset.canton.BigDecimalImplicits._
-import com.digitalasset.canton.console.ParticipantReferenceX
+import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.protocol.ContractIdSyntax._
 
 import scala.jdk.CollectionConverters._
 
-def createIou(participant: ParticipantReferenceX, payer: PartyId, owner: PartyId, value: Int) =
+def createIou(participant: ParticipantReference, payer: PartyId, owner: PartyId, value: Int) =
   participant.ledger_api_v2.javaapi.commands.submit_flat(Seq(payer), new iou.Iou(payer.toProtoPrimitive,
                                                                          owner.toProtoPrimitive,
                                                                          new iou.Amount(value.toLong.toBigDecimal, "USD"),

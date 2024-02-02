@@ -197,36 +197,13 @@
   type: jar-scala
 - target: //observability/pekko-http-metrics:pekko-http-metrics
   type: jar-scala
-
-# Some temporary until slimmed canton LedgerClient created.
-
-- target: //canton:community_admin-api
-  type: jar-scala
-- target: //canton:community_base
-  type: jar-scala
-- target: //canton:community_buildinfo
-  type: jar-scala
-- target: //canton:community_common
-  type: jar-scala
-- target: //canton:community_ledger_ledger-api-core
-  type: jar-scala
 - target: //canton:community_ledger_ledger-common
   type: jar-scala
 - target: //canton:community_ledger_ledger-common_configuration_proto_java
   type: jar-proto
-- target: //canton:community_lib_Blake2b
-  type: jar-lib
-- target: //canton:community_lib_slick_slick-fork
-  type: jar-scala
-- target: //canton:community_lib_wartremover
-  type: jar-scala
-- target: //canton:community_util-external
-  type: jar-scala
 - target: //canton:community_util-logging
   type: jar-scala
 - target: //canton:daml-common-staging_daml-errors
-  type: jar-scala
-- target: //canton:pekko-stream-patch
   type: jar-scala
 
 

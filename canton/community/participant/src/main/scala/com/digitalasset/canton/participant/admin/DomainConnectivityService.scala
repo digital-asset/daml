@@ -133,7 +133,7 @@ class DomainConnectivityService(
     for {
       conf <- Future(
         DomainConnectionConfig
-          .fromProtoV0(request)
+          .fromProtoV30(request)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
       _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
@@ -154,7 +154,7 @@ class DomainConnectivityService(
     for {
       conf <- Future(
         DomainConnectionConfig
-          .fromProtoV0(request)
+          .fromProtoV30(request)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
       _ <- mapErrNewET(sync.modifyDomain(conf)).valueOr(throw _)

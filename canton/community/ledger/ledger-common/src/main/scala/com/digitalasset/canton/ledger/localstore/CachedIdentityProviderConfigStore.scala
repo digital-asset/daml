@@ -45,7 +45,7 @@ class CachedIdentityProviderConfigStore(
             delegate.getIdentityProviderConfig(issuer)
           )
         ),
-      metrics.daml.identityProviderConfigStore.idpConfigCache,
+      metrics.identityProviderConfigStore.idpConfigCache,
     )
 
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit

@@ -51,6 +51,26 @@ final class GeneratorsTransferData(
   private val sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
   private val targetProtocolVersion = TargetProtocolVersion(protocolVersion)
 
+  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
+    Arbitrary(
+      for {
+        submitter <- Arbitrary.arbitrary[LfPartyId]
+        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
+        submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
+        commandId <- commandIdArb.arbitrary.map(_.unwrap)
+        submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
+        workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
+
+      } yield TransferSubmitterMetadata(
+        submitter,
+        submittingParticipant,
+        commandId,
+        submissionId,
+        applicationId,
+        workflowId,
+      )
+    )
+
   implicit val transferInCommonData: Arbitrary[TransferInCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
@@ -61,6 +81,8 @@ final class GeneratorsTransferData(
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
 
+      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
+
       hashOps = TestHash // Not used for serialization
 
     } yield TransferInCommonData
@@ -70,6 +92,7 @@ final class GeneratorsTransferData(
         targetMediator,
         stakeholders,
         uuid,
+        submitterMetadata,
         targetProtocolVersion,
       )
   )
@@ -85,6 +108,8 @@ final class GeneratorsTransferData(
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
 
+      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
+
       hashOps = TestHash // Not used for serialization
 
     } yield TransferOutCommonData
@@ -95,29 +120,10 @@ final class GeneratorsTransferData(
         stakeholders,
         adminParties,
         uuid,
+        submitterMetadata,
         sourceProtocolVersion,
       )
   )
-
-  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
-    Arbitrary(
-      for {
-        submitter <- Arbitrary.arbitrary[LfPartyId]
-        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
-        submittingParticipant <- Arbitrary.arbitrary[ParticipantId].map(_.toLf)
-        commandId <- commandIdArb.arbitrary.map(_.unwrap)
-        submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
-        workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
-
-      } yield TransferSubmitterMetadata(
-        submitter,
-        applicationId,
-        submittingParticipant,
-        commandId,
-        submissionId,
-        workflowId,
-      )
-    )
 
   private def deliveryTransferOutResultGen(
       contract: SerializableContract,
@@ -165,7 +171,6 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
-      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
       transferOutResultEvent <- deliveryTransferOutResultGen(contract, sourceProtocolVersion)
       transferCounter <- transferCounterOGen
 
@@ -174,7 +179,6 @@ final class GeneratorsTransferData(
     } yield TransferInView
       .create(hashOps)(
         salt,
-        submitterMetadata,
         contract,
         creatingTransactionId,
         transferOutResultEvent,
@@ -189,8 +193,6 @@ final class GeneratorsTransferData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
 
-      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
-
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
 
@@ -203,7 +205,6 @@ final class GeneratorsTransferData(
     } yield TransferOutView
       .create(hashOps)(
         salt,
-        submitterMetadata,
         creatingTransactionId,
         contract,
         targetDomain,

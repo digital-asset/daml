@@ -85,7 +85,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
   override def name: String = "Batch"
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
     )(v30.CompressedBatch)(
       supportedProtoVersion(_)(
@@ -128,7 +128,8 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
       uncompressedBatchProto <- ProtoConverter.protoParser(v30.Batch.parseFrom)(uncompressed)
       v30.Batch(envelopesProto) = uncompressedBatchProto
       envelopes <- envelopesProto.toList.traverse(ClosedEnvelope.fromProtoV30)
-    } yield Batch[ClosedEnvelope](envelopes)(protocolVersionRepresentativeFor(ProtoVersion(1)))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield Batch[ClosedEnvelope](envelopes)(rpv)
   }
 
   private def decompress(

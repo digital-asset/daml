@@ -146,8 +146,14 @@ object TopologyMappingX {
       namespacesWithRoot: Set[Namespace] = Set.empty,
       namespaces: Set[Namespace] = Set.empty,
       uids: Set[UniqueIdentifier] = Set.empty,
-  ) {
+  ) extends PrettyPrinting {
     def isEmpty: Boolean = namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty
+
+    override def pretty: Pretty[RequiredAuthXAuthorizations.this.type] = prettyOfClass(
+      paramIfNonEmpty("namespacesWithRoot", _.namespacesWithRoot),
+      paramIfNonEmpty("namespaces", _.namespaces),
+      paramIfNonEmpty("uids", _.uids),
+    )
   }
 
   object RequiredAuthXAuthorizations {
@@ -170,7 +176,7 @@ object TopologyMappingX {
       }
   }
 
-  sealed trait RequiredAuthX {
+  sealed trait RequiredAuthX extends PrettyPrinting {
     def requireRootDelegation: Boolean = false
     def satisfiedByActualAuthorizers(
         namespacesWithRoot: Set[Namespace],
@@ -213,6 +219,8 @@ object TopologyMappingX {
       ): Either[RequiredAuthXAuthorizations, Unit] = Either.unit
 
       override def authorizations: RequiredAuthXAuthorizations = RequiredAuthXAuthorizations()
+
+      override def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
     }
 
     final case class RequiredNamespaces(
@@ -240,6 +248,11 @@ object TopologyMappingX {
         namespacesWithRoot = if (requireRootDelegation) namespaces else Set.empty,
         namespaces = if (requireRootDelegation) Set.empty else namespaces,
       )
+
+      override def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
+        unnamedParam(_.namespaces),
+        paramIfTrue("requireRootDelegation", _.requireRootDelegation),
+      )
     }
 
     final case class RequiredUids(uids: Set[UniqueIdentifier]) extends RequiredAuthX {
@@ -255,6 +268,10 @@ object TopologyMappingX {
       override def authorizations: RequiredAuthXAuthorizations = RequiredAuthXAuthorizations(
         namespaces = uids.map(_.namespace),
         uids = uids,
+      )
+
+      override def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
+        unnamedParam(_.uids)
       )
     }
 
@@ -276,6 +293,9 @@ object TopologyMappingX {
 
       override def authorizations: RequiredAuthXAuthorizations =
         RequiredAuthXAuthorizations.monoid.combine(first.authorizations, second.authorizations)
+
+      override def pretty: Pretty[And.this.type] =
+        prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
     }
 
     private[transaction] final case class Or(
@@ -296,6 +316,9 @@ object TopologyMappingX {
 
       override def authorizations: RequiredAuthXAuthorizations =
         RequiredAuthXAuthorizations.monoid.combine(first.authorizations, second.authorizations)
+
+      override def pretty: Pretty[Or.this.type] =
+        prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
     }
   }
 
@@ -767,7 +790,9 @@ object ParticipantPermissionX {
     override def toNonX: ParticipantPermission = ParticipantPermission.Observation
   }
 
-  def fromProtoV2(value: v30.EnumsX.ParticipantPermissionX): ParsingResult[ParticipantPermissionX] =
+  def fromProtoV30(
+      value: v30.EnumsX.ParticipantPermissionX
+  ): ParsingResult[ParticipantPermissionX] =
     value match {
       case v30.EnumsX.ParticipantPermissionX.MissingParticipantPermission =>
         Left(FieldNotSet(value.name))
@@ -802,7 +827,7 @@ object TrustLevelX {
     def toNonX: TrustLevel = TrustLevel.Vip
   }
 
-  def fromProtoV2(value: v30.EnumsX.TrustLevelX): ParsingResult[TrustLevelX] = value match {
+  def fromProtoV30(value: v30.EnumsX.TrustLevelX): ParsingResult[TrustLevelX] = value match {
     case v30.EnumsX.TrustLevelX.Ordinary => Right(Ordinary)
     case v30.EnumsX.TrustLevelX.Vip => Right(Vip)
     case v30.EnumsX.TrustLevelX.MissingTrustLevel => Left(FieldNotSet(value.name))
@@ -821,7 +846,7 @@ final case class ParticipantDomainLimits(maxRate: Int, maxNumParties: Int, maxNu
     v30.ParticipantDomainLimits(maxRate, maxNumParties, maxNumPackages)
 }
 object ParticipantDomainLimits {
-  def fromProtoV2(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
+  def fromProtoV30(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
     ParticipantDomainLimits(value.maxRate, value.maxNumParties, value.maxNumPackages)
 }
 
@@ -913,9 +938,9 @@ object ParticipantDomainPermissionX {
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-      permission <- ParticipantPermissionX.fromProtoV2(value.permission)
-      trustLevel <- TrustLevelX.fromProtoV2(value.trustLevel)
-      limits = value.limits.map(ParticipantDomainLimits.fromProtoV2)
+      permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+      trustLevel <- TrustLevelX.fromProtoV30(value.trustLevel)
+      limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
         CantonTimestamp.fromProtoPrimitive(_).map(_.some)
       )
@@ -1057,11 +1082,11 @@ final case class HostingParticipant(
 }
 
 object HostingParticipant {
-  def fromProtoV2(
+  def fromProtoV30(
       value: v30.PartyToParticipantX.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
     participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-    permission <- ParticipantPermissionX.fromProtoV2(value.permission)
+    permission <- ParticipantPermissionX.fromProtoV30(value.permission)
   } yield HostingParticipant(participantId, permission)
 }
 
@@ -1140,7 +1165,7 @@ object PartyToParticipantX {
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
       threshold <- ProtoConverter.parsePositiveInt(value.threshold)
-      participants <- value.participants.traverse(HostingParticipant.fromProtoV2)
+      participants <- value.participants.traverse(HostingParticipant.fromProtoV30)
       groupAddressing = value.groupAddressing
       domainId <-
         if (value.domain.nonEmpty)

@@ -92,7 +92,7 @@ private[apiserver] final class ApiActiveContractsService private (
           identity,
         )
         .via(logger.logErrorsOnStream)
-        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
+        .via(StreamMetrics.countElements(metrics.lapi.streams.acs))
     }
   }
 

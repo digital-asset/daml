@@ -126,7 +126,7 @@ class PersistentIdentityProviderConfigStore(
   def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Boolean] = {
-    dbDispatcher.executeSql(metrics.daml.identityProviderConfigStore.getIdpConfig) { connection =>
+    dbDispatcher.executeSql(metrics.identityProviderConfigStore.getIdpConfig) { connection =>
       backend.idpConfigByIdExists(id)(connection)
     }
   }
@@ -204,12 +204,12 @@ class PersistentIdentityProviderConfigStore(
   }
 
   private def inTransaction[T](
-      dbMetric: metrics.daml.identityProviderConfigStore.type => DatabaseMetrics
+      dbMetric: metrics.identityProviderConfigStore.type => DatabaseMetrics
   )(
       thunk: Connection => Result[T]
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] =
     dbDispatcher
-      .executeSqlEither(dbMetric(metrics.daml.identityProviderConfigStore))(thunk)
+      .executeSqlEither(dbMetric(metrics.identityProviderConfigStore))(thunk)
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.foreach(f)

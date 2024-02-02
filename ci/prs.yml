@@ -41,7 +41,7 @@ jobs:
             curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
         }
 
-        if has_changed "infra/" || has_changed "LATEST"; then
+        if has_changed "LATEST"; then
             fail_if_missing_std_change_label
         fi
       env:

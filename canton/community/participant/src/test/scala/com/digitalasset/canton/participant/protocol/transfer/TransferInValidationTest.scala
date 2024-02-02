@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.submitterParticipant
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.time.TimeProofTestUtil
@@ -58,10 +58,10 @@ class TransferInValidationTest
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
       submitter,
-      LedgerApplicationId.assertFromString("tests"),
-      participant.toLf,
+      participant,
       LedgerCommandId.assertFromString("transfer-in-validation-command-id"),
       submissionId = None,
+      LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
   }
@@ -69,14 +69,14 @@ class TransferInValidationTest
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
-      Map(submitterParticipant -> Map(party1 -> ParticipantPermission.Submission))
+      Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
   private val cryptoSnapshot =
     identityFactory
-      .forOwnerAndDomain(submitterParticipant, sourceDomain.unwrap)
+      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
   private val pureCrypto = TestingIdentityFactory.pureCrypto()
@@ -96,7 +96,7 @@ class TransferInValidationTest
       TransferResultHelpers.transferOutResult(
         sourceDomain,
         cryptoSnapshot,
-        submitterParticipant,
+        submittingParticipant,
       )
     val inRequest =
       makeFullTransferInTree(
@@ -289,7 +289,7 @@ class TransferInValidationTest
 
     new TransferInValidation(
       domainId,
-      submitterParticipant,
+      submittingParticipant,
       damle,
       TestTransferCoordination.apply(
         Set(),

@@ -22,6 +22,11 @@ final class AdminLedgerClient private (
 )(implicit ec: ExecutionContext)
     extends Closeable {
 
+  // Follow community/app-base/src/main/scala/com/digitalasset/canton/console/commands/TopologyAdministration.scala:1149
+  // Shows how to do a list request
+  // Try filtering for just Adds, assuming a Remove cancels an Add.
+  // If it doesn't, change the filter to all and fold them
+
   private val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
 

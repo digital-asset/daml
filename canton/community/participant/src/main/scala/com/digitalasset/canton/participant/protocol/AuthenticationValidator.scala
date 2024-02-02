@@ -43,7 +43,7 @@ class AuthenticationValidator()(implicit
               snapshot
                 .verifySignature(
                   view.rootHash.unwrap,
-                  submitterMetadata.submitterParticipant,
+                  submitterMetadata.submittingParticipant,
                   signature,
                 )
                 .swap

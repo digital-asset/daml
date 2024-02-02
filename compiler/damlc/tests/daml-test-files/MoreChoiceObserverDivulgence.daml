@@ -4,7 +4,6 @@
 module MoreChoiceObserverDivulgence where
 
 import Daml.Script
-import DA.Assert
 
 -- @SINCE-LF 2.1
 
@@ -33,7 +32,7 @@ template Divulger with
         _ <- fetch id
         pure ()
 
--- @WARN range=49:15-49:70; Use of divulged contracts is deprecated
+-- @ERROR range=37:1-37:5; Attempt to fetch or exercise a contract not visible to the reading parties.
 test : Script ()
 test = script do
     alice <- allocateParty "Alice"
@@ -46,6 +45,5 @@ test = script do
     submit alice do
       createAndExerciseCmd (Divulger with owner = alice) (Divulge with divulgee = bob; id)
     -- (4) Now Bob can see the secret
-    secret <- submit bob do exerciseCmd id Reveal with receiver = bob
-    secret === "s3cr3t"
+    submit bob do exerciseCmd id Reveal with receiver = bob
     pure ()

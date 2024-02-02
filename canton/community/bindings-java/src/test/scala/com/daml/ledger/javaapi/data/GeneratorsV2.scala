@@ -462,6 +462,7 @@ object GeneratorsV2 {
         (b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) =>
           b.setIncompleteAssigned(e)
       ),
+      Gen.const((b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) => b),
     )
 
   def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] = {

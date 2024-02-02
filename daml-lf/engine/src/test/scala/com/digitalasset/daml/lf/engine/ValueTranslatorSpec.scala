@@ -46,7 +46,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
   private[this] val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable Tuple (a: *) (b: *) = { x: a, y: b };

@@ -356,26 +356,28 @@ requestTests run runScripts = testGroup "requests"
           lenses <- getCodeLenses main'
           liftIO $ lenses @?= [codeLens (Range (Position 5 0) (Position 5 6))]
           closeDoc main'
-    , testCase "add type signature code lens shows unqualified HasField" $ run $ do
+    , testCase "add type signature code lens shows unqualified GetField/SetField" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
               , "assetIssuer asset = asset.issuer"
+              , "setAssetIssuer issuer asset = asset with issuer"
               ]
           lenses <- getCodeLenses main'
           let mainUri = getUri (main' ^. uri)
-              signature = "assetIssuer : HasField \"issuer\" r a => r -> a"
-              addTypeSigLens =
+              getFieldSignature = "assetIssuer : GetField \"issuer\" r a => r -> a"
+              setFieldSignature = "setAssetIssuer : SetField \"issuer\" r a => a -> r -> r"
+              addTypeSigLens hoverRange additionLine sig =
                   CodeLens
-                      { _range = Range (Position 1 0) (Position 1 11)
+                      { _range = hoverRange
                       , _command = Just $ Command
-                          { _title = signature
+                          { _title = sig
                           , _command = "typesignature.add"
                           , _arguments = Just $ List $ singleton $ Aeson.object
                               [ "changes" .= Aeson.object
                                   [ Aeson.Key.fromText mainUri .=
                                       [ Aeson.object
-                                          [ "newText" .= (signature <> "\n")
-                                          , "range" .= toJSON (Range (Position 1 0) (Position 1 0))
+                                          [ "newText" .= (sig <> "\n")
+                                          , "range" .= toJSON (Range (Position additionLine 0) (Position additionLine 0))
                                           ]
                                       ]
                                   ]
@@ -383,7 +385,10 @@ requestTests run runScripts = testGroup "requests"
                           }
                       , _xdata = Nothing
                       }
-          liftIO $ lenses @?= [addTypeSigLens]
+          liftIO $ lenses @?=
+              [ addTypeSigLens (Range (Position 1 0) (Position 1 11)) 1 getFieldSignature
+              , addTypeSigLens (Range (Position 2 0) (Position 2 14)) 2 setFieldSignature
+              ]
           closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines

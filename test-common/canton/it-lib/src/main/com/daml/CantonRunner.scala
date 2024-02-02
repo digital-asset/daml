@@ -10,7 +10,6 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
@@ -25,6 +24,7 @@ import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.ExecutionContext
 
 object CantonRunner {
+  import CantonConfig.TimeProviderType
 
   private[integrationtest] def toJson(s: String): String = JsString(s).toString()
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)

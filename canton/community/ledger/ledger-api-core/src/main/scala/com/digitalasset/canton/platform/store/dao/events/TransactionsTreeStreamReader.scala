@@ -60,7 +60,7 @@ class TransactionsTreeStreamReader(
   import TransactionsReader.*
   import config.*
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   private val orderBySequentialEventId =
     Ordering.by[EventStorageBackend.Entry[Raw.TreeEvent], Long](_.eventSequentialId)

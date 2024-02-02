@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.mediator
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.protocol.messages.{
@@ -207,7 +207,8 @@ class DefaultVerdictSenderTest
       new ExampleTransactionFactory()(domainId = domainId, mediatorRef = transactionMediatorRef)
     val mediatorRef: MediatorRef = factory.mediatorRef
     val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
-    val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+    val informeeMessage =
+      InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val rootHashMessage = RootHashMessage(
       fullInformeeTree.transactionId.toRootHash,
       domainId,
@@ -215,7 +216,7 @@ class DefaultVerdictSenderTest
       ViewType.TransactionViewType,
       SerializedRootHashMessagePayload.empty,
     )
-    val participant: ParticipantId = ExampleTransactionFactory.submitterParticipant
+    val participant: ParticipantId = ExampleTransactionFactory.submittingParticipant
     val rhmEnvelope = OpenEnvelope(
       rootHashMessage,
       Recipients.cc(transactionMediatorRef.toRecipient, MemberRecipient(participant)),

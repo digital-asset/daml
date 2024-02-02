@@ -131,7 +131,7 @@ object SignedTopologyTransactionX
     SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.SignedTopologyTransactionX
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -210,10 +210,8 @@ object SignedTopologyTransactionX
         "SignedTopologyTransactionX.signatures",
         signaturesP,
       )
-    } yield SignedTopologyTransactionX(transaction, signatures.toSet, isProposal)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2))
-    )
-
+      rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield SignedTopologyTransactionX(transaction, signatures.toSet, isProposal)(rpv)
   }
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =

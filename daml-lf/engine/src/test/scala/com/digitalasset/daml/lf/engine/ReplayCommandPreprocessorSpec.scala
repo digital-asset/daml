@@ -37,7 +37,8 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   private implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable Box a = { content: a };

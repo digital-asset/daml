@@ -100,7 +100,6 @@ class HikariJdbcConnectionProviderSpec
           minimumIdle = 10,
           maxPoolSize = 10,
           connectionTimeout = FiniteDuration(10, "seconds"),
-          metrics = None,
         )
         _ <- DataSourceConnectionProvider.owner(
           dataSource = hikariDataSource,

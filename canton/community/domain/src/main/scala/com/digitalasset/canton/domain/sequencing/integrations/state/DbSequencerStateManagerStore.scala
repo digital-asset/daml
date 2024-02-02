@@ -19,7 +19,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.A
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, dbEitherT}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
@@ -60,17 +59,13 @@ class DbSequencerStateManagerStore(
   import storage.api.*
   import storage.converters.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("sequencer-store")
-
   private implicit val setParameterTraceContext: SetParameter[SerializableTraceContext] =
     SerializableTraceContext.getVersionedSetParameter(protocolVersion)
 
   override def readAtBlockTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[EphemeralState] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[EphemeralState] =
     storage.query(readAtBlockTimestampDBIO(timestamp), functionFullName)
-  }
 
   /** Compute the state up until (inclusive) the given timestamp. */
   def readAtBlockTimestampDBIO(
@@ -259,7 +254,7 @@ class DbSequencerStateManagerStore(
             where ts > $startTsExclusive and ts <= $endTsInclusive
         """.as[(Member, Array[Byte], SerializableTraceContext)]
     for {
-      events <- processingTime.event(storage.query(query, functionFullName))
+      events <- (storage.query(query, functionFullName))
     } yield {
       events
         .map { case (member, bytes, eventTraceContext) =>
@@ -279,15 +274,14 @@ class DbSequencerStateManagerStore(
             select member, added_at from sequencer_state_manager_members
             where added_at > $startTsExclusive and added_at <= $endTsInclusive
            """.as[(Member, CantonTimestamp)]
-    processingTime.event(storage.query(query, functionFullName))
+    (storage.query(query, functionFullName))
   }
 
   override def addMember(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    processingTime.event {
-      storage.queryAndUpdate(addMemberDBIO(member, addedAt), functionFullName)
-    }
+  ): Future[Unit] = {
+    storage.queryAndUpdate(addMemberDBIO(member, addedAt), functionFullName)
+  }
 
   def addMemberDBIO(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -308,7 +302,7 @@ class DbSequencerStateManagerStore(
   override def addEvents(
       events: Map[Member, OrdinarySerializedEvent],
       trafficSate: Map[Member, TrafficState],
-  )(implicit traceContext: TraceContext): Future[Unit] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.queryAndUpdate(addEventsDBIO(trafficSate)(events), functionFullName)
   }
 
@@ -682,7 +676,8 @@ object DbSequencerStateManagerStore {
           case v30.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
             sigsForEnvelope.traverse(Signature.fromProtoV30)
         }
-      } yield AggregatedSignaturesOfSender(sigs)(protocolVersionRepresentativeFor(ProtoVersion(0)))
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      } yield AggregatedSignaturesOfSender(sigs)(rpv)
     }
   }
 

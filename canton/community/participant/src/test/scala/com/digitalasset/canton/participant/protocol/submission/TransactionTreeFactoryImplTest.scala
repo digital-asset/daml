@@ -42,7 +42,7 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
 
   def createTransactionTreeFactory(version: ProtocolVersion): TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
-      ExampleTransactionFactory.submitterParticipant,
+      ExampleTransactionFactory.submittingParticipant,
       factory.domainId,
       version,
       factory.cryptoOps,

@@ -61,13 +61,13 @@ final case class TransferOutRequest(
         stakeholders,
         adminParties,
         uuid,
+        submitterMetadata,
         sourceProtocolVersion,
       )
 
     val view = TransferOutView
       .create(hashOps)(
         viewSalt,
-        submitterMetadata,
         creatingTransactionId,
         contract,
         targetDomain,

@@ -328,7 +328,7 @@ private[mediator] class DefaultVerdictSender(
             val rejection = (viewType match {
               case ViewType.TransactionViewType =>
                 requestO match {
-                  case Some(request @ InformeeMessage(_)) =>
+                  case Some(request @ InformeeMessage(_, _)) =>
                     request.createMediatorResult(
                       requestId,
                       rejectionReason,

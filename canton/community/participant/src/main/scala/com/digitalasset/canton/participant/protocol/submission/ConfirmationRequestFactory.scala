@@ -146,6 +146,9 @@ class ConfirmationRequestFactory(
       keySeed,
       protocolVersion,
     )
+    submittingParticipantSignature <- cryptoSnapshot
+      .sign(transactionTree.rootHash.unwrap)
+      .leftMap[ConfirmationRequestCreationError](TransactionSigningError)
   } yield {
     if (loggingConfig.eventDetails) {
       logger.debug(
@@ -153,7 +156,10 @@ class ConfirmationRequestFactory(
       )
     }
     ConfirmationRequest(
-      InformeeMessage(transactionTree.tryFullInformeeTree(protocolVersion))(protocolVersion),
+      InformeeMessage(
+        transactionTree.tryFullInformeeTree(protocolVersion),
+        submittingParticipantSignature,
+      )(protocolVersion),
       transactionViewEnvelopes,
       protocolVersion,
     )
@@ -327,5 +333,10 @@ object ConfirmationRequestFactory {
 
   final case class KeySeedError(cause: HkdfError) extends ConfirmationRequestCreationError {
     override def pretty: Pretty[KeySeedError] = prettyOfParam(_.cause)
+  }
+
+  final case class TransactionSigningError(cause: SyncCryptoError)
+      extends ConfirmationRequestCreationError {
+    override def pretty: Pretty[TransactionSigningError] = prettyOfClass(unnamedParam(_.cause))
   }
 }

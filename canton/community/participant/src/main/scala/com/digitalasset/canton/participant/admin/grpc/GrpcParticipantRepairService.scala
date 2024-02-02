@@ -371,7 +371,7 @@ final class GrpcParticipantRepairService(
               request.targetDomainConnectionConfig
                 .toRight("The target domain connection configuration is required")
                 .flatMap(
-                  DomainConnectionConfig.fromProtoV0(_).leftMap(_.toString)
+                  DomainConnectionConfig.fromProtoV30(_).leftMap(_.toString)
                 )
             )
           _ <- EitherT(

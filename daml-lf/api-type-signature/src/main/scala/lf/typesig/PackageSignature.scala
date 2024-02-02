@@ -4,7 +4,6 @@
 package com.daml.lf.typesig
 
 import java.{util => j}
-
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
@@ -32,7 +31,7 @@ final case class PackageMetadata(
   */
 final case class PackageSignature(
     packageId: PackageId,
-    metadata: Option[PackageMetadata],
+    metadata: PackageMetadata,
     typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
     interfaces: Map[QualifiedName, DefInterface.FWT],
 ) {

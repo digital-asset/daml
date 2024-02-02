@@ -12,25 +12,25 @@ object CompressionMetrics {
 
   def createArgument(metrics: Metrics): CompressionMetrics.Field =
     new Field(
-      compressed = metrics.daml.index.db.compression.createArgumentCompressed,
-      uncompressed = metrics.daml.index.db.compression.createArgumentUncompressed,
+      compressed = metrics.index.db.compression.createArgumentCompressed,
+      uncompressed = metrics.index.db.compression.createArgumentUncompressed,
     )
 
   def createKeyValue(metrics: Metrics) =
     new Field(
-      compressed = metrics.daml.index.db.compression.createKeyValueCompressed,
-      uncompressed = metrics.daml.index.db.compression.createKeyValueUncompressed,
+      compressed = metrics.index.db.compression.createKeyValueCompressed,
+      uncompressed = metrics.index.db.compression.createKeyValueUncompressed,
     )
 
   def exerciseArgument(metrics: Metrics) =
     new Field(
-      compressed = metrics.daml.index.db.compression.exerciseArgumentCompressed,
-      uncompressed = metrics.daml.index.db.compression.exerciseArgumentUncompressed,
+      compressed = metrics.index.db.compression.exerciseArgumentCompressed,
+      uncompressed = metrics.index.db.compression.exerciseArgumentUncompressed,
     )
 
   def exerciseResult(metrics: Metrics) =
     new Field(
-      compressed = metrics.daml.index.db.compression.exerciseResultCompressed,
-      uncompressed = metrics.daml.index.db.compression.exerciseResultUncompressed,
+      compressed = metrics.index.db.compression.exerciseResultCompressed,
+      uncompressed = metrics.index.db.compression.exerciseResultUncompressed,
     )
 }

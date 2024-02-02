@@ -91,7 +91,7 @@ object DomainTimeTrackerConfig {
         configP.minObservationDuration,
       )
       timeProofRequestConfig <- ProtoConverter.parseRequired(
-        TimeProofRequestConfig.fromProtoV0,
+        TimeProofRequestConfig.fromProtoV30,
         "time_proof_request",
         configP.timeProofRequest,
       )

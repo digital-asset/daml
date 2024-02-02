@@ -84,8 +84,8 @@ object RateLimitingInterceptor {
       additionalChecks: List[LimitResultCheck],
   ): RateLimitingInterceptor = {
 
-    val activeStreamsName = metrics.daml.lapi.streams.activeName
-    val activeStreamsCounter = metrics.daml.lapi.streams.active
+    val activeStreamsName = metrics.lapi.streams.activeName
+    val activeStreamsCounter = metrics.lapi.streams.active
 
     new RateLimitingInterceptor(
       checks = List[LimitResultCheck](

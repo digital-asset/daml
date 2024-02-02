@@ -48,7 +48,7 @@ class DbParticipantEventLog(
       atOrAfter: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Option[TimestampedEvent]] = {
     IndexedDomain.indexed(indexedStringStore)(associatedDomain).flatMap { associatedDomainIndex =>
-      processingTime.event {
+      {
         // Use #$ instead of $ for ParticipantEventLogId.log_id so that it shows up as a literal string
         // in the prepared statement instead of a ?. This ensures that the query planner can pick the partial index.
         //

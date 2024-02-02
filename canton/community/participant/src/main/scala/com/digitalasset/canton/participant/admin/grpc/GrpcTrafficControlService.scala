@@ -54,7 +54,7 @@ class GrpcTrafficControlService(
         )
         .leftWiden[CantonError]
     } yield {
-      TrafficControlStateResponse(Some(trafficState.toProtoV0))
+      TrafficControlStateResponse(Some(trafficState.toProtoV30))
     }
 
     CantonGrpcUtil.mapErrNew(result)

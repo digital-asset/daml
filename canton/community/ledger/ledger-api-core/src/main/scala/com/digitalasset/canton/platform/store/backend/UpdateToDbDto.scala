@@ -49,7 +49,7 @@ object UpdateToDbDto {
             IndexedUpdatesMetrics.Labels.applicationId -> u.completionInfo.applicationId,
           ) { implicit mc: MetricsContext =>
             incrementCounterForEvent(
-              metrics.daml.indexerEvents,
+              metrics.indexerEvents,
               IndexedUpdatesMetrics.Labels.eventType.transaction,
               IndexedUpdatesMetrics.Labels.status.rejected,
             )
@@ -73,7 +73,7 @@ object UpdateToDbDto {
 
         case u: ConfigurationChanged =>
           incrementCounterForEvent(
-            metrics.daml.indexerEvents,
+            metrics.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.configurationChange,
             IndexedUpdatesMetrics.Labels.status.accepted,
           )
@@ -90,7 +90,7 @@ object UpdateToDbDto {
 
         case u: PartyAddedToParticipant =>
           incrementCounterForEvent(
-            metrics.daml.indexerEvents,
+            metrics.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
             IndexedUpdatesMetrics.Labels.status.accepted,
           )
@@ -109,7 +109,7 @@ object UpdateToDbDto {
 
         case u: PartyAllocationRejected =>
           incrementCounterForEvent(
-            metrics.daml.indexerEvents,
+            metrics.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
             IndexedUpdatesMetrics.Labels.status.rejected,
           )
@@ -128,7 +128,7 @@ object UpdateToDbDto {
 
         case u: PublicPackageUpload =>
           incrementCounterForEvent(
-            metrics.daml.indexerEvents,
+            metrics.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.packageUpload,
             IndexedUpdatesMetrics.Labels.status.accepted,
           )
@@ -157,7 +157,7 @@ object UpdateToDbDto {
 
         case u: PublicPackageUploadRejected =>
           incrementCounterForEvent(
-            metrics.daml.indexerEvents,
+            metrics.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.packageUpload,
             IndexedUpdatesMetrics.Labels.status.rejected,
           )
@@ -176,7 +176,7 @@ object UpdateToDbDto {
             IndexedUpdatesMetrics.Labels.applicationId -> u.completionInfoO.map(_.applicationId)
           ) { implicit mc: MetricsContext =>
             incrementCounterForEvent(
-              metrics.daml.indexerEvents,
+              metrics.indexerEvents,
               IndexedUpdatesMetrics.Labels.eventType.transaction,
               IndexedUpdatesMetrics.Labels.status.accepted,
             )

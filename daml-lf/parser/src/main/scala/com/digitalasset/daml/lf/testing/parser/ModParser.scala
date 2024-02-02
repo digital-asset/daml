@@ -38,7 +38,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    opt(metadata) ~ rep(mod) ^^ { case metadata ~ modules =>
+    metadata ~ rep(mod) ^^ { case metadata ~ modules =>
       Package.build(modules, List.empty, parameters.languageVersion, metadata)
     }
 
@@ -215,18 +215,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
-      rep(templateChoice <~ `;`) ~
-      rep(coImplements <~ `;`) <~
+      rep(templateChoice <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             view ~
             requires ~
             methods ~
-            choices ~
-            coImplements =>
+            choices =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
+            DefInterface.build(Set.from(requires), x, choices, methods, view),
           )
       }
   private val interfaceView: Parser[Type] =
@@ -238,14 +236,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
       InterfaceMethod(name, typ)
-    }
-
-  private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
-      InterfaceCoImplements.build(
-        tplId,
-        body,
-      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

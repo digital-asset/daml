@@ -4,14 +4,14 @@
 package com.daml.ledger.rxjava.grpc
 
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
+import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
 }
 import com.daml.ledger.javaapi.data.{
   Command,
-  CommandsSubmission,
+  CommandsSubmissionV2,
   CreateCommand,
   DamlRecord,
   Identifier,
@@ -23,12 +23,13 @@ import io.reactivex.Single
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.util.UUID.randomUUID
 import java.util.concurrent.TimeUnit
-import java.util.Optional
+import java.util.{Optional, UUID}
+
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.util.chaining.scalaUtilChainingOps
 
 class CommandClientImplTest
     extends AnyFlatSpec
@@ -42,7 +43,7 @@ class CommandClientImplTest
   private def withCommandClient(authService: AuthService = AuthServiceWildcard) = {
     ledgerServices.withCommandClient(
       Future.successful(Empty.defaultInstance),
-      Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       authService,
@@ -58,12 +59,25 @@ class CommandClientImplTest
   it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
-      val params = CommandsSubmission
-        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+      val domainId = UUID.randomUUID().toString
+      val params = CommandsSubmissionV2
+        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withActAs(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       client
         .submitAndWait(params)
@@ -82,14 +96,27 @@ class CommandClientImplTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command))
+      val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmission
-        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+      val params = CommandsSubmissionV2
+        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
         .withActAs(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
+        .pipe(p =>
+          if (commands.getMinLedgerTimeAbsolute.isPresent)
+            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getMinLedgerTimeRelative.isPresent)
+            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
+          else p
+        )
+        .pipe(p =>
+          if (commands.getDeduplicationTime.isPresent)
+            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
+          else p
+        )
 
       client
         .submitAndWait(params)
@@ -103,7 +130,7 @@ class CommandClientImplTest
       service.getLastRequest.value.getCommands.readAs shouldBe commands.getReadAs.asScala
       commands.getActAs.get(0) shouldBe commands.getParty
       service.getLastRequest.value.getCommands.workflowId shouldBe commands.getWorkflowId
-      service.getLastRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
+      service.getLastRequest.value.getCommands.domainId shouldBe domainId
       service.getLastRequest.value.getCommands.minLedgerTimeRel
         .map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getSeconds)
       service.getLastRequest.value.getCommands.minLedgerTimeRel
@@ -133,19 +160,20 @@ class CommandClientImplTest
     List(command).asJava
   }
 
-  private type SubmitAndWait[A] = CommandsSubmission => Single[A]
+  private type SubmitAndWait[A] = CommandsSubmissionV2 => Single[A]
 
   private def submitAndWaitFor[A](
       submit: SubmitAndWait[A]
   )(commands: java.util.List[Command], party: String, token: Option[String]) = {
-    val params = CommandsSubmission
+    val params = CommandsSubmissionV2
       .create(
+        randomUUID().toString,
         randomUUID().toString,
         randomUUID().toString,
         token.fold(dummyCommands)(_ => commands),
       )
       .withActAs(party)
-      .withAccessToken(Optional.ofNullable(token.orNull))
+      .pipe(p => token.fold(p)(p.withAccessToken))
 
     submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()
   }

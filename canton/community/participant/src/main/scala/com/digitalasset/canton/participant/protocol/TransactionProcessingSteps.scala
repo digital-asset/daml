@@ -207,7 +207,7 @@ class TransactionProcessingSteps(
       views: Seq[FullView]
   ): Option[SubmissionTracker.SubmissionData] =
     views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) =>
-      SubmissionTracker.SubmissionData(meta.submitterParticipant, meta.maxSequencingTime)
+      SubmissionTracker.SubmissionData(meta.submittingParticipant, meta.maxSequencingTime)
     }
 
   override def participantResponseDeadlineFor(
@@ -650,7 +650,7 @@ class TransactionProcessingSteps(
                 deriveRandomnessForSubviews(viewMessage, randomness)
               )
           )
-        } yield (ltvt, viewMessage.submitterParticipantSignature)
+        } yield (ltvt, viewMessage.submittingParticipantSignature)
 
       def decryptView(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
@@ -852,7 +852,7 @@ class TransactionProcessingSteps(
         // which already commits to the ParticipantMetadata and CommonMetadata
         commonData = checked(tryCommonData(rootViewTrees))
         amSubmitter = enrichedTransaction.submitterMetadataO.exists(
-          _.submitterParticipant == participantId
+          _.submittingParticipant == participantId
         )
         timeValidationE = TimeValidator.checkTimestamps(
           commonData,

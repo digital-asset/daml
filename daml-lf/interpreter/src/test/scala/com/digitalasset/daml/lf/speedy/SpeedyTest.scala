@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
+import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
@@ -24,8 +24,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
-
-import scala.util.{Failure, Success, Try}
 
 class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
 
@@ -63,7 +61,7 @@ class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
         record T3 (a: *) = { party: Party };
      }
     """)
-  val pkgs: PureCompiledPackages = typeAndCompile(p"")
+  val pkgs: PureCompiledPackages = typeAndCompile(p"metadata ( 'pkgs' : '1.0.0' )")
   val recUpdPkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'rec-upd-pkgs' : '1.0.0' )
 module M {
   record Point = { x: Int64, y: Int64 } ;
@@ -122,7 +120,9 @@ module M {
   }
 
   "pattern matching" - {
-    val pkg = p""" metadata ( 'pkg' : '1.0.0' )
+    val pkg = p"""
+    metadata ( 'pkg' : '1.0.0' )
+
     module Matcher {
       val unit : Unit -> Int64 = \ (x: Unit) -> case x of () -> 2;
       val bool : Bool -> Int64 = \ (x: Bool) -> case x of True -> 3 | False -> 5;
@@ -526,99 +526,6 @@ module M {
     }
   }
 
-  "checkContractVisibility" - {
-
-    "warn about non-visible local contracts" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      machine.checkContractVisibility(localContractId, localContractInfo)
-
-      testLogger.iterator.size shouldBe 1
-    }
-
-    "accept non-visible disclosed contracts" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      machine.checkContractVisibility(disclosedContractId, disclosedContractInfo)
-
-      testLogger.iterator.size shouldBe 0
-    }
-
-    "warn about non-visible global contracts" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      machine.checkContractVisibility(globalContractId, globalContractInfo)
-
-      testLogger.iterator.size shouldBe 1
-    }
-  }
-
-  "checkKeyVisibility" - {
-    val handleKeyFound =
-      (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
-
-    "accept non-visible local contract keys" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      val result = Try {
-        machine.checkKeyVisibility(
-          localContractKey,
-          localContractId,
-          handleKeyFound,
-          localContractInfo,
-        )
-      }
-
-      inside(result) { case Success(Speedy.Control.Value(SContractId(`localContractId`))) =>
-        succeed
-      }
-    }
-
-    "accept non-visible disclosed contract keys" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      val result = Try {
-        machine.checkKeyVisibility(
-          disclosedContractKey,
-          disclosedContractId,
-          handleKeyFound,
-          disclosedContractInfo,
-        )
-      }
-
-      inside(result) { case Success(Speedy.Control.Value(SContractId(`disclosedContractId`))) =>
-        succeed
-      }
-    }
-
-    "reject non-visible global contract keys" in new VisibilityChecking(
-      majorLanguageVersion
-    ) {
-      val result = Try {
-        machine.checkKeyVisibility(
-          globalContractKey,
-          globalContractId,
-          handleKeyFound,
-          globalContractInfo,
-        )
-      }
-
-      inside(result) {
-        case Failure(
-              SErrorDamlException(
-                interpretation.Error.ContractKeyNotVisible(
-                  `globalContractId`,
-                  `globalContractKey`,
-                  _,
-                  _,
-                  _,
-                )
-              )
-            ) =>
-          succeed
-      }
-    }
-  }
 }
 
 object SpeedyTest {

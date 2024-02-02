@@ -133,7 +133,10 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   it should "succeed if there are no collisions" in {
-    val signatures = Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A", "A.B"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "B", "A.B.C"),
+    )
     CodeGenRunner.detectModuleCollisions(
       Map.empty,
       signatures,
@@ -142,7 +145,10 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   it should "fail if there is a collision" in {
-    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
+    )
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
@@ -153,18 +159,27 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   it should "fail if there is a collision caused by prefixing" in {
-    val signatures = Seq(interface("pkg1", "A.B"), interface("pkg2", "B"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A.B"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "B"),
+    )
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
-        Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
+        Seq(
+          interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A.B"),
+          interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "B"),
+        ),
         moduleIdSet(signatures),
       )
     }
   }
 
   it should "succeed if collision is resolved by prefixing" in {
-    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
+    )
     CodeGenRunner.detectModuleCollisions(
       Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
       signatures,
@@ -173,7 +188,10 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   it should "succeed if there is a collisions on modules which are not to be generated" in {
-    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
+    )
     CodeGenRunner.detectModuleCollisions(
       Map.empty,
       signatures,
@@ -182,7 +200,10 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   }
 
   it should "succeed if same module name between a module not to be generated and a module to be generated " in {
-    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    val signatures = Seq(
+      interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
+      interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
+    )
     CodeGenRunner.detectModuleCollisions(
       Map.empty,
       signatures,
@@ -195,24 +216,22 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   it should "combine module-prefixes and pkgPrefixes" in {
     val pkg1 = PackageId.assertFromString("pkg-1")
     val pkg2 = PackageId.assertFromString("pkg-2")
-    val pkg3 = PackageId.assertFromString("pkg-3")
-    val pkgPrefixes = Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2")
+    val pkgPrefixes = Map(pkg1 -> "com.pkg1")
+    val name1 = PackageName.assertFromString("name1")
     val name2 = PackageName.assertFromString("name2")
-    val name3 = PackageName.assertFromString("name3")
     val version = PackageVersion.assertFromString("1.0.0")
     val modulePrefixes = Map[PackageReference, String](
-      PackageReference.NameVersion(name2, version) -> "A.B",
-      PackageReference.NameVersion(name3, version) -> "C.D",
+      PackageReference.NameVersion(name1, version) -> "A.B",
+      PackageReference.NameVersion(name2, version) -> "C.D",
     )
-    val interface1 = interface(pkg1, None)
-    val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
-    val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
+    val interface1 = interface(pkg1, PackageMetadata(name1, version))
+    val interface2 = interface(pkg2, PackageMetadata(name2, version))
     CodeGenRunner.resolvePackagePrefixes(
       pkgPrefixes,
       modulePrefixes,
-      Seq(interface1, interface2, interface3),
-      moduleIdSet(Seq(interface1, interface2, interface3)),
-    ) should ===(Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d"))
+      Seq(interface1, interface2),
+      moduleIdSet(Seq(interface1, interface2)),
+    ) should ===(Map(pkg1 -> "com.pkg1.a.b", pkg2 -> "c.d"))
   }
 
   it should "fail if module-prefixes references non-existing package" in {
@@ -250,12 +269,24 @@ object CodeGenRunnerTests {
   private val testDependsOnBarTplDar = Path.of(BazelRunfiles.rlocation(testDependsOnBarTplDarPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
-  private def interface(pkgId: String, modNames: String*): PackageSignature =
-    interface(pkgId, None, modNames: _*)
+  private def interface(
+      pkgId: String,
+      pkgName: String,
+      pkgVersion: String,
+      modNames: String*
+  ): PackageSignature =
+    interface(
+      pkgId,
+      PackageMetadata(
+        PackageName.assertFromString(pkgName),
+        PackageVersion.assertFromString(pkgVersion),
+      ),
+      modNames: _*
+    )
 
   private def interface(
       pkgId: String,
-      metadata: Option[PackageMetadata],
+      metadata: PackageMetadata,
       modNames: String*
   ): PackageSignature = {
     val dummyType =

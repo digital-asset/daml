@@ -3,19 +3,17 @@
 
 package com.digitalasset.canton.config
 
-import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
   CantonServerInterceptors,
 }
 import com.digitalasset.canton.tracing.TracingConfig
 import io.netty.handler.ssl.SslContext
-
-import scala.annotation.nowarn
 
 /** Configuration of the gRPC health server for a canton node.
   * @param parallelism number of threads to be used in the gRPC server
@@ -33,7 +31,7 @@ final case class GrpcHealthServerConfig(
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
       metricsPrefix: MetricName,
-      @nowarn("cat=deprecation") metrics: MetricsFactory,
+      metrics: CantonLabeledMetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
   ): CantonServerInterceptors =

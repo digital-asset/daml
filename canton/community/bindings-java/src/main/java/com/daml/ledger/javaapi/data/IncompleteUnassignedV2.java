@@ -22,6 +22,7 @@ public final class IncompleteUnassignedV2 implements ContractEntryV2 {
   }
 
   @NonNull
+  @Override
   public CreatedEvent getCreatedEvent() {
     return createdEvent;
   }

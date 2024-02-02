@@ -26,7 +26,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.ParticipantNodeCommon
 import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
@@ -86,11 +85,11 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     * Implementations should just return a int for the instance (typically just a static value based on type),
     * and then the console will start these instances for lower to higher values.
     */
-  protected def startupOrderPrecedence(instance: LocalInstanceReferenceCommon): Int
+  protected def startupOrderPrecedence(instance: LocalInstanceReference): Int
 
   /** The order that local nodes would ideally be started in. */
-  final val startupOrdering: Ordering[LocalInstanceReferenceCommon] =
-    (x: LocalInstanceReferenceCommon, y: LocalInstanceReferenceCommon) =>
+  final val startupOrdering: Ordering[LocalInstanceReference] =
+    (x: LocalInstanceReference, y: LocalInstanceReference) =>
       startupOrderPrecedence(x) compare startupOrderPrecedence(y)
 
   /** allows for injecting a custom admin command runner during tests */
@@ -294,50 +293,50 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       ))
 
   lazy val participantsX: NodeReferences[
-    ParticipantReferenceX,
-    RemoteParticipantReferenceX,
-    LocalParticipantReferenceX,
+    ParticipantReference,
+    RemoteParticipantReference,
+    LocalParticipantReference,
   ] =
     NodeReferences(
-      environment.config.participantsByString.keys.map(createParticipantReferenceX).toSeq,
+      environment.config.participantsByString.keys.map(createParticipantReference).toSeq,
       environment.config.remoteParticipantsByString.keys
-        .map(createRemoteParticipantReferenceX)
+        .map(createRemoteParticipantReference)
         .toSeq,
     )
 
   lazy val sequencersX: NodeReferences[
-    SequencerNodeReferenceX,
-    RemoteSequencerNodeReferenceX,
-    LocalSequencerNodeReferenceX,
+    SequencerNodeReference,
+    RemoteSequencerNodeReference,
+    LocalSequencerNodeReference,
   ] =
     NodeReferences(
-      environment.config.sequencersByString.keys.map(createSequencerReferenceX).toSeq,
-      environment.config.remoteSequencersByString.keys.map(createRemoteSequencerReferenceX).toSeq,
+      environment.config.sequencersByString.keys.map(createSequencerReference).toSeq,
+      environment.config.remoteSequencersByString.keys.map(createRemoteSequencerReference).toSeq,
     )
 
   lazy val mediatorsX
-      : NodeReferences[MediatorReferenceX, RemoteMediatorReferenceX, LocalMediatorReferenceX] =
+      : NodeReferences[MediatorReference, RemoteMediatorReference, LocalMediatorReference] =
     NodeReferences(
-      environment.config.mediatorsByString.keys.map(createMediatorReferenceX).toSeq,
-      environment.config.remoteMediatorsByString.keys.map(createRemoteMediatorReferenceX).toSeq,
+      environment.config.mediatorsByString.keys.map(createMediatorReference).toSeq,
+      environment.config.remoteMediatorsByString.keys.map(createRemoteMediatorReference).toSeq,
     )
 
   // the scala compiler / wartremover gets confused here if I use ++ directly
   def mergeLocalInstances(
-      locals: Seq[LocalInstanceReferenceCommon]*
-  ): Seq[LocalInstanceReferenceCommon] =
+      locals: Seq[LocalInstanceReference]*
+  ): Seq[LocalInstanceReference] =
     locals.flatten
   def mergeLocalInstancesX(
-      locals: Seq[LocalInstanceReferenceX]*
-  ): Seq[LocalInstanceReferenceX] =
+      locals: Seq[LocalInstanceReference]*
+  ): Seq[LocalInstanceReference] =
     locals.flatten
-  def mergeRemoteInstances(remotes: Seq[InstanceReferenceCommon]*): Seq[InstanceReferenceCommon] =
+  def mergeRemoteInstances(remotes: Seq[InstanceReference]*): Seq[InstanceReference] =
     remotes.flatten
 
   lazy val nodes: NodeReferences[
-    InstanceReferenceCommon,
-    InstanceReferenceCommon,
-    LocalInstanceReferenceCommon,
+    InstanceReference,
+    InstanceReference,
+    LocalInstanceReference,
   ] = {
     NodeReferences(
       mergeLocalInstances(
@@ -443,22 +442,22 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     )
   }
 
-  private def createParticipantReferenceX(name: String): LocalParticipantReferenceX =
-    new LocalParticipantReferenceX(this, name)
-  private def createRemoteParticipantReferenceX(name: String): RemoteParticipantReferenceX =
-    new RemoteParticipantReferenceX(this, name)
+  private def createParticipantReference(name: String): LocalParticipantReference =
+    new LocalParticipantReference(this, name)
+  private def createRemoteParticipantReference(name: String): RemoteParticipantReference =
+    new RemoteParticipantReference(this, name)
 
-  private def createSequencerReferenceX(name: String): LocalSequencerNodeReferenceX =
-    new LocalSequencerNodeReferenceX(this, name)
+  private def createSequencerReference(name: String): LocalSequencerNodeReference =
+    new LocalSequencerNodeReference(this, name)
 
-  private def createRemoteSequencerReferenceX(name: String): RemoteSequencerNodeReferenceX =
-    new RemoteSequencerNodeReferenceX(this, name)
+  private def createRemoteSequencerReference(name: String): RemoteSequencerNodeReference =
+    new RemoteSequencerNodeReference(this, name)
 
-  private def createMediatorReferenceX(name: String): LocalMediatorReferenceX =
-    new LocalMediatorReferenceX(this, name)
+  private def createMediatorReference(name: String): LocalMediatorReference =
+    new LocalMediatorReference(this, name)
 
-  private def createRemoteMediatorReferenceX(name: String): RemoteMediatorReferenceX =
-    new RemoteMediatorReferenceX(this, name)
+  private def createRemoteMediatorReference(name: String): RemoteMediatorReference =
+    new RemoteMediatorReference(this, name)
 
   /** So we can we make this available
     */
@@ -487,8 +486,8 @@ object ConsoleEnvironment {
     import scala.language.implicitConversions
 
     implicit def toInstanceReferenceExtensions(
-        instances: Seq[LocalInstanceReferenceCommon]
-    ): LocalInstancesExtensions[LocalInstanceReferenceCommon] =
+        instances: Seq[LocalInstanceReference]
+    ): LocalInstancesExtensions[LocalInstanceReference] =
       new LocalInstancesExtensions.Impl(instances)
 
     /** Implicit maps an LfPartyId to a PartyId */
@@ -496,18 +495,16 @@ object ConsoleEnvironment {
 
     /** Extensions for many participant references
       */
-    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReferenceCommon])(
-        implicit consoleEnvironment: ConsoleEnvironment
+    implicit def toParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
+        consoleEnvironment: ConsoleEnvironment
     ): ParticipantReferencesExtensions =
       new ParticipantReferencesExtensions(participants)
 
-    implicit def toLocalParticipantReferencesExtensions[ParticipantNodeT <: ParticipantNodeCommon](
-        participants: Seq[LocalParticipantReferenceCommon[ParticipantNodeT]]
+    implicit def toLocalParticipantReferencesExtensions(
+        participants: Seq[LocalParticipantReference]
     )(implicit
         consoleEnvironment: ConsoleEnvironment
-    ): LocalParticipantReferencesExtensions[ParticipantNodeT, LocalParticipantReferenceCommon[
-      ParticipantNodeT
-    ]] =
+    ): LocalParticipantReferencesExtensions =
       new LocalParticipantReferencesExtensions(participants)
 
     /** Implicitly map strings to DomainAlias, Fingerprint and Identifier
@@ -525,12 +522,12 @@ object ConsoleEnvironment {
       SequencerConnections.single(GrpcSequencerConnection.tryCreate(connection))
 
     implicit def toGSequencerConnection(
-        ref: InstanceReferenceWithSequencerConnection
+        ref: SequencerNodeReference
     ): SequencerConnection =
       ref.sequencerConnection
 
     implicit def toGSequencerConnections(
-        ref: InstanceReferenceWithSequencerConnection
+        ref: SequencerNodeReference
     ): SequencerConnections =
       SequencerConnections.single(ref.sequencerConnection)
 
@@ -539,7 +536,7 @@ object ConsoleEnvironment {
 
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
-    implicit def toParticipantIdX(reference: ParticipantReferenceX): ParticipantId = reference.id
+    implicit def toParticipantIdX(reference: ParticipantReference): ParticipantId = reference.id
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

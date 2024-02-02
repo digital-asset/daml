@@ -23,6 +23,7 @@ sealed trait SequencerClientDiscriminator extends NoCopy {
 
   /** indexed use within the database */
   def index: Int
+
 }
 
 object SequencerClientDiscriminator {
@@ -30,7 +31,6 @@ object SequencerClientDiscriminator {
   final case class DomainDiscriminator(domainId: DomainId, override val index: Int)
       extends NoCopy
       with SequencerClientDiscriminator
-
   final case class DomainMemberDiscriminator(member: DomainMember, override val index: Int)
       extends NoCopy
       with SequencerClientDiscriminator

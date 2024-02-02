@@ -11,7 +11,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, ViewType}
 import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.error.MediatorError
@@ -221,13 +221,13 @@ private[mediator] class ConfirmationResponseProcessor(
       span.setAttribute("counter", counter.toString)
 
       for {
-        topologySnapshot <- crypto.ips.awaitSnapshot(requestId.unwrap)
+        snapshot <- crypto.awaitSnapshot(requestId.unwrap)
 
         unitOrVerdictO <- validateRequest(
           requestId,
           request,
           rootHashMessages,
-          topologySnapshot,
+          snapshot,
           batchAlsoContainsTopologyXTransaction,
         )
 
@@ -238,7 +238,7 @@ private[mediator] class ConfirmationResponseProcessor(
             val aggregationF = ResponseAggregation.fromRequest(
               requestId,
               request,
-              topologySnapshot,
+              snapshot.ipsSnapshot,
             )
 
             for {
@@ -247,7 +247,7 @@ private[mediator] class ConfirmationResponseProcessor(
             } yield {
               timeTracker.requestTick(participantResponseDeadline)
               logger.info(
-                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewHash.size} view(s). Initial state: ${aggregation.showMergedState}"
+                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
               )
             }
 
@@ -286,74 +286,92 @@ private[mediator] class ConfirmationResponseProcessor(
       requestId: RequestId,
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      topologySnapshot: TopologySnapshot,
+      snapshot: DomainSnapshotSyncCryptoApi,
       batchAlsoContainsTopologyXTransaction: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = (for {
-    // Bail out, if this mediator or group is passive, except is the mediator itself is passive in an active group.
-    isActive <- EitherT.right[Option[MediatorVerdict.MediatorReject]](
-      topologySnapshot.isMediatorActive(mediatorId)
-    )
-    _ <- EitherTUtil.condUnitET[Future](
-      isActive, {
-        logger.info(
-          show"Ignoring mediator request $requestId because I'm not active or mediator group is not active."
-        )
-        Option.empty[MediatorVerdict.MediatorReject]
-      },
-    )
-
-    // Validate activeness of informee participants
-    _ <- topologySnapshot
-      .allHaveActiveParticipants(request.allInformees)
-      .leftMap { informeesNoParticipant =>
-        val reject = MediatorError.InvalidMessage.Reject(
-          show"Received a mediator request with id $requestId with some informees not being hosted by an active participant: $informeesNoParticipant. Rejecting request...",
-          v30.MediatorRejection.Code.InformeesNotHostedOnActiveParticipant,
-        )
-        reject.log()
-        Option(MediatorVerdict.MediatorReject(reject))
-      }
-
-    // Validate declared mediator and the group being active
-    validMediator <- checkDeclaredMediator(requestId, request, topologySnapshot)
-
-    // Validate root hash messages
-    _ <- checkRootHashMessages(
-      validMediator,
-      requestId,
-      request,
-      rootHashMessages,
-      topologySnapshot,
-    )
-      .leftMap(Option.apply)
-
-    // Validate minimum threshold
-    _ <- EitherT
-      .fromEither[Future](validateMinimumThreshold(requestId, request))
-      .leftMap(Option.apply)
-
-    // Reject, if the authorized confirming parties cannot attain the threshold
-    _ <-
-      validateAuthorizedConfirmingParties(requestId, request, topologySnapshot)
-        .leftMap(Option.apply)
-
-    // Reject, if the batch also contains a topology transaction
-    _ <- EitherTUtil
-      .condUnitET(
-        !batchAlsoContainsTopologyXTransaction, {
-          val rejection = MediatorError.MalformedMessage
-            .Reject(
-              s"Received a mediator request with id $requestId also containing a topology transaction.",
-              v30.MediatorRejection.Code.MissingCode,
-            )
-            .reported()
-          MediatorVerdict.MediatorReject(rejection)
+  ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = {
+    val topologySnapshot = snapshot.ipsSnapshot
+    (for {
+      // Bail out, if this mediator or group is passive, except is the mediator itself is passive in an active group.
+      isActive <- EitherT.right[Option[MediatorVerdict.MediatorReject]](
+        topologySnapshot.isMediatorActive(mediatorId)
+      )
+      _ <- EitherTUtil.condUnitET[Future](
+        isActive, {
+          logger.info(
+            show"Ignoring mediator request $requestId because I'm not active or mediator group is not active."
+          )
+          Option.empty[MediatorVerdict.MediatorReject]
         },
       )
-      .leftMap(Option.apply)
-  } yield ()).value
+
+      // Validate signature of submitting participant
+      _ <- snapshot
+        .verifySignature(
+          request.rootHash.unwrap,
+          request.submittingParticipant,
+          request.submittingParticipantSignature,
+        )
+        .leftMap { err =>
+          val reject = MediatorError.MalformedMessage.Reject(
+            show"Received a mediator request with id $requestId from ${request.submittingParticipant} with an invalid signature. Rejecting request.\nDetailed error: $err"
+          )
+          reject.log()
+          Option(MediatorVerdict.MediatorReject(reject))
+        }
+
+      // Validate activeness of informee participants
+      _ <- topologySnapshot
+        .allHaveActiveParticipants(request.allInformees)
+        .leftMap { informeesNoParticipant =>
+          val reject = MediatorError.InvalidMessage.Reject(
+            show"Received a mediator request with id $requestId with some informees not being hosted by an active participant: $informeesNoParticipant. Rejecting request...",
+            v30.MediatorRejection.Code.InformeesNotHostedOnActiveParticipant,
+          )
+          reject.log()
+          Option(MediatorVerdict.MediatorReject(reject))
+        }
+
+      // Validate declared mediator and the group being active
+      validMediator <- checkDeclaredMediator(requestId, request, topologySnapshot)
+
+      // Validate root hash messages
+      _ <- checkRootHashMessages(
+        validMediator,
+        requestId,
+        request,
+        rootHashMessages,
+        topologySnapshot,
+      )
+        .leftMap(Option.apply)
+
+      // Validate minimum threshold
+      _ <- EitherT
+        .fromEither[Future](validateMinimumThreshold(requestId, request))
+        .leftMap(Option.apply)
+
+      // Reject, if the authorized confirming parties cannot attain the threshold
+      _ <-
+        validateAuthorizedConfirmingParties(requestId, request, topologySnapshot)
+          .leftMap(Option.apply)
+
+      // Reject, if the batch also contains a topology transaction
+      _ <- EitherTUtil
+        .condUnitET(
+          !batchAlsoContainsTopologyXTransaction, {
+            val rejection = MediatorError.MalformedMessage
+              .Reject(
+                s"Received a mediator request with id $requestId also containing a topology transaction.",
+                v30.MediatorRejection.Code.MissingCode,
+              )
+              .reported()
+            MediatorVerdict.MediatorReject(rejection)
+          },
+        )
+        .leftMap(Option.apply)
+    } yield ()).value
+  }
 
   private def checkDeclaredMediator(
       requestId: RequestId,
@@ -464,43 +482,35 @@ private[mediator] class ConfirmationResponseProcessor(
         distinctPayloads.sizeCompare(1) <= 0,
         show"Different payloads in root hash messages. Sizes: ${distinctPayloads.map(_.bytes.size).mkShow()}.",
       )
-      _ <- request.rootHash match {
-        case None =>
+      wrongHashes = wrongRootHashes(request.rootHash)
+      wrongViewTypes = wrongViewType(request.viewType)
+      wrongMembersF = RootHashMessageRecipients.wrongMembers(
+        rootHashMessagesRecipients,
+        request,
+        topologySnapshot,
+      )
+      _ <- for {
+        _ <- EitherTUtil
+          .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
+        wrongMems <- EitherT.liftF(wrongMembersF)
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongViewTypes.isEmpty,
+          show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
+        )
+        _ <-
           EitherTUtil.condUnitET[Future](
-            rootHashMessages.isEmpty,
-            show"No root hash messages expected, but received for recipients: $rootHashMessagesRecipients",
+            wrongMems.missingInformeeParticipants.isEmpty,
+            show"Missing root hash message for informee participants: ${wrongMems.missingInformeeParticipants}",
           )
-        case Some(rootHash) =>
-          val wrongHashes = wrongRootHashes(rootHash)
-          val wrongViewTypes = wrongViewType(request.viewType)
-          val wrongMembersF = RootHashMessageRecipients.wrongMembers(
-            rootHashMessagesRecipients,
-            request,
-            topologySnapshot,
-          )
-          for {
-            _ <- EitherTUtil
-              .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
-            wrongMems <- EitherT.liftF(wrongMembersF)
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongViewTypes.isEmpty,
-              show"View types in root hash messages differ from expected view type ${request.viewType}: $wrongViewTypes",
-            )
-            _ <-
-              EitherTUtil.condUnitET[Future](
-                wrongMems.missingInformeeParticipants.isEmpty,
-                show"Missing root hash message for informee participants: ${wrongMems.missingInformeeParticipants}",
-              )
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongMems.superfluousMembers.isEmpty,
-              show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
-            )
-            _ <- EitherTUtil.condUnitET[Future](
-              wrongMems.superfluousInformees.isEmpty,
-              show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
-            )
-          } yield ()
-      }
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongMems.superfluousMembers.isEmpty,
+          show"Superfluous root hash message for members: ${wrongMems.superfluousMembers}",
+        )
+        _ <- EitherTUtil.condUnitET[Future](
+          wrongMems.superfluousInformees.isEmpty,
+          show"Superfluous root hash message for group addressed parties: ${wrongMems.superfluousInformees}",
+        )
+      } yield ()
     } yield ()
 
     unitOrRejectionReason.leftMap { rejectionReason =>
@@ -620,7 +630,7 @@ private[mediator] class ConfirmationResponseProcessor(
           .leftMap(err =>
             MediatorError.MalformedMessage
               .Reject(
-                s"$domainId (requestId: $ts): invalid signature from ${response.sender} with $err"
+                s"$domainId (timestamp: $ts): invalid signature from ${response.sender} with $err"
               )
               .report()
           )

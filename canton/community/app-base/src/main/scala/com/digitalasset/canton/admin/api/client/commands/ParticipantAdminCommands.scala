@@ -703,7 +703,7 @@ object ParticipantAdminCommands {
         ): Either[String, (CDomainConnectionConfig, Boolean)] =
           for {
             configP <- result.config.toRight("Server has sent empty config")
-            config <- CDomainConnectionConfig.fromProtoV0(configP).leftMap(_.toString)
+            config <- CDomainConnectionConfig.fromProtoV30(configP).leftMap(_.toString)
           } yield (config, result.connected)
 
         response.results.traverse(mapRes)
@@ -792,7 +792,7 @@ object ParticipantAdminCommands {
       ): Either[String, Seq[TransferSearchResult]] =
         response match {
           case AdminTransferSearchResponse(results) =>
-            results.traverse(TransferSearchResult.fromProtoV0).leftMap(_.toString)
+            results.traverse(TransferSearchResult.fromProtoV30).leftMap(_.toString)
         }
 
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -1110,7 +1110,7 @@ object ParticipantAdminCommands {
         response.trafficState
           .map { trafficStatus =>
             MemberTrafficStatus
-              .fromProtoV0(trafficStatus)
+              .fromProtoV30(trafficStatus)
               .leftMap(_.message)
           }
           .getOrElse(Left("No traffic state available"))

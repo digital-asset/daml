@@ -165,7 +165,7 @@ object TopologyTransactionX
   type GenericTopologyTransactionX = TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransactionX)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransactionX)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -189,8 +189,9 @@ object TopologyTransactionX
       mapping <- ProtoConverter.parseRequired(TopologyMappingX.fromProtoV30, "mapping", mappingP)
       serial <- ProtoConverter.parsePositiveInt(serialP)
       op <- TopologyChangeOpX.fromProtoV30(opP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TopologyTransactionX(op, serial, mapping)(
-      protocolVersionRepresentativeFor(ProtoVersion(2)),
+      rpv,
       Some(bytes),
     )
   }

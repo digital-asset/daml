@@ -50,13 +50,13 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   override def name: String = "ActiveContract"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActiveContract)(
-      supportedProtoVersion(_)(fromProtoV1),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActiveContract)(
+      supportedProtoVersion(_)(fromProtov30),
       _.toProtoV30.toByteString,
     )
   )
 
-  private def fromProtoV1(
+  private def fromProtov30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] = {
     for {

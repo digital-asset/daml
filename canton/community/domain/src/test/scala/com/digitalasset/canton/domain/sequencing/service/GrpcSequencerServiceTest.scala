@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.metrics.DomainTestMetrics
+import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
@@ -159,7 +159,7 @@ class GrpcSequencerServiceTest
     val service =
       new GrpcSequencerService(
         sequencer,
-        DomainTestMetrics.sequencer,
+        SequencerTestMetrics,
         loggerFactory,
         new AuthenticationCheck.MatchesAuthenticatedMember {
           override def lookupCurrentMember(): Option[Member] = member.some

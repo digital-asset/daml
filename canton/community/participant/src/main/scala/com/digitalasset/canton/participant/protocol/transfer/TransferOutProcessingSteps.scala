@@ -26,6 +26,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
+import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.TransferSigningError
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.{
   TargetDomainIsSourceDomain,
@@ -177,8 +178,12 @@ class TransferOutProcessingSteps(
         transferOutUuid,
       )
 
-      mediatorMessage = fullTree.mediatorMessage
       rootHash = fullTree.rootHash
+      submittingParticipantSignature <- sourceRecentSnapshot
+        .sign(rootHash.unwrap)
+        .leftMap(TransferSigningError)
+        .mapK(FutureUnlessShutdown.outcomeK)
+      mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       viewMessage <- EncryptedViewMessageFactory
         .create(TransferOutViewType)(
           fullTree,
@@ -650,7 +655,7 @@ class TransferOutProcessingSteps(
         .leftMap[TransferProcessorError](FieldConversionError(transferId, "Transaction Id", _))
 
       completionInfo =
-        Option.when(participantId.toLf == submitterMetadata.submittingParticipant)(
+        Option.when(participantId == submitterMetadata.submittingParticipant)(
           CompletionInfo(
             actAs = List(submitterMetadata.submitter),
             applicationId = submitterMetadata.applicationId,

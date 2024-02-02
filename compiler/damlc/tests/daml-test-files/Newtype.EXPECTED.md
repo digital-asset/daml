@@ -10,7 +10,9 @@
 > > | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 > > | unNat                                                                          | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "unNat" [Nat](#type-newtype-nat-87202) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "unNat" [Nat](#type-newtype-nat-87202) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "unNat" [Nat](#type-newtype-nat-87202) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 ## Functions
 

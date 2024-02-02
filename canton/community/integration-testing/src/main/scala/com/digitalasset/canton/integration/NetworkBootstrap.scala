@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration
 
-import com.digitalasset.canton.console.InstanceReferenceX
+import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.topology.DomainId
 
@@ -18,5 +18,5 @@ trait NetworkBootstrap {
 final case class InitializedDomain(
     domainId: DomainId,
     staticDomainParameters: StaticDomainParameters,
-    domainOwners: Set[InstanceReferenceX],
+    domainOwners: Set[InstanceReference],
 )

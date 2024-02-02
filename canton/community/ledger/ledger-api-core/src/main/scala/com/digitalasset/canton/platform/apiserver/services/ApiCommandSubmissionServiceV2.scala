@@ -74,11 +74,11 @@ final class ApiCommandSubmissionServiceV2(
         requestWithSubmissionId.commands.map(_.submissionId),
       )
     Timed.timedAndTrackedFuture(
-      metrics.daml.commands.submissions,
-      metrics.daml.commands.submissionsRunning,
+      metrics.commands.submissions,
+      metrics.commands.submissionsRunning,
       Timed
         .value(
-          metrics.daml.commands.validation,
+          metrics.commands.validation,
           validator.validate(
             req = toV1(requestWithSubmissionId),
             currentLedgerTime = currentLedgerTime(),
@@ -121,7 +121,7 @@ final class ApiCommandSubmissionServiceV2(
       )
     Timed
       .value(
-        metrics.daml.commands.reassignmentValidation,
+        metrics.commands.reassignmentValidation,
         validator.validateReassignment(request)(errorLogger),
       )
       .fold(

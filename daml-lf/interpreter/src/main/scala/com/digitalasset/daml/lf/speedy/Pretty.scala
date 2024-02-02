@@ -73,21 +73,6 @@ private[lf] object Pretty {
         text("Update failed due to rejected authority request") &
           text("holding:") & intercalate(comma + space, holding.map(prettyParty)) &
           text("requesting:") & intercalate(comma + space, requesting.map(prettyParty))
-      case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        text(
-          "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
-        ) & prettyContractId(coid) &
-          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
-          prettyValue(false)(gk.key) &
-          text("No reading party is a stakeholder:") &
-          text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
-            .tightBracketBy(char('{'), char('}')) &
-          text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
-            .tightBracketBy(char('{'), char('}')) +
-          char('.') / text("Stakeholders:") & intercalate(
-            comma + space,
-            stakeholders.map(prettyParty),
-          ) + char('.')
       case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
       case InconsistentContractKey(key) =>

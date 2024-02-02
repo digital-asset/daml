@@ -242,20 +242,9 @@ private[validation] object ExprIterable {
             param @ _,
             choices,
             methods @ _,
-            coImplements,
             view @ _,
           ) =>
-        choices.values.iterator.flatMap(iterator(_)) ++
-          coImplements.values.iterator.flatMap(iterator(_))
-    }
-
-  private[iterable] def iterator(x: InterfaceCoImplements): Iterator[Expr] =
-    x match {
-      case InterfaceCoImplements(
-            template @ _,
-            body,
-          ) =>
-        iterator(body)
+        choices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =

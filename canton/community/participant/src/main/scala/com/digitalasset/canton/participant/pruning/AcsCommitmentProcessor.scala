@@ -60,7 +60,6 @@ import com.google.protobuf.ByteString
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
-import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.collection.immutable.{Map, SortedSet}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -883,7 +882,15 @@ class AcsCommitmentProcessor(
   )(implicit traceContext: TraceContext): Boolean = {
     if (local.isEmpty) {
       if (lastPruningTime.forall(_ < remote.period.toInclusive.forgetRefinement)) {
-        Errors.MismatchError.NoSharedContracts.Mismatch(domainId, remote).report()
+        // We do not run in an infinite loop of sending empty commitments to each other:
+        // If we receive an empty commitment from a counter-participant, it is because the current participant
+        // sent a commitment to them when they didn't have a shared contract with the current participant
+        // so normally local would not be empty for the current participant, and we would not be on this branch
+        // It could, however, happen that a counter-participant, perhaps maliciously, sends a commitment despite
+        // not having received a commitment from us; in this case, we simply reply with an empty commitment, but we
+        // issue a mismatch only if the counter-commitment was not empty
+        if (remote.commitment != LtHash16().getByteString())
+          Errors.MismatchError.NoSharedContracts.Mismatch(domainId, remote).report()
         FutureUtil.doNotAwait(
           for {
             cryptoSnapshot <- domainCrypto.awaitSnapshot(

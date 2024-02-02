@@ -609,7 +609,7 @@ class GrpcSequencerService(
     v30.VersionedSubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
-      event.trafficState.map(_.toProtoV0),
+      event.trafficState.map(_.toProtoV30),
     )
 
   override def subscribe(

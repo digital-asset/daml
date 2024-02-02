@@ -103,7 +103,7 @@ object TransactionSubviews {
     val (hashOps, _, _) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
-      tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(1))(context)
+      tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(30))(context)
       subviews <- MerkleSeq.fromProtoV30((hashOps, tvParser), subviewsP)
     } yield TransactionSubviews(subviews)
   }

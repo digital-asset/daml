@@ -59,9 +59,6 @@ trait ExampleTransaction {
 
   def fullInformeeTree: FullInformeeTree
 
-  /** Non-trivial example of an informee tree blinded for a set of parties */
-  def informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree)
-
   /** The sequence of reinterpreted action descriptions for all views in execution order, with their witnesses */
   def reinterpretedSubtransactions: Seq[
     (
