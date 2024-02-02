@@ -8,17 +8,20 @@ import DA.Assert
 data GHC.Types.DamlTemplate => T
   = T {p : Party, p2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" T Party where
+instance DA.Internal.Record.GetField "p" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
-instance DA.Internal.Record.HasField "p2" T Party where
+instance DA.Internal.Record.GetField "p2" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p2" @T @Party
+instance DA.Internal.Record.SetField "p2" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p2" @T @Party
 data Call
   = Call {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" Call Party where
+instance DA.Internal.Record.GetField "p" Call Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Call @Party
+instance DA.Internal.Record.SetField "p" Call Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @Call @Party
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}

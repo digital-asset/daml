@@ -14,8 +14,9 @@ _BODY = undefined
 data GHC.Types.DamlTemplate => TrySyntax
   = TrySyntax {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" TrySyntax Party where
+instance DA.Internal.Record.GetField "p" TrySyntax Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @TrySyntax @Party
+instance DA.Internal.Record.SetField "p" TrySyntax Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @TrySyntax @Party
 data X_old_just_controller
   = X_old_just_controller {}

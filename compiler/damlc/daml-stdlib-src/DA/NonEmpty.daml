@@ -45,14 +45,18 @@ deriving instance Eq a => Eq (NonEmpty a)
 deriving instance Show a => Show (NonEmpty a)
 deriving instance Ord a => Ord (NonEmpty a)
 
--- NonEmpty is defined in a stable LF package so we need to handwrite the HasField instances here.
+-- NonEmpty is defined in a stable LF package so we need to handwrite the {Get,Set}Field instances here.
 
-instance DA.Internal.Record.HasField "hd" (NonEmpty a) a where
+instance DA.Internal.Record.GetField "hd" (NonEmpty a) a where
     getField (NonEmpty x _) = x
+
+instance DA.Internal.Record.SetField "hd" (NonEmpty a) a where
     setField x (NonEmpty _ xs) = NonEmpty x xs
 
-instance DA.Internal.Record.HasField "tl" (NonEmpty a) [a] where
+instance DA.Internal.Record.GetField "tl" (NonEmpty a) [a] where
     getField (NonEmpty _ xs) = xs
+
+instance DA.Internal.Record.SetField "tl" (NonEmpty a) [a] where
     setField xs (NonEmpty x _) = NonEmpty x xs
 
 instance Semigroup (NonEmpty a) where

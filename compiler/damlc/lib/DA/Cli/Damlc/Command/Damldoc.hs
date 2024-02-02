@@ -207,7 +207,7 @@ documentation numProcessors = Damldoc
         metavar "NAME[,NAME...]"
         <> long "exclude-instances"
         <> help ("Exclude instances from docs by class name. " <>
-                "Example: `HasField'. Default: none.")
+                "Example: `GetField,SetField'. Default: none.")
         <> value []
 
     optDropOrphanInstances :: Parser Bool

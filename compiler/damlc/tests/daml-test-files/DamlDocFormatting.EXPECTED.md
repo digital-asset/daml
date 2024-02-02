@@ -46,10 +46,18 @@
 >
 > **instance** [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360) [ReceiverAmount](#type-damldocformatting-receiveramount-1032)
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "amount" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Decimal](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "amount" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Decimal](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135)
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "receiver" [AddReceiver](#type-damldocformatting-addreceiver-84828) [ReceiverAmount](#type-damldocformatting-receiveramount-1032)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "receiver" [AddReceiver](#type-damldocformatting-addreceiver-84828) [ReceiverAmount](#type-damldocformatting-receiveramount-1032)
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "receiver" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "receiver" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "receiverAmounts" [Payment](#type-damldocformatting-payment-18108) \[[ReceiverAmount](#type-damldocformatting-receiveramount-1032)\]
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "receiverAmounts" [Payment](#type-damldocformatting-payment-18108) \[[ReceiverAmount](#type-damldocformatting-receiveramount-1032)\]
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "amount" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Decimal](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "receiver" [AddReceiver](#type-damldocformatting-addreceiver-84828) [ReceiverAmount](#type-damldocformatting-receiveramount-1032)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "receiver" [ReceiverAmount](#type-damldocformatting-receiveramount-1032) [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "receiverAmounts" [Payment](#type-damldocformatting-payment-18108) \[[ReceiverAmount](#type-damldocformatting-receiveramount-1032)\]

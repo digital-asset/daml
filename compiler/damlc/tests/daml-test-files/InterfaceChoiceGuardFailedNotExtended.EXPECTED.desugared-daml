@@ -122,8 +122,9 @@ instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "party" T Party where
+instance DA.Internal.Record.GetField "party" T Party where
   getField = DA.Internal.Record.getFieldPrim @"party" @T @Party
+instance DA.Internal.Record.SetField "party" T Party where
   setField = DA.Internal.Record.setFieldPrim @"party" @T @Party
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
@@ -212,15 +213,17 @@ instance DA.Internal.Desugar.HasFromInterface T I where
 data GHC.Types.DamlTemplate => ExerciseGuarded
   = ExerciseGuarded {p : Party, cidI : ContractId I}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" ExerciseGuarded Party where
+instance DA.Internal.Record.GetField "p" ExerciseGuarded Party where
   getField
     = DA.Internal.Record.getFieldPrim @"p" @ExerciseGuarded @Party
+instance DA.Internal.Record.SetField "p" ExerciseGuarded Party where
   setField
     = DA.Internal.Record.setFieldPrim @"p" @ExerciseGuarded @Party
-instance DA.Internal.Record.HasField "cidI" ExerciseGuarded (ContractId I) where
+instance DA.Internal.Record.GetField "cidI" ExerciseGuarded (ContractId I) where
   getField
     = DA.Internal.Record.getFieldPrim
         @"cidI" @ExerciseGuarded @ContractId I
+instance DA.Internal.Record.SetField "cidI" ExerciseGuarded (ContractId I) where
   setField
     = DA.Internal.Record.setFieldPrim
         @"cidI" @ExerciseGuarded @ContractId I

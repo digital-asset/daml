@@ -88,14 +88,17 @@ instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "issuer" Asset Party where
+instance DA.Internal.Record.GetField "issuer" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset @Party
+instance DA.Internal.Record.SetField "issuer" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset @Party
-instance DA.Internal.Record.HasField "owner" Asset Party where
+instance DA.Internal.Record.GetField "owner" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"owner" @Asset @Party
+instance DA.Internal.Record.SetField "owner" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"owner" @Asset @Party
-instance DA.Internal.Record.HasField "amount" Asset Int where
+instance DA.Internal.Record.GetField "amount" Asset Int where
   getField = DA.Internal.Record.getFieldPrim @"amount" @Asset @Int
+instance DA.Internal.Record.SetField "amount" Asset Int where
   setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
 instance DA.Internal.Desugar.HasSignatory Asset where
   signatory this@Asset {..}

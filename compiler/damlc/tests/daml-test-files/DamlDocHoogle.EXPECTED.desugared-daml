@@ -6,14 +6,16 @@ import (implicit) DA.Internal.RebindableSyntax
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" T Party where
+instance DA.Internal.Record.GetField "p" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
 data TCall
   = TCall {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" TCall Int where
+instance DA.Internal.Record.GetField "i" TCall Int where
   getField = DA.Internal.Record.getFieldPrim @"i" @TCall @Int
+instance DA.Internal.Record.SetField "i" TCall Int where
   setField = DA.Internal.Record.setFieldPrim @"i" @TCall @Int
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
@@ -182,8 +184,9 @@ instance DA.Internal.Desugar.HasChoiceObserver I ICall where
 data ICall
   = ICall {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "i" ICall Int where
+instance DA.Internal.Record.GetField "i" ICall Int where
   getField = DA.Internal.Record.getFieldPrim @"i" @ICall @Int
+instance DA.Internal.Record.SetField "i" ICall Int where
   setField = DA.Internal.Record.setFieldPrim @"i" @ICall @Int
 _choice$_I$Archive :
   (DA.Internal.Desugar.Consuming I,

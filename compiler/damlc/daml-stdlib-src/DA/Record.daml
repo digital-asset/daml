@@ -4,6 +4,6 @@
 -- | Exports the record machinery necessary to allow one to annotate
 -- code that is polymorphic in the underlying record type.
 
-module DA.Record (HasField(..), Symbol) where
+module DA.Record (GetField(..), SetField(..), HasField, Symbol) where
 
 import DA.Internal.Record
