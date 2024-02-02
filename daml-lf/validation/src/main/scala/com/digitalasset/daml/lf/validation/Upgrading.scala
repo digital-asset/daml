@@ -59,6 +59,12 @@ final case class TemplateRemovedKey(templateName: Ref.DottedName, key: Ast.Templ
     s"The upgraded template $templateName cannot remove its key."
 }
 
+final case class TemplateAddedKey(templateName: Ref.DottedName, key: Ast.TemplateKey)
+    extends UpgradeError {
+  override def message(): String =
+    s"The upgraded template $templateName cannot add a key."
+}
+
 final case class ChoiceChangedReturnType(choice: Ref.ChoiceName, typ: Upgrading[Ast.Type])
     extends UpgradeError {
   override def message(): String =
@@ -328,9 +334,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       case Upgrading(Some(pastKey @ _), None) =>
         Failure(TemplateRemovedKey(templateName, pastKey))
       case Upgrading(None, Some(presentKey @ _)) =>
-        Success(
-          ()
-        ) // TODO: Should emit a warning, but we don't currently have a framework for warnings
+        Failure(TemplateAddedKey(templateName, presentKey))
     }
   }
 
