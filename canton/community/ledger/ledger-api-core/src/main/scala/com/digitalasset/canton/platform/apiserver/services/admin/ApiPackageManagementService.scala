@@ -196,19 +196,21 @@ private[apiserver] final class ApiPackageManagementService private (
         for {
           optUpgradedDar <- lookupDar(upgradedPackageId)
           _ = logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
-          _ <- typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
-            case err: UpgradeError =>
-              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
-              Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
-            case NonFatal(err) =>
-              logger.info(s"Typechecking upgrades failed with unknown error.")
-              Future.failed(err)
+          _ <- optUpgradingDar.fold {
+            logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: CouldNotResolveUpgradedPackageId")
+            Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, UpgradeError("CouldNotResolveUpgradedPackageId")).asGrpcError)
+          } { _ =>
+            typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
+              case err: UpgradeError =>
+                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+                Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
+              case NonFatal(err) =>
+                logger.info(s"Typechecking upgrades failed with unknown error.")
+                Future.failed(err)
+            }
           }
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar).recoverWith {
-            case UpgradeError("CouldNotResolveUpgradedPackageId") =>
-              Future.unit
-          }
+          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
           optMinimalDar <- minimalVersionedDar(upgradingDar.main)
           _ <- typecheckUpgrades(optUpgradingDar, optMinimalDar)
         } yield ()
