@@ -5,12 +5,14 @@ package com.digitalasset.canton.domain.mediator.store
 
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.{FinalizedResponse, MediatorVerdict}
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
@@ -21,10 +23,11 @@ import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef, Tes
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, LfPartyId}
+import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.Future
 
@@ -38,9 +41,11 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
   val fullInformeeTree = {
     val domainId = DefaultTestIdentities.domainId
     val mediatorId = DefaultTestIdentities.mediator
+    val participantId = DefaultTestIdentities.participant1
 
-    val alice = PlainInformee(LfPartyId.assertFromString("alice"))
-    val bob = ConfirmingParty(
+    val alice = LfPartyId.assertFromString("alice")
+    val aliceInformee = PlainInformee(alice)
+    val bobConfirmingParty = ConfirmingParty(
       LfPartyId.assertFromString("bob"),
       PositiveInt.tryCreate(2),
       TrustLevel.Ordinary,
@@ -53,7 +58,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
 
     val viewCommonData =
       ViewCommonData.create(hashOps)(
-        Set(alice, bob),
+        Set(aliceInformee, bobConfirmingParty),
         NonNegativeInt.tryCreate(2),
         s(999),
         testedProtocolVersion,
@@ -62,6 +67,18 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       viewCommonData,
       BlindedNode(rh(0)),
       TransactionSubviews.empty(testedProtocolVersion, hashOps),
+      testedProtocolVersion,
+    )
+    val submitterMetadata = SubmitterMetadata(
+      NonEmpty(Set, alice),
+      ApplicationId.assertFromString("kaese"),
+      CommandId.assertFromString("wurst"),
+      participantId,
+      salt = s(6638),
+      None,
+      DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      CantonTimestamp.MaxValue,
+      hashOps,
       testedProtocolVersion,
     )
     val commonMetadata = CommonMetadata
@@ -74,7 +91,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       )
     FullInformeeTree.tryCreate(
       GenTransactionTree.tryCreate(hashOps)(
-        BlindedNode(rh(11)),
+        submitterMetadata,
         commonMetadata,
         BlindedNode(rh(12)),
         MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view :: Nil),
@@ -82,7 +99,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       testedProtocolVersion,
     )
   }
-  val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+  val informeeMessage =
+    InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
   val currentVersion = FinalizedResponse(
     requestId,
     informeeMessage,

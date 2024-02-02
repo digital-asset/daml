@@ -146,8 +146,14 @@ object TopologyMappingX {
       namespacesWithRoot: Set[Namespace] = Set.empty,
       namespaces: Set[Namespace] = Set.empty,
       uids: Set[UniqueIdentifier] = Set.empty,
-  ) {
+  ) extends PrettyPrinting {
     def isEmpty: Boolean = namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty
+
+    override def pretty: Pretty[RequiredAuthXAuthorizations.this.type] = prettyOfClass(
+      paramIfNonEmpty("namespacesWithRoot", _.namespacesWithRoot),
+      paramIfNonEmpty("namespaces", _.namespaces),
+      paramIfNonEmpty("uids", _.uids),
+    )
   }
 
   object RequiredAuthXAuthorizations {
@@ -170,7 +176,7 @@ object TopologyMappingX {
       }
   }
 
-  sealed trait RequiredAuthX {
+  sealed trait RequiredAuthX extends PrettyPrinting {
     def requireRootDelegation: Boolean = false
     def satisfiedByActualAuthorizers(
         namespacesWithRoot: Set[Namespace],
@@ -213,6 +219,8 @@ object TopologyMappingX {
       ): Either[RequiredAuthXAuthorizations, Unit] = Either.unit
 
       override def authorizations: RequiredAuthXAuthorizations = RequiredAuthXAuthorizations()
+
+      override def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
     }
 
     final case class RequiredNamespaces(
@@ -240,6 +248,11 @@ object TopologyMappingX {
         namespacesWithRoot = if (requireRootDelegation) namespaces else Set.empty,
         namespaces = if (requireRootDelegation) Set.empty else namespaces,
       )
+
+      override def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
+        unnamedParam(_.namespaces),
+        paramIfTrue("requireRootDelegation", _.requireRootDelegation),
+      )
     }
 
     final case class RequiredUids(uids: Set[UniqueIdentifier]) extends RequiredAuthX {
@@ -255,6 +268,10 @@ object TopologyMappingX {
       override def authorizations: RequiredAuthXAuthorizations = RequiredAuthXAuthorizations(
         namespaces = uids.map(_.namespace),
         uids = uids,
+      )
+
+      override def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
+        unnamedParam(_.uids)
       )
     }
 
@@ -276,6 +293,9 @@ object TopologyMappingX {
 
       override def authorizations: RequiredAuthXAuthorizations =
         RequiredAuthXAuthorizations.monoid.combine(first.authorizations, second.authorizations)
+
+      override def pretty: Pretty[And.this.type] =
+        prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
     }
 
     private[transaction] final case class Or(
@@ -296,6 +316,9 @@ object TopologyMappingX {
 
       override def authorizations: RequiredAuthXAuthorizations =
         RequiredAuthXAuthorizations.monoid.combine(first.authorizations, second.authorizations)
+
+      override def pretty: Pretty[Or.this.type] =
+        prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
     }
   }
 

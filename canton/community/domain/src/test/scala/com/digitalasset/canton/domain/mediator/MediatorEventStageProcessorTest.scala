@@ -116,7 +116,10 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
         None,
         Batch.of(
           testedProtocolVersion,
-          (InformeeMessage(fullInformeeTree)(testedProtocolVersion), Recipients.cc(mediatorId)),
+          (
+            InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion),
+            Recipients.cc(mediatorId),
+          ),
         ),
         testedProtocolVersion,
       )
@@ -306,7 +309,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
                 MediatorEvent.Request(
                   _,
                   `firstRequestTs`,
-                  InformeeMessage(_),
+                  InformeeMessage(_, _),
                   _,
                   _,
                 ),
@@ -324,7 +327,7 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
     }
     ResponseAggregation.fromRequest(
       requestId,
-      InformeeMessage(fullInformeeTree)(testedProtocolVersion),
+      InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion),
       mockTopologySnapshot,
     )
   }

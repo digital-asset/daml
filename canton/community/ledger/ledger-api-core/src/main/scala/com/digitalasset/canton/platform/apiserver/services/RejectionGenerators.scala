@@ -86,6 +86,12 @@ object RejectionGenerators {
         case e: LfInterpretationError.DisclosedContractKeyHashingError =>
           CommandExecutionErrors.Interpreter.DisclosedContractKeyHashingError
             .Reject(renderedMessage, e)
+        // Transform ContractKeyNotVisible into ContractKeyNotFound, to avoid leaking information
+        case LfInterpretationError.ContractKeyNotVisible(_, key, _, _, _) =>
+          val newRenderedMessage =
+            Interpretation.DamlException(LfInterpretationError.ContractKeyNotFound(key)).message
+          CommandExecutionErrors.Interpreter.LookupErrors.ContractKeyNotFound
+            .Reject(newRenderedMessage, key)
         case LfInterpretationError.DuplicateContractKey(key) =>
           ConsistencyErrors.DuplicateContractKey
             .RejectWithContractKeyArg(renderedMessage, key)

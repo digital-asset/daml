@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.mediator
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -15,6 +16,7 @@ import com.digitalasset.canton.domain.mediator.store.{
 }
 import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.time.Clock
@@ -22,9 +24,10 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
@@ -40,7 +43,9 @@ class MediatorStateTest
     val fullInformeeTree = {
       val domainId = DefaultTestIdentities.domainId
       val mediatorId = DefaultTestIdentities.mediator
-      val alice = PlainInformee(LfPartyId.assertFromString("alice"))
+      val participantId = DefaultTestIdentities.participant1
+      val aliceParty = LfPartyId.assertFromString("alice")
+      val alice = PlainInformee(aliceParty)
       val bob = ConfirmingParty(
         LfPartyId.assertFromString("bob"),
         PositiveInt.tryCreate(2),
@@ -63,6 +68,18 @@ class MediatorStateTest
         TransactionSubviews.empty(testedProtocolVersion, hashOps),
         testedProtocolVersion,
       )
+      val submitterMetadata = SubmitterMetadata(
+        NonEmpty(Set, aliceParty),
+        ApplicationId.assertFromString("kaese"),
+        CommandId.assertFromString("wurst"),
+        participantId,
+        salt = s(6638),
+        None,
+        DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+        CantonTimestamp.MaxValue,
+        hashOps,
+        testedProtocolVersion,
+      )
       val commonMetadata = CommonMetadata
         .create(hashOps, testedProtocolVersion)(
           ConfirmationPolicy.Signatory,
@@ -73,7 +90,7 @@ class MediatorStateTest
         )
       FullInformeeTree.tryCreate(
         GenTransactionTree.tryCreate(hashOps)(
-          BlindedNode(rh(11)),
+          submitterMetadata,
           commonMetadata,
           BlindedNode(rh(12)),
           MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view :: Nil),
@@ -81,7 +98,8 @@ class MediatorStateTest
         testedProtocolVersion,
       )
     }
-    val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+    val informeeMessage =
+      InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val mockTopologySnapshot = mock[TopologySnapshot]
     when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
       (parties: Set[LfPartyId]) => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)

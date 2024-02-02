@@ -57,6 +57,9 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     tree.commonMetadata.tryUnwrap
   ).confirmationPolicy
 
+  lazy val submittingParticipant: ParticipantId =
+    tree.submitterMetadata.tryUnwrap.submittingParticipant
+
   def toProtoV30: v30.FullInformeeTree =
     v30.FullInformeeTree(tree = Some(tree.toProtoV30))
 
@@ -97,8 +100,8 @@ object FullInformeeTree
   private[data] def checkGlobalMetadata(tree: GenTransactionTree): Either[String, Unit] = {
     val errors = Seq.newBuilder[String]
 
-    if (tree.submitterMetadata.unwrap.isRight)
-      errors += "The submitter metadata of a full informee tree must be blinded."
+    if (tree.submitterMetadata.unwrap.isLeft)
+      errors += "The submitter metadata of a full informee tree must be unblinded."
     if (tree.commonMetadata.unwrap.isLeft)
       errors += "The common metadata of an informee tree must be unblinded."
     if (tree.participantMetadata.unwrap.isRight)

@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
@@ -297,4 +297,9 @@ object TransferInValidation {
       s"Cannot transfer-in $transferId: Transfer counter $declaredTransferCounter in transfer-in does not match $expectedTransferCounter from the transfer-out"
   }
 
+  final case class TransferSigningError(
+      cause: SyncCryptoError
+  ) extends TransferProcessorError {
+    override def message: String = show"Unable to sign transfer request. $cause"
+  }
 }

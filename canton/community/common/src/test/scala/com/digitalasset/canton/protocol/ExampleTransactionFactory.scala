@@ -709,7 +709,7 @@ class ExampleTransactionFactory(
   def mkFullInformeeTree(rootViews: MerkleTree[TransactionView]*): FullInformeeTree =
     FullInformeeTree.tryCreate(
       GenTransactionTree.tryCreate(cryptoOps)(
-        blinded(submitterMetadata),
+        submitterMetadata,
         commonMetadata,
         blinded(participantMetadata),
         MerkleSeq.fromSeq(cryptoOps, protocolVersion)(rootViews),

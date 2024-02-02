@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.crypto.HashOps
+import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, RevealSubtree}
 import com.digitalasset.canton.protocol.{ViewHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
@@ -57,17 +57,22 @@ abstract class GenTransferViewTree[
   def viewHash: ViewHash = ViewHash.fromRootHash(rootHash)
 
   /** Blinds the transfer view tree such that the `view` is blinded and the `commonData` remains revealed. */
-  def mediatorMessage: MediatorMessage = {
+  def mediatorMessage(
+      submittingParticipantSignature: Signature
+  ): MediatorMessage = {
     val blinded = blind {
       case root if root eq this => RevealIfNeedBe
       case `commonData` => RevealSubtree
       case `participantData` => BlindSubtree
     }
-    createMediatorMessage(blinded.tryUnwrap)
+    createMediatorMessage(blinded.tryUnwrap, submittingParticipantSignature)
   }
 
   /** Creates the mediator message from an appropriately blinded transfer view tree. */
-  protected[this] def createMediatorMessage(blindedTree: Tree): MediatorMessage
+  protected[this] def createMediatorMessage(
+      blindedTree: Tree,
+      submittingParticipantSignature: Signature,
+  ): MediatorMessage
 }
 
 object GenTransferViewTree {

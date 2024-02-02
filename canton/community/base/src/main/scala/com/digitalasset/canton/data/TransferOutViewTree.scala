@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.transaction.TrustLevel
-import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
@@ -41,6 +41,9 @@ final case class TransferOutViewTree private (
     ](commonData, view)(hashOps)
     with HasRepresentativeProtocolVersion {
 
+  def submittingParticipant: ParticipantId =
+    commonData.tryUnwrap.submitterMetadata.submittingParticipant
+
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
   ): MerkleTree[TransferOutViewTree] = {
@@ -60,9 +63,10 @@ final case class TransferOutViewTree private (
   }
 
   protected[this] override def createMediatorMessage(
-      blindedTree: TransferOutViewTree
+      blindedTree: TransferOutViewTree,
+      submittingParticipantSignature: Signature,
   ): TransferOutMediatorMessage =
-    TransferOutMediatorMessage(blindedTree)
+    TransferOutMediatorMessage(blindedTree, submittingParticipantSignature)
 
   override def pretty: Pretty[TransferOutViewTree] = prettyOfClass(
     param("common data", _.commonData),
@@ -128,6 +132,7 @@ object TransferOutViewTree
   * @param stakeholders The stakeholders of the contract to be transferred
   * @param adminParties The admin parties of transferring transfer-out participants
   * @param uuid The request UUID of the transfer-out
+  * @param submitterMetadata information about the submission
   */
 final case class TransferOutCommonData private (
     override val salt: Salt,
@@ -136,6 +141,7 @@ final case class TransferOutCommonData private (
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
     uuid: UUID,
+    submitterMetadata: TransferSubmitterMetadata,
 )(
     hashOps: HashOps,
     val protocolVersion: SourceProtocolVersion,
@@ -159,6 +165,7 @@ final case class TransferOutCommonData private (
       stakeholders = stakeholders.toSeq,
       adminParties = adminParties.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
+      submitterMetadata = Some(submitterMetadata.toProtoV30),
       sourceProtocolVersion = protocolVersion.v.toProtoPrimitive,
     )
 
@@ -171,6 +178,7 @@ final case class TransferOutCommonData private (
     (stakeholders ++ adminParties).map(ConfirmingParty(_, PositiveInt.one, TrustLevel.Ordinary))
 
   override def pretty: Pretty[TransferOutCommonData] = prettyOfClass(
+    param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
     param("source mediator", _.sourceMediator),
     param("stakeholders", _.stakeholders),
@@ -201,6 +209,7 @@ object TransferOutCommonData
       stakeholders: Set[LfPartyId],
       adminParties: Set[LfPartyId],
       uuid: UUID,
+      submitterMetadata: TransferSubmitterMetadata,
       protocolVersion: SourceProtocolVersion,
   ): TransferOutCommonData = TransferOutCommonData(
     salt,
@@ -209,6 +218,7 @@ object TransferOutCommonData
     stakeholders,
     adminParties,
     uuid,
+    submitterMetadata,
   )(hashOps, protocolVersion, None)
 
   private[this] def fromProtoV30(
@@ -225,6 +235,7 @@ object TransferOutCommonData
       uuidP,
       sourceMediatorP,
       protocolVersionP,
+      submitterMetadataPO,
     ) = transferOutCommonDataP
 
     for {
@@ -235,6 +246,9 @@ object TransferOutCommonData
       adminParties <- adminPartiesP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      submitterMetadata <- ProtoConverter
+        .required("submitter_metadata", submitterMetadataPO)
+        .flatMap(TransferSubmitterMetadata.fromProtoV30)
 
     } yield TransferOutCommonData(
       salt,
@@ -243,6 +257,7 @@ object TransferOutCommonData
       stakeholders.toSet,
       adminParties.toSet,
       uuid,
+      submitterMetadata,
     )(hashOps, SourceProtocolVersion(protocolVersion), Some(bytes))
   }
 }
@@ -260,7 +275,6 @@ object TransferOutCommonData
   */
 final case class TransferOutView private (
     override val salt: Salt,
-    submitterMetadata: TransferSubmitterMetadata,
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
     targetDomain: TargetDomainId,
@@ -294,11 +308,9 @@ final case class TransferOutView private (
       transferCounter = transferCounter.toProtoPrimitive,
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       contract = Some(contract.toProtoV30),
-      submitterMetadata = Some(submitterMetadata.toProtoV30),
     )
 
   override def pretty: Pretty[TransferOutView] = prettyOfClass(
-    param("submitterMetadata", _.submitterMetadata),
     param("template id", _.templateId),
     param("creatingTransactionId", _.creatingTransactionId),
     param("contract", _.contract),
@@ -322,7 +334,6 @@ object TransferOutView
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      submitterMetadata: TransferSubmitterMetadata,
       creatingTransactionId: TransactionId,
       contract: SerializableContract,
       targetDomain: TargetDomainId,
@@ -333,7 +344,6 @@ object TransferOutView
   ): TransferOutView =
     TransferOutView(
       salt,
-      submitterMetadata,
       creatingTransactionId,
       contract,
       targetDomain,
@@ -353,7 +363,6 @@ object TransferOutView
       transferCounter,
       creatingTransactionIdP,
       contractPO,
-      submitterMetadataPO,
     ) = transferOutViewP
 
     for {
@@ -367,13 +376,9 @@ object TransferOutView
       contract <- ProtoConverter
         .required("TransferOutViewTree.contract", contractPO)
         .flatMap(SerializableContract.fromProtoV30)
-      submitterMetadata <- ProtoConverter
-        .required("submitter_metadata", submitterMetadataPO)
-        .flatMap(TransferSubmitterMetadata.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransferOutView(
       salt,
-      submitterMetadata,
       creatingTransactionId,
       contract,
       TargetDomainId(targetDomain),
@@ -402,10 +407,10 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
 
-  def submitter: LfPartyId = view.submitterMetadata.submitter
+  def submitterMetadata: TransferSubmitterMetadata = commonData.submitterMetadata
 
-  def submitterMetadata: TransferSubmitterMetadata = view.submitterMetadata
-  def workflowId: Option[LfWorkflowId] = view.submitterMetadata.workflowId
+  def submitter: LfPartyId = submitterMetadata.submitter
+  def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   def stakeholders: Set[LfPartyId] = commonData.stakeholders
 
@@ -425,7 +430,8 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   def targetTimeProof: TimeProof = view.targetTimeProof
 
-  def mediatorMessage: TransferOutMediatorMessage = tree.mediatorMessage
+  def mediatorMessage(submittingParticipantSignature: Signature): TransferOutMediatorMessage =
+    tree.mediatorMessage(submittingParticipantSignature)
 
   override def domainId: DomainId = sourceDomain.unwrap
 

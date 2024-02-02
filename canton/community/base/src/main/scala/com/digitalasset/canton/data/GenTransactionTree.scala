@@ -126,7 +126,7 @@ final case class GenTransactionTree private (
   def tryFullInformeeTree(protocolVersion: ProtocolVersion): FullInformeeTree = {
     val tree = blind({
       case _: GenTransactionTree => RevealIfNeedBe
-      case _: SubmitterMetadata => BlindSubtree
+      case _: SubmitterMetadata => RevealSubtree
       case _: CommonMetadata => RevealSubtree
       case _: ParticipantMetadata => BlindSubtree
       case _: TransactionView => RevealIfNeedBe

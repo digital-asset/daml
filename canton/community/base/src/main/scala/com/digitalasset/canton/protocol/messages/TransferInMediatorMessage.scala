@@ -6,13 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.HashOps
+import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{Informee, TransferInViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{
@@ -29,10 +29,15 @@ import java.util.UUID
   * @param tree The transfer-in view tree blinded for the mediator
   * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
   */
-final case class TransferInMediatorMessage(tree: TransferInViewTree) extends MediatorRequest {
+final case class TransferInMediatorMessage(
+    tree: TransferInViewTree,
+    override val submittingParticipantSignature: Signature,
+) extends MediatorRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-in view must be blinded")
+
+  override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
   private[this] val commonData = tree.commonData.tryUnwrap
 
@@ -81,7 +86,10 @@ final case class TransferInMediatorMessage(tree: TransferInViewTree) extends Med
     v30.EnvelopeContent.SomeEnvelopeContent.TransferInMediatorMessage(toProtoV30)
 
   def toProtoV30: v30.TransferInMediatorMessage =
-    v30.TransferInMediatorMessage(tree = Some(tree.toProtoV30))
+    v30.TransferInMediatorMessage(
+      tree = Some(tree.toProtoV30),
+      submittingParticipantSignature = Some(submittingParticipantSignature.toProtoV30),
+    )
 
   override def rootHash: RootHash = tree.rootHash
 
@@ -109,7 +117,7 @@ object TransferInMediatorMessage
   def fromProtoV30(context: (HashOps, ProtocolVersion))(
       transferInMediatorMessageP: v30.TransferInMediatorMessage
   ): ParsingResult[TransferInMediatorMessage] = {
-    val v30.TransferInMediatorMessage(treePO) =
+    val v30.TransferInMediatorMessage(treePO, submittingParticipantSignaturePO) =
       transferInMediatorMessageP
     for {
       tree <- ProtoConverter
@@ -123,7 +131,13 @@ object TransferInMediatorMessage
         tree.view.isBlinded,
         OtherError(s"Transfer-in view data is not blinded in request ${tree.rootHash}"),
       )
-    } yield TransferInMediatorMessage(tree)
+      submittingParticipantSignature <- ProtoConverter
+        .required(
+          "TransferInMediatorMessage.submittingParticipantSignature",
+          submittingParticipantSignaturePO,
+        )
+        .flatMap(Signature.fromProtoV30)
+    } yield TransferInMediatorMessage(tree, submittingParticipantSignature)
   }
 
   override def name: String = "TransferInMediatorMessage"

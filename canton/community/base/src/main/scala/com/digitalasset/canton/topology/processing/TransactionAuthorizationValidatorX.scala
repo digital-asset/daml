@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.DiscardOps
-import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint}
+import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransactionX.AuthorizedIdentifierDelegationX
@@ -51,6 +51,9 @@ trait TransactionAuthorizationValidatorX {
   ): Either[TopologyTransactionRejection, RequiredAuthXAuthorizations] = {
     // first determine all possible namespaces and uids that need to sign the transaction
     val requiredAuth = toValidate.transaction.mapping.requiredAuth(inStore.map(_.transaction))
+
+    logger.debug(s"Required authorizations: $requiredAuth")
+
     val required = requiredAuth
       .foldMap(
         namespaceCheck = rns =>
@@ -62,73 +65,121 @@ trait TransactionAuthorizationValidatorX {
         uidCheck = ruid => RequiredAuthXAuthorizations(uids = ruid.uids),
       )
 
-    val actualAuthorizersForSignatures = toValidate.signatures.toSeq.forgetNE.foldMap { sig =>
-      // Now let's determine which namespaces and uids actually delegated to any of the keys
-      val (actualNamespaceAuthorizationsWithRoot, rootKeys) =
-        required.namespacesWithRoot.flatMap { ns =>
-          getAuthorizationCheckForNamespace(ns)
-            .getValidAuthorizationKey(
-              sig.signedBy,
-              requireRoot = true,
-            )
-            .map(ns -> _)
-        }.unzip
-      val (actualNamespaceAuthorizations, nsKeys) = required.namespaces.flatMap { ns =>
-        getAuthorizationCheckForNamespace(ns)
-          .getValidAuthorizationKey(
-            sig.signedBy,
-            requireRoot = false,
-          )
-          .map(ns -> _)
-      }.unzip
-      val (actualUidAuthorizations, uidKeys) =
-        required.uids.flatMap { uid =>
-          val authCheck = getAuthorizationCheckForNamespace(uid.namespace)
-          val keyForNamespace = authCheck
-            .getValidAuthorizationKey(sig.signedBy, requireRoot = false)
-          lazy val keyForUid = getAuthorizedIdentifierDelegation(authCheck, uid, Set(sig.signedBy))
+    val signingKeys = toValidate.signatures.map(_.signedBy)
+    val namespaceWithRootAuthorizations =
+      required.namespacesWithRoot.map { ns =>
+        val check = getAuthorizationCheckForNamespace(ns)
+        val keysWithDelegation = check.getValidAuthorizationKeys(
+          signingKeys,
+          requireRoot = true,
+        )
+        val keysAuthorizeNamespace =
+          check.areValidAuthorizationKeys(signingKeys, requireRoot = true)
+        (ns -> (keysAuthorizeNamespace, keysWithDelegation))
+      }.toMap
+
+    // Now let's determine which namespaces and uids actually delegated to any of the keys
+    val namespaceAuthorizations = required.namespaces.map { ns =>
+      val check = getAuthorizationCheckForNamespace(ns)
+      val keysWithDelegation = check.getValidAuthorizationKeys(
+        signingKeys,
+        requireRoot = false,
+      )
+      val keysAuthorizeNamespace = check.areValidAuthorizationKeys(signingKeys, requireRoot = false)
+      (ns -> (keysAuthorizeNamespace, keysWithDelegation))
+    }.toMap
+
+    val uidAuthorizations =
+      required.uids.map { uid =>
+        val check = getAuthorizationCheckForNamespace(uid.namespace)
+        val keysWithDelegation = check.getValidAuthorizationKeys(
+          signingKeys,
+          requireRoot = false,
+        )
+        val keysAuthorizeNamespace =
+          check.areValidAuthorizationKeys(signingKeys, requireRoot = false)
+
+        val keyForUid =
+          getAuthorizedIdentifierDelegation(check, uid, toValidate.signatures.map(_.signedBy))
             .map(_.mapping.target)
 
-          keyForNamespace
-            .orElse(keyForUid)
-            .map(uid -> _)
-        }.unzip
+        (uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysWithDelegation ++ keyForUid))
+      }.toMap
 
-      for {
-        _ <- Either.cond[TopologyTransactionRejection, Unit](
-          // the key used for the signature must be a valid key for at least one of the delegation mechanisms
-          actualNamespaceAuthorizationsWithRoot.nonEmpty || actualNamespaceAuthorizations.nonEmpty || actualUidAuthorizations.nonEmpty,
-          (), {
-            logger.debug(
-              s"The key ${sig.signedBy.singleQuoted} has no delegation to authorize the transaction $toValidate"
-            )
-            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
-          },
-        )
+    val allAuthorizingKeys =
+      namespaceWithRootAuthorizations.values.flatMap { case (_, keys) =>
+        keys.map(k => k.id -> k)
+      }.toMap
+        ++ namespaceAuthorizations.values.flatMap { case (_, keys) =>
+          keys.map(k => k.id -> k)
+        }.toMap
+        ++ uidAuthorizations.values.flatMap { case (_, keys) => keys.map(k => k.id -> k) }.toMap
 
-        keyForSignature <- (rootKeys ++ nsKeys ++ uidKeys).headOption
-          .toRight[TopologyTransactionRejection]({
-            logger.debug(
-              s"Key ${sig.signedBy.singleQuoted} was delegated to, but no actual key was identified. This should not happen."
-            )
-            TopologyTransactionRejection.NoDelegationFoundForKey(sig.signedBy)
-          })
-        _ <- pureCrypto
-          .verifySignature(toValidate.transaction.hash.hash, keyForSignature, sig)
-          .leftMap(TopologyTransactionRejection.SignatureCheckFailed)
-
-      } yield {
-        RequiredAuthXAuthorizations(
-          actualNamespaceAuthorizationsWithRoot,
-          actualNamespaceAuthorizations,
-          actualUidAuthorizations,
-        )
-      }
+    def logAuthorizations[A](auths: Map[A, (Boolean, Set[SigningPublicKey])]): String = {
+      auths
+        .map { case (auth, (fullyAuthorized, keys)) =>
+          val status = if (fullyAuthorized) "fully" else "partially"
+          s"$auth $status authorized by keys ${keys.map(_.id)}"
+        }
+        .mkString(", ")
     }
 
-    // and finally we can check whether the authorizations granted by the keys actually satisfy
-    // the authorization requirements
-    actualAuthorizersForSignatures.map { actual =>
+    if (namespaceWithRootAuthorizations.nonEmpty)
+      logger.debug(
+        s"Authorizations with root for namespaces: ${logAuthorizations(namespaceWithRootAuthorizations)}"
+      )
+
+    if (namespaceAuthorizations.nonEmpty)
+      logger.debug(
+        s"Authorizations for namespaces: ${logAuthorizations(namespaceAuthorizations)}"
+      )
+
+    if (uidAuthorizations.nonEmpty)
+      logger.debug(
+        s"Authorizations for UIDs: ${logAuthorizations(uidAuthorizations)}"
+      )
+
+    val superfluousKeys = signingKeys -- allAuthorizingKeys.keys
+    for {
+      _ <- Either.cond[TopologyTransactionRejection, Unit](
+        // the key used for the signature must be a valid key for at least one of the delegation mechanisms
+        superfluousKeys.isEmpty,
+        (), {
+          logger.info(
+            s"The keys ${superfluousKeys.mkString(", ")} have no delegation to authorize the transaction $toValidate"
+          )
+          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+        },
+      )
+
+      _ <- toValidate.signatures.forgetNE.toList
+        .traverse_(sig =>
+          allAuthorizingKeys
+            .get(sig.signedBy)
+            .toRight({
+              val msg =
+                s"Key ${sig.signedBy.singleQuoted} was delegated to, but no actual key was identified. This should not happen."
+              logger.error(msg)
+              TopologyTransactionRejection.Other(msg)
+            })
+            .flatMap(key =>
+              pureCrypto
+                .verifySignature(
+                  toValidate.transaction.hash.hash,
+                  key,
+                  sig,
+                )
+                .leftMap(TopologyTransactionRejection.SignatureCheckFailed)
+            )
+        )
+    } yield {
+      // and finally we can check whether the authorizations granted by the keys actually satisfy
+      // the authorization requirements
+      val actual = RequiredAuthXAuthorizations(
+        namespaceWithRootAuthorizations.collect { case (ns, (true, _)) => ns }.toSet,
+        namespaceAuthorizations.collect { case (ns, (true, _)) => ns }.toSet,
+        uidAuthorizations.collect { case (uid, (true, _)) => uid }.toSet,
+      )
       requiredAuth
         .satisfiedByActualAuthorizers(
           namespacesWithRoot = actual.namespacesWithRoot,

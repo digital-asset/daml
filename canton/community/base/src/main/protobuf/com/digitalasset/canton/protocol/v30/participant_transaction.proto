@@ -90,6 +90,7 @@ message InformeeMessage {
 
   FullInformeeTree full_informee_tree = 1;
   int32 protocol_version = 2;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3;
 }
 
 message LightTransactionViewTree {

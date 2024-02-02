@@ -155,7 +155,7 @@ class SequencedEventTestFixture(
     import cats.syntax.option.*
     val message = {
       val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
-      InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     }
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),

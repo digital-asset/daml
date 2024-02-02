@@ -6,11 +6,9 @@ package com.digitalasset.canton.domain.mediator
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.ViewType.{TransactionViewType, TransferInViewType}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ConsortiumVotingState
@@ -23,7 +21,7 @@ import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.Verdict.Approve
+import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
@@ -41,7 +39,7 @@ import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTra
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchers.eq as eqMatch
+import io.grpc.Status.Code
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -54,7 +52,8 @@ import scala.language.reflectiveCalls
 abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersion)
     extends AsyncWordSpec
     with BaseTest
-    with HasTestCloseContext {
+    with HasTestCloseContext
+    with HasExecutionContext {
 
   protected val domainId: DomainId = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::test")
@@ -120,13 +119,14 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
   protected def identityFactory2: TestingIdentityFactoryBase
 
-  protected def identityFactoryNoParticipants: TestingIdentityFactoryBase
+  protected def identityFactoryOnlySubmitter: TestingIdentityFactoryBase
 
   protected lazy val domainSyncCryptoApi: DomainSyncCryptoClient =
     identityFactory.forOwnerAndDomain(mediatorId, domainId)
 
   protected lazy val requestIdTs = CantonTimestamp.Epoch
   protected lazy val requestId = RequestId(requestIdTs)
+  protected lazy val participantResponseDeadline = requestIdTs.plusSeconds(60)
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
   class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
@@ -214,6 +214,13 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     )
   }
 
+  def sign(tree: FullInformeeTree): Signature = identityFactory
+    .forOwnerAndDomain(participant, domainId)
+    .awaitSnapshot(CantonTimestamp.Epoch)
+    .futureValue
+    .sign(tree.tree.rootHash.unwrap)
+    .futureValue
+
   if (testedProtocolVersion >= minimumPV) {
     "ConfirmationResponseProcessor" should {
       def shouldBeViewThresholdBelowMinimumAlarm(
@@ -240,17 +247,19 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
       "timestamp of mediator request is propagated" in {
         val sut = new Fixture()
-        val testMediatorRequest = new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
-          val (firstFaultyViewPosition: ViewPosition, _) =
-            super.informeesAndThresholdByViewPosition.head
 
-          override def informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            super.informeesAndThresholdByViewPosition map { case (key, (informees, _)) =>
-              (key, (informees, NonNegativeInt.zero))
+        val testMediatorRequest =
+          new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
+            val (firstFaultyViewPosition: ViewPosition, _) =
+              super.informeesAndThresholdByViewPosition.head
+
+            override def informeesAndThresholdByViewPosition
+                : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+              super.informeesAndThresholdByViewPosition map { case (key, (informees, _)) =>
+                (key, (informees, NonNegativeInt.zero))
+              }
             }
           }
-        }
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(120)
         for {
           _ <- loggerFactory.assertLogs(
@@ -275,137 +284,110 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         }
       }
 
-      "request timestamp is propagated to mediator result when response aggregation is performed" should {
-        // Send mediator request
-        val informeeMessage = new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
-          val faultyViewPosition: ViewPosition =
-            super.informeesAndThresholdByViewPosition.collectFirst {
-              case (key, (informee, _)) if informee != Set(submitter) => key
-            }.value
+      "verify the request signature" in {
+        val sut = new Fixture()
 
-          override def informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            super.informeesAndThresholdByViewPosition map { case (key, (informee, _)) =>
-              if (key == faultyViewPosition) (key, (informee, NonNegativeInt.zero))
-              else (key, (informee, NonNegativeInt.one))
-            }
+        val informeeMessage =
+          new InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
+
+        for {
+          _ <- loggerFactory.assertLogs(
+            sut.processor.processRequest(
+              requestId,
+              notSignificantCounter,
+              participantResponseDeadline,
+              decisionTime,
+              informeeMessage,
+              rootHashMessages,
+              batchAlsoContainsTopologyXTransaction = false,
+            ),
+            _.shouldBeCantonError(
+              MediatorError.MalformedMessage,
+              _ should startWith(
+                s"Received a mediator request with id $requestId from $participant with an invalid signature. Rejecting request.\nDetailed error: SignatureWithWrongKey"
+              ),
+            ),
+          )
+        } yield {
+          val sentResult = sut.verdictSender.sentResults.loneElement
+          inside(sentResult.verdict.value) { case MediatorReject(status) =>
+            status.code shouldBe Code.INVALID_ARGUMENT.value()
+            status.message shouldBe s"An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
           }
         }
+      }
+
+      "verify the response signature" in {
+        val sut = new Fixture()
+
+        val informeeMessage =
+          new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
 
         val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(12345)
         val reqId = RequestId(requestTimestamp)
-        val mockSnapshot = mock[DomainSnapshotSyncCryptoApi]
-        val mockSignature = SymbolicCrypto.emptySignature
 
-        val mockTopologySnapshot = mock[TopologySnapshot]
-        when(
-          mockTopologySnapshot.findDynamicDomainParametersOrDefault(
-            any[ProtocolVersion],
-            anyBoolean,
-          )(any[TraceContext])
-        )
-          .thenReturn(Future.successful(initialDomainParameters))
-        when(mockTopologySnapshot.canConfirm(any[ParticipantId], any[LfPartyId], any[TrustLevel]))
-          .thenReturn(Future.successful(true))
-        when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-          (parties: Set[LfPartyId]) =>
-            Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
-        }
-        when(mockTopologySnapshot.mediatorGroup(any[NonNegativeInt]))
-          .thenReturn(Future.successful(Some(mediatorGroup)))
-        when(mockSnapshot.ipsSnapshot).thenReturn(mockTopologySnapshot)
-        when(mockSnapshot.verifySignatures(any[Hash], any[Member], any[NonEmpty[Seq[Signature]]]))
-          .thenReturn(EitherT.rightT(()))
-        when(mockSnapshot.sign(any[Hash])(anyTraceContext))
-          .thenReturn(EitherT.rightT[Future, SyncCryptoError](mockSignature))
-        when(mockSnapshot.pureCrypto).thenReturn(domainSyncCryptoApi.pureCrypto)
-
-        val mockedSnapshotCrypto = new DomainSyncCryptoClient(
-          domainSyncCryptoApi.member,
-          domainSyncCryptoApi.domainId,
-          domainSyncCryptoApi.ips,
-          domainSyncCryptoApi.crypto,
-          CachingConfigs.testing,
-          timeouts,
-          FutureSupervisor.Noop,
-          loggerFactory,
-        ) {
-          override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
-              traceContext: TraceContext
-          ): Future[DomainSnapshotSyncCryptoApi] =
-            if (timestamp == requestTimestamp) {
-              Future.successful(mockSnapshot)
-            } else {
-              super.snapshot(timestamp)
-            }
-        }
-
-        val responseF =
-          signedResponse(
-            Set(submitter),
-            view0Position,
-            LocalApprove(testedProtocolVersion),
+        for {
+          _ <- sut.processor.processRequest(
             reqId,
+            notSignificantCounter,
+            requestTimestamp.plusSeconds(60),
+            requestTimestamp.plusSeconds(120),
+            informeeMessage,
+            rootHashMessages,
+            batchAlsoContainsTopologyXTransaction = false,
           )
-
-        def handleEvents(sut: ConfirmationResponseProcessor): Future[Unit] =
-          for {
-            response <- responseF
-            _ <- loggerFactory.assertLogs(
-              sut.processRequest(
-                reqId,
-                notSignificantCounter,
-                requestTimestamp.plusSeconds(60),
-                requestTimestamp.plusSeconds(120),
-                informeeMessage,
-                rootHashMessages,
-                batchAlsoContainsTopologyXTransaction = false,
-              ),
-              shouldBeViewThresholdBelowMinimumAlarm(reqId, informeeMessage.faultyViewPosition),
-            )
-            _ <- sut.processResponse(
+          response = MediatorResponse.tryCreate(
+            reqId,
+            participant,
+            Some(view0Position),
+            LocalApprove(testedProtocolVersion),
+            Some(fullInformeeTree.transactionId.toRootHash),
+            Set(submitter),
+            factory.domainId,
+            testedProtocolVersion,
+          )
+          signedResponse = SignedProtocolMessage(
+            TypedSignedProtocolMessageContent(response, testedProtocolVersion),
+            NonEmpty(Seq, Signature.noSignature),
+            testedProtocolVersion,
+          )
+          _ <- loggerFactory.assertLogs(
+            sut.processor.processResponse(
               CantonTimestamp.Epoch,
               notSignificantCounter,
               requestTimestamp.plusSeconds(60),
               requestTimestamp.plusSeconds(120),
-              response,
+              signedResponse,
               Recipients.cc(mediatorRef.toRecipient),
-            )
-          } yield ()
-
-        "verifies the response signature with the timestamp from the request" in {
-          val sut = new Fixture(mockedSnapshotCrypto)
-          for {
-            response <- responseF
-            _ <- handleEvents(sut.processor)
-            _ = verify(mockSnapshot, timeout(1000)).verifySignatures(
-              any[Hash],
-              any[Member],
-              eqMatch(response.signatures),
-            )
-          } yield succeed
-        }
+            ),
+            _.shouldBeCantonError(
+              MediatorError.MalformedMessage,
+              _ should fullyMatch regex s"$domainId \\(timestamp: ${CantonTimestamp.Epoch}\\): invalid signature from $participant with SignatureWithWrongKey\\(.*\\)",
+            ),
+          )
+        } yield succeed
       }
 
       "accept root hash messages" in {
         val sut = new Fixture(domainSyncCryptoApi2)
         val correctRootHash = fullInformeeTree.tree.rootHash
         // Create a custom informee message with several recipient participants
-        val informeeMessage = new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
-          override val informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
-            val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
-            val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
-            Map(
-              ViewPosition.root -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one)
-            )
+        val informeeMessage =
+          new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
+            override val informeesAndThresholdByViewPosition
+                : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+              val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
+              val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
+              val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
+              Map(
+                ViewPosition.root -> (Set(
+                  submitterI,
+                  signatoryI,
+                  observerI,
+                ) -> NonNegativeInt.one)
+              )
+            }
           }
-        }
         val allParticipants = NonEmpty(Seq, participant1, participant2, participant3)
 
         val correctViewType = informeeMessage.viewType
@@ -462,7 +444,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
       "send rejections when receiving wrong root hash messages" in {
         val sut = new Fixture()
 
-        val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val informeeMessage =
+          InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
         val rootHash = informeeMessage.rootHash
         val wrongRootHash =
           RootHash(
@@ -666,7 +649,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           )
         val fullInformeeTreeOther =
           factoryOtherMediatorId.MultipleRootsAndViewNestings.fullInformeeTree
-        val mediatorRequest = InformeeMessage(fullInformeeTreeOther)(testedProtocolVersion)
+        val mediatorRequest =
+          InformeeMessage(fullInformeeTreeOther, sign(fullInformeeTreeOther))(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
           mediatorRequest.rootHash,
           domainId,
@@ -709,7 +693,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
       "correct series of mediator events" in {
         val sut = new Fixture()
-        val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val informeeMessage =
+          InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
           fullInformeeTree.transactionId.toRootHash,
           domainId,
@@ -901,34 +886,35 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         val sut = new Fixture(domainSyncCryptoApi2)
 
         // Create a custom informee message with many quorums such that the first Malformed rejection doesn't finalize the request
-        val informeeMessage = new InformeeMessage(fullInformeeTree)(testedProtocolVersion) {
-          override val informeesAndThresholdByViewPosition
-              : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-            val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
-            val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
-            val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
-            Map(
-              view0Position -> (Set(
-                submitterI,
-                signatoryI,
-              ) -> NonNegativeInt.one),
-              view1Position -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one),
-              view11Position -> (Set(
-                observerI,
-                signatoryI,
-              ) -> NonNegativeInt.one),
-              view10Position -> (Set(
-                submitterI,
-                signatoryI,
-                observerI,
-              ) -> NonNegativeInt.one),
-            )
+        val informeeMessage =
+          new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
+            override val informeesAndThresholdByViewPosition
+                : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+              val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
+              val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
+              val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
+              Map(
+                view0Position -> (Set(
+                  submitterI,
+                  signatoryI,
+                ) -> NonNegativeInt.one),
+                view1Position -> (Set(
+                  submitterI,
+                  signatoryI,
+                  observerI,
+                ) -> NonNegativeInt.one),
+                view11Position -> (Set(
+                  observerI,
+                  signatoryI,
+                ) -> NonNegativeInt.one),
+                view10Position -> (Set(
+                  submitterI,
+                  signatoryI,
+                  observerI,
+                ) -> NonNegativeInt.one),
+              )
+            }
           }
-        }
 
         val rootHashMessage = RootHashMessage(
           fullInformeeTree.transactionId.toRootHash,
@@ -1058,7 +1044,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
         val participantResponseDeadline = requestIdTs.plus(participantResponseTimeout.unwrap)
         val responseTs = participantResponseDeadline.addMicros(1)
 
-        val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val informeeMessage =
+          InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
           fullInformeeTree.transactionId.toRootHash,
           domainId,
@@ -1108,7 +1095,8 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
       "reject requests whose batch contained a topology transaction" in {
         val sut = new Fixture()
 
-        val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val mediatorRequest =
+          InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
         val rootHashMessage = RootHashMessage(
           mediatorRequest.rootHash,
           domainId,
@@ -1165,10 +1153,11 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 
       "reject request if some informee is not hosted by an active participant" in {
         val domainSyncCryptoApi =
-          identityFactoryNoParticipants.forOwnerAndDomain(mediatorId, domainId)
+          identityFactoryOnlySubmitter.forOwnerAndDomain(mediatorId, domainId)
         val sut = new Fixture(domainSyncCryptoApi)
 
-        val request = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+        val request =
+          InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
 
         for {
           _ <- loggerFactory.assertLogs(
@@ -1183,7 +1172,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             ),
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
-              _ shouldBe s"Received a mediator request with id $requestId with some informees not being hosted by an active participant: ${fullInformeeTree.allInformees}. Rejecting request...",
+              _ shouldBe s"Received a mediator request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory)}. Rejecting request...",
             ),
           )
         } yield succeed
@@ -1245,9 +1234,15 @@ class ConfirmationResponseProcessorTestV5
     )
   }
 
-  override lazy val identityFactoryNoParticipants: TestingIdentityFactoryBase =
+  override lazy val identityFactoryOnlySubmitter: TestingIdentityFactoryBase =
     TestingIdentityFactory(
-      TestingTopology(Set(domainId), Map.empty, Set(mediatorId)),
+      TestingTopology(
+        Set(domainId),
+        Map(
+          submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
+        ),
+        Set(mediatorId),
+      ),
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
     )
@@ -1257,7 +1252,8 @@ class ConfirmationResponseProcessorTestV5
       val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, domainId)
       val sut = new Fixture(domainSyncCryptoApi3)
 
-      val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      val mediatorRequest =
+        InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
         domainId,
@@ -1358,9 +1354,15 @@ class ConfirmationResponseProcessorTestV5X
     TestingIdentityFactoryX(topology2, loggerFactory, initialDomainParameters)
   }
 
-  override lazy val identityFactoryNoParticipants: TestingIdentityFactoryBase = {
+  override lazy val identityFactoryOnlySubmitter: TestingIdentityFactoryBase = {
     TestingIdentityFactoryX(
-      TestingTopologyX(Set(domainId), Map.empty, Set(mediatorGroup)),
+      TestingTopologyX(
+        Set(domainId),
+        Map(
+          submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
+        ),
+        Set(mediatorGroup),
+      ),
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
     )

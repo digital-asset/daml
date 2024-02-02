@@ -1,4 +1,4 @@
-sdk-version: 3.0.0-snapshot.20240130.12664.0.va195d0f6
+sdk-version: 3.0.0-snapshot.20240131.12677.0.v910a4a9e
 build-options: 
 - --target=2.1
 name: ai-analysis
