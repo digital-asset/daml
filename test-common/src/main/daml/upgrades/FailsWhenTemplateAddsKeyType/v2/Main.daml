@@ -1,3 +1,6 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Main where
 template A with
     p : Party
@@ -6,3 +9,4 @@ template A with
     signatory p
     key (p, "text") : (Party, Text)
     maintainer (fst key)
+
