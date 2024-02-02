@@ -332,15 +332,15 @@ class AuthorizationGraphX(
     }
   }
 
-  override def getValidAuthorizationKey(
-      authKey: Fingerprint,
+  override def getValidAuthorizationKeys(
+      authKeys: Set[Fingerprint],
       requireRoot: Boolean,
-  ): Option[SigningPublicKey] = {
+  ): Set[SigningPublicKey] = authKeys.flatMap(authKey =>
     cache
       .getOrElse(authKey, None)
       .map(_.mapping.target)
       .filter(_ => areValidAuthorizationKeys(Set(authKey), requireRoot))
-  }
+  )
 
   def authorizationChain(
       startAuthKey: Fingerprint,
@@ -387,7 +387,10 @@ class AuthorizationGraphX(
 trait AuthorizationCheckX {
   def areValidAuthorizationKeys(authKeys: Set[Fingerprint], requireRoot: Boolean): Boolean
 
-  def getValidAuthorizationKey(authKey: Fingerprint, requireRoot: Boolean): Option[SigningPublicKey]
+  def getValidAuthorizationKeys(
+      authKeys: Set[Fingerprint],
+      requireRoot: Boolean,
+  ): Set[SigningPublicKey]
 
   def authorizationChain(
       startAuthKey: Fingerprint,
@@ -409,10 +412,10 @@ object AuthorizationCheckX {
         requireRoot: Boolean,
     ): Option[AuthorizationChainX] = None
 
-    override def getValidAuthorizationKey(
-        authKey: Fingerprint,
+    override def getValidAuthorizationKeys(
+        authKeys: Set[Fingerprint],
         requireRoot: Boolean,
-    ): Option[SigningPublicKey] = None
+    ): Set[SigningPublicKey] = Set.empty
 
     override def authorizedDelegations(): Seq[AuthorizedNamespaceDelegationX] = Seq.empty
 
@@ -437,13 +440,13 @@ final case class DecentralizedNamespaceAuthorizationGraphX(
 
   import cats.syntax.foldable.*
 
-  override def getValidAuthorizationKey(
-      authKey: Fingerprint,
+  override def getValidAuthorizationKeys(
+      authKeys: Set[Fingerprint],
       requireRoot: Boolean,
-  ): Option[SigningPublicKey] = {
-    (direct +: ownerGraphs).view
-      .flatMap(_.getValidAuthorizationKey(authKey, requireRoot))
-      .headOption
+  ): Set[SigningPublicKey] = {
+    (direct +: ownerGraphs)
+      .flatMap(_.getValidAuthorizationKeys(authKeys, requireRoot))
+      .toSet
   }
 
   override def authorizationChain(

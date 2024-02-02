@@ -183,7 +183,10 @@ private[transfer] class TransferInProcessingSteps(
       )
 
       rootHash = fullTree.rootHash
-      mediatorMessage = fullTree.mediatorMessage
+      submittingParticipantSignature <- recentSnapshot
+        .sign(rootHash.unwrap)
+        .leftMap(TransferSigningError)
+      mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       recipientsSet <- {
         stakeholders.toSeq
           .parTraverse(activeParticipantsOfParty)
@@ -693,6 +696,7 @@ object TransferInProcessingSteps {
         targetMediator,
         stakeholders,
         transferInUuid,
+        submitterMetadata,
         targetProtocolVersion,
       )
 
@@ -700,7 +704,6 @@ object TransferInProcessingSteps {
       view <- TransferInView
         .create(pureCrypto)(
           viewSalt,
-          submitterMetadata,
           contract,
           creatingTransactionId,
           transferOutResult,

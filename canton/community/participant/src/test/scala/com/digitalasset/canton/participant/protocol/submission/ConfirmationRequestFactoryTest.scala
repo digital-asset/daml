@@ -342,8 +342,10 @@ class ConfirmationRequestFactoryTest
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
     }
 
+    val signature = cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).futureValue
+
     ConfirmationRequest(
-      InformeeMessage(example.fullInformeeTree)(testedProtocolVersion),
+      InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),
       expectedTransactionViewMessages,
       testedProtocolVersion,
     )
@@ -401,7 +403,7 @@ class ConfirmationRequestFactoryTest
             .map { res =>
               val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
               stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
-            }
+            }(executorService) // parallel executorService to avoid a deadlock
         }
       }
 

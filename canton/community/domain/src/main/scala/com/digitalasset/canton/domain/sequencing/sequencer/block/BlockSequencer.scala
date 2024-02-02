@@ -15,13 +15,14 @@ import com.digitalasset.canton.data.PeanoQueue.NotInserted
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
-  BlockSequencerStateManager,
+  BlockSequencerStateManagerBase,
   BlockUpdateGenerator,
   RawLedgerBlock,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.EventSource
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
@@ -33,17 +34,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  BaseSequencer,
-  PruningError,
-  PruningSupportError,
-  SequencerHealthConfig,
-  SequencerSnapshot,
-  SequencerValidations,
-  SignatureVerifier,
-  *,
-}
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
@@ -52,6 +42,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseableAsync,
   SyncCloseable,
 }
+import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
@@ -80,7 +71,7 @@ class BlockSequencer(
     initialBlockHeight: Option[Long],
     cryptoApi: DomainSyncCryptoClient,
     topologyClientMember: Member,
-    stateManager: BlockSequencerStateManager,
+    stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
@@ -90,10 +81,12 @@ class BlockSequencer(
     rateLimitManager: Option[SequencerRateLimitManager],
     implicitMemberRegistration: Boolean,
     orderingTimeFixMode: OrderingTimeFixMode,
-    parameters: CantonNodeParameters,
+    processingTimeouts: ProcessingTimeout,
+    logEventDetails: Boolean,
+    prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext, materializer: Materializer, trace: Tracer)
+)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BaseSequencer(
       DomainTopologyManagerId(domainId),
       loggerFactory,
@@ -104,7 +97,7 @@ class BlockSequencer(
     with NamedLogging
     with FlagCloseableAsync {
 
-  override def timeouts: ProcessingTimeout = parameters.processingTimeouts
+  override def timeouts: ProcessingTimeout = processingTimeouts
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
@@ -125,44 +118,47 @@ class BlockSequencer(
       loggerFactory,
     )(CloseContext(cryptoApi))
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
-      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty),
-      Source
-        .combineMat(
-          blockSequencerOps
-            .subscribe()(TraceContext.empty)
-            .statefulMapConcat(BlockSequencer.ensureBlocksAreOrdered(initialBlockHeight))
-            .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
-          Source
-            .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-            .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
-        )(Merge(_))(Keep.both)
-        .mapAsync(
-          // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
-          parallelism = 1
-        ) {
-          case Right(blockEvents) =>
-            implicit val tc: TraceContext =
-              blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
-            logger.debug(
-              s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
-            )
-            stateManager
-              .handleBlock(
-                updateGenerator.asBlockUpdate(blockEvents)
+      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
+        val driverSource = blockSequencerOps
+          .subscribe()(TraceContext.empty)
+          .statefulMapConcat(BlockSequencer.ensureBlocksAreOrdered(initialBlockHeight))
+          .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+        val localSource = Source
+          .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
+          .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+        val combinedSource = Source
+          .combineMat(
+            driverSource,
+            localSource,
+          )(Merge(_))(Keep.both)
+        val combinedSourceWithBlockHandling = combinedSource
+          .mapAsync(
+            // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
+            parallelism = 1
+          ) {
+            case Right(blockEvents) =>
+              implicit val tc: TraceContext =
+                blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
+              logger.debug(
+                s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
               )
-              .map { state =>
-                metrics.sequencerClient.handler.delay
-                  .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
-                ()
-              }
-              .onShutdown(
-                logger.debug(
-                  s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
+              stateManager
+                .handleBlock(
+                  updateGenerator.asBlockUpdate(blockEvents)
                 )
-              )
-          case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
-        }
-        .toMat(Sink.ignore)(Keep.both),
+                .map { state =>
+                  metrics.sequencerClient.handler.delay
+                    .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
+                }
+                .onShutdown(
+                  logger.debug(
+                    s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
+                  )
+                )
+            case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
+          }
+        combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
+      },
     )
     (killSwitch, localEventsQueue, done)
   }
@@ -284,9 +280,9 @@ class BlockSequencer(
           memberCheck,
         )
         .toEitherT[Future]
-      _ = if (parameters.loggingConfig.eventDetails)
+      _ = if (logEventDetails)
         logger.debug(
-          s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${parameters.loggingConfig.api.printer
+          s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter
               .printAdHoc(submission.toProtoVersioned)}"
         )
       _ <-

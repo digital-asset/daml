@@ -12,6 +12,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block
+import com.digitalasset.canton.domain.block.BlockSequencerStateManager.HeadState
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
@@ -58,6 +59,55 @@ class SequencerUnexpectedStateChange(message: String = "Sequencer state has unex
     extends RuntimeException(message)
 
 /** State manager for operating a sequencer using Blockchain based infrastructure (such as fabric or ethereum) */
+trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
+
+  type CreateSubscription = Either[CreateSubscriptionError, Sequencer.EventSource]
+
+  val maybeLowerSigningTimestampBound: Option[CantonTimestamp]
+
+  private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter
+
+  def getHeadState: HeadState
+
+  /** Check whether a member is currently registered based on the latest state. */
+  def isMemberRegistered(member: Member): Boolean
+
+  /** Check whether a member is currently enabled based on the latest state. */
+  def isMemberEnabled(member: Member): Boolean
+
+  def handleBlock(
+      updateClosure: BlockUpdateClosureWithHeight
+  ): FutureUnlessShutdown[BlockEphemeralState]
+
+  def handleLocalEvent(
+      event: BlockSequencer.LocalEvent
+  )(implicit traceContext: TraceContext): Future[Unit]
+
+  def pruneLocalDatabase(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[Unit]
+
+  /** Wait for a member to be available on the underlying ledger. Returns the timestamp at which the member was registered */
+  def waitForMemberToExist(
+      member: Member
+  )(implicit loggingContext: ErrorLoggingContext): Future[CantonTimestamp]
+
+  /** Wait for a member to be disabled on the underlying ledger */
+  def waitForMemberToBeDisabled(member: Member): Future[Unit]
+
+  /** Wait for the sequencer pruning request to have been processed and get the returned message */
+  def waitForPruningToComplete(timestamp: CantonTimestamp): Future[String]
+
+  /** Wait for the member's acknowledgement to have been processed */
+  def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
+  def readEventsForMember(member: Member, startingAt: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): CreateSubscription
+}
+
 class BlockSequencerStateManager(
     protocolVersion: ProtocolVersion,
     domainId: DomainId,
@@ -65,12 +115,12 @@ class BlockSequencerStateManager(
     val store: SequencerBlockStore,
     enableInvariantCheck: Boolean,
     private val initialMemberCounters: MemberCounters,
-    val maybeLowerSigningTimestampBound: Option[CantonTimestamp],
+    override val maybeLowerSigningTimestampBound: Option[CantonTimestamp],
     implicitMemberRegistration: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, closeContext: CloseContext)
-    extends FlagCloseableAsync
+    extends BlockSequencerStateManagerBase
     with NamedLogging {
 
   import BlockSequencerStateManager.*
@@ -88,30 +138,37 @@ class BlockSequencerStateManager(
     HeadState.fullyProcessed(headBlock)
   })
 
-  def getHeadState: HeadState = headState.get()
-
   private val countersSupportedAfter = new AtomicReference[MemberCounters](initialMemberCounters)
 
-  private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter =
+  private val dispatchers: TrieMap[Member, Dispatcher[SequencerCounter]] = TrieMap.empty
+
+  override private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter =
     countersSupportedAfter
       .get()
       .get(sequencerId)
       .fold(SequencerCounter.Genesis)(_ + 1)
 
-  /** Check whether a member is currently registered based on the latest state. */
-  def isMemberRegistered(member: Member): Boolean =
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+    import TraceContext.Implicits.Empty.*
+    dispatchers.values.toSeq.map(d =>
+      AsyncCloseable(
+        s"${this.getClass}: dispatcher $d",
+        d.shutdown(),
+        timeouts.shutdownShort,
+      )
+    )
+  }
+
+  override def getHeadState: HeadState = headState.get()
+
+  override def isMemberRegistered(member: Member): Boolean =
     headState.get().chunk.ephemeral.registeredMembers.contains(member)
 
   /** Check whether a member is currently enabled based on the latest state. */
-  def isMemberEnabled(member: Member): Boolean =
+  override def isMemberEnabled(member: Member): Boolean =
     headState.get().chunk.ephemeral.status.members.exists(s => s.enabled && s.member == member)
 
-  private val dispatchers: TrieMap[Member, Dispatcher[SequencerCounter]] = TrieMap.empty
-
-  def registeredMembers: Set[Member] =
-    headState.get().chunk.ephemeral.registeredMembers
-
-  def handleBlock(
+  override def handleBlock(
       updateClosure: BlockUpdateClosureWithHeight
   ): FutureUnlessShutdown[BlockEphemeralState] = {
     implicit val traceContext: TraceContext = updateClosure.blockTraceContext
@@ -145,14 +202,14 @@ class BlockSequencerStateManager(
     }
   }
 
-  def handleLocalEvent(
+  override def handleLocalEvent(
       event: BlockSequencer.LocalEvent
   )(implicit traceContext: TraceContext): Future[Unit] = event match {
     case BlockSequencer.DisableMember(member) => locallyDisableMember(member)
     case BlockSequencer.Prune(timestamp) => pruneLocalDatabase(timestamp)
   }
 
-  def pruneLocalDatabase(
+  override def pruneLocalDatabase(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit] = for {
     msg <- store.prune(timestamp)
@@ -162,7 +219,123 @@ class BlockSequencerStateManager(
     resolveSequencerPruning(timestamp, msg)
   }
 
-  def locallyDisableMember(
+  override def waitForMemberToExist(
+      member: Member
+  )(implicit loggingContext: ErrorLoggingContext): Future[CantonTimestamp] = {
+    if (implicitMemberRegistration)
+      ErrorUtil.internalErrorAsync(
+        new IllegalStateException(
+          "Member registration is turned off. WaitForMemberToExist should not have been called. This is a bug."
+        )
+      )
+    else memberRegistrationPromises.getOrElseUpdate(member, Promise[CantonTimestamp]()).future
+  }
+
+  override def waitForMemberToBeDisabled(member: Member): Future[Unit] =
+    memberDisablementPromises.getOrElseUpdate(member, Promise[Unit]()).future
+
+  override def waitForPruningToComplete(timestamp: CantonTimestamp): Future[String] =
+    sequencerPruningPromises.getOrElseUpdate(timestamp, Promise[String]()).future
+
+  override def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    memberAcknowledgementPromises
+      .updateWith(member) {
+        case None => Some(NonEmpty(SortedMap, timestamp -> Traced(Promise[Unit]())))
+        case Some(promises) =>
+          Some(
+            if (promises.contains(timestamp)) promises
+            else promises.updated(timestamp, Traced(Promise[Unit]()))
+          )
+      }
+      .getOrElse(
+        ErrorUtil.internalError(
+          new NoSuchElementException(
+            "The updateWith function returned None despite the update rule always returning a Some"
+          )
+        )
+      )(timestamp)
+      .value
+      .future
+
+  override def readEventsForMember(member: Member, startingAt: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): CreateSubscription = {
+    logger.debug(
+      s"Read events for member ${member} starting at ${startingAt}"
+    )
+    def checkCounterIsSupported(
+        member: Member,
+        startingAt: SequencerCounter,
+    ): Either[CreateSubscriptionError, Unit] =
+      countersSupportedAfter.get().get(member) match {
+        case Some(counter) if startingAt <= counter =>
+          logger.info(
+            s"Given counter $startingAt for member $member is not supported. Counter has to be greater than $counter"
+          )
+          Left(CreateSubscriptionError.InvalidCounter(startingAt))
+        case _ => Right(())
+      }
+
+    performUnlessClosing[CreateSubscription](functionFullName) {
+      for {
+        _ <- Either.cond(
+          startingAt >= SequencerCounter.Genesis,
+          (),
+          CreateSubscriptionError.InvalidCounter(startingAt): CreateSubscriptionError,
+        )
+        _ <- Either.cond(
+          // with implicitMemberRegistration, it can happen that the member subscribes before the implicit
+          // registration has happened.
+          implicitMemberRegistration || headState
+            .get()
+            .chunk
+            .ephemeral
+            .registeredMembers
+            .contains(member),
+          (),
+          CreateSubscriptionError.UnknownMember(member),
+        )
+        _ <- Either.cond(
+          !headState.get().chunk.ephemeral.status.disabledClients.members.contains(member),
+          (),
+          CreateSubscriptionError.MemberDisabled(member),
+        )
+        _ <- checkCounterIsSupported(member, startingAt)
+
+      } yield {
+        val dispatcher = getOrCreateDispatcher(member)
+        dispatcher
+          .startingAt(
+            startingAt,
+            RangeSource((s, e) => store.readRange(member, s, e).map(e => e.counter -> e)),
+          )
+          .map { case (_, event) =>
+            if (event.isTombstone) {
+              val err =
+                s"Encountered tombstone ${event.counter} and ${event.timestamp} for $member"
+              logger.warn(s"Terminating subscription due to: $err")(event.traceContext)
+              Left(
+                SequencerSubscriptionError.TombstoneEncountered.Error(err)
+              )
+            } else {
+              Right(event)
+            }
+          }
+          // If we run into a subscription error due to a tombstone, ensure the error is the last emitted entry
+          .takeWhile(_.isRight, inclusive = true)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .mapMaterializedValue(_ -> Future.successful(Done))
+
+      }
+    }.onShutdown {
+      logger.info(s"${this.getClass} is shutting down, not reading events")
+      Left(CreateSubscriptionError.ShutdownError): CreateSubscription
+    }
+  }
+
+  private def locallyDisableMember(
       member: Member
   )(implicit traceContext: TraceContext): Future[Unit] =
     store
@@ -463,128 +636,6 @@ class BlockSequencerStateManager(
 
   }
 
-  /** Wait for a member to be available on the underlying ledger. Returns the timestamp at which the member was registered */
-  def waitForMemberToExist(
-      member: Member
-  )(implicit loggingContext: ErrorLoggingContext): Future[CantonTimestamp] = {
-    if (implicitMemberRegistration)
-      ErrorUtil.internalErrorAsync(
-        new IllegalStateException(
-          "Member registration is turned off. WaitForMemberToExist should not have been called. This is a bug."
-        )
-      )
-    else memberRegistrationPromises.getOrElseUpdate(member, Promise[CantonTimestamp]()).future
-  }
-
-  /** Wait for a member to be disabled on the underlying ledger */
-  def waitForMemberToBeDisabled(member: Member): Future[Unit] =
-    memberDisablementPromises.getOrElseUpdate(member, Promise[Unit]()).future
-
-  /** Wait for the sequencer pruning request to have been processed and get the returned message */
-  def waitForPruningToComplete(timestamp: CantonTimestamp): Future[String] =
-    sequencerPruningPromises.getOrElseUpdate(timestamp, Promise[String]()).future
-
-  /** Wait for the member's acknowledgement to have been processed */
-  def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    memberAcknowledgementPromises
-      .updateWith(member) {
-        case None => Some(NonEmpty(SortedMap, timestamp -> Traced(Promise[Unit]())))
-        case Some(promises) =>
-          Some(
-            if (promises.contains(timestamp)) promises
-            else promises.updated(timestamp, Traced(Promise[Unit]()))
-          )
-      }
-      .getOrElse(
-        ErrorUtil.internalError(
-          new NoSuchElementException(
-            "The updateWith function returned None despite the update rule always returning a Some"
-          )
-        )
-      )(timestamp)
-      .value
-      .future
-
-  private type CreateSubscription = Either[CreateSubscriptionError, Sequencer.EventSource]
-
-  def readEventsForMember(member: Member, startingAt: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): CreateSubscription = {
-    logger.debug(
-      s"Read events for member ${member} starting at ${startingAt}"
-    )
-    def checkCounterIsSupported(
-        member: Member,
-        startingAt: SequencerCounter,
-    ): Either[CreateSubscriptionError, Unit] =
-      countersSupportedAfter.get().get(member) match {
-        case Some(counter) if startingAt <= counter =>
-          logger.info(
-            s"Given counter $startingAt for member $member is not supported. Counter has to be greater than $counter"
-          )
-          Left(CreateSubscriptionError.InvalidCounter(startingAt))
-        case _ => Right(())
-      }
-
-    performUnlessClosing[CreateSubscription](functionFullName) {
-      for {
-        _ <- Either.cond(
-          startingAt >= SequencerCounter.Genesis,
-          (),
-          CreateSubscriptionError.InvalidCounter(startingAt): CreateSubscriptionError,
-        )
-        _ <- Either.cond(
-          // with implicitMemberRegistration, it can happen that the member subscribes before the implicit
-          // registration has happened.
-          implicitMemberRegistration || headState
-            .get()
-            .chunk
-            .ephemeral
-            .registeredMembers
-            .contains(member),
-          (),
-          CreateSubscriptionError.UnknownMember(member),
-        )
-        _ <- Either.cond(
-          !headState.get().chunk.ephemeral.status.disabledClients.members.contains(member),
-          (),
-          CreateSubscriptionError.MemberDisabled(member),
-        )
-        _ <- checkCounterIsSupported(member, startingAt)
-
-      } yield {
-        val dispatcher = getOrCreateDispatcher(member)
-        dispatcher
-          .startingAt(
-            startingAt,
-            RangeSource((s, e) => store.readRange(member, s, e).map(e => e.counter -> e)),
-          )
-          .map { case (_, event) =>
-            if (event.isTombstone) {
-              val err =
-                s"Encountered tombstone ${event.counter} and ${event.timestamp} for $member"
-              logger.warn(s"Terminating subscription due to: $err")(event.traceContext)
-              Left(
-                SequencerSubscriptionError.TombstoneEncountered.Error(err)
-              )
-            } else {
-              Right(event)
-            }
-          }
-          // If we run into a subscription error due to a tombstone, ensure the error is the last emitted entry
-          .takeWhile(_.isRight, inclusive = true)
-          .viaMat(KillSwitches.single)(Keep.right)
-          .mapMaterializedValue(_ -> Future.successful(Done))
-
-      }
-    }.onShutdown {
-      logger.info(s"${this.getClass} is shutting down, not reading events")
-      Left(CreateSubscriptionError.ShutdownError): CreateSubscription
-    }
-  }
-
   private def getOrCreateDispatcher(
       member: Member
   )(implicit traceContext: TraceContext): Dispatcher[SequencerCounter] =
@@ -640,22 +691,10 @@ class BlockSequencerStateManager(
     dispatcher
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
-    import TraceContext.Implicits.Empty.*
-    dispatchers.values.toSeq.map(d =>
-      AsyncCloseable(
-        s"${this.getClass}: dispatcher $d",
-        d.shutdown(),
-        timeouts.shutdownShort,
-      )
-    )
-  }
-
   private def checkInvariantIfEnabled(
       blockState: BlockEphemeralState
   )(implicit traceContext: TraceContext): Unit =
     if (enableInvariantCheck) blockState.checkInvariant()
-
 }
 
 object BlockSequencerStateManager {
@@ -697,14 +736,14 @@ object BlockSequencerStateManager {
     *
     * @param chunkNumber The sequence number of the chunk
     */
-  private[BlockSequencerStateManager] final case class ChunkState(
+  final case class ChunkState(
       chunkNumber: Long,
       ephemeral: EphemeralState,
       lastTs: CantonTimestamp,
       latestTopologyClientTimestamp: Option[CantonTimestamp],
   )
 
-  private object ChunkState {
+  object ChunkState {
     val initialChunkCounter = 0L
 
     def initial(block: BlockEphemeralState): ChunkState =
@@ -739,7 +778,7 @@ object BlockSequencerStateManager {
     }
   }
 
-  private object HeadState {
+  object HeadState {
     def fullyProcessed(block: BlockEphemeralState): HeadState =
       HeadState(block.latestBlock, ChunkState.initial(block))
   }

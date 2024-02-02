@@ -5,14 +5,14 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.HashOps
+import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -28,7 +28,10 @@ import java.util.UUID
 // It is a simple example for getting started with serialization.
 // Please consult the team if you intend to change the design of serialization.
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
+case class InformeeMessage(
+    fullInformeeTree: FullInformeeTree,
+    override val submittingParticipantSignature: Signature,
+)(
     protocolVersion: ProtocolVersion
 ) extends MediatorRequest
     // By default, we use ProtoBuf for serialization.
@@ -39,8 +42,13 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
   override val representativeProtocolVersion: RepresentativeProtocolVersion[InformeeMessage.type] =
     InformeeMessage.protocolVersionRepresentativeFor(protocolVersion)
 
-  def copy(fullInformeeTree: FullInformeeTree = this.fullInformeeTree): InformeeMessage =
-    InformeeMessage(fullInformeeTree)(protocolVersion)
+  override def submittingParticipant: ParticipantId = fullInformeeTree.submittingParticipant
+
+  def copy(
+      fullInformeeTree: FullInformeeTree = this.fullInformeeTree,
+      submittingParticipantSignature: Signature = this.submittingParticipantSignature,
+  ): InformeeMessage =
+    InformeeMessage(fullInformeeTree, submittingParticipantSignature)(protocolVersion)
 
   override def requestUuid: UUID = fullInformeeTree.transactionUuid
 
@@ -72,6 +80,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
     v30.InformeeMessage(
       fullInformeeTree = Some(fullInformeeTree.toProtoV30),
       protocolVersion = protocolVersion.toProtoPrimitive,
+      submittingParticipantSignature = Some(submittingParticipantSignature.toProtoV30),
     )
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
@@ -114,7 +123,11 @@ object InformeeMessage
   )(informeeMessageP: v30.InformeeMessage): ParsingResult[InformeeMessage] = {
     // Use pattern matching to access the fields of v0.InformeeMessage,
     // because this will break if a field is forgotten.
-    val v30.InformeeMessage(maybeFullInformeeTreeP, protocolVersionP) = informeeMessageP
+    val v30.InformeeMessage(
+      maybeFullInformeeTreeP,
+      protocolVersionP,
+      submittingParticipantSignaturePO,
+    ) = informeeMessageP
     for {
       // Keep in mind that all fields of a proto class are optional. So the existence must be checked explicitly.
       fullInformeeTreeP <- ProtoConverter.required(
@@ -123,7 +136,13 @@ object InformeeMessage
       )
       fullInformeeTree <- FullInformeeTree.fromProtoV30(context, fullInformeeTreeP)
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
-    } yield new InformeeMessage(fullInformeeTree)(protocolVersion)
+      submittingParticipantSignature <- ProtoConverter
+        .required(
+          "InformeeMessage.submittingParticipantSignature",
+          submittingParticipantSignaturePO,
+        )
+        .flatMap(Signature.fromProtoV30)
+    } yield new InformeeMessage(fullInformeeTree, submittingParticipantSignature)(protocolVersion)
   }
 
   implicit val informeeMessageCast: ProtocolMessageContentCast[InformeeMessage] =

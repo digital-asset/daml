@@ -419,13 +419,13 @@ class GenTransactionTreeTest
       "reject creation" in {
         def corruptGlobalMetadataBlinding(informeeTree: GenTransactionTree): GenTransactionTree =
           informeeTree.copy(
-            submitterMetadata = factory.submitterMetadata,
+            submitterMetadata = ExampleTransactionFactory.blinded(factory.submitterMetadata),
             commonMetadata = ExampleTransactionFactory.blinded(factory.commonMetadata),
             participantMetadata = factory.participantMetadata,
           )
 
         val corruptedGlobalMetadataMessage = Left(
-          "The submitter metadata of a full informee tree must be blinded. " +
+          "The submitter metadata of a full informee tree must be unblinded. " +
             "The common metadata of an informee tree must be unblinded. " +
             "The participant metadata of an informee tree must be blinded."
         )
