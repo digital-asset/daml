@@ -17,57 +17,59 @@ case class Upgrading[A](past: A, present: A) {
     Upgrading(f(this.past, that.past), f(this.present, that.present))
 }
 
-sealed abstract class UpgradeError extends Throwable {
-  def message(): String;
+sealed abstract class UpgradeError extends ValidationError {
+  def message: String;
+  def prettyInternal: String = this.message
+  def context: Context = Context.None
 }
 
 final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.PackageId])
     extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"Package ${packageId.present} claims to upgrade package with id ${packageId.past}, but that package cannot be found."
 }
 
 final case class MissingModule(name: Ref.ModuleName) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"Module $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class MissingTemplate(name: Ref.DottedName) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"Template $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class MissingDataCon(name: Ref.DottedName) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"Datatype $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class MissingChoice(name: Ref.ChoiceName) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"Choice $name appears in package that is being upgraded, but does not appear in this package."
 }
 
 final case class TemplateChangedKeyType(templateName: Ref.DottedName, key: Upgrading[Ast.Type])
     extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded template $templateName cannot change its key type."
 }
 
 final case class TemplateRemovedKey(templateName: Ref.DottedName, key: Ast.TemplateKey)
     extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded template $templateName cannot remove its key."
 }
 
 final case class TemplateAddedKey(templateName: Ref.DottedName, key: Ast.TemplateKey)
     extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded template $templateName cannot add a key."
 }
 
 final case class ChoiceChangedReturnType(choice: Ref.ChoiceName, typ: Upgrading[Ast.Type])
     extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded choice $choice cannot change its return type."
 }
 
@@ -75,7 +77,7 @@ final case class RecordChangedOrigin(
     dataConName: Ref.DottedName,
     origin: Upgrading[UpgradedRecordOrigin],
 ) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The record $dataConName has changed origin from ${origin.past} to ${origin.present}"
 }
 
@@ -83,7 +85,7 @@ final case class MismatchDataConsVariety(
     dataConName: Ref.DottedName,
     variety: Upgrading[Ast.DataCons],
 ) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"EUpgradeMismatchDataConsVariety $dataConName"
 }
 
@@ -91,7 +93,7 @@ final case class RecordFieldsMissing(
     origin: UpgradedRecordOrigin,
     fields: Map[Ast.FieldName, Ast.Type],
 ) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin is missing some of its original fields."
 }
 
@@ -99,47 +101,47 @@ final case class RecordFieldsExistingChanged(
     origin: UpgradedRecordOrigin,
     fields: Map[Ast.FieldName, Upgrading[Ast.Type]],
 ) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has changed the types of some of its original fields."
 }
 
 final case class RecordFieldsNewNonOptional(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has added new fields, but those fields are not Optional."
 }
 
 final case class RecordFieldsOrderChanged(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has changed the order of its fields - any new fields must be added at the end of the record."
 }
 
 final case class VariantAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has added a new variant."
 }
 
 final case class VariantRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has removed an existing variant."
 }
 
 final case class VariantChangedVariantType(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has changed the type of a variant."
 }
 
 final case class VariantAddedVariantField(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has added a field."
 }
 
 final case class EnumAddedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has added a new variant."
 }
 
 final case class EnumRemovedVariant(origin: UpgradedRecordOrigin) extends UpgradeError {
-  override def message(): String =
+  override def message: String =
     s"The upgraded $origin has removed an existing variant."
 }
 
