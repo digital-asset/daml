@@ -26,6 +26,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
   self: Suite =>
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = true;
+  override val cantonFixtureDebugModeRemoveTmpFilesRegardless = true;
 
   private def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))

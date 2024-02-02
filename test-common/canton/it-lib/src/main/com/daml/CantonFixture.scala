@@ -70,6 +70,10 @@ trait CantonFixtureWithResource[A]
   //   - output from the canton process is sent to stdout
   protected val cantonFixtureDebugMode = false
 
+  // If we need to enable debugging (logs, etc.), but still want to clean up the
+  // temporary files after a test is done running
+  protected val cantonFixtureDebugModeRemoveTmpFilesRegardless = false
+
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugMode) {
@@ -117,7 +121,7 @@ trait CantonFixtureWithResource[A]
   protected val cantonTmpDir = Files.createTempDirectory("CantonFixture")
 
   protected def cantonCleanUp(): Unit =
-    if (cantonFixtureDebugMode)
+    if (cantonFixtureDebugMode && !cantonFixtureDebugModeRemoveTmpFilesRegardless)
       info(s"The temporary files are located in ${cantonTmpDir}")
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
