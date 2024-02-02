@@ -178,12 +178,8 @@ private[apiserver] final class ApiPackageManagementService private (
   }
 
   private def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)]): Future[Unit] = {
-    (optDar1, optDar2) match {
-      case (Some((pkgId1, pkg1)), _) =>
+    optDar1.fold(Future.unit) { case (pkgId1, pkg1) =>
         Future.fromTry(Typecheck.typecheckUpgrades((pkgId1, pkg1), optDar2))
-
-      case (None, _) =>
-        Future.unit
     }
   }
 
