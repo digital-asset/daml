@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.client
+package com.daml.lf.validation
 
 import com.daml.integrationtest.CantonFixture
 import org.scalatest.Inside
@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{Future}
 import com.google.protobuf.ByteString
-import com.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles
 import java.io.File
 import java.io.FileInputStream
 import org.scalatest.Suite
@@ -28,11 +28,11 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
   override val cantonFixtureDebugMode = true;
 
   private def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
-    val dar = DarReader.assertReadArchiveFromFile(new File(rlocation(path)))
+    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
     assert(dar != null, s"Unable to load test package resource '$path'")
 
     val testPackage = Future {
-      val in = new FileInputStream(new File(rlocation(path)))
+      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
       assert(in != null, s"Unable to load test package resource '$path'")
       in
     }
