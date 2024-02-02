@@ -19,11 +19,10 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import com.digitalasset.canton.ledger.error.groups.AdminServiceErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
-  IndexPackagesService,
-  IndexTransactionsService,
-}
-import com.digitalasset.canton.ledger.participant.state.v2 as state
+import com.digitalasset.canton.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
+import com.digitalasset.canton.ledger.participant.state.v2
+
+import scala.util.control.NonFatal as state
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
@@ -35,6 +34,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.*
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
@@ -42,6 +42,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.std.option.*
+import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse.*
 
 import java.util.zip.ZipInputStream
@@ -53,6 +54,7 @@ import scala.util.{Try, Success, Failure, Using}
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
+    packageMetadataStore: PackageMetadataStore,
     packagesWrite: state.WritePackagesService,
     managementServiceTimeout: FiniteDuration,
     engine: Engine,
@@ -133,42 +135,87 @@ private[apiserver] final class ApiPackageManagementService private (
     } yield dar
   }
 
-  private def validateUpgrade(upgradingPackage: Dar[(Ref.PackageId, Ast.Package)])(implicit
+  private def lookupDar(pkgId: Ref.PackageId)(implicit
+                                                  loggingContext: LoggingContextWithTrace
+  ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
+    for {
+      optArchive
+        <- packagesIndex.getLfArchive(pkgId)
+      optPackage
+        <- Future.fromTry {
+        optArchive.traverse(Decode.decodeArchive(_))
+          .handleError(Validation.handleLfArchiveError)
+      }
+    } yield optPackage
+  }
+
+  private def minimalVersionedDar(dar: (Ref.PackageId, Ast.Package))(implicit
+                                                                loggingContext: LoggingContextWithTrace
+  ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
+    val (_, pkg) = dar
+    val pkgName = pkg.metadata.get.name
+    val pkgVersion = pkg.metadata.get.version
+    packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      (pkgId, pkgVersion)
+    }.minByOption { case (_, version) =>
+      pkgVersion < version
+    }.traverse { case (pId, _) => lookupDar(pId) }
+    .map(_.flatten)
+  }
+
+  private def maximalVersionedDar(dar: (Ref.PackageId, Ast.Package))(implicit
+                                                                loggingContext: LoggingContextWithTrace
+  ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
+    val (_, pkg) = dar
+    val pkgName = pkg.metadata.get.name
+    val pkgVersion = pkg.metadata.get.version
+    packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      (pkgId, pkgVersion)
+    }.maxByOption { case (_, version) =>
+      pkgVersion > version
+    }.traverse { case (pId, _) => lookupDar(pId) }
+    .map(_.flatten)
+  }
+
+  private def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)]): Future[Unit] = {
+    (optDar1, optDar2) match {
+      case (Some((pkgId1, pkg1)), _) =>
+        Future.fromTry(Typecheck.typecheckUpgrades((pkgId1, pkg1), optDar2))
+
+      case (None, _) =>
+        Future.unit
+    }
+  }
+
+  private def validateUpgrade(upgradingDar: Dar[(Ref.PackageId, Ast.Package)])(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    val upgradingPackageId = upgradingPackage.main._1
+    val (upgradingPackageId, upgradingPackage) = upgradingDar.main
+    val optUpgradingDar = Some((upgradingPackageId, upgradingPackage))
     logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
-    upgradingPackage.main._2.metadata.flatMap(_.upgradedPackageId) match {
+    upgradingPackage.metadata.flatMap(_.upgradedPackageId) match {
       case Some(upgradedPackageId) =>
         for {
-          upgradedArchiveMb <- packagesIndex.getLfArchive(upgradedPackageId)
-          upgradedPackageMb <- Future.fromTry {
-            upgradedArchiveMb.traverse(Decode.decodeArchive(_))
-              .handleError(Validation.handleLfArchiveError)
+          optUpgradedDar <- lookupDar(upgradedPackageId)
+          _ = logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
+          // FIXME: check that package IDs are known to package metadata store?
+          _ <- typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
+            case err: UpgradeError =>
+              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+              Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
+            case NonFatal(err) =>
+              logger.info(s"Typechecking upgrades failed with unknown error.")
+              Future.failed(err)
           }
-          _ <- {
-            logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
-            val upgradeCheckResult = Typecheck.typecheckUpgrades(upgradingPackage.main, upgradedPackageMb)
-            upgradeCheckResult match {
-              case Success(()) => {
-                logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
-                Future(())
-              }
-              case Failure(err: UpgradeError) => {
-                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
-                Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
-              }
-              case Failure(err: Throwable) => {
-                logger.info(s"Typechecking upgrades failed with unknown error.")
-                Future.failed(err)
-              }
-            }
-          }
+          maximalDar <- maximalVersionedDar(upgradingDar.main)
+          _ <- typecheckUpgrades(maximalDar, optUpgradingDar)
+          minimalDar <- minimalVersionedDar(upgradingDar.main)
+          _ <- typecheckUpgrades(optUpgradingDar, minimalDar)
         } yield ()
-      case None => {
+
+      case None =>
         logger.info(s"Package $upgradingPackageId does not upgrade anything.")
         Future(())
-      }
     }
   }
 
@@ -220,6 +267,7 @@ private[apiserver] object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
+      packageMetadataStore: PackageMetadataStore,
       writeBackend: state.WritePackagesService,
       managementServiceTimeout: FiniteDuration,
       engine: Engine,
@@ -234,6 +282,7 @@ private[apiserver] object ApiPackageManagementService {
     new ApiPackageManagementService(
       readBackend,
       transactionsService,
+      packageMetadataStore,
       writeBackend,
       managementServiceTimeout,
       engine,

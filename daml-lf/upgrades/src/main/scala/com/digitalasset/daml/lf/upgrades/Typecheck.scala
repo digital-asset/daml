@@ -9,21 +9,21 @@ import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
 
-case class Upgrading[A](past: A, present: A) {
+final case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
   def fold[B](f: (A, A) => B): B = f(past, present)
-  def zip[B, C](that: Upgrading[B], f: (A, B) => C) =
+  def zip[B, C](that: Upgrading[B], f: (A, B) => C): Upgrading[C] =
     Upgrading(f(this.past, that.past), f(this.present, that.present))
 }
 
-case class UpgradeError(message: String) extends Throwable(message)
+final case class UpgradeError(message: String) extends Throwable(message)
 
 sealed abstract class UpgradedRecordOrigin
 
 final case class TemplateBody(template: Ref.DottedName) extends UpgradedRecordOrigin
 final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.ChoiceName)
     extends UpgradedRecordOrigin
-final case object TopLevel extends UpgradedRecordOrigin
+case object TopLevel extends UpgradedRecordOrigin
 
 object Typecheck {
   def typecheckUpgrades(
@@ -33,14 +33,14 @@ object Typecheck {
     mbPast match {
       case None => Failure(UpgradeError("CouldNotResolveUpgradedPackageId"));
       case Some(past) => {
-        val tc = this(Upgrading(past, present))
+        val tc = Typecheck(Upgrading(past, present))
         tc.check()
       }
     }
   }
 }
 
-case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+final case class Typecheck(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
   lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
   lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 
