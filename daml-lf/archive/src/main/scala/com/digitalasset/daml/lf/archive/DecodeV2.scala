@@ -316,13 +316,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
       }
 
-      if (versionIsOlderThan(LV.Features.basicInterfaces)) {
-        assertEmpty(lfModule.getInterfacesList, "Module.interfaces")
-      } else {
-        lfModule.getInterfacesList.asScala.foreach { defn =>
-          val defName = getInternedDottedName(defn.getTyconInternedDname)
-          interfaces += (defName -> runWork(decodeDefInterface(defName, defn)))
-        }
+      lfModule.getInterfacesList.asScala.foreach { defn =>
+        val defName = getInternedDottedName(defn.getTyconInternedDname)
+        interfaces += (defName -> runWork(decodeDefInterface(defName, defn)))
       }
 
       Module.build(
@@ -614,8 +610,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Work[Template] = {
       val lfImplements = lfTempl.getImplementsList.asScala
-      if (versionIsOlderThan(LV.Features.basicInterfaces))
-        assertEmpty(lfImplements, "DefTemplate.implements")
       val paramName = handleInternedName(
         lfTempl.getParamCase,
         PLF.DefTemplate.ParamCase.PARAM_INTERNED_STR,
@@ -777,7 +771,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                   DefInterface.build(
                     requires =
                       if (lfInterface.getRequiresCount != 0) {
-                        assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
                         lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
                       } else
                         List.empty,
@@ -1285,7 +1278,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.to_interface")
           val toInterface = lfExpr.getToInterface
           val interfaceId = decodeTypeConName(toInterface.getInterfaceType)
           val templateId = decodeTypeConName(toInterface.getTemplateType)
@@ -1294,7 +1286,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_interface")
           val fromInterface = lfExpr.getFromInterface
           val interfaceId = decodeTypeConName(fromInterface.getInterfaceType)
           val templateId = decodeTypeConName(fromInterface.getTemplateType)
@@ -1303,7 +1294,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
           val interfaceId = decodeTypeConName(callInterface.getInterfaceType)
           val methodName =
@@ -1313,7 +1303,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.signatory_interface")
           val signatoryInterface = lfExpr.getSignatoryInterface
           val ifaceId = decodeTypeConName(signatoryInterface.getInterface)
           decodeExpr(signatoryInterface.getExpr, definition) { body =>
@@ -1321,7 +1310,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.observer_interface")
           val observerInterface = lfExpr.getObserverInterface
           decodeExpr(observerInterface.getExpr, definition) { body =>
             Ret(
@@ -1330,7 +1318,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           val interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType)
           val templateId = decodeTypeConName(unsafeFromInterface.getTemplateType)
@@ -1341,7 +1328,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.to_required_interface")
           val toRequiredInterface = lfExpr.getToRequiredInterface
           val requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface)
           val requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface)
@@ -1350,7 +1336,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
           val fromRequiredInterface = lfExpr.getFromRequiredInterface
           decodeExpr(fromRequiredInterface.getExpr, definition) { body =>
             Ret(
@@ -1363,7 +1348,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
           val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
           val requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface)
           val requiringIfaceId =
@@ -1382,7 +1366,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
-          assertSince(LV.Features.basicInterfaces, "Expr.interface_template_type_rep")
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
           val ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface)
           decodeExpr(interfaceTemplateTypeRep.getExpr, definition) { body =>
@@ -1393,7 +1376,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
         case PLF.Expr.SumCase.VIEW_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "Expr.view_interface")
           val viewInterface = lfExpr.getViewInterface
           val ifaceId = decodeTypeConName(viewInterface.getInterface)
           decodeExpr(viewInterface.getExpr, definition) { expr =>
@@ -1598,7 +1580,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
@@ -1651,7 +1632,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.FETCH_INTERFACE =>
-          assertSince(LV.Features.basicInterfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface
           decodeExpr(fetch.getCid, definition) { contractId =>
             Ret(
