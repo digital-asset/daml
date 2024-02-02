@@ -236,7 +236,7 @@ checkTemplate module_ template = do
            Upgrading { _past = Just pastKey, _present = Nothing } ->
                throwWithContextF present $ EUpgradeError $ TemplateRemovedKey (NM.name (_present template)) pastKey
            Upgrading { _past = Nothing, _present = Just presentKey } ->
-               warnWithContextF present $ WTemplateAddedKeyDefinition (NM.name (_present template)) presentKey
+               throwWithContextF present $ EUpgradeError $ TemplateAddedKey (NM.name (_present template)) presentKey
 
     -- TODO: Check that return type of a choice is compatible
     pure ()
