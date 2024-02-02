@@ -1,0 +1,7 @@
+module Main where
+template A with
+    p : Party
+    existing1 : Int
+    existing2 : Int
+    new : Optional Int
+  where signatory p

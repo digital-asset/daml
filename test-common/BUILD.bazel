@@ -132,6 +132,22 @@ da_scala_dar_resources_library(
         "RecordFieldsNewNonOptional",
         "TemplateChangedKeyType",
         "ValidUpgrade",
+
+        # Ported from DamlcUpgrades.hs
+        "FailsWhenExistingFieldInTemplateChoiceIsChanged",
+        "FailsWhenExistingFieldInTemplateIsChanged",
+        "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType",
+        "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType",
+        "FailsWhenOldFieldIsDeletedFromTemplate",
+        "FailsWhenOldFieldIsDeletedFromTemplateChoice",
+        "FailsWhenTemplateAddsKeyType",
+        "FailsWhenTemplateChangesKeyType",
+        "FailsWhenTemplateChoiceChangesItsReturnType",
+        "FailsWhenTemplateRemovesKeyType",
+        "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate",
+        "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice",
+        "SucceedsWhenTemplateChoiceInputArgumentHasChanged",
+        "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged",
     ]
 ]
 

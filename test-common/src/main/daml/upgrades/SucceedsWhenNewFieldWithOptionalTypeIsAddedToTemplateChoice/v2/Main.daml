@@ -1,0 +1,12 @@
+module Main where
+template A with
+    p : Party
+  where
+    signatory p
+    choice C : ()
+      with
+        existing1 : Int
+        existing2 : Int
+        new : Optional Int
+      controller p
+      do pure ()

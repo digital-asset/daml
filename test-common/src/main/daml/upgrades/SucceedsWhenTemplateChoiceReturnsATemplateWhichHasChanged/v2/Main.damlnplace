@@ -1,0 +1,9 @@
+module MyLib where
+template A with
+    p : Party
+    q : Optional Party
+  where
+    signatory p
+    choice C : A
+      controller p
+      do pure (A p (Just p))

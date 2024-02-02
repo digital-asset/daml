@@ -1,0 +1,8 @@
+module MyLib where
+template A with
+    p : Party
+    q : Party
+  where
+    signatory p
+    key (p, "text") : (Party, Text)
+    maintainer (fst key)

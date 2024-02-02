@@ -163,5 +163,105 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         ),
       )
     }
+
+    // Ported from DamlcUpgrades.hs
+    "Fails when template changes key type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
+        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
+        Some("The upgraded template A cannot change its key type.")
+      )
+    }
+    "Fails when template removes key type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
+        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
+        Some("The upgraded template A cannot remove its key.")
+      )
+    }
+    "Fails when template adds key type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
+        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
+        Some("The upgraded template A cannot add a key.")
+      )
+    }
+    "Fails when new field is added to template without Optional type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
+        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
+        Some("The upgraded template A has added new fields, but those fields are not Optional.")
+      )
+    }
+    "Fails when old field is deleted from template" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
+        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
+        Some("The upgraded template A is missing some of its original fields.")
+      )
+    }
+    "Fails when existing field in template is changed" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+        Some("The upgraded template A has changed the types of some of its original fields.")
+      )
+    }
+    "Succeeds when new field with optional type is added to template" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
+        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
+        None
+      )
+    }
+    "Fails when new field is added to template choice without Optional type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
+        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
+        Some("The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
+      )
+    }
+    "Fails when old field is deleted from template choice" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
+        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
+        Some("The upgraded input type of choice C on template A is missing some of its original fields.")
+      )
+    }
+    "Fails when existing field in template choice is changed" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
+        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
+        Some("The upgraded input type of choice C on template A has changed the types of some of its original fields.")
+      )
+    }
+    "Fails when template choice changes its return type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
+        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
+        Some("The upgraded choice C cannot change its return type.")
+      )
+    }
+    "Succeeds when template choice returns a template which has changed" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
+        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
+        None
+      )
+    }
+    "Succeeds when template choice input argument has changed" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
+        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+        None
+      )
+    }
+    "Succeeds when new field with optional type is added to template choice" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
+        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
+        None
+      )
+    }
   }
 }
