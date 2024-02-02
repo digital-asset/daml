@@ -45,9 +45,6 @@ rules_haskell_patches = [
 ]
 rules_nixpkgs_version = "9f08fb2322050991dead17c8d10d453650cf92b7"
 rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7a0eeccb9"
-rules_nixpkgs_patches = [
-]
-
 buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
 buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
 zlib_version = "1.2.11"
@@ -120,8 +117,6 @@ def daml_deps():
             strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = rules_nixpkgs_patches,
-            patch_args = ["-p1"],
         )
 
         http_archive(
@@ -129,8 +124,6 @@ def daml_deps():
             strip_prefix = strip_prefix + "/core",
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = rules_nixpkgs_patches,
-            patch_args = ["-p2"],
         )
 
         for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
