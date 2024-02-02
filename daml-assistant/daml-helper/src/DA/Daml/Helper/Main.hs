@@ -67,7 +67,7 @@ data Command
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
-    | LedgerReset {flags :: LedgerFlags}
+    -- | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
@@ -251,9 +251,9 @@ commandParser = subparser $ fold
             [ command "allocate-party" $ info
                 (ledgerAllocatePartyCmd <**> helper)
                 (progDesc "Allocate a single party on ledger if it doesn't exist")
-            , command "reset" $ info
-                (ledgerResetCmd <**> helper)
-                (progDesc "Archive all currently active contracts.")
+            -- , command "reset" $ info
+            --     (ledgerResetCmd <**> helper)
+            --     (progDesc "Archive all currently active contracts.")
             , command "export" $ info
                 (ledgerExportCmd <**> helper)
                 (forwardOptions <> progDesc "Export ledger state.")
@@ -306,8 +306,8 @@ commandParser = subparser $ fold
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
-    ledgerResetCmd = LedgerReset
-        <$> ledgerFlags
+    -- ledgerResetCmd = LedgerReset
+    --     <$> ledgerFlags
 
     ledgerExportCmd = subparser $
         command "script" (info scriptOptions (progDesc "Export ledger state in Daml script format" <> forwardOptions))
@@ -504,7 +504,7 @@ runCommand = \case
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> withSdkVersions $ runLedgerFetchDar flags pid saveAs
-    LedgerReset {..} -> runLedgerReset flags
+    -- LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
     LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
