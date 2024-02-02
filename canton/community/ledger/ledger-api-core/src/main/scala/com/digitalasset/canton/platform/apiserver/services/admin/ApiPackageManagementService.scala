@@ -205,7 +205,10 @@ private[apiserver] final class ApiPackageManagementService private (
               Future.failed(err)
           }
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
+          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar).recoverWith {
+            case UpgradeError("CouldNotResolveUpgradedPackageId") =>
+              Future.unit
+          }
           optMinimalDar <- minimalVersionedDar(upgradingDar.main)
           _ <- typecheckUpgrades(optUpgradingDar, optMinimalDar)
         } yield ()
