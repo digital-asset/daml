@@ -166,9 +166,7 @@ object Value {
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      packageName: Option[Ref.PackageName] = None,
+      packageName: Option[Ref.PackageName],
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ContractInstance] {
@@ -200,9 +198,7 @@ object Value {
 
   object VersionedContractInstance {
     def apply(
-        // TODO: https://github.com/digital-asset/daml/issues/17
-        //  remove default value once canton handle it.
-        packageName: Option[Ref.PackageName] = None,
+        packageName: Option[Ref.PackageName],
         template: Identifier,
         arg: VersionedValue,
     ): VersionedContractInstance =
