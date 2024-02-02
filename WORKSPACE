@@ -715,8 +715,6 @@ node_repositories(
     # invalidated despite a change of an original source. To avoid such issues
     # we use the `nixpkgs_package` directly.
     node_version = "16.13.0",
-    package_json = ["//:package.json"],
-    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
 # TODO use fine-grained managed dependency
@@ -726,6 +724,7 @@ yarn_install(
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
+    node_repository = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
 # We’ve had a bunch of problems with typescript rules on Windows.
