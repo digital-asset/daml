@@ -204,10 +204,10 @@ private[apiserver] final class ApiPackageManagementService private (
               logger.info(s"Typechecking upgrades failed with unknown error.")
               Future.failed(err)
           }
-          maximalDar <- maximalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(maximalDar, optUpgradingDar)
-          minimalDar <- minimalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(optUpgradingDar, minimalDar)
+          optMaximalDar <- maximalVersionedDar(upgradingDar.main)
+          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
+          optMinimalDar <- minimalVersionedDar(upgradingDar.main)
+          _ <- typecheckUpgrades(optUpgradingDar, optMinimalDar)
         } yield ()
 
       case None =>
