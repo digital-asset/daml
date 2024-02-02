@@ -82,11 +82,11 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_ledger_ledger-api-core",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
