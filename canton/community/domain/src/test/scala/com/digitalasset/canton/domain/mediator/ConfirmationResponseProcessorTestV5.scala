@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
@@ -73,6 +74,10 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
     ),
     threshold = PositiveInt.tryCreate(2),
   )
+
+  protected val sequencer = SequencerId(UniqueIdentifier.tryCreate("sequencer", "one"))
+
+  protected val sequencerGroup = SequencerGroup(active = Seq(sequencer), Seq.empty, PositiveInt.one)
 
   protected def mediatorId: MediatorId
   protected def mediatorRef: MediatorRef
@@ -188,7 +193,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
   }
 
   private lazy val domainSyncCryptoApi2: DomainSyncCryptoClient =
-    identityFactory2.forOwnerAndDomain(SequencerId(domainId), domainId)
+    identityFactory2.forOwnerAndDomain(sequencer, domainId)
 
   def signedResponse(
       confirmers: Set[LfPartyId],
@@ -376,9 +381,9 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
             override val informeesAndThresholdByViewPosition
                 : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-              val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
-              val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
-              val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
+              val submitterI = Informee.create(submitter, NonNegativeInt.one)
+              val signatoryI = Informee.create(signatory, NonNegativeInt.one)
+              val observerI = Informee.create(observer, NonNegativeInt.one)
               Map(
                 ViewPosition.root -> (Set(
                   submitterI,
@@ -703,12 +708,18 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           SerializedRootHashMessagePayload.empty,
         )
         val mockTopologySnapshot = mock[TopologySnapshot]
-        when(mockTopologySnapshot.canConfirm(any[ParticipantId], any[LfPartyId], any[TrustLevel]))
-          .thenReturn(Future.successful(true))
-        when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-          (parties: Set[LfPartyId]) =>
+        when(
+          mockTopologySnapshot.canConfirm(any[ParticipantId], any[Set[LfPartyId]])(
+            anyTraceContext
+          )
+        )
+          .thenAnswer { (participant: ParticipantId, parties: Set[LfPartyId]) =>
+            Future.successful(parties)
+          }
+        when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
+          .thenAnswer { (parties: Set[LfPartyId]) =>
             Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
-        }
+          }
 
         for {
           _ <- sut.processor.processRequest(
@@ -802,7 +813,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                   ),
                 view1Position ->
                   ResponseAggregation.ViewState(
-                    Set(ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary)),
+                    Set(ConfirmingParty(signatory, PositiveInt.one)),
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
                         Set(ExampleTransactionFactory.submittingParticipant)
@@ -814,14 +825,14 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
                   ),
                 view10Position ->
                   ResponseAggregation.ViewState(
-                    Set(ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary)),
+                    Set(ConfirmingParty(signatory, PositiveInt.one)),
                     Map(signatory -> ConsortiumVotingState()),
                     1,
                     Nil,
                   ),
                 view11Position ->
                   ResponseAggregation.ViewState(
-                    Set(ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary)),
+                    Set(ConfirmingParty(signatory, PositiveInt.one)),
                     Map(
                       submitter -> ConsortiumVotingState(approvals =
                         Set(ExampleTransactionFactory.submittingParticipant)
@@ -890,9 +901,9 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
           new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
             override val informeesAndThresholdByViewPosition
                 : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
-              val submitterI = Informee.create(submitter, NonNegativeInt.one, TrustLevel.Ordinary)
-              val signatoryI = Informee.create(signatory, NonNegativeInt.one, TrustLevel.Ordinary)
-              val observerI = Informee.create(observer, NonNegativeInt.one, TrustLevel.Ordinary)
+              val submitterI = Informee.create(submitter, NonNegativeInt.one)
+              val signatoryI = Informee.create(signatory, NonNegativeInt.one)
+              val observerI = Informee.create(observer, NonNegativeInt.one)
               Map(
                 view0Position -> (Set(
                   submitterI,
@@ -1188,12 +1199,13 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
 class ConfirmationResponseProcessorTestV5
     extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.v30) {
 
-  override lazy val mediatorId: MediatorId = MediatorId(
-    UniqueIdentifier.tryCreate("mediator", "one")
-  )
-  override lazy val mediatorRef: MediatorRef = MediatorRef(mediatorId)
+  override lazy val mediatorId: MediatorId = activeMediator2
+  override lazy val mediatorRef: MediatorRef = MediatorRef(mediatorGroup)
 
-  lazy val topology: TestingTopology = TestingTopology(
+  private def mediatorGroup0(mediators: MediatorId*) =
+    MediatorGroup(MediatorGroupIndex.zero, mediators, Seq.empty, PositiveInt.one)
+
+  lazy val topology: TestingTopologyX = TestingTopologyX(
     Set(domainId),
     Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -1202,9 +1214,10 @@ class ConfirmationResponseProcessorTestV5
       observer ->
         Map(participant -> ParticipantPermission.Observation),
     ),
-    Set(mediatorId),
+    Set(mediatorGroup),
+    sequencerGroup,
   )
-  override lazy val identityFactory: TestingIdentityFactoryBase = TestingIdentityFactory(
+  override lazy val identityFactory: TestingIdentityFactoryBase = TestingIdentityFactoryX(
     topology,
     loggerFactory,
     dynamicDomainParameters =
@@ -1212,22 +1225,23 @@ class ConfirmationResponseProcessorTestV5
   )
 
   override lazy val identityFactory2: TestingIdentityFactoryBase = {
-    val topology2 = TestingTopology(
+    val topology2 = TestingTopologyX(
       Set(domainId),
       Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
         signatory -> Map(participant2 -> ParticipantPermission.Confirmation),
         observer -> Map(participant3 -> ParticipantPermission.Confirmation),
       ),
-      Set(mediatorId),
+      Set(mediatorGroup),
+      sequencerGroup,
     )
-    TestingIdentityFactory(topology2, loggerFactory, initialDomainParameters)
+    TestingIdentityFactoryX(topology2, loggerFactory, initialDomainParameters)
   }
 
   lazy val identityFactory3: TestingIdentityFactoryBase = {
     val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
-    val topology3 = topology.copy(mediators = Set(otherMediatorId))
-    TestingIdentityFactory(
+    val topology3 = topology.copy(mediatorGroups = Set(mediatorGroup0(otherMediatorId)))
+    TestingIdentityFactoryX(
       topology3,
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
@@ -1235,13 +1249,14 @@ class ConfirmationResponseProcessorTestV5
   }
 
   override lazy val identityFactoryOnlySubmitter: TestingIdentityFactoryBase =
-    TestingIdentityFactory(
-      TestingTopology(
+    TestingIdentityFactoryX(
+      TestingTopologyX(
         Set(domainId),
         Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
-        Set(mediatorId),
+        Set(mediatorGroup0(mediatorId)),
+        sequencerGroup,
       ),
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
@@ -1310,61 +1325,5 @@ class ConfirmationResponseProcessorTestV5
         succeed
       }
     }
-  }
-}
-
-class ConfirmationResponseProcessorTestV5X
-    extends ConfirmationResponseProcessorTestV5Base(ProtocolVersion.v30) {
-  override lazy val mediatorRef: MediatorRef = MediatorRef(mediatorGroup)
-  override lazy val mediatorId: MediatorId = activeMediator2
-
-  override lazy val factory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(domainId = domainId, mediatorRef = mediatorRef)
-
-  override lazy val identityFactory: TestingIdentityFactoryBase = {
-    val topology = TestingTopologyX(
-      Set(domainId),
-      Map(
-        submitter -> Map(participant -> ParticipantPermission.Confirmation),
-        signatory ->
-          Map(participant -> ParticipantPermission.Confirmation),
-        observer ->
-          Map(participant -> ParticipantPermission.Observation),
-      ),
-      Set(mediatorGroup),
-    )
-    TestingIdentityFactoryX(
-      topology,
-      loggerFactory,
-      dynamicDomainParameters =
-        initialDomainParameters.tryUpdate(participantResponseTimeout = participantResponseTimeout),
-    )
-  }
-
-  override lazy val identityFactory2: TestingIdentityFactoryBase = {
-    val topology2 = TestingTopologyX(
-      Set(domainId),
-      Map(
-        submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
-        signatory -> Map(participant2 -> ParticipantPermission.Confirmation),
-        observer -> Map(participant3 -> ParticipantPermission.Confirmation),
-      ),
-      Set(mediatorGroup),
-    )
-    TestingIdentityFactoryX(topology2, loggerFactory, initialDomainParameters)
-  }
-
-  override lazy val identityFactoryOnlySubmitter: TestingIdentityFactoryBase = {
-    TestingIdentityFactoryX(
-      TestingTopologyX(
-        Set(domainId),
-        Map(
-          submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
-        ),
-        Set(mediatorGroup),
-      ),
-      loggerFactory,
-      dynamicDomainParameters = initialDomainParameters,
-    )
   }
 }

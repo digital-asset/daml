@@ -620,7 +620,7 @@ trait TopologyStoreTest
 
         "namespace filter behaves correctly" in {
           val store = mk()
-          import factory.SigningKeys.*
+          import factory.SigningKeys.{ec as _, *}
           val ns2k3 =
             factory.mkAdd(
               NamespaceDelegation(Namespace(key2.fingerprint), key2, isRootDelegation = true),
@@ -750,7 +750,7 @@ trait TopologyStoreTest
 
         "state query combines uid and ns queries correctly" in {
           val store = mk()
-          import factory.SigningKeys.*
+          import factory.SigningKeys.{ec as _, *}
           val ns1 = Namespace(key1.fingerprint)
           val ns2 = Namespace(key2.fingerprint)
           val ns3 = Namespace(key3.fingerprint)
@@ -831,7 +831,6 @@ trait TopologyStoreTest
               domainId,
               participant1,
               ParticipantPermission.Submission,
-              TrustLevel.Ordinary,
             )
           )
 

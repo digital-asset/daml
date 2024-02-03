@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.{FullTransactionViewTree, ViewPosition}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -22,7 +23,7 @@ class AuthorizationValidator(participantId: ParticipantId, enableContractUpgradi
       requestId: RequestId,
       rootViews: NonEmpty[Seq[FullTransactionViewTree]],
       snapshot: TopologySnapshot,
-  ): Future[Map[ViewPosition, String]] =
+  )(implicit traceContext: TraceContext): Future[Map[ViewPosition, String]] =
     rootViews.forgetNE
       .parTraverseFilter { rootView =>
         val authorizers =
@@ -61,19 +62,14 @@ class AuthorizationValidator(participantId: ParticipantId, enableContractUpgradi
             }
           case None =>
             // The submitter metadata is blinded -> rootView is not a top-level view
-
-            for {
-              hostedAuthorizers <- authorizers.toSeq.parTraverseFilter { authorizer =>
-                for {
-                  attributesO <- snapshot.hostedOn(authorizer, participantId)
-                } yield attributesO.map(_ => authorizer)
-              }
-            } yield {
+            snapshot.hostedOn(authorizers, participantId).map { hostedAuthorizers =>
               // If this participant hosts an authorizer, it should also have received the parent view.
               // As rootView is not a top-level (submitter metadata is blinded), there is a gap in the authorization chain.
 
               Option.when(hostedAuthorizers.nonEmpty)(
-                err(show"Missing authorization for $hostedAuthorizers, ${rootView.viewPosition}.")
+                err(
+                  show"Missing authorization for ${hostedAuthorizers.keys.toSeq.sorted}, ${rootView.viewPosition}."
+                )
               )
             }
         }

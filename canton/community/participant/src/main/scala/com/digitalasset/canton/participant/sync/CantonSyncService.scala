@@ -1581,14 +1581,19 @@ class CantonSyncService(
       .collect { case (domainAlias, (domainId, true)) =>
         for {
           topology <- getSnapshot(domainAlias, domainId)
-          attributesO <- topology.hostedOn(request.party, participantId = participantId)
-        } yield attributesO.map(attributes =>
-          ConnectedDomainResponse.ConnectedDomain(
-            domainAlias,
-            domainId,
-            attributes.permission,
+          partyWithAttributes <- topology.hostedOn(
+            Set(request.party),
+            participantId = participantId,
           )
-        )
+        } yield partyWithAttributes
+          .get(request.party)
+          .map(attributes =>
+            ConnectedDomainResponse.ConnectedDomain(
+              domainAlias,
+              domainId,
+              attributes.permission,
+            )
+          )
       }.toSeq
 
     Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)

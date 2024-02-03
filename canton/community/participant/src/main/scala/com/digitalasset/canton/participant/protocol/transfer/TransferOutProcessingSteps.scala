@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.*
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
@@ -485,11 +484,10 @@ class TransferOutProcessingSteps(
         transferCoordination.addTransferOutRequest(transferData).mapK(FutureUnlessShutdown.outcomeK)
       }
       confirmingStakeholders <- EitherT.right(
-        contract.metadata.stakeholders.toList.parTraverseFilter(stakeholder =>
-          FutureUnlessShutdown.outcomeF(
-            sourceSnapshot.ipsSnapshot
-              .canConfirm(participantId, stakeholder)
-              .map(Option.when(_)(stakeholder))
+        FutureUnlessShutdown.outcomeF(
+          sourceSnapshot.ipsSnapshot.canConfirm(
+            participantId,
+            contract.metadata.stakeholders,
           )
         )
       )
@@ -499,7 +497,7 @@ class TransferOutProcessingSteps(
         activenessResult,
         contract.contractId,
         fullTree.transferCounter,
-        confirmingStakeholders.toSet,
+        confirmingStakeholders,
         fullTree.tree.rootHash,
       )
     } yield StorePendingDataAndSendResponseAndCreateTimeout(

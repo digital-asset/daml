@@ -581,14 +581,12 @@ class SyncDomain(
       Ordering[CantonTimestamp].min(cleanReplayTs, sequencerCounterPreheadTs)
     }
 
-    def waitForParticipantToBeInTopology(
+    def waitForParticipantToBeInTopology(implicit
         initializationTraceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
       EitherT(
         domainHandle.topologyClient
-          .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)(
-            initializationTraceContext
-          )
+          .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
           .map(isActive =>
             if (isActive) Right(())
             else

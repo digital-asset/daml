@@ -41,15 +41,9 @@ class ConfirmationResponseFactory(
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
     ): Future[Set[LfPartyId]] = {
-      viewValidationResult.view.viewCommonData.informees.toList
-        .parTraverseFilter {
-          case ConfirmingParty(party, _, requiredTrustLevel) =>
-            topologySnapshot
-              .canConfirm(participantId, party, requiredTrustLevel)
-              .map(if (_) Some(party) else None)
-          case _ => Future.successful(None)
-        }
-        .map(_.toSet)
+      val confirmingParties = viewValidationResult.view.viewCommonData.informees
+        .collect { case cp: ConfirmingParty => cp.party }
+      topologySnapshot.canConfirm(participantId, confirmingParties)
     }
 
     def verdictsForView(

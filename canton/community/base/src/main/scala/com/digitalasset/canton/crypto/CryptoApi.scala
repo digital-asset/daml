@@ -148,13 +148,13 @@ trait SyncCryptoApi {
       hash: Hash,
       signer: Member,
       signature: Signature,
-  ): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
 
   def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
-  ): EitherT[Future, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
 
   /** Verifies a list of `signatures` to be produced by active members of a `mediatorGroup`,
     * counting each member's signature only once.
@@ -168,15 +168,17 @@ trait SyncCryptoApi {
       signatures: NonEmpty[Seq[Signature]],
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
 
-  /** Encrypts a message for the given member
+  /** Encrypts a message for the given members
     *
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
     * most suitable key for the respective key owner.
     */
-  def encryptFor[M <: HasVersionedToByteString](
+  def encryptFor[M <: HasVersionedToByteString, MemberType <: Member](
       message: M,
-      member: Member,
+      members: Seq[MemberType],
       version: ProtocolVersion,
-  ): EitherT[Future, SyncCryptoError, AsymmetricEncrypted[M]]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, (MemberType, SyncCryptoError), Map[MemberType, AsymmetricEncrypted[M]]]
 }
 // architecture-handbook-entry-end: SyncCryptoApi

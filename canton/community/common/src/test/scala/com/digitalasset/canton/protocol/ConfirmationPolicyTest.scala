@@ -3,18 +3,16 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.value.Value
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{ConfirmingParty, PlainInformee}
-import com.digitalasset.canton.protocol.ConfirmationPolicy.{Signatory, Vip}
+import com.digitalasset.canton.protocol.ConfirmationPolicy.Signatory
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   signatoryParticipant,
   submittingParticipant,
-  templateId,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
-import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, TrustLevel}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -22,7 +20,7 @@ import scala.concurrent.Future
 
 class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private lazy val gen = new ExampleTransactionFactory()(confirmationPolicy = Vip)
+  private lazy val gen = new ExampleTransactionFactory()(confirmationPolicy = Signatory)
 
   private lazy val alice: LfPartyId = LfPartyId.assertFromString("alice")
   private lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
@@ -37,17 +35,23 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           .SingleExerciseWithNonstakeholderActor(ExampleTransactionFactory.lfHash(0))
           .versionedUnsuffixedTransaction
 
-        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
-          .thenAnswer[LfPartyId] {
-            case ExampleTransactionFactory.signatory =>
-              Future.successful(
+        when(
+          topologySnapshot.activeParticipantsOfPartiesWithAttributes(any[Seq[LfPartyId]])(
+            anyTraceContext
+          )
+        )
+          .thenAnswer[Seq[LfPartyId]] { parties =>
+            Future.successful(parties.map {
+              case ExampleTransactionFactory.signatory =>
                 // Give the signatory Observation permission, which shouldn't be enough to get a valid confirmation policy
-                Map(signatoryParticipant -> ParticipantAttributes(Observation, TrustLevel.Ordinary))
-              )
-            case _ =>
-              Future.successful(
-                Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-              )
+                ExampleTransactionFactory.signatory -> Map(
+                  signatoryParticipant -> ParticipantAttributes(Observation)
+                )
+              case otherParty =>
+                otherParty -> Map(
+                  submittingParticipant -> ParticipantAttributes(Submission)
+                )
+            }.toMap)
           }
 
         val policies = ConfirmationPolicy
@@ -65,10 +69,20 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           .SingleExerciseWithoutConfirmingParties(ExampleTransactionFactory.lfHash(0))
           .versionedUnsuffixedTransaction
 
-        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
-          .thenReturn(
+        when(
+          topologySnapshot.activeParticipantsOfPartiesWithAttributes(any[Seq[LfPartyId]])(
+            anyTraceContext
+          )
+        )
+          .thenAnswer[Seq[LfPartyId]](parties =>
             Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              parties
+                .map(
+                  _ -> Map(
+                    submittingParticipant -> ParticipantAttributes(Submission)
+                  )
+                )
+                .toMap
             )
           )
 
@@ -80,29 +94,23 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
       }
     }
 
-    "all views have at least one Vip participant" should {
-      "favor the VIP policy" in {
-        val topologySnapshot = mock[TopologySnapshot]
-        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
-            )
-          )
-        val policies = gen.standardHappyCases
-          .map(_.versionedUnsuffixedTransaction)
-          .map(ConfirmationPolicy.choose(_, topologySnapshot).futureValue)
-        assert(policies.forall(_.headOption === Some(Vip)))
-      }
-    }
-
     "some views have no VIP participant" should {
       "fall back to Signatory policy" in {
         val topologySnapshot = mock[TopologySnapshot]
-        when(topologySnapshot.activeParticipantsOf(any[LfPartyId]))
-          .thenReturn(
+        when(
+          topologySnapshot.activeParticipantsOfPartiesWithAttributes(any[Seq[LfPartyId]])(
+            anyTraceContext
+          )
+        )
+          .thenAnswer[Seq[LfPartyId]](parties =>
             Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
+              parties
+                .map(
+                  _ -> Map(
+                    submittingParticipant -> ParticipantAttributes(Submission)
+                  )
+                )
+                .toMap
             )
           )
         val policies = gen.standardHappyCases
@@ -118,24 +126,31 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
     "a view's VIPs are not stakeholders" should {
       "fall back to Signatory policy" in {
         val topologySnapshot = mock[TopologySnapshot]
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
-          .thenReturn(
+        when(
+          topologySnapshot.activeParticipantsOfPartiesWithAttributes(any[Seq[LfPartyId]])(
+            anyTraceContext
+          )
+        )
+          .thenAnswer[Seq[LfPartyId]](parties =>
             Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
+              parties.map {
+                case ExampleTransactionFactory.submitter =>
+                  ExampleTransactionFactory.submitter -> Map(
+                    submittingParticipant -> ParticipantAttributes(Submission)
+                  )
+                case ExampleTransactionFactory.signatory =>
+                  ExampleTransactionFactory.signatory -> Map(
+                    signatoryParticipant -> ParticipantAttributes(Submission)
+                  )
+                case ExampleTransactionFactory.observer =>
+                  ExampleTransactionFactory.observer -> Map(
+                    submittingParticipant -> ParticipantAttributes(Submission)
+                  )
+                case otherwise => sys.error(s"unexpected party: $otherwise")
+              }.toMap
             )
           )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
-          .thenReturn(
-            Future.successful(
-              Map(signatoryParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-            )
-          )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-            )
-          )
+
         val policies = ConfirmationPolicy
           .choose(
             gen
@@ -147,74 +162,6 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         assert(policies == Seq(Signatory))
       }
     }
-
-    val txCreateWithKey = gen
-      .SingleCreate(
-        seed = gen.deriveNodeSeed(0),
-        signatories = Set(ExampleTransactionFactory.signatory),
-        observers = Set(ExampleTransactionFactory.submitter, ExampleTransactionFactory.observer),
-        key = Some(
-          LfGlobalKeyWithMaintainers.assertBuild(
-            templateId,
-            Value.ValueUnit,
-            Set(ExampleTransactionFactory.signatory),
-            shared = true,
-          )
-        ),
-      )
-      .versionedUnsuffixedTransaction
-
-    "a view's VIPs are not key maintainers" should {
-      "fall back to Signatory policy" in {
-        val topologySnapshot = mock[TopologySnapshot]
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
-            )
-          )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
-          .thenReturn(
-            Future.successful(
-              Map(signatoryParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-            )
-          )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-            )
-          )
-        val policies = ConfirmationPolicy.choose(txCreateWithKey, topologySnapshot).futureValue
-        assert(policies == Seq(Signatory))
-      }
-    }
-
-    "only some VIPs of a view are key maintainers" should {
-      "favor the VIP policy" in {
-        val topologySnapshot = mock[TopologySnapshot]
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.submitter)))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
-            )
-          )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.signatory)))
-          .thenReturn(
-            Future.successful(
-              Map(signatoryParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip))
-            )
-          )
-        when(topologySnapshot.activeParticipantsOf(eqTo(ExampleTransactionFactory.observer)))
-          .thenReturn(
-            Future.successful(
-              Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Ordinary))
-            )
-          )
-        val policies = ConfirmationPolicy.choose(txCreateWithKey, topologySnapshot).futureValue
-        assert(policies == Seq(Vip, Signatory))
-      }
-    }
   }
 
   "The signatory policy" when {
@@ -222,8 +169,8 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
       "correctly update informees and thresholds" in {
         val oldInformees = Set(
           PlainInformee(alice),
-          ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
-          ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
+          ConfirmingParty(bob, PositiveInt.one),
+          ConfirmingParty(charlie, PositiveInt.one),
         )
         val oldThreshold = NonNegativeInt.tryCreate(2)
 
@@ -234,9 +181,9 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(alice))(oldInformees, oldThreshold) shouldBe
           Set(
-            ConfirmingParty(alice, PositiveInt.one, TrustLevel.Ordinary),
-            ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
+            ConfirmingParty(alice, PositiveInt.one),
+            ConfirmingParty(bob, PositiveInt.one),
+            ConfirmingParty(charlie, PositiveInt.one),
           ) -> NonNegativeInt.tryCreate(3)
 
         ConfirmationPolicy.Signatory
@@ -249,46 +196,8 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
 
         ConfirmationPolicy.Signatory
           .withSubmittingAdminParty(Some(david))(oldInformees, oldThreshold) shouldBe
-          oldInformees + ConfirmingParty(david, PositiveInt.one, TrustLevel.Ordinary) ->
+          oldInformees + ConfirmingParty(david, PositiveInt.one) ->
           NonNegativeInt.tryCreate(3)
-      }
-    }
-  }
-
-  "The VIP policy" when {
-    "adding a submitting admin party" should {
-      "correctly update informees and thresholds" in {
-        val oldInformees = Set(
-          PlainInformee(alice),
-          ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
-          ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-        )
-        val oldThreshold = NonNegativeInt.one
-
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(None)(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
-
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(alice))(oldInformees, oldThreshold) shouldBe
-          Set(
-            ConfirmingParty(alice, PositiveInt.tryCreate(3), TrustLevel.Ordinary),
-            ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-          ) -> NonNegativeInt.tryCreate(4)
-
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(bob))(oldInformees, oldThreshold) shouldBe
-          Set(
-            PlainInformee(alice),
-            ConfirmingParty(bob, PositiveInt.tryCreate(4), TrustLevel.Vip),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-          ) -> NonNegativeInt.tryCreate(4)
-
-        ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(david))(oldInformees, oldThreshold) shouldBe
-          oldInformees + ConfirmingParty(david, PositiveInt.tryCreate(3), TrustLevel.Ordinary) ->
-          NonNegativeInt.tryCreate(4)
       }
     }
   }

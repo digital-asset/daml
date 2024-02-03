@@ -127,15 +127,20 @@ object EncryptedViewMessageFactory {
               for {
                 // check that that all recipients are represented in the message, in other words,
                 // that at least one of their active public keys is present in the sequence `encryptedSessionKeys`
-                checkActiveParticipantKeys <- recipients.forgetNE.toSeq
-                  .parTraverse(member =>
-                    EitherT.right[EncryptedViewMessageCreationError](
+                checkActiveParticipantKeys <-
+                  EitherT
+                    .right[EncryptedViewMessageCreationError](
                       cryptoSnapshot.ipsSnapshot
-                        .encryptionKeys(member)
-                        .map(_.exists(key => allPubKeysIdsInMessage.contains(key.id)))
+                        .encryptionKeys(recipients.forgetNE.toSeq)
+                        .map { memberToKeysMap =>
+                          recipients.map(recipient =>
+                            memberToKeysMap
+                              .getOrElse(recipient, Seq.empty)
+                              .exists(key => allPubKeysIdsInMessage.contains(key.id))
+                          )
+                        }
                     )
-                  )
-                  .map(_.forall(_ == true))
+                    .map(_.forall(_ == true))
                 // all public keys used to encrypt the session key must be present and active for each recipient
                 sessionKeyData <-
                   if (checkActiveParticipantKeys)
@@ -250,23 +255,20 @@ object EncryptedViewMessageFactory {
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
       version: ProtocolVersion,
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      tc: TraceContext,
   ): EitherT[Future, EncryptedViewMessageCreationError, Map[
     ParticipantId,
     AsymmetricEncrypted[M],
   ]] =
-    participants
-      .parTraverse { participant =>
-        cryptoSnapshot
-          .encryptFor(data, participant, version)
-          .bimap(
-            UnableToDetermineKey(
-              participant,
-              _,
-              cryptoSnapshot.domainId,
-            ): EncryptedViewMessageCreationError,
-            participant -> _,
-          )
+    cryptoSnapshot
+      .encryptFor(data, participants, version)
+      .leftMap { case (member, error) =>
+        UnableToDetermineKey(
+          member,
+          error,
+          cryptoSnapshot.domainId,
+        ): EncryptedViewMessageCreationError
       }
       .map(_.toMap)
 

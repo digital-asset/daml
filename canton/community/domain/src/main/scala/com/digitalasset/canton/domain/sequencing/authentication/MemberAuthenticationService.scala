@@ -277,7 +277,7 @@ class MemberAuthenticationServiceOld(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
       transactions.map(_.transaction.element.mapping).foreach {
-        case ParticipantState(_, _, participant, ParticipantPermission.Disabled, _) =>
+        case ParticipantState(_, _, participant, ParticipantPermission.Disabled) =>
           invalidateAndExpire(isParticipantActive)(participant)
         case _ =>
       }

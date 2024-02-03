@@ -405,17 +405,11 @@ final case class ParticipantState(
     domain: DomainId,
     participant: ParticipantId,
     permission: ParticipantPermission,
-    trustLevel: TrustLevel,
 ) extends TopologyStateUpdateMapping {
-
-  require(
-    permission.canConfirm || trustLevel == TrustLevel.Ordinary,
-    "participant trust level must either be ordinary or permission must be confirming",
-  )
   // architecture-handbook-entry-end: ParticipantState
 
   def toParticipantAttributes: ParticipantAttributes =
-    ParticipantAttributes(permission, trustLevel, None)
+    ParticipantAttributes(permission, None)
 
   def toProtoV30: v30.ParticipantState = {
     v30.ParticipantState(
@@ -423,7 +417,8 @@ final case class ParticipantState(
       domain = domain.toProtoPrimitive,
       participant = participant.uid.toProtoPrimitive,
       permission = permission.toProtoEnum,
-      trustLevel = trustLevel.toProtoEnum,
+      // this will be removed with removal of canton 2 protos
+      trustLevel = TrustLevel.Ordinary.toProtoEnum,
     )
   }
 
@@ -460,9 +455,8 @@ object ParticipantState {
       side <- RequestSide.fromProtoEnum(parsed.side)
       domain <- DomainId.fromProtoPrimitive(parsed.domain, "domain")
       permission <- ParticipantPermission.fromProtoEnum(parsed.permission)
-      trustLevel <- TrustLevel.fromProtoEnum(parsed.trustLevel)
       uid <- UniqueIdentifier.fromProtoPrimitive(parsed.participant, "participant")
-    } yield ParticipantState(side, domain, ParticipantId(uid), permission, trustLevel)
+    } yield ParticipantState(side, domain, ParticipantId(uid), permission)
 
 }
 

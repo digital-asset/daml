@@ -145,7 +145,7 @@ object DomainTopologyTransactionMessageValidator {
             .filter(_.transaction.op == TopologyChangeOp.Add)
             .map(_.transaction.element.mapping)
             .exists {
-              case ParticipantState(RequestSide.From, domain, participant, permission, _) =>
+              case ParticipantState(RequestSide.From, domain, participant, permission) =>
                 permission.isActive && domain == client.domainId && participant == member
               case _ => false
             },

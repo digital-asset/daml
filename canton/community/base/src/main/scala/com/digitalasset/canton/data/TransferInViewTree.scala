@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -132,7 +131,7 @@ final case class TransferInCommonData private (
     TransferInCommonData.protocolVersionRepresentativeFor(targetProtocolVersion.v)
 
   def confirmingParties: Set[Informee] =
-    stakeholders.map(ConfirmingParty(_, PositiveInt.one, TrustLevel.Ordinary))
+    stakeholders.map(ConfirmingParty(_, PositiveInt.one))
 
   @transient override protected lazy val companionObj: TransferInCommonData.type =
     TransferInCommonData

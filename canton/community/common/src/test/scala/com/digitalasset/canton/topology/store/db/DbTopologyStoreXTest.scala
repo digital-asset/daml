@@ -15,6 +15,10 @@ import com.digitalasset.canton.topology.store.{
 trait DbTopologyStoreXTest extends TopologyStoreXTest with DbTopologyStoreXHelper {
   this: DbTest =>
 
+  "DbPartyMetadataStore" should {
+    behave like partyMetadataStore(() => new DbPartyMetadataStore(storage, timeouts, loggerFactory))
+  }
+
   "DbTopologyStore" should {
     behave like topologyStore(() => createTopologyStore())
 

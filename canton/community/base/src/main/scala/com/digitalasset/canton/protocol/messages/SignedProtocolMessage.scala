@@ -57,7 +57,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifySignature(
       snapshot: SyncCryptoApi,
       member: Member,
-  ): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     if (
       representativeProtocolVersion >=
         companionObj.protocolVersionRepresentativeFor(ProtocolVersion.v30)

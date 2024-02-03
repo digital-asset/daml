@@ -71,7 +71,7 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
       snapshot: SyncCryptoApi,
       member: Member,
       purpose: HashPurpose,
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     val hash = SignedContent.hashContent(snapshot.pureCrypto, content, purpose)
     snapshot.verifySignature(hash, member, signature)
   }

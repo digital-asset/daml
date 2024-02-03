@@ -1316,7 +1316,6 @@ class TopologyAdministrationGroupX(
         domainId: DomainId,
         participantId: ParticipantId,
         permission: ParticipantPermissionX,
-        trustLevel: TrustLevelX = TrustLevelX.Ordinary,
         loginAfter: Option[CantonTimestamp] = None,
         limits: Option[ParticipantDomainLimits] = None,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -1331,7 +1330,6 @@ class TopologyAdministrationGroupX(
           domainId = domainId,
           participantId = participantId,
           permission = permission,
-          trustLevel = trustLevel,
           limits = limits,
           loginAfter = loginAfter,
         ),

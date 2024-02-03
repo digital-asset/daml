@@ -295,7 +295,7 @@ class ParticipantTopologyManager(
             filterNamespace = None,
           )
           .map(_.adds.result.iterator.map(_.transaction.transaction.element.mapping).exists {
-            case ParticipantState(side, `domainId`, `participantId`, permission, _)
+            case ParticipantState(side, `domainId`, `participantId`, permission)
                 if side != RequestSide.From && permission.isActive =>
               true
             case _ => false
@@ -308,7 +308,6 @@ class ParticipantTopologyManager(
         domainId,
         participantId,
         ParticipantPermission.Submission,
-        TrustLevel.Ordinary,
       )
 
       authorize(

@@ -371,7 +371,7 @@ object SequencedEventValidator extends HasLoggerName {
     if (signingTimestamp > sequencingTimestamp) {
       EitherT.leftT[F, SyncCryptoApi](SigningTimestampAfterSequencingTime)
     } else if (optimistic) {
-      val approximateSnapshot = syncCryptoApi.currentSnapshotApproximation
+      val approximateSnapshot = syncCryptoApi.currentSnapshotApproximation(traceContext)
       val approximateSnapshotTime = approximateSnapshot.ipsSnapshot.timestamp
       // If the topology client has caught up to the signing timestamp,
       // use the right snapshot

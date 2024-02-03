@@ -10,25 +10,14 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
-/** If [[trustLevel]] is [[TrustLevel.Vip]],
-  * then [[permission]]`.`[[ParticipantPermission.canConfirm canConfirm]] must hold.
-  */
 final case class ParticipantAttributes(
     permission: ParticipantPermission,
-    trustLevel: TrustLevel,
     loginAfter: Option[CantonTimestamp] = None,
 ) {
-  // Make sure that VIPs can always confirm so that
-  // downstream code does not have to handle VIPs that cannot confirm.
-  require(
-    trustLevel != TrustLevel.Vip || permission.canConfirm,
-    "Found a Vip that cannot confirm. This is not supported.",
-  )
 
   def merge(elem: ParticipantAttributes): ParticipantAttributes =
     ParticipantAttributes(
       permission = ParticipantPermission.lowerOf(permission, elem.permission),
-      trustLevel = TrustLevel.lowerOf(trustLevel, elem.trustLevel),
       loginAfter = loginAfter.max(elem.loginAfter),
     )
 
@@ -118,11 +107,6 @@ sealed trait TrustLevel extends Product with Serializable with PrettyPrinting {
   def rank: Byte
 
   override def pretty: Pretty[TrustLevel] = prettyOfObject[TrustLevel]
-
-  def toX: TrustLevelX = this match {
-    case TrustLevel.Ordinary => TrustLevelX.Ordinary
-    case TrustLevel.Vip => TrustLevelX.Vip
-  }
 }
 
 object TrustLevel {

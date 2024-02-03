@@ -9,8 +9,8 @@ import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.BaseTest.testedReleaseProtocolVersion
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
-import com.digitalasset.canton.crypto.{Crypto, *}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
@@ -118,7 +118,7 @@ final case class TestingTopology(
     this.copy(participants =
       participants
         .map(
-          _ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary, None)
+          _ -> ParticipantAttributes(ParticipantPermission.Submission, None)
         )
         .toMap
     )
@@ -360,7 +360,7 @@ class TestingIdentityFactory(
         )
       val attributes = topology.participants.getOrElse(
         participantId,
-        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary, None),
+        ParticipantAttributes(defaultPermission, None),
       )
       genKeyCollection(participantId) :+ mkAdd(
         ParticipantState(
@@ -368,7 +368,6 @@ class TestingIdentityFactory(
           domainId,
           participantId,
           attributes.permission,
-          attributes.trustLevel,
         )
       )
     }
@@ -508,7 +507,6 @@ class TestingOwnerWithKeys(
         domainId,
         participant1,
         ParticipantPermission.Submission,
-        TrustLevel.Ordinary,
       )
     val ps1 = mkAdd(ps1m)
     val rps1 = revert(ps1)
@@ -519,7 +517,6 @@ class TestingOwnerWithKeys(
         domainId,
         participant2,
         ParticipantPermission.Confirmation,
-        TrustLevel.Ordinary,
       )
     )
 

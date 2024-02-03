@@ -11,6 +11,7 @@ import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFi
 import com.digitalasset.canton.participant.protocol.submission.DomainsFilterTest.*
 import com.digitalasset.canton.protocol.{LfTransactionVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
@@ -158,7 +159,8 @@ private[submission] object DomainsFilterTest {
         topology: Map[LfPartyId, List[ParticipantId]],
         packages: Seq[LfPackageId] = Seq(),
     )(implicit
-        ec: ExecutionContext
+        ec: ExecutionContext,
+        tc: TraceContext,
     ): Future[(List[UsableDomain.DomainNotUsedReason], List[DomainId])] = {
       val domains = List(
         (

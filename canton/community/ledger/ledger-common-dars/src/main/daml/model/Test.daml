@@ -117,6 +117,9 @@ template ParameterShowcase
   where
     signatory operator
 
+    key (operator, text) : (Party, Text)
+    maintainer key._1
+
     -- multiple argument choice
     choice Choice1 : ContractId ParameterShowcase
       with
@@ -377,3 +380,50 @@ template CreateAndFetch
       do cid <- create CreateAndFetch with p
          _ <- fetch cid
          return ()
+
+template MultiPartyContract
+  with
+    parties: [Party]
+    value: Text
+  where
+    signatory parties
+
+    key this: MultiPartyContract
+    maintainer key.parties
+
+    choice MPAddSignatories : ContractId MultiPartyContract
+      with
+        newParties: [Party]
+      controller parties ++ newParties
+      do
+        create this with
+          parties = parties ++ newParties
+
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        actualContract <- fetch cid
+        return ()
+
+    nonconsuming choice MPFetchOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        (actualCid, actualContract) <- fetchByKey @MultiPartyContract keyToFetch
+        return ()
+
+    nonconsuming choice MPLookupOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+        expectedCid: Optional (ContractId MultiPartyContract)
+      controller actors
+      do
+        actualCid <- lookupByKey @MultiPartyContract keyToFetch
+        assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
+

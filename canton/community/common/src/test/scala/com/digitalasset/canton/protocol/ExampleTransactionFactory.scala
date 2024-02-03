@@ -33,11 +33,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Observation,
   Submission,
 }
-import com.digitalasset.canton.topology.transaction.{
-  ParticipantAttributes,
-  TrustLevel,
-  VettedPackages,
-}
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, VettedPackages}
 import com.digitalasset.canton.topology.{
   DomainId,
   MediatorId,
@@ -48,6 +44,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
 import com.digitalasset.canton.util.LfTransactionUtil.{
   metadataFromCreate,
   metadataFromExercise,
@@ -339,8 +336,7 @@ object ExampleTransactionFactory {
           signatoryParticipant -> Observation
         ),
       ),
-      participants =
-        Map(submittingParticipant -> ParticipantAttributes(Submission, TrustLevel.Vip)),
+      participants = Map(submittingParticipant -> ParticipantAttributes(Submission)),
       packages = Seq(submittingParticipant, signatoryParticipant).map(
         VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
       ),
