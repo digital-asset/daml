@@ -180,12 +180,12 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
         new LedgerTestCasesRunner(
           testCases = cases,
           participantChannels = participantChannels,
+          skipDarNamesPattern = config.skipDarNamesPattern,
           maxConnectionAttempts = config.maxConnectionAttempts,
           partyAllocation = config.partyAllocation,
           shuffleParticipants = config.shuffleParticipants,
           timeoutScaleFactor = config.timeoutScaleFactor,
           concurrentTestRuns = concurrentTestRuns,
-          uploadDars = config.uploadDars,
           identifierSuffix = identifierSuffix,
         )
       )

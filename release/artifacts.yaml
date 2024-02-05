@@ -175,6 +175,12 @@
   type: jar-lib
 - target: //test-common:modelext-tests-1.dev.java-codegen
   type: jar-lib
+- target: //test-common:upgrade-tests-1.0.0-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:upgrade-tests-2.0.0-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:upgrade-tests-3.0.0-1.dev.java-codegen
+  type: jar-lib
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/cli-opts:cli-opts

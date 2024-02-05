@@ -10,13 +10,25 @@ def _has_model_tests(lf_version):
         v2_minor_version_range = ("0", "dev"),
     )
 
+def _has_upgrading_tests(lf_version):
+    return version_in(
+        lf_version,
+        v1_minor_version_range = ("16", "dev"),
+        v2_minor_version_range = ("0", "dev"),
+    )
+
 def deps(lf_version):
     carbon_tests = [
         "//test-common:carbonv1-tests-%s.java-codegen" % lf_version,
         "//test-common:carbonv2-tests-%s.java-codegen" % lf_version,
         "//test-common:carbonv3-tests-%s.java-codegen" % lf_version,
     ]
-    additional_tests = carbon_tests if _has_model_tests(lf_version) else []
+    upgrading_tests = [
+        "//test-common:upgrade-tests-1.0.0-%s.java-codegen" % lf_version,
+        "//test-common:upgrade-tests-2.0.0-%s.java-codegen" % lf_version,
+        "//test-common:upgrade-tests-3.0.0-%s.java-codegen" % lf_version,
+    ]
+    additional_tests = (carbon_tests if _has_model_tests(lf_version) else []) + (upgrading_tests if _has_upgrading_tests(lf_version) else [])
     return [
         "//canton:bindings-java",
         "//daml-lf/data",

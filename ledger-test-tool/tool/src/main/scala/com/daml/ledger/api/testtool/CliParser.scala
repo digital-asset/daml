@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 import java.nio.file.Paths
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.testtool.runner.Config
@@ -13,6 +12,7 @@ import scopt.{OptionParser, Read}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
+import scala.util.matching.Regex
 
 object CliParser {
   private val Name = "ledger-api-test-tool"
@@ -202,10 +202,12 @@ object CliParser {
           |on the ledger under test. The default is \"1s\" (1 second).""".stripMargin
       )
 
-    opt[Unit]("skip-dar-upload")
+    opt[String]("skip-dar-names-upload")
       .optional()
-      .action((_, c) => c.copy(uploadDars = false))
-      .text("Skip DARs upload into ledger before running tests")
+      .action((skipPattern, c) =>
+        c.copy(skipDarNamesPattern = Option.when(skipPattern.nonEmpty)(new Regex(skipPattern)))
+      )
+      .text("Skip uploading DARs whose names match the provided pattern")
 
     checkConfig(c =>
       if (c.included.nonEmpty && c.additional.nonEmpty)
