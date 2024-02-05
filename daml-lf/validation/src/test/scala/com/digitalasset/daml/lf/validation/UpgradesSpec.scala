@@ -116,7 +116,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
         Some(
-          "Module Other appears in package that is being upgraded, but does not appear in this package."
+          "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
         ),
       )
     }
@@ -125,7 +125,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         "test-common/upgrades-MissingTemplate-v1.dar",
         "test-common/upgrades-MissingTemplate-v2.dar",
         Some(
-          "Template U appears in package that is being upgraded, but does not appear in this package."
+          "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
         ),
       )
     }
@@ -134,7 +134,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         "test-common/upgrades-MissingDataCon-v1.dar",
         "test-common/upgrades-MissingDataCon-v2.dar",
         Some(
-          "Datatype U appears in package that is being upgraded, but does not appear in this package."
+          "Datatype U appears in package that is being upgraded, but does not appear in the upgrading package."
         ),
       )
     }
@@ -143,7 +143,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         "test-common/upgrades-MissingChoice-v1.dar",
         "test-common/upgrades-MissingChoice-v2.dar",
         Some(
-          "Choice C2 appears in package that is being upgraded, but does not appear in this package."
+          "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
         ),
       )
     }
