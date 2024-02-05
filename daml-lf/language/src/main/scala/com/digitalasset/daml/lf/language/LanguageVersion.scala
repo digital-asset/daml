@@ -56,7 +56,6 @@ object LanguageVersion {
     val typeRep = v2_1
     val typeSynonyms = v2_1
     val packageMetadata = v2_1
-    val contractIdTextConversions = v2_1
     val choiceObservers = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1

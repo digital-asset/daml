@@ -745,20 +745,11 @@ class DecodeV2Spec
       }
     }
 
-    s"translate contract id text conversions as is if version >= ${LV.Features.contractIdTextConversions}" in {
-      forEveryVersionSuchThat(_ >= LV.Features.contractIdTextConversions) { version =>
+    s"translate contract id text conversions as is" in {
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(contractIdTextConversionCases) { (proto, scala) =>
           decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    s"reject contract id text conversions if version < ${LV.Features.contractIdTextConversions}" in {
-      forEveryVersionSuchThat(_ < LV.Features.contractIdTextConversions) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(contractIdTextConversionCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
