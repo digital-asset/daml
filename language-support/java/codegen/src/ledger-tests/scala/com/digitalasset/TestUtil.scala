@@ -6,9 +6,9 @@ package com.daml
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
-import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
-import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.{CommandServiceGrpc, StateServiceGrpc}
+import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsResponse
+import com.daml.ledger.api.v2.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
@@ -62,13 +62,13 @@ object TestUtil {
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
-  def allTemplates(partyName: String) = new FiltersByParty(
+  def allTemplates(partyName: String) = new FiltersByPartyV2(
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
-    val submission = CommandsSubmission
-      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+    val submission = CommandsSubmissionV2
+      .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(partyName)
 
@@ -78,12 +78,7 @@ object TestUtil {
       .submitAndWait(
         SubmitAndWaitRequest
           .newBuilder()
-          .setCommands(
-            SubmitCommandsRequest.toProto(
-              LedgerID,
-              submission,
-            )
-          )
+          .setCommands(submission.toProto)
           .build
       )
   }
@@ -94,8 +89,8 @@ object TestUtil {
       readAs: java.util.List[String],
       hasCmds: HasCommands*
   ): Empty = {
-    val submission = CommandsSubmission
-      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+    val submission = CommandsSubmissionV2
+      .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(actAs)
       .withReadAs(readAs)
@@ -106,12 +101,7 @@ object TestUtil {
       .submitAndWait(
         SubmitAndWaitRequest
           .newBuilder()
-          .setCommands(
-            SubmitCommandsRequest.toProto(
-              LedgerID,
-              submission,
-            )
-          )
+          .setCommands(submission.toProto)
           .build
       )
   }
@@ -138,21 +128,22 @@ object TestUtil {
   ): List[C] = {
     // Relies on ordering of ACS endpoint. This isn’t documented but currently
     // the ledger guarantees this.
-    val txService = ActiveContractsServiceGrpc.newBlockingStub(channel)
+    val txService = StateServiceGrpc.newBlockingStub(channel)
     val txs = txService.getActiveContracts(
-      new GetActiveContractsRequest(
-        LedgerID,
+      new GetActiveContractsRequestV2(
         allTemplates(partyName),
         true,
+        "",
       ).toProto
     )
     val iterable: java.lang.Iterable[GetActiveContractsResponse] = () => txs
     StreamSupport
       .stream(iterable.spliterator(), false)
       .flatMap[CreatedEvent]((r: GetActiveContractsResponse) =>
-        data.GetActiveContractsResponse
+        data.GetActiveContractsResponseV2
           .fromProto(r)
-          .getCreatedEvents
+          .getContractEntry
+          .map(_.getCreatedEvent)
           .stream()
       )
       .flatMap { createdEvent =>
