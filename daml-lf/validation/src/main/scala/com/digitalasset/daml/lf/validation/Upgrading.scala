@@ -204,7 +204,7 @@ case class ModuleWithMetadata(module: Ast.Module) {
   }
 
   def dataTypeOrigin(
-      name: Ref.DottedName,
+      name: Ref.DottedName
   ): UpgradedRecordOrigin = {
     module.templates.get(name) match {
       case Some(template @ _) => TemplateBody(name)
@@ -241,7 +241,8 @@ object TypecheckUpgrades {
       mbPastPkg: Option[Ast.Package],
   ): Try[Unit] = {
     mbPastPkg match {
-      case None => fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
+      case None =>
+        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
       case Some(pastPkg) =>
         val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg), present))
         tc.check()
@@ -404,14 +405,16 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
           for {
             (existing, new_) <- checkDeleted(
               variants,
-              (_: Ast.VariantConName, _: Ast.Type) => UpgradeError.VariantRemovedVariant(origin.present),
+              (_: Ast.VariantConName, _: Ast.Type) =>
+                UpgradeError.VariantRemovedVariant(origin.present),
             )
 
             _ <- failIf(new_.nonEmpty, UpgradeError.VariantAddedVariant(origin.present))
 
             changedTypes = existing.filter { case (field @ _, typ) => !checkType(typ) }
             _ <-
-              if (changedTypes.nonEmpty) fail(UpgradeError.VariantChangedVariantType(origin.present))
+              if (changedTypes.nonEmpty)
+                fail(UpgradeError.VariantChangedVariantType(origin.present))
               else Success(())
           } yield ()
         case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
@@ -424,7 +427,9 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
             )
 
-            _ <- if (new_.nonEmpty) fail(UpgradeError.EnumAddedVariant(origin.present)) else Success(())
+            _ <-
+              if (new_.nonEmpty) fail(UpgradeError.EnumAddedVariant(origin.present))
+              else Success(())
           } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
@@ -451,7 +456,10 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
       // Then we check for changed types
       changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
-      _ <- failIf(changedTypes.nonEmpty, UpgradeError.RecordFieldsExistingChanged(origin, changedTypes))
+      _ <- failIf(
+        changedTypes.nonEmpty,
+        UpgradeError.RecordFieldsExistingChanged(origin, changedTypes),
+      )
 
       // Then we check for new non-optional types, and vary the message if its a variant
       newNonOptionalTypes = _new_.find { case (field @ _, typ) => !fieldTypeOptional(typ) }
