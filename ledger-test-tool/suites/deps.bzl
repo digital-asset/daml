@@ -24,7 +24,6 @@ def deps(lf_version):
         "//test-common:carbonv3-tests-%s.java-codegen" % lf_version,
     ]
     upgrading_tests = [
-        "//canton:community_ledger_ledger-common",
         "//test-common:upgrade-tests-1.0.0-%s.java-codegen" % lf_version,
         "//test-common:upgrade-tests-2.0.0-%s.java-codegen" % lf_version,
         "//test-common:upgrade-tests-3.0.0-%s.java-codegen" % lf_version,

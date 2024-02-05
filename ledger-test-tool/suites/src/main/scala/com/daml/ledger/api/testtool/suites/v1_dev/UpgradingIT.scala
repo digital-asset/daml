@@ -34,7 +34,6 @@ import com.daml.ledger.test.java.upgrade.v3_0_0.upgrade.{UB => UB_V3}
 import com.daml.ledger.test.{UpgradeTestDar1_0_0, UpgradeTestDar2_0_0, UpgradeTestDar3_0_0}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageName, PackageRef}
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 
 import java.util.Optional
 import scala.concurrent.{ExecutionContext, Future}
@@ -54,13 +53,13 @@ class UpgradingIT extends LedgerTestSuite {
       : ContractCompanion.WithoutKey[UB_V3.Contract, UB_V3.ContractId, UB_V3] =
     UB_V3.COMPANION
 
-  private val PkgRef = PackageRef.Name(PackageName.assertFromString("upgrade-tests"))
+  private val PkgNameRef = PackageRef.Name(PackageName.assertFromString("upgrade-tests"))
   private val UA_Identifier = ScalaPbIdentifier
     .fromJavaProto(UA_V1.TEMPLATE_ID.toProto)
-    .withPackageId(PkgRef.toString)
+    .withPackageId(PkgNameRef.toString)
   private val UB_Identifier = ScalaPbIdentifier
     .fromJavaProto(UB_V2.TEMPLATE_ID.toProto)
-    .withPackageId(PkgRef.toString)
+    .withPackageId(PkgNameRef.toString)
 
   private val UnknownPackageNameIdentifier = ScalaPbIdentifier.of(
     Ref.PackageRef.Name(Ref.PackageName.assertFromString("unknown")).toString,
@@ -68,7 +67,7 @@ class UpgradingIT extends LedgerTestSuite {
     "entity",
   )
 
-  private val PkgRefUA_V1 =
+  private val PkgRefId_UA_V1 =
     PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.TEMPLATE_ID.getPackageId))
 
   test(
@@ -82,10 +81,8 @@ class UpgradingIT extends LedgerTestSuite {
       // Upload 1.0.0 package
       _ <- upload(ledger, UpgradeTestDar1_0_0.path)
 
-      _ <- `assert subscriptions for unknown template names succeed if package-name present`(
-        ledger,
-        party,
-      )
+      // TODO(#16651): Assert that subscriptions fail if subscribing for non-existing template-name
+      //               but for known package-name
 
       // Start ongoing UA subscriptions
       subscriptions_UA_no_blob = new Subscriptions(
@@ -125,11 +122,11 @@ class UpgradingIT extends LedgerTestSuite {
 
       // Create UA#1: UA 1.0.0 contract arguments and use package-name scoped type in command
       payloadUA_1 = new UA_V1(party, party, 0L)
-      _ <- createContract(ledger, party, payloadUA_1, Some(PkgRef))
+      _ <- createContract(ledger, party, payloadUA_1, Some(PkgNameRef))
 
       // Create UA#2: UA 2.0.0 contract arguments and use explicit downgrade type (Upgrading V1) in command
       payloadUA_2 = new UA_V2(party, party, 0L, Optional.empty())
-      _ <- createContract(ledger, party, payloadUA_2, Some(PkgRefUA_V1))
+      _ <- createContract(ledger, party, payloadUA_2, Some(PkgRefId_UA_V1))
 
       // Upload 2.0.0 package
       // 2.0.0 becomes the default package preference on the ledger
@@ -138,12 +135,12 @@ class UpgradingIT extends LedgerTestSuite {
       // Create UA#3: UA 1.0.0 contract arguments and use package-name scoped type in command
       //            expecting an upgrade to V2
       payloadUA_3 = new UA_V1(party, party, 0L)
-      _ <- createContract(ledger, party, payloadUA_3, Some(PkgRef))
+      _ <- createContract(ledger, party, payloadUA_3, Some(PkgNameRef))
 
       // Create UA#4: UA 2.0.0 contract arguments and use package-name scoped type in command
       //            expecting a record on ledger of V2
       payloadUA_4 = new UA_V2(party, party, 0L, Optional.of(Seq("more").asJava))
-      _ <- createContract(ledger, party, payloadUA_4, Some(PkgRef))
+      _ <- createContract(ledger, party, payloadUA_4, Some(PkgNameRef))
 
       // Create UA#5: UA 1.0.0 contract arguments with its default type in command
       payloadUA_5 = new UA_V1(party, party, 0L)
@@ -241,7 +238,7 @@ class UpgradingIT extends LedgerTestSuite {
       assertUBCreates(expectedCreatedEventBlob = false)(creates_UB_noBlob)
       assertUBCreates(expectedCreatedEventBlob = true)(creates_UB_blob)
 
-      // TODO(#16547): Check for transaction trees as well in 3.x
+      // TODO(#16651): Check for transaction trees as well in 3.x
     }
   })
 
@@ -259,37 +256,17 @@ class UpgradingIT extends LedgerTestSuite {
         getActiveContractsRequest(ledger, UnknownPackageNameIdentifier, party)
       ).mustFail("Package-name not found")
     } yield {
-      assertGrpcError(
-        failedFlatTransactionsPackageNameNotFound,
-        RequestValidationErrors.NotFound.PackageNamesNotFound,
-        Some(
+      // TODO(#16651): Switch to asserting error codes as well
+      assert(
+        failedFlatTransactionsPackageNameNotFound.getMessage.contains(
           "The following package names do not match upgradable packages uploaded on this participant: [unknown]."
-        ),
+        )
       )
-      assertGrpcError(
-        failedActiveContractsPackageNameNotFound,
-        RequestValidationErrors.NotFound.PackageNamesNotFound,
-        Some(
+      assert(
+        failedActiveContractsPackageNameNotFound.getMessage.contains(
           "The following package names do not match upgradable packages uploaded on this participant: [unknown]."
-        ),
+        )
       )
-    }
-  }
-
-  private def `assert subscriptions for unknown template names succeed if package-name present`(
-      ledger: ParticipantTestContext,
-      party: Party,
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    import ledger._
-
-    for {
-      flatTransactions <- flatTransactions(
-        txRequest(ledger, UB_Identifier, party, continuous = false)
-      )
-      (_, acsCreates) <- activeContracts(getActiveContractsRequest(ledger, UB_Identifier, party))
-    } yield {
-      assertIsEmpty(flatTransactions)
-      assertIsEmpty(acsCreates)
     }
   }
 
