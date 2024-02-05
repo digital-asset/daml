@@ -31,22 +31,22 @@ final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.Packa
 
 final case class MissingModule(name: Ref.ModuleName) extends UpgradeError {
   override def message: String =
-    s"Module $name appears in package that is being upgraded, but does not appear in this package."
+    s"Module $name appears in package that is being upgraded, but does not appear in the upgrading package."
 }
 
 final case class MissingTemplate(name: Ref.DottedName) extends UpgradeError {
   override def message: String =
-    s"Template $name appears in package that is being upgraded, but does not appear in this package."
+    s"Template $name appears in package that is being upgraded, but does not appear in the upgrading package."
 }
 
 final case class MissingDataCon(name: Ref.DottedName) extends UpgradeError {
   override def message: String =
-    s"Datatype $name appears in package that is being upgraded, but does not appear in this package."
+    s"Datatype $name appears in package that is being upgraded, but does not appear in the upgrading package."
 }
 
 final case class MissingChoice(name: Ref.ChoiceName) extends UpgradeError {
   override def message: String =
-    s"Choice $name appears in package that is being upgraded, but does not appear in this package."
+    s"Choice $name appears in package that is being upgraded, but does not appear in the upgrading package."
 }
 
 final case class TemplateChangedKeyType(templateName: Ref.DottedName, key: Upgrading[Ast.Type])
