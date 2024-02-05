@@ -10,7 +10,6 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.daml.lf.engine.script.Runner.InterpretationError
-import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
@@ -27,9 +26,6 @@ abstract class AbstractFuncIT
     with AbstractScriptTest
     with Matchers
     with Inside {
-
-  // TODO(#17366): Reset to false once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   def assertSTimestamp(v: SValue) =
     v match {

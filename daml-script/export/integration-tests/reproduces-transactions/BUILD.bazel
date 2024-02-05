@@ -13,8 +13,7 @@ da_scala_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml3:daml3-script.dar",
-        #TODO(#17366): change to dar-files once LF2 is the default
-        "//test-common:dar-files-2.1",
+        "//test-common:dar-files",
     ],
     resources = ["test/resources/logback-test.xml"],
     scala_deps = [
@@ -49,8 +48,7 @@ da_scala_test(
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/testing-utils",
-        #TODO(#17366): change to dar-files-default-lib once LF2 is the default
-        "//test-common:dar-files-2.1-lib",
+        "//test-common:dar-files-default-lib",
         "//test-common/canton/it-lib",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",

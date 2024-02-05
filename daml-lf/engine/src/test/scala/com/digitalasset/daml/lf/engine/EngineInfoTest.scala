@@ -19,8 +19,8 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
     ) =
       List(
         LanguageVersion.LegacyVersions,
-        LanguageVersion.StableVersions,
-        LanguageVersion.EarlyAccessVersions,
+        LanguageVersion.StableVersions(LanguageMajorVersion.V2),
+        LanguageVersion.EarlyAccessVersions(LanguageMajorVersion.V2),
         LanguageVersion.AllVersions(LanguageMajorVersion.V2),
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 

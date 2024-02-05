@@ -137,8 +137,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_dev)
     case V2 =>
       (
-        // TODO(#17366): Use something like languageVersion.default(V2) once available
-        LanguageVersion.v2_1,
+        LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
         LanguageVersion.v2_1,
         LanguageVersion.v2_dev,
       )

@@ -5,8 +5,7 @@ sdk-version: 0.0.0
 name: reinterpret-tests
 version: 1.0.0
 build-options:
-  # TODO(#17366): change for 2.0 once it is introduced
-  - --target=2.dev
+  - --target=2.1
 dependencies:
   - daml-prim
   - daml-stdlib
