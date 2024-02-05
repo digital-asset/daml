@@ -298,8 +298,8 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     AlphaEquiv.alphaEquiv(unifyPackageIds(typ.past), unifyPackageIds(typ.present))
   }
 
-  // TODO: Consider whether we should strip package ids from all packages in the
-  // upgrade set, not just within the pair
+  // TODO: https://github.com/digital-asset/daml/pull/18377
+  // We should strip package ids from all packages in the upgrade set, not just within the pair
   private def unifyPackageIds(typ: Ast.Type): Ast.Type = {
     def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
       if (id.packageId == packageId.present) {
