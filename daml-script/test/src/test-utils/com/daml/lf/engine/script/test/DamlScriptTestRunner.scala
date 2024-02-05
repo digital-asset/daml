@@ -63,11 +63,14 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       // rename parties
       .replaceAll("""party-[a-f0-9\-:]+""", "party")
 
-    if (cantonFixtureDebugMode) {
-      discard(
-        Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
-      )
-      discard(Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual))
+    cantonFixtureDebugMode match {
+      case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => {
+        discard(
+          Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
+        )
+        discard(Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual))
+      }
+      case _ => {}
     }
 
     actual shouldBe expected
