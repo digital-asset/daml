@@ -137,7 +137,7 @@ private[apiserver] final class ApiPackageManagementService private (
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     val upgradingPackageId = upgradingPackage.main._1
-    upgradingPackage.main._2.metadata.flatMap(_.upgradedPackageId) match {
+    upgradingPackage.main._2.metadata.upgradedPackageId match {
       case Some(upgradedPackageId) =>
         logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
         for {
