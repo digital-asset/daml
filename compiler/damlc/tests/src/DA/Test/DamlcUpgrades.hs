@@ -605,7 +605,7 @@ tests damlc =
                       , "    signatory p"
                       , "    choice C : A"
                       , "      controller p"
-                      , "      do pure (A p (Just p))"
+                      , "      do pure (A p (Some p))"
                       ]
                 )
               ]
