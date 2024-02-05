@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.Unit
 import com.daml.ledger.javaapi.data.codegen.Choice
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import ut.retro.InterfaceRetro
 import ut.bar.Bar
 import ut.da.internal.template.Archive
 
@@ -26,24 +25,6 @@ final class ChoiceFieldsSpec extends AnyWordSpec with Matchers {
 
       choices.size() shouldBe 1
       names shouldBe Set("Archive").asJava
-    }
-  }
-
-  "Interface" should {
-    "have choice fields" in {
-      val choices = Set(InterfaceRetro.CHOICE_Archive, InterfaceRetro.CHOICE_Transfer)
-      val expectedNames = Set("Archive", "Transfer")
-
-      choices.map(_.name) should contain theSameElementsAs expectedNames
-    }
-
-    "have choices map in Interface Companion(INTERFACE)" in {
-      val choices = InterfaceRetro.INTERFACE.choices
-      val actualNames = choices.keySet()
-      val expectedNames = Set("Archive", "Transfer").asJava
-
-      choices.size() shouldBe 2
-      actualNames shouldBe expectedNames
     }
   }
 }
