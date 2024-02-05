@@ -101,9 +101,10 @@ object ParticipantMetadata
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ParticipantMetadata(let, submissionTime, workflowId, salt)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
 }

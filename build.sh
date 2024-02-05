@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
 execution_log_postfix=${1:-}${2:-}
@@ -88,7 +90,11 @@ $bazel build //... \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
 
 # Set up a shared PostgreSQL instance.
-export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
+export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
+if [ -e "$POSTGRESQL_ROOT_DIR" ]; then
+  echo "'$POSTGRESQL_ROOT_DIR' exists, please choose another one by setting $POSTGRESQL_TMP_ROOT_DIR."
+  exit 1
+fi
 export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
 export POSTGRESQL_LOG_FILE="${POSTGRESQL_ROOT_DIR}/postgresql.log"
 export POSTGRESQL_HOST='localhost'

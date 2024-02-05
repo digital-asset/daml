@@ -61,7 +61,7 @@ class TransactionsFlatStreamReader(
   import TransactionsReader.*
   import config.*
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   private val orderBySequentialEventId =
     Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)

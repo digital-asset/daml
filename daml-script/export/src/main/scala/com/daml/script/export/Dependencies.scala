@@ -138,7 +138,7 @@ object Dependencies {
     val stablePackages =
       (StablePackages.ids(VersionRange(LanguageVersion.v1_dev, LanguageVersion.v1_dev))
         | StablePackages.ids(VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_dev)))
-    pkg.metadata.exists(m => providedLibraries.contains(m.name)) || stablePackages.contains(pkgId)
+    providedLibraries.contains(pkg.metadata.name) || stablePackages.contains(pkgId)
   }
 
   // Return the package-id appropriate for the --package flag if the package is not builtin.
@@ -148,7 +148,8 @@ object Dependencies {
   ): Option[String] = {
     for {
       main <- pkgs.get(mainId) if !isProvidedLibrary(mainId, main._2)
-      pkg = main._2.metadata.map(md => s"${md.name}-${md.version}").getOrElse(mainId.toString)
+      md = main._2.metadata
+      pkg = s"${md.name}-${md.version}"
     } yield pkg
   }
 }

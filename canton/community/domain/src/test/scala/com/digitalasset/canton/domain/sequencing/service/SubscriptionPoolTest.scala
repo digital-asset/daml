@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.implicits.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.metrics.DomainTestMetrics
+import com.digitalasset.canton.domain.metrics.SequencerTestMetrics
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{Member, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -25,7 +25,7 @@ class SubscriptionPoolTest extends AnyWordSpec with BaseTest with HasExecutionCo
       val clock = new SimClock(loggerFactory = loggerFactory)
       val pool = new SubscriptionPool[MockSubscription](
         clock,
-        DomainTestMetrics.sequencer,
+        SequencerTestMetrics,
         timeouts,
         loggerFactory,
       )

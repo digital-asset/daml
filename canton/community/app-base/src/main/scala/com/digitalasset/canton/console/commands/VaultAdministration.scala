@@ -15,7 +15,7 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceCommon,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
 class SecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     override protected val consoleEnvironment: ConsoleEnvironment,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -501,7 +501,7 @@ class PublicKeyAdministration(
 }
 
 class KeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
@@ -523,7 +523,7 @@ class KeyAdministrationGroup(
 }
 
 class LocalSecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,
@@ -589,7 +589,7 @@ class LocalSecretKeyAdministration(
 }
 
 class LocalKeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,

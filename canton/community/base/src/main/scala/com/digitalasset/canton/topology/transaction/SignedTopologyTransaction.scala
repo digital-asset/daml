@@ -188,9 +188,9 @@ object SignedTopologyTransaction
         "signature",
         transactionP.signature,
       )
-
+      rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SignedTopologyTransaction(transaction, publicKey, signature)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
   }

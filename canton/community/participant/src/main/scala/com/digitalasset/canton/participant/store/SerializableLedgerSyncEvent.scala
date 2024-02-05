@@ -80,7 +80,7 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
   @transient override protected lazy val companionObj: SerializableLedgerSyncEvent.type =
     SerializableLedgerSyncEvent
 
-  def toProtoV0: v30.LedgerSyncEvent = {
+  def toProtoV30: v30.LedgerSyncEvent = {
     val SyncEventP = v30.LedgerSyncEvent.Value
 
     v30.LedgerSyncEvent(
@@ -147,8 +147,8 @@ private[store] object SerializableLedgerSyncEvent
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter
         .storage(ReleaseProtocolVersion(ProtocolVersion.v30), v30.LedgerSyncEvent)(
-          supportedProtoVersion(_)(fromProtoV0),
-          _.toProtoV0.toByteString,
+          supportedProtoVersion(_)(fromProtoV30),
+          _.toProtoV30.toByteString,
         )
     )
 
@@ -186,7 +186,7 @@ private[store] object SerializableLedgerSyncEvent
       : (String, ByteString) => ParsingResult[LfNodeExercises] =
     deserializeNode(DamlLfSerializers.deserializeExerciseNode)
 
-  def fromProtoV0(
+  def fromProtoV30(
       ledgerSyncEventP: v30.LedgerSyncEvent
   ): ParsingResult[SerializableLedgerSyncEvent] = {
     val SyncEventP = v30.LedgerSyncEvent.Value
@@ -203,7 +203,7 @@ private[store] object SerializableLedgerSyncEvent
           )
         )
       case SyncEventP.PartyAddedToParticipant(partyAddedToParticipant) =>
-        SerializablePartyAddedToParticipant.fromProtoV0(partyAddedToParticipant)
+        SerializablePartyAddedToParticipant.fromProtoV30(partyAddedToParticipant)
       case SyncEventP.PartyAllocationRejected(partyAllocationRejected) =>
         SerializablePartyAllocationRejected.fromProtoV30(partyAllocationRejected)
       case SyncEventP.PublicPackageUpload(publicPackageUpload) =>
@@ -228,16 +228,15 @@ private[store] object SerializableLedgerSyncEvent
         SerializablePartiesRemovedFromParticipant.fromProtoV30(partiesRemovedFromParticipant)
     }
 
-    ledgerSyncEvent.map(
-      SerializableLedgerSyncEvent(_)(
-        protocolVersionRepresentativeFor(ProtoVersion(0))
-      )
-    )
+    for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      event <- ledgerSyncEvent
+    } yield SerializableLedgerSyncEvent(event)(rpv)
   }
 }
 
 trait ConfigurationParamsDeserializer {
-  def fromProtoV0(
+  def fromProtoV30(
       recordTimeP: Option[com.google.protobuf.timestamp.Timestamp],
       submissionIdP: String,
       participantIdP: String,
@@ -286,7 +285,7 @@ private[store] object SerializableConfigurationChanged extends ConfigurationPara
     val v30.ConfigurationChanged(submissionIdP, configurationP, participantIdP, recordTimeP) =
       configurationChangedP
     for {
-      cfg <- fromProtoV0(
+      cfg <- fromProtoV30(
         recordTimeP,
         submissionIdP,
         participantIdP,
@@ -325,7 +324,7 @@ private[store] final case class SerializablePartyAddedToParticipant(
 }
 
 private[store] object SerializablePartyAddedToParticipant {
-  def fromProtoV0(
+  def fromProtoV30(
       partyAddedToParticipant: v30.PartyAddedToParticipant
   ): ParsingResult[LedgerSyncEvent.PartyAddedToParticipant] = {
     val v30.PartyAddedToParticipant(

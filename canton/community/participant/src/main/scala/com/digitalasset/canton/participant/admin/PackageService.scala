@@ -102,7 +102,7 @@ class PackageService(
     packageLoader.loadPackage(
       packageId,
       getLfArchive,
-      metrics.ledgerApiServer.daml.execution.getLfPackage,
+      metrics.ledgerApiServer.execution.getLfPackage,
     )
 
   def removePackage(

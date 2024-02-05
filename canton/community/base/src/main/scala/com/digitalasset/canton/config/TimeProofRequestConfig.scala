@@ -55,7 +55,7 @@ object TimeProofRequestConfig {
   private val defaultMaxSequencingDelay: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
 
-  private[config] def fromProtoV0(
+  private[config] def fromProtoV30(
       configP: v30.TimeProofRequestConfig
   ): ParsingResult[TimeProofRequestConfig] =
     for {

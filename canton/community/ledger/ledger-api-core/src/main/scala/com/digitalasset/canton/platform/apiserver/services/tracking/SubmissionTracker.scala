@@ -81,7 +81,7 @@ object SubmissionTracker {
       TrieMap.empty[SubmissionKey, (ContextualizedErrorLogger, Promise[CompletionResponse])]
 
     // Set max-in-flight capacity
-    metrics.daml.commands.maxInFlightCapacity.inc(maxCommandsInFlight.toLong)(MetricsContext.Empty)
+    metrics.commands.maxInFlightCapacity.inc(maxCommandsInFlight.toLong)(MetricsContext.Empty)
 
     override def track(
         submissionKey: SubmissionKey,
@@ -179,10 +179,10 @@ object SubmissionTracker {
         f: => Future[T]
     )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
       if (pending.size < maxCommandsInFlight) {
-        metrics.daml.commands.maxInFlightLength.inc()
+        metrics.commands.maxInFlightLength.inc()
         val ret = f
         ret.onComplete { _ =>
-          metrics.daml.commands.maxInFlightLength.dec()
+          metrics.commands.maxInFlightLength.dec()
         }(directEc)
         ret
       } else {

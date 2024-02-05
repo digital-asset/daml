@@ -399,6 +399,7 @@ public final class CommandsSubmissionV2 {
             .setApplicationId(applicationId)
             .setCommandId(commandId)
             .addAllCommands(commandsConverted)
+            .setParty(actAs.get(0))
             .addAllActAs(actAs)
             .addAllReadAs(readAs)
             .addAllDisclosedContracts(disclosedContractsConverted)

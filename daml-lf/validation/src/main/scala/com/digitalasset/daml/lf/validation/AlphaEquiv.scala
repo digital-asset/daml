@@ -7,7 +7,7 @@ import com.daml.lf.language.Ast._
 
 import scala.annotation.tailrec
 
-object AlphaEquiv {
+private[validation] object AlphaEquiv {
 
   def alphaEquiv(t1: Type, t2: Type): Boolean = alphaEquivList(List((Env(), t1, t2)))
 

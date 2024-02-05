@@ -93,16 +93,16 @@ final class ApiParticipantPruningService private (
             // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
             // systems back in sync by reissuing the prune request at the currently specified or later offset.
             _ <- Tracked.future(
-              metrics.daml.services.pruning.pruneCommandStarted,
-              metrics.daml.services.pruning.pruneCommandCompleted,
+              metrics.services.pruning.pruneCommandStarted,
+              metrics.services.pruning.pruneCommandCompleted,
               pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts)(
                 loggingContext
               ),
             )(MetricsContext(("phase", "underlyingLedger")))
 
             pruneResponse <- Tracked.future(
-              metrics.daml.services.pruning.pruneCommandStarted,
-              metrics.daml.services.pruning.pruneCommandCompleted,
+              metrics.services.pruning.pruneCommandStarted,
+              metrics.services.pruning.pruneCommandCompleted,
               pruneLedgerApiServerIndex(
                 pruneUpTo,
                 request.pruneAllDivulgedContracts,

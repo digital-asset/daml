@@ -8,12 +8,7 @@ import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v2.transaction.TransactionTree as TransactionTreeV2
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.console.{
-  InstanceReferenceX,
-  LocalParticipantReferenceCommon,
-  LocalParticipantReferenceX,
-}
-import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.tracing.TraceContext
@@ -73,7 +68,7 @@ object IntegrationTestUtilities {
 
   def grabCounts(
       domainAlias: DomainAlias,
-      participant: LocalParticipantReferenceX,
+      participant: LocalParticipantReference,
       limit: Int = 100,
   ): GrabbedCounts = {
     val pcsCount = participant.testing.pcs_search(domainAlias, limit = limit).length
@@ -90,9 +85,9 @@ object IntegrationTestUtilities {
     GrabbedCounts(contracts, events)
   }
 
-  def assertIncreasingRecordTime[ParticipantNodeT <: ParticipantNodeCommon](
+  def assertIncreasingRecordTime(
       domain: DomainAlias,
-      pr: LocalParticipantReferenceCommon[ParticipantNodeT],
+      pr: LocalParticipantReference,
   ): Unit =
     assertIncreasingRecordTime(domain, alias => pr.testing.event_search(alias))
 
@@ -154,7 +149,7 @@ object IntegrationTestUtilities {
 
   def runOnAllInitializedDomainsForAllOwners(
       initializedDomains: Map[DomainAlias, InitializedDomain],
-      run: (InstanceReferenceX, InitializedDomain) => Unit,
+      run: (InstanceReference, InitializedDomain) => Unit,
       topologyAwaitIdle: Boolean,
   ): Unit =
     initializedDomains.foreach { case (_, initializedDomain) =>

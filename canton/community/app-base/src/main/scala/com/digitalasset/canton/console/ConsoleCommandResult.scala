@@ -59,7 +59,7 @@ object ConsoleCommandResult {
       case Right(value) => CommandSuccessful(value)
     }
 
-  private[console] def runAll[Instance <: InstanceReferenceCommon, Result](
+  private[console] def runAll[Instance <: InstanceReference, Result](
       instances: Seq[Instance]
   )(
       action: Instance => ConsoleCommandResult[Result]
@@ -74,7 +74,7 @@ object ConsoleCommandResult {
     * @param action Action to perform on instances
     * @return Successful if the action was successful for all instances, otherwise all the errors encountered merged into one.
     */
-  private[console] def forAll[Instance <: InstanceReferenceCommon, Result](
+  private[console] def forAll[Instance <: InstanceReference, Result](
       instances: Seq[Instance]
   )(
       action: Instance => ConsoleCommandResult[Result]
@@ -171,7 +171,7 @@ object CommandErrors extends CommandErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     override def logLevel: Level = Level.ERROR
-    final case class ErrorCanton(instance: LocalInstanceReferenceCommon)
+    final case class ErrorCanton(instance: LocalInstanceReference)
         extends CantonCommandError(s"Instance $instance has not been started. ")
   }
 

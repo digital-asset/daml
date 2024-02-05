@@ -163,13 +163,13 @@ object SequencerConnections
     )
   }
 
-  private def fromProtoV0(
+  private def fromProtoV30(
       fieldName: String,
       connections: Seq[v30.SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
   ): ParsingResult[SequencerConnections] = for {
     sequencerConnectionsNes <- parseRequiredNonEmpty(
-      SequencerConnection.fromProtoV0,
+      SequencerConnection.fromProtoV30,
       fieldName,
       connections,
     )
@@ -191,12 +191,12 @@ object SequencerConnections
   ): ParsingResult[SequencerConnections] =
     ProtoConverter
       .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
-      .flatMap(fromProtoV0("sequencer_connections", sequencerConnections.sequencerConnections, _))
+      .flatMap(fromProtoV30("sequencer_connections", sequencerConnections.sequencerConnections, _))
 
   override def name: String = "sequencer connections"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
       supportedProtoVersion(v30.SequencerConnections)(fromProtoV30),
       _.toProtoV30.toByteString,

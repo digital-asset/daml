@@ -229,8 +229,9 @@ object ReferenceBlockOrderer {
 
     sendQueue
       .execute(
-        store.insertRequest(
-          BlockOrderer.OrderedRequest(timestamp.underlying.micros, tag, body)
+        store.insertRequestWithHeight(
+          blockHeight,
+          BlockOrderer.OrderedRequest(timestamp.underlying.micros, tag, body),
         ),
         s"send request at $timestamp",
       )

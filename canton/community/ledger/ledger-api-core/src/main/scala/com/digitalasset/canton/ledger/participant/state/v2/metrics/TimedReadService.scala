@@ -20,13 +20,13 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
   override def stateUpdates(
       beginAfter: Option[Offset]
   )(implicit traceContext: TraceContext): Source[(Offset, Traced[Update]), NotUsed] =
-    Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
+    Timed.source(metrics.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
 
   override def getConnectedDomains(
       request: ReadService.ConnectedDomainRequest
   )(implicit traceContext: TraceContext): Future[ReadService.ConnectedDomainResponse] =
     Timed.future(
-      metrics.daml.services.read.getConnectedDomains,
+      metrics.services.read.getConnectedDomains,
       delegate.getConnectedDomains(request),
     )
 
@@ -34,7 +34,7 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
       traceContext: TraceContext
   ): Future[Vector[Offset]] =
     Timed.future(
-      metrics.daml.services.read.getConnectedDomains,
+      metrics.services.read.getConnectedDomains,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),
     )
 

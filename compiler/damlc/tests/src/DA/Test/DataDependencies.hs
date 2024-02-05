@@ -1082,8 +1082,8 @@ tests TestArgs{..} =
             , "    D () -> ()"
             ]
 
-    , simpleImportTest "HasField across data-dependencies"
-        -- This test checks that HasField instances are correctly imported via
+    , simpleImportTest "GetField/SetFiled across data-dependencies"
+        -- This test checks that GetField/SetField instances are correctly imported via
         -- data-dependencies. This is a regression test for issue #7284.
             [ "module Lib where"
             , "data T x y"
@@ -1094,6 +1094,32 @@ tests TestArgs{..} =
             , "import Lib"
             , "getA : T x y -> x"
             , "getA t = t.a"
+            , "setA : x -> T x y -> T x y"
+            , "setA x t = t with a = x"
+            ]
+
+    , simpleImportTest "Custom GetField across data-dependencies"
+            [ "module Lib where"
+            , "data T = T Int"
+            , "instance GetField \"foo\" T Text where"
+            , "  getField (T a) = show a"
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "getFoo : T -> Text"
+            , "getFoo t = t.foo"
+            ]
+
+    , simpleImportTest "Custom SetField across data-dependencies"
+            [ "module Lib where"
+            , "data T = T Int"
+            , "instance SetField \"foo\" T Bool where"
+            , "  setField b (T a) = T (if b then a else -a)"
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "setFoo : Bool -> T -> T"
+            , "setFoo b t = t with foo = b"
             ]
 
     , simpleImportTest "Dictionary function names match despite conflicts"

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -139,6 +140,7 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
 
 sealed trait EventLogId extends PrettyPrinting with Product with Serializable {
   def index: Int
+  def context: MetricsContext
 }
 
 object EventLogId {
@@ -164,6 +166,10 @@ object EventLogId {
 
     def domainId: DomainId = id.item
 
+    def context: MetricsContext = MetricsContext(
+      "logId" -> (if (index == 0) domainId.show else domainId.show + "_" + index)
+    )
+
   }
 
   def forDomain(indexedStringStore: IndexedStringStore)(id: DomainId)(implicit
@@ -178,6 +184,11 @@ object EventLogId {
     )
 
     override def pretty: Pretty[ParticipantEventLogId] = prettyOfClass(param("index", _.index))
+
+    def context: MetricsContext = MetricsContext(
+      "logId" -> (if (index == 0) "participant" else "participant_" + index)
+    )
+
   }
 
   object ParticipantEventLogId {

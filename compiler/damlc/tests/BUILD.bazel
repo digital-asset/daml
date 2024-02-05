@@ -1293,3 +1293,18 @@ daml_compile(
     target = "2.dev",
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "divulgence-daml-test-files",
+    srcs = [
+        "daml-test-files/AuthFailure.daml",
+        "daml-test-files/AuthorizedDivulgence.daml",
+        "daml-test-files/DiscloseViaChoiceObserver.daml",
+        "daml-test-files/Divulgence.daml",
+        "daml-test-files/ExceptionSemantics.daml",
+        "daml-test-files/LFContractKeys.daml",
+        "daml-test-files/MoreChoiceObserverDivulgence.daml",
+        "daml-test-files/ScriptAssertHelpers.daml",
+    ],
+    visibility = ["//daml-script:__subpackages__"],
+)

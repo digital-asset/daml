@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.upgrades.{Typecheck, UpgradeError}
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
@@ -17,7 +17,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
+import com.digitalasset.canton.ledger.error.PackageServiceErrors.{Validation, InternalError}
 import com.digitalasset.canton.ledger.error.groups.AdminServiceErrors
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPackagesService,
@@ -195,7 +195,7 @@ private[apiserver] final class ApiPackageManagementService private (
       case Some(upgradedPackageId) =>
         for {
           optUpgradedDar <- lookupDar(upgradedPackageId)
-          _ = logger.info(s"Package $upgradingPackageId upgrades package id $upgradedPackageId")
+          _ = logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
           _ <- optUpgradingDar.fold {
             logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: CouldNotResolveUpgradedPackageId")
             Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, UpgradeError("CouldNotResolveUpgradedPackageId")).asGrpcError)
@@ -206,7 +206,7 @@ private[apiserver] final class ApiPackageManagementService private (
                 Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
               case NonFatal(err) =>
                 logger.info(s"Typechecking upgrades failed with unknown error.")
-                Future.failed(err)
+                Future.failed(InternalError.Unhandled(err).asGrpcError)
             }
           }
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)

@@ -51,7 +51,7 @@ final case class RegisterTopologyTransactionResponse(
 object RegisterTopologyTransactionResponse
     extends HasProtocolVersionedCompanion[RegisterTopologyTransactionResponse] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.RegisterTopologyTransactionResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -80,13 +80,14 @@ object RegisterTopologyTransactionResponse
       domainUid <- UniqueIdentifier.fromProtoPrimitive(message.domainId, "domainId")
       requestId <- String255.fromProtoPrimitive(message.requestId, "requestId")
       results <- message.results.traverse(RegisterTopologyTransactionResponseResult.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield RegisterTopologyTransactionResponse(
       requestedBy,
       ParticipantId(participantUid),
       requestId,
       results,
       DomainId(domainUid),
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)))
+    )(rpv)
 
   override def name: String = "RegisterTopologyTransactionResponse"
 

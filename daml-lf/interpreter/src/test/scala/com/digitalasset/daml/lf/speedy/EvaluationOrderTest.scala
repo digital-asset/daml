@@ -15,11 +15,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Util, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.ledger.FailedAuthorization.{
-  ExerciseMissingAuthorization,
-  FetchMissingAuthorization,
-  LookupByKeyMissingAuthorization,
-}
+import com.daml.lf.ledger.FailedAuthorization._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -373,7 +369,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   }
 
   private[this] val visibleContract = buildContract(bob)
-  private[this] val nonVisibleContract = buildContract(alice)
 
   private[this] val helper = Versioned(
     testTxVersion,
@@ -407,7 +402,6 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   )
 
   private[this] val getContract = Map(cId -> visibleContract)
-  private[this] val getNonVisibleContract = Map(cId -> nonVisibleContract)
   private[this] val getIfaceContract = Map(cId -> iface_contract)
   private[this] val getHelper = Map(helperCId -> helper)
 
@@ -433,6 +427,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
+      readAs: Set[Party] = Set.empty,
       disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -446,6 +441,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         seed,
         if (args.isEmpty) se else SEApp(se, args),
         parties,
+        readAs,
         traceLog = traceLog,
       )
     disclosedContracts.foreach { case (cid, contract) =>
@@ -578,15 +574,27 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           Array(SParty(alice), SParty(bob)),
           Set(bob),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(
+                  SErrorDamlException(
+                    IE.FailedAuthorization(
+                      _,
+                      CreateMissingAuthorization(T, _, authorizingParties, requiredParties),
+                    )
+                  )
+                )
+              ) =>
+            authorizingParties shouldBe Set(bob)
+            requiredParties shouldBe Set(alice)
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -773,15 +781,27 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           Array(SParty(alice), SParty(bob)),
           Set(bob),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(
+                  SErrorDamlException(
+                    IE.FailedAuthorization(
+                      _,
+                      CreateMissingAuthorization(Human, _, authorizingParties, requiredParties),
+                    )
+                  )
+                )
+              ) =>
+            authorizingParties shouldBe Set(bob)
+            requiredParties shouldBe Set(alice)
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -910,7 +930,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a non-cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
@@ -919,19 +939,37 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
 
@@ -1046,7 +1084,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise of cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
@@ -1057,13 +1095,31 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1152,7 +1208,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
@@ -1165,13 +1221,31 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
+                ) =>
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
           }
         }
       }
@@ -1297,7 +1371,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a non-cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
@@ -1307,38 +1381,25 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getKey = getKey,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a non-cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SParty(alice)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
-            getKey = getKey,
-          )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
               msgs shouldBe Seq(
                 "starts test",
                 "maintainers",
@@ -1347,6 +1408,9 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "precondition",
                 "contract signatories",
                 "contract observers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
               )
           }
         }
@@ -1419,7 +1483,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) (sig: Party) ->
@@ -1431,36 +1495,33 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getKey = getKey,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
-
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(exercisingParty: Party) (sig : Party) (cId: ContractId M:T)  ->
-          ubind x: M:T <- exercise @M:T Divulge cId exercisingParty
-          in Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SParty(alice), SContractId(cId)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
-          )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
-              msgs shouldBe Seq("starts test", "maintainers")
+              authorizingParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
+              )
+
           }
         }
       }
@@ -1512,7 +1573,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
@@ -1524,40 +1585,24 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             Set(alice, charlie),
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "template choice controllers",
-              "template choice observers",
-              "template choice authorizers",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a local contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(helperCId: ContractId Test:Helper) (sig : Party) (exercisingParty: Party) ->
-         ubind x: ContractId M:T <- exercise @Test:Helper CreateNonvisibleKey helperCId ()
-         in Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
-            Set(charlie),
-            getContract = getHelper,
-          )
           inside(res) {
             case Success(
                   Left(
                     SErrorDamlException(
                       IE.FailedAuthorization(
                         _,
-                        ExerciseMissingAuthorization(`T`, _, _, authParties, requiredParties),
+                        ExerciseMissingAuthorization(
+                          T,
+                          "Choice",
+                          _,
+                          authorizingParties,
+                          requiredParties,
+                        ),
                       )
                     )
                   )
                 ) =>
-              authParties shouldBe Set(charlie)
+              authorizingParties shouldBe Set(charlie)
               requiredParties shouldBe Set(alice)
               msgs shouldBe Seq(
                 "starts test",
@@ -1732,29 +1777,49 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
 
           // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
-          "authorization failures" in {
+          "authorization failure" in {
             val (res, msgs) = evalUpdateApp(
-              pkgs,
-              e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
-              Array(SParty(charlie), SContractId(cId)),
-              Set(charlie),
+              pkgs = pkgs,
+              e =
+                e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
+              args = Array(SParty(charlie), SContractId(cId)),
+              parties = Set(charlie),
+              readAs = Set(alice),
               getContract = getIfaceContract,
             )
 
-            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-              msgs shouldBe buildLog(
-                "starts test",
-                "queries contract",
-                "precondition",
-                "contract signatories",
-                "contract observers",
-                "key",
-                "maintainers",
-                "view",
-                "interface guard",
-                "interface choice controllers",
-                "interface choice observers",
-              )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(
+                        IE.FailedAuthorization(
+                          _,
+                          ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            _,
+                            authorizingParties,
+                            requiredParties,
+                          ),
+                        )
+                      )
+                    )
+                  ) =>
+                authorizingParties shouldBe Set(charlie)
+                requiredParties shouldBe Set(alice)
+                msgs shouldBe buildLog(
+                  "starts test",
+                  "queries contract",
+                  "precondition",
+                  "contract signatories",
+                  "contract observers",
+                  "key",
+                  "maintainers",
+                  "view",
+                  "interface guard",
+                  "interface choice controllers",
+                  "interface choice observers",
+                )
             }
           }
         }
@@ -1847,7 +1912,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
 
           // TEST_EVIDENCE: Integrity: Evaluation order of exercise by interface of cached global contract with failed authorization
-          "authorization failures" in {
+          "authorization failure" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
@@ -1858,14 +1923,32 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               getContract = getIfaceContract,
             )
 
-            inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-              msgs shouldBe buildLog(
-                "starts test",
-                "view",
-                "interface guard",
-                "interface choice controllers",
-                "interface choice observers",
-              )
+            inside(res) {
+              case Success(
+                    Left(
+                      SErrorDamlException(
+                        IE.FailedAuthorization(
+                          _,
+                          ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            _,
+                            authorizingParties,
+                            requiredParties,
+                          ),
+                        )
+                      )
+                    )
+                  ) =>
+                authorizingParties shouldBe Set(bob)
+                requiredParties shouldBe Set(alice)
+                msgs shouldBe buildLog(
+                  "starts test",
+                  "view",
+                  "interface guard",
+                  "interface choice controllers",
+                  "interface choice observers",
+                )
             }
           }
         }
@@ -1961,7 +2044,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
 
           // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of a cached local contract with failed authorization
-          "authorization failures" in {
+          "authorization failure" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) (other : Party)->
@@ -1978,11 +2061,19 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                       SErrorDamlException(
                         IE.FailedAuthorization(
                           _,
-                          FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
+                          FailedAuthorization.ExerciseMissingAuthorization(
+                            Human,
+                            "Nap",
+                            None,
+                            authorizingParties,
+                            requiredParties,
+                          ),
                         )
                       )
                     )
                   ) =>
+                authorizingParties shouldBe Set(alice)
+                requiredParties shouldBe Set(bob)
                 msgs shouldBe buildLog(
                   "starts test",
                   "view",
@@ -2039,7 +2130,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a non-cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_by_id""",
@@ -2048,16 +2139,28 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+              )
           }
         }
 
@@ -2159,7 +2262,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch of cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
@@ -2170,8 +2273,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -2246,7 +2361,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
@@ -2257,8 +2372,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -2349,44 +2476,29 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a non-cached global contract with authorization failure
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice)),
-            Set(alice, charlie),
+            pkgs = pkgs,
+            e =
+              e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
+            args = Array(SParty(charlie), SParty(alice)),
+            parties = Set(alice, charlie),
             getContract = getContract,
-            getKey = getKey,
-          )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a non-cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
             getKey = getKey,
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
               msgs shouldBe Seq(
                 "starts test",
                 "maintainers",
@@ -2439,7 +2551,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a cached global contract with authorization failure
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->
@@ -2450,29 +2562,19 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers")
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(fetchingParty:Party) (sig : Party)  (cId: ContractId M:T)  ->
-           ubind x: M:T <- exercise @M:T Divulge cId fetchingParty
-           in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice), SContractId(cId)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
-            getKey = getKey,
-          )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(T, _, stackholders, autorizingParties),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
+              stackholders shouldBe Set(alice, bob)
+              autorizingParties shouldBe Set(charlie)
               msgs shouldBe Seq("starts test", "maintainers")
           }
         }
@@ -2515,14 +2617,15 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a local contract with authorization failure
-        "visibility failure" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(helperCId: ContractId Test:Helper) (sig : Party) (fetchingParty: Party) ->
+            pkgs = pkgs,
+            e = e"""\(helperCId: ContractId Test:Helper) (sig : Party) (fetchingParty: Party) ->
          ubind x: ContractId M:T <- exercise @Test:Helper CreateNonvisibleKey helperCId ()
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
-            Set(charlie),
+            args = Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
+            parties = Set(charlie),
+            readAs = Set(alice),
             getContract = getHelper,
           )
           inside(res) {
@@ -2531,7 +2634,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                     SErrorDamlException(
                       IE.FailedAuthorization(
                         _,
-                        FetchMissingAuthorization(`T`, _, stakeholders, authParties),
+                        FetchMissingAuthorization(T, _, stakeholders, authParties),
                       )
                     )
                   )
@@ -2654,7 +2757,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a non-cached global contract with failed authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_interface""",
@@ -2663,17 +2766,29 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-              "key",
-              "maintainers",
-              "view",
-            )
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq(
+                "starts test",
+                "queries contract",
+                "precondition",
+                "contract signatories",
+                "contract observers",
+                "key",
+                "maintainers",
+                "view",
+              )
           }
         }
       }
@@ -2753,7 +2868,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
@@ -2764,8 +2879,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "view")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2843,7 +2970,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         }
 
         // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a cached global contract with failure authorization
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
@@ -2854,8 +2981,20 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "view")
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(Human, _, stakeholders, authorizingParties),
+                      )
+                    )
+                  )
+                ) =>
+              stakeholders shouldBe Set(alice, bob)
+              authorizingParties shouldBe Set(charlie)
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2914,35 +3053,19 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-              "queries contract",
-              "precondition",
-              "contract signatories",
-              "contract observers",
-            )
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of lookup of a non-cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
-            getKey = getKey,
-          )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
+              authorizingParties shouldBe Set(charlie)
+              maintainers shouldBe Set(alice)
               msgs shouldBe Seq(
                 "starts test",
                 "maintainers",
@@ -3005,29 +3128,19 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers")
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of lookup of a cached global contract with visibility failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
-           ubind x: M:T <- exercise @M:T Divulge cId lookingParty
-           in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice), SContractId(cId)),
-            Set(charlie),
-            getContract = getNonVisibleContract,
-            getKey = getKey,
-          )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(cid, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
+                      )
+                    )
+                  )
                 ) =>
-              cid shouldBe cId
-              key.templateId shouldBe T
+              authorizingParties shouldBe Set(charlie)
+              maintainers shouldBe Set(alice)
               msgs shouldBe Seq("starts test", "maintainers")
           }
         }
@@ -3079,35 +3192,19 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
             Set(alice, charlie),
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "maintainers")
-          }
-        }
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of a local contract with authorization failure
-        "visibility failure" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(helperCId: ContractId Test:Helper) (sig : Party) (lookingParty: Party) ->
-         ubind x: ContractId M:T <- exercise @Test:Helper CreateNonvisibleKey helperCId ()
-         in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
-            Set(charlie),
-            getContract = getHelper,
-          )
           inside(res) {
             case Success(
                   Left(
                     SErrorDamlException(
                       IE.FailedAuthorization(
                         _,
-                        LookupByKeyMissingAuthorization(`T`, _, maintainers, authParties),
+                        LookupByKeyMissingAuthorization(T, _, maintainers, authorizingParties),
                       )
                     )
                   )
                 ) =>
+              authorizingParties shouldBe Set(charlie)
               maintainers shouldBe Set(alice)
-              authParties shouldBe Set(charlie)
               msgs shouldBe Seq("starts test", "maintainers")
           }
         }

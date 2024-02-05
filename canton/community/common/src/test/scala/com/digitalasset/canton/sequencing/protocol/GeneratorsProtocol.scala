@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.{DomainId, Member}
-import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, SequencerCounter}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -131,11 +131,7 @@ final class GeneratorsProtocol(
         envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](closedEnvelopeArb)
         batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
         maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
-        aggregationRule <- GeneratorsVersion.defaultValueGen(
-          protocolVersion,
-          SubmissionRequest.aggregationRuleDefaultValue,
-          Gen.option(Arbitrary.arbitrary[AggregationRule]),
-        )
+        aggregationRule <- Gen.option(Arbitrary.arbitrary[AggregationRule])
         timestampOfSigningKey <-
           if (aggregationRule.nonEmpty)
             Arbitrary.arbitrary[CantonTimestamp].map(Some(_))

@@ -9,6 +9,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.ProtoDeserializationError
 import com.digitalasset.canton.error.{BaseCantonError, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.serialization.DeserializationError
+import com.digitalasset.canton.version.ProtoVersion
 import com.google.protobuf.InvalidProtocolBufferException
 
 sealed trait ProtoDeserializationError extends Product with Serializable {
@@ -56,6 +57,11 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   }
   final case class OtherError(error: String) extends ProtoDeserializationError {
     override def message = error
+  }
+  final case class UnknownProtoVersion(version: ProtoVersion, protoMessage: String)
+      extends ProtoDeserializationError {
+    override def message =
+      s"Message ${protoMessage} has no versioning information corresponding to protobuf $version"
   }
 
   /** Common Deserialization error code

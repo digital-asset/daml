@@ -217,17 +217,17 @@ template VariantAdditional
       controller party
       do pure "V2"
 
-template V2Utils
+template ValidUpgradeUtils
   with
     party : Party
   where
     signatory party
-    choice V2Fetch : ValidUpgrade with
+    choice ValidUpgradeFetch : ValidUpgrade with
         cid : ContractId ValidUpgrade
       controller party
       do fetch cid
 
-    choice V2SameChoiceExercise : Text with
+    choice SameChoiceExercise : Text with
         cid : ContractId ValidUpgrade
       controller party
       do exercise cid SameTypeChoice
@@ -240,3 +240,37 @@ template SharedTemplate
   where
     signatory party
     observer ob
+
+data UnchangedKeyKey = UnchangedKeyKey with
+    p : Party
+    n : Int
+  deriving (Eq, Show)
+
+template UnchangedKey
+  with
+    party : Party
+    n : Int
+    newField : Optional Text
+  where
+    signatory party
+    key (UnchangedKeyKey party n) : UnchangedKeyKey
+    maintainer key.p
+
+    choice UnchangedKeyCall : Text
+      controller party
+      do pure "V2"
+
+template UnchangedKeyHelper
+  with
+    party : Party
+  where
+    signatory party
+    choice UnchangedKeyFetch : (ContractId UnchangedKey, UnchangedKey) with
+        k : UnchangedKeyKey
+      controller party
+      do fetchByKey k
+    
+    choice UnchangedKeyExercise : Text with
+        k : UnchangedKeyKey
+      controller party
+      do exerciseByKey @UnchangedKey k UnchangedKeyCall

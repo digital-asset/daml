@@ -6,9 +6,9 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.Show
 import com.digitalasset.canton.admin.api.client.data.CantonStatus.splitSuccessfulAndFailedStatus
 import com.digitalasset.canton.console.{
-  MediatorReferenceX,
-  ParticipantReferenceX,
-  SequencerNodeReferenceX,
+  MediatorReference,
+  ParticipantReference,
+  SequencerNodeReference,
 }
 import com.digitalasset.canton.health.admin.data.{
   MediatorNodeStatus,
@@ -75,11 +75,11 @@ object CommunityCantonStatus {
       participants: Map[String, () => NodeStatus[ParticipantStatus]],
   ): CommunityCantonStatus = {
     val (sequencerStatus, unreachableSequencers) =
-      splitSuccessfulAndFailedStatus(sequencers, SequencerNodeReferenceX.InstanceType)
+      splitSuccessfulAndFailedStatus(sequencers, SequencerNodeReference.InstanceType)
     val (mediatorStatus, unreachableMediators) =
-      splitSuccessfulAndFailedStatus(mediators, MediatorReferenceX.InstanceType)
+      splitSuccessfulAndFailedStatus(mediators, MediatorReference.InstanceType)
     val (participantStatus, unreachableParticipants) =
-      splitSuccessfulAndFailedStatus(participants, ParticipantReferenceX.InstanceType)
+      splitSuccessfulAndFailedStatus(participants, ParticipantReference.InstanceType)
 
     CommunityCantonStatus(
       sequencerStatus,
@@ -107,18 +107,18 @@ final case class CommunityCantonStatus(
     val sequencers = descriptions(
       sequencerStatus,
       unreachableSequencers,
-      SequencerNodeReferenceX.InstanceType,
+      SequencerNodeReference.InstanceType,
     )
     val mediators = descriptions(
       mediatorStatus,
       unreachableMediators,
-      MediatorReferenceX.InstanceType,
+      MediatorReference.InstanceType,
     )
     val participants =
       descriptions(
         participantStatus,
         unreachableParticipants,
-        ParticipantReferenceX.InstanceType,
+        ParticipantReference.InstanceType,
       )
     (sequencers ++ mediators ++ participants).mkString(System.lineSeparator() * 2)
   }

@@ -101,6 +101,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         OpenTelemetrySdk.builder().build(),
         SdkTracerProvider.builder(),
         NoOpOnDemandMetricsReader$,
+        metricsEnabled = false,
       )
     )
     type NodeGroup = Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]

@@ -115,10 +115,10 @@ final class TransferOutProcessingStepsTest
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
       submitter,
-      LedgerApplicationId.assertFromString("tests"),
-      submittingParticipant.toLf,
+      submittingParticipant,
       LedgerCommandId.assertFromString("transfer-out-processing-steps-command-id"),
       submissionId = None,
+      LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
   }

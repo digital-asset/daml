@@ -80,7 +80,7 @@ class GrpcTransferService(
           )
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
     } yield {
-      val searchResultsP = transferData.map(TransferSearchResult(_).toProtoV0)
+      val searchResultsP = transferData.map(TransferSearchResult(_).toProtoV30)
       AdminTransferSearchResponse(results = searchResultsP)
     }
   }
@@ -95,7 +95,7 @@ final case class TransferSearchResult(
     readyForTransferIn: Boolean,
     targetTimeProofO: Option[CantonTimestamp],
 ) {
-  def toProtoV0: AdminTransferSearchResponse.TransferSearchResult =
+  def toProtoV30: AdminTransferSearchResponse.TransferSearchResult =
     AdminTransferSearchResponse.TransferSearchResult(
       contractId = contractId.toProtoPrimitive,
       transferId = Some(transferId.toAdminProto),
@@ -108,7 +108,7 @@ final case class TransferSearchResult(
 }
 
 object TransferSearchResult {
-  def fromProtoV0(
+  def fromProtoV30(
       resultP: AdminTransferSearchResponse.TransferSearchResult
   ): ParsingResult[TransferSearchResult] =
     resultP match {

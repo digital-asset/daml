@@ -1617,7 +1617,7 @@ convertExpr env0 e = do
                   )
             _ -> unsupported "primitiveInterface not applied to function from interface." t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
-    -- preprocessor to magically implement the `HasField` instances for records.
+    -- preprocessor to magically implement the `GetField` and `SetField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env record' args $ \x args ->
@@ -2447,8 +2447,8 @@ erasedTy env = do
 -- | Type-level strings are represented in Daml-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
 -- @PromotedText {"_foo": Unit}@. This allows us to preserve all the information we need
--- to reconstruct `HasField` instances in data-dependencies without resorting to
--- name-based hacks.
+-- to reconstruct `GetField` and `SetField` instances in data-dependencies without
+-- resorting to name-based hacks.
 --
 -- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
 -- the field names in daml-lf-proto to encode undesired characters. We later reconstruct

@@ -25,8 +25,8 @@ abstract class SequencerNodeConfigCommon(
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
-  def toRemoteConfig: RemoteSequencerConfig.Grpc =
-    RemoteSequencerConfig.Grpc(
+  def toRemoteConfig: RemoteSequencerConfig =
+    RemoteSequencerConfig(
       adminApi.clientConfig,
       publicApi.toSequencerConnectionConfig,
       monitoring.grpcHealthServer.map(_.toRemoteConfig),

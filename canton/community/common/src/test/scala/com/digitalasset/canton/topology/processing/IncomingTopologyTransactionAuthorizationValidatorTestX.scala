@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.processing
 
+import cats.Apply
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -13,7 +14,10 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.NoDelegationFoundForKey
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
+  NoDelegationFoundForKeys,
+  NotAuthorized,
+}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
@@ -21,6 +25,8 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransactionX,
 }
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -350,8 +356,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             res._2,
             Seq(
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
               None,
               None,
             ),
@@ -398,10 +404,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             res._2,
             Seq(
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key6.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
               None,
             ),
           )
@@ -439,10 +445,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           check(
             res._2,
             Seq(
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
               None,
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
             ),
           )
         }
@@ -480,8 +486,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             res._2,
             Seq(
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
         }
@@ -550,8 +556,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
               None,
               None,
               None,
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
-              Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint)),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
         }
@@ -605,7 +611,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, Some(_ == NoDelegationFoundForKey(SigningKeys.key1.fingerprint))))
+          check(
+            res._2,
+            Seq(None, Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint)))),
+          )
           res._1.cascadingNamespaces shouldBe Set(ns1)
         }
       }
@@ -673,7 +682,12 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         } yield {
           check(
             res._2,
-            Seq(None, None, None, Some(_ == NoDelegationFoundForKey(SigningKeys.key2.fingerprint))),
+            Seq(
+              None,
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+            ),
           )
           res._1.cascadingNamespaces shouldBe Set(ns1)
           res._1.filteredCascadingUids shouldBe Set(uid6)
@@ -750,6 +764,143 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         } yield {
           check(res._2, Seq(None))
         }
+      }
+    }
+
+    "respect the threshold of decentralized namespaces" in {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8, ns9))
+      val dns = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.tryCreate(3), NonEmpty(Set, ns1, ns8, ns9))
+          .fold(
+            err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 1: $err"),
+            identity,
+          ),
+        NonEmpty(Set, key1, key8, key9),
+        serial = PositiveInt.one,
+      )
+
+      val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns)
+
+      val pkgMapping = VettedPackagesX(
+        ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+        None,
+        Seq.empty,
+      )
+      val pkgTx = TopologyTransactionX(
+        TopologyChangeOpX.Replace,
+        serial = PositiveInt.one,
+        pkgMapping,
+        BaseTest.testedProtocolVersion,
+      )
+
+      def validateTx(
+          isProposal: Boolean,
+          expectFullAuthorization: Boolean,
+          signingKeys: SigningPublicKey*
+      ) = TraceContext.withNewTraceContext { freshTraceContext =>
+        validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              mkTrans(
+                pkgTx,
+                isProposal = isProposal,
+                signingKeys =
+                  NonEmpty.from(signingKeys.toSet).getOrElse(sys.error("empty signing keys")),
+              )
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = expectFullAuthorization,
+          )(freshTraceContext)
+          .map(_._2.loneElement)
+      }
+      import cats.instances.list.*
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithThreeOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        combinationsThatAreNotAuthorized = Seq(
+          ( /* isProposal*/ true, /* expectFullAuthorization*/ true),
+          ( /* isProposal*/ false, /* expectFullAuthorization*/ true),
+          // doesn't make much sense. a non-proposal by definition must be fully authorized
+          ( /* isProposal*/ false, /* expectFullAuthorization*/ false),
+        )
+
+        // try with 1/3 signatures
+        _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1).map(
+                _.rejectionReason shouldBe Some(NotAuthorized)
+              )
+            )
+        }
+
+        // authorizing as proposal should succeed
+        _ <- clueF(s"key1: isProposal=true, expectFullAuthorization=false")(
+          validateTx(isProposal = true, expectFullAuthorization = false, key1).map(
+            _.rejectionReason shouldBe None
+          )
+        )
+
+        // try with 2/3 signatures
+        key1_key8_notAuthorized <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1, key8).map(
+                _.rejectionReason shouldBe Some(NotAuthorized)
+              )
+            )
+        }
+
+        _ <- clueF(
+          s"key1, key8: isProposal=true, expectFullAuthorization=false"
+        )(
+          validateTx(
+            isProposal = true,
+            expectFullAuthorization = false,
+            key1,
+            key8,
+          ).map(
+            _.rejectionReason shouldBe None
+          )
+        )
+
+        // when there are enough signatures, the transaction should become fully authorized
+        // regardless of the `isProposal` and `expectFullAuthorization` flags
+        allCombinations = Apply[List].product(List(true, false), List(true, false))
+        _ <- MonadUtil.sequentialTraverse(allCombinations) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1, key8, key9: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1, key8, key9).map(
+                _.rejectionReason shouldBe None
+              )
+            )
+        }
+
+      } yield {
+        succeed
       }
     }
   }

@@ -8,8 +8,8 @@ import Daml.Script
 main : Script ()
 main = pure ()
 
-data TKey1 = TKey1 { p : Party }
-data TKey2 = TKey2 { p : Party }
+data TKey1 = TKey1 with p : Party
+data TKey2 = TKey2 with p : Party
 
 template T with
     p: Party

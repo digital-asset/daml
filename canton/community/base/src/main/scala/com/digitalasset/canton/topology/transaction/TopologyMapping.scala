@@ -305,8 +305,9 @@ object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[L
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(claimP.uniqueIdentifier, "uniqueIdentifier")
       evidence <- LegalIdentityClaimEvidence.fromProtoOneOf(claimP.evidence)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield LegalIdentityClaim(uid, evidence)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     )
 }
@@ -639,7 +640,7 @@ final case class DomainParametersChange(
 object DomainParametersChange {
   val dbType: DomainTopologyTransactionType = DomainTopologyTransactionType.DomainParameters
 
-  private[transaction] def fromProtoV1(
+  private[transaction] def fromProtoV30(
       value: v30.DomainParametersChange
   ): ParsingResult[DomainParametersChange] = {
     for {

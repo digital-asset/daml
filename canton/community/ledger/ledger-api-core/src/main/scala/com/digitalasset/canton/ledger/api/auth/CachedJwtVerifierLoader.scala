@@ -60,7 +60,7 @@ class CachedJwtVerifierLoader(
         .buildAsync(
           new FutureAsyncCacheLoader[CacheKey, JwtVerifier](key => getVerifier(key))
         ),
-      metrics.daml.identityProviderConfigStore.verifierCache,
+      metrics.identityProviderConfigStore.verifierCache,
     )
 
   override def loadJwtVerifier(jwksUrl: JwksUrl, keyId: Option[String]): Future[JwtVerifier] =

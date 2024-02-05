@@ -47,14 +47,14 @@ class AuthorizationValidator(participantId: ParticipantId, enableContractUpgradi
             } else {
               for {
                 notAllowedBySubmittingParticipant <- snapshot.canNotSubmit(
-                  submitterMetadata.submitterParticipant,
+                  submitterMetadata.submittingParticipant,
                   submitterMetadata.actAs.toSeq,
                 )
               } yield
                 if (notAllowedBySubmittingParticipant.nonEmpty) {
                   Some(
                     err(
-                      show"The submitter participant ${submitterMetadata.submitterParticipant} is not authorized to submit on behalf of the submitting parties ${notAllowedBySubmittingParticipant.toSeq}."
+                      show"The submitting participant ${submitterMetadata.submittingParticipant} is not authorized to submit on behalf of the submitting parties ${notAllowedBySubmittingParticipant.toSeq}."
                     )
                   )
                 } else None

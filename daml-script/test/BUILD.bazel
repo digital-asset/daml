@@ -27,6 +27,7 @@ load(
             glob(["**/*.daml"]) + [
                 "//daml-script/daml:daml-script-{}.dar".format(target),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
         outs = ["script-test-v{}.dar".format(major)],
         cmd = """
@@ -39,6 +40,7 @@ load(
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -174,7 +176,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -375,7 +376,6 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -408,10 +408,8 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "test-dev",
-    # TODO[#18195] Fix daml3-script and re-enable this test.
     srcs = glob(
         ["src/com/**/*Dev*.scala"],
-        exclude = ["**/UpgradesITDev.scala"],
     ),
     data = [dep for deps in [[
         ":coin-upgrade-v1-v2-{}.dar".format(lf),
@@ -449,7 +447,6 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",

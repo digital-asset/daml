@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
@@ -220,7 +220,11 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
               ),
               Set.empty[PackageId],
               languageVersion,
-              None,
+              Ast.PackageMetadata(
+                Ref.PackageName.assertFromString("foo"),
+                Ref.PackageVersion.assertFromString("0.0.0"),
+                None,
+              ),
             )
         ),
         compilerConfig,
@@ -241,7 +245,11 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
             ),
             Set.empty[PackageId],
             languageVersion,
-            None,
+            Ast.PackageMetadata(
+              Ref.PackageName.assertFromString("foo"),
+              Ref.PackageVersion.assertFromString("0.0.0"),
+              None,
+            ),
           )
       ),
       compilerConfig,

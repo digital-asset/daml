@@ -67,7 +67,7 @@ object TimeProof {
     new TimeProof(event, deliver)
   }
 
-  def fromProtoV0(
+  def fromProtoV30(
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
   )(timeProofP: v30.TimeProof): ParsingResult[TimeProof] = {

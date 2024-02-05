@@ -9,6 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
@@ -34,7 +35,7 @@ object PackageMetadata {
 
   final case class PackageResolution(
       preference: LocalPackagePreference,
-      allPackageIdsForName: Set[Ref.PackageId],
+      allPackageIdsForName: NonEmpty[Set[Ref.PackageId]],
   )
 
   def from(archive: DamlLf.Archive): PackageMetadata = {
@@ -49,26 +50,23 @@ object PackageMetadata {
       packageIdVersionMap = Map.empty,
     )
 
-    pkg.metadata
-      .collect {
-        case decodedPackageMeta
-            // TODO(#16362): Replace with own feature
-            if packageLanguageVersion >= LanguageVersion.Features.sharedKeys =>
-          val packageName = decodedPackageMeta.name
-          val packageVersion = decodedPackageMeta.version
+    // TODO(#16362): Replace with own feature
+    if (packageLanguageVersion >= LanguageVersion.Features.sharedKeys) {
+          val packageName = pkg.metadata.name
+          val packageVersion = pkg.metadata.version
 
           // Update with upgradable package metadata
           nonUpgradablePackageMetadata.copy(
             packageNameMap = Map(
               packageName -> PackageResolution(
                 preference = LocalPackagePreference(packageVersion, packageId),
-                allPackageIdsForName = Set(packageId),
+                allPackageIdsForName = NonEmpty(Set, packageId),
               )
             ),
             packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
           )
       }
-      .getOrElse(nonUpgradablePackageMetadata)
+    else nonUpgradablePackageMetadata
   }
 
   object Implicits {
@@ -102,7 +100,7 @@ object PackageMetadata {
         PackageResolution(
           preference =
             if (y.preference.version > x.preference.version) y.preference else x.preference,
-          allPackageIdsForName = x.allPackageIdsForName |+| y.allPackageIdsForName,
+          allPackageIdsForName = x.allPackageIdsForName ++ y.allPackageIdsForName,
         )
       }
   }

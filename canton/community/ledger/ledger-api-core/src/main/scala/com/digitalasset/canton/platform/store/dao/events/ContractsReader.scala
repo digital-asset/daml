@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.lf.transaction.{GlobalKey, Util}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
@@ -45,8 +45,8 @@ private[dao] sealed class ContractsReader(
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState] =
     Timed.future(
-      metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+      metrics.index.db.lookupKey,
+      dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
         storageBackend.keyState(key, validAt)
       ),
     )
@@ -55,15 +55,15 @@ private[dao] sealed class ContractsReader(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractState]] =
     Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
+      metrics.index.db.lookupActiveContract,
       contractLoader
         .load(contractId -> before)
         .map(_.map {
           case raw: RawCreatedContract =>
             val decompressionTimer =
-              metrics.daml.index.db.lookupCreatedContractsDbMetrics.compressionTimer
+              metrics.index.db.lookupCreatedContractsDbMetrics.compressionTimer
             val deserializationTimer =
-              metrics.daml.index.db.lookupCreatedContractsDbMetrics.translationTimer
+              metrics.index.db.lookupCreatedContractsDbMetrics.translationTimer
 
             val contract = toContract(
               contractId = contractId,
@@ -86,7 +86,7 @@ private[dao] sealed class ContractsReader(
               GlobalKey.assertBuild(
                 contract.unversioned.template,
                 value.unversioned,
-                Util.sharedKey(value.version),
+                true,
               )
             }
 

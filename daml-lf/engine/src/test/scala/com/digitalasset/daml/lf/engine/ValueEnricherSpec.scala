@@ -38,7 +38,8 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable MyUnit = {};

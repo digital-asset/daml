@@ -12,7 +12,6 @@ import com.digitalasset.canton.domain.mediator.store.MediatorDeduplicationStore.
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.{MediatorId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -264,30 +263,26 @@ private[mediator] class DbMediatorDeduplicationStore(
   import Member.DbStorageImplicits.*
   import storage.api.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("mediator-deduplication-store")
-
   override protected def doInitialize(
       deleteFromInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
-    processingTime.event {
-      for {
-        _ <- storage.update_(
-          sqlu"""delete from mediator_deduplication_store
+  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+    for {
+      _ <- storage.update_(
+        sqlu"""delete from mediator_deduplication_store
               where mediator_id = $mediatorId and request_time >= $deleteFromInclusive""",
-          functionFullName,
-        )(traceContext, callerCloseContext)
+        functionFullName,
+      )(traceContext, callerCloseContext)
 
-        activeUuids <- storage.query(
-          sql"""select uuid, request_time, expire_after from mediator_deduplication_store
+      activeUuids <- storage.query(
+        sql"""select uuid, request_time, expire_after from mediator_deduplication_store
              where mediator_id = $mediatorId and expire_after > $deleteFromInclusive"""
-            .as[DeduplicationData],
-          functionFullName,
-        )(traceContext, callerCloseContext)
-      } yield {
-        activeUuids.foreach(storeInMemory)
-      }
+          .as[DeduplicationData],
+        functionFullName,
+      )(traceContext, callerCloseContext)
+    } yield {
+      activeUuids.foreach(storeInMemory)
     }
+  }
 
   override protected def persist(data: DeduplicationData)(implicit
       traceContext: TraceContext,
@@ -305,7 +300,7 @@ private[mediator] class DbMediatorDeduplicationStore(
         override def executeBatch(items: NonEmpty[Seq[Traced[DeduplicationData]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Seq[Unit]] = processingTime.event {
+        ): Future[Seq[Unit]] = {
           // The query does not have to be idempotent, because the stores don't have unique indices and
           // the data gets deduplicated on the read path.
           val action = DbStorage.bulkOperation_(
@@ -329,7 +324,6 @@ private[mediator] class DbMediatorDeduplicationStore(
     BatchAggregator(
       processor,
       batchAggregatorConfig,
-      Some(storage.metrics.loadGaugeM("mediator-deduplication-store-query-batcher")),
     )
   }
 
@@ -338,11 +332,10 @@ private[mediator] class DbMediatorDeduplicationStore(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Unit] = processingTime.event {
+  ): Future[Unit] =
     storage.update_(
       sqlu"""delete from mediator_deduplication_store
           where mediator_id = $mediatorId and expire_after <= $upToInclusive""",
       functionFullName,
     )(traceContext, callerCloseContext)
-  }
 }

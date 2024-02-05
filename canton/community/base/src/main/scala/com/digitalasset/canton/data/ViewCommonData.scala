@@ -91,7 +91,7 @@ object ViewCommonData
   override val name: String = "ViewCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -134,9 +134,11 @@ object ViewCommonData
         .create(viewCommonDataP.threshold)
         .leftMap(InvariantViolation.toProtoDeserializationError)
         .leftMap(_.inField("threshold"))
+
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new ViewCommonData(informees.toSet, threshold, salt)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }

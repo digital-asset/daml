@@ -7,11 +7,13 @@ f x = 12
 data GHC.Types.DamlTemplate => T
   = T {p : Party, q : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" T Party where
+instance DA.Internal.Record.GetField "p" T Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+instance DA.Internal.Record.SetField "p" T Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
-instance DA.Internal.Record.HasField "q" T Party where
+instance DA.Internal.Record.GetField "q" T Party where
   getField = DA.Internal.Record.getFieldPrim @"q" @T @Party
+instance DA.Internal.Record.SetField "q" T Party where
   setField = DA.Internal.Record.setFieldPrim @"q" @T @Party
 data Revoke
   = Revoke {}

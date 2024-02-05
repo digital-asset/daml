@@ -772,7 +772,7 @@ abstract class ProtocolProcessor[
                   submissionData,
                 )
 
-                observeSequencedRootHash(submissionData.submitterParticipant == participantId)
+                observeSequencedRootHash(submissionData.submittingParticipant == participantId)
               case None =>
                 // There are no root views
                 ephemeral.submissionTracker.cancelRegistration(
@@ -800,7 +800,7 @@ abstract class ProtocolProcessor[
               )
             } else {
               // When the mediator `mediatorId` receives the root hash message,
-              // it will either lack the informee tree or find the wrong mediator ID in it.
+              // it will either lack the full informee tree or find the wrong mediator ID in it.
               // The submitting participant is malicious (unless the sequencer is), so it is not this participant
               // and therefore we don't have to output a completion event
               logger.error(

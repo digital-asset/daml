@@ -32,8 +32,6 @@ class DbParticipantSettingsStore(
 
   private val client = 0 // dummy field used to enforce at most one row in the db
 
-  private val processingTime = storage.metrics.loadGaugeM("participant-settings-store")
-
   private val executionQueue = new SimpleExecutionQueue(
     "participant-setting-store-queue",
     futureSupervisor,
@@ -61,7 +59,7 @@ class DbParticipantSettingsStore(
 
   override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     executionQueue.execute(
-      processingTime.event {
+      {
         for {
           settingsO <- storage.query(
             sql"select max_dirty_requests, max_rate, max_deduplication_duration, max_burst_factor from participant_settings"
@@ -100,27 +98,25 @@ class DbParticipantSettingsStore(
   override def writeResourceLimits(
       resourceLimits: ResourceLimits
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    processingTime.eventUS {
-      // Put the new value into the cache right away so that changes become effective immediately.
-      // This also ensures that value meets the object invariant of Settings.
-      cache.updateAndGet(_.map(_.copy(resourceLimits = resourceLimits)))
+    // Put the new value into the cache right away so that changes become effective immediately.
+    // This also ensures that value meets the object invariant of Settings.
+    cache.updateAndGet(_.map(_.copy(resourceLimits = resourceLimits)))
 
-      val ResourceLimits(maxDirtyRequests, maxRate, maxBurstFactor) = resourceLimits
+    val ResourceLimits(maxDirtyRequests, maxRate, maxBurstFactor) = resourceLimits
 
-      val query = storage.profile match {
-        case _: DbStorage.Profile.Postgres =>
-          sqlu"""insert into participant_settings(max_dirty_requests, max_rate, max_burst_factor, client) values($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)
+    val query = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        sqlu"""insert into participant_settings(max_dirty_requests, max_rate, max_burst_factor, client) values($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)
                    on conflict(client) do update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor"""
 
-        case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
-          sqlu"""merge into participant_settings using dual on (1 = 1)
+      case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
+        sqlu"""merge into participant_settings using dual on (1 = 1)
                  when matched then
                    update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor
                  when not matched then
                    insert (max_dirty_requests, max_rate, max_burst_factor, client) values ($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)"""
-      }
-      runQueryAndRefreshCache(query, functionFullName)
     }
+    runQueryAndRefreshCache(query, functionFullName)
   }
 
   override def insertMaxDeduplicationDuration(maxDeduplicationDuration: NonNegativeFiniteDuration)(
@@ -130,7 +126,7 @@ class DbParticipantSettingsStore(
 
   private def insertOrUpdateIfNull[A: SetParameter](columnName: String, newValue: A)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = processingTime.eventUS {
+  ): FutureUnlessShutdown[Unit] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         sqlu"""insert into participant_settings(#$columnName, client) values ($newValue, $client)

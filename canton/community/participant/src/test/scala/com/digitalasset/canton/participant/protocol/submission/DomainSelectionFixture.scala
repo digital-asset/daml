@@ -47,7 +47,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
   /*
   Simple topology, with two parties (signatory, observer) each connected to one
-  participant (submitterParticipantId, observerParticipantId)
+  participant (submittingParticipantId, observerParticipantId)
    */
   object SimpleTopology {
     val submitterParticipantId: ParticipantId = ParticipantId("submitter")

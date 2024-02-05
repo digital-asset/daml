@@ -38,7 +38,7 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
 
   override def supportedProtoVersions: messages.LocalVerdict.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LocalVerdict)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )
@@ -49,11 +49,11 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
   ): ParsingResult[LocalVerdict] = {
     import v30.LocalVerdict.SomeLocalVerdict as Lv
 
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
+    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(30))
     val v30.LocalVerdict(someLocalVerdictP) = localVerdictP
 
     someLocalVerdictP match {
-      case Lv.LocalApprove(empty.Empty(_)) => Right(LocalApprove()(protocolVersion))
+      case Lv.LocalApprove(empty.Empty(_)) => protocolVersion.map(LocalApprove()(_))
       case Lv.LocalReject(localRejectP) => LocalReject.fromProtoV30(localRejectP)
       case Lv.Empty =>
         Left(OtherError("Unable to deserialize LocalVerdict, as the content is empty"))
@@ -188,40 +188,41 @@ object LocalReject extends LocalRejectionGroup {
   private[messages] def fromProtoV30(localRejectP: v30.LocalReject): ParsingResult[LocalReject] = {
     import ConsistencyRejections.*
     val v30.LocalReject(causePrefix, details, resource, errorCodeP, errorCategoryP) = localRejectP
-    val protocolVersion = protocolVersionRepresentativeFor(ProtoVersion(1))
-    errorCodeP match {
-      case LockedContracts.id => Right(LockedContracts.Reject(resource)(protocolVersion))
-      case InactiveContracts.id => Right(InactiveContracts.Reject(resource)(protocolVersion))
-      case CreatesExistingContracts.id =>
-        Right(CreatesExistingContracts.Reject(resource)(protocolVersion))
-      case TimeRejects.LedgerTime.id =>
-        Right(TimeRejects.LedgerTime.Reject(details)(protocolVersion))
-      case TimeRejects.SubmissionTime.id =>
-        Right(TimeRejects.SubmissionTime.Reject(details)(protocolVersion))
-      case TimeRejects.LocalTimeout.id => Right(TimeRejects.LocalTimeout.Reject()(protocolVersion))
-      case MalformedRejects.MalformedRequest.id =>
-        Right(MalformedRejects.MalformedRequest.Reject(details)(protocolVersion))
-      case MalformedRejects.Payloads.id =>
-        Right(MalformedRejects.Payloads.Reject(details)(protocolVersion))
-      case MalformedRejects.ModelConformance.id =>
-        Right(MalformedRejects.ModelConformance.Reject(details)(protocolVersion))
-      case MalformedRejects.BadRootHashMessages.id =>
-        Right(MalformedRejects.BadRootHashMessages.Reject(details)(protocolVersion))
-      case TransferOutRejects.ActivenessCheckFailed.id =>
-        Right(TransferOutRejects.ActivenessCheckFailed.Reject(details)(protocolVersion))
-      case TransferInRejects.AlreadyCompleted.id =>
-        Right(TransferInRejects.AlreadyCompleted.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractAlreadyActive.id =>
-        Right(TransferInRejects.ContractAlreadyActive.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractAlreadyArchived.id =>
-        Right(TransferInRejects.ContractAlreadyArchived.Reject(details)(protocolVersion))
-      case TransferInRejects.ContractIsLocked.id =>
-        Right(TransferInRejects.ContractIsLocked.Reject(details)(protocolVersion))
-      case id =>
-        val category = ErrorCategory
-          .fromInt(errorCategoryP)
-          .getOrElse(ErrorCategory.SystemInternalAssumptionViolated)
-        Right(GenericReject(causePrefix, details, resource, id, category)(protocolVersion))
+    protocolVersionRepresentativeFor(ProtoVersion(30)).map { protocolVersion =>
+      errorCodeP match {
+        case LockedContracts.id => LockedContracts.Reject(resource)(protocolVersion)
+        case InactiveContracts.id => InactiveContracts.Reject(resource)(protocolVersion)
+        case CreatesExistingContracts.id =>
+          CreatesExistingContracts.Reject(resource)(protocolVersion)
+        case TimeRejects.LedgerTime.id =>
+          TimeRejects.LedgerTime.Reject(details)(protocolVersion)
+        case TimeRejects.SubmissionTime.id =>
+          TimeRejects.SubmissionTime.Reject(details)(protocolVersion)
+        case TimeRejects.LocalTimeout.id => TimeRejects.LocalTimeout.Reject()(protocolVersion)
+        case MalformedRejects.MalformedRequest.id =>
+          MalformedRejects.MalformedRequest.Reject(details)(protocolVersion)
+        case MalformedRejects.Payloads.id =>
+          MalformedRejects.Payloads.Reject(details)(protocolVersion)
+        case MalformedRejects.ModelConformance.id =>
+          MalformedRejects.ModelConformance.Reject(details)(protocolVersion)
+        case MalformedRejects.BadRootHashMessages.id =>
+          MalformedRejects.BadRootHashMessages.Reject(details)(protocolVersion)
+        case TransferOutRejects.ActivenessCheckFailed.id =>
+          TransferOutRejects.ActivenessCheckFailed.Reject(details)(protocolVersion)
+        case TransferInRejects.AlreadyCompleted.id =>
+          TransferInRejects.AlreadyCompleted.Reject(details)(protocolVersion)
+        case TransferInRejects.ContractAlreadyActive.id =>
+          TransferInRejects.ContractAlreadyActive.Reject(details)(protocolVersion)
+        case TransferInRejects.ContractAlreadyArchived.id =>
+          TransferInRejects.ContractAlreadyArchived.Reject(details)(protocolVersion)
+        case TransferInRejects.ContractIsLocked.id =>
+          TransferInRejects.ContractIsLocked.Reject(details)(protocolVersion)
+        case id =>
+          val category = ErrorCategory
+            .fromInt(errorCategoryP)
+            .getOrElse(ErrorCategory.SystemInternalAssumptionViolated)
+          GenericReject(causePrefix, details, resource, id, category)(protocolVersion)
+      }
     }
   }
 

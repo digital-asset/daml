@@ -81,8 +81,8 @@ object EnvironmentSignature {
       case PackageSignature(packageId, _, _, astInterfaces) =>
         astInterfaces mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = all.iterator.flatMap { case PackageSignature(packageId, metadata, _, _) =>
-      metadata.iterator.map(md => packageId -> md)
+    val metadata = all.iterator.map { case PackageSignature(packageId, metadata, _, _) =>
+      packageId -> metadata
     }.toMap
     EnvironmentSignature(metadata, typeDecls, astInterfaces)
   }

@@ -19,8 +19,9 @@ import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPr
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
 import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
-import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
 import com.digitalasset.canton.metrics.{
+  CantonLabeledMetricsFactory,
+  CommonMockMetrics,
   DbStorageMetrics,
   InMemoryMetricsFactory,
   Metrics,
@@ -89,13 +90,13 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
   ) extends CantonNodeParameters
 
-  private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
+  private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory
   case class TestMetrics(
       prefix: MetricName = MetricName("test-metrics"),
-      openTelemetryMetricsFactory: LabeledMetricsFactory = metricsFactory,
-      grpcMetrics: GrpcServerMetrics = Metrics.ForTesting.daml.grpc,
-      healthMetrics: HealthMetrics = Metrics.ForTesting.daml.health,
-      storageMetrics: DbStorageMetrics = new DbStorageMetrics(MetricName("storage"), metricsFactory),
+      openTelemetryMetricsFactory: CantonLabeledMetricsFactory = metricsFactory,
+      grpcMetrics: GrpcServerMetrics = Metrics.ForTesting.grpc,
+      healthMetrics: HealthMetrics = Metrics.ForTesting.health,
+      storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
   ) extends BaseMetrics
 
   def factoryArguments(config: TestNodeConfig) =
@@ -113,6 +114,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
         OpenTelemetrySdk.builder().build(),
         SdkTracerProvider.builder(),
         OnDemandMetricsReader.NoOpOnDemandMetricsReader$,
+        metricsEnabled = false,
       ),
     )
 

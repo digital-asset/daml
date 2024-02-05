@@ -4,8 +4,8 @@
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import org.scalatest.{Assertion, Suite}
 import org.scalatest.matchers.should.Matchers
@@ -52,14 +52,16 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       .mkString("", f"%n", f"%n")
       // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
       .replaceAll("partial transaction: .*", "partial transaction: ...")
-      .replaceAll(
-        """UNHANDLED_EXCEPTION\((\d+),\w{8}\)""",
-        "UNHANDLED_EXCEPTION($1,XXXXXXXX)",
-      )
-      .replaceAll(
-        """DA.Exception.(\w+):(\w+)@\w{8}""",
-        "DA.Exception.$1:$2@XXXXXXXX",
-      )
+      // rename ledger errors
+      .replaceAll("""([A-Z_]+)\((\d+),[a-f0-9]{8}\)""", "$1($2,XXXXXXXX)")
+      // rename exceptions
+      .replaceAll("""([\w\.]+):([\w\.]+)@[a-f0-9]{8}""", "$1:$2@XXXXXXXX")
+      // rename template IDs
+      .replaceAll("""[a-f0-9]{64}(:\w+:\w+)""", "XXXXXXXX$1")
+      // rename contract IDs
+      .replaceAll("id [a-f0-9]{138}", "id XXXXXXXX")
+      // rename parties
+      .replaceAll("""party-[a-f0-9\-:]+""", "party")
 
     if (cantonFixtureDebugMode) {
       discard(

@@ -8,7 +8,6 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -39,9 +38,6 @@ class DbDomainConnectionConfigStore private[store] (
   import storage.api.*
   import storage.converters.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("domain-connection-config-store")
-
   // Eagerly maintained cache of domain config indexed by DomainAlias
   private val domainConfigCache = TrieMap.empty[DomainAlias, StoredDomainConnectionConfig]
 
@@ -65,33 +61,28 @@ class DbDomainConnectionConfigStore private[store] (
     Future,
     MissingConfigForAlias,
     StoredDomainConnectionConfig,
-  ] = {
-    processingTime.eitherTEvent {
-      EitherT {
-        storage
-          .query(
-            sql"""select config, status from participant_domain_connection_configs where domain_alias = $domainAlias"""
-              .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
-              .headOption
-              .map(_.map(StoredDomainConnectionConfig.tupled)),
-            functionFullName,
-          )
-          .map(_.toRight(MissingConfigForAlias(domainAlias)))
-      }
+  ] =
+    EitherT {
+      storage
+        .query(
+          sql"""select config, status from participant_domain_connection_configs where domain_alias = $domainAlias"""
+            .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
+            .headOption
+            .map(_.map(StoredDomainConnectionConfig.tupled)),
+          functionFullName,
+        )
+        .map(_.toRight(MissingConfigForAlias(domainAlias)))
     }
-  }
 
   private def getAllInternal(implicit
       traceContext: TraceContext
   ): Future[Seq[StoredDomainConnectionConfig]] =
-    processingTime.event {
-      storage.query(
-        sql"""select config, status from participant_domain_connection_configs"""
-          .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
-          .map(_.map(StoredDomainConnectionConfig.tupled)),
-        functionFullName,
-      )
-    }
+    storage.query(
+      sql"""select config, status from participant_domain_connection_configs"""
+        .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
+        .map(_.map(StoredDomainConnectionConfig.tupled)),
+      functionFullName,
+    )
 
   def refreshCache()(implicit traceContext: TraceContext): Future[Unit] = {
     domainConfigCache.clear()
@@ -119,9 +110,7 @@ class DbDomainConnectionConfigStore private[store] (
     }
 
     for {
-      nrRows <- EitherT.right(
-        processingTime.event(storage.update(insertAction, functionFullName))
-      )
+      nrRows <- EitherT.right(storage.update(insertAction, functionFullName))
       _ <- nrRows match {
         case 1 => EitherTUtil.unit[AlreadyAddedForAlias]
         case 0 =>
@@ -159,9 +148,7 @@ class DbDomainConnectionConfigStore private[store] (
                               where domain_alias=$domainAlias"""
     for {
       _ <- getInternal(domainAlias) // Make sure an existing config exists for the alias
-      _ <- EitherT.right(
-        processingTime.event(storage.update_(updateAction, functionFullName))
-      )
+      _ <- EitherT.right(storage.update_(updateAction, functionFullName))
     } yield {
       // Eagerly update cache
       val _ = domainConfigCache.updateWith(config.domain)(_.map(_.copy(config = config)))
@@ -186,9 +173,7 @@ class DbDomainConnectionConfigStore private[store] (
                               where domain_alias=$source"""
     for {
       _ <- getInternal(source) // Make sure an existing config exists for the alias
-      _ <- EitherT.right(
-        processingTime.event(storage.update_(updateAction, functionFullName))
-      )
+      _ <- EitherT.right(storage.update_(updateAction, functionFullName))
     } yield {
       // Eagerly update cache
       val _ = domainConfigCache.updateWith(source)(_.map(_.copy(status = status)))

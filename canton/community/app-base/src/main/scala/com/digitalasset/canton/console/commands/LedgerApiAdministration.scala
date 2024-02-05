@@ -42,7 +42,7 @@ import com.daml.ledger.javaapi.data.ReassignmentV2
 import com.daml.ledger.{api, javaapi as javab}
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
-import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedContractEntry,
@@ -51,15 +51,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedIncompleteUnassigned,
 }
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.CompletionWrapper
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.{
-  AssignedWrapper,
-  ReassignmentWrapper,
-  TransactionTreeWrapper,
-  TransactionWrapper,
-  UnassignedWrapper,
-  UpdateTreeWrapper,
-  UpdateWrapper,
-}
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.{
   LedgerApiCommands,
   LedgerApiV2Commands,
@@ -79,9 +71,9 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
   LedgerApiCommandRunner,
-  LocalParticipantReferenceCommon,
-  ParticipantReferenceCommon,
-  RemoteParticipantReferenceCommon,
+  LocalParticipantReference,
+  ParticipantReference,
+  RemoteParticipantReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.auth.{
@@ -112,7 +104,6 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.nowarn
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
@@ -354,22 +345,24 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def start_measuring(
           parties: Set[PartyId],
-          metricSuffix: String,
+          metricName: String,
           onUpdate: UpdateTreeWrapper => Unit = _ => (),
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
         check(FeatureFlag.Testing) {
 
-          val metricName = MetricName(name, metricSuffix)
+          val wrappedMetricName = MetricName(metricName)
 
           val observer: StreamObserver[UpdateTreeWrapper] = new StreamObserver[UpdateTreeWrapper] {
 
-            @nowarn("cat=deprecation")
-            val metricsFactory: MetricHandle.MetricsFactory =
-              consoleEnvironment.environment.metricsFactory.metricsFactory
+            val metricsFactory = consoleEnvironment.environment.metricsRegistry
+              .forParticipant(name)
+              .openTelemetryMetricsFactory
 
-            val metric: Meter = metricsFactory.meter(metricName)
-            val nodeCount: Histogram = metricsFactory.histogram(metricName :+ "tx-node-count")
-            val transactionSize: Histogram = metricsFactory.histogram(metricName :+ "tx-size")
+            val metric: Meter = metricsFactory.meter(wrappedMetricName)
+            val nodeCount: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-node-count")
+            val transactionSize: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-size")
 
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {
@@ -599,7 +592,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): AssignedWrapper =
         submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
@@ -638,7 +631,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): UnassignedWrapper =
         submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
@@ -673,7 +666,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           workflowId: String = "",
           applicationId: String = applicationId,
           submissionId: String = UUID.randomUUID().toString,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): (UnassignedWrapper, AssignedWrapper) = {
         val unassigned = submit_unassign(
@@ -705,7 +698,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       // for reassignments are available over the Ladger API.
       private def submitReassignment(
           submitter: PartyId,
-          waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration,
       )(submit: String => Unit): ReassignmentWrapper = {
         val commandId = UUID.randomUUID().toString
@@ -1914,7 +1907,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             workflowId: String = "",
             applicationId: String = applicationId,
             submissionId: String = UUID.randomUUID().toString,
-            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): ReassignmentV2 =
           ledger_api_v2.commands
@@ -1953,7 +1946,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             workflowId: String = "",
             applicationId: String = applicationId,
             submissionId: String = UUID.randomUUID().toString,
-            waitForParticipants: Map[ParticipantReferenceCommon, PartyId] = Map.empty,
+            waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): ReassignmentV2 =
           ledger_api_v2.commands
@@ -2416,22 +2409,24 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def start_measuring(
           parties: Set[PartyId],
-          metricSuffix: String,
+          metricName: String,
           onTransaction: TransactionTree => Unit = _ => (),
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
         check(FeatureFlag.Testing) {
 
-          val metricName = MetricName(name, metricSuffix)
+          val wrappedMetricName = MetricName(metricName)
 
           val observer: StreamObserver[TransactionTree] = new StreamObserver[TransactionTree] {
 
-            @nowarn("cat=deprecation")
-            val metricsFactory: MetricHandle.MetricsFactory =
-              consoleEnvironment.environment.metricsFactory.metricsFactory
+            val metricsFactory = consoleEnvironment.environment.metricsRegistry
+              .forParticipant(name)
+              .openTelemetryMetricsFactory
 
-            val metric: Meter = metricsFactory.meter(metricName)
-            val nodeCount: Histogram = metricsFactory.histogram(metricName :+ "tx-node-count")
-            val transactionSize: Histogram = metricsFactory.histogram(metricName :+ "tx-size")
+            val metric: Meter = metricsFactory.meter(wrappedMetricName)
+            val nodeCount: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-node-count")
+            val transactionSize: Histogram =
+              metricsFactory.histogram(wrappedMetricName :+ "tx-size")
 
             override def onNext(tree: TransactionTree): Unit = {
               val s = tree.rootEventIds.size.toLong
@@ -3863,7 +3858,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   private def awaitTransaction(
       transactionId: String,
-      at: Map[ParticipantReferenceCommon, PartyId],
+      at: Map[ParticipantReference, PartyId],
       timeout: config.NonNegativeDuration,
   ): Unit = {
     def scan() = {
@@ -3888,7 +3883,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   private[console] def involvedParticipants(
       transactionId: String
-  ): Map[ParticipantReferenceCommon, PartyId] = {
+  ): Map[ParticipantReference, PartyId] = {
     val txDomain = ledger_api_v2.updates.domain_of(transactionId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
@@ -3922,10 +3917,10 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       .toSet
 
     // A participant identity equality check that doesn't blow up if the participant isn't running
-    def identityIs(pRef: ParticipantReferenceCommon, id: ParticipantId): Boolean = pRef match {
-      case lRef: LocalParticipantReferenceCommon[?] =>
+    def identityIs(pRef: ParticipantReference, id: ParticipantId): Boolean = pRef match {
+      case lRef: LocalParticipantReference =>
         lRef.is_running && lRef.health.initialized() && lRef.id == id
-      case rRef: RemoteParticipantReferenceCommon =>
+      case rRef: RemoteParticipantReference =>
         rRef.health.initialized() && rRef.id == id
       case _ => false
     }

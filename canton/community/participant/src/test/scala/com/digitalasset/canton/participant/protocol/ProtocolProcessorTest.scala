@@ -363,7 +363,7 @@ class ProtocolProcessorTest
   private lazy val encryptedView =
     EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive).value)
   private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
-    submitterParticipantSignature = None,
+    submittingParticipantSignature = None,
     viewHash = viewHash,
     randomness = encryptedRandomnessTest,
     sessionKey = sessionKeyMapTest,
@@ -617,7 +617,7 @@ class ProtocolProcessorTest
       val encryptedViewWrongRH =
         EncryptedView(TestViewType)(Encrypted.fromByteString(wrongRootHash.toProtoPrimitive).value)
       val viewMessageWrongRH = EncryptedViewMessage(
-        submitterParticipantSignature = None,
+        submittingParticipantSignature = None,
         viewHash = viewHash1,
         randomness = encryptedRandomnessTest,
         sessionKey = sessionKeyMapTest,
@@ -653,7 +653,7 @@ class ProtocolProcessorTest
 
     "log decryption errors" in {
       val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
-        submitterParticipantSignature = None,
+        submittingParticipantSignature = None,
         viewHash = viewHash,
         randomness = encryptedRandomnessTest,
         sessionKey = sessionKeyMapTest,
@@ -754,7 +754,7 @@ class ProtocolProcessorTest
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
-              submitterParticipant = participant,
+              submittingParticipant = participant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
@@ -778,7 +778,7 @@ class ProtocolProcessorTest
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
-              submitterParticipant = participant,
+              submittingParticipant = participant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
@@ -793,13 +793,13 @@ class ProtocolProcessorTest
       verifyZeroInteractions(mockInFlightSubmissionTracker)
     }
 
-    "not notify the in-flight submission tracker when not submitter participant" in {
+    "not notify the in-flight submission tracker when not submitting participant" in {
       val (sut, _persistent, _ephemeral) =
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
             SubmissionTracker.SubmissionData(
-              submitterParticipant = otherParticipant,
+              submittingParticipant = otherParticipant,
               maxSequencingTime = requestId.unwrap.plusSeconds(10),
             )
           ),
@@ -837,7 +837,7 @@ class ProtocolProcessorTest
       val (sut, _persistent, ephemeral) = testProcessingSteps(
         submissionDataForTrackerO = Some(
           SubmissionTracker.SubmissionData(
-            submitterParticipant = participant,
+            submittingParticipant = participant,
             maxSequencingTime = requestId.unwrap.plusSeconds(10),
           )
         ),

@@ -153,6 +153,6 @@ class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
       Option[PruningSchedule],
     ] = response.schedule.fold(
       Right(None): Either[String, Option[PruningSchedule]]
-    )(PruningSchedule.fromProtoV0(_).bimap(_.message, Some(_)))
+    )(PruningSchedule.fromProtoV30(_).bimap(_.message, Some(_)))
   }
 }

@@ -4,10 +4,8 @@
 module DiscloseViaChoiceObserver where
 
 import Daml.Script
-import DA.Assert
 
 -- @SINCE-LF 2.1
--- @WARN range=40:15-40:70; Use of divulged contracts is deprecated
 
 -- This example demonstrates the canonical use of choice-observers to achieve disclosure.
 
@@ -26,6 +24,7 @@ template Secret with
       controller receiver
       do pure text
 
+-- @ERROR range=29:1-29:5; Attempt to fetch or exercise a contract not visible to the reading parties.
 test : Script ()
 test = script do
     alice <- allocateParty "Alice"
@@ -36,7 +35,6 @@ test = script do
     submitMustFail bob do exerciseCmd id Reveal with receiver = bob
     -- (3) Alice allows the Secret to be seen by Bob
     submit alice do exerciseCmd id DiscloseTo with receiver = bob
-    -- (4) Now Bob can see the secret
-    secret <- submit bob do exerciseCmd id Reveal with receiver = bob
-    secret === "s3cr3t"
+    -- (4) Bob still can see the secret
+    submit bob do exerciseCmd id Reveal with receiver = bob
     pure ()

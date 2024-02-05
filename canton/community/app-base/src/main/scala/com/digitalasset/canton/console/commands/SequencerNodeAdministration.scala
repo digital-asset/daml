@@ -79,10 +79,3 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup)
     }
 
 }
-
-trait SequencerNodeAdministrationGroupXWithInit extends SequencerAdministrationGroupX {
-
-  private lazy val setup_ = new SequencerXSetupGroup(this)
-  @Help.Summary("Methods used for node initialization")
-  def setup: SequencerXSetupGroup = setup_
-}

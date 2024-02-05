@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.platform.indexer.ha
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, NoOpMetricsFactory}
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, IndexServiceConfig}
@@ -86,12 +85,9 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
         // Gauges can only be registered once. A subsequent attempt results in an exception for the
         // call MetricRegistry#register or MetricRegistry#registerGauge
         metrics = {
-          val registry = new MetricRegistry
           new Metrics(
-            new DropwizardMetricsFactory(registry) with LabeledMetricsFactory,
+            MetricName("test"),
             NoOpMetricsFactory,
-            registry,
-            reportExecutionContextMetrics = true,
           )
         }
         (inMemoryState, inMemoryStateUpdaterFlow) <-

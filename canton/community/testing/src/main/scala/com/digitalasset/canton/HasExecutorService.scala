@@ -18,7 +18,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
-/** Mixin that provides an executor for tests.
+/** Mixin that adds an executor that can be used by tests.
   * The executor supports blocking operations, provided they are wrapped in [[scala.concurrent.blocking]]
   * or [[scala.concurrent.Await]].
   */

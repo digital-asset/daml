@@ -17,7 +17,6 @@ import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferOutTree}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.TransferGlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
@@ -69,9 +68,6 @@ class DbTransferStore(
     with DbStore {
   import storage.api.*
   import storage.converters.*
-
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("transfer-store")
 
   private def getResultFullTransferOutTree(
       sourceDomainProtocolVersion: SourceProtocolVersion
@@ -166,21 +162,20 @@ class DbTransferStore(
 
   override def addTransfer(
       transferData: TransferData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] =
-    processingTime.eitherTEvent {
-      @unused implicit val setParameterFullTransferOutTree =
-        setResultFullTransferOutTree(transferData.sourceProtocolVersion)
+  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] = {
+    @unused implicit val setParameterFullTransferOutTree =
+      setResultFullTransferOutTree(transferData.sourceProtocolVersion)
 
-      ErrorUtil.requireArgument(
-        transferData.targetDomain == domain,
-        s"Domain ${domain.unwrap}: Transfer store cannot store transfer for domain ${transferData.targetDomain.unwrap}",
-      )
+    ErrorUtil.requireArgument(
+      transferData.targetDomain == domain,
+      s"Domain ${domain.unwrap}: Transfer store cannot store transfer for domain ${transferData.targetDomain.unwrap}",
+    )
 
-      val transferId: TransferId = transferData.transferId
-      val newEntry = TransferEntry(transferData, None)
+    val transferId: TransferId = transferData.transferId
+    val newEntry = TransferEntry(transferData, None)
 
-      import DbStorage.Implicits.*
-      val insert: DBIO[Int] = sqlu"""
+    import DbStorage.Implicits.*
+    val insert: DBIO[Int] = sqlu"""
         insert into transfers(target_domain, origin_domain, transfer_out_timestamp, transfer_out_request_counter,
         transfer_out_request, transfer_out_decision_time, contract, creating_transaction_id, transfer_out_result,
         submitter_lf, source_protocol_version, transfer_out_global_offset, transfer_in_global_offset)
@@ -201,16 +196,16 @@ class DbTransferStore(
         )
       """
 
-      def insertExisting(
-          existingEntry: TransferEntry
-      ): Checked[TransferStoreError, TransferAlreadyCompleted, Option[DBIO[Int]]] = {
-        @unused implicit val setParameterFullTransferOutTree =
-          setResultFullTransferOutTree(existingEntry.transferData.sourceProtocolVersion)
+    def insertExisting(
+        existingEntry: TransferEntry
+    ): Checked[TransferStoreError, TransferAlreadyCompleted, Option[DBIO[Int]]] = {
+      @unused implicit val setParameterFullTransferOutTree =
+        setResultFullTransferOutTree(existingEntry.transferData.sourceProtocolVersion)
 
-        def update(entry: TransferEntry): DBIO[Int] = {
-          val id = entry.transferData.transferId
-          val data = entry.transferData
-          sqlu"""
+      def update(entry: TransferEntry): DBIO[Int] = {
+        val id = entry.transferData.transferId
+        val data = entry.transferData
+        sqlu"""
           update transfers
           set transfer_out_request_counter=${data.transferOutRequestCounter},
             transfer_out_request=${data.transferOutRequest}, transfer_out_decision_time=${data.transferOutDecisionTime},
@@ -221,31 +216,30 @@ class DbTransferStore(
            where
               target_domain=$domain and origin_domain=${id.sourceDomain} and transfer_out_timestamp=${data.transferOutTimestamp}
           """
-        }
-        existingEntry.mergeWith(newEntry).map(entry => Some(update(entry)))
       }
-
-      insertDependentDeprecated(
-        entryExists(transferId),
-        insertExisting,
-        insert,
-        dbError => throw dbError,
-      )
-        .map(_ => ())
-        .toEitherT
+      existingEntry.mergeWith(newEntry).map(entry => Some(update(entry)))
     }
+
+    insertDependentDeprecated(
+      entryExists(transferId),
+      insertExisting,
+      insert,
+      dbError => throw dbError,
+    )
+      .map(_ => ())
+      .toEitherT
+  }
 
   override def lookup(transferId: TransferId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferStore.TransferLookupError, TransferData] =
-    processingTime.eitherTEvent {
-      EitherT(storage.query(entryExists(transferId), functionFullName).map {
-        case None => Left(UnknownTransferId(transferId))
-        case Some(TransferEntry(_, Some(timeOfCompletion))) =>
-          Left(TransferCompleted(transferId, timeOfCompletion))
-        case Some(transferEntry) => Right(transferEntry.transferData)
-      })
-    }
+  ): EitherT[Future, TransferStore.TransferLookupError, TransferData] = {
+    EitherT(storage.query(entryExists(transferId), functionFullName).map {
+      case None => Left(UnknownTransferId(transferId))
+      case Some(TransferEntry(_, Some(timeOfCompletion))) =>
+        Left(TransferCompleted(transferId, timeOfCompletion))
+      case Some(transferEntry) => Right(transferEntry.transferData)
+    })
+  }
 
   private def entryExists(id: TransferId): DbAction.ReadOnly[Option[TransferEntry]] = sql"""
      select source_protocol_version, transfer_out_timestamp, transfer_out_request_counter, transfer_out_request, transfer_out_decision_time,
@@ -256,52 +250,50 @@ class DbTransferStore(
 
   override def addTransferOutResult(
       transferOutResult: DeliveredTransferOutResult
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] =
-    processingTime.eitherTEvent {
-      val transferId = transferOutResult.transferId
+  )(implicit traceContext: TraceContext): EitherT[Future, TransferStoreError, Unit] = {
+    val transferId = transferOutResult.transferId
 
-      val existsRaw: DbAction.ReadOnly[Option[Option[RawDeliveredTransferOutResult]]] = sql"""
+    val existsRaw: DbAction.ReadOnly[Option[Option[RawDeliveredTransferOutResult]]] = sql"""
        select transfer_out_result, source_protocol_version
        from transfers
        where
           target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
         """.as[Option[RawDeliveredTransferOutResult]].headOption
 
-      val exists = existsRaw.map(_.map(_.map(_.tryCreateDeliveredTransferOutResul(cryptoApi))))
+    val exists = existsRaw.map(_.map(_.map(_.tryCreateDeliveredTransferOutResul(cryptoApi))))
 
-      def update(previousResult: Option[DeliveredTransferOutResult]) = {
-        previousResult
-          .fold[Checked[TransferStoreError, Nothing, Option[DBIO[Int]]]](Checked.result(Some(sqlu"""
+    def update(previousResult: Option[DeliveredTransferOutResult]) = {
+      previousResult
+        .fold[Checked[TransferStoreError, Nothing, Option[DBIO[Int]]]](Checked.result(Some(sqlu"""
               update transfers
               set transfer_out_result=${transferOutResult}
               where target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
               """)))(previous =>
-            if (previous == transferOutResult) Checked.result(None)
-            else
-              Checked.abort(TransferOutResultAlreadyExists(transferId, previous, transferOutResult))
-          )
-      }
-
-      updateDependentDeprecated(
-        exists,
-        update,
-        Checked.abort(UnknownTransferId(transferId)),
-        dbError => throw dbError,
-      )
-        .map(_ => ())
-        .toEitherT
+          if (previous == transferOutResult) Checked.result(None)
+          else
+            Checked.abort(TransferOutResultAlreadyExists(transferId, previous, transferOutResult))
+        )
     }
+
+    updateDependentDeprecated(
+      exists,
+      update,
+      Checked.abort(UnknownTransferId(transferId)),
+      dbError => throw dbError,
+    )
+      .map(_ => ())
+      .toEitherT
+  }
 
   def addTransfersOffsets(offsets: Map[TransferId, TransferGlobalOffset])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
-    processingTime.eitherTEventUnlessShutdown {
-      if (offsets.isEmpty) EitherT.pure[FutureUnlessShutdown, TransferStoreError](())
-      else
-        MonadUtil.sequentialTraverse_(offsets.toList.grouped(batchSize))(offsets =>
-          addTransfersOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
-        )
-    }
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+    if (offsets.isEmpty) EitherT.pure[FutureUnlessShutdown, TransferStoreError](())
+    else
+      MonadUtil.sequentialTraverse_(offsets.toList.grouped(batchSize))(offsets =>
+        addTransfersOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
+      )
+  }
 
   /*
     Requires:
@@ -312,81 +304,79 @@ class DbTransferStore(
       offsets: NonEmpty[List[(TransferId, TransferGlobalOffset)]]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
-    processingTime.eitherTEventUnlessShutdown {
-      import DbStorage.Implicits.BuilderChain.*
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+    import DbStorage.Implicits.BuilderChain.*
 
-      val transferIdsFilter = offsets
-        .map { case (transferId, _) =>
-          sql"(origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp})"
-        }
-        .forgetNE
-        .intercalate(sql" or ")
-        .toActionBuilder
+    val transferIdsFilter = offsets
+      .map { case (transferId, _) =>
+        sql"(origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp})"
+      }
+      .forgetNE
+      .intercalate(sql" or ")
+      .toActionBuilder
 
-      val select =
-        sql"""select origin_domain, transfer_out_timestamp, transfer_out_global_offset, transfer_in_global_offset
+    val select =
+      sql"""select origin_domain, transfer_out_timestamp, transfer_out_global_offset, transfer_in_global_offset
            from transfers
            where
               target_domain=$domain and (""" ++ transferIdsFilter ++ sql")"
 
-      val updateQuery =
-        """update transfers
+    val updateQuery =
+      """update transfers
        set transfer_out_global_offset = ?, transfer_in_global_offset = ?
        where target_domain = ? and origin_domain = ? and transfer_out_timestamp = ?
     """
 
-      lazy val task = for {
-        res <- EitherT.liftF(
-          storage.query(
-            select.as[(TransferId, Option[GlobalOffset], Option[GlobalOffset])],
-            functionFullName,
-          )
+    lazy val task = for {
+      res <- EitherT.liftF(
+        storage.query(
+          select.as[(TransferId, Option[GlobalOffset], Option[GlobalOffset])],
+          functionFullName,
         )
-        retrievedItems = res.map { case (transferId, out, in) => transferId -> (out, in) }.toMap
+      )
+      retrievedItems = res.map { case (transferId, out, in) => transferId -> (out, in) }.toMap
 
-        mergedGlobalOffsets <- EitherT.fromEither[Future](offsets.forgetNE.traverse {
-          case (transferId, newOffsets) =>
-            retrievedItems
-              .get(transferId)
-              .toRight(UnknownTransferId(transferId))
-              .map { case (offsetOutO, offsetInO) =>
-                TransferGlobalOffset
-                  .create(offsetOutO, offsetInO)
-                  .valueOr(err => throw new DbDeserializationException(err))
-              }
-              .flatMap(
-                _.fold[Either[String, TransferGlobalOffset]](Right(newOffsets))(_.merge(newOffsets))
-                  .leftMap(TransferGlobalOffsetsMerge(transferId, _))
-                  .map((transferId, _))
-              )
-        })
+      mergedGlobalOffsets <- EitherT.fromEither[Future](offsets.forgetNE.traverse {
+        case (transferId, newOffsets) =>
+          retrievedItems
+            .get(transferId)
+            .toRight(UnknownTransferId(transferId))
+            .map { case (offsetOutO, offsetInO) =>
+              TransferGlobalOffset
+                .create(offsetOutO, offsetInO)
+                .valueOr(err => throw new DbDeserializationException(err))
+            }
+            .flatMap(
+              _.fold[Either[String, TransferGlobalOffset]](Right(newOffsets))(_.merge(newOffsets))
+                .leftMap(TransferGlobalOffsetsMerge(transferId, _))
+                .map((transferId, _))
+            )
+      })
 
-        batchUpdate = DbStorage.bulkOperation_(updateQuery, mergedGlobalOffsets, storage.profile) {
-          pp => mergedGlobalOffsetWithId =>
-            val (transferId, mergedGlobalOffset) = mergedGlobalOffsetWithId
+      batchUpdate = DbStorage.bulkOperation_(updateQuery, mergedGlobalOffsets, storage.profile) {
+        pp => mergedGlobalOffsetWithId =>
+          val (transferId, mergedGlobalOffset) = mergedGlobalOffsetWithId
 
-            pp >> mergedGlobalOffset.out
-            pp >> mergedGlobalOffset.in
-            pp >> domain.unwrap
-            pp >> transferId.sourceDomain.unwrap
-            pp >> transferId.transferOutTimestamp
-        }
+          pp >> mergedGlobalOffset.out
+          pp >> mergedGlobalOffset.in
+          pp >> domain.unwrap
+          pp >> transferId.sourceDomain.unwrap
+          pp >> transferId.transferOutTimestamp
+      }
 
-        _ <- EitherT.liftF[Future, TransferStoreError, Unit](
-          storage.queryAndUpdate(batchUpdate, functionFullName)
-        )
-      } yield ()
+      _ <- EitherT.liftF[Future, TransferStoreError, Unit](
+        storage.queryAndUpdate(batchUpdate, functionFullName)
+      )
+    } yield ()
 
-      sequentialQueue.executeE(task, "addTransfersOffsets")
-    }
+    sequentialQueue.executeE(task, "addTransfersOffsets")
+  }
 
   override def completeTransfer(transferId: TransferId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, Nothing, TransferStoreError, Unit] =
-    processingTime.checkedTEvent[Nothing, TransferStoreError, Unit] {
+  ): CheckedT[Future, Nothing, TransferStoreError, Unit] = {
 
-      val updateSameOrUnset = sqlu"""
+    val updateSameOrUnset = sqlu"""
         update transfers
           set time_of_completion_request_counter=${timeOfCompletion.rc}, time_of_completion_timestamp=${timeOfCompletion.timestamp}
         where
@@ -395,40 +385,39 @@ class DbTransferStore(
             or (time_of_completion_request_counter = ${timeOfCompletion.rc} and time_of_completion_timestamp = ${timeOfCompletion.timestamp}))
       """
 
-      val doneE: EitherT[Future, TransferStoreError, Unit] =
-        EitherT(storage.update(updateSameOrUnset, functionFullName).map { changed =>
-          if (changed > 0) {
-            if (changed != 1)
-              logger.error(
-                s"Transfer completion query changed $changed lines. It should only change 1."
-              )
-            Right(())
-          } else {
-            if (changed != 0)
-              logger.error(
-                s"Transfer completion query changed $changed lines -- this should not be negative."
-              )
-            Left(TransferAlreadyCompleted(transferId, timeOfCompletion))
-          }
-        })
+    val doneE: EitherT[Future, TransferStoreError, Unit] =
+      EitherT(storage.update(updateSameOrUnset, functionFullName).map { changed =>
+        if (changed > 0) {
+          if (changed != 1)
+            logger.error(
+              s"Transfer completion query changed $changed lines. It should only change 1."
+            )
+          Right(())
+        } else {
+          if (changed != 0)
+            logger.error(
+              s"Transfer completion query changed $changed lines -- this should not be negative."
+            )
+          Left(TransferAlreadyCompleted(transferId, timeOfCompletion))
+        }
+      })
 
-      CheckedT.fromEitherTNonabort((), doneE)
-    }
+    CheckedT.fromEitherTNonabort((), doneE)
+  }
 
   override def deleteTransfer(
       transferId: TransferId
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      storage.update_(
-        sqlu"""delete from transfers
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    storage.update_(
+      sqlu"""delete from transfers
                 where target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}""",
-        functionFullName,
-      )
-    }
+      functionFullName,
+    )
+  }
 
   override def deleteCompletionsSince(
       criterionInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val query = sqlu"""
        update transfers
          set time_of_completion_request_counter=null, time_of_completion_timestamp=null
@@ -465,55 +454,53 @@ class DbTransferStore(
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
-    processingTime.event {
-      storage.query(
-        {
-          import DbStorage.Implicits.BuilderChain.*
-          import DbStorage.Implicits.*
+  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] = {
+    storage.query(
+      {
+        import DbStorage.Implicits.BuilderChain.*
+        import DbStorage.Implicits.*
 
-          val sourceFilter = filterSource.fold(sql"")(domain => sql" and origin_domain=${domain}")
-          val timestampFilter =
-            filterTimestamp.fold(sql"")(ts => sql" and transfer_out_timestamp=${ts}")
-          val submitterFilter =
-            filterSubmitter.fold(sql"")(submitter => sql" and submitter_lf=${submitter}")
-          val limitSql = storage.limitSql(limit)
-          (findPendingBase(onlyNotFinished =
-            true
-          ) ++ sourceFilter ++ timestampFilter ++ submitterFilter ++ limitSql)
-            .as[TransferData]
-        },
-        functionFullName,
-      )
-    }
+        val sourceFilter = filterSource.fold(sql"")(domain => sql" and origin_domain=${domain}")
+        val timestampFilter =
+          filterTimestamp.fold(sql"")(ts => sql" and transfer_out_timestamp=${ts}")
+        val submitterFilter =
+          filterSubmitter.fold(sql"")(submitter => sql" and submitter_lf=${submitter}")
+        val limitSql = storage.limitSql(limit)
+        (findPendingBase(onlyNotFinished =
+          true
+        ) ++ sourceFilter ++ timestampFilter ++ submitterFilter ++ limitSql)
+          .as[TransferData]
+      },
+      functionFullName,
+    )
+  }
 
   override def findAfter(
       requestAfter: Option[(CantonTimestamp, SourceDomainId)],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
-    processingTime.event {
-      storage.query(
-        {
-          import DbStorage.Implicits.BuilderChain.*
+  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] = {
+    storage.query(
+      {
+        import DbStorage.Implicits.BuilderChain.*
 
-          val timestampFilter =
-            requestAfter.fold(sql"") { case (requestTimestamp, sourceDomain) =>
-              storage.profile match {
-                case Profile.Oracle(_) =>
-                  sql" and (transfer_out_timestamp > ${requestTimestamp} or (transfer_out_timestamp = ${requestTimestamp} and origin_domain > ${sourceDomain}))"
-                case _ =>
-                  sql" and (transfer_out_timestamp, origin_domain) > (${requestTimestamp}, ${sourceDomain}) "
-              }
+        val timestampFilter =
+          requestAfter.fold(sql"") { case (requestTimestamp, sourceDomain) =>
+            storage.profile match {
+              case Profile.Oracle(_) =>
+                sql" and (transfer_out_timestamp > ${requestTimestamp} or (transfer_out_timestamp = ${requestTimestamp} and origin_domain > ${sourceDomain}))"
+              case _ =>
+                sql" and (transfer_out_timestamp, origin_domain) > (${requestTimestamp}, ${sourceDomain}) "
             }
-          val order = sql" order by transfer_out_timestamp, origin_domain "
-          val limitSql = storage.limitSql(limit)
+          }
+        val order = sql" order by transfer_out_timestamp, origin_domain "
+        val limitSql = storage.limitSql(limit)
 
-          (findPendingBase(onlyNotFinished = true) ++ timestampFilter ++ order ++ limitSql)
-            .as[TransferData]
-        },
-        functionFullName,
-      )
-    }
+        (findPendingBase(onlyNotFinished = true) ++ timestampFilter ++ order ++ limitSql)
+          .as[TransferData]
+      },
+      functionFullName,
+    )
+  }
 
   private def findIncomplete(
       sourceDomain: Option[SourceDomainId],
@@ -583,25 +570,24 @@ class DbTransferStore(
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] =
-    processingTime.event {
-      val queryFrom = (start: Long, traceContext: TraceContext) =>
-        findIncomplete(
-          sourceDomain = sourceDomain,
-          validAt = validAt,
-          start = start,
-        )(traceContext)
+  )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] = {
+    val queryFrom = (start: Long, traceContext: TraceContext) =>
+      findIncomplete(
+        sourceDomain = sourceDomain,
+        validAt = validAt,
+        start = start,
+      )(traceContext)
 
-      queryWithFiltering(
-        stakeholders = stakeholders,
-        limit = limit,
-        queryFrom = queryFrom,
-        dbQueryLimit = DbTransferStore.dbQueryLimit,
-      ).map(
-        _.map(IncompleteTransferData.tryCreate(_, validAt))
-          .sortBy(_.transferEventGlobalOffset.globalOffset)
-      )
-    }
+    queryWithFiltering(
+      stakeholders = stakeholders,
+      limit = limit,
+      queryFrom = queryFrom,
+      dbQueryLimit = DbTransferStore.dbQueryLimit,
+    ).map(
+      _.map(IncompleteTransferData.tryCreate(_, validAt))
+        .sortBy(_.transferEventGlobalOffset.globalOffset)
+    )
+  }
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext

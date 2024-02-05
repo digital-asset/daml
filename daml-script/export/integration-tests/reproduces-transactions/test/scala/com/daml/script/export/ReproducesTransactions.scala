@@ -8,6 +8,7 @@ import java.util.UUID
 import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
@@ -27,7 +28,6 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
 import com.daml.lf.engine.script.{Participants, Runner, ScriptTimeMode}
 import com.daml.lf.language.Ast.Package
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers

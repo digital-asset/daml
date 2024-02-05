@@ -11,7 +11,6 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import DA.Pretty hiding (first)
-import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)
@@ -1405,12 +1404,12 @@ data DFunSig = DFunSig
 
 -- | Instance declaration head
 data DFunHead
-    = DFunHeadHasField -- ^ HasField instance
+    = DFunHeadGetSetField -- ^ GetField or SetField instance
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhField :: !T.Text -- ^ first arg (a type level string)
           , dfhArgs :: [LF.Type] -- ^ rest of the args
           }
-    | DFunHeadNormal -- ^ Normal, i.e., non-HasField, instance
+    | DFunHeadNormal -- ^ Normal, i.e., non-{Get,Set}Field, instance
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhArgs :: [LF.Type] -- ^ arguments
           }
@@ -1423,17 +1422,15 @@ hasDFunSig major dval = isJust (getDFunSig major dval)
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: LF.MajorVersion -> LF.DefValue -> Maybe DFunSig
-getDFunSig major LF.DefValue {..} = do
-    let (valName, valType) = dvalBinder
+getDFunSig major LF.DefValue {dvalBinder = (_, valType), ..} = do
     (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
-    dfsHead <- if isHasField dfhName
+    dfsHead <- if isGetSetField dfhName
         then do
             (symbolTy : dfhArgs) <- Just dfhArgs
-            -- We handle both the old state where symbol was translated to unit
-            -- and new state where it is translated to PromotedText.
-            dfhField <- getPromotedText major symbolTy <|> getFieldArg valName
+            -- The first argument should have a Symbol, translated to LF as a PromotedText.
+            dfhField <- getPromotedText major symbolTy
             guard (not $ T.null dfhField)
-            Just DFunHeadHasField {..}
+            Just DFunHeadGetSetField {..}
         else do
           guard (not $ isIP dfhName)
           Just DFunHeadNormal {..}
@@ -1455,11 +1452,13 @@ getDFunSig major LF.DefValue {..} = do
         _ ->
             Nothing
 
-    -- | Is this an instance of the HasField typeclass?
-    isHasField :: LF.Qualified LF.TypeSynName -> Bool
-    isHasField LF.Qualified{..} =
+    -- | Is this an instance of the GetField or SetField typeclasses?
+    isGetSetField :: LF.Qualified LF.TypeSynName -> Bool
+    isGetSetField LF.Qualified{..} =
         qualModule == LF.ModuleName ["DA", "Internal", "Record"]
-        && qualObject == LF.TypeSynName ["HasField"]
+        && qualObject `elem` [ LF.TypeSynName ["GetField"]
+                             , LF.TypeSynName ["SetField"]
+                             ]
 
     -- | Is this an implicit parameters instance?
     -- Those need to be filtered out since
@@ -1469,13 +1468,6 @@ getDFunSig major LF.DefValue {..} = do
     isIP LF.Qualified{..} =
         qualModule == LF.ModuleName ["GHC", "Classes"]
         && qualObject == LF.TypeSynName ["IP"]
-
-    -- | Get the first arg of HasField (the name of the field) from
-    -- the name of the binding.
-    getFieldArg :: LF.ExprValName -> Maybe T.Text
-    getFieldArg (LF.ExprValName name) = do
-        name' <- T.stripPrefix "$fHasField\"" name
-        Just $ fst (T.breakOn "\"" name')
 
 getSuperclassReferences :: LF.Expr -> [(LF.PackageRef, LF.ModuleName)]
 getSuperclassReferences body =
@@ -1499,7 +1491,7 @@ convDFunSig env reexported DFunSig{..} = do
             ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
     mapM_ (uncurry (genModule env)) dfsSuper
     args <- case dfsHead of
-      DFunHeadHasField{..} -> do
+      DFunHeadGetSetField{..} -> do
           let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfhField
           args <- mapM (convType env reexported) dfhArgs
           pure (arg0 : args)

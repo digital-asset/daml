@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing.client.transports.replay
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.codahale.metrics.{ConsoleReporter, MetricFilter, MetricRegistry}
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -13,7 +12,7 @@ import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.SequencerClientMetrics
+import com.digitalasset.canton.metrics.{MetricValue, SequencerClientMetrics}
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
@@ -31,15 +30,15 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
-import com.digitalasset.canton.util.ResourceUtil.withResource
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerCounter}
+import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 
-import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -70,7 +69,7 @@ trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCom
   ): Future[EventsReceivedReport]
 
   /** Dump the submission related metrics into a string for periodic reporting during the replay test */
-  def metricReport(registry: MetricRegistry): String
+  def metricReport(snapshot: Seq[MetricData]): String
 }
 
 object ReplayingSendsSequencerClientTransport {
@@ -243,22 +242,14 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   }
 
   /** Dump the submission related metrics into a string for periodic reporting during the replay test */
-  override def metricReport(registry: MetricRegistry): String =
-    withResource(new ByteArrayOutputStream()) { os =>
-      withResource(new PrintStream(os)) { ps =>
-        withResource(
-          ConsoleReporter
-            .forRegistry(registry)
-            .filter(MetricFilter.startsWith(metrics.submissions.prefix.toString()))
-            .outputTo(ps)
-            .build()
-        ) { reporter =>
-          reporter.report()
-          ps.flush()
-          os.toString()
-        }
-      }
+  override def metricReport(snapshot: Seq[MetricData]): String = {
+    val metricName = metrics.submissions.prefix.toString()
+    val out = snapshot.flatMap {
+      case metric if metric.getName.startsWith(metricName) => MetricValue.fromMetricData(metric)
+      case _ => Seq.empty
     }
+    out.show
+  }
 
   protected def subscribe(
       request: SubscriptionRequest,

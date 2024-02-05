@@ -112,8 +112,8 @@ object TransferResult
   override val name: String = "TransferResult"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferResult)(
-      supportedProtoVersionMemoized(_)(fromProtoV3),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferResult)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
@@ -130,7 +130,7 @@ object TransferResult
       None,
     )
 
-  private def fromProtoV3(transferResultP: v30.TransferResult)(
+  private def fromProtoV30(transferResultP: v30.TransferResult)(
       bytes: ByteString
   ): ParsingResult[TransferResult[TransferDomainId]] = {
     val v30.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
@@ -154,10 +154,8 @@ object TransferResult
       verdict <- ProtoConverter
         .required("TransferResult.verdict", verdictPO)
         .flatMap(Verdict.fromProtoV30)
-    } yield TransferResult(requestId, informees.toSet, domain, verdict)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
-      Some(bytes),
-    )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield TransferResult(requestId, informees.toSet, domain, verdict)(rpv, Some(bytes))
   }
 
   implicit def transferResultCast[Kind <: TransferDomainId](implicit

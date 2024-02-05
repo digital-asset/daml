@@ -240,14 +240,16 @@ instance DA.Internal.Desugar.HasFromAnyView Iface2 EmptyInterfaceView where
 data GHC.Types.DamlTemplate => Template1
   = Template1 {owner1 : Party, value1 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "owner1" Template1 Party where
+instance DA.Internal.Record.GetField "owner1" Template1 Party where
   getField
     = DA.Internal.Record.getFieldPrim @"owner1" @Template1 @Party
+instance DA.Internal.Record.SetField "owner1" Template1 Party where
   setField
     = DA.Internal.Record.setFieldPrim @"owner1" @Template1 @Party
-instance DA.Internal.Record.HasField "value1" Template1 Int where
+instance DA.Internal.Record.GetField "value1" Template1 Int where
   getField
     = DA.Internal.Record.getFieldPrim @"value1" @Template1 @Int
+instance DA.Internal.Record.SetField "value1" Template1 Int where
   setField
     = DA.Internal.Record.setFieldPrim @"value1" @Template1 @Int
 instance DA.Internal.Desugar.HasSignatory Template1 where
@@ -340,14 +342,16 @@ instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
 data GHC.Types.DamlTemplate => Template2
   = Template2 {owner2 : Party, value2 : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "owner2" Template2 Party where
+instance DA.Internal.Record.GetField "owner2" Template2 Party where
   getField
     = DA.Internal.Record.getFieldPrim @"owner2" @Template2 @Party
+instance DA.Internal.Record.SetField "owner2" Template2 Party where
   setField
     = DA.Internal.Record.setFieldPrim @"owner2" @Template2 @Party
-instance DA.Internal.Record.HasField "value2" Template2 Text where
+instance DA.Internal.Record.GetField "value2" Template2 Text where
   getField
     = DA.Internal.Record.getFieldPrim @"value2" @Template2 @Text
+instance DA.Internal.Record.SetField "value2" Template2 Text where
   setField
     = DA.Internal.Record.setFieldPrim @"value2" @Template2 @Text
 instance DA.Internal.Desugar.HasSignatory Template2 where
@@ -450,8 +454,9 @@ useActionCoerce p action
 data GHC.Types.DamlTemplate => Test
   = Test {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "party" Test Party where
+instance DA.Internal.Record.GetField "party" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"party" @Test @Party
+instance DA.Internal.Record.SetField "party" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"party" @Test @Party
 data TemplateInterfaceMatching
   = TemplateInterfaceMatching {}

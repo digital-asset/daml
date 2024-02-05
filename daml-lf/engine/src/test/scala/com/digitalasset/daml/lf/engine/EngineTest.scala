@@ -1226,7 +1226,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         actors union actFetchActors(n)
       }
 
-    def runExample(cid: ContractId, exerciseActor: Party) = {
+    def runExample(cid: ContractId, exerciseActor: Party, readAs: Party) = {
       val command = ApiCommand.Exercise(
         fetcherTid.toRef,
         cid,
@@ -1246,7 +1246,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             .interpretCommands(
               validating = false,
               submitters = submitters,
-              readAs = Set.empty,
+              readAs = Set(readAs),
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -1273,7 +1273,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       // bob: parent observer
       // clara: parent actor
 
-      val Right((tx, _)) = runExample(fetcher1Cid, clara)
+      val Right((tx, _)) = runExample(fetcher1Cid, clara, alice)
       txFetchActors(tx.transaction) shouldBe Set(alice, clara)
     }
 
@@ -1292,18 +1292,18 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       // party: parent signatory
       // alice: parent observer
       // clara: parent actor
-      val Right((tx1, _)) = runExample(fetcher2Cid, clara)
+      val Right((tx1, _)) = runExample(fetcher2Cid, clara, alice)
       txFetchActors(tx1.transaction) shouldBe Set(clara)
 
       // clara: parent signatory
       // alice: parent observer
       // party: parent actor
-      val Right((tx2, _)) = runExample(fetcher3Cid, party)
+      val Right((tx2, _)) = runExample(fetcher3Cid, party, alice)
       txFetchActors(tx2.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
+      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara, alice)
       val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
         nid -> fetch
       }
@@ -1326,7 +1326,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      runExample(fetcher2Cid, clara, alice).map { case (tx, _) =>
+        byKeyNodes(tx).size
+      } shouldBe Right(0)
     }
   }
 
@@ -2366,7 +2368,16 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
     def pkg(version: LV) =
-      language.Ast.Package(Map.empty, Set.empty, version, None)
+      language.Ast.Package(
+        Map.empty,
+        Set.empty,
+        version,
+        PackageMetadata(
+          PackageName.assertFromString("foo"),
+          PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
+      )
 
     "reject disallowed packages" in {
       val negativeTestCases = Table(
@@ -2534,7 +2545,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
       None
     else
-      Some(basicTestsPkg.metadata.get.name)
+      Some(basicTestsPkg.metadata.name)
   }
 
   def newEngine(requireCidSuffixes: Boolean = false) =

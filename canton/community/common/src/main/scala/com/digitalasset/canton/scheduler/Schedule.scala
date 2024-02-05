@@ -34,7 +34,7 @@ final case class PruningSchedule(
     override val maxDuration: PositiveSeconds,
     retention: PositiveSeconds,
 ) extends Schedule(cron, maxDuration) {
-  def toProtoV0: v30.PruningSchedule = v30.PruningSchedule(
+  def toProtoV30: v30.PruningSchedule = v30.PruningSchedule(
     cron = cron.toProtoPrimitive,
     maxDuration = Some(maxDuration.toProtoPrimitive),
     retention = Some(retention.toProtoPrimitive),
@@ -42,7 +42,7 @@ final case class PruningSchedule(
 }
 
 object PruningSchedule {
-  def fromProtoV0(schedule: v30.PruningSchedule): ParsingResult[PruningSchedule] =
+  def fromProtoV30(schedule: v30.PruningSchedule): ParsingResult[PruningSchedule] =
     for {
       cron <- Cron.fromProtoPrimitive(schedule.cron)
       maxDuration <- PositiveSeconds.fromProtoPrimitiveO("maxDuration")(schedule.maxDuration)

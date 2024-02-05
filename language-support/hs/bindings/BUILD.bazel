@@ -115,7 +115,5 @@ da_haskell_repl(
     deps = [
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/hs/bindings:test",
-        "//language-support/hs/bindings/examples/chat",
-        "//language-support/hs/bindings/examples/nim",
     ],
 )

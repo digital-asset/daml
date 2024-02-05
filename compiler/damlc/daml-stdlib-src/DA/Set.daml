@@ -158,8 +158,10 @@ instance Ord k => Semigroup (Set k) where
 instance Ord k => Monoid (Set k) where
   mempty = empty
 
-instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
+instance DA.Internal.Record.GetField "map" (Set k) (Map k ()) where
   getField (Set m) = m
+
+instance DA.Internal.Record.SetField "map" (Set k) (Map k ()) where
   setField m _ = Set m
 
 instance Foldable.Foldable Set where

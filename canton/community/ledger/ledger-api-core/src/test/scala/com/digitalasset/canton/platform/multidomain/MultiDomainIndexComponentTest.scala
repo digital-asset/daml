@@ -58,6 +58,13 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
 
     index
       .lookupActiveContract(Set(party), contractId)
-      .map(_ shouldBe Some(createNode.versionedCoinst))
+      .map { activeContract =>
+        activeContract.map(_.unversioned.arg) shouldBe Some(
+          createNode.versionedCoinst.unversioned.arg
+        )
+        activeContract.map(_.unversioned.template) shouldBe Some(
+          createNode.versionedCoinst.unversioned.template
+        )
+      }
   }
 }

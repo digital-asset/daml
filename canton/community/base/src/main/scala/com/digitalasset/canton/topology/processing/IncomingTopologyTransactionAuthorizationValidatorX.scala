@@ -226,7 +226,8 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
       }
     }
 
-    val acceptMissingAuthorizers = !expectFullAuthorization && hasMissingAuthorizers
+    val acceptMissingAuthorizers =
+      toValidate.isProposal && !expectFullAuthorization && hasMissingAuthorizers
 
     val finalTransaction = toValidate.copy(isProposal = !isFullyAuthorized)
 
@@ -240,10 +241,10 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
           case Left(rejection) => Some(rejection)
           case Right(missingAuthorizers) =>
             if (!missingAuthorizers.isEmpty) {
-              logger.debug(s"Missing authorizers for $toValidate: $missingAuthorizers")
+              logger.debug(s"Missing authorizers: $missingAuthorizers")
             }
             if (!mappingSpecificCheck) {
-              logger.debug(s"Mapping specific check failed for $toValidate")
+              logger.debug(s"Mapping specific check failed")
             }
             Some(TopologyTransactionRejection.NotAuthorized)
         },

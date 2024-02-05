@@ -669,44 +669,16 @@ private[lf] object Speedy {
           case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
             val readers = (actAs union readAs).mkString(",")
             val stakeholders = contract.stakeholders.mkString(",")
-            this.warningLog.add(
-              Warning(
-                commitLocation = commitLocation,
-                message =
-                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
-                     | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                     | Use of divulged contracts is deprecated and incompatible with pruning.
-                     | To remedy, add one of the readers [$readers] as an observer to the contract.
-                     |""".stripMargin.replaceAll("\r|\n", ""),
-              )
+            InternalError.runtimeException(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid},
+                 | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                 | """.stripMargin,
             )
         }
       }
     }
 
-    @throws[SError]
-    def checkKeyVisibility(
-        gkey: GlobalKey,
-        coid: V.ContractId,
-        handleKeyFound: V.ContractId => Control.Value,
-        contract: ContractInfo,
-    ): Control.Value = {
-      // For local and disclosed contracts, we do not perform visibility checking
-      if (isLocalContract(coid) || isDisclosedContract(coid)) {
-        handleKeyFound(coid)
-      } else {
-        val stakeholders = contract.signatories union contract.observers
-        visibleToStakeholders(stakeholders) match {
-          case SVisibleToStakeholders.Visible =>
-            handleKeyFound(coid)
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            throw SErrorDamlException(
-              interpretation.Error
-                .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-            )
-        }
-      }
-    }
   }
 
   object UpdateMachine {
@@ -922,16 +894,9 @@ private[lf] object Speedy {
       import Ordering.Implicits._
       if (version < TxVersion.minUpgrade)
         None
-      else
-        compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata match {
-          case Some(value) => Some(value.name)
-          case None =>
-            val version = compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-            throw SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${version.pretty} package without metadata",
-            )
-        }
+      else {
+        Some(compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata.name)
+      }
     }
 
     /* kont manipulation... */
@@ -1477,6 +1442,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
+        readAs: Set[Party] = Set.empty,
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
@@ -1488,7 +1454,7 @@ private[lf] object Speedy {
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
-        readAs = Set.empty,
+        readAs = readAs,
         packageResolution = packageResolution,
         limits = limits,
         traceLog = traceLog,

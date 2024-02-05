@@ -17,6 +17,12 @@ public final class IncompleteAssignedV2 implements ContractEntryV2 {
     this.assignedEvent = assignedEvent;
   }
 
+  @NonNull
+  @Override
+  public CreatedEvent getCreatedEvent() {
+    return assignedEvent.getCreatedEvent();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

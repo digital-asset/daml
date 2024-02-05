@@ -463,15 +463,6 @@ final case class EUnknownMethodInInterfaceInstance(
     s"Tried to implement method $method but interface $iface does not have a method with that name."
 }
 
-final case class EMissingInterfaceInstance(
-    context: Context,
-    interfaceId: TypeConName,
-    templateId: TypeConName,
-) extends ValidationError {
-  override protected def prettyInternal: String =
-    s"There is no interface instance $interfaceId for $templateId"
-}
-
 final case class EMissingRequiredInterfaceInstance(
     context: Context,
     requiringIface: TypeConName,
@@ -504,17 +495,6 @@ final case class ECircularInterfaceRequires(
   protected def prettyInternal: String =
     s"Circular interface requirement is not allowed: interface $iface requires itself."
 }
-
-final case class EAmbiguousInterfaceInstance(
-    context: Context,
-    interfaceId: TypeConName,
-    templateId: TypeConName,
-) extends ValidationError {
-  protected def prettyInternal: String =
-    s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
-      "both the interface and the template define this interface instance."
-}
-
 final case class ESoftFetchTemplateWithKey(
     context: Context,
     templateId: TypeConName,

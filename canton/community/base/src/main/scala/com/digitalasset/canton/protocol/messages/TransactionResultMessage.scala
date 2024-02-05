@@ -91,7 +91,7 @@ object TransactionResultMessage
   override val name: String = "TransactionResultMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
       v30.TransactionResultMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
@@ -125,8 +125,9 @@ object TransactionResultMessage
         .flatMap(Verdict.fromProtoV30)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
+      rpv,
       Some(bytes),
     )
   }

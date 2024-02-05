@@ -81,12 +81,12 @@ class ConfirmationRequestFactoryTest
       .withKeyPurposes(keyPurposes)
       .withEncKeyTag(OptionUtil.noneAsEmptyString(encKeyTag))
       .build(loggerFactory)
-      .forOwnerAndDomain(submitterParticipant, domain)
+      .forOwnerAndDomain(submittingParticipant, domain)
       .currentSnapshotApproximation
   }
 
   val defaultTopology: Map[ParticipantId, Seq[LfPartyId]] = Map(
-    submitterParticipant -> Seq(submitter, signatory),
+    submittingParticipant -> Seq(submitter, signatory),
     observerParticipant1 -> Seq(observer),
     observerParticipant2 -> Seq(observer),
   )
@@ -175,7 +175,7 @@ class ConfirmationRequestFactoryTest
     // we force view requests to be handled sequentially, which makes results deterministic and easier to compare
     // in the end.
     new ConfirmationRequestFactory(
-      submitterParticipant,
+      submittingParticipant,
       LoggingConfig(),
       loggerFactory,
       parallel = false,
@@ -207,7 +207,7 @@ class ConfirmationRequestFactoryTest
       .focus(_.viewEnvelopes)
       .modify(
         _.map(
-          _.focus(_.protocolMessage.submitterParticipantSignature)
+          _.focus(_.protocolMessage.submittingParticipantSignature)
             .modify(_.map(_ => SymbolicCrypto.emptySignature))
         )
       )
@@ -342,8 +342,10 @@ class ConfirmationRequestFactoryTest
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
     }
 
+    val signature = cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).futureValue
+
     ConfirmationRequest(
-      InformeeMessage(example.fullInformeeTree)(testedProtocolVersion),
+      InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),
       expectedTransactionViewMessages,
       testedProtocolVersion,
     )
@@ -401,7 +403,7 @@ class ConfirmationRequestFactoryTest
             .map { res =>
               val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
               stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
-            }
+            }(executorService) // parallel executorService to avoid a deadlock
         }
       }
 
@@ -410,7 +412,7 @@ class ConfirmationRequestFactoryTest
         // we use the same store for two requests to simulate what would happen in a real scenario
         val store = new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache)
         val recipientGroup = RecipientGroup(
-          NonEmpty(Set, submitterParticipant, observerParticipant1, observerParticipant2),
+          NonEmpty(Set, submittingParticipant, observerParticipant1, observerParticipant2),
           newCryptoSnapshot.pureCrypto.defaultSymmetricKeyScheme,
         )
 
@@ -477,7 +479,7 @@ class ConfirmationRequestFactoryTest
             _ should equal(
               Left(
                 ParticipantAuthorizationError(
-                  s"$submitterParticipant does not host $submitter or is not active."
+                  s"$submittingParticipant does not host $submitter or is not active."
                 )
               )
             )
@@ -513,7 +515,7 @@ class ConfirmationRequestFactoryTest
             _ should equal(
               Left(
                 ParticipantAuthorizationError(
-                  s"$submitterParticipant is not authorized to submit transactions for $submitter."
+                  s"$submittingParticipant is not authorized to submit transactions for $submitter."
                 )
               )
             )
@@ -551,7 +553,7 @@ class ConfirmationRequestFactoryTest
     "informee participant cannot be found" must {
 
       val submitterOnlyCryptoSnapshot =
-        createCryptoSnapshot(Map(submitterParticipant -> Seq(submitter)))
+        createCryptoSnapshot(Map(submittingParticipant -> Seq(submitter)))
 
       "be rejected" in {
         val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))

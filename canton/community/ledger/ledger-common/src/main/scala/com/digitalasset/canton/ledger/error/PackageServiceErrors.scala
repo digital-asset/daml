@@ -12,7 +12,7 @@ import com.daml.lf.{VersionRange, language, validation}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
-import com.daml.lf.upgrades.{UpgradeError}
+import com.daml.lf.validation.{UpgradeError}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
@@ -210,10 +210,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
 
     def handleUpgradeError(upgrading: Ref.PackageId, upgraded: Ref.PackageId, err: UpgradeError)(implicit
         loggingContext: ContextualizedErrorLogger
-    ): DamlError = err match {
-      case UpgradeError(msg) =>
-        Upgradeability.Error(upgrading, upgraded, msg)
-    }
+    ): DamlError = Upgradeability.Error(upgrading, upgraded, err.message)
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")

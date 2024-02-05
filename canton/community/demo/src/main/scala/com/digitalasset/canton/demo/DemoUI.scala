@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.console.ParticipantReferenceX
+import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.topology.{Identifier, UniqueIdentifier}
@@ -64,7 +64,7 @@ import com.digitalasset.canton.demo.Step.*
 trait BaseScript extends NamedLogging {
 
   def steps: Seq[Step]
-  def parties(): Seq[(String, ParticipantReferenceX)]
+  def parties(): Seq[(String, ParticipantReference)]
   def subscriptions(): Map[String, ParticipantOffset]
   def maxImage: Int
   def imagePath: String
@@ -91,7 +91,7 @@ private[demo] final case class MetaInfo(darData: Seq[DarData], hosted: String, c
 
 class ParticipantTab(
     party: String,
-    participant: ParticipantReferenceX,
+    participant: ParticipantReference,
     isClosing: => Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit

@@ -24,9 +24,9 @@ object ContractKeyStateCache {
       initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
-        metrics.daml.execution.cache.keyState.stateCache,
+        metrics.execution.cache.keyState.stateCache,
       ),
-      registerUpdateTimer = metrics.daml.execution.cache.keyState.registerCacheUpdate,
+      registerUpdateTimer = metrics.execution.cache.keyState.registerCacheUpdate,
       loggerFactory = loggerFactory,
     )
 }

@@ -132,7 +132,7 @@ object DomainConnectionConfig
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV0),
+      supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
@@ -165,7 +165,7 @@ object DomainConnectionConfig
       initializeFromTrustedDomain,
     )
 
-  def fromProtoV0(
+  def fromProtoV30(
       domainConnectionConfigP: v30.DomainConnectionConfig
   ): ParsingResult[DomainConnectionConfig] = {
     val v30.DomainConnectionConfig(

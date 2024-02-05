@@ -68,7 +68,7 @@ object CommonMetadata
   override val name: String = "CommonMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.CommonMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.CommonMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -123,9 +123,10 @@ object CommonMetadata
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
+      pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield CommonMetadata(confirmationPolicy, DomainId(domainUid), mediator, salt, uuid)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      pv,
       Some(bytes),
     )
 }

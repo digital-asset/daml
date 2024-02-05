@@ -1539,8 +1539,10 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
-      extends UpdateBuiltin(1)
+  private[speedy] sealed abstract class SBUKeyBuiltin(
+      operation: KeyOperation,
+      optTargetTemplateId: Option[TypeConName],
+  ) extends UpdateBuiltin(1)
       with Product {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1565,7 +1567,6 @@ private[lf] object SBuiltin {
       } else {
         val keyOpt = SOptional(Some(keyValue))
         val gkey = cachedKey.globalKey
-        val optTargetTemplateId: Option[TypeConName] = None // no upgrading
         machine.ptx.contractState.resolveKey(gkey) match {
           case Right((keyMapping, next)) =>
             machine.ptx = machine.ptx.copy(contractState = next)
@@ -1573,9 +1574,9 @@ private[lf] object SBuiltin {
               case ContractStateMachine.KeyActive(coid) =>
                 fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                   templateArg =>
-                    getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-                      machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
-                    }
+                    getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                      operation.handleKeyFound(coid)
+                    )
                 }
 
               case ContractStateMachine.KeyInactive =>
@@ -1591,15 +1592,9 @@ private[lf] object SBuiltin {
                   val c =
                     fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
                       templateArg =>
-                        getContractInfo(machine, coid, templateId, templateArg, keyOpt) {
-                          contract =>
-                            machine.checkKeyVisibility(
-                              gkey,
-                              coid,
-                              operation.handleKeyFound,
-                              contract,
-                            )
-                        }
+                        getContractInfo(machine, coid, templateId, templateArg, keyOpt)(_ =>
+                          operation.handleKeyFound(coid)
+                        )
                     }
                   (c, true)
                 case ContractStateMachine.KeyInactive =>
@@ -1627,15 +1622,19 @@ private[lf] object SBuiltin {
     *   :: { key: key, maintainers: List Party }
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName)
-      extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
+  final case class SBUFetchKey(
+      templateId: TypeConName,
+      optTargetTemplateId: Option[TypeConName] = None,
+  ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId), optTargetTemplateId)
 
   /** $lookupKey[T]
     *   :: { key: key, maintainers: List Party }
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName)
-      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
+  final case class SBULookupKey(
+      templateId: TypeConName,
+      optTargetTemplateId: Option[TypeConName] = None,
+  ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId), optTargetTemplateId)
 
   /** $getTime :: Token -> Timestamp */
   final case object SBUGetTime extends UpdateBuiltin(1) {
@@ -2204,11 +2203,11 @@ private[lf] object SBuiltin {
             case None =>
               (false, srcTmplId) // upgrading not enabled; import at source type
           }
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
             Control.Error(
               IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
             )
-          else
+          } else
             machine.ensurePackageIsLoaded(
               dstTmplId.packageId,
               language.Reference.Template(dstTmplId),

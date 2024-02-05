@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.foldable.*
 import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -115,12 +116,13 @@ class ApplicationHandlerPekko[F[+_], Context](
       val firstEvent = batch.head1
       val firstSc = firstEvent.counter
 
+      metrics.handler.numEvents.inc(batch.size.toLong)(MetricsContext.Empty)
       logger.debug(s"Passing ${batch.size} events to the application handler ${handler.name}.")
       // Measure only the synchronous part of the application handler so that we see how much the application handler
       // contributes to the sequential processing bottleneck.
       val syncResultFF = FutureUnlessShutdown.fromTry(
         Try(
-          Timed.future(metrics.applicationHandle, handler(Traced(batch)))
+          Timed.future(metrics.handler.applicationHandle, handler(Traced(batch)))
         )
       )
 

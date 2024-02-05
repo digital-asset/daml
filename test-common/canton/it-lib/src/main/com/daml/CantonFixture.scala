@@ -14,7 +14,6 @@ import com.daml.ledger.api.testing.utils.{
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.Suite
 
@@ -49,6 +48,7 @@ trait CantonFixtureWithResource[A]
     with PekkoBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
+  import CantonConfig.TimeProviderType
 
   protected lazy val authSecret: Option[String] = Option.empty
   protected lazy val darFiles: List[Path] = List.empty
@@ -68,7 +68,11 @@ trait CantonFixtureWithResource[A]
   //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
   //   - output from the canton process is sent to stdout
-  protected val cantonFixtureDebugMode = true
+  protected val cantonFixtureDebugMode = false
+
+  // If we need to enable debugging (logs, etc.), but still want to clean up the
+  // temporary files after a test is done running
+  protected val cantonFixtureDebugModeRemoveTmpFilesRegardless = false
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
@@ -117,7 +121,7 @@ trait CantonFixtureWithResource[A]
   protected val cantonTmpDir = Files.createTempDirectory("CantonFixture")
 
   protected def cantonCleanUp(): Unit =
-    if (cantonFixtureDebugMode)
+    if (cantonFixtureDebugMode && !cantonFixtureDebugModeRemoveTmpFilesRegardless)
       info(s"The temporary files are located in ${cantonTmpDir}")
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)

@@ -30,7 +30,7 @@ class C5 (x: Symbol) where
 
 ----------------
 -- Make sure warning doesn't trigger with uses
--- of HasField class.
+-- of GetField/SetField classes.
 
 data R = R with
     foo : Int
@@ -38,11 +38,13 @@ data R = R with
 
 data T = T Int
 
-instance HasField "foo" T Int where
+instance GetField "foo" T Int where
     getField (T n) = n
+
+instance SetField "foo" T Int where
     setField n (T _) = T n
 
-getFoo : HasField "foo" a b => a -> b
+getFoo : GetField "foo" a b => a -> b
 getFoo = getField @"foo"
 
 getRFoo : R -> Int
@@ -50,3 +52,12 @@ getRFoo = getFoo
 
 getTFoo : T -> Int
 getTFoo = getFoo
+
+setFoo : SetField "foo" a b => b -> a -> a
+setFoo = setField @"foo"
+
+setRFoo : Int -> R -> R
+setRFoo = setFoo
+
+setTFoo : Int -> T -> T
+setTFoo = setFoo

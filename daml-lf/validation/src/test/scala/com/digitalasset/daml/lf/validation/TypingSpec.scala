@@ -3,10 +3,10 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.TemplateOrInterface
-import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.data.Ref.{DottedName, PackageName, PackageVersion}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{
+  Ast,
   LanguageMajorVersion,
   LookupError,
   PackageInterface,
@@ -30,6 +30,11 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     ParserParameters.defaultFor(majorLanguageVersion)
   private[this] val defaultPackageId = parserParameters.defaultPackageId
   private[this] val defaultLanguageVersion = parserParameters.languageVersion
+  private[this] val packageMetadata = Ast.PackageMetadata(
+    PackageName.assertFromString("pkg"),
+    PackageVersion.assertFromString("0.0.0"),
+    None,
+  )
 
   import SpecUtil._
 
@@ -277,18 +282,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         // EToInterface
         E"λ (t: Mod:Ti) → (( to_interface @Mod:I @Mod:Ti t ))" ->
           T"Mod:Ti → Mod:I",
-        E"λ (t: Mod:CoTi) → (( to_interface @Mod:I @Mod:CoTi t ))" ->
-          T"Mod:CoTi → Mod:I",
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
-        E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:CoTi i ))" ->
-          T"Mod:I → Option Mod:CoTi",
         // EUnsafeFromInterface
         E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
           T"ContractId Mod:I → Mod:I → Mod:Ti",
-        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:CoTi cid i ))" ->
-          T"ContractId Mod:I → Mod:I → Mod:CoTi",
         // EToRequiredInterface
         E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
           T"Mod:SubI → Mod:I",
@@ -879,10 +878,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             val TTyCon(conI) = t"Mod:I"
             val TTyCon(conTi) = t"Mod:Ti"
             env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-              case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                  if iiInfo.interfaceId == conI
-                    && iiInfo.templateId == conTi
-                    && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              case Right(TemplateImplementsSignature(`conI`, _)) =>
             }
             assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
@@ -923,10 +919,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               val TTyCon(conI) = t"Mod:I"
               val TTyCon(conTi) = t"Mod:Ti"
               env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                    if iiInfo.interfaceId == conI
-                      && iiInfo.templateId == conTi
-                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+                case Right(TemplateImplementsSignature(`conI`, _)) =>
               }
               assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
@@ -970,11 +963,16 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           {
             case EUnknownDefinition(
                   _,
-                  LookupError.NotFound(Reference.Interface(_), Reference.InterfaceInstance(_, _)),
+                  LookupError.NotFound(Reference.Interface(_), _),
                 ) =>
           },
         E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
-          { case EMissingInterfaceInstance(_, _, _) => },
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.InterfaceInstance(_, _), _),
+                ) =>
+          },
         E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
           { case _: ETypeMismatch => },
         // EFromInterface
@@ -982,11 +980,16 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           {
             case EUnknownDefinition(
                   _,
-                  LookupError.NotFound(Reference.Template(_), Reference.InterfaceInstance(_, _)),
+                  LookupError.NotFound(Reference.Template(_), _),
                 ) =>
           },
         E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
-          { case EMissingInterfaceInstance(_, _, _) => },
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError.NotFound(Reference.InterfaceInstance(_, _), _),
+                ) =>
+          },
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
@@ -1069,7 +1072,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
       val expectedContext = Context.Location(expectedLocation)
 
-      forEvery(testCases) { (exp, checkError) =>
+      forAll(testCases) { (exp, checkError) =>
         import scala.util.{Failure, Try}
 
         val x = Try(env.typeOfTopExpr(exp))
@@ -1086,6 +1089,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
 
           module Mod {
             record @serializable MyUnit = {};
@@ -1440,6 +1444,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
+
           module Mod {
             record @serializable MyUnit = {};
             record @serializable Box a = {x: a};
@@ -1636,137 +1642,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
               viewtype Mod:Box;
             };
           }
-
-          module CoImplementsBase {
-            interface (this: Root) = {
-              viewtype Mod:MyUnit;
-              method getParties: List Party;
-              choice RootCh (self) (i : Unit) : Unit,
-                controllers call_method @CoImplementsBase:Root getParties this
-                to upure @Unit ();
-            };
-
-            record @serializable ParcelWithRoot = { party: Party };
-
-            template (this: ParcelWithRoot) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              implements CoImplementsBase:Root {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(CoImplementsBase:ParcelWithRoot {party} this)] (Nil @Party);
-              };
-            };
-
-            record @serializable ParcelWithoutRoot = { party: Party };
-
-            template (this: ParcelWithoutRoot) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-            };
-          }
-
-          module NegativeTestCase_CoImplements {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @NegativeTestCase_CoImplements:Boxy this)
-                to upure @Int64 (call_method @NegativeTestCase_CoImplements:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsMissingRequiredInterface {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingRequiredInterface:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithoutRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsMissingMethod {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsMissingMethod:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsMissingMethod:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-              };
-            };
-          }
-
-          module PositiveTestCase_CoImplementsUnknownMethod {
-            interface (this: Boxy) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getInt: Int64;
-              choice BoxyCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_CoImplementsUnknownMethod:Boxy this)
-                to upure @Int64 (call_method @PositiveTestCase_CoImplementsUnknownMethod:Boxy getInt this);
-              coimplements CoImplementsBase:ParcelWithRoot {
-                view = Mod:MyUnit {};
-                method getInt = 42;
-                method getBoolean = True;
-              };
-            };
-          }
-
-          module PositiveTestCase_ConflictingImplementsCoImplements {
-            record @serializable Hexagon = { party: Party };
-
-            template (this: Hexagon) = {
-              precondition True;
-              signatories Nil @Party;
-              observers Nil @Party;
-              implements CoImplementsBase:Root {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {party} this)] (Nil @Party);
-              };
-              implements PositiveTestCase_ConflictingImplementsCoImplements:Polygon {
-                view = Mod:MyUnit {};
-                method getSides = 6;
-              };
-            };
-
-            interface (this: Polygon) = {
-              viewtype Mod:MyUnit;
-              requires CoImplementsBase:Root;
-              method getSides: Int64;
-              choice PolygonCh (self) (i : Unit) : Int64,
-                controllers call_method @CoImplementsBase:Root
-                  getParties
-                    (to_required_interface @CoImplementsBase:Root @PositiveTestCase_ConflictingImplementsCoImplements:Polygon this)
-                to upure @Int64 (call_method @PositiveTestCase_ConflictingImplementsCoImplements:Polygon getSides this);
-              coimplements PositiveTestCase_ConflictingImplementsCoImplements:Hexagon {
-                view = Mod:MyUnit {};
-                method getSides = 6;
-              };
-            };
-          }
       """
 
       val typeMismatchCases = Table(
@@ -1793,8 +1668,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       checkModule(pkg, "NegativeTestCase")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement3")
       checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement4")
-      checkModule(pkg, "NegativeTestCase_CoImplements")
-      "NegativeTestCase" shouldBe "NegativeTestCase"
       forEvery(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
       )
@@ -1828,18 +1701,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       an[EViewTypeHeadNotCon] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_ViewtypeIsNotUserDefined")
       )
-      an[EMissingRequiredInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsMissingRequiredInterface")
-      )
-      an[EMissingMethodInInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsMissingMethod")
-      )
-      an[EUnknownMethodInInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_CoImplementsUnknownMethod")
-      )
-      an[EAmbiguousInterfaceInstance] shouldBe thrownBy(
-        checkModule(pkg, "PositiveTestCase_ConflictingImplementsCoImplements")
-      )
     }
 
   }
@@ -1851,6 +1712,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val pkg =
         p"""
+          metadata ( 'pkg' : '1.0.0' )
 
           module Mod {
             record @serializable Exception = { message: Text };
@@ -1914,6 +1776,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       // This is a regression test for https://github.com/digital-asset/daml/issues/3777
       def pkg =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
+
         module TypeVarShadowing2 {
 
          val bar : forall b1 b2 a1 a2. (b1 -> b2) -> (a1 -> a2) -> a1 -> a2 =
@@ -1992,7 +1856,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type record definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -2015,7 +1879,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type variant definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -2038,7 +1902,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type synonym definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
       }
 
@@ -2072,6 +1936,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val env = {
     val pkg =
       p"""
+       metadata ( 'pkg' : '1.0.0' )
+
        module Mod {
          record R (a: *) = { f1: Int64, f2: List a } ;
 
@@ -2100,23 +1966,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
 
-         record @serializable CoTi = { person: Party, name: Text };
-         template (this: CoTi) = {
-            precondition True;
-            signatories Nil @Party;
-            observers Nil @Party;
-         };
-
          interface (this : I) = {
               viewtype Mod:MyUnit;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
-              coimplements Mod:CoTi {
-                view = Mod:MyUnit {};
-                method getParties = Cons @Party [(Mod:CoTi {person} this)] (Nil @Party);
-              };
          };
 
          interface (this : SubI) = {

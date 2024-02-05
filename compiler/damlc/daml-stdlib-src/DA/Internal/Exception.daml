@@ -83,8 +83,10 @@ instance HasFromAnyException AnyException where
 
 --------------------------------------------------------------
 
-instance HasField "message" GeneralError Text where
+instance GetField "message" GeneralError Text where
     getField (GeneralError m) = m
+
+instance SetField "message" GeneralError Text where
     setField m (GeneralError _) = GeneralError m
 
 instance HasThrow GeneralError where
@@ -101,8 +103,10 @@ instance HasFromAnyException GeneralError where
 
 --------------------------------------------------------------
 
-instance HasField "message" ArithmeticError Text where
+instance GetField "message" ArithmeticError Text where
     getField (ArithmeticError m) = m
+
+instance SetField "message" ArithmeticError Text where
     setField m (ArithmeticError _) = ArithmeticError m
 
 instance HasThrow ArithmeticError where
@@ -119,8 +123,10 @@ instance HasFromAnyException ArithmeticError where
 
 --------------------------------------------------------------
 
-instance HasField "message" PreconditionFailed Text where
+instance GetField "message" PreconditionFailed Text where
     getField (PreconditionFailed m) = m
+
+instance SetField "message" PreconditionFailed Text where
     setField m (PreconditionFailed _) = PreconditionFailed m
 
 instance HasThrow PreconditionFailed where
@@ -138,8 +144,10 @@ instance HasFromAnyException PreconditionFailed where
 
 --------------------------------------------------------------
 
-instance HasField "message" AssertionFailed Text where
+instance GetField "message" AssertionFailed Text where
     getField (AssertionFailed m) = m
+
+instance SetField "message" AssertionFailed Text where
     setField m (AssertionFailed _) = AssertionFailed m
 
 instance HasThrow AssertionFailed where

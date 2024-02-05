@@ -56,8 +56,7 @@ object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionReq
     val v30.SubscriptionRequest(memberP, counter) = subscriptionRequestP
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
-    } yield SubscriptionRequest(member, SequencerCounter(counter))(
-      protocolVersionRepresentativeFor(ProtoVersion(0))
-    )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield SubscriptionRequest(member, SequencerCounter(counter))(rpv)
   }
 }

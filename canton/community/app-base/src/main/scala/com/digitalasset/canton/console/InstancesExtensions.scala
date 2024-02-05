@@ -8,7 +8,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 /** Aliases to manage a sequence of instances in a REPL environment
   */
-trait LocalInstancesExtensions[LocalInstanceRef <: LocalInstanceReferenceCommon] extends Helpful {
+trait LocalInstancesExtensions[LocalInstanceRef <: LocalInstanceReference] extends Helpful {
 
   import ConsoleCommandResult.runAll
 
@@ -64,6 +64,6 @@ trait LocalInstancesExtensions[LocalInstanceRef <: LocalInstanceReferenceCommon]
 }
 
 object LocalInstancesExtensions {
-  class Impl[LocalInstanceRef <: LocalInstanceReferenceCommon](val instances: Seq[LocalInstanceRef])
+  class Impl[LocalInstanceRef <: LocalInstanceReference](val instances: Seq[LocalInstanceRef])
       extends LocalInstancesExtensions[LocalInstanceRef] {}
 }

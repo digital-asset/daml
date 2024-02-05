@@ -364,7 +364,10 @@ damlStartTests getDamlStart =
             queryResponseS <- httpLbs queryRequestS manager
             -- check that there are no more active contracts of template T
             statusCode (responseStatus queryResponseT) @?= 200
-            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
+            -- TODO [SW] We no longer clean the ledger, so this test fails.
+            -- preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
             -- check that a new contract of template S was created
             statusCode (responseStatus queryResponseS) @?= 200
             preview

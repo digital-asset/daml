@@ -6,13 +6,13 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerConnectionAdminCommands
-import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReferenceCommon}
+import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReference}
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 
 import scala.util.Try
 
 trait SequencerConnectionAdministration extends Helpful {
-  this: AdminCommandRunner with InstanceReferenceCommon =>
+  this: AdminCommandRunner with InstanceReference =>
 
   @Help.Summary("Manage sequencer connection")
   @Help.Group("Sequencer Connection")

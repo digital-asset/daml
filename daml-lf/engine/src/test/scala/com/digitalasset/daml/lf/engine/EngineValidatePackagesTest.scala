@@ -38,6 +38,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     val pkg =
       p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = "t";
         }
@@ -53,6 +54,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
       val illTypedPackage =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = 1;
         }
@@ -86,6 +88,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
       val dependentPackage =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = '-library-':Mod:Text;
         }

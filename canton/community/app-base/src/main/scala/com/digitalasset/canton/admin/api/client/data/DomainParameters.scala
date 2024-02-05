@@ -15,10 +15,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.protocol.DynamicDomainParameters.{
-  InvalidDynamicDomainParameters,
-  protocolVersionRepresentativeFor,
-}
+import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
 import com.digitalasset.canton.protocol.{
   CatchUpConfig,
   DynamicDomainParameters as DynamicDomainParametersInternal,
@@ -227,27 +224,32 @@ final case class DynamicDomainParameters(
       )
     )
 
-  private[canton] def toInternal: DynamicDomainParametersInternal =
-    DynamicDomainParametersInternal.tryCreate(
-      participantResponseTimeout =
-        InternalNonNegativeFiniteDuration.fromConfig(participantResponseTimeout),
-      mediatorReactionTimeout =
-        InternalNonNegativeFiniteDuration.fromConfig(mediatorReactionTimeout),
-      transferExclusivityTimeout =
-        InternalNonNegativeFiniteDuration.fromConfig(transferExclusivityTimeout),
-      topologyChangeDelay = InternalNonNegativeFiniteDuration.fromConfig(topologyChangeDelay),
-      ledgerTimeRecordTimeTolerance =
-        InternalNonNegativeFiniteDuration.fromConfig(ledgerTimeRecordTimeTolerance),
-      mediatorDeduplicationTimeout =
-        InternalNonNegativeFiniteDuration.fromConfig(mediatorDeduplicationTimeout),
-      reconciliationInterval = PositiveSeconds.fromConfig(reconciliationInterval),
-      maxRatePerParticipant = maxRatePerParticipant,
-      maxRequestSize = MaxRequestSize(maxRequestSize),
-      sequencerAggregateSubmissionTimeout =
-        InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
-      trafficControlParameters = trafficControlParameters.map(_.toInternal),
-      onboardingRestriction = onboardingRestriction,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
+  private[canton] def toInternal: Either[String, DynamicDomainParametersInternal] =
+    DynamicDomainParametersInternal
+      .protocolVersionRepresentativeFor(ProtoVersion(30))
+      .leftMap(_.message)
+      .map { rpv =>
+        DynamicDomainParametersInternal.tryCreate(
+          participantResponseTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(participantResponseTimeout),
+          mediatorReactionTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(mediatorReactionTimeout),
+          transferExclusivityTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(transferExclusivityTimeout),
+          topologyChangeDelay = InternalNonNegativeFiniteDuration.fromConfig(topologyChangeDelay),
+          ledgerTimeRecordTimeTolerance =
+            InternalNonNegativeFiniteDuration.fromConfig(ledgerTimeRecordTimeTolerance),
+          mediatorDeduplicationTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(mediatorDeduplicationTimeout),
+          reconciliationInterval = PositiveSeconds.fromConfig(reconciliationInterval),
+          maxRatePerParticipant = maxRatePerParticipant,
+          maxRequestSize = MaxRequestSize(maxRequestSize),
+          sequencerAggregateSubmissionTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),
+          trafficControlParameters = trafficControlParameters.map(_.toInternal),
+          onboardingRestriction = onboardingRestriction,
+        )(rpv)
+      }
 }
 
 object DynamicDomainParameters {

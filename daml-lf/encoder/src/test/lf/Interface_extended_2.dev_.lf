@@ -1,0 +1,51 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module InterfaceExtMod {
+
+  interface (this: Root) = {
+    viewtype RecordMod:MyUnit;
+  };
+
+  interface (this: Boxy) = {
+    viewtype RecordMod:MyUnit;
+    requires InterfaceExtMod:Root;
+    method getParty: Party;
+    choice @nonConsuming ReturnInt (self) (i: Int64): Int64
+      , controllers Cons @Party [call_method @InterfaceExtMod:Boxy getParty this] (Nil @Party)
+      , observers Nil @Party
+      to upure @Int64 i;
+  };
+
+  record @serializable Box = { party: Party, name: Text };
+
+  template (this: Box) = {
+    precondition True;
+    signatories Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
+    observers Cons @Party [InterfaceExtMod:Box {party} this] (Nil @Party);
+  };
+
+  val unsafeBoxyToBox: ContractId InterfaceMod:Boxy -> InterfaceMod:Boxy -> InterfaceMod:Box =
+    \(cid: ContractId InterfaceMod:Boxy) (boxy: InterfaceMod:Boxy) ->
+      unsafe_from_interface @InterfaceMod:Boxy @InterfaceMod:Box cid boxy;
+
+  val boxyTemplateTypeRep: InterfaceMod:Boxy -> TypeRep =
+    \(boxy: InterfaceMod:Boxy) ->
+      interface_template_type_rep @InterfaceMod:Boxy boxy;
+
+  val boxyToRoot: InterfaceExtMod:Boxy -> InterfaceExtMod:Root =
+    \(box: InterfaceExtMod:Boxy) ->
+      to_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy box;
+
+  val rootToBoxy: InterfaceExtMod:Root -> Option InterfaceExtMod:Boxy =
+    \(root: InterfaceExtMod:Root) ->
+      from_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy root;
+
+  val unsafeRootToBoxy: ContractId InterfaceExtMod:Root -> InterfaceExtMod:Root -> InterfaceExtMod:Boxy =
+    \(cid: ContractId InterfaceExtMod:Root) (root: InterfaceExtMod:Root) ->
+      unsafe_from_required_interface @InterfaceExtMod:Root @InterfaceExtMod:Boxy cid root;
+
+  val exercise_with_guard: ContractId InterfaceExtMod:Boxy -> (InterfaceExtMod:Boxy -> Bool) -> Update Int64 =
+        \(cid: ContractId InterfaceExtMod:Boxy) (guard: InterfaceExtMod:Boxy -> Bool) ->
+          exercise_interface_with_guard @InterfaceExtMod:Boxy ReturnInt cid  0 guard;
+}

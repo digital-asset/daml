@@ -17,7 +17,7 @@ load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_test_suite")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -31,7 +31,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 # TODO(https://github.com/DACH-NY/canton/issues/15106): read 'version' from the canton repository
 #  once it is exposed in some file.
 genrule(
-    name = "community_buildinfo_source",
+    name = "community_buildinfo_src",
     outs = ["BuildInfo.scala"],
     cmd = """
 cat << EOF > $@
@@ -56,10 +56,9 @@ EOF
     ),
 )
 
-da_scala_library(
+scala_library(
     name = "community_buildinfo",
-    srcs = [":community_buildinfo_source"],
-    tags = ["maven_coordinates=com.daml:canton-community-buildinfo:__VERSION__"],
+    srcs = [":community_buildinfo_src"],
 )
 
 ### daml-common-staging/daml-errors ###
@@ -87,14 +86,13 @@ da_scala_library(
 
 ### community/lib/pekko ###
 
-da_scala_library(
+scala_library(
     name = "pekko-stream-patch",
     srcs = glob(["community/lib/pekko/src/main/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    tags = ["maven_coordinates=com.daml:pekko-stream-patch:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -110,13 +108,9 @@ jar_jar(
 
 ### community/lib/Blake2b ###
 
-da_java_library(
+java_library(
     name = "community_lib_Blake2b",
     srcs = glob(["community/lib/Blake2b/src/main/**/*.java"]),
-    tags = [
-        "javadoc_root_packages=org.bouncycastle.crypto.digests.canton",
-        "maven_coordinates=com.daml:canton-community-lib-blake2b:__VERSION__",
-    ],
     deps = [
         "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
@@ -124,11 +118,10 @@ da_java_library(
 
 ### community/lib/slick ###
 
-da_scala_macro_library(
+scala_macro_library(
     name = "community_lib_slick_slick-fork",
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
-    override_scalacopts = ["-Wconf:cat=unused-imports:s"],
-    tags = ["maven_coordinates=com.daml:canton-community-lib-slick-slick-fork:__VERSION__"],
+    scalacopts = ["-Wconf:cat=unused-imports:s"],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:org_reactivestreams_reactive_streams",
@@ -138,14 +131,13 @@ da_scala_macro_library(
 
 ### community/lib/wartremover ###
 
-da_scala_macro_library(
+scala_macro_library(
     name = "community_lib_wartremover",
     srcs = glob(["community/lib/wartremover/src/main/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Wconf:cat=unused-pat-vars:s",
         "-Xsource:3",
     ],
-    tags = ["maven_coordinates=com.daml:canton-community-lib-wartremover:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
@@ -188,7 +180,6 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_exporter_jaeger",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_trace",
-        "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
         "@maven//:io_opentelemetry_opentelemetry_exporter_zipkin",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
@@ -196,7 +187,6 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:io_opentelemetry_opentelemetry_semconv",
-        "@maven//:io_prometheus_simpleclient",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
@@ -207,14 +197,13 @@ da_scala_library(
 
 ### community/util-external ###
 
-da_scala_library(
+scala_library(
     name = "community_util-external",
     srcs = glob(["community/util-external/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    tags = ["maven_coordinates=com.daml:canton-community-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_util-logging",
@@ -264,6 +253,7 @@ da_scala_library(
     visibility = [
         "//compiler/repl-service:__subpackages__",
         "//daml-script:__subpackages__",
+        "//daml-lf:__subpackages__",
         "//language-support/java:__subpackages__",
         "//ledger-service/utils:__subpackages__",
         "//test-common/canton:__subpackages__",
@@ -279,7 +269,6 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/upgrades",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
@@ -350,14 +339,13 @@ filegroup(
     visibility = ["//daml-script:__subpackages__"],
 )
 
-da_scala_library(
+scala_library(
     name = "community_admin-api",
     srcs = [":community_admin-api-src"],
-    override_scalacopts = [
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    tags = ["maven_coordinates=com.daml:canton-community-admin-api:__VERSION__"],
 )
 
 ### community/base ###
@@ -387,18 +375,16 @@ proto_gen(
     ],
 )
 
-da_scala_library(
+scala_library(
     name = "community_base",
     srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
-    scaladoc = False,
-    tags = ["maven_coordinates=com.daml:canton-community-base:__VERSION__"],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
@@ -417,7 +403,6 @@ da_scala_library(
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
@@ -454,7 +439,6 @@ da_scala_library(
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
@@ -465,6 +449,7 @@ da_scala_library(
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -480,28 +465,18 @@ da_scala_library(
     ],
 )
 
-# Create empty Scaladoc JAR for uploading to Maven Central
-# Needed as scaladoc for base fails to compile
-scaladoc_jar(
-    name = "community_base_scaladoc",
-    srcs = [],
-    tags = ["scaladoc"],
-    deps = [],
-) if is_windows == False else None
-
 ### community/common ###
 
-da_scala_library(
+scala_library(
     name = "community_common",
     srcs = glob(["community/common/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/common/src/main/resources",
     resources = glob(["community/common/src/main/resources/**"]),
-    tags = ["maven_coordinates=com.daml:canton-community-common:__VERSION__"],
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
@@ -599,25 +574,23 @@ proto_gen(
     ],
 )
 
-da_scala_library(
+scala_library(
     name = "community_ledger_ledger-api-core",
     srcs = glob([
         "community/ledger/ledger-api-core/src/main/scala/**/*.scala",
         "community/ledger/ledger-api-core/src/main/scala/**/*.java",
     ]) + [":community_ledger_ledger-api-core_proto_scala"],
-    override_scalacopts = [
+    resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
+    resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
+    scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
-    resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
-    scaladoc = False,
-    tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-api-core:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
+        "//daml-lf:__subpackages__",
         "//language-support/java:__subpackages__",
-        "//test-common/canton:__subpackages__",
     ],
     deps = [
         ":bindings-java",
@@ -637,7 +610,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
-        "//daml-lf/upgrades",
         "//daml-lf/validation",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
@@ -679,7 +651,6 @@ da_scala_library(
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_circe_circe_core_2_13",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
@@ -703,15 +674,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
 )
-
-# Create empty Scaladoc JAR for uploading to Maven Central
-# Needed as scaladoc for ledger-api-core fails to compile
-scaladoc_jar(
-    name = "community_ledger_ledger-api-core_scaladoc",
-    srcs = [],
-    tags = ["scaladoc"],
-    deps = [],
-) if is_windows == False else None
 
 ### community/ledger/ledger-json-api ###
 
@@ -763,7 +725,6 @@ scala_library(
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-        "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
@@ -1012,7 +973,6 @@ scala_library(
         "@maven//:dev_optics_monocle_core_2_13",
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
@@ -1198,19 +1158,15 @@ scala_library(
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
         "@maven//:io_circe_circe_jawn_2_13",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_dropwizard_metrics_metrics_graphite",
-        "@maven//:io_dropwizard_metrics_metrics_jmx",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_common",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_prometheus_simpleclient",
-        "@maven//:io_prometheus_simpleclient_dropwizard",
-        "@maven//:io_prometheus_simpleclient_httpserver",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -1537,28 +1493,19 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"]),
+    srcs = glob(
+        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"] + [
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
+        ],
+    ),
     visibility = ["//visibility:private"],
 )
 
+# Minimal set of ledger-api services we need for hs-bindings
 ledger_api_haskellpb_sources = [
-    "ActiveContractsService.hs",
-    "CommandCompletionService.hs",
-    "CommandService.hs",
-    "CommandSubmissionService.hs",
-    "Commands.hs",
-    "ContractMetadata.hs",
-    "Completion.hs",
-    "Event.hs",
-    "LedgerConfigurationService.hs",
-    "LedgerIdentityService.hs",
-    "LedgerOffset.hs",
-    "PackageService.hs",
-    "TraceContext.hs",
-    "Transaction.hs",
-    "TransactionFilter.hs",
-    "TransactionService.hs",
-    "Value.hs",
+    # V2.PackageService depends on V1, so we still include it here
+    "V1/PackageService.hs",
+    "V2/PackageService.hs",
 ]
 
 genrule(
@@ -1568,44 +1515,16 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
+    outs = ["Com/Daml/Ledger/Api/" + b for b in ledger_api_haskellpb_sources],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v1/$$(basename $$src) \
+                --proto $${src#*community/ledger-api/src/main/protobuf/} \
                 --out $(@D)
         done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-)
-
-filegroup(
-    name = "ledger-api-protos-fg-testing",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/testing/*.proto"]),
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "ledger-api-haskellpb-sources-testing",
-    srcs = [
-        "@com_google_protobuf//:well_known_type_protos",
-        "@go_googleapis//google/rpc:status.proto",
-        ":ledger-api-protos-fg-testing",
-    ],
-    outs = ["Com/Daml/Ledger/Api/V1/Testing/TimeService.hs"],
-    cmd = """
-        $(location @proto3-suite//:compile-proto-file) \
-            --includeDir """ + google_protobuf_src + """ \
-            --includeDir """ + google_rpc_src + """ \
-            --includeDir """ + ledger_api_proto_source_root + """ \
-            --proto com/daml/ledger/api/v1/testing/time_service.proto \
-            --out $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $(@D)))))))
-                #6x dirname because @D works differently for a single output
     """,
     tools = [
         "@proto3-suite//:compile-proto-file",
@@ -1659,7 +1578,6 @@ filegroup(
         ":google-rpc-haskellpb-sources",
         ":ledger-api-haskellpb-sources",
         ":ledger-api-haskellpb-sources-admin",
-        ":ledger-api-haskellpb-sources-testing",
     ],
     visibility = ["//visibility:public"],
 )

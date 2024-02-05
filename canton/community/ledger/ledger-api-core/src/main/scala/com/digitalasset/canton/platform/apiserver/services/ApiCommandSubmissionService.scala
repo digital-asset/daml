@@ -67,11 +67,11 @@ class ApiCommandSubmissionService(
         requestWithSubmissionId.commands.map(_.submissionId),
       )
     Timed.timedAndTrackedFuture(
-      metrics.daml.commands.submissions,
-      metrics.daml.commands.submissionsRunning,
+      metrics.commands.submissions,
+      metrics.commands.submissionsRunning,
       Timed
         .value(
-          metrics.daml.commands.validation,
+          metrics.commands.validation,
           validator.validate(
             req = requestWithSubmissionId,
             currentLedgerTime = currentLedgerTime(),

@@ -28,7 +28,7 @@ final case class MemberTrafficSnapshot(
 }
 
 object MemberTrafficSnapshot {
-  def fromProtoV1(
+  def fromProtoV30(
       snapshotP: MemberTrafficSnapshotP
   ): ParsingResult[MemberTrafficSnapshot] = {
     for {

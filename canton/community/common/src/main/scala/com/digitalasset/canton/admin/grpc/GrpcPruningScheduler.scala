@@ -26,7 +26,7 @@ trait GrpcPruningScheduler {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
-      schedule <- convertRequiredF("schedule", request.schedule, PruningSchedule.fromProtoV0)
+      schedule <- convertRequiredF("schedule", request.schedule, PruningSchedule.fromProtoV30)
       _scheduleSuccessfullySet <- handlePassiveHAStorageError(
         scheduler.setSchedule(schedule),
         "set_schedule",
@@ -97,7 +97,7 @@ trait GrpcPruningScheduler {
     for {
       scheduler <- ensureScheduler
       scheduleWithRetention <- scheduler.getSchedule()
-    } yield v30.GetSchedule.Response(scheduleWithRetention.map(_.toProtoV0))
+    } yield v30.GetSchedule.Response(scheduleWithRetention.map(_.toProtoV30))
   }
 
   protected def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
