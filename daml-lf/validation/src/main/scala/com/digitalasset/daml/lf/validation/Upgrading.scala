@@ -10,7 +10,7 @@ import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
 import com.daml.lf.data.ImmArray
 
-case class Upgrading[A](past: A, present: A) {
+final case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
   def fold[B](f: (A, A) => B): B = f(past, present)
   def zip[B, C](that: Upgrading[B], f: (A, B) => C) =
@@ -184,7 +184,7 @@ object TypecheckUpgrades {
   }
 }
 
-case class ModuleWithMetadata(module: Ast.Module) {
+final case class ModuleWithMetadata(module: Ast.Module) {
   type ChoiceNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.ChoiceName)]
 
   lazy val choiceNameMap: ChoiceNameMap =
@@ -215,7 +215,7 @@ case class ModuleWithMetadata(module: Ast.Module) {
 
 }
 
-case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+final case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
   private lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
   private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 

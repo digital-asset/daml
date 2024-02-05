@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
+import com.daml.lf.validation.{CouldNotResolveUpgradedPackageId, TypecheckUpgrades, UpgradeError, Upgrading}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
@@ -17,12 +17,9 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.error.PackageServiceErrors.{Validation, InternalError}
+import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.ledger.error.groups.AdminServiceErrors
-import com.digitalasset.canton.ledger.participant.state.index.v2.{
-  IndexPackagesService,
-  IndexTransactionsService
-}
+import com.digitalasset.canton.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -155,8 +152,8 @@ private[apiserver] final class ApiPackageManagementService private (
                                                                 loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
     val (_, pkg) = dar
-    val pkgName = pkg.metadata.get.name
-    val pkgVersion = pkg.metadata.get.version
+    val pkgName = pkg.metadata.name
+    val pkgVersion = pkg.metadata.version
     packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
       (pkgId, pkgVersion)
     }.minByOption { case (_, version) =>
@@ -169,8 +166,8 @@ private[apiserver] final class ApiPackageManagementService private (
                                                                 loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
     val (_, pkg) = dar
-    val pkgName = pkg.metadata.get.name
-    val pkgVersion = pkg.metadata.get.version
+    val pkgName = pkg.metadata.name
+    val pkgVersion = pkg.metadata.version
     packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
       (pkgId, pkgVersion)
     }.maxByOption { case (_, version) =>
@@ -180,8 +177,12 @@ private[apiserver] final class ApiPackageManagementService private (
   }
 
   private def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)]): Future[Unit] = {
-    optDar1.fold(Future.unit) { case (pkgId1, pkg1) =>
-        Future.fromTry(Typecheck.typecheckUpgrades((pkgId1, pkg1), optDar2))
+    (optDar1, optDar2) match {
+      case (None, _) | (_, None) =>
+        Future.unit
+
+      case (Some((pkgId1, pkg1)), Some((pkgId2, pkg2))) =>
+        Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, Some(pkg2)))
     }
   }
 
@@ -191,16 +192,12 @@ private[apiserver] final class ApiPackageManagementService private (
     val (upgradingPackageId, upgradingPackage) = upgradingDar.main
     val optUpgradingDar = Some((upgradingPackageId, upgradingPackage))
     logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
-    upgradingPackage.metadata.flatMap(_.upgradedPackageId) match {
+    upgradingPackage.metadata.upgradedPackageId match {
       case Some(upgradedPackageId) =>
         for {
           optUpgradedDar <- lookupDar(upgradedPackageId)
           _ = logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
-          _ <- optUpgradingDar.fold {
-            logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: CouldNotResolveUpgradedPackageId")
-            Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, UpgradeError("CouldNotResolveUpgradedPackageId")).asGrpcError)
-          } { _ =>
-            typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
+          _ <- typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
               case err: UpgradeError =>
                 logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
                 Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
@@ -208,7 +205,6 @@ private[apiserver] final class ApiPackageManagementService private (
                 logger.info(s"Typechecking upgrades failed with unknown error.")
                 Future.failed(InternalError.Unhandled(err).asGrpcError)
             }
-          }
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)
           _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
           optMinimalDar <- minimalVersionedDar(upgradingDar.main)
