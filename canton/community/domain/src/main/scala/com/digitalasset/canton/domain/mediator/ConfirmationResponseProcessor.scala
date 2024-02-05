@@ -25,7 +25,6 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.FutureInstances.*
@@ -403,7 +402,7 @@ private[mediator] class ConfirmationResponseProcessor(
       case MediatorRef.Group(declaredMediatorGroup) =>
         for {
           mediatorGroupO <- EitherT.right(
-            topologySnapshot.mediatorGroup(declaredMediatorGroup.group)
+            topologySnapshot.mediatorGroup(declaredMediatorGroup.group)(loggingContext)
           )
           mediatorGroup <- EitherT.fromOption[Future](
             mediatorGroupO,
@@ -488,7 +487,7 @@ private[mediator] class ConfirmationResponseProcessor(
         rootHashMessagesRecipients,
         request,
         topologySnapshot,
-      )
+      )(ec, loggingContext)
       _ <- for {
         _ <- EitherTUtil
           .condUnitET[Future](wrongHashes.isEmpty, show"Wrong root hashes: $wrongHashes")
@@ -519,7 +518,7 @@ private[mediator] class ConfirmationResponseProcessor(
           s"Received a mediator request with id $requestId with invalid root hash messages. Rejecting... Reason: $rejectionReason",
           v30.MediatorRejection.Code.InvalidRootHashMessage,
         )
-        .reported()
+        .reported()(loggingContext)
       MediatorVerdict.MediatorReject(rejection)
     }
   }
@@ -561,32 +560,25 @@ private[mediator] class ConfirmationResponseProcessor(
 
         for {
           partitionedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
-            declaredConfirmingParties.parTraverse { p =>
-              for {
-                canConfirm <- snapshot.isHostedByAtLeastOneParticipantF(
-                  p.party,
-                  attr =>
-                    attr.permission.canConfirm && attr.trustLevel.rank >= p.requiredTrustLevel.rank,
+            snapshot
+              .isHostedByAtLeastOneParticipantF(
+                declaredConfirmingParties.map(_.party).toSet,
+                (p, attr) => attr.permission.canConfirm,
+              )(loggingContext)
+              .map { hostedConfirmingParties =>
+                declaredConfirmingParties.map(cp =>
+                  Either.cond(hostedConfirmingParties.contains(cp.party), cp, cp)
                 )
-              } yield Either.cond(canConfirm, p, p)
-            }
+              }
           )
 
           (unauthorized, authorized) = partitionedConfirmingParties.separate
 
           _ <- EitherTUtil.condUnitET[Future](
             authorized.map(_.weight.unwrap).sum >= threshold.value, {
-              // This partitioning is correct, because a VIP hosted party can always confirm.
-              // So if the required trust level is VIP, the problem must be the actual trust level.
-              val (insufficientTrustLevel, insufficientPermission) =
-                unauthorized.partition(_.requiredTrustLevel == TrustLevel.Vip)
-              val insufficientTrustLevelHint =
-                if (insufficientTrustLevel.nonEmpty)
-                  show"\nParties without VIP participant: ${insufficientTrustLevel.map(_.party)}"
-                else ""
               val insufficientPermissionHint =
-                if (insufficientPermission.nonEmpty)
-                  show"\nParties without participant having permission to confirm: ${insufficientPermission
+                if (unauthorized.nonEmpty)
+                  show"\nParties without participant having permission to confirm: ${unauthorized
                       .map(_.party)}"
                 else ""
 
@@ -598,7 +590,6 @@ private[mediator] class ConfirmationResponseProcessor(
                   s"Received a mediator request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
                     s"Rejecting request. Threshold: $threshold." +
                     insufficientPermissionHint +
-                    insufficientTrustLevelHint +
                     authorizedPartiesHint,
                   v30.MediatorRejection.Code.NotEnoughConfirmingParties,
                 )

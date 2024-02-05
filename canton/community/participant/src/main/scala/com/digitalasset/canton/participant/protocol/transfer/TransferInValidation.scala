@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -22,7 +21,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.EitherUtil.condUnitE
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{LfPartyId, TransferCounterO}
 import com.google.common.annotations.VisibleForTesting
 
@@ -177,14 +175,15 @@ private[transfer] class TransferInValidation(
             ),
           )
           sourceIps = sourceCrypto.ipsSnapshot
-          confirmingParties <- EitherT.right(
-            transferInRequest.stakeholders.toList.parTraverseFilter { stakeholder =>
-              for {
-                source <- sourceIps.canConfirm(participantId, stakeholder)
-                target <- targetIps.canConfirm(participantId, stakeholder)
-              } yield if (source && target) Some(stakeholder) else None
-            }
+
+          stakeholders = transferInRequest.stakeholders
+          sourceConfirmingParties <- EitherT.right(
+            sourceIps.canConfirm(participantId, stakeholders)
           )
+          targetConfirmingParties <- EitherT.right(
+            targetIps.canConfirm(participantId, stakeholders)
+          )
+          confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
           _ <- EitherT.cond[Future](
             // transfer counter is the same in transfer-out and transfer-in requests
@@ -204,13 +203,11 @@ private[transfer] class TransferInValidation(
           res <-
             if (transferringParticipant) {
               val targetIps = targetCrypto.ipsSnapshot
-              val confirmingPartiesF = transferInRequest.stakeholders.toList
-                .parTraverseFilter { stakeholder =>
-                  targetIps
-                    .canConfirm(participantId, stakeholder)
-                    .map(if (_) Some(stakeholder) else None)
-                }
-                .map(_.toSet)
+              val confirmingPartiesF = targetIps
+                .canConfirm(
+                  participantId,
+                  transferInRequest.stakeholders,
+                )
               EitherT(confirmingPartiesF.map { confirmingParties =>
                 Right(Some(TransferInValidationResult(confirmingParties))): Either[
                   TransferProcessorError,

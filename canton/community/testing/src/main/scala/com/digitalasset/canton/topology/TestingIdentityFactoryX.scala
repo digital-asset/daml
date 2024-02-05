@@ -28,7 +28,7 @@ import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopolog
 import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.Remove
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.MapsUtil
+import com.digitalasset.canton.util.{MapsUtil, OptionUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId}
 
 import scala.concurrent.duration.*
@@ -97,7 +97,7 @@ final case class TestingTopologyX(
       threshold = PositiveInt.one,
     ),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
-    packages: Seq[LfPackageId] = Seq.empty,
+    packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
     keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
@@ -106,6 +106,7 @@ final case class TestingTopologyX(
         parameter = DefaultTestIdentities.defaultDynamicDomainParameters,
       )
     ),
+    encKeyTag: Option[String] = None,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
 
@@ -130,7 +131,7 @@ final case class TestingTopologyX(
     this.copy(participants =
       participants
         .map(
-          _ -> ParticipantAttributes(ParticipantPermission.Submission, TrustLevel.Ordinary, None)
+          _ -> ParticipantAttributes(ParticipantPermission.Submission, None)
         )
         .toMap
     )
@@ -149,6 +150,12 @@ final case class TestingTopologyX(
 
   def withKeyPurposes(keyPurposes: Set[KeyPurpose]): TestingTopologyX =
     this.copy(keyPurposes = keyPurposes)
+
+  /** This adds a tag to the id of the encryption key during key generation [[genKeyCollection]].
+    * Therefore, we can potentially enforce a different key id for the same encryption key.
+    */
+  def withEncKeyTag(tag: String): TestingTopologyX =
+    this.copy(encKeyTag = Some(tag))
 
   /** Define the topology as a simple map of party to participant */
   def withTopology(
@@ -181,7 +188,8 @@ final case class TestingTopologyX(
     copy(topology = converted)
   }
 
-  def withPackages(packages: Seq[LfPackageId]): TestingTopologyX = this.copy(packages = packages)
+  def withPackages(packages: Map[ParticipantId, Seq[LfPackageId]]): TestingTopologyX =
+    this.copy(packages = packages)
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
@@ -223,9 +231,7 @@ class TestingIdentityFactoryX(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (Seq[Member](
-        SequencerId(domainId)
-      ) ++ topology.mediators.toSeq)
+      (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -261,19 +267,20 @@ class TestingIdentityFactoryX(
         DomainParametersStateX(domainId, domainParametersChangeTx(timestampForDomainParameters))
       )
     )
+    val transactions = (participantTxs ++
+      domainMembers ++
+      mediatorOnboarding ++
+      Seq(sequencerOnboarding) ++
+      partyDataTx ++
+      domainGovernanceTxs)
+      .map(ValidatedTopologyTransactionX(_, rejectionReason = None))
 
     val updateF = store.update(
       SequencedTime(CantonTimestamp.Epoch.immediatePredecessor),
       EffectiveTime(CantonTimestamp.Epoch.immediatePredecessor),
       removeMapping = Set.empty,
       removeTxs = Set.empty,
-      additions = (participantTxs ++
-        domainMembers ++
-        mediatorOnboarding ++
-        Seq(sequencerOnboarding) ++
-        partyDataTx ++
-        domainGovernanceTxs)
-        .map(ValidatedTopologyTransactionX(_, rejectionReason = None)),
+      additions = transactions,
     )(TraceContext.empty)
     Await.result(
       updateF,
@@ -330,7 +337,11 @@ class TestingIdentityFactoryX(
 
     val encKey =
       if (keyPurposes.contains(KeyPurpose.Encryption))
-        Seq(SymbolicCrypto.encryptionPublicKey(s"encK-${keyFingerprintForOwner(owner).unwrap}"))
+        Seq(
+          SymbolicCrypto.encryptionPublicKey(
+            s"encK${OptionUtil.noneAsEmptyString(topology.encKeyTag)}-${keyFingerprintForOwner(owner).unwrap}"
+          )
+        )
       else Seq()
 
     NonEmpty
@@ -362,7 +373,7 @@ class TestingIdentityFactoryX(
 
   private def participantsTxs(
       defaultPermissionByParticipant: Map[ParticipantId, ParticipantPermission],
-      packages: Seq[PackageId],
+      packages: Map[ParticipantId, Seq[LfPackageId]],
   ): Seq[SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]] = topology
     .allParticipants()
     .toSeq
@@ -374,12 +385,13 @@ class TestingIdentityFactoryX(
         )
       val attributes = topology.participants.getOrElse(
         participantId,
-        ParticipantAttributes(defaultPermission, TrustLevel.Ordinary, None),
+        ParticipantAttributes(defaultPermission, None),
       )
       val pkgs =
-        if (packages.nonEmpty)
-          Seq(mkAdd(VettedPackagesX(participantId, None, packages)))
-        else Seq()
+        packages
+          .get(participantId)
+          .map(packages => mkAdd(VettedPackagesX(participantId, None, packages)))
+          .toSeq
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
         DomainTrustCertificateX(
           participantId,
@@ -392,7 +404,6 @@ class TestingIdentityFactoryX(
           domainId,
           participantId,
           attributes.permission.tryToX,
-          attributes.trustLevel.toX,
           limits = None,
           loginAfter = None,
         )
@@ -491,7 +502,8 @@ class TestingOwnerWithKeysX(
     val id1k1 = mkAdd(IdentifierDelegationX(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegationX(uid2, key2))
     val okm1 = mkAdd(OwnerToKeyMappingX(domainManager, None, NonEmpty(Seq, namespaceKey)))
-    val okm2 = mkAdd(OwnerToKeyMappingX(sequencerIdX, None, NonEmpty(Seq, key2)))
+    val seq_okm_k2 = mkAdd(OwnerToKeyMappingX(sequencerIdX, None, NonEmpty(Seq, key2)))
+    val med_okm_k3 = mkAdd(OwnerToKeyMappingX(mediatorIdX, None, NonEmpty(Seq, key3)))
     val dtc1m =
       DomainTrustCertificateX(
         participant1,
@@ -499,7 +511,6 @@ class TestingOwnerWithKeysX(
         transferOnlyToGivenTargetDomains = false,
         targetDomains = Seq.empty,
       )
-    val ps1 = mkAdd(dtc1m)
 
     private val defaultDomainParameters = TestDomainParameters.defaultDynamic
 
@@ -526,6 +537,21 @@ class TestingOwnerWithKeysX(
     val dpc2 =
       mkAdd(DomainParametersStateX(DomainId(uid2), defaultDomainParameters), key2)
 
+    val p1_nsk2 = mkAdd(
+      NamespaceDelegationX.tryCreate(
+        Namespace(participant1.uid.namespace.fingerprint),
+        key2,
+        isRootDelegation = false,
+      )
+    )
+    val p2_nsk2 = mkAdd(
+      NamespaceDelegationX.tryCreate(
+        Namespace(participant2.uid.namespace.fingerprint),
+        key2,
+        isRootDelegation = false,
+      )
+    )
+
     val p1_dtc = mkAdd(DomainTrustCertificateX(participant1, domainId, false, Seq.empty))
     val p2_dtc = mkAdd(DomainTrustCertificateX(participant2, domainId, false, Seq.empty))
     val p3_dtc = mkAdd(DomainTrustCertificateX(participant3, domainId, false, Seq.empty))
@@ -538,6 +564,27 @@ class TestingOwnerWithKeysX(
     val p3_otk = mkAdd(
       OwnerToKeyMappingX(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3))
     )
+
+    val p1_pdp_observation = mkAdd(
+      ParticipantDomainPermissionX(
+        domainId,
+        participant1,
+        ParticipantPermissionX.Observation,
+        None,
+        None,
+      )
+    )
+
+    val p2_pdp_confirmation = mkAdd(
+      ParticipantDomainPermissionX(
+        domainId,
+        participant2,
+        ParticipantPermissionX.Confirmation,
+        None,
+        None,
+      )
+    )
+
   }
 
   def mkTrans[Op <: TopologyChangeOpX, M <: TopologyMappingX](
@@ -567,7 +614,7 @@ class TestingOwnerWithKeysX(
       serial: PositiveInt,
       signingKeys: NonEmpty[Set[SigningPublicKey]] = NonEmpty(Set, SigningKeys.key1),
   )(implicit ec: ExecutionContext) = {
-    import trans.{transaction as tx}
+    import trans.transaction as tx
     mkTrans(
       TopologyTransactionX(
         tx.op,
@@ -684,5 +731,36 @@ object TestingIdentityFactoryX {
   )
 
   def pureCrypto(): CryptoPureApi = new SymbolicPureCrypto
+
+  def newCrypto(loggerFactory: NamedLoggerFactory)(
+      owner: Member,
+      signingFingerprints: Seq[Fingerprint] = Seq(),
+      fingerprintSuffixes: Seq[String] = Seq(),
+  ): Crypto = {
+    val signingFingerprintsOrOwner =
+      if (signingFingerprints.isEmpty)
+        Seq(keyFingerprintForOwner(owner))
+      else
+        signingFingerprints
+
+    val fingerprintSuffixesOrOwner =
+      if (fingerprintSuffixes.isEmpty)
+        Seq(keyFingerprintForOwner(owner).unwrap)
+      else
+        fingerprintSuffixes
+
+    SymbolicCrypto.tryCreate(
+      signingFingerprintsOrOwner,
+      fingerprintSuffixesOrOwner,
+      testedReleaseProtocolVersion,
+      DefaultProcessingTimeouts.testing,
+      loggerFactory,
+    )
+  }
+
+  private def keyFingerprintForOwner(owner: Member): Fingerprint =
+    // We are converting an Identity (limit of 185 characters) to a Fingerprint (limit of 68 characters) - this would be
+    // problematic if this function wasn't only used for testing
+    Fingerprint.tryCreate(owner.uid.id.toLengthLimitedString.unwrap)
 
 }

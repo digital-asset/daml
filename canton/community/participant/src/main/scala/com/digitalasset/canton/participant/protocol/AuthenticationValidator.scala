@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.{FullTransactionViewTree, SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.protocol.RequestId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -21,11 +22,11 @@ class AuthenticationValidator()(implicit
       requestId: RequestId,
       rootViews: NonEmpty[Seq[(FullTransactionViewTree, Option[Signature])]],
       snapshot: DomainSnapshotSyncCryptoApi,
-  ): Future[Map[ViewPosition, String]] = {
+  )(implicit traceContext: TraceContext): Future[Map[ViewPosition, String]] = {
 
     def verifySignature(
         viewWithSignature: (FullTransactionViewTree, Option[Signature])
-    ): Future[Option[(ViewPosition, String)]] = {
+    )(implicit traceContext: TraceContext): Future[Option[(ViewPosition, String)]] = {
 
       val (view, signatureO) = viewWithSignature
 

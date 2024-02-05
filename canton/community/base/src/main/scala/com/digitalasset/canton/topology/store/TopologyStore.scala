@@ -927,7 +927,7 @@ object TopologyStore {
         false
       case OwnerToKeyMapping(pid, _) => pid == participantId
       case SignedLegalIdentityClaim(uid, _, _) => uid == participantId.uid
-      case ParticipantState(_, _, pid, _, _) => pid == participantId
+      case ParticipantState(_, _, pid, _) => pid == participantId
       case PartyToParticipant(_, _, _, _) => false
       case VettedPackages(_, _) => false
       case MediatorDomainState(_, _, _) => false

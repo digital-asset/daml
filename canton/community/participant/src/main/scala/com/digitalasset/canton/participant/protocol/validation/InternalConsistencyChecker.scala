@@ -329,7 +329,7 @@ object InternalConsistencyChecker {
       parties,
       participantId,
       topologySnapshot,
-    )
+    )(ec, loggingContext.traceContext)
   }
 
   private[validation] def checkRollbackScopeOrder(

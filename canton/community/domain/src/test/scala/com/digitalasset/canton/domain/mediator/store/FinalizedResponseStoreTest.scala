@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef, TestingIdentityFactory}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -48,7 +47,6 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     val bobConfirmingParty = ConfirmingParty(
       LfPartyId.assertFromString("bob"),
       PositiveInt.tryCreate(2),
-      TrustLevel.Ordinary,
     )
     val hashOps = new SymbolicPureCrypto
 

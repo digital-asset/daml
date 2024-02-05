@@ -362,6 +362,7 @@ final case class MediatorGroup(
 
 object MediatorGroup {
   type MediatorGroupIndex = NonNegativeInt
+  val MediatorGroupIndex = NonNegativeInt
 }
 
 final case class MediatorId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {

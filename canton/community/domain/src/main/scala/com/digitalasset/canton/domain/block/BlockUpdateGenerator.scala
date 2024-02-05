@@ -1247,7 +1247,10 @@ class BlockUpdateGenerator(
   private def resolveGroupsToMembers(
       groupRecipients: Set[GroupRecipient],
       topologySnapshot: TopologySnapshot,
-  )(implicit executionContext: ExecutionContext): Future[Map[GroupRecipient, Set[Member]]] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[Map[GroupRecipient, Set[Member]]] = {
     if (groupRecipients.isEmpty) Future.successful(Map.empty)
     else
       for {

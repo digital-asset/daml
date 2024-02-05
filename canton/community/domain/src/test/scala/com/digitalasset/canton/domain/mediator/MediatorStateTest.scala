@@ -21,7 +21,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, HasExecutionContext, LfPartyId}
@@ -49,7 +48,6 @@ class MediatorStateTest
       val bob = ConfirmingParty(
         LfPartyId.assertFromString("bob"),
         PositiveInt.tryCreate(2),
-        TrustLevel.Ordinary,
       )
       val hashOps: HashOps = new SymbolicPureCrypto
       val h: Int => Hash = TestHash.digest
@@ -101,16 +99,17 @@ class MediatorStateTest
     val informeeMessage =
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val mockTopologySnapshot = mock[TopologySnapshot]
-    when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-      (parties: Set[LfPartyId]) => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
-    }
+    when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
+      .thenAnswer { (parties: Set[LfPartyId]) =>
+        Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+      }
     val currentVersion =
       ResponseAggregation
         .fromRequest(
           requestId,
           informeeMessage,
           mockTopologySnapshot,
-        )(anyTraceContext, executorService)
+        )(traceContext, executorService)
         .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext
 
     def mediatorState: MediatorState = {

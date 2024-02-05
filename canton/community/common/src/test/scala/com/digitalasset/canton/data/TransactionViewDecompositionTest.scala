@@ -12,7 +12,6 @@ import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, Rollback
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.{
@@ -68,7 +67,7 @@ class TransactionViewDecompositionTest
 
         val node = createNode(unsuffixedId(0))
         val informees =
-          Set[Informee](ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary))
+          Set[Informee](ConfirmingParty(signatory, PositiveInt.one))
         val rootSeed = ExampleTransactionFactory.lfHash(-1)
         val child =
           NewView(

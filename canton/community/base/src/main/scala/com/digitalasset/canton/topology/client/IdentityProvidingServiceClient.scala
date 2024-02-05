@@ -37,7 +37,6 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
-import scala.Ordered.orderingToOrdered
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.duration.*
@@ -221,10 +220,12 @@ trait PartyTopologySnapshotClient {
   /** Load the set of active participants for the given parties */
   def activeParticipantsOfParties(
       parties: Seq[LfPartyId]
-  ): Future[Map[LfPartyId, Set[ParticipantId]]]
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]]
 
   def activeParticipantsOfPartiesWithAttributes(
       parties: Seq[LfPartyId]
+  )(implicit
+      traceContext: TraceContext
   ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]]
 
   /** Returns the set of active participants the given party is represented by as of the snapshot timestamp
@@ -233,55 +234,58 @@ trait PartyTopologySnapshotClient {
     */
   def activeParticipantsOf(
       party: LfPartyId
-  ): Future[Map[ParticipantId, ParticipantAttributes]]
+  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]]
 
   /** Returns Right if all parties have at least an active participant passing the check. Otherwise, all parties not passing are passed as Left */
   def allHaveActiveParticipants(
       parties: Set[LfPartyId],
       check: (ParticipantPermission => Boolean) = _.isActive,
-  ): EitherT[Future, Set[LfPartyId], Unit]
+  )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit]
 
   /** Returns the consortium thresholds (how many votes from different participants that host the consortium party
     * are required for the confirmation to become valid). For normal parties returns 1.
     */
-  def consortiumThresholds(parties: Set[LfPartyId]): Future[Map[LfPartyId, PositiveInt]]
+  def consortiumThresholds(parties: Set[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): Future[Map[LfPartyId, PositiveInt]]
 
   /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
     * with threshold one
     */
-  def authorityOf(parties: Set[LfPartyId]): Future[AuthorityOfResponse]
+  def authorityOf(parties: Set[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): Future[AuthorityOfResponse]
 
   /** Returns true if there is at least one participant that satisfies the predicate */
   def isHostedByAtLeastOneParticipantF(
-      party: LfPartyId,
-      check: ParticipantAttributes => Boolean,
-  ): Future[Boolean]
+      parties: Set[LfPartyId],
+      check: (LfPartyId, ParticipantAttributes) => Boolean,
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
 
   /** Returns the participant permission for that particular participant (if there is one) */
   def hostedOn(
-      partyId: LfPartyId,
+      partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-  ): Future[Option[ParticipantAttributes]]
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, ParticipantAttributes]]
 
   /** Returns true of all given party ids are hosted on a certain participant */
   def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
       permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
-  ): Future[Boolean]
+  )(implicit traceContext: TraceContext): Future[Boolean]
 
   /** Returns whether a participant can confirm on behalf of a party. */
   def canConfirm(
       participant: ParticipantId,
-      party: LfPartyId,
-      requiredTrustLevel: TrustLevel = TrustLevel.Ordinary,
-  ): Future[Boolean]
+      parties: Set[LfPartyId],
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
 
   /** Returns the subset of parties the given participant can NOT submit on behalf of */
   def canNotSubmit(
       participant: ParticipantId,
       parties: Seq[LfPartyId],
-  ): Future[immutable.Iterable[LfPartyId]]
+  )(implicit traceContext: TraceContext): Future[immutable.Iterable[LfPartyId]]
 
   /** Returns all active participants of all the given parties. Returns a Left if some of the parties don't have active
     * participants, in which case the parties with missing active participants are returned. Note that it will return
@@ -289,18 +293,18 @@ trait PartyTopologySnapshotClient {
     */
   def activeParticipantsOfAll(
       parties: List[LfPartyId]
-  ): EitherT[Future, Set[LfPartyId], Set[ParticipantId]]
+  )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Set[ParticipantId]]
 
   def partiesWithGroupAddressing(
       parties: Seq[LfPartyId]
-  ): Future[Set[LfPartyId]]
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
 
   /** Returns a list of all known parties on this domain */
   def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  ): Future[
+  )(implicit traceContext: TraceContext): Future[
     Set[PartyId]
   ] // TODO(#14048): Decide on whether to standarize APIs on LfPartyId or PartyId and unify interfaces
 
@@ -334,23 +338,42 @@ trait KeyTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
   /** returns newest signing public key */
-  def signingKey(owner: Member): Future[Option[SigningPublicKey]]
+  def signingKey(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Option[SigningPublicKey]]
 
   /** returns all signing keys */
-  def signingKeys(owner: Member): Future[Seq[SigningPublicKey]]
+  def signingKeys(owner: Member)(implicit traceContext: TraceContext): Future[Seq[SigningPublicKey]]
+
+  def signingKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, Seq[SigningPublicKey]]]
 
   /** returns newest encryption public key */
-  def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]]
+  def encryptionKey(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Option[EncryptionPublicKey]]
+
+  /** returns newest encryption public key */
+  def encryptionKey(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, EncryptionPublicKey]]
 
   /** returns all encryption keys */
-  def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]]
+  def encryptionKeys(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[EncryptionPublicKey]]
+
+  def encryptionKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, Seq[EncryptionPublicKey]]]
 
   /** Returns a list of all known parties on this domain */
   def inspectKeys(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[Member, KeyCollection]]
+  )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]]
 
 }
 
@@ -361,10 +384,14 @@ trait ParticipantTopologySnapshotClient {
 
   // used by domain to fetch all participants
   @Deprecated(since = "3.0")
-  def participants(): Future[Seq[(ParticipantId, ParticipantPermission)]]
+  def participants()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[(ParticipantId, ParticipantPermission)]]
 
   /** Checks whether the provided participant exists and is active */
-  def isParticipantActive(participantId: ParticipantId): Future[Boolean]
+  def isParticipantActive(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean]
 
   /** Checks whether the provided participant exists, is active and can login at the given point in time
     *
@@ -373,7 +400,7 @@ trait ParticipantTopologySnapshotClient {
   def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
-  ): Future[Boolean]
+  )(implicit traceContext: TraceContext): Future[Boolean]
 
 }
 
@@ -381,16 +408,20 @@ trait ParticipantTopologySnapshotClient {
 trait MediatorDomainStateClient {
   this: BaseTopologySnapshotClient =>
 
-  def mediatorGroups(): Future[Seq[MediatorGroup]]
+  def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]]
 
-  def isMediatorActive(mediatorId: MediatorId): Future[Boolean] =
+  def isMediatorActive(mediatorId: MediatorId)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] =
     mediatorGroups().map(_.exists { group =>
       // Note: mediator in group.passive should still be able to authenticate and process MediatorResponses,
       // only sending the verdicts is disabled and verdicts from a passive mediator should not pass the checks
       group.isActive && (group.active.contains(mediatorId) || group.passive.contains(mediatorId))
     })
 
-  def isMediatorActive(mediator: MediatorRef): Future[Boolean] = {
+  def isMediatorActive(
+      mediator: MediatorRef
+  )(implicit traceContext: TraceContext): Future[Boolean] = {
     mediator match {
       case MediatorRef.Single(mediatorId) =>
         isMediatorActive(mediatorId)
@@ -404,6 +435,8 @@ trait MediatorDomainStateClient {
 
   def mediatorGroupsOfAll(
       groups: Seq[MediatorGroupIndex]
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, Seq[MediatorGroupIndex], Seq[MediatorGroup]] =
     if (groups.isEmpty) EitherT.rightT(Seq.empty)
     else
@@ -420,7 +453,9 @@ trait MediatorDomainStateClient {
           }
       )
 
-  def mediatorGroup(index: MediatorGroupIndex): Future[Option[MediatorGroup]] = {
+  def mediatorGroup(
+      index: MediatorGroupIndex
+  )(implicit traceContext: TraceContext): Future[Option[MediatorGroup]] = {
     mediatorGroups().map(_.find(_.index == index))
   }
 }
@@ -430,7 +465,7 @@ trait SequencerDomainStateClient {
   this: BaseTopologySnapshotClient =>
 
   /** returns the sequencer group */
-  def sequencerGroup(): Future[Option[SequencerGroup]]
+  def sequencerGroup()(implicit traceContext: TraceContext): Future[Option[SequencerGroup]]
 }
 
 trait VettedPackagesSnapshotClient {
@@ -447,7 +482,7 @@ trait VettedPackagesSnapshotClient {
   def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]]
+  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]]
 
 }
 
@@ -494,9 +529,9 @@ trait DomainGovernanceSnapshotClient {
 trait MembersTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
-  def allMembers(): Future[Set[Member]]
+  def allMembers()(implicit traceContext: TraceContext): Future[Set[Member]]
 
-  def isMemberKnown(member: Member): Future[Boolean]
+  def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
 }
 
 trait TopologySnapshot
@@ -609,20 +644,47 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
   this: BaseTopologySnapshotClient =>
 
   /** abstract loading function used to obtain the full key collection for a key owner */
-  def allKeys(owner: Member): Future[KeyCollection]
+  def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection]
 
-  override def signingKey(owner: Member): Future[Option[SigningPublicKey]] =
+  def allKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, KeyCollection]]
+
+  override def signingKey(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Option[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys.lastOption)
 
-  override def signingKeys(owner: Member): Future[Seq[SigningPublicKey]] =
+  override def signingKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, Seq[SigningPublicKey]]] =
+    allKeys(members).map(_.view.mapValues(_.signingKeys).toMap)
+
+  override def signingKeys(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[SigningPublicKey]] =
     allKeys(owner).map(_.signingKeys)
 
-  override def encryptionKey(owner: Member): Future[Option[EncryptionPublicKey]] =
+  override def encryptionKey(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Option[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys.lastOption)
 
-  override def encryptionKeys(owner: Member): Future[Seq[EncryptionPublicKey]] =
+  /** returns newest encryption public key */
+  def encryptionKey(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, EncryptionPublicKey]] =
+    encryptionKeys(members).map(_.mapFilter(_.lastOption))
+
+  override def encryptionKeys(owner: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[EncryptionPublicKey]] =
     allKeys(owner).map(_.encryptionKeys)
 
+  override def encryptionKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, Seq[EncryptionPublicKey]]] =
+    allKeys(members).map(_.view.mapValues(_.encryptionKeys).toMap)
 }
 
 /** An internal interface with a simpler lookup function which can be implemented efficiently with caching and reading from a store */
@@ -630,45 +692,39 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
 
   this: BaseTopologySnapshotClient =>
 
-  override def isParticipantActive(participantId: ParticipantId): Future[Boolean] =
-    participantState(participantId).map(_.permission.isActive)
+  override def isParticipantActive(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] =
+    findParticipantState(participantId).map(_.exists(_.permission.isActive))
 
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
-  ): Future[Boolean] =
-    participantState(participantId).map { attributes =>
-      attributes.permission.isActive && attributes.loginAfter.forall(_ <= timestamp)
+  )(implicit traceContext: TraceContext): Future[Boolean] =
+    findParticipantState(participantId).map { attributesO =>
+      attributesO.exists(attr => attr.permission.isActive && attr.loginAfter.forall(_ <= timestamp))
     }
 
-  def findParticipantState(participantId: ParticipantId): Future[Option[ParticipantAttributes]]
-
-  def participantState(participantId: ParticipantId): Future[ParticipantAttributes] =
-    findParticipantState(participantId).map(
-      _.getOrElse(
-        ParticipantAttributes(
-          ParticipantPermission.Disabled,
-          TrustLevel.Ordinary,
-          loginAfter = None,
-        )
-      )
-    )
+  final def findParticipantState(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[ParticipantAttributes]] =
+    loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
   /** abstract loading function used to load the participant state for the given set of participant-ids */
   def loadParticipantStates(
       participants: Seq[ParticipantId]
-  ): Future[Map[ParticipantId, ParticipantAttributes]]
+  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]]
 
 }
 
 private[client] trait PartyTopologySnapshotBaseClient {
 
-  this: PartyTopologySnapshotClient with BaseTopologySnapshotClient =>
+  this: PartyTopologySnapshotClient & BaseTopologySnapshotClient =>
 
   override def allHaveActiveParticipants(
       parties: Set[LfPartyId],
       check: (ParticipantPermission => Boolean) = _.isActive,
-  ): EitherT[Future, Set[LfPartyId], Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit] = {
     val fetchedF = activeParticipantsOfPartiesWithAttributes(parties.toSeq)
     EitherT(
       fetchedF
@@ -687,46 +743,56 @@ private[client] trait PartyTopologySnapshotBaseClient {
   }
 
   override def isHostedByAtLeastOneParticipantF(
-      party: LfPartyId,
-      check: ParticipantAttributes => Boolean,
-  ): Future[Boolean] =
-    activeParticipantsOf(party).map(_.values.exists(check))
+      parties: Set[LfPartyId],
+      check: (LfPartyId, ParticipantAttributes) => Boolean,
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]] =
+    activeParticipantsOfPartiesWithAttributes(parties.toSeq).map(partiesWithAttributes =>
+      parties.filter(party =>
+        partiesWithAttributes.get(party).exists(_.values.exists(check(party, _)))
+      )
+    )
 
   override def hostedOn(
-      partyId: LfPartyId,
+      partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-  ): Future[Option[ParticipantAttributes]] =
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, ParticipantAttributes]] =
     // TODO(i4930) implement directly, must not return DISABLED
-    activeParticipantsOf(partyId).map(_.get(participantId))
+    activeParticipantsOfPartiesWithAttributes(partyIds.toSeq).map(
+      _.flatMap { case (party, participants) =>
+        participants.get(participantId).map(party -> _)
+      }
+    )
 
   override def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
       permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
-  ): Future[Boolean] =
-    partyIds.toList
-      .parTraverse(hostedOn(_, participantId).map(_.exists(permissionCheck)))
-      .map(_.forall(x => x))
+  )(implicit traceContext: TraceContext): Future[Boolean] =
+    hostedOn(partyIds, participantId).map(partiesWithAttributes =>
+      partiesWithAttributes.view
+        .filter { case (_, attributes) => permissionCheck(attributes) }
+        .sizeCompare(partyIds) == 0
+    )
 
   override def canConfirm(
       participant: ParticipantId,
-      party: LfPartyId,
-      requiredTrustLevel: TrustLevel = TrustLevel.Ordinary,
-  ): Future[Boolean] =
-    hostedOn(party, participant)
-      .map(
-        _.exists(relationship =>
-          relationship.permission.canConfirm && relationship.trustLevel >= requiredTrustLevel
-        )
+      parties: Set[LfPartyId],
+  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]] =
+    hostedOn(parties, participant)
+      .map(partiesWithAttributes =>
+        parties.toSeq.mapFilter { case party =>
+          partiesWithAttributes
+            .get(party)
+            .filter(_.permission.canConfirm)
+            .map(_ => party)
+        }.toSet
       )(executionContext)
 
   override def activeParticipantsOfAll(
       parties: List[LfPartyId]
-  ): EitherT[Future, Set[LfPartyId], Set[ParticipantId]] =
+  )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Set[ParticipantId]] =
     EitherT(for {
-      withActiveParticipants <- parties.parTraverse(p =>
-        activeParticipantsOf(p).map(pMap => p -> pMap)
-      )
+      withActiveParticipants <- activeParticipantsOfPartiesWithAttributes(parties)
       (noActive, allActive) = withActiveParticipants.foldLeft(
         Set.empty[LfPartyId] -> Set.empty[ParticipantId]
       ) { case ((noActive, allActive), (p, active)) =>
@@ -739,11 +805,11 @@ private[client] trait PartyTopologySnapshotLoader
     extends PartyTopologySnapshotClient
     with PartyTopologySnapshotBaseClient {
 
-  this: BaseTopologySnapshotClient with ParticipantTopologySnapshotLoader =>
+  this: BaseTopologySnapshotClient & ParticipantTopologySnapshotLoader =>
 
   final override def activeParticipantsOf(
       party: LfPartyId
-  ): Future[Map[ParticipantId, ParticipantAttributes]] =
+  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
     PartyId
       .fromLfParty(party)
       .map(loadActiveParticipantsOf(_, loadParticipantStates).map(_.participants))
@@ -752,30 +818,34 @@ private[client] trait PartyTopologySnapshotLoader
   private[client] def loadActiveParticipantsOf(
       party: PartyId,
       participantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  ): Future[PartyInfo]
+  )(implicit traceContext: TraceContext): Future[PartyInfo]
 
   final override def activeParticipantsOfParties(
       parties: Seq[LfPartyId]
-  ): Future[Map[LfPartyId, Set[ParticipantId]]] =
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
     loadAndMapPartyInfos(parties, _.participants.keySet)
 
   final override def activeParticipantsOfPartiesWithAttributes(
       parties: Seq[LfPartyId]
+  )(implicit
+      traceContext: TraceContext
   ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]] =
     loadAndMapPartyInfos(parties, _.participants)
 
-  final override def partiesWithGroupAddressing(parties: Seq[LfPartyId]): Future[Set[LfPartyId]] =
+  final override def partiesWithGroupAddressing(parties: Seq[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): Future[Set[LfPartyId]] =
     loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
 
   final override def consortiumThresholds(
       parties: Set[LfPartyId]
-  ): Future[Map[LfPartyId, PositiveInt]] =
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, PositiveInt]] =
     loadAndMapPartyInfos(parties.toSeq, _.threshold)
 
   final override def canNotSubmit(
       participant: ParticipantId,
       parties: Seq[LfPartyId],
-  ): Future[immutable.Iterable[LfPartyId]] =
+  )(implicit traceContext: TraceContext): Future[immutable.Iterable[LfPartyId]] =
     loadAndMapPartyInfos(
       parties,
       _ => (),
@@ -790,7 +860,7 @@ private[client] trait PartyTopologySnapshotLoader
       lfParties: Seq[LfPartyId],
       f: PartyInfo => T,
       filter: PartyInfo => Boolean = _ => true,
-  ): Future[Map[LfPartyId, T]] =
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, T]] =
     loadBatchActiveParticipantsOf(
       lfParties.mapFilter(PartyId.fromLfParty(_).toOption),
       loadParticipantStates,
@@ -801,16 +871,16 @@ private[client] trait PartyTopologySnapshotLoader
   private[client] def loadBatchActiveParticipantsOf(
       parties: Seq[PartyId],
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  ): Future[Map[PartyId, PartyInfo]]
+  )(implicit traceContext: TraceContext): Future[Map[PartyId, PartyInfo]]
 }
 
 trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
-  this: BaseTopologySnapshotClient with PartyTopologySnapshotLoader =>
+  this: BaseTopologySnapshotClient & PartyTopologySnapshotLoader =>
 
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]]
+  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]]
 
   protected def findUnvettedPackagesOrDependenciesUsingLoader(
       participantId: ParticipantId,
@@ -824,7 +894,7 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] =
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,

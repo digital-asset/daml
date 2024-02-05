@@ -83,7 +83,7 @@ abstract class GrpcTopologyAggregationServiceCommon[
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  ): Future[Set[PartyId]] = MonadUtil
+  )(implicit traceContext: TraceContext): Future[Set[PartyId]] = MonadUtil
     .foldLeftM((Set.empty[PartyId], false), clients) { case ((res, isDone), (_, client)) =>
       if (isDone) Future.successful((res, true))
       else
@@ -97,6 +97,8 @@ abstract class GrpcTopologyAggregationServiceCommon[
   private def findParticipants(
       clients: List[(DomainId, TopologySnapshotLoader)],
       partyId: PartyId,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
     clients
       .parFlatTraverse { case (domainId, client) =>

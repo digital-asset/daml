@@ -35,7 +35,7 @@ import scala.concurrent.Future
 class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with HasTestCloseContext {
   self =>
   private lazy val domainId = DefaultTestIdentities.domainId
-  private lazy val mediatorId = DefaultTestIdentities.mediator
+  private lazy val mediatorId = DefaultTestIdentities.mediatorIdX
   private lazy val mediatorMetrics = MediatorTestMetrics
   private lazy val participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(10)
   private lazy val factory = new ExampleTransactionFactory()(domainId = domainId)
@@ -322,9 +322,10 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
 
   private def responseAggregation(requestId: RequestId): Future[ResponseAggregation[?]] = {
     val mockTopologySnapshot = mock[TopologySnapshot]
-    when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])).thenAnswer {
-      (parties: Set[LfPartyId]) => Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
-    }
+    when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
+      .thenAnswer { (parties: Set[LfPartyId]) =>
+        Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
+      }
     ResponseAggregation.fromRequest(
       requestId,
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion),

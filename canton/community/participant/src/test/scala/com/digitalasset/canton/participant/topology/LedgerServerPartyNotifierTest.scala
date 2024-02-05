@@ -141,7 +141,6 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
             domainId,
             participant1,
             ParticipantPermission.Submission,
-            TrustLevel.Vip,
           )
         )
       } yield fixture.expectLastObserved(

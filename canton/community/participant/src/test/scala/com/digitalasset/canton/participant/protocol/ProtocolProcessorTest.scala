@@ -17,16 +17,7 @@ import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   ProcessingTimeout,
 }
-import com.digitalasset.canton.crypto.{
-  AsymmetricEncrypted,
-  DomainSyncCryptoClient,
-  Encrypted,
-  Fingerprint,
-  SecureRandomness,
-  SymmetricKeyScheme,
-  SyncCryptoApi,
-  TestHash,
-}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, PeanoQueue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
@@ -70,7 +61,7 @@ import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{CursorPrehead, IndexedDomain}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TrustLevel}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
@@ -323,7 +314,7 @@ class ProtocolProcessorTest
     val steps = new TestProcessingSteps(
       pendingSubmissionMap = pendingSubmissionMap,
       overrideConstructedPendingRequestDataO,
-      informeesOfView = _ => Set(ConfirmingParty(party.toLf, PositiveInt.one, TrustLevel.Ordinary)),
+      informeesOfView = _ => Set(ConfirmingParty(party.toLf, PositiveInt.one)),
       submissionDataForTrackerO = submissionDataForTrackerO,
     )
 
@@ -941,7 +932,7 @@ class ProtocolProcessorTest
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
         mockSignedProtocolMessage
-          .verifySignature(any[SyncCryptoApi], any[Member])
+          .verifySignature(any[SyncCryptoApi], any[Member])(anyTraceContext)
       )
         .thenReturn(EitherT.rightT(()))
       sut

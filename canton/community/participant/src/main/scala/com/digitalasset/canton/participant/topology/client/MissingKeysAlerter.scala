@@ -74,10 +74,10 @@ class MissingKeysAlerter(
       .filter(_.operation == TopologyChangeOp.Add)
       .map(_.transaction.element.mapping)
       .foreach {
-        case ParticipantState(side, `domainId`, `participantId`, permission, trustLevel)
+        case ParticipantState(side, `domainId`, `participantId`, permission)
             if side != RequestSide.To =>
           logger.info(
-            s"Domain $domainId update my participant permission as of $timestamp to $permission, $trustLevel"
+            s"Domain $domainId update my participant permission as of $timestamp to $permission"
           )
         case okm @ OwnerToKeyMapping(`participantId`, _) =>
           alertOnMissingKey(okm.key.fingerprint, okm.key.purpose)
@@ -98,12 +98,11 @@ class MissingKeysAlerter(
               `domainId`,
               `participantId`,
               permission,
-              trustLevel,
               _,
               _,
             ) =>
           logger.info(
-            s"Domain $domainId update my participant permission as of $timestamp to $permission, $trustLevel"
+            s"Domain $domainId update my participant permission as of $timestamp to $permission"
           )
         case OwnerToKeyMappingX(`participantId`, _, keys) =>
           keys.foreach(k => alertOnMissingKey(k.fingerprint, k.purpose))

@@ -4,22 +4,15 @@
 package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.alternative.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  ParticipantsOfParty,
-  Recipient,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorRef, ParticipantId, PartyId}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,6 +26,7 @@ object RootHashMessageRecipients extends HasLoggerName {
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
   ): Future[Seq[Recipient]] = {
+    implicit val tc = loggingContext.traceContext
     val informeesList = informees.toList
     for {
       participantsAddressedByInformees <- ipsSnapshot
@@ -159,7 +153,10 @@ object RootHashMessageRecipients extends HasLoggerName {
       rootHashMessagesRecipients: Seq[Recipient],
       request: MediatorRequest,
       topologySnapshot: TopologySnapshot,
-  )(implicit executionContext: ExecutionContext): Future[WrongMembers] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[WrongMembers] = {
     val informeesAddressedAsGroup = rootHashMessagesRecipients.collect {
       case ParticipantsOfParty(informee) =>
         informee.toLf
@@ -170,13 +167,13 @@ object RootHashMessageRecipients extends HasLoggerName {
     val informeesNotAddressedAsGroups = request.allInformees -- informeesAddressedAsGroup.toSet
     val superfluousInformees = informeesAddressedAsGroup.toSet -- request.allInformees
     for {
-      allNonGroupAddressedInformeeParticipants <-
-        informeesNotAddressedAsGroups.toList
-          .parTraverse(topologySnapshot.activeParticipantsOf)
-          .map(_.flatMap(_.keySet).toSet)
-      participantsAddressedAsGroup <- informeesAddressedAsGroup.toList
-        .parTraverse(topologySnapshot.activeParticipantsOf)
-        .map(_.flatMap(_.keySet).toSet)
+      allNonGroupAddressedInformeeParticipants <- topologySnapshot
+        .activeParticipantsOfPartiesWithAttributes(informeesNotAddressedAsGroups.toList)
+        .map(_.values.flatMap(_.keySet).toSet)
+      participantsAddressedAsGroup <-
+        topologySnapshot
+          .activeParticipantsOfPartiesWithAttributes(informeesAddressedAsGroup.toList)
+          .map(_.values.flatMap(_.keySet).toSet)
     } yield {
       val participantsSet = participants.toSet
       val missingInformeeParticipants =

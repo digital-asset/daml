@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import cats.syntax.parallel.*
 import com.daml.lf.data.Bytes
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
@@ -48,7 +47,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -129,15 +127,22 @@ private[transfer] class TransferInProcessingSteps(
     val submitter = submitterMetadata.submitter
 
     def activeParticipantsOfParty(
-        party: LfPartyId
-    ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] =
-      EitherT(topologySnapshot.activeParticipantsOf(party).map(_.keySet).map { participants =>
-        Either.cond(
-          participants.nonEmpty,
-          participants,
-          NoParticipantForReceivingParty(transferId, party),
-        )
-      })
+        parties: Seq[LfPartyId]
+    ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] = EitherT(
+      topologySnapshot.activeParticipantsOfPartiesWithAttributes(parties).map {
+        partyToParticipantAttributes =>
+          import cats.syntax.traverse.*
+          partyToParticipantAttributes.toSeq
+            .traverse { case (party, participants) =>
+              Either.cond(
+                participants.nonEmpty,
+                participants.keySet,
+                NoParticipantForReceivingParty(transferId, party),
+              )
+            }
+            .map(_.toSet.flatten)
+      }
+    )
 
     val result = for {
       transferData <- ephemeralState.transferLookup
@@ -187,11 +192,7 @@ private[transfer] class TransferInProcessingSteps(
         .sign(rootHash.unwrap)
         .leftMap(TransferSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
-      recipientsSet <- {
-        stakeholders.toSeq
-          .parTraverse(activeParticipantsOfParty)
-          .map(_.foldLeft(Set.empty[Member])(_ ++ _))
-      }
+      recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq)
       recipients <- EitherT.fromEither[Future](
         Recipients
           .ofSet(recipientsSet)

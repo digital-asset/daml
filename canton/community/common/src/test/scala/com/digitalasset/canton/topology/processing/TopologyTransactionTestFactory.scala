@@ -7,27 +7,8 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
-import com.digitalasset.canton.topology.transaction.{
-  DomainParametersChange,
-  IdentifierDelegation,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantPermission,
-  ParticipantState,
-  PartyToParticipant,
-  RequestSide,
-  TrustLevel,
-}
-import com.digitalasset.canton.topology.{
-  DomainId,
-  Identifier,
-  Namespace,
-  ParticipantId,
-  PartyId,
-  SequencerId,
-  TestingOwnerWithKeys,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.transaction.*
 
 import scala.concurrent.ExecutionContext
 
@@ -76,7 +57,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
       domainManager.domainId,
       participant1,
       ParticipantPermission.Submission,
-      TrustLevel.Ordinary,
     ),
     key3,
   )
@@ -86,7 +66,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
       domainManager.domainId,
       participant1,
       ParticipantPermission.Submission,
-      TrustLevel.Ordinary,
     ),
     key1,
   )

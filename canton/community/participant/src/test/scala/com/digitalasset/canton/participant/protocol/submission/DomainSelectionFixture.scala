@@ -72,8 +72,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         topology = topology.map { case (partyId, participantIds) =>
           partyId -> participantIds.map(_ -> Submission).toMap
         },
-        participants =
-          participants.map(_ -> ParticipantAttributes(Submission, TrustLevel.Vip)).toMap,
+        participants = participants.map(_ -> ParticipantAttributes(Submission)).toMap,
         packages = participants.view.map(VettedPackages(_, packages)).toSeq,
       ).build()
 

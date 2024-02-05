@@ -7,7 +7,6 @@ import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
@@ -368,11 +367,13 @@ final class RepairService(
                       .parTraverse_(packageKnown)
 
                     hostedParties <- EitherT.right(
-                      filteredContracts
-                        .flatMap(_.witnesses)
-                        .distinct
-                        .parFilterA(hostsParty(repair.domain.topologySnapshot, participantId))
-                        .map(_.toSet)
+                      hostsParties(
+                        repair.domain.topologySnapshot,
+                        filteredContracts
+                          .flatMap(_.witnesses)
+                          .toSet,
+                        participantId,
+                      )
                     )
 
                     _ = logger.debug(s"Publishing ${filteredContracts.size} added contracts")
@@ -645,14 +646,17 @@ final class RepairService(
       )
 
       // Witnesses all known locally.
-      _witnessesKnownLocally <- contractToAdd.witnesses.toList.parTraverse_ { p =>
-        EitherT(hostsParty(topologySnapshot, participantId)(p).map { hosted =>
-          EitherUtil.condUnitE(
-            hosted,
-            log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
-          )
-        })
-      }
+      _witnessesKnownLocally <-
+        EitherT(
+          hostsParties(topologySnapshot, contractToAdd.witnesses, participantId).map { hosted =>
+            contractToAdd.witnesses.toList.traverse(p =>
+              EitherUtil.condUnitE(
+                hosted.contains(p),
+                log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
+              )
+            )
+          }
+        )
 
       _ <-
         if (ignoreStakeholderCheck) EitherT.rightT[Future, String](())
@@ -660,17 +664,15 @@ final class RepairService(
           for {
             // At least one stakeholder is hosted locally if no witnesses are defined
             _localStakeholderOrWitnesses <- EitherT(
-              contract.metadata.stakeholders.toList
-                .findM(hostsParty(topologySnapshot, participantId))
-                .map(_.isDefined)
-                .map { oneStakeholderIsLocal =>
+              hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId).map {
+                localStakeholders =>
                   EitherUtil.condUnitE(
-                    contractToAdd.witnesses.nonEmpty || oneStakeholderIsLocal,
+                    contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
                     log(
                       s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
                     ),
                   )
-                }
+              }
             )
             // All stakeholders exist on the domain
             _ <- topologySnapshot

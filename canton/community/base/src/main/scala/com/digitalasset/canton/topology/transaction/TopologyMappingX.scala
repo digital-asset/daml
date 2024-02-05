@@ -813,34 +813,6 @@ object ParticipantPermissionX {
   }
 }
 
-sealed trait TrustLevelX {
-  def toProtoV30: v30.EnumsX.TrustLevelX
-  def toNonX: TrustLevel
-}
-object TrustLevelX {
-  case object Ordinary extends TrustLevelX {
-    lazy val toProtoV30 = v30.EnumsX.TrustLevelX.Ordinary
-    def toNonX: TrustLevel = TrustLevel.Ordinary
-  }
-  case object Vip extends TrustLevelX {
-    lazy val toProtoV30 = v30.EnumsX.TrustLevelX.Vip
-    def toNonX: TrustLevel = TrustLevel.Vip
-  }
-
-  def fromProtoV30(value: v30.EnumsX.TrustLevelX): ParsingResult[TrustLevelX] = value match {
-    case v30.EnumsX.TrustLevelX.Ordinary => Right(Ordinary)
-    case v30.EnumsX.TrustLevelX.Vip => Right(Vip)
-    case v30.EnumsX.TrustLevelX.MissingTrustLevel => Left(FieldNotSet(value.name))
-    case v30.EnumsX.TrustLevelX.Unrecognized(x) => Left(UnrecognizedEnum(value.name, x))
-  }
-
-  implicit val orderingTrustLevelX: Ordering[TrustLevelX] = {
-    val participantTrustLevelXOrderMap =
-      Seq[TrustLevelX](Ordinary, Vip).zipWithIndex.toMap
-    Ordering.by[TrustLevelX, Int](participantTrustLevelXOrderMap(_))
-  }
-}
-
 final case class ParticipantDomainLimits(maxRate: Int, maxNumParties: Int, maxNumPackages: Int) {
   def toProto: v30.ParticipantDomainLimits =
     v30.ParticipantDomainLimits(maxRate, maxNumParties, maxNumPackages)
@@ -854,20 +826,18 @@ final case class ParticipantDomainPermissionX(
     domainId: DomainId,
     participantId: ParticipantId,
     permission: ParticipantPermissionX,
-    trustLevel: TrustLevelX,
     limits: Option[ParticipantDomainLimits],
     loginAfter: Option[CantonTimestamp],
 ) extends TopologyMappingX {
 
   def toParticipantAttributes: ParticipantAttributes =
-    ParticipantAttributes(permission.toNonX, trustLevel.toNonX, loginAfter)
+    ParticipantAttributes(permission.toNonX, loginAfter)
 
   def toProto: v30.ParticipantDomainPermissionX =
     v30.ParticipantDomainPermissionX(
       domain = domainId.toProtoPrimitive,
       participant = participantId.toProtoPrimitive,
       permission = permission.toProtoV2,
-      trustLevel = trustLevel.toProtoV30,
       limits = limits.map(_.toProto),
       loginAfter = loginAfter.map(_.toProtoPrimitive),
     )
@@ -904,7 +874,6 @@ final case class ParticipantDomainPermissionX(
         domainId,
         participantId,
         permission,
-        trustLevel,
         Some(defaultLimits),
         loginAfter,
       )
@@ -927,7 +896,6 @@ object ParticipantDomainPermissionX {
       domainId,
       participantId,
       ParticipantPermissionX.Submission,
-      TrustLevelX.Ordinary,
       None,
       None,
     )
@@ -939,7 +907,6 @@ object ParticipantDomainPermissionX {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
       permission <- ParticipantPermissionX.fromProtoV30(value.permission)
-      trustLevel <- TrustLevelX.fromProtoV30(value.trustLevel)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
         CantonTimestamp.fromProtoPrimitive(_).map(_.some)
@@ -948,7 +915,6 @@ object ParticipantDomainPermissionX {
       domainId,
       participantId,
       permission,
-      trustLevel,
       limits,
       loginAfter,
     )

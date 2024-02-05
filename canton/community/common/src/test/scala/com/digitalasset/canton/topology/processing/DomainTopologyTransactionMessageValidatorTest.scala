@@ -16,16 +16,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.{
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantPermission,
-  ParticipantState,
-  RequestSide,
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-  TrustLevel,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   TestingIdentityFactory,
@@ -106,7 +97,6 @@ class DomainTopologyTransactionMessageValidatorTest
           domainId,
           participant1,
           ParticipantPermission.Submission,
-          TrustLevel.Ordinary,
         )
       )
 

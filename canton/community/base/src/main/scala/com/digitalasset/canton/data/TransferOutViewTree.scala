@@ -14,7 +14,6 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -175,7 +174,7 @@ final case class TransferOutCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.TransferOutCommonData
 
   def confirmingParties: Set[Informee] =
-    (stakeholders ++ adminParties).map(ConfirmingParty(_, PositiveInt.one, TrustLevel.Ordinary))
+    (stakeholders ++ adminParties).map(ConfirmingParty(_, PositiveInt.one))
 
   override def pretty: Pretty[TransferOutCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),

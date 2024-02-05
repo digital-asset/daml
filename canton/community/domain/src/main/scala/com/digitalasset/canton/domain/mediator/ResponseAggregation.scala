@@ -159,7 +159,7 @@ final case class ResponseAggregation[VKEY](
             newlyResponded.foldLeft(consortiumVoting)((votes, confirmingParty) => {
               votes + (confirmingParty.party -> votes(confirmingParty.party).approveBy(sender))
             })
-          val newlyRespondedFullVotes = newlyResponded.filter { case ConfirmingParty(party, _, _) =>
+          val newlyRespondedFullVotes = newlyResponded.filter { case ConfirmingParty(party, _) =>
             consortiumVotingUpdated(party).isApproved
           }
           loggingContext.debug(
@@ -356,7 +356,7 @@ object ResponseAggregation {
   private def mkInitialState[K](
       informeesAndThresholdByView: Map[K, (Set[Informee], NonNegativeInt)],
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext): Future[Map[K, ViewState]] = {
+  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[K, ViewState]] = {
     informeesAndThresholdByView.toSeq
       .parTraverse { case (viewKey, (informees, threshold)) =>
         val confirmingParties = informees.collect { case cp: ConfirmingParty => cp }

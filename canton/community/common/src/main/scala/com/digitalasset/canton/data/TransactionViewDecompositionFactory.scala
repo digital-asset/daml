@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameV
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.LfTransactionUtil
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,7 +25,7 @@ trait TransactionViewDecompositionFactory {
       transaction: WellFormedTransaction[WithoutSuffixes],
       viewRbContext: RollbackContext,
       submittingAdminPartyO: Option[LfPartyId],
-  )(implicit ec: ExecutionContext): Future[Seq[NewView]]
+  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Seq[NewView]]
 }
 
 object TransactionViewDecompositionFactory {
@@ -158,7 +159,7 @@ object TransactionViewDecompositionFactory {
         transaction: WellFormedTransaction[WithoutSuffixes],
         viewRbContext: RollbackContext,
         submittingAdminPartyO: Option[LfPartyId],
-    )(implicit ec: ExecutionContext): Future[Seq[NewView]] = {
+    )(implicit ec: ExecutionContext, tc: TraceContext): Future[Seq[NewView]] = {
 
       val tx: LfVersionedTransaction = transaction.unwrap
 

@@ -161,10 +161,10 @@ final class TransferOutProcessingStepsTest
 
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
-      packages: Seq[VettedPackages] = Seq.empty,
+      packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
       domains: Set[DomainId] = Set(DefaultTestIdentities.domainId),
   ) =
-    TestingTopology(domains)
+    TestingTopologyX(domains)
       .withReversedTopology(topology)
       .withPackages(packages)
       .build(loggerFactory)
@@ -177,9 +177,9 @@ final class TransferOutProcessingStepsTest
 
   private def createTestingTopologySnapshot(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
-      packages: Seq[LfPackageId] = Seq.empty,
+      packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
   ): TopologySnapshot =
-    createTestingIdentityFactory(topology, vet(topology.keys, packages)).topologySnapshot()
+    createTestingIdentityFactory(topology, packages).topologySnapshot()
 
   private def createCryptoFactory(packages: Seq[LfPackageId] = Seq(templateId.packageId)) = {
     val topology = Map(
@@ -190,14 +190,16 @@ final class TransferOutProcessingStepsTest
     )
     createTestingIdentityFactory(
       topology = topology,
-      packages = vet(topology.keys, packages),
+      packages = topology.keys.map(_ -> packages).toMap,
       domains = Set(sourceDomain.unwrap, targetDomain.unwrap),
     )
   }
 
   private val cryptoFactory = createCryptoFactory()
 
-  private def createCryptoSnapshot(testingIdentityFactory: TestingIdentityFactory = cryptoFactory) =
+  private def createCryptoSnapshot(
+      testingIdentityFactory: TestingIdentityFactoryX = cryptoFactory
+  ) =
     testingIdentityFactory
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
@@ -265,12 +267,14 @@ final class TransferOutProcessingStepsTest
 
   "TransferOutRequest.validated" should {
     val testingTopology = createTestingTopologySnapshot(
-      topology = Map(
+      Map(
         submittingParticipant -> Map(submitter -> Submission),
         participant1 -> Map(party1 -> Submission),
         participant2 -> Map(party2 -> Submission),
       ),
-      packages = Seq(templateId.packageId),
+      packages = Seq(submittingParticipant, participant1, participant2)
+        .map(_ -> Seq(templateId.packageId))
+        .toMap,
     )
 
     def mkTxOutRes(
@@ -377,14 +381,15 @@ final class TransferOutProcessingStepsTest
 
     // TODO(i13201) This should ideally be covered in integration tests as well
     "fail if the package for the contract being transferred is unvetted on the target domain" in {
-
       val sourceDomainTopology =
         createTestingTopologySnapshot(
-          topology = Map(
+          Map(
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          packages = Seq(templateId.packageId), // The package is known on the source domain
+          packages = Seq(submittingParticipant, participant1)
+            .map(_ -> Seq(templateId.packageId))
+            .toMap, // The package is known on the source domain
         )
 
       val targetDomainTopology =
@@ -393,7 +398,7 @@ final class TransferOutProcessingStepsTest
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          packages = Seq.empty, // The package is not known on the target domain
+          packages = Map.empty, // The package is not known on the target domain
         )
 
       val result =
@@ -415,10 +420,8 @@ final class TransferOutProcessingStepsTest
             participant1 -> Map(party1 -> Submission),
           ),
           // On the source domain, the package is vetted on all participants
-          packages = Seq(
-            VettedPackages(submittingParticipant, Seq(templateId.packageId)),
-            VettedPackages(participant1, Seq(templateId.packageId)),
-          ),
+          packages =
+            Seq(submittingParticipant, participant1).map(_ -> Seq(templateId.packageId)).toMap,
         ).topologySnapshot()
 
       val targetDomainTopology =
@@ -428,9 +431,7 @@ final class TransferOutProcessingStepsTest
             participant1 -> Map(party1 -> Submission),
           ),
           // On the target domain, the package is not vetted on `participant1`
-          packages = Seq(
-            VettedPackages(submittingParticipant, Seq(templateId.packageId))
-          ),
+          packages = Map(submittingParticipant -> Seq(templateId.packageId)),
         ).topologySnapshot()
 
       // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target domain
@@ -481,12 +482,18 @@ final class TransferOutProcessingStepsTest
       val ipsSource = createTestingTopologySnapshot(
         Map(
           submittingParticipant -> Map(adminSubmitter -> Submission, submitter -> Submission),
-          participant1 -> Map(adminSubmitter -> Observation, submitter -> Confirmation),
+          participant1 -> Map(submitter -> Confirmation),
           participant2 -> Map(party1 -> Submission),
           participant3 -> Map(party1 -> Submission),
           participant4 -> Map(party1 -> Confirmation),
         ),
-        packages = Seq(templateId.packageId),
+        packages = Seq(
+          submittingParticipant,
+          participant1,
+          participant2,
+          participant3,
+          participant4,
+        ).map(_ -> Seq(templateId.packageId)).toMap,
       )
       val ipsTarget = createTestingTopologySnapshot(
         Map(
@@ -495,7 +502,12 @@ final class TransferOutProcessingStepsTest
           participant3 -> Map(party1 -> Submission),
           participant4 -> Map(party1 -> Confirmation),
         ),
-        packages = Seq(templateId.packageId),
+        packages = Seq(
+          submittingParticipant,
+          participant1,
+          participant3,
+          participant4,
+        ).map(_ -> Seq(templateId.packageId)).toMap,
       )
       val stakeholders = Set(submitter, party1)
       val result = mkTxOutRes(stakeholders, ipsSource, ipsTarget)

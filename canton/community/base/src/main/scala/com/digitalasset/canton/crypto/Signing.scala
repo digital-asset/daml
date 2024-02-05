@@ -100,7 +100,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
       signingKeyId: Fingerprint,
   )(implicit tc: TraceContext): EitherT[Future, SigningError, Signature] =
     store
-      .signingKey(signingKeyId)(TraceContext.todo)
+      .signingKey(signingKeyId)
       .leftMap(storeError => SigningError.KeyStoreError(storeError.show))
       .subflatMap(_.toRight(SigningError.UnknownSigningKey(signingKeyId)))
       .subflatMap(signingKey => signingOps.sign(bytes, signingKey))

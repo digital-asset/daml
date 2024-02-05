@@ -133,7 +133,7 @@ class LedgerServerPartyNotifier(
             None,
           )
         // propagate admin parties
-        case ParticipantState(_, _, participant, permission, _) if permission.isActive =>
+        case ParticipantState(_, _, participant, permission) if permission.isActive =>
           (participant.adminParty, participant, LengthLimitedString.getUuid.asString255, None)
 
       }
