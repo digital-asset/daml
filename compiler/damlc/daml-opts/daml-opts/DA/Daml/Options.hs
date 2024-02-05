@@ -339,8 +339,8 @@ xFlagsSet options =
 -- | Warning options set for Daml compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
 --   '{-# OPTIONS -no-warn-... #-}'.
-wOptsSet :: [ WarningFlag ]
-wOptsSet =
+wOptsSet :: LF.Version -> [ WarningFlag ]
+wOptsSet v =
   [ Opt_WarnUnusedImports
 -- Can enable when we are on GHC >= 8.10 (we should, after all we
 -- upstreamed it :) ).
@@ -357,6 +357,9 @@ wOptsSet =
 -- Template desugaring in the presence of local binds will currently
 -- trigger this.
   -- , Opt_WarnUnusedLocalBinds
+  ] ++
+  [ Opt_WarnRetroactiveInterfaceInstances
+  | v `LF.supports` LF.featurePackageUpgrades
   ]
 
 -- | Warning options set for Daml compilation, which become errors.
@@ -393,7 +396,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
  $ setThisInstalledUnitId (fromMaybe mainUnitId $ optUnitId options)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
-  $ apply wopt_set wOptsSet
+  $ apply wopt_set (wOptsSet optDamlLfVersion)
   $ apply wopt_unset wOptsUnset
   $ apply wopt_set_fatal wOptsSetFatal
   $ apply xopt_set xExtensionsSet

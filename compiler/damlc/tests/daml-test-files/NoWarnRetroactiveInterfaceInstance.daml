@@ -1,0 +1,23 @@
+-- Copyright (c) 2023, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This tests that the deprecation warning for retroactive interface instances
+-- does not appear for versions of LF that support interfaces but not upgrades.
+
+-- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_PACKAGE_UPGRADES
+-- TODO(https://github.com/digital-asset/daml/issues/18049):
+-- Retroactive interface instances will be removed in LF 2.x, after which
+-- this test will no longer make sense.
+
+module NoWarnRetroactiveInterfaceInstance where
+
+template T with
+    p : Party
+  where
+    signatory p
+
+interface I where
+  viewtype T
+  interface instance I for T where
+    view = this

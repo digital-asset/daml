@@ -24,6 +24,16 @@ and ensure that the release notes and documentation has been included as part of
 
 ## What’s New
 
+* interface instances defined in templates ("retroactive interface instances")
+  are now deprecated and support for this feature will be removed in an upcoming release.
+
+    * The deprecation warning can be turned off by adding the following snippet
+      at the top of a file that uses this feature:
+
+      ```daml
+      `{-# OPTIONS -Wno-retroactive-interface-instances #-}`
+      ```
+
 # Release of Daml 3.0.0
 
 ## Bugfixes

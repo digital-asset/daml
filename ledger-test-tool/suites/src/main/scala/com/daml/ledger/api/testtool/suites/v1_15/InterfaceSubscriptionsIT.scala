@@ -709,6 +709,9 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     )
   })
 
+  // TODO(https://github.com/digital-asset/daml/issues/18049):
+  // Retroactive interface instances will be removed in LF 2.x, after which
+  // this test will no longer make sense.
   test(
     s"${prefix}TransactionsRetroactiveInterface",
     "Subscribe to retroactive interface",

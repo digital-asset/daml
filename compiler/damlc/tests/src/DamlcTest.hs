@@ -185,7 +185,11 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "    signatory [myParty]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "module Good where"
+        [ "{-# OPTIONS -Wno-retroactive-interface-instances #-}"
+        -- TODO(https://github.com/digital-asset/daml/issues/18049):
+        -- Retroactive interface instances will be removed in LF 2.x, after which
+        -- this test will no longer make sense.
+        , "module Good where"
         , "import Template"
         , "data MyIView = MyIView {}"
         , "interface MyI where"
