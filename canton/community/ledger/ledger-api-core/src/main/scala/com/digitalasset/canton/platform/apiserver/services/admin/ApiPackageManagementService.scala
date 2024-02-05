@@ -8,16 +8,14 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
-import com.daml.lf.language.Ast
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.error.PackageServiceErrors.{Validation, InternalError}
+import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import com.digitalasset.canton.ledger.error.groups.AdminServiceErrors
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPackagesService,
@@ -41,14 +39,13 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
 import scalaz.std.list.*
-import scalaz.std.option.*
 import scalaz.syntax.traverse.*
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Try, Success, Failure, Using}
+import scala.util.{Try, Using}
 
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
@@ -109,64 +106,23 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(
       darFile: ByteString
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-      loggingContext: LoggingContextWithTrace
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
     // should not be busy with heavy computation
-    for {
-      (dar, decodedDar) <- Future.fromTry(
-        for {
-          darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
-            darReader.readArchive("package-upload", stream)
-          }
-          dar <- darArchive.handleError(Validation.handleLfArchiveError)
-          decodedDar <- dar
-            .traverse(Decode.decodeArchive(_))
-            .handleError(Validation.handleLfArchiveError)
-          _ <- engine
-            .validatePackages(decodedDar.all.toMap)
-            .handleError(Validation.handleLfEnginePackageError)
-        } yield (dar, decodedDar)
-      )
-      _ <- validateUpgrade(decodedDar)
-    } yield dar
-  }
-
-  private def validateUpgrade(upgradingPackage: Dar[(Ref.PackageId, Ast.Package)])(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Unit] = {
-    val upgradingPackageId = upgradingPackage.main._1
-    upgradingPackage.main._2.metadata.upgradedPackageId match {
-      case Some(upgradedPackageId) =>
-        logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
-        for {
-          upgradedArchiveMb <- packagesIndex.getLfArchive(upgradedPackageId)
-          upgradedPackageMb <- Future.fromTry {
-            upgradedArchiveMb.traverse(Decode.decodeArchive(_))
-              .handleError(Validation.handleLfArchiveError)
-          }
-          upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(upgradingPackage.main, upgradedPackageId, upgradedPackageMb.map(_._2))
-          _ <- upgradeCheckResult match {
-            case Success(()) => {
-              logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
-              Future(())
-            }
-            case Failure(err: UpgradeError) => {
-              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.prettyInternal}")
-              Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
-            }
-            case Failure(err: Throwable) => {
-              logger.info(s"Typechecking upgrades failed with unknown error.")
-              Future.failed(InternalError.Unhandled(err).asGrpcError)
-            }
-          }
-        } yield ()
-      case None => {
-        logger.info(s"Package $upgradingPackageId does not upgrade anything.")
-        Future(())
+    val result = for {
+      darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
+        darReader.readArchive("package-upload", stream)
       }
-    }
+      dar <- darArchive.handleError(Validation.handleLfArchiveError)
+      packages <- dar.all
+        .traverse(Decode.decodeArchive(_))
+        .handleError(Validation.handleLfArchiveError)
+      _ <- engine
+        .validatePackages(packages.toMap)
+        .handleError(Validation.handleLfEnginePackageError)
+    } yield dar
+    Future.fromTry(result)
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
