@@ -298,7 +298,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
             Seq(
               (ErrorResource.TemplateId, err.templateId.toString),
               (ErrorResource.ContractKey, encodedKey),
-              // (ErrorResource.SharedKey, err.shared.toString),
             )
           }
       }
