@@ -16,7 +16,6 @@ import com.daml.lf.transaction.{
   TransactionVersion,
   Versioned,
   VersionedTransaction,
-  Util,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
@@ -276,14 +275,11 @@ object ValueGenerators {
       pkgName <- pkgNameGen(arg.version)
     } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
-  def keyWithMaintainersGen(
-      templateId: Ref.TypeConName,
-      version: TransactionVersion,
-  ): Gen[GlobalKeyWithMaintainers] = {
+  def keyWithMaintainersGen(templateId: TypeConName): Gen[GlobalKeyWithMaintainers] = {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey.build(templateId, key, Util.sharedKey(version)).toOption
+      gkey = GlobalKey.build(templateId, key).toOption
       if gkey.isDefined
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
@@ -317,7 +313,7 @@ object ValueGenerators {
       arg <- valueGen()
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      key <- Gen.option(keyWithMaintainersGen(templateId))
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
@@ -344,7 +340,7 @@ object ValueGenerators {
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      key <- Gen.option(keyWithMaintainersGen(templateId))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
@@ -399,7 +395,7 @@ object ValueGenerators {
         .map(_.to(ImmArray))
       exerciseResult <-
         if (version < minExceptions) valueGen().map(Some(_)) else Gen.option(valueGen())
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      key <- Gen.option(keyWithMaintainersGen(templateId))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
@@ -427,7 +423,7 @@ object ValueGenerators {
       targetCoid <- coidGen
       pkgName <- pkgNameGen(version)
       templateId <- idGen
-      key <- keyWithMaintainersGen(templateId, version)
+      key <- keyWithMaintainersGen(templateId)
       result <- Gen.option(targetCoid)
     } yield Node.LookupByKey(
       packageName = pkgName,

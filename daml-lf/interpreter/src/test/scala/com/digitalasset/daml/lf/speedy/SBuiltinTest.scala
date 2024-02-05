@@ -1823,18 +1823,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
         val sharedKey = Util.sharedKey(txVersion)
         val (disclosedContract, Some((key, keyWithMaintainers))) =
-          buildDisclosedContract(
-            contractId,
-            alice,
-            alice,
-            templateId,
-            withKey = true,
-            sharedKey = sharedKey,
-          )
+          buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val cachedKey = CachedKey(
           pkgName,
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), sharedKey),
+            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
           sharedKey,
         )
@@ -2054,7 +2047,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-      sharedKey: Boolean = true,
   ): (DisclosedContract, Option[(SValue, SValue)]) = {
     val key = SValue.SRecord(
       templateId,
@@ -2079,12 +2071,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     val globalKey =
       if (withKey) {
         Some(
-          GlobalKeyWithMaintainers.assertBuild(
-            templateId,
-            key.toUnnormalizedValue,
-            Set(maintainer),
-            sharedKey,
-          )
+          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(maintainer))
         )
       } else {
         None

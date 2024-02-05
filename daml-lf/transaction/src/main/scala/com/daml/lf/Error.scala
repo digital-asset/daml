@@ -88,11 +88,12 @@ object Error {
   ) extends Error
 
   /** A fetch or lookup of a contract key without maintainers */
-  final case class FetchEmptyContractKeyMaintainers(
-      templateId: TypeConName,
-      key: Value,
-      shared: Boolean,
-  ) extends Error
+  final case class FetchEmptyContractKeyMaintainers(templateId: TypeConName, key: Value)
+      extends Error {
+    // TODO(https://github.com/digital-asset/daml/issues/18240): remove this field once Canton stops
+    //  reading it.
+    val shared = true
+  }
 
   /** We tried to fetch / exercise a contract of the wrong type --
     * see <https://github.com/digital-asset/daml/issues/1005>.

@@ -6,8 +6,10 @@ package transaction
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.data.Ref.{Party, TypeConName}
 import com.daml.lf.value.Value
+
+import scala.annotation.nowarn
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
   * a key. The 'hash' is guaranteed to be stable over time.
@@ -36,8 +38,8 @@ object GlobalKey {
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, value, true) != key.hash &&
-      Hash.assertHashContractKey(key.templateId, value, false) != key.hash
+      Hash.assertHashContractKey(key.templateId, value) != key.hash &&
+      Hash.assertHashContractKey(key.templateId, value) != key.hash
     ) {
       throw new IllegalArgumentException(
         s"Hash must not change as a result of value renormalization key=$key, value=$value"
@@ -49,25 +51,38 @@ object GlobalKey {
   }
 
   // Will fail if key contains contract ids
+  def build(templateId: TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
+    crypto.Hash
+      .hashContractKey(templateId, key)
+      .map(new GlobalKey(templateId, key, _))
+
+  // TODO(https://github.com/digital-asset/daml/issues/18240) remove this method once canton stops
+  //  using this it.
+  @nowarn("cat=unused")
   def build(
       templateId: Ref.TypeConName,
       key: Value,
       shared: Boolean,
   ): Either[crypto.Hash.HashingError, GlobalKey] =
-    crypto.Hash
-      .hashContractKey(templateId, key, shared)
-      .map(new GlobalKey(templateId, key, _))
+    build(templateId, key)
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
-  def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
-    data.assertRight(build(templateId, key, shared).left.map(_.msg))
+  def assertBuild(templateId: TypeConName, key: Value): GlobalKey =
+    data.assertRight(build(templateId, key).left.map(_.msg))
+
+  // TODO(https://github.com/digital-asset/daml/issues/18240) remove this method once canton stops
+  //  using this it.
+  @throws[IllegalArgumentException]
+  @nowarn("cat=unused")
+  def assertBuild(templateId: TypeConName, key: Value, shared: Boolean): GlobalKey =
+    assertBuild(templateId, key)
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
   def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
+    Hash.hashContractKey(key.templateId, key.key) == Right(key.hash)
 
 }
 
@@ -81,20 +96,40 @@ final case class GlobalKeyWithMaintainers(
 object GlobalKeyWithMaintainers {
 
   def assertBuild(
+      templateId: TypeConName,
+      value: Value,
+      maintainers: Set[Party],
+  ): GlobalKeyWithMaintainers =
+    data.assertRight(build(templateId, value, maintainers).left.map(_.msg))
+
+  // TODO(https://github.com/digital-asset/daml/issues/18240) remove this method once canton stops
+  //  using this it.
+  @nowarn("cat=unused")
+  def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
       maintainers: Set[Ref.Party],
       shared: Boolean,
   ): GlobalKeyWithMaintainers =
-    data.assertRight(build(templateId, value, maintainers, shared).left.map(_.msg))
+    assertBuild(templateId, value, maintainers)
 
+  def build(
+      templateId: TypeConName,
+      value: Value,
+      maintainers: Set[Party],
+  ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
+    GlobalKey.build(templateId, value).map(GlobalKeyWithMaintainers(_, maintainers))
+
+  // TODO(https://github.com/digital-asset/daml/issues/18240) remove this method once canton stops
+  //  using this it.
+  @nowarn("cat=unused")
   def build(
       templateId: Ref.TypeConName,
       value: Value,
       maintainers: Set[Ref.Party],
       shared: Boolean,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
-    GlobalKey.build(templateId, value, shared).map(GlobalKeyWithMaintainers(_, maintainers))
+    build(templateId, value, maintainers)
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

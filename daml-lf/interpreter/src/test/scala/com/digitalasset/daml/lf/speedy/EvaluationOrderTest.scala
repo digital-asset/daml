@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Util, Versioned}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.ledger.FailedAuthorization._
 import com.daml.lf.testing.parser.ParserParameters
@@ -406,12 +406,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val getHelper = Map(helperCId -> helper)
 
   private[this] val getKey = Map(
-    GlobalKeyWithMaintainers.assertBuild(
-      T,
-      keyValue,
-      Set(alice),
-      Util.sharedKey(languageVersion),
-    ) -> cId
+    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice)) -> cId
   )
 
   private[this] val dummyContract = Versioned(
@@ -1699,7 +1694,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
@@ -2672,7 +2667,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }
@@ -3237,7 +3232,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
         inside(res) {
           case Success(
-                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _, _)))
+                Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))
               ) =>
             msgs shouldBe Seq("starts test", "maintainers")
         }

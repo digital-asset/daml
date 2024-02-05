@@ -21,7 +21,7 @@ class HashSpec extends AnyWordSpec with Matchers {
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
-    Hash.assertHashContractKey(templateId, key, shared = false)
+    Hash.assertHashContractKey(templateId, key)
   }
 
   private val complexRecordT =
@@ -90,7 +90,7 @@ class HashSpec extends AnyWordSpec with Matchers {
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
+      val hash = "1934eb3965284ccf3062f19548fa04284313e48ee81c9732f33c7fc05322c9f9"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value).toHexString shouldBe hash
@@ -665,32 +665,18 @@ class HashSpec extends AnyWordSpec with Matchers {
     val nonSharedTrueHash =
       Hash.assertFromString("efab35fcbc9e2336fcc63259ba65e6601903be0a373c0b0f4d761872ffb23ded")
 
-    "produce backwardly compatible non-shared contract keys" in {
-      assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
+    "produce ignore the packageId" in {
+      Hash.assertHashContractKey(templateId, ValueTrue) should not be nonSharedTrueHash
     }
 
-    "produce backwardly compatible keys when called with shared=false" in {
-      Hash.assertHashContractKey(templateId, ValueTrue, shared = false) shouldBe nonSharedTrueHash
-    }
-
-    "produce ignore the packageId when called with shared=true" in {
-      Hash.assertHashContractKey(
-        templateId,
-        ValueTrue,
-        shared = true,
-      ) should not be nonSharedTrueHash
-    }
-
-    "produce an identical hash to the same template in a different package if shared=true" in {
+    "produce an identical hash to the same template in a different package" in {
       val h1 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageA")),
         ValueTrue,
-        shared = true,
       )
       val h2 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageB")),
         ValueTrue,
-        shared = true,
       )
       h1 shouldBe h2
     }
