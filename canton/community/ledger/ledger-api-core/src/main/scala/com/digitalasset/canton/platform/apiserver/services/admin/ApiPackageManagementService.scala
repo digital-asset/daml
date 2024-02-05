@@ -153,7 +153,7 @@ private[apiserver] final class ApiPackageManagementService private (
               Future(())
             }
             case Failure(err: UpgradeError) => {
-              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+              logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.prettyInternal}")
               Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
             }
             case Failure(err: Throwable) => {

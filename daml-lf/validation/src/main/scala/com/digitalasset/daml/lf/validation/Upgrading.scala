@@ -235,27 +235,6 @@ object TypecheckUpgrades {
   protected def fail[A](err: UpgradeError.Error): Try[A] =
     Failure(UpgradeError(err))
 
-  def typecheckUpgrades(
-      present: (Ref.PackageId, Ast.Package),
-      pastPackageId: Ref.PackageId,
-      mbPastPkg: Option[Ast.Package],
-  ): Try[Unit] = {
-    mbPastPkg match {
-      case None =>
-        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
-      case Some(pastPkg) =>
-        val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg), present))
-        tc.check()
-    }
-  }
-}
-
-case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
-  import TypecheckUpgrades._
-
-  private lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
-  private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
-
   private def extractDelExistNew[K, V](
       arg: Upgrading[Map[K, V]]
   ): (Map[K, V], Map[K, Upgrading[V]], Map[K, V]) =
@@ -281,6 +260,27 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
   private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
+
+  def typecheckUpgrades(
+      present: (Ref.PackageId, Ast.Package),
+      pastPackageId: Ref.PackageId,
+      mbPastPkg: Option[Ast.Package],
+  ): Try[Unit] = {
+    mbPastPkg match {
+      case None =>
+        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
+      case Some(pastPkg) =>
+        val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg), present))
+        tc.check()
+    }
+  }
+}
+
+case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
+  import TypecheckUpgrades._
+
+  private lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
+  private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 
   private def check(): Try[Unit] = {
     for {
