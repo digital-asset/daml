@@ -1,6 +1,0 @@
-module MyLib where
-template A with
-    p : Party
-    existing1 : Int
-    existing2 : Int
-  where signatory p
