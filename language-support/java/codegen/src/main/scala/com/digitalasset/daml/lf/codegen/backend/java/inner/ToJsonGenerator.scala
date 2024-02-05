@@ -135,23 +135,7 @@ private[inner] object ToJsonGenerator {
       .addStatement("return this.key.map($L).orElse(null)", encoderOf(keyDamlType))
       .build()
 
-    val toString = MethodSpec
-      .methodBuilder("keyToJson")
-      .addModifiers(Modifier.PUBLIC)
-      .addStatement("var enc = keyJsonEncoder()")
-      .addStatement("if (enc == null) return null")
-      .addStatement("var w = new $T()", classOf[StringWriter])
-      .beginControlFlow("try")
-      .addStatement("enc.encode(new $T(w))", classOf[JsonLfWriter])
-      .nextControlFlow("catch ($T e)", classOf[IOException])
-      .addComment("Not expected with StringWriter")
-      .addStatement("throw new $T(e)", classOf[UncheckedIOException])
-      .endControlFlow()
-      .addStatement("return w.toString()")
-      .returns(classOf[String])
-      .build()
-
-    Seq(encoder, toString)
+    Seq(encoder)
   }
 
   // When a type has type parameters (generic classes), we need to tell
