@@ -8,11 +8,14 @@ import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
 }
+
+import scala.math.Ordered.orderingToOrdered
 
 final case class PackageMetadata(
     interfaces: Set[Ref.Identifier] = Set.empty,
@@ -38,22 +41,35 @@ object PackageMetadata {
   def from(archive: DamlLf.Archive): PackageMetadata = {
     val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
 
-    val packageName = pkg.metadata.name
-    val packageVersion = pkg.metadata.version
-    val packageNameMap = Map(
-      packageName -> PackageResolution(
-        preference = LocalPackagePreference(packageVersion, packageId),
-        allPackageIdsForName = NonEmpty(Set, packageId),
-      )
-    )
-
-    PackageMetadata(
-      packageNameMap = packageNameMap,
+    val packageLanguageVersion = pkg.languageVersion
+    val nonUpgradablePackageMetadata = PackageMetadata(
+      packageNameMap = Map.empty,
       interfaces = packageInfo.definedInterfaces,
       templates = packageInfo.definedTemplates,
       interfacesImplementedBy = packageInfo.interfaceInstances,
-      packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+      packageIdVersionMap = Map.empty,
     )
+
+    pkg.metadata
+      .collect {
+        case decodedPackageMeta
+            // TODO(#16362): Replace with own feature
+            if packageLanguageVersion >= LanguageVersion.Features.sharedKeys =>
+          val packageName = decodedPackageMeta.name
+          val packageVersion = decodedPackageMeta.version
+
+          // Update with upgradable package metadata
+          nonUpgradablePackageMetadata.copy(
+            packageNameMap = Map(
+              packageName -> PackageResolution(
+                preference = LocalPackagePreference(packageVersion, packageId),
+                allPackageIdsForName = NonEmpty(Set, packageId),
+              )
+            ),
+            packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+          )
+      }
+      .getOrElse(nonUpgradablePackageMetadata)
   }
 
   object Implicits {
