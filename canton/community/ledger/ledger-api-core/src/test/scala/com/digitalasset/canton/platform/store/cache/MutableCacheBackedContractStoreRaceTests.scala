@@ -224,7 +224,11 @@ private object MutableCacheBackedContractStoreRaceTests {
       contractsCount: Long,
   ): Seq[Offset => SimplifiedContractStateEvent] = {
     val keys = (0L until keysCount).map { keyIdx =>
-      keyIdx -> GlobalKey.assertBuild(ValueInt64(keyIdx))
+      keyIdx -> GlobalKey.assertBuild(
+        Identifier.assertFromString("pkgId:module:entity"),
+        ValueInt64(keyIdx),
+        shared = true,
+      )
     }.toMap
 
     val keysToContracts = keys.map { case (keyIdx, key) =>

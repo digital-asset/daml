@@ -61,7 +61,9 @@ object DisclosedContractCreator {
           None -> LfValue.ValueText("some key"),
         ),
       ),
-      api.keyMaintainers)
+      api.keyMaintainers,
+      shared = true,
+    )
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
       create = Node.Create(

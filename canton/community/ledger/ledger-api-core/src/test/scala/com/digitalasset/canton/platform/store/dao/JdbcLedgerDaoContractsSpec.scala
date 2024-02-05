@@ -76,7 +76,12 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "present the contract key state at a specific event sequential id" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
 
-    val key = GlobalKeyWithMaintainers.assertBuild(aTextValue, Set(alice, bob))
+    val key = GlobalKeyWithMaintainers.assertBuild(
+      someTemplateId,
+      aTextValue,
+      Set(alice, bob),
+      shared = true,
+    )
 
     for {
       (_, tx) <- createAndStoreContract(

@@ -50,19 +50,23 @@ object PackageMetadata {
       packageIdVersionMap = Map.empty,
     )
 
-    val packageName = pkg.metadata.name
-    val packageVersion = pkg.metadata.version
+    // TODO(#16362): Replace with own feature
+    if (packageLanguageVersion >= LanguageVersion.Features.sharedKeys) {
+          val packageName = pkg.metadata.name
+          val packageVersion = pkg.metadata.version
 
-    // Update with upgradable package metadata
-    nonUpgradablePackageMetadata.copy(
-      packageNameMap = Map(
-        packageName -> PackageResolution(
-          preference = LocalPackagePreference(packageVersion, packageId),
-          allPackageIdsForName = NonEmpty(Set, packageId),
-        )
-      ),
-      packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
-    )
+          // Update with upgradable package metadata
+          nonUpgradablePackageMetadata.copy(
+            packageNameMap = Map(
+              packageName -> PackageResolution(
+                preference = LocalPackagePreference(packageVersion, packageId),
+                allPackageIdsForName = NonEmpty(Set, packageId),
+              )
+            ),
+            packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+          )
+      }
+    else nonUpgradablePackageMetadata
   }
 
   object Implicits {

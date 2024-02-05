@@ -61,6 +61,9 @@ object LanguageVersion {
     val exceptions = v2_1
     val natTypeErasure = v2_1
     val packageUpgrades = v2_1
+    // TODO(https://github.com/digital-asset/daml/issues/18240): remove this feature once canton
+    //  stops using it.
+    val sharedKeys = v2_1
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
     val dynamicExercise = v2_dev

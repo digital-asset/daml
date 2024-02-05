@@ -54,7 +54,7 @@ object GlobalKeySerialization {
         )
 
       globalKey <- LfGlobalKey
-        .build(templateId, versionedKey.unversioned)
+        .build(templateId, versionedKey.unversioned, true)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
         )

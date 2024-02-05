@@ -26,6 +26,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     GlobalKey.assertBuild(
       someTemplateId,
       someContractKey(alice, value),
+      shared = true,
     ),
     Set(alice),
   )
