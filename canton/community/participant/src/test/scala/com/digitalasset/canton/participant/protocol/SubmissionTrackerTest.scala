@@ -16,13 +16,14 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.SucceededStatus.whenCompleted
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
-import scala.util.Random
+import scala.util.{Random, Success}
 
 class SubmissionTrackerTest
     extends AnyWordSpec
@@ -65,11 +66,17 @@ class SubmissionTrackerTest
   }
 
   override def afterEach(): Unit = {
-    // Internal structures should be clean
-    submissionTracker match {
-      case st: SubmissionTrackerImpl =>
-        st.internalSize shouldBe 0
-      case _ => fail("Unexpected SubmissionTracker instance")
+    whenCompleted {
+      // Avoid flakes by checking the condition only if the test suite has not been aborted
+      case Success(true) =>
+        // Internal structures should be clean
+        submissionTracker match {
+          case st: SubmissionTrackerImpl =>
+            st.internalSize shouldBe 0
+          case _ => fail("Unexpected SubmissionTracker instance")
+        }
+
+      case _ =>
     }
   }
 

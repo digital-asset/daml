@@ -46,7 +46,7 @@ public final class CreateAndExerciseCommand extends Command {
   }
 
   @Override
-  public Identifier getTemplateId() {
+  Identifier getTemplateId() {
     return templateId;
   }
 
