@@ -7,6 +7,7 @@ package language
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion._
+import com.daml.lf.language.LanguageVersionRangeOps._
 
 private[daml] sealed class StablePackage(
     moduleNameStr: String,
@@ -50,17 +51,9 @@ object StablePackages {
       case LanguageMajorVersion.V2 => StablePackagesV2
     }
 
-  // TODO(#17366): remove once ids uses StablePackages(allowedLanguageVersion.majorVersion).allPackages
-  private[this] val allStablePackagesAcrossMajorVersions: List[StablePackage] =
-    LanguageMajorVersion.All.flatMap(major => StablePackages(major).allPackages)
-
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
     import scala.Ordering.Implicits.infixOrderingOps
-    // TODO(#17366): use StablePackages(allowedLanguageVersion.majorVersion).allPackages instead to
-    //    restrict the packages to those matching the major version of allowedLanguageVersions once
-    //    Canton stops feeding LF v1 packages (AdminWorkflowsWithVacuuming and AdminWorkflows) to
-    //    the engine no matter what.
-    allStablePackagesAcrossMajorVersions.view
+    StablePackages(allowedLanguageVersions.majorVersion).allPackages.view
       .filter(_.languageVersion <= allowedLanguageVersions.max)
       .map(_.packageId)
       .toSet

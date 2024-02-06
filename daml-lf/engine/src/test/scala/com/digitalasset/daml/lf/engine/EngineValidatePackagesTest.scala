@@ -21,11 +21,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
-  // TODO(#17366): use something like LanguageVersion.default(major) once available
-  val langVersion = majorLanguageVersion match {
-    case LanguageMajorVersion.V1 => LanguageVersion.default
-    case LanguageMajorVersion.V2 => LanguageVersion.v2_1
-  }
+  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)

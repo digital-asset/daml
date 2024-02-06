@@ -64,7 +64,7 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = Engine.StableConfig) {
+class Engine(val config: EngineConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
@@ -628,13 +628,7 @@ object Engine {
     }
   }
 
-  private def StableConfig =
-    EngineConfig(allowedLanguageVersions = LanguageVersion.StableVersions)
-
-  def StableEngine(): Engine = new Engine(StableConfig)
-
   def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
-    StableConfig.copy(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
+    EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
-
 }

@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.daml.lf.{VersionRange, archive}
+import com.daml.lf.archive
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion, StablePackages}
@@ -132,12 +132,8 @@ object Dependencies {
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
   private def isProvidedLibrary(pkgId: PackageId, pkg: Ast.Package): Boolean = {
-    // We use the list of stable packages for the compiler not the engine so we really want to catch
-    // all of them ignoring the version.
-    // TODO(#17366): make this code more elegant once we refactor LanguageVersion
     val stablePackages =
-      (StablePackages.ids(VersionRange(LanguageVersion.v1_dev, LanguageVersion.v1_dev))
-        | StablePackages.ids(VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_dev)))
+      StablePackages.ids(LanguageVersion.AllVersions(LanguageVersion.default.major))
     providedLibraries.contains(pkg.metadata.name) || stablePackages.contains(pkgId)
   }
 

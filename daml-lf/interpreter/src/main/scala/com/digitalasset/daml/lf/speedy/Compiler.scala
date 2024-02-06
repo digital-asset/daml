@@ -79,20 +79,13 @@ private[lf] object Compiler {
   )
 
   object Config {
-    def Default(majorLanguageVersion: LanguageMajorVersion) = {
-      majorLanguageVersion match {
-        case LanguageMajorVersion.V1 =>
-          Config(
-            allowedLanguageVersions = LanguageVersion.StableVersions,
-            packageValidation = FullPackageValidation,
-            profiling = NoProfile,
-            stacktracing = NoStackTrace,
-          )
-        // TODO(#17366): once 2.0 is introduced, remove match on major language
-        //  version and use StableVersions(majorLanguageVersion) or similar.
-        case LanguageMajorVersion.V2 => Dev(LanguageMajorVersion.V2)
-      }
-    }
+    def Default(majorLanguageVersion: LanguageMajorVersion) =
+      Config(
+        allowedLanguageVersions = LanguageVersion.StableVersions(majorLanguageVersion),
+        packageValidation = FullPackageValidation,
+        profiling = NoProfile,
+        stacktracing = NoStackTrace,
+      )
 
     def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
       allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),

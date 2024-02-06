@@ -26,9 +26,6 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
-
   "Multi-participant Daml Script" can {
     "multiTest" should {
       "return 42" in {

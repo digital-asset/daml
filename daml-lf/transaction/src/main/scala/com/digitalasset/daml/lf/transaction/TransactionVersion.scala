@@ -85,10 +85,10 @@ object TransactionVersion {
     VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.StableVersions.map(assignNodeVersion)
+    LanguageVersion.StableVersions(LanguageVersion.default.major).map(assignNodeVersion)
 
   private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.EarlyAccessVersions.map(assignNodeVersion)
+    LanguageVersion.EarlyAccessVersions(LanguageVersion.default.major).map(assignNodeVersion)
 
   // TODO(#17366): parameterize by major language version once there's a transaction v2
   private[lf] val DevVersions: VersionRange[TransactionVersion] =
