@@ -384,7 +384,7 @@ test("create + fetch & exercise", async () => {
     age: "6",
   });
   expect(cooper6Contract.key).toEqual(alice6Key);
-  await aliceStream.next()
+  await aliceStream.next();
   expect(await aliceStream.next()).toEqual([
     [bob4Contract, cooper6Contract],
     [
