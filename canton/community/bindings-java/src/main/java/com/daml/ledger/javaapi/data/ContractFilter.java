@@ -51,21 +51,11 @@ public final class ContractFilter<Ct> {
     return companion.fromCreatedEvent(createdEvent);
   }
 
-  public TransactionFilter transactionFilter(Set<String> parties) {
+  public TransactionFilterV2 transactionFilter(Set<String> parties) {
     return transactionFilter(filter, parties);
   }
 
-  public TransactionFilterV2 transactionFilterV2(Set<String> parties) {
-    return transactionFilterV2(filter, parties);
-  }
-
-  private static TransactionFilter transactionFilter(Filter filter, Set<String> parties) {
-    Map<String, Filter> partyToFilters =
-        parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
-    return new FiltersByParty(partyToFilters);
-  }
-
-  private static TransactionFilterV2 transactionFilterV2(Filter filter, Set<String> parties) {
+  private static TransactionFilterV2 transactionFilter(Filter filter, Set<String> parties) {
     Map<String, Filter> partyToFilters =
         parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
     return new FiltersByPartyV2(partyToFilters);

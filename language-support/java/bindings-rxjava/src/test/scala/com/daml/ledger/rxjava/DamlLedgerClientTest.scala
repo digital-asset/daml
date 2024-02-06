@@ -10,13 +10,7 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.javaapi.data.ParticipantOffsetV2.Absolute
-import com.daml.ledger.javaapi.data.{
-  Command,
-  CommandsSubmissionV2,
-  CreateCommand,
-  DamlRecord,
-  Identifier,
-}
+import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
@@ -38,7 +32,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
-import scala.util.chaining.scalaUtilChainingOps
 
 class DamlLedgerClientTest
     extends AnyFlatSpec
@@ -140,27 +133,10 @@ class DamlLedgerClientTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List(command), Option(someParty))
       val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List(command), Some(domainId))
+        .withActAs(someParty)
 
       commandClient
         .submitAndWait(params)
@@ -192,27 +168,10 @@ class DamlLedgerClientTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List[Command](command), Option(someParty))
       val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List(command), Some(domainId))
+        .withActAs(someParty)
 
       commandSubmissionClient
         .submit(params)

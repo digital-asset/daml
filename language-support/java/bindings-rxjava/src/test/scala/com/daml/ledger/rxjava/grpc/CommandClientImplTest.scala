@@ -58,26 +58,9 @@ class CommandClientImplTest
 
   it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
-      val commands = genCommands(List.empty)
       val domainId = UUID.randomUUID().toString
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List.empty, Some(domainId))
+        .withActAs("party")
 
       client
         .submitAndWait(params)
@@ -95,50 +78,30 @@ class CommandClientImplTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List(command))
       val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withWorkflowId(commands.getWorkflowId)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List(command), Some(domainId))
+        .withActAs("party")
 
       client
         .submitAndWait(params)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
 
-      service.getLastRequest.value.getCommands.applicationId shouldBe commands.getApplicationId
-      service.getLastRequest.value.getCommands.commandId shouldBe commands.getCommandId
-      service.getLastRequest.value.getCommands.party shouldBe commands.getParty
-      service.getLastRequest.value.getCommands.actAs shouldBe commands.getActAs.asScala
-      service.getLastRequest.value.getCommands.readAs shouldBe commands.getReadAs.asScala
-      commands.getActAs.get(0) shouldBe commands.getParty
-      service.getLastRequest.value.getCommands.workflowId shouldBe commands.getWorkflowId
+      service.getLastRequest.value.getCommands.applicationId shouldBe params.getApplicationId
+      service.getLastRequest.value.getCommands.commandId shouldBe params.getCommandId
+      service.getLastRequest.value.getCommands.actAs shouldBe params.getActAs.asScala
+      service.getLastRequest.value.getCommands.readAs shouldBe params.getReadAs.asScala
+      service.getLastRequest.value.getCommands.workflowId shouldBe params.getWorkflowId.get()
       service.getLastRequest.value.getCommands.domainId shouldBe domainId
       service.getLastRequest.value.getCommands.minLedgerTimeRel
-        .map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getSeconds)
+        .map(_.seconds) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getSeconds)
       service.getLastRequest.value.getCommands.minLedgerTimeRel
-        .map(_.nanos) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getNano)
+        .map(_.nanos) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getNano)
       service.getLastRequest.value.getCommands.minLedgerTimeAbs
-        .map(_.seconds) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getEpochSecond)
+        .map(_.seconds) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getEpochSecond)
       service.getLastRequest.value.getCommands.minLedgerTimeAbs
-        .map(_.nanos) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getNano)
+        .map(_.nanos) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getNano)
       service.getLastRequest.value.getCommands.commands should have size 1
       val receivedCommand = service.getLastRequest.value.getCommands.commands.head.command
       receivedCommand.isCreate shouldBe true

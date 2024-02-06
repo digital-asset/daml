@@ -3,8 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import java.util.Optional
-
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.api.v2.state_service.{ActiveContract, GetActiveContractsResponse}
 import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
@@ -35,17 +33,18 @@ trait DataLayerHelpers {
     new GetTimeResponse(Some(Timestamp(1L, 2)))
   }
 
-  def genCommands(commands: List[Command], party: Option[String] = None): SubmitCommandsRequest = {
-    new SubmitCommandsRequest(
-      "workflowId",
-      "applicationId",
-      "commandId",
-      party.getOrElse("party"),
-      Optional.empty(),
-      Optional.empty(),
-      Optional.empty(),
-      commands.asJava,
-    )
+  def genCommands(
+      commands: List[Command],
+      domainId: Option[String] = None,
+  ): CommandsSubmissionV2 = {
+    CommandsSubmissionV2
+      .create(
+        "applicationId",
+        "commandId",
+        domainId.getOrElse("domainId"),
+        commands.asJava,
+      )
+      .withWorkflowId("workflowId")
   }
 
   val filterNothing: FiltersByPartyV2 = new FiltersByPartyV2(Map[String, Filter]().asJava)
