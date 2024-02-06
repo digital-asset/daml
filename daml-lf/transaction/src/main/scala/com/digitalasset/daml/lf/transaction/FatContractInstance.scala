@@ -70,15 +70,14 @@ private[lf] final case class FatContractInstanceImpl(
   }
 
   def toCreateNode = Node.Create(
-    contractId,
-    packageName,
-    templateId,
-    createArg,
-    agreementText = "", // to be removed
-    signatories,
-    stakeholders,
-    contractKeyWithMaintainers,
-    version,
+    coid = contractId,
+    packageName = packageName,
+    templateId = templateId,
+    arg = createArg,
+    signatories = signatories,
+    stakeholders = stakeholders,
+    keyOpt = contractKeyWithMaintainers,
+    version = version,
   )
 }
 
