@@ -9,7 +9,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "SUPPORTED_LF_DEV_VERSIONS",
+    "ENGINE_LF_DEV_VERSIONS",
     "mangle_for_damlc",
 )
 load(
@@ -42,7 +42,7 @@ da_scala_library(
         srcs = ["src/test/daml/Simple.daml"],
         target = version,
     )
-    for version in SUPPORTED_LF_DEV_VERSIONS
+    for version in ENGINE_LF_DEV_VERSIONS
 ]
 
 da_scala_test_suite(
@@ -51,7 +51,7 @@ da_scala_test_suite(
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":Simple-{}.dar".format(mangle_for_damlc(version))
-        for version in SUPPORTED_LF_DEV_VERSIONS
+        for version in ENGINE_LF_DEV_VERSIONS
     ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",

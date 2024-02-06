@@ -1,6 +1,8 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_intel")
+
 def mangle_for_java(name):
     return name.replace(".", "_")
 
@@ -106,20 +108,17 @@ def lf_versions_aggregate(versions):
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
 # LF dev versions supported by archive reader
-SUPPORTED_LF_DEV_VERSIONS = ["2.dev"]
-
-# LF dev versions supported by archive reader
-SUPPORTED_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
+ENGINE_LF_DEV_VERSIONS = ["2.dev"]
 
 # All LF versions supported by the engine
-ENGINE_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
+ENGINE_LF_VERSIONS = ["2.1"] + ENGINE_LF_DEV_VERSIONS
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["2.1"] + SUPPORTED_LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["2.1"] + ENGINE_LF_DEV_VERSIONS
 
 # LF Versions supported by the dar reader
-LF_VERSIONS = [] + ENGINE_LF_VERSIONS
+READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ENGINE_LF_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return _minor_str(versionStr) == "dev"
@@ -127,8 +126,8 @@ def lf_version_is_dev(versionStr):
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
-# All LF major versions
-SUPPORTED_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in SUPPORTED_LF_VERSIONS]).to_list()
+# All LF major versions supported by the compiler
+COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in COMPILER_LF_VERSIONS]).to_list()
 
 # The major version of the default LF version
 LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
@@ -136,6 +135,6 @@ LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
 # The dev LF version with the same major version number as the default LF version.
 LF_DEFAULT_DEV_VERSION = [
     v
-    for v in SUPPORTED_LF_DEV_VERSIONS
+    for v in ENGINE_LF_DEV_VERSIONS
     if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
 ][0]

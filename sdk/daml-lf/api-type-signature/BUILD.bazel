@@ -10,6 +10,7 @@ load(
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("//bazel_tools:scala.bzl", "lf_scalacopts")
+load("@os_info//:os_info.bzl", "is_intel")
 
 scalacopts = lf_scalacopts + [
     "-Xlint:implicit-recursion",
@@ -48,17 +49,26 @@ da_scala_library(
 )
 
 daml_compile(
-    name = "InterfaceTestPackage",
-    srcs = glob(["src/test/daml/**/*.daml"]),
+    name = "InterfaceTestPackage-v2",
+    srcs = glob(
+        ["src/test/daml/**/*.daml"],
+        exclude = ["src/test/daml/**/*Retro*.daml"],
+    ),
     enable_interfaces = True,
     target = lf_version_configuration.get("default"),
 )
+
+daml_compile(
+    name = "InterfaceTestPackage-v1",
+    srcs = glob(["src/test/daml/**/*.daml"]),
+    target = "1.15",
+) if is_intel else None
 
 da_scala_test(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    data = [":InterfaceTestPackage.dar"],
+    data = [":InterfaceTestPackage-v2.dar"] + ([":InterfaceTestPackage-v1.dar"] if is_intel else []),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",

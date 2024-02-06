@@ -10,8 +10,8 @@ load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "SUPPORTED_LF_DEV_VERSIONS",
-    "SUPPORTED_LF_VERSIONS",
+    "COMPILER_LF_MAJOR_VERSIONS",
+    "ENGINE_LF_DEV_VERSIONS",
     "lf_version_configuration",
 )
 
@@ -453,7 +453,7 @@ daml_test(
         enable_interfaces = True,
         target = version,
     )
-    for version in SUPPORTED_LF_DEV_VERSIONS
+    for version in ENGINE_LF_DEV_VERSIONS
 ]
 
 daml_test(
@@ -563,7 +563,7 @@ daml_test(
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
     )
-    for version in SUPPORTED_LF_DEV_VERSIONS
+    for version in ENGINE_LF_DEV_VERSIONS
 ]
 
 daml_build_test(

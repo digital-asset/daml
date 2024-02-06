@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "SUPPORTED_LF_MAJOR_VERSIONS",
+    "COMPILER_LF_MAJOR_VERSIONS",
 )
 load(
     ":defs.bzl",
@@ -65,7 +65,7 @@ da_haskell_binary(
         tools = [":generate-stable-package"],
         visibility = ["//visibility:public"],
     )
-    for majorLfVersion in SUPPORTED_LF_MAJOR_VERSIONS
+    for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
 ]
 
 # Generates a list of dalf paths to be used by StablePackages.scala to load the dalfs as classpath
@@ -86,7 +86,7 @@ EOF""".format(paths = "\n".join([
         ])),
         visibility = ["//visibility:public"],
     )
-    for majorLfVersion in SUPPORTED_LF_MAJOR_VERSIONS
+    for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
 ]
 
 # If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
@@ -96,7 +96,7 @@ filegroup(
         dalf
         for dalfs in [
             stable_packages(majorLfVersion).values()
-            for majorLfVersion in SUPPORTED_LF_MAJOR_VERSIONS
+            for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
         ]
         for dalf in dalfs
     ],
