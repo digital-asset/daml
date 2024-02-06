@@ -365,7 +365,7 @@ private[platform] object InMemoryStateUpdater {
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
+            domainId = txAccepted.domainId.toProtoPrimitive,
             traceContext = traceContext,
           ),
           submitters = completionInfo.actAs.toSet,
@@ -405,7 +405,7 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationOffset = deduplicationOffset,
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
-          domainId = Some(u.domainId.toProtoPrimitive), // TODO(i15280)
+          domainId = u.domainId.toProtoPrimitive,
           traceContext = traceContext,
         ),
         submitters = u.completionInfo.actAs.toSet,
@@ -434,11 +434,11 @@ private[platform] object InMemoryStateUpdater {
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = Some(u.reassignment match {
+            domainId = u.reassignment match {
               case _: Reassignment.Assign => u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
               case _: Reassignment.Unassign =>
                 u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
-            }),
+            },
             traceContext = traceContext,
           ),
           submitters = completionInfo.actAs.toSet,

@@ -115,7 +115,6 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
           executionContext = executionContext,
           tracer = tracer,
           loggerFactory = loggerFactoryForIteration,
-          multiDomainEnabled = false,
           startupMode = IndexerStartupMode.MigrateAndStart,
           dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
             indexerConfig.ingestionParallelism.unwrap

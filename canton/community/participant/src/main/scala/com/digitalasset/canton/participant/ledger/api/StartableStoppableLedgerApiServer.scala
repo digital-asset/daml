@@ -213,7 +213,6 @@ class StartableStoppableLedgerApiServer(
         executionContext,
         tracer,
         loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         startupMode = overrideIndexerStartupMode.getOrElse(DefaultIndexerStartupMode),
         dataSourceProperties = DbSupport.DataSourceProperties(
           connectionPool = IndexerConfig
@@ -329,7 +328,6 @@ class StartableStoppableLedgerApiServer(
         tokenExpiryGracePeriodForStreams =
           config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
         meteringReportKey = config.meteringReportKey,
-        multiDomainEnabled = multiDomainEnabled,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,

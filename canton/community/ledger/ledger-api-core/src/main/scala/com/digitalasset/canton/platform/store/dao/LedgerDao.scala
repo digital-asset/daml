@@ -47,7 +47,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, GetUpdatesResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -60,7 +59,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
@@ -74,7 +72,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       activeAt: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
 }
 
@@ -172,7 +169,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @param pruneUpToInclusive offset up to which to prune archived history inclusively
     * @return
     */
-  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+  def prune(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 

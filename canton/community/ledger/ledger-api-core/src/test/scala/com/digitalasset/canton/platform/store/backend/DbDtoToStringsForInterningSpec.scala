@@ -114,7 +114,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       create_key_value_compression = Some(1),
       event_sequential_id = 1,
       driver_metadata = None,
-      domain_id = Some("domain2"),
+      domain_id = "domain2",
       trace_context = serializableTraceContext,
     ),
     DbDto.EventExercise(
@@ -142,7 +142,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       exercise_result = None,
       exercise_child_event_ids = Some(Vector("61", "62", "63")),
       exercise_result_compression = Some(1),
-      domain_id = Some("domain3"),
+      domain_id = "domain3",
       trace_context = serializableTraceContext,
     ),
     DbDto.CommandCompletion(
@@ -160,7 +160,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       deduplication_duration_seconds = Some(1),
       deduplication_duration_nanos = Some(1),
       deduplication_start = Some(1),
-      domain_id = Some("domain4"),
+      domain_id = "domain4",
       trace_context = serializableTraceContext,
     ),
     DbDto.ConfigurationEntry(

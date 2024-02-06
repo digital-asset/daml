@@ -124,4 +124,6 @@ trait QueryStrategy {
       cSQL"(#$nonNullableColumn > $startExclusive and #$nonNullableColumn <= $endInclusive)"
     }
   }
+
+  def analyzeTable(tableName: String): CompositeSql
 }

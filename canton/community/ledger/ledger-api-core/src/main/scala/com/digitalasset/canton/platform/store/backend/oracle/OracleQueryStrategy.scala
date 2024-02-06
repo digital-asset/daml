@@ -38,4 +38,7 @@ object OracleQueryStrategy extends QueryStrategy {
       strings.toVector
     cSQL"= ANY($stringVector)"
   }
+
+  override def analyzeTable(tableName: String): CompositeSql =
+    throw new UnsupportedOperationException("not supported for Oracle at the moment")
 }

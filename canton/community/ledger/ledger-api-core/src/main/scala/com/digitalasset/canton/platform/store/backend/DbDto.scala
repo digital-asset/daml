@@ -37,7 +37,7 @@ object DbDto {
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
       driver_metadata: Option[Array[Byte]],
-      domain_id: Option[String] = None,
+      domain_id: String,
       trace_context: Array[Byte],
   ) extends DbDto
 
@@ -66,7 +66,7 @@ object DbDto {
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,
-      domain_id: Option[String] = None,
+      domain_id: String,
       trace_context: Array[Byte],
   ) extends DbDto
 
@@ -169,7 +169,7 @@ object DbDto {
       deduplication_duration_seconds: Option[Long],
       deduplication_duration_nanos: Option[Int],
       deduplication_start: Option[Long],
-      domain_id: Option[String] = None,
+      domain_id: String,
       trace_context: Array[Byte],
   ) extends DbDto
 

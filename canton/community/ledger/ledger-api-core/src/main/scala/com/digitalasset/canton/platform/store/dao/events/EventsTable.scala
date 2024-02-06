@@ -54,7 +54,7 @@ object EventsTable {
               workflowId = first.workflowId,
               offset = ApiOffset.toApiString(first.eventOffset),
               events = flatEvents,
-              domainId = first.domainId.getOrElse(""),
+              domainId = first.domainId,
               traceContext = extractTraceContext(events),
             )
           )
@@ -108,21 +108,14 @@ object EventsTable {
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
       val visible = events.map(_.event.eventId)
-      val visibleOrder = visible.view.zipWithIndex.toMap
+      val visibleSet = visible.toSet
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e =>
-            e.eventId -> e
-              .filterChildEventIds(visibleOrder.contains)
-              // childEventIds need to be returned in the event order in the original transaction.
-              // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
-              // The order is determined by the order of the events, which follows the event order of the original transaction.
-              .sortChildEventIdsBy(visibleOrder)
-          )
+          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
           .toMap
 
       // All event identifiers that appear as a child of another item in this response
@@ -149,7 +142,7 @@ object EventsTable {
           offset = ApiOffset.toApiString(first.eventOffset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,
-          domainId = first.domainId.getOrElse(""),
+          domainId = first.domainId,
           traceContext = traceContext,
         )
       }

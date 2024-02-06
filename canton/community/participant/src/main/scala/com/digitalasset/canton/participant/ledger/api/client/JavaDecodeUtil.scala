@@ -52,11 +52,6 @@ object JavaDecodeUtil {
 
   def decodeAllCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
-  )(transaction: JavaTransaction): Seq[TC] =
-    decodeAllCreatedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
-
-  def decodeAllCreatedV2[TC](
-      companion: ContractCompanion[TC, ?, ?]
   )(transaction: JavaTransactionV2): Seq[TC] =
     decodeAllCreatedFromEvents(companion)(
       transaction.getEvents.iterator.asScala.toSeq

@@ -64,10 +64,10 @@ private[dao] sealed class EventsReader(
       }
 
       createEvent = deserialized.flatMap { case (event, domainId) =>
-        event.event.created.map(create => Created(Some(create), domainId.getOrElse("")))
+        event.event.created.map(create => Created(Some(create), domainId))
       }.headOption
       archiveEvent = deserialized.flatMap { case (event, domainId) =>
-        event.event.archived.map(archive => Archived(Some(archive), domainId.getOrElse("")))
+        event.event.archived.map(archive => Archived(Some(archive), domainId))
       }.headOption
 
     } yield {

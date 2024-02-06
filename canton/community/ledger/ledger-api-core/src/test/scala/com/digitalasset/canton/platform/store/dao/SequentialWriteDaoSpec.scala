@@ -227,6 +227,7 @@ object SequentialWriteDaoSpec {
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = None,
+    domain_id = "x::domain",
     trace_context = serializableTraceContext,
   )
 
@@ -255,6 +256,7 @@ object SequentialWriteDaoSpec {
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
+    domain_id = "x::domain",
     trace_context = serializableTraceContext,
   )
 

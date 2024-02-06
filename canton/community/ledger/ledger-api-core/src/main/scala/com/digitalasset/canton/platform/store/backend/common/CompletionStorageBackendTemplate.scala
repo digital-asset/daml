@@ -86,7 +86,7 @@ class CompletionStorageBackendTemplate(
   }
 
   private val sharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Option[Int] ~ TraceContext
+    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
   ] = {
     array[Int]("submitters") ~
       offset("completion_offset") ~
@@ -94,14 +94,12 @@ class CompletionStorageBackendTemplate(
       str("command_id") ~
       str("application_id") ~
       str("submission_id").? ~
-      int("domain_id").? ~
+      int("domain_id") ~
       traceContextOption("trace_context")(noTracingLogger)
   }
 
   private val acceptedCommandSharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Option[
-      Int
-    ] ~ TraceContext ~ String
+    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext ~ String
   ] =
     sharedColumns ~ str("transaction_id")
 
@@ -131,7 +129,7 @@ class CompletionStorageBackendTemplate(
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
             traceContext = traceContext,
           )
       }
@@ -164,7 +162,7 @@ class CompletionStorageBackendTemplate(
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
             traceContext = traceContext,
           )
       }

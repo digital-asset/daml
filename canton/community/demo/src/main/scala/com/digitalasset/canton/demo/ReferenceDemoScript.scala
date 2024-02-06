@@ -143,7 +143,7 @@ class ReferenceDemoScript(
   ](
       companion: ContractCompanion[TC, TCid, T]
   ): TC =
-    participant1.ledger_api_v2.javaapi.state.acs.await(companion)(alice, timeout = lookupTimeout)
+    participant1.ledger_api.javaapi.state.acs.await(companion)(alice, timeout = lookupTimeout)
   private def doctorLookup[
       TC <: Contract[TCid, T],
       TCid <: ContractId[T],
@@ -151,7 +151,7 @@ class ReferenceDemoScript(
   ](
       companion: ContractCompanion[TC, TCid, T]
   ): TC =
-    participant2.ledger_api_v2.javaapi.state.acs.await(companion)(doctor, timeout = lookupTimeout)
+    participant2.ledger_api.javaapi.state.acs.await(companion)(doctor, timeout = lookupTimeout)
   private def insuranceLookup[
       TC <: Contract[TCid, T],
       TCid <: ContractId[T],
@@ -159,7 +159,7 @@ class ReferenceDemoScript(
   ](
       companion: ContractCompanion[TC, TCid, T]
   ): TC =
-    participant3.ledger_api_v2.javaapi.state.acs
+    participant3.ledger_api.javaapi.state.acs
       .await(companion)(insurance, timeout = lookupTimeout)
   private def processorLookup[
       TC <: Contract[TCid, T],
@@ -168,7 +168,7 @@ class ReferenceDemoScript(
   ](
       companion: ContractCompanion[TC, TCid, T]
   ): TC =
-    participant6.ledger_api_v2.javaapi.state.acs
+    participant6.ledger_api.javaapi.state.acs
       .await(companion)(processor, timeout = lookupTimeout)
   private def registryLookup[
       TC <: Contract[TCid, T],
@@ -177,7 +177,7 @@ class ReferenceDemoScript(
   ](
       companion: ContractCompanion[TC, TCid, T]
   ): TC =
-    participant5.ledger_api_v2.javaapi.state.acs.await(companion)(registry, timeout = lookupTimeout)
+    participant5.ledger_api.javaapi.state.acs.await(companion)(registry, timeout = lookupTimeout)
 
   private def execute[T](futs: Seq[Future[T]]): Seq[T] = {
     import scala.concurrent.duration.*
@@ -294,7 +294,7 @@ class ReferenceDemoScript(
 
           val a = Future {
             blocking {
-              participant4.ledger_api_v2.javaapi.commands
+              participant4.ledger_api.javaapi.commands
                 .submit(
                   Seq(bank),
                   cashFor("Insurance", 100) ++ cashFor("Doctor", 5),
@@ -307,7 +307,7 @@ class ReferenceDemoScript(
           val treatments = List("Flu-shot", "Hip-replacement", "General counsel")
           val b = Future {
             blocking {
-              participant3.ledger_api_v2.javaapi.commands.submit(
+              participant3.ledger_api.javaapi.commands.submit(
                 Seq(insurance),
                 new M.healthinsurance.Policy(
                   insurance,
@@ -323,7 +323,7 @@ class ReferenceDemoScript(
           // create register
           val c = Future {
             blocking {
-              participant5.ledger_api_v2.javaapi.commands.submit(
+              participant5.ledger_api.javaapi.commands.submit(
                 Seq(registry),
                 new M.medicalrecord.Register(
                   registry,
@@ -347,7 +347,7 @@ class ReferenceDemoScript(
           val offer =
             new M.doctor.OfferAppointment(doctor, alice).create.commands
           val _ =
-            participant2.ledger_api_v2.javaapi.commands
+            participant2.ledger_api.javaapi.commands
               .submit(Seq(doctor), offer, optTimeout = syncTimeout)
         },
       ),
@@ -363,7 +363,7 @@ class ReferenceDemoScript(
             appointmentEv.id
               .exerciseAcceptAppointment(registerId, policyId)
               .commands
-          val _ = participant1.ledger_api_v2.javaapi.commands
+          val _ = participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), acceptOffer, optTimeout = syncTimeout)
         },
       ),
@@ -379,7 +379,7 @@ class ReferenceDemoScript(
               new M.bank.Amount(15, "EUR"),
             )
             .commands
-          val _ = participant2.ledger_api_v2.javaapi.commands
+          val _ = participant2.ledger_api.javaapi.commands
             .submit(Seq(doctor), tickOff, optTimeout = syncTimeout)
         },
       ),
@@ -394,12 +394,12 @@ class ReferenceDemoScript(
           val withdraw = {
             insuranceLookup(M.bank.Cash.COMPANION).id.exerciseSplit(15).commands
           }
-          participant3.ledger_api_v2.javaapi.commands
+          participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), withdraw, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
 
           def findCashCid =
-            participant3.ledger_api_v2.javaapi.state.acs
+            participant3.ledger_api.javaapi.state.acs
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
           // settle claim (will invoke auto-transfer to the banking domain)
@@ -408,7 +408,7 @@ class ReferenceDemoScript(
               .exerciseAcceptAndSettleClaim(findCashCid.id)
               .commands
           }
-          participant3.ledger_api_v2.javaapi.commands
+          participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), settleClaim, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
         },
@@ -422,15 +422,15 @@ class ReferenceDemoScript(
           val archiveRequest = aliceLookup(M.medicalrecord.Register.COMPANION).id
             .exerciseTransferRecords(alice)
             .commands
-          participant1.ledger_api_v2.javaapi.commands
+          participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), archiveRequest, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
           // wait until the acs of the registry is empty
           ConsoleMacros.utils.retry_until_true(lookupTimeout) {
-            participant5.ledger_api_v2.state.acs.of_party(registry).isEmpty
+            participant5.ledger_api.state.acs.of_party(registry).isEmpty
           }
           // now, remember the offset to prune at
-          val participantOffset = participant5.ledger_api_v2.state.end()
+          val participantOffset = participant5.ledger_api.state.end()
           // Trigger advancement of the clean head, so the previous contracts become safe to prune
           if (editionSupportsPruning) {
             participant5.health
@@ -479,7 +479,7 @@ class ReferenceDemoScript(
               .getOrElse(throw new RuntimeException("Unable to prune the ledger."))
             if (additionalChecks) {
               val transactions =
-                participant5.ledger_api_v2.updates
+                participant5.ledger_api.updates
                   .flat(Set(registry), completeAfter = 5, beginOffset = prunedOffset)
               // ensure we don't see any transactions
               require(transactions.isEmpty, s"transactions should be empty but was ${transactions}")
@@ -535,7 +535,7 @@ class ReferenceDemoScript(
               alice,
               processor,
             ).create.commands
-            participant5.ledger_api_v2.javaapi.commands
+            participant5.ledger_api.javaapi.commands
               .submit(Seq(registry), offer, optTimeout = syncTimeout)
               .discard[TransactionTreeV2]
           }))).discard
@@ -550,7 +550,7 @@ class ReferenceDemoScript(
           val accept = aliceLookup(ME.aianalysis.OfferAnalysis.COMPANION).id
             .exerciseAcceptAnalysis(registerId.id)
             .commands
-          participant1.ledger_api_v2.javaapi.commands
+          participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), accept, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
         },
@@ -564,7 +564,7 @@ class ReferenceDemoScript(
             .exerciseProcessingDone("The patient is very healthy.")
             .commands
 
-          participant6.ledger_api_v2.javaapi.commands
+          participant6.ledger_api.javaapi.commands
             .submit(Seq(processor), processingDone, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
 
@@ -573,7 +573,7 @@ class ReferenceDemoScript(
             .exerciseRecordResult(resultId.id)
             .commands
 
-          participant5.ledger_api_v2.javaapi.commands
+          participant5.ledger_api.javaapi.commands
             .submit(Seq(registry), recordedResult, optTimeout = syncTimeout)
             .discard[TransactionTreeV2]
         },

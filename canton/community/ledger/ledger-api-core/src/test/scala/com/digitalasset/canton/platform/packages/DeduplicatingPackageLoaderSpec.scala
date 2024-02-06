@@ -33,8 +33,8 @@ class DeduplicatingPackageLoaderSpec
   private[this] val metric = NoOpMetricsFactory.timer(MetricName("test-metric"))
 
   private[this] val dar =
-    TestModels.com_daml_ledger_test_ModelTestDar_2_1_path
-      .pipe(TestResourceUtils.resourceFileFromJar)
+    TestModels.com_daml_ledger_test_ModelTestDar_path
+      .pipe(TestResourceUtils.resourceFile)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {

@@ -129,8 +129,8 @@ private[backend] object AppendOnlySchema {
           _.create_key_value_compression
         ),
         "driver_metadata" -> fieldStrategy.byteaOptional(_ => _.driver_metadata),
-        "domain_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.domain_id.map(stringInterning.domainId.unsafe.internalize)
+        "domain_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
       )
@@ -178,8 +178,8 @@ private[backend] object AppendOnlySchema {
         "exercise_result_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_result_compression
         ),
-        "domain_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.domain_id.map(stringInterning.domainId.unsafe.internalize)
+        "domain_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
       )
@@ -339,8 +339,8 @@ private[backend] object AppendOnlySchema {
           _.deduplication_duration_nanos
         ),
         "deduplication_start" -> fieldStrategy.bigintOptional(_ => _.deduplication_start),
-        "domain_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.domain_id.map(stringInterning.domainId.unsafe.internalize)
+        "domain_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
       )

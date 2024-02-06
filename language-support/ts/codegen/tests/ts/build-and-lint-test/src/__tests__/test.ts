@@ -629,15 +629,15 @@ test("exercise using explicit disclosure", async () => {
             },
           },
         },
-        begin: { boundary: "LEDGER_BEGIN" },
-        end: { boundary: "LEDGER_END" },
+        beginExclusive: { boundary: "PARTICIPANT_BEGIN" },
+        endInclusive: { boundary: "PARTICIPANT_END" },
       }),
       "localhost:5011",
-      "com.daml.ledger.api.v1.TransactionService/GetTransactions",
+      "com.daml.ledger.api.v2.UpdateService/GetUpdates",
     ],
     { encoding: "utf8" },
   );
-  const created = JSON.parse(output).transactions[0].events[0].created;
+  const created = JSON.parse(output).transaction.events[0].created;
   const [result] = await bobLedger.exercise(
     buildAndLint.Main.ReferenceData.ReferenceData_Fetch,
     contract.contractId,

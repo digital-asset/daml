@@ -31,4 +31,7 @@ object PostgresQueryStrategy extends QueryStrategy {
       strings.toArray
     cSQL"= ANY($stringArray::text[])"
   }
+
+  override def analyzeTable(tableName: String): CompositeSql =
+    cSQL"ANALYZE #$tableName"
 }

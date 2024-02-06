@@ -27,7 +27,7 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       transactionId: String,
       applicationId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[String] = None,
@@ -49,7 +49,7 @@ private[platform] object CompletionFromTransaction {
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
-      domainId = domainId.getOrElse(""),
+      domainId = domainId,
     )
 
   def rejectedCompletion(
@@ -58,7 +58,7 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       status: StatusProto,
       applicationId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[String] = None,
@@ -80,7 +80,7 @@ private[platform] object CompletionFromTransaction {
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
-      domainId = domainId.getOrElse(""),
+      domainId = domainId,
     )
 
   private def toApiCheckpoint(recordTime: Timestamp, offset: Offset): Checkpoint =

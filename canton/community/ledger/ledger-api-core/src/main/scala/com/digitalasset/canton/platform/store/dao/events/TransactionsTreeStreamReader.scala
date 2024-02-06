@@ -71,7 +71,6 @@ class TransactionsTreeStreamReader(
       queryRange: EventsRange,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
@@ -90,7 +89,6 @@ class TransactionsTreeStreamReader(
       queryRange,
       requestingParties,
       eventProjectionProperties,
-      multiDomainEnabled,
     )
     sourceOfTreeTransactions
       .wireTap(_ match {
@@ -116,7 +114,6 @@ class TransactionsTreeStreamReader(
       queryRange: EventsRange,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
@@ -133,11 +130,16 @@ class TransactionsTreeStreamReader(
     val filterParties = requestingParties.toVector
     val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
-      // The ids for tree transactions are retrieved from five separate id tables.
-      // To account for that we assign a fifth of the working memory to each table.
-      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / (
-        if (multiDomainEnabled) 7 else 5
-      ),
+      // The ids for tree transactions are retrieved from seven separate id tables:
+      //   * Create stakeholder
+      //   * Create non-stakeholder
+      //   * Exercise consuming stakeholder
+      //   * Exercise consuming non-stakeholder
+      //   * Exercise non-consuming
+      //   * Assing
+      //   * Unassing
+      // To account for that we assign a seventh of the working memory to each table.
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 7,
       numOfDecomposedFilters = filterParties.size,
       numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
       loggerFactory = loggerFactory,
@@ -295,40 +297,36 @@ class TransactionsTreeStreamReader(
         responses.map { case (offset, response) => ApiOffset.assertFromString(offset) -> response }
       }
 
-    if (multiDomainEnabled) {
-      reassignmentStreamReader
-        .streamReassignments(
-          ReassignmentStreamQueryParams(
-            queryRange = queryRange,
-            filteringConstraints = TemplatePartiesFilter(
-              relation = Map.empty,
-              wildcardParties = requestingParties,
-            ),
-            eventProjectionProperties = eventProjectionProperties,
-            payloadQueriesLimiter = payloadQueriesLimiter,
-            deserializationQueriesLimiter = deserializationQueriesLimiter,
-            idPageSizing = idPageSizing,
-            decomposedFilters = requestingParties.map(DecomposedFilter(_, None)).toVector,
-            maxParallelIdAssignQueries = maxParallelIdAssignQueries,
-            maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
-            maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
-            maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
-            maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
-            maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
-            deserializationProcessingParallelism = transactionsProcessingParallelism,
-          )
+    reassignmentStreamReader
+      .streamReassignments(
+        ReassignmentStreamQueryParams(
+          queryRange = queryRange,
+          filteringConstraints = TemplatePartiesFilter(
+            relation = Map.empty,
+            wildcardParties = requestingParties,
+          ),
+          eventProjectionProperties = eventProjectionProperties,
+          payloadQueriesLimiter = payloadQueriesLimiter,
+          deserializationQueriesLimiter = deserializationQueriesLimiter,
+          idPageSizing = idPageSizing,
+          decomposedFilters = requestingParties.map(DecomposedFilter(_, None)).toVector,
+          maxParallelIdAssignQueries = maxParallelIdAssignQueries,
+          maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
+          maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
+          maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
+          maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
+          maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
+          deserializationProcessingParallelism = transactionsProcessingParallelism,
         )
-        .map { case (offset, reassignment) =>
-          offset -> GetUpdateTreesResponse(
-            GetUpdateTreesResponse.Update.Reassignment(reassignment)
-          )
-        }
-        .mergeSorted(sourceOfTreeTransactions)(
-          Ordering.by(_._1)
+      )
+      .map { case (offset, reassignment) =>
+        offset -> GetUpdateTreesResponse(
+          GetUpdateTreesResponse.Update.Reassignment(reassignment)
         )
-    } else {
-      sourceOfTreeTransactions
-    }
+      }
+      .mergeSorted(sourceOfTreeTransactions)(
+        Ordering.by(_._1)
+      )
   }
 
   private def mergeSortAndBatch(

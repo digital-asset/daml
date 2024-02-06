@@ -95,7 +95,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
       alias = DomainAlias.tryCreate(domainAlias),
     )
 
-    val startOffset = ApiConversions.toV1(participant1x.ledger_api_v2.state.end())
+    val startOffset = ApiConversions.toV1(participant1x.ledger_api.state.end())
     // Generate some data after the pruning point
     participant1x.health.ping(participant1x)
 

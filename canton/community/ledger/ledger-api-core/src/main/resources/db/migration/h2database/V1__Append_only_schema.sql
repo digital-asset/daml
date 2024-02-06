@@ -124,7 +124,7 @@ CREATE TABLE participant_command_completions (
     rejection_status_code INTEGER,
     rejection_status_message VARCHAR,
     rejection_status_details BINARY LARGE OBJECT,
-    domain_id INTEGER,
+    domain_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
@@ -176,7 +176,7 @@ CREATE TABLE participant_events_create (
     -- * contract driver metadata
     driver_metadata BINARY LARGE OBJECT,
 
-    domain_id INTEGER,
+    domain_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
@@ -237,7 +237,7 @@ CREATE TABLE participant_events_consuming_exercise (
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT,
 
-    domain_id INTEGER,
+    domain_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
@@ -295,7 +295,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT,
 
-    domain_id INTEGER,
+    domain_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
@@ -406,7 +406,7 @@ CREATE INDEX participant_events_assign_event_sequential_id ON participant_events
 CREATE INDEX participant_events_assign_event_offset ON participant_events_assign (event_offset, event_sequential_id);
 
 -- index for queries resolving contract ID to sequential IDs.
-CREATE INDEX participant_events_assign_event_contract_id ON participant_events_assign (contract_id);
+CREATE INDEX participant_events_assign_event_contract_id ON participant_events_assign (contract_id, event_sequential_id);
 
 -----------------------------
 -- Filter tables for events
