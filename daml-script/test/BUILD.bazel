@@ -22,14 +22,23 @@ load(
 
 [
     genrule(
-        name = "script{scriptVersion}-test-v{major}".format(scriptVersion = scriptVersion, major = major),
+        name = "script{scriptVersion}-test-v{major}".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        ),
         srcs =
             glob(["**/*.daml"]) + [
-                "//daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar".format(scriptVersion = scriptVersion, target = target),
+                "//daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar".format(
+                    scriptVersion = scriptVersion,
+                    target = target,
+                ),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
-        outs = ["script{scriptVersion}-test-v{major}.dar".format(scriptVersion = scriptVersion, major = major)],
+        outs = ["script{scriptVersion}-test-v{major}.dar".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        )],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -67,16 +76,19 @@ EOF
       rm -rf $$TMP_DIR
     """.format(
             major = major,
+            scriptVersion = scriptVersion,
             sdk = sdk_version,
             target = target,
-            scriptVersion = scriptVersion,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
     for major in LF_MAJOR_VERSIONS
     for target in [lf_version_default_or_latest(major)]
-    for scriptVersion in ["", "3"]
+    for scriptVersion in [
+        "",
+        "3",
+    ]
 ]
 
 [
@@ -359,9 +371,15 @@ da_scala_test_suite(
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
     ] + [
-        ":script{scriptVersion}-test-v{major}.dar".format(scriptVersion = scriptVersion, major = major)
+        ":script{scriptVersion}-test-v{major}.dar".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        )
         for major in LF_MAJOR_VERSIONS
-        for scriptVersion in ["", "3"]
+        for scriptVersion in [
+            "",
+            "3",
+        ]
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
