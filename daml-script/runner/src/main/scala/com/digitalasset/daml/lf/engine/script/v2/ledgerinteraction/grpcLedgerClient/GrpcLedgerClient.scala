@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, InterfaceFilter}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, InterfaceFilter, TemplateFilter}
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
@@ -86,7 +86,13 @@ class GrpcLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId, false)))))
+    val filters = Filters(
+      Some(
+        InclusiveFilters(templateFilters =
+          Seq(TemplateFilter(Some(toApiIdentifierUpgrades(templateId, false)), includeCreatedEventBlob = true))
+        )
+      )
+    )
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
