@@ -48,7 +48,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
           dar = testDar,
           enableContractUpgrading = true,
         )
-        _ = Files.delete(tmpDir)
+        // _ = Files.delete(tmpDir)
       } yield succeed
     }
   }
