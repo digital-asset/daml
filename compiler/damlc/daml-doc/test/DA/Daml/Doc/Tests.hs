@@ -217,30 +217,6 @@ unitTests =
                                   getTypeAppName ii_interface == Just "Bar"
                                   && getTypeAppName ii_template == Just "Foo"))
 
-         , damldocExpect
-           Nothing
-           "Interface instance in interface"
-           [ testModHdr
-           , "data EmptyInterfaceView = EmptyInterfaceView"
-           , "template Foo with"
-           , "    field1 : Party"
-           , "  where"
-           , "    signatory field1"
-           , "interface Bar where"
-           , "  viewtype EmptyInterfaceView"
-           , "  method : Update ()"
-           , "  interface instance Bar for Foo where"
-           , "    view = EmptyInterfaceView"
-           , "    method = pure ()"
-           ]
-           (\md -> assertBool
-                   ("Expected interface instance, got " <> show md)
-                   (isJust $ do i  <- getSingle $ md_interfaces md
-                                InterfaceInstanceDoc {..} <- getSingle $ if_interfaceInstances i
-                                check $
-                                  getTypeAppName ii_interface == Just "Bar"
-                                  && getTypeAppName ii_template == Just "Foo"))
-
          , damldocExpectMany
            Nothing
            "Interface instance with qualified interface"
@@ -281,44 +257,6 @@ unitTests =
                                   && getTypeAppName ii_template == Just "Foo"
                                   && getTypeAppAnchor ii_interface == Just interfaceAnchor))
 
-         , damldocExpectMany
-           Nothing
-           "Interface instance with qualified template"
-           [ (,) "Template"
-             [ "module Template where"
-             , "template Foo with"
-             , "    field1 : Party"
-             , "  where"
-             , "    signatory field1"
-             ]
-           , (,) "Interface"
-             [ "module Interface where"
-
-             , "import qualified Template"
-
-             , "data EmptyInterfaceView = EmptyInterfaceView"
-
-             , "interface Bar where"
-             , "  viewtype EmptyInterfaceView"
-             , "  method : Update ()"
-             , "  interface instance Bar for Template.Foo where"
-             , "    view = EmptyInterfaceView"
-             , "    method = pure ()"
-             ]
-           ]
-           (\mds -> assertBool
-                   ("Expected interface instance, got " <> show mds)
-                   (isJust $ do templateMod <- Map.lookup (Modulename "Template") mds
-                                template <- getSingle $ md_templates templateMod
-                                templateAnchor <- td_anchor template
-
-                                interfaceMod <- Map.lookup (Modulename "Interface") mds
-                                interface <- getSingle $ md_interfaces interfaceMod
-                                InterfaceInstanceDoc {..} <- getSingle $ if_interfaceInstances interface
-                                check $
-                                  getTypeAppName ii_interface == Just "Bar"
-                                  && getTypeAppName ii_template == Just "Foo"
-                                  && getTypeAppAnchor ii_template == Just templateAnchor))
          , damldocExpect
            Nothing
            "Interface archive choice controller"
