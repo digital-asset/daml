@@ -320,7 +320,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         .create(
           id = contractId,
           templateId = contractTemplate,
-          packageName = packageName,
+          packageName = Some(packageName),
           argument = keyValue,
           signatories = Set("signatory1", "signatory2", "signatory3"),
           observers = Set("observer"),
